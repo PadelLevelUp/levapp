@@ -11,7 +11,7 @@ class Player(db.Model, model.Model):
     __table_args__ = {"extend_existing": True}
 
     page_title = "Players"
-    model_name = "player"
+    model_name = "Player"
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -88,25 +88,28 @@ class Player(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, field_type, label=None, **kwargs):
+        def get_field(name, type, label=None, **kwargs):
             return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
                 name=name,
-                field_type=field_type,
+                type=type,
                 label=label or name.capitalize(),
                 **kwargs,
             )
 
+        form = Form()
+
         picture_block = Block(
             "picture_block",
-            "Profile Picture",
             fields=[
                 get_field("profile_picture_id", "Picture", label="Profile Picture"),
             ],
         )
+        form.add_block(picture_block)
 
         info_block = Block(
             "info_block",
-            "Player Information",
             fields=[
                 get_field("name", "Text", label="Name"),
                 get_field(
@@ -129,5 +132,6 @@ class Player(db.Model, model.Model):
                 ),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[picture_block, info_block])
+        return form

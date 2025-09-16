@@ -105,7 +105,7 @@ class Field:
         files = request.files.getlist(self.name) or []
         now = datetime.now().strftime("%Y%m%d%H%M%S")
         ids = []
-        for i, fs in enumerate(files):
+        for _i, fs in enumerate(files):
             file, base = image_tools.file_handler(fs)
             object_key = self.mandatory_path or f"images/{self.model}/{now}_{base}"
             if image_tools.save_file(file, object_key):
@@ -152,7 +152,11 @@ class Field:
     def set_value(self, request):
         if self.type in self.set_special_fields.keys():
             return self.set_special_fields[self.type](request)
-        self.value = request.form[self.name] if self.name in request.form else None
+        self.value = (
+            request.form[self.name]
+            if self.name in request.form and request.form[self.name]
+            else None
+        )
         return True
 
 

@@ -11,7 +11,7 @@ class Lesson(db.Model, model.Model):
     __table_args__ = {"extend_existing": True}
 
     page_title = "Lessons"
-    model_name = "lesson"
+    model_name = "Lesson"
 
     id = Column(Integer, primary_key=True)
 
@@ -74,17 +74,19 @@ class Lesson(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, field_type, label=None, **kwargs):
+        def get_field(name, type, label=None, **kwargs):
             return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
                 name=name,
-                field_type=field_type,
+                type=type,
                 label=label or name.capitalize(),
                 **kwargs,
             )
 
+        form = Form()
         info_block = Block(
             "info_block",
-            "Lesson Information",
             fields=[
                 get_field("title", "Text", label="Title"),
                 get_field("description", "Text", label="Description"),
@@ -107,5 +109,6 @@ class Lesson(db.Model, model.Model):
                 ),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[info_block])
+        return form

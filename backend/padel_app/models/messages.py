@@ -11,7 +11,7 @@ class Message(db.Model, model.Model):
     __table_args__ = {"extend_existing": True}
 
     page_title = "Message"
-    model_name = "message"
+    model_name = "Message"
 
     id = Column(Integer, primary_key=True)
     text = Column(String, nullable=False)
@@ -51,18 +51,28 @@ class Message(db.Model, model.Model):
         ]
         return searchable, fields
 
-    @staticmethod
-    def get_create_form():
-        def get_field(name, label, field_type, **kwargs):
-            return Field(name=name, label=label, field_type=field_type, **kwargs)
+    @classmethod
+    def get_create_form(cls):
+        def get_field(name, label, type, **kwargs):
+            return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
+                name=name,
+                label=label,
+                type=type,
+                **kwargs,
+            )
+
+        form = Form()
 
         picture_block = Block(
-            title="Attachment",
+            "picture_block",
             fields=[get_field("attachment_id", "Attachment Image", "Picture")],
         )
+        form.add_block(picture_block)
 
         info_block = Block(
-            title="Message Info",
+            "info_block",
             fields=[
                 get_field("text", "Text", "Text"),
                 get_field("sent_at", "Sent At", "DateTime"),
@@ -73,5 +83,6 @@ class Message(db.Model, model.Model):
                 ),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[picture_block, info_block])
+        return form

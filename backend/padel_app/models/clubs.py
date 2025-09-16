@@ -11,7 +11,7 @@ class Club(db.Model, model.Model):
     __table_args__ = {"extend_existing": True}
 
     page_title = "Clubs"
-    model_name = "club"
+    model_name = "Club"
 
     id = Column(Integer, primary_key=True)
 
@@ -77,25 +77,27 @@ class Club(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, field_type, label=None, **kwargs):
+        def get_field(name, type, label=None, **kwargs):
             return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
                 name=name,
-                field_type=field_type,
+                type=type,
                 label=label or name.capitalize(),
                 **kwargs,
             )
 
+        form = Form()
         picture_block = Block(
             "picture_block",
-            "Club Logo",
             fields=[
                 get_field("logo_id", "Picture", label="Club Logo"),
             ],
         )
+        form.add_block(picture_block)
 
         info_block = Block(
             "info_block",
-            "Club Information",
             fields=[
                 get_field("name", "Text", label="Name"),
                 get_field("description", "Text", label="Description"),
@@ -123,5 +125,6 @@ class Club(db.Model, model.Model):
                 ),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[picture_block, info_block])
+        return form

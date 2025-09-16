@@ -7,21 +7,34 @@ from padel_app.models import MODELS
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 
-@bp.route("/create/<model>", methods=("GET", "POST"))
+@bp.route("/create/<model>", methods=["POST"])
 def create(model):
-    if request.method == "POST":
-        model = MODELS[model]
-        empty_instance = model()
+    model = model.lower()
+    model_cls = MODELS.get(model)
+    if not model_cls:
+        return jsonify(success=False, error=f"Model {model} not found"), 404
+
+    empty_instance = model_cls()
+
+    if request.is_json:
+        data = request.get_json() or {}
+        values = data.get("values", {})
+    else:
         form = empty_instance.get_create_form()
         values = form.set_values(request)
-        empty_instance.update_with_dict(values)
-        empty_instance.create()
-        return jsonify(sucess=True)
-    return jsonify(sucess=False)
+
+    if not values:
+        return jsonify(success=False, error="No values provided"), 400
+
+    empty_instance.update_with_dict(values)
+    empty_instance.create()
+
+    return jsonify(success=True, id=empty_instance.id)
 
 
 @bp.route("/edit/<model>/<id>", methods=["POST"])
 def edit(model, id):
+    model = model.lower()
     model_cls = MODELS.get(model)
     if not model_cls:
         return jsonify(success=False, error=f"Model {model} not found"), 404
@@ -54,9 +67,9 @@ def edit(model, id):
 
 @bp.route("/delete/<model>/<id>", methods=("GET", "POST"))
 def delete(model, id):
-    model_name = model
     if request.method == "POST":
-        model = MODELS[model]
+        model_name = model.lower()
+        model = MODELS[model_name]
         obj = model.query.filter_by(id=id).first()
         obj.delete()
         return jsonify(url_for("editor.display_all", model=model_name))
@@ -65,7 +78,8 @@ def delete(model, id):
 
 @bp.route("/query/<model>", methods=("GET", "POST"))
 def query(model):
-    model = MODELS[model]
+    model_name = model.lower()
+    model = MODELS[model_name]
     instances = model.query.all()
     instances = [
         {"value": instance.id, "name": str(instance.name)} for instance in instances
@@ -83,8 +97,8 @@ def remove_relationship():
     id1 = int(data.get("id1"))
     id2 = int(data.get("id2"))
 
-    model1 = MODELS[model_name1]
-    model2 = MODELS[model_name2]
+    model1 = MODELS[model_name1.lower()]
+    model2 = MODELS[model_name2.lower()]
 
     obj1 = model1.query.filter_by(id=id1).first()
     obj2 = model2.query.filter_by(id=id2).first()
@@ -97,7 +111,7 @@ def remove_relationship():
 
 @bp.route("/modal_create_page/<model>", methods=("GET", "POST"))
 def modal_create_page(model):
-    model_name = model
+    model_name = model.lower()
     model = MODELS[model_name]
     empty_instance = model()
     form = empty_instance.get_basic_create_form()
@@ -113,7 +127,7 @@ def modal_create_page(model):
 
 @bp.route("/download_csv/<model>", methods=["GET", "POST"])
 def download_csv(model):
-    model_name = model
+    model_name = model.lower()
     model = MODELS[model_name]
     filepath = tools.create_csv_for_model(model)
     return filepath

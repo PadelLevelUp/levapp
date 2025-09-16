@@ -14,7 +14,7 @@ class Association_PlayerLesson(db.Model, model.Model):
     )
 
     page_title = "Player ↔ Lesson"
-    model_name = "association_playerlesson"
+    model_name = "Association_PlayerLesson"
 
     id = Column(Integer, primary_key=True)
     player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
@@ -44,17 +44,19 @@ class Association_PlayerLesson(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, field_type, label=None, **kwargs):
+        def get_field(name, type, label=None, **kwargs):
             return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
                 name=name,
-                field_type=field_type,
+                type=type,
                 label=label or name.capitalize(),
                 **kwargs,
             )
 
+        form = Form()
         info_block = Block(
             "info_block",
-            "Player ↔ Lesson",
             fields=[
                 get_field(
                     "player_id", "ManyToOne", label="Player", related_model="Player"
@@ -64,4 +66,6 @@ class Association_PlayerLesson(db.Model, model.Model):
                 ),
             ],
         )
-        return Form(blocks=[info_block])
+        form.add_block(info_block)
+
+        return form

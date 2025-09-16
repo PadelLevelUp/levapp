@@ -10,7 +10,7 @@ class Coach(db.Model, model.Model):
     __table_args__ = {"extend_existing": True}
 
     page_title = "Coach"
-    model_name = "coach"
+    model_name = "Coach"
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -87,11 +87,19 @@ class Coach(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, label, field_type, **kwargs):
-            return Field(name=name, label=label, field_type=field_type, **kwargs)
+        def get_field(name, label, type, **kwargs):
+            return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
+                name=name,
+                label=label,
+                type=type,
+                **kwargs,
+            )
 
+        form = Form()
         info_block = Block(
-            title="Coach Info",
+            "info_block",
             fields=[
                 get_field("name", "Name", "Text"),
                 get_field("club_id", "Club", "ManyToOne", model="club"),
@@ -109,5 +117,6 @@ class Coach(db.Model, model.Model):
                 ),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[info_block])
+        return form

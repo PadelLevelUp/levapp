@@ -3,7 +3,8 @@ name: Build and Deploy to GCE
 on:
   push:
     branches:
-      - master
+      - main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -54,8 +55,8 @@ jobs:
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
         script: |
           sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/padel-app:latest
-          sudo docker stop ppl || true && sudo docker rm ppl || true
-          sudo docker run -d --name ppl -p 5000:80 \
+          sudo docker stop padelapp || true && sudo docker rm padelapp || true
+          sudo docker run -d --name padelapp -p 80:80 \
             --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
             -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
             -e FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }} \

@@ -11,7 +11,7 @@ class User(db.Model, model.Model, UserMixin):
     __table_args__ = {"extend_existing": True}
 
     page_title = "User"
-    model_name = "user"
+    model_name = "User"
 
     id = Column(Integer, primary_key=True)
     name = Column(String(120), nullable=False)
@@ -52,26 +52,37 @@ class User(db.Model, model.Model, UserMixin):
         ]
         return searchable, fields
 
-    @staticmethod
-    def get_create_form():
-        def get_field(name, label, field_type, **kwargs):
-            return Field(name=name, label=label, field_type=field_type, **kwargs)
+    @classmethod
+    def get_create_form(cls):
+        def get_field(name, label, type, required=False):
+            return Field(
+                instance_id=cls.id,
+                model=cls.model_name,
+                name=name,
+                label=label,
+                type=type,
+                required=required,
+            )
+
+        form = Form()
 
         picture_block = Block(
-            title="Profile Picture",
+            "picture_block",
             fields=[get_field("user_image_id", "User Image", "Picture")],
         )
+        form.add_block(picture_block)
 
         info_block = Block(
-            title="User Info",
+            "info_block",
             fields=[
-                get_field("name", "Name", "Text"),
-                get_field("username", "Username", "Text"),
-                get_field("email", "Email", "Text"),
-                get_field("password", "Password", "Password"),
+                get_field("name", "Name", "Text", required=True),
+                get_field("username", "Username", "Text", required=True),
+                get_field("email", "Email", "Text", required=True),
+                get_field("password", "Password", "Password", required=True),
                 get_field("is_admin", "Admin", "Boolean"),
                 get_field("generated_code", "Generated Code", "Integer"),
             ],
         )
+        form.add_block(info_block)
 
-        return Form(blocks=[picture_block, info_block])
+        return form

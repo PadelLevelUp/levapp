@@ -92,7 +92,7 @@ class Backend_App(db.Model, model.Model):
                 options=self.get_model_names(),
             ),
             get_field(name="name", label="Nome", type="Text", required=True),
-            get_field(name="color", label="Cor", type="Color", required=True),
+            get_field(name="color", label="Cor", type="Color"),
         ]
         info_block = Block("info_block", fields)
         form.add_block(info_block)

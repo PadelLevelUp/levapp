@@ -1,4 +1,4 @@
-{% macro general_input(type,label,name,options = None, required = False,value = False, model=False, related_model=False, readonly=False) %}
+{% macro general_input(type,label,name,options = None, required = False, value = False, model=False, related_model=False, readonly=False) %}
 
     {% if type not in ['Text','Integer','Float','Password','Select','Picture','EditablePicture','ManyToMany','ManyToOne','OneToMany', 'Color','Date','DateTime','Boolean','MultiplePictures'] %}
         THIS INPUT DOES NOT EXIST
@@ -37,7 +37,7 @@
 {% endmacro %}
 
 {% macro text_input(label,name,required,value = value, readonly=readonly) %}
-<div class="input-box {% if value is not none %}focus{% endif %}">
+<div class="input-box {% if not value == False %}focus{% endif %}">
     <label class="input-label">{{label}}</label>
     <input
     type="text"
@@ -46,7 +46,7 @@
     onfocus="setFocus(true,this,this.parentNode)"
     onblur="setFocus(false,this,this.parentNode)"
     autocomplete="username"
-    {% if value is not none %} value="{{value}}" {% endif %}
+    {% if not value == False %} value="{{value}}" {% endif %}
     {% if readonly %} readonly {% endif %}/>
 </div>
 {% endmacro %}
