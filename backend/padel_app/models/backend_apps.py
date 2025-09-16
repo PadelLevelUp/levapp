@@ -11,7 +11,7 @@ from padel_app.tools.input_tools import Block, Field, Form
 class Backend_App(db.Model, model.Model):
     __tablename__ = "backend_app"
     __table_args__ = {"extend_existing": True}
-    page_title = "Aplicações de backend"
+    page_title = "Backend Apps"
     model_name = "Backend_App"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -21,6 +21,44 @@ class Backend_App(db.Model, model.Model):
 
     image_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     image = relationship("Image", foreign_keys=[image_id])
+
+    FIELD_DESCRIPTIONS = {
+        "id": "Primary key (auto-generated).",
+        "name": "Human-friendly app name. Must be unique.",
+        "app_model_name": "Model key used by the editor and API routes (choose from available models). Must be unique.",
+        "color": "Optional HEX color for UI accents (e.g., #1173d4).",
+        "image_id": "Optional image reference used as the app icon.",
+    }
+
+    @staticmethod
+    def create_example():
+        """
+        Return a minimal, valid example for POST /api/create/backend_app
+        Only include user-supplied fields; omit auto-set fields.
+        """
+        return {
+            "values": {
+                "app_model_name": "match",
+                "name": "Matches",
+                "color": "#1173d4",
+                "image_id": 123,
+            }
+        }
+
+    @staticmethod
+    def edit_example():
+        """
+        Return a minimal, valid example for POST /api/edit/backend_app/<id>
+        Provide a plausible id and the fields typically edited.
+        """
+        return {
+            "id": 1,
+            "values": {
+                "name": "Matches (updated)",
+                "image_id": 124,
+            },
+            "methods": [],
+        }
 
     @hybrid_property
     def style(self):

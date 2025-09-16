@@ -13,6 +13,12 @@
             <p class="app_name">{{app.name}}</p>
         </div>
         {% endfor %}
+        <div class="app_icon" style="background-color:#0187a2" data-href="/editor/documentation" onclick="linkToDatasetHref(this)">
+            <a href="/editor/documentation">
+                <img class="app_image" src="{{ url_for('static', filename='images/documentation.png') }}" alt="Documentation">
+            </a>
+            <p class="app_name">Documentation</p>
+        </div>
     </div>
 </div>
 {% endblock %}

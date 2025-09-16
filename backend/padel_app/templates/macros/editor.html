@@ -21,7 +21,7 @@
             {% endfor%}
             {% if data['objects']|length == 0 %}
                 <tr>
-                    <td colspan="{{data['table_columns']|length}}">Não existem {{data['title']}}.</td>
+                    <td colspan="{{data['table_columns']|length}}">There are no {{data['title']}}.</td>
                 </tr>
             {% endif %}
         </tbody>
@@ -34,12 +34,12 @@
     <div class="editor_header_elements">
         <h2 class="editor_header_title" data-href="{{data['dispalay_all_url']}}" onclick="linkToDatasetHref(this)">{{data['title']}}</h2>
         <div class="header_buttons">
-            <a href="{{data['create_url']}}" class="editor_header_create_button general_button">Criar</a>
+            <a href="{{data['create_url']}}" class="editor_header_create_button general_button">Create</a>
             <div class="actions_container" onmouseover="showHideElement('editor_actions_dropdown')" onmouseout="showHideElement('editor_actions_dropdown')">
-                <button type="button" class="editor_header_actions general_button"> Ações </button>
+                <button type="button" class="editor_header_actions general_button"> Actions </button>
                 <div id="editor_actions_dropdown" class="editor_header_actions_dropdown dropdown_box" style="display: none;">
                     <div class="editor_actions_container">
-                        <div class="editor_header_actions_dropdown_item dropdown_item" onclick="showHideElementByClass('delete_cell')" data-href="">Apagar</div>
+                        <div class="editor_header_actions_dropdown_item dropdown_item" onclick="showHideElementByClass('delete_cell')" data-href="">Delete</div>
                         <div class="editor_header_actions_dropdown_item dropdown_item" onclick="downloadCSV(this),event.stopPropagation()" data-href="{{data['download_csv_url']}}">Download</div>
                         <div class="editor_header_actions_dropdown_item dropdown_item" onclick="callAPI(this,true),event.stopPropagation()" data-href="{{data['upload_csv_url']}}">Upload</div>
                     </div>
@@ -60,7 +60,7 @@
     </div>
     <div class="editor_header_elements">
         <form onsubmit="return false;" class="search_bar_form">
-            <input data-table_id="{{data['title']}}" onkeyup="searchTable(this);" class="editor_search_bar" type="search" placeholder="Procurar por {{data['searchable_column']['label'].lower()}}...">
+            <input data-table_id="{{data['title']}}" onkeyup="searchTable(this);" class="editor_search_bar" type="search" placeholder="Search {{data['searchable_column']['label'].lower()}}...">
             <svg width="20" height="20" viewBox="0 0 20 20" class="search_bar_icon_svg">
                 <circle fill="none" stroke="#000" stroke-width="1.1" cx="9" cy="9" r="7"></circle>
                 <path fill="none" stroke="#000" stroke-width="1.1" d="M14,14 L18,18 L14,14 Z"></path>
@@ -88,7 +88,7 @@
 <div class="editor_objects_header">
     <div class="editor_header_elements">
         <h2 class="editor_header_title" data-href="{{data['dispalay_all_url']}}" onclick="linkToDatasetHref(this)">{{data['title']}}</h2>
-        <button type="submit" class="editor_header_create_button general_button">Guardar</button>
+        <button type="submit" class="editor_header_create_button general_button">Save</button>
     </div>
 </div>
 {% endmacro %}
@@ -148,13 +148,13 @@
     <div class="editor_header_elements {% if readonly %} readonly_header {% endif %}">
         <h2 class="editor_header_title" data-href="{{data['dispalay_all_url']}}" onclick="linkToDatasetHref(this)">{{data['title']}}</h2>
         <div class="header_buttons">
-            <button type="submit" class="editor_header_create_button general_button" onclick="addReadonlys()">Guardar</button>
-            <button type="button" class="editor_header_edit_button general_button" onclick="removeAllReadonlys()">Editar</button>
+            <button type="submit" class="editor_header_create_button general_button" onclick="addReadonlys()">Save</button>
+            <button type="button" class="editor_header_edit_button general_button" onclick="removeAllReadonlys()">Edit</button>
             <div class="actions_container" onmouseover="showHideElement('editor_actions_dropdown')" onmouseout="showHideElement('editor_actions_dropdown')">
-                <button type="button" class="editor_header_actions general_button"> Ações </button>
+                <button type="button" class="editor_header_actions general_button"> Actions </button>
                 <div id="editor_actions_dropdown" class="editor_header_actions_dropdown dropdown_box" style="display: none;">
                     <div class="editor_actions_container">
-                        <div class="editor_header_actions_dropdown_item dropdown_item" onclick="callAPI(this,true)" data-href="{{data['delete_url']}}">Apagar</div>
+                        <div class="editor_header_actions_dropdown_item dropdown_item" onclick="callAPI(this,true)" data-href="{{data['delete_url']}}">Delete</div>
                     </div>
                 </div>
             </div>

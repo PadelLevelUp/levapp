@@ -1,0 +1,357 @@
+{# templates/editor/documentation.html #}
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Editor Documentation</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#1173d4",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101922",
+          },
+          fontFamily: { "display": ["Inter"] },
+          borderRadius: { "DEFAULT": "0.25rem","lg": "0.5rem","xl": "0.75rem","full": "9999px" },
+        },
+      },
+    }
+  </script>
+  <script>
+    // Dark mode toggle with persistence
+    (function() {
+      const key = "doc-dark";
+      const root = document.documentElement;
+      const saved = localStorage.getItem(key);
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      if (saved === "true" || (saved === null && prefersDark)) root.classList.add("dark");
+      window.__toggleDark = function() {
+        root.classList.toggle("dark");
+        localStorage.setItem(key, root.classList.contains("dark"));
+      }
+    })();
+  </script>
+
+  {# ---------- Macros ---------- #}
+    {% macro field_table(schema) -%}
+    {%- set autos = ['created_at','updated_at'] -%}
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div class="grid grid-cols-3 gap-4 p-3 font-semibold bg-background-light/50 dark:bg-background-dark/50 border-b border-gray-200 dark:border-gray-700 text-sm">
+        <div>Field</div><div>Type</div><div>Description</div>
+        </div>
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for f in schema.fields %}
+            <div class="grid grid-cols-3 gap-4 p-3 text-sm">
+            <div class="font-mono">
+                {{ f.name }}
+                {% if f.name in autos %}
+                <span class="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-gray-700 text-white align-middle">auto</span>
+                {% endif %}
+            </div>
+            <div class="font-mono text-primary">{{ f.type }}</div>
+            <div class="text-gray-600 dark:text-gray-400">{{ f.description or "—" }}</div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    {%- endmacro %}
+
+  {# Fallback example payload: all fields -> null #}
+  {% macro json_nulls_from_fields(schema) -%}
+  {
+  {%- set skipped = ['created_at','updated_at'] -%}
+  {%- set first = True -%}
+  {%- for f in schema.fields -%}
+  {%- if f.name not in skipped -%}
+      {%- if not first %}, {% endif -%}
+      "{{ f.name }}": null
+      {%- set first = False -%}
+  {%- endif -%}
+  {%- endfor -%}
+  }
+  {%- endmacro %}
+
+  {% macro tabset(id, py, js, sh) -%}
+    <div class="bg-background-dark rounded-lg overflow-hidden border border-gray-800" data-tabs="{{ id }}">
+      <div class="flex border-b border-gray-800">
+        <button type="button" class="tab-btn px-4 py-2 text-sm font-medium text-white border-b-2 border-primary" data-lang="py">Python</button>
+        <button type="button" class="tab-btn px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent" data-lang="js">JavaScript</button>
+        <button type="button" class="tab-btn px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent" data-lang="sh">cURL</button>
+        <div class="ml-auto px-2 py-2">
+          <button class="copy-btn px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white">Copy</button>
+        </div>
+      </div>
+      <div class="p-4">
+        <pre class="tab-code tab-py text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" data-lang="py"><code>{{ py | e }}</code></pre>
+        <pre class="tab-code tab-js text-sm text-gray-300 leading-relaxed whitespace-pre-wrap hidden" data-lang="js"><code>{{ js | e }}</code></pre>
+        <pre class="tab-code tab-sh text-sm text-gray-300 leading-relaxed whitespace-pre-wrap hidden" data-lang="sh"><code>{{ sh | e }}</code></pre>
+      </div>
+    </div>
+  {%- endmacro %}
+</head>
+
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-72 flex-shrink-0 bg-background-light/50 dark:bg-background-dark/50 p-4 border-r border-gray-200 dark:border-gray-800">
+    <div class="flex items-center justify-between mb-6">
+      <div class="text-xl font-bold text-gray-900 dark:text-white">Editor Docs</div>
+      <button class="px-3 py-1.5 text-xs rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700" onclick="__toggleDark()">Theme</button>
+    </div>
+
+    <div class="mb-4">
+      <input id="modelFilter" type="text" placeholder="Filter models…" class="w-full rounded-lg border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40" oninput="filterModels()">
+    </div>
+
+    <nav id="modelNav" class="flex flex-col gap-1 overflow-auto max-h-[70vh] pr-2">
+      {% for model_key, schema in data.models.items() %}
+        {% set class_name = schema.class_name or model_key %}
+        <a class="model-link px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-primary/10 dark:hover:bg-primary/20"
+           href="#model-{{ model_key }}">{{ class_name }}</a>
+      {% endfor %}
+    </nav>
+
+    <div class="mt-6 space-y-2 text-sm">
+      <a class="block px-3 py-2 rounded-lg bg-primary text-white text-center"
+         href="{{ url_for('editor.documentation') }}?format=json" target="_blank" rel="noopener">View raw JSON</a>
+      <button class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-background-light/70 dark:hover:bg-background-dark/70"
+              onclick="copyModelList()">Copy model list</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 p-8">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex items-start justify-between gap-4">
+        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-6">Editor Documentation</h1>
+        <div class="hidden lg:flex items-center gap-2">
+          <a class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-primary/10 dark:hover:bg-primary/20"
+             href="{{ url_for('editor.index') }}">Back to Editor</a>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-background-light/50 dark:bg-background-dark/50 p-4 mb-8">
+        <p class="text-gray-700 dark:text-gray-300">
+          This page documents the <span class="font-semibold">/api</span> endpoints for each model.
+          Model headings show the <span class="font-semibold">ClassName</span>, while requests use the lowercase key in the URL.
+        </p>
+        <p class="text-gray-700 dark:text-gray-300 mt-2">
+          Endpoints used: <code class="font-mono text-primary">POST /api/create/&lt;model&gt;</code>,
+          <code class="font-mono text-primary">POST /api/edit/&lt;model&gt;/&lt;id&gt;</code>,
+          <code class="font-mono text-primary">GET /api/query/&lt;model&gt;</code>.
+        </p>
+      </div>
+
+      <div class="space-y-16">
+        {% for model_key, schema in data.models.items() %}
+          {% set class_name = schema.class_name or model_key %}
+          {% set anchor = 'model-' ~ model_key %}
+
+          {# examples (from documentation_tools) #}
+          {% set ex = schema.examples or {} %}
+          {% set ex_create = ex.create or {} %}
+          {% set ex_edit   = ex.edit   or {} %}
+
+          {# consider empty dicts as missing -> use nulls fallback #}
+          {% set create_vals = (ex_create['values'] if ex_create is mapping and 'values' in ex_create and ex_create['values'] and ex_create['values']|length > 0 else none) %}
+          {% set edit_vals   = (ex_edit['values']   if ex_edit   is mapping and 'values' in ex_edit   and ex_edit['values']   and ex_edit['values']|length > 0   else none) %}
+
+          {# build JSON for values: real example or nulls-from-fields #}
+          {% set create_values_json = (create_vals|tojson if create_vals is not none else json_nulls_from_fields(schema)) %}
+          {% set edit_values_json   = (edit_vals|tojson   if edit_vals   is not none else json_nulls_from_fields(schema)) %}
+
+          {# id/methods for edit #}
+          {% set edit_id = (ex_edit['id'] if ex_edit is mapping and 'id' in ex_edit else 1) %}
+          {% set methods_list = (ex_edit['methods'] if ex_edit is mapping and 'methods' in ex_edit and ex_edit['methods'] else []) %}
+          {% set edit_methods_json = methods_list|tojson %}
+
+          {# final payload strings #}
+          {% set payload_create = '{"values": ' ~ create_values_json ~ '}' %}
+          {% set payload_edit   = '{"values": ' ~ edit_values_json ~ ', "methods": ' ~ edit_methods_json ~ '}' %}
+
+          {% set url_read   = url_for('api.query', model=model_key) %}
+          {% set url_create = url_for('api.create', model=model_key) %}
+          {% set url_edit   = url_for('api.edit', model=model_key, id=edit_id) %}
+
+          <section id="{{ anchor }}" class="scroll-mt-8">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ class_name }}</h2>
+              <div class="flex items-center gap-2">
+                <a class="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-white"
+                   href="{{ url_for('editor.display_all', model=model_key) }}">View all</a>
+                <a class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-700 hover:bg-background-light/70 dark:hover:bg-background-dark/70"
+                   href="{{ url_for('editor.create', model=model_key) }}">Create</a>
+              </div>
+            </div>
+
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+              Fields inferred from the model definition. Types come from SQLAlchemy column types or Python annotations.
+            </p>
+
+            {{ field_table(schema) }}
+
+            <!-- READ -->
+            <div class="mt-8">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Read (Fetch list)</h3>
+              <div class="bg-background-light/50 dark:bg-background-dark/50 rounded-lg p-3 font-mono text-sm mb-3">
+                <span class="font-bold text-primary">GET</span> {{ url_read }}
+              </div>
+
+              {% set py_read -%}
+import requests
+url = "{{ url_read }}"
+resp = requests.get(url)
+resp.raise_for_status()
+print(resp.json())
+              {%- endset %}
+              {% set js_read -%}
+const url = "{{ url_read }}";
+fetch(url)
+  .then(r => r.json())
+  .then(console.log)
+  .catch(console.error);
+              {%- endset %}
+              {% set sh_read -%}
+curl -s "{{ url_read }}"
+              {%- endset %}
+              {{ tabset('read-' ~ model_key, py_read, js_read, sh_read) }}
+            </div>
+
+            <!-- CREATE -->
+            <div class="mt-10">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Create</h3>
+              <div class="bg-background-light/50 dark:bg-background-dark/50 rounded-lg p-3 font-mono text-sm mb-3">
+                <span class="font-bold text-primary">POST</span> {{ url_create }}
+              </div>
+
+              {% set py_create -%}
+import requests, json
+url = "{{ url_create }}"
+headers = {"Content-Type": "application/json"}
+data = json.loads(r'''{{ payload_create | e }}''')
+resp = requests.post(url, headers=headers, json=data)
+resp.raise_for_status()
+print(resp.json())
+              {%- endset %}
+              {% set js_create -%}
+const url = "{{ url_create }}";
+const data = {{ payload_create | safe }};
+fetch(url, {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify(data)
+})
+  .then(r => r.json())
+  .then(console.log)
+  .catch(console.error);
+              {%- endset %}
+              {% set sh_create -%}
+curl -s -X POST "{{ url_create }}" \
+  -H "Content-Type: application/json" \
+  -d '{{ payload_create | replace("'", "'\"'\"'") }}'
+              {%- endset %}
+              {{ tabset('create-' ~ model_key, py_create, js_create, sh_create) }}
+            </div>
+
+            <!-- EDIT -->
+            <div class="mt-10">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Edit</h3>
+              <div class="bg-background-light/50 dark:bg-background-dark/50 rounded-lg p-3 font-mono text-sm mb-3">
+                <span class="font-bold text-primary">POST</span> {{ url_for('api.edit', model=model_key, id=':id') }}
+                <span class="text-gray-600 dark:text-gray-400">(replace <code class="font-mono">:id</code> with an existing ID)</span>
+              </div>
+
+              {% set py_edit -%}
+import requests, json
+url = "{{ url_edit }}"
+headers = {"Content-Type": "application/json"}
+data = json.loads(r'''{{ payload_edit | e }}''')
+resp = requests.post(url, headers=headers, json=data)
+resp.raise_for_status()
+print(resp.json())
+              {%- endset %}
+              {% set js_edit -%}
+const url = "{{ url_edit }}";
+const data = {{ payload_edit | safe }};
+fetch(url, {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify(data)
+})
+  .then(r => r.json())
+  .then(console.log)
+  .catch(console.error);
+              {%- endset %}
+              {% set sh_edit -%}
+curl -s -X POST "{{ url_edit }}" \
+  -H "Content-Type: application/json" \
+  -d '{{ payload_edit | replace("'", "'\"'\"'") }}'
+              {%- endset %}
+              {{ tabset('edit-' ~ model_key, py_edit, js_edit, sh_edit) }}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Sidebar filter
+  function filterModels() {
+    const q = (document.getElementById('modelFilter').value || '').toLowerCase();
+    const links = document.querySelectorAll('#modelNav .model-link');
+    links.forEach(a => a.classList.toggle('hidden', !a.textContent.toLowerCase().includes(q)));
+  }
+
+  function copyModelList() {
+    const names = Array.from(document.querySelectorAll('#modelNav .model-link')).map(a => a.textContent.trim());
+    navigator.clipboard.writeText(names.join('\n')).then(() => alert('Model list copied.'));
+  }
+
+  // Simple tabs (no runtime string building)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    const wrap = btn.closest('[data-tabs]');
+    const lang = btn.getAttribute('data-lang');
+    // buttons
+    wrap.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('border-primary', b.getAttribute('data-lang') === lang);
+      b.classList.toggle('text-white', b.getAttribute('data-lang') === lang);
+      b.classList.toggle('text-gray-400', b.getAttribute('data-lang') !== lang);
+      b.classList.toggle('border-transparent', b.getAttribute('data-lang') !== lang);
+    });
+    // code panes
+    wrap.querySelectorAll('.tab-code').forEach(c => {
+      c.classList.toggle('hidden', c.getAttribute('data-lang') !== lang);
+    });
+  });
+
+  // Copy current tab’s code
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    const wrap = btn.closest('[data-tabs]');
+    const activeBtn = wrap.querySelector('.tab-btn.border-primary');
+    const lang = activeBtn ? activeBtn.getAttribute('data-lang') : 'py';
+    const code = wrap.querySelector(`.tab-code[data-lang="${lang}"]`);
+    const text = code ? code.innerText : '';
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1200);
+    });
+  });
+</script>
+</body>
+</html>

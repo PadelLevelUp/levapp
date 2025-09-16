@@ -1,7 +1,8 @@
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, redirect, render_template, request, url_for, jsonify
 
 from padel_app.models import Backend_App, MODELS
 from padel_app.tools import auth_tools
+from padel_app.tools.documentation_tools import build_models_doc
 
 bp = Blueprint("editor", __name__, url_prefix="/editor")
 
@@ -54,3 +55,17 @@ def create(model):
         return redirect(url_for("editor.display_all", model=model_name))
     data = empty_instance.get_create_data(form)
     return render_template("editor/create.html", page=page, data=data)
+
+
+@bp.route("/documentation", methods=("GET",))
+def documentation():
+    models_doc = build_models_doc(MODELS)
+
+    if request.args.get("format") == "json":
+        return jsonify({"models": models_doc})
+
+    return render_template(
+        "editor/documentation.html",
+        page="editor_documentation",
+        data={"models": models_doc},
+    )
