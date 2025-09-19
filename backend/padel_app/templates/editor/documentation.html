@@ -66,19 +66,17 @@
     {%- endmacro %}
 
   {# Fallback example payload: all fields -> null #}
-  {% macro json_nulls_from_fields(schema) -%}
-  {
-  {%- set skipped = ['created_at','updated_at'] -%}
-  {%- set first = True -%}
-  {%- for f in schema.fields -%}
-  {%- if f.name not in skipped -%}
-      {%- if not first %}, {% endif -%}
-      "{{ f.name }}": null
-      {%- set first = False -%}
-  {%- endif -%}
-  {%- endfor -%}
-  }
-  {%- endmacro %}
+    {% macro json_nulls_from_fields(schema) -%}
+    {
+    {%- set names = schema.fields
+            | rejectattr('name', 'equalto', 'created_at')
+            | rejectattr('name', 'equalto', 'updated_at')
+            | map(attribute='name') | list -%}
+    {%- for name in names -%}
+        "{{ name }}": null{% if not loop.last %}, {% endif %}
+    {%- endfor -%}
+    }
+    {%- endmacro %}
 
   {% macro tabset(id, py, js, sh) -%}
     <div class="bg-background-dark rounded-lg overflow-hidden border border-gray-800" data-tabs="{{ id }}">
@@ -342,15 +340,33 @@ curl -s -X POST "{{ url_edit }}" \
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.copy-btn');
     if (!btn) return;
+
     const wrap = btn.closest('[data-tabs]');
     const activeBtn = wrap.querySelector('.tab-btn.border-primary');
     const lang = activeBtn ? activeBtn.getAttribute('data-lang') : 'py';
-    const code = wrap.querySelector(`.tab-code[data-lang="${lang}"]`);
-    const text = code ? code.innerText : '';
-    navigator.clipboard.writeText(text).then(() => {
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1200);
-    });
+    const codeEl = wrap.querySelector(`.tab-code[data-lang="${lang}"]`);
+    const text = codeEl ? codeEl.textContent : '';
+
+    const done = () => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200); };
+
+    function fallbackCopy(t, cb) {
+      const ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed';
+      ta.style.left = '-99999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch (err) { /* noop */ }
+      document.body.removeChild(ta);
+      if (typeof cb === 'function') cb();
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
   });
 </script>
 </body>
