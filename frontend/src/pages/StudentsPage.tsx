@@ -1,0 +1,56 @@
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search } from 'lucide-react';
+import { mockCoachStudents, mockLevels } from '@/data/mockData';
+import { useState } from 'react';
+
+export default function StudentsPage() {
+  const [search, setSearch] = useState('');
+  const students = mockCoachStudents.filter(cs => 
+    cs.student?.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  return (
+    <AppLayout>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Alumnos</h1>
+          <Button><Plus className="w-4 h-4 mr-2" />Añadir alumno</Button>
+        </div>
+
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Buscar alumnos..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {students.map(({ student, level, side }) => (
+            <Card key={student?.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-12 h-12">
+                    <AvatarFallback className="bg-primary/10 text-primary">{getInitials(student?.name || '')}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{student?.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{student?.email}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  {level && <Badge variant="outline">{level.code}</Badge>}
+                  {side && <Badge variant="secondary">{side === 'left' ? 'Izq' : 'Der'}</Badge>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
