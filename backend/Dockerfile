@@ -32,4 +32,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 80
 
+RUN chmod +x /app/scripts/entrypoint.sh
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+
 CMD ["python", "app.py"]
