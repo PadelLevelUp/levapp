@@ -9,7 +9,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Calendar, label: 'Calendario', path: '/calendar' },
   { icon: Users, label: 'Alumnos', path: '/students' },
+  { icon: MessageSquare, label: 'Mensajes', path: '/messages' },
   { icon: Settings, label: 'Ajustes', path: '/settings' },
 ];
 
