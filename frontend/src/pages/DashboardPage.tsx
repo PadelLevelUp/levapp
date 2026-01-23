@@ -1,9 +1,10 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Calendar, ClipboardCheck, TrendingUp } from 'lucide-react';
+import { Users, Calendar, ClipboardCheck, TrendingUp, Sparkles } from 'lucide-react';
 import { mockDashboardStats, mockClassInstances } from '@/data/mockData';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { LoadingSkeleton, LoadingCard } from '@/components/ui/loading-skeleton';
 
 export default function DashboardPage() {
   const stats = mockDashboardStats;
@@ -15,7 +16,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Alumnos</CardTitle>
@@ -50,6 +51,24 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">€{stats.monthlyRevenue}</div>
+            </CardContent>
+          </Card>
+          
+          {/* Loading Demo Card */}
+          <Card className="relative overflow-hidden">
+            <div className="absolute top-2 right-2 z-10">
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/80 px-2 py-1 rounded-full">
+                <Sparkles className="w-3 h-3" />
+                Demo
+              </span>
+            </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <LoadingSkeleton className="h-4 w-20" />
+              <LoadingSkeleton className="h-4 w-4 rounded-full" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <LoadingSkeleton className="h-8 w-16" />
+              <LoadingSkeleton className="h-3 w-full" />
             </CardContent>
           </Card>
         </div>
