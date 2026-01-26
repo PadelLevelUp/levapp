@@ -4,7 +4,7 @@ import { Users, Calendar, ClipboardCheck, TrendingUp, Sparkles } from 'lucide-re
 import { mockDashboardStats, mockClassInstances } from '@/data/mockData';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { LoadingSkeleton, LoadingCard } from '@/components/ui/loading-skeleton';
+import { LoadingSkeleton, LoadingCard, LoadingClassList } from '@/components/ui/loading-skeleton';
 
 export default function DashboardPage() {
   const stats = mockDashboardStats;
@@ -54,49 +54,45 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           
-          {/* Loading Demo Card */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-2 right-2 z-10">
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/80 px-2 py-1 rounded-full">
-                <Sparkles className="w-3 h-3" />
-                Demo
-              </span>
-            </div>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <LoadingSkeleton className="h-4 w-20" />
-              <LoadingSkeleton className="h-4 w-4 rounded-full" />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <LoadingSkeleton className="h-8 w-16" />
-              <LoadingSkeleton className="h-3 w-full" />
-            </CardContent>
-          </Card>
         </div>
 
         {/* Upcoming Classes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Próximas clases</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {upcomingClasses.map((cls) => (
-                <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-1 h-10 rounded-full" style={{ backgroundColor: cls.color }} />
-                  <div className="flex-1">
-                    <p className="font-medium">{cls.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(cls.date), "EEE d MMM", { locale: es })} · {cls.startTime}
-                    </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Próximas clases</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {upcomingClasses.map((cls) => (
+                  <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <div className="w-1 h-10 rounded-full" style={{ backgroundColor: cls.color }} />
+                    <div className="flex-1">
+                      <p className="font-medium">{cls.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(cls.date), "EEE d MMM", { locale: es })} · {cls.startTime}
+                      </p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {cls.participants?.length || 0}/{cls.maxPlayers}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {cls.participants?.length || 0}/{cls.maxPlayers}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Loading Demo Card */}
+          <div className="relative">
+            <div className="absolute top-4 right-4 z-10">
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/80 px-2 py-1 rounded-full">
+                <Sparkles className="w-3 h-3" />
+                Loading Demo
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            <LoadingClassList />
+          </div>
+        </div>
       </div>
     </AppLayout>
   );
