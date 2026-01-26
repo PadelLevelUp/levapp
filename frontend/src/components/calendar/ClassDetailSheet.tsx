@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { X, Users, Clock, Calendar, MapPin, Trash2, Edit, Check } from 'lucide-react';
-import { CalendarEvent, ClassInstance, Presence } from '@/types';
+import { Users, Clock, Calendar, Trash2, Edit, Check } from 'lucide-react';
+import { CalendarEvent, ClassInstance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -13,14 +13,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
+import { DeleteClassDialog, DeleteScope } from './DeleteClassDialog';
 
 interface ClassDetailSheetProps {
   event: CalendarEvent | null;
   open: boolean;
   onClose: () => void;
   onEdit?: (event: CalendarEvent) => void;
-  onDelete?: (event: CalendarEvent) => void;
+  onDelete?: (event: CalendarEvent, scope: DeleteScope) => void;
 }
 
 export function ClassDetailSheet({ 
@@ -30,6 +30,8 @@ export function ClassDetailSheet({
   onEdit,
   onDelete 
 }: ClassDetailSheetProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
   if (!event || event.type === 'block') return null;
 
   const classInstance = event.data as ClassInstance;
@@ -147,7 +149,7 @@ export function ClassDetailSheet({
             <Button 
               variant="outline" 
               className="text-destructive hover:text-destructive"
-              onClick={() => onDelete?.(event)}
+              onClick={() => setDeleteDialogOpen(true)}
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -161,6 +163,15 @@ export function ClassDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      <DeleteClassDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={(scope) => {
+          setDeleteDialogOpen(false);
+          onDelete?.(event, scope);
+        }}
+      />
     </Sheet>
   );
 }
