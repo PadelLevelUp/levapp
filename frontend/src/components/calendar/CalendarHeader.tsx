@@ -1,5 +1,5 @@
 import { format, isToday } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enGB } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 interface CalendarHeaderProps {
@@ -21,7 +21,7 @@ export function CalendarHeader({ weekDays }: CalendarHeaderProps) {
             )}
           >
             <span className="text-xs text-muted-foreground uppercase">
-              {format(day, 'EEE', { locale: es })}
+              {format(day, 'EEE', { locale: enGB })}
             </span>
             <span 
               className={cn(

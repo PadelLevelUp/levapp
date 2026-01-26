@@ -1,31 +1,29 @@
-import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { Users, Clock, Calendar, Trash2, Edit, Check } from 'lucide-react';
-import { CalendarEvent, ClassInstance, PresenceStatus, AbsenceJustification } from '@/types';
+import { enUS } from 'date-fns/locale';
+import { X, Users, Clock, Calendar, MapPin, Trash2, Edit, Check } from 'lucide-react';
+import { CalendarEvent } from '@/types';
+import { getClassInstance } from '@/api/classes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useState, useEffect } from 'react';
+import { ClassInstance } from '@/types';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { DeleteClassDialog, DeleteScope } from './DeleteClassDialog';
-import { AttendanceRow, AttendanceState } from './AttendanceRow';
-
-interface AttendanceRecord {
-  [studentId: string]: AttendanceState;
-}
-
+import {
+  ClassScopeDialog,
+  ApplyScope,
+} from './ClassScopeDialog';
 interface ClassDetailSheetProps {
   event: CalendarEvent | null;
   open: boolean;
   onClose: () => void;
-  onEdit?: (event: CalendarEvent) => void;
-  onDelete?: (event: CalendarEvent, scope: DeleteScope) => void;
-  onValidateAttendance?: (event: CalendarEvent, attendance: AttendanceRecord) => void;
+  onEdit?: (event: CalendarEvent, scope: ApplyScope) => void;
+  onDelete?: (event: CalendarEvent, scope: ApplyScope) => void;
 }
 
 export function ClassDetailSheet({ 
@@ -36,40 +34,43 @@ export function ClassDetailSheet({
   onDelete,
   onValidateAttendance
 }: ClassDetailSheetProps) {
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [attendance, setAttendance] = useState<AttendanceRecord>({});
-  const [isValidating, setIsValidating] = useState(false);
 
-  const classInstance = event?.type !== 'block' ? (event?.data as ClassInstance) : null;
-  
-  // Initialize attendance state when event changes
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
+
   useEffect(() => {
-    if (classInstance?.participants) {
-      const initialAttendance: AttendanceRecord = {};
-      classInstance.participants.forEach((student) => {
-        // Check if there's existing presence data
-        const existingPresence = classInstance.presences?.find(p => p.studentId === student.id);
-        initialAttendance[student.id] = {
-          status: existingPresence?.status || null,
-          justification: existingPresence?.justification
-        };
-      });
-      setAttendance(initialAttendance);
+    if (!event) return;
+
+    let mounted = true;
+
+    async function loadClassInstance() {
+      const data = await getClassInstance(event);
+      if (mounted) {
+        setClassInstance(data);
+      }
     }
-    setIsValidating(false);
-  }, [event?.id]);
-  
-  if (!event || event.type === 'block' || !classInstance) return null;
+
+    loadClassInstance();
+
+    return () => {
+      mounted = false;
+    };
+  }, [event]);
+
+  if (!event || event.type === 'block') return null;
+  if (!classInstance) return null;
+
+  //ClassInstance just the instance of a class, came from the event. Now should be fetched from the db
 
   const isCompleted = classInstance.status === 'completed';
+  const isScheduled = classInstance.status === 'scheduled';
   const isCanceled = classInstance.status === 'canceled';
 
-  const handleAttendanceChange = (studentId: string, state: AttendanceState) => {
-    setAttendance(prev => ({
-      ...prev,
-      [studentId]: state
-    }));
-  };
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  
 
   const handleValidateAttendance = () => {
     onValidateAttendance?.(event, attendance);
@@ -92,16 +93,22 @@ export function ClassDetailSheet({
               <div>
                 <SheetTitle className="text-left">{event.title}</SheetTitle>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant={classInstance.parentClass?.type === 'academy' ? 'default' : 'secondary'}>
-                    {classInstance.parentClass?.type === 'academy' ? 'Academia' : 'Privada'}
+                  <Badge
+                    variant={classInstance.classType === 'academy' ? 'default' : 'secondary'}
+                  >
+                    {classInstance.classType === 'academy'
+                      ? 'Academy'
+                      : 'Private'}
                   </Badge>
+
                   {isCompleted && (
                     <Badge variant="outline" className="text-success border-success">
-                      Completada
+                      Completed
                     </Badge>
                   )}
+
                   {isCanceled && (
-                    <Badge variant="destructive">Cancelada</Badge>
+                    <Badge variant="destructive">Canceled</Badge>
                   )}
                 </div>
               </div>
@@ -115,12 +122,12 @@ export function ClassDetailSheet({
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <span className="capitalize">
-                {format(new Date(event.date), "EEEE, d 'de' MMMM", { locale: es })}
+                {format(new Date(event.date), 'EEEE, MMMM d', { locale: enUS })}
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Clock className="w-4 h-4 text-muted-foreground" />
-              <span>{event.startTime} - {event.endTime}</span>
+              <span>{event.startTime} – {event.endTime}</span>
             </div>
           </div>
 
@@ -128,34 +135,39 @@ export function ClassDetailSheet({
 
           {/* Participants & Attendance */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                {isValidating ? 'Validar asistencia' : 'Participantes'} ({classInstance.participants?.length || 0}/{classInstance.maxPlayers})
-              </h4>
-              {!isCompleted && !isCanceled && !isValidating && classInstance.participants && classInstance.participants.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsValidating(true)}
-                  className="text-xs"
-                >
-                  Marcar asistencia
-                </Button>
-              )}
-            </div>
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Participants ({classInstance.participants?.length || 0}/{classInstance.maxPlayers})
+            </h4>
+
             <div className="space-y-2">
-              {classInstance.participants?.map((student) => (
-                <AttendanceRow
-                  key={student.id}
-                  student={student}
-                  attendance={attendance[student.id] || { status: null }}
-                  onChange={(state) => handleAttendanceChange(student.id, state)}
-                  disabled={!isValidating || isCompleted}
-                />
+              {classInstance.participants?.map((player) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        {getInitials(player.user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{player.user.name}</span>
+                  </div>
+
+                  {isCompleted && (
+                    <Badge variant="outline" className="text-success border-success">
+                      <Check className="w-3 h-3 mr-1" />
+                      Present
+                    </Badge>
+                  )}
+                </div>
               ))}
+
               {(!classInstance.participants || classInstance.participants.length === 0) && (
-                <p className="text-sm text-muted-foreground">Sin participantes</p>
+                <p className="text-sm text-muted-foreground">
+                  No participants
+                </p>
               )}
             </div>
           </div>
@@ -165,8 +177,10 @@ export function ClassDetailSheet({
             <>
               <Separator />
               <div>
-                <h4 className="text-sm font-medium mb-2">Notas</h4>
-                <p className="text-sm text-muted-foreground">{classInstance.notes}</p>
+                <h4 className="text-sm font-medium mb-2">Notes</h4>
+                <p className="text-sm text-muted-foreground">
+                  {classInstance.notes}
+                </p>
               </div>
             </>
           )}
@@ -175,14 +189,15 @@ export function ClassDetailSheet({
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={() => onEdit?.(event)}
             >
               <Edit className="w-4 h-4 mr-2" />
-              Editar
+              Edit
             </Button>
+
             <Button 
               variant="outline" 
               className="text-destructive hover:text-destructive"
@@ -192,30 +207,17 @@ export function ClassDetailSheet({
             </Button>
           </div>
 
-          {isValidating && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setIsValidating(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={!allAttendanceMarked}
-                onClick={handleValidateAttendance}
-              >
-                <Check className="w-4 h-4 mr-2" />
-                Confirmar
-              </Button>
-            </div>
+          {!isCompleted && !isCanceled && (
+            <Button className="w-full">
+              <Check className="w-4 h-4 mr-2" />
+              Validate attendance
+            </Button>
           )}
         </div>
       </SheetContent>
-
-      <DeleteClassDialog
+      <ClassScopeDialog
         open={deleteDialogOpen}
+        mode="delete"
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={(scope) => {
           setDeleteDialogOpen(false);

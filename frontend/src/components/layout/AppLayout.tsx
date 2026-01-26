@@ -5,6 +5,9 @@ import {
   Users, 
   LayoutDashboard, 
   Settings, 
+  Menu,
+  MessageSquare,
+  X,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -21,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { mockConversations } from '@/data/mockMessages';
+import { mockUser } from '@/data/mockData';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -29,11 +32,10 @@ interface AppLayoutProps {
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Calendar, label: 'Calendario', path: '/calendar' },
-  { icon: Dumbbell, label: 'Training', path: '/training' },
-  { icon: Users, label: 'Alumnos', path: '/students' },
-  { icon: MessageSquare, label: 'Mensajes', path: '/messages' },
-  { icon: Settings, label: 'Ajustes', path: '/settings' },
+  { icon: Calendar, label: 'Calendar', path: '/calendar' },
+  { icon: Users, label: 'Players', path: '/players' },
+  { icon: MessageSquare , label: 'Messages', path: '/messages' },
+  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -138,21 +140,21 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="" />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    JM
+                    {mockUser.abbreviation}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline text-sm font-medium">Juan Martín</span>
+                <span className="hidden sm:inline text-sm font-medium">{mockUser.name}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem>
                 <Settings className="w-4 h-4 mr-2" />
-                Configuración
+                Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive">
                 <LogOut className="w-4 h-4 mr-2" />
-                Cerrar sesión
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

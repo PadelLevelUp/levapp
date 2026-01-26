@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, MoreVertical, Phone, Video } from 'lucide-react';
+import { Send, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,17 +11,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { Conversation } from '@/data/mockMessages';
+import type { Conversation } from '@/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { es } from 'date-fns/locale';
-
-const COACH_ID = 'coach-1';
+import { enGB } from 'date-fns/locale';
 
 interface ChatThreadProps {
   conversation?: Conversation;
+  user_id?: number;
 }
 
-export function ChatThread({ conversation }: ChatThreadProps) {
+export function ChatThread({ conversation, user_id }: ChatThreadProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -47,9 +46,9 @@ export function ChatThread({ conversation }: ChatThreadProps) {
 
   const formatDateHeader = (timestamp: string) => {
     const date = parseISO(timestamp);
-    if (isToday(date)) return 'Hoy';
-    if (isYesterday(date)) return 'Ayer';
-    return format(date, "d 'de' MMMM", { locale: es });
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, "d 'of' MMMM", { locale: enGB });
   };
 
   const getMessageGroups = () => {
@@ -89,8 +88,8 @@ export function ChatThread({ conversation }: ChatThreadProps) {
     return (
       <div className="flex-1 flex items-center justify-center bg-muted/30">
         <div className="text-center text-muted-foreground">
-          <p className="text-lg">Selecciona una conversación</p>
-          <p className="text-sm mt-1">Elige un chat para empezar a mensajear</p>
+          <p className="text-lg">Select a conversation</p>
+          <p className="text-sm mt-1">Choose a chat to start messaging</p>
         </div>
       </div>
     );
@@ -111,17 +110,11 @@ export function ChatThread({ conversation }: ChatThreadProps) {
           </Avatar>
           <div>
             <h3 className="font-medium">{conversation.participantName}</h3>
-            <p className="text-xs text-muted-foreground">Alumno</p>
+            <p className="text-xs text-muted-foreground">Player</p>
           </div>
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Phone className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Video className="w-4 h-4" />
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
@@ -129,9 +122,9 @@ export function ChatThread({ conversation }: ChatThreadProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Ver perfil</DropdownMenuItem>
-              <DropdownMenuItem>Silenciar notificaciones</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Eliminar chat</DropdownMenuItem>
+              <DropdownMenuItem>View profile</DropdownMenuItem>
+              <DropdownMenuItem>Mute notifications</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive">Delete chat</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -152,28 +145,30 @@ export function ChatThread({ conversation }: ChatThreadProps) {
               {/* Messages */}
               <div className="space-y-3">
                 {group.messages.map((message) => {
-                  const isCoach = message.senderId === COACH_ID;
+                  const isCurrentUser = message.senderId === user_id;
                   return (
                     <div
                       key={message.id}
                       className={cn(
                         "flex",
-                        isCoach ? "justify-end" : "justify-start"
+                        isCurrentUser ? "justify-end" : "justify-start"
                       )}
                     >
                       <div
                         className={cn(
                           "max-w-[70%] rounded-2xl px-4 py-2.5",
-                          isCoach
+                          isCurrentUser
                             ? "bg-primary text-primary-foreground rounded-br-md"
                             : "bg-muted rounded-bl-md"
                         )}
                       >
                         <p className="text-sm">{message.content}</p>
-                        <p className={cn(
-                          "text-xs mt-1",
-                          isCoach ? "text-primary-foreground/70" : "text-muted-foreground"
-                        )}>
+                        <p
+                          className={cn(
+                            "text-xs mt-1",
+                            isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
+                          )}
+                        >
                           {formatMessageTime(message.timestamp)}
                         </p>
                       </div>
@@ -186,11 +181,10 @@ export function ChatThread({ conversation }: ChatThreadProps) {
         </div>
       </ScrollArea>
 
-      {/* Message Input */}
       <div className="p-4 border-t border-border bg-card">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
           <Input
-            placeholder="Escribe un mensaje..."
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyPress}

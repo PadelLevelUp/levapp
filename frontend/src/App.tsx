@@ -5,12 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
-import CalendarLoadingDemo from "./pages/CalendarLoadingDemo";
-import TrainingPage from "./pages/TrainingPage";
-import StudentsPage from "./pages/StudentsPage";
+import PlayersPage from "./pages/PlayersPage";
+import SettingsPage from "./pages/SettingsPage";
 import MessagesPage from "./pages/MessagesPage";
-import MessagesLoadingDemo from "./pages/MessagesLoadingDemo";
-import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,12 +23,9 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/calendar/loading" element={<CalendarLoadingDemo />} />
-          <Route path="/training" element={<TrainingPage />} />
-          <Route path="/students" element={<StudentsPage />} />
+          <Route path="/players" element={<PlayersPage />} />
           <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/messages/loading" element={<MessagesLoadingDemo />} />
-          <Route path="/settings" element={<DashboardPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

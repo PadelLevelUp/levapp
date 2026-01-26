@@ -1,45 +1,52 @@
 import { 
-  Student, 
+  User,
+  Player, 
   CoachLevel, 
-  CoachStudent, 
-  ParentClass, 
+  CoachPlayer,
   ClassInstance, 
-  CalendarBlock, 
-  Presence 
+  CalendarBlock,
+  CalendarEvent,
+  Presence
 } from '@/types';
 import { addDays, format, subDays, startOfWeek } from 'date-fns';
 
 // Coach ID (would come from auth in real app)
 export const MOCK_COACH_ID = 'coach-1';
 
-// Students
-export const mockStudents: Student[] = [
-  { id: 'student-1', name: 'Carlos García', email: 'carlos@email.com', phone: '+34 612 345 678', userId: 'user-1' },
-  { id: 'student-2', name: 'María López', email: 'maria@email.com', phone: '+34 623 456 789', userId: 'user-2' },
-  { id: 'student-3', name: 'Pablo Rodríguez', email: 'pablo@email.com' }, // Inactive - no userId
-  { id: 'student-4', name: 'Ana Martínez', email: 'ana@email.com', phone: '+34 634 567 890', userId: 'user-4' },
-  { id: 'student-5', name: 'David Fernández', email: 'david@email.com' }, // Inactive - no userId
-  { id: 'student-6', name: 'Laura Sánchez', email: 'laura@email.com', phone: '+34 645 678 901', userId: 'user-6' },
-  { id: 'student-7', name: 'Javier Ruiz', email: 'javier@email.com' }, // Inactive - no userId
-  { id: 'student-8', name: 'Elena Torres', email: 'elena@email.com', userId: 'user-8' },
+export const mockUser: User = { 
+  id: 'user-1', 
+  name: 'Bernardo Terroso', 
+  abbreviation: 'BT',
+}
+
+// Players
+export const mockPlayers: Player[] = [
+  { id: 'player-1', name: 'Pedro Pacheco', email: 'pedropacheco@gmail.com', phone: '+351 918966340' },
+  { id: 'player-2', name: 'Tomás Pacheco', email: 'tomaspacheco@gmail.com', phone: '+34 623 456 789' },
+  { id: 'player-3', name: 'Bernardo Castro', email: 'bernardoc@gmail.com' },
+  { id: 'player-4', name: 'Dudas BF', email: 'dudasbf@gmail.com', phone: '+351 911 111 111' },
+  { id: 'player-5', name: 'Talinho Garrett', email: 'talinho@gmail.com' },
+  { id: 'player-6', name: 'António Neto', email: 'antonioneto@gmail.com', phone: '+351 912 222 222' },
+  { id: 'player-7', name: 'Diogo Malafaya', email: 'diogom@gmail.com' },
+  { id: 'player-8', name: 'João Magalhães', email: 'joaom@gmail.com' },
 ];
 
 // Levels
 export const mockLevels: CoachLevel[] = [
-  { id: 'level-1', coachId: MOCK_COACH_ID, code: 'L1', label: 'Iniciación', displayOrder: 1 },
-  { id: 'level-2', coachId: MOCK_COACH_ID, code: 'L2', label: 'Intermedio', displayOrder: 2 },
-  { id: 'level-3', coachId: MOCK_COACH_ID, code: 'L3', label: 'Avanzado', displayOrder: 3 },
-  { id: 'level-4', coachId: MOCK_COACH_ID, code: 'L3+', label: 'Competición', displayOrder: 4 },
+  { id: 'level-1', coachId: MOCK_COACH_ID, code: 'L1', label: 'Principiante', displayOrder: 1 },
+  { id: 'level-2', coachId: MOCK_COACH_ID, code: 'L2', label: 'Intermédio', displayOrder: 2 },
+  { id: 'level-3', coachId: MOCK_COACH_ID, code: 'L3', label: 'Avançado', displayOrder: 3 },
+  { id: 'level-4', coachId: MOCK_COACH_ID, code: 'L3+', label: 'Competição', displayOrder: 4 },
 ];
 
-// Coach-Student associations
-export const mockCoachStudents: CoachStudent[] = mockStudents.map((student, index) => ({
-  id: `coach-student-${index + 1}`,
+// Coach-Player associations
+export const mockCoachPlayers: CoachPlayer[] = mockPlayers.map((player, index) => ({
+  id: `coach-player-${index + 1}`,
   coachId: MOCK_COACH_ID,
-  studentId: student.id,
+  playerId: player.id,
   levelId: mockLevels[index % mockLevels.length].id,
   side: index % 2 === 0 ? 'left' : 'right',
-  student,
+  player,
   level: mockLevels[index % mockLevels.length],
 }));
 
@@ -48,7 +55,7 @@ const today = new Date();
 const weekStart = startOfWeek(today, { weekStartsOn: 1 });
 
 // Parent Classes
-export const mockParentClasses: ParentClass[] = [
+export const mockParentClasses: Lesson[] = [
   {
     id: 'parent-1',
     coachId: MOCK_COACH_ID,
@@ -60,10 +67,10 @@ export const mockParentClasses: ParentClass[] = [
     defaultEndTime: '10:30',
     defaultLevelId: 'level-1',
     maxPlayers: 4,
-    name: 'Academia Iniciación',
+    name: 'Academia Principiantes',
     color: '#0ea5e9',
     status: 'active',
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
+    participants: [mockPlayers[0], mockPlayers[1], mockPlayers[2], mockPlayers[3]],
   },
   {
     id: 'parent-2',
@@ -76,10 +83,10 @@ export const mockParentClasses: ParentClass[] = [
     defaultEndTime: '18:30',
     defaultLevelId: 'level-3',
     maxPlayers: 4,
-    name: 'Academia Avanzado',
+    name: 'Academia Avançados',
     color: '#8b5cf6',
     status: 'active',
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
+    participants: [mockPlayers[4], mockPlayers[5], mockPlayers[6], mockPlayers[7]],
   },
   {
     id: 'parent-3',
@@ -91,10 +98,10 @@ export const mockParentClasses: ParentClass[] = [
     defaultStartTime: '11:00',
     defaultEndTime: '12:00',
     maxPlayers: 2,
-    name: 'Clase privada Carlos & María',
+    name: 'Aula privada Pedro & Tomás',
     color: '#ec4899',
     status: 'active',
-    participants: [mockStudents[0], mockStudents[1]],
+    participants: [mockPlayers[0], mockPlayers[1]],
   },
 ];
 
@@ -109,11 +116,11 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '09:00',
     endTime: '10:30',
     status: 'completed',
-    name: 'Academia Iniciación',
+    name: 'Academia Principiantes',
     color: '#0ea5e9',
     levelId: 'level-1',
     maxPlayers: 4,
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
+    participants: [mockPlayers[0], mockPlayers[1], mockPlayers[2], mockPlayers[3]],
     parentClass: mockParentClasses[0],
   },
   // Tuesday - Academia Avanzado
@@ -125,11 +132,11 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '17:00',
     endTime: '18:30',
     status: 'scheduled',
-    name: 'Academia Avanzado',
+    name: 'Academia Avançados',
     color: '#8b5cf6',
     levelId: 'level-3',
     maxPlayers: 4,
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
+    participants: [mockPlayers[4], mockPlayers[5], mockPlayers[6], mockPlayers[7]],
     parentClass: mockParentClasses[1],
   },
   // Wednesday - Academia Iniciación
@@ -141,11 +148,11 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '09:00',
     endTime: '10:30',
     status: 'scheduled',
-    name: 'Academia Iniciación',
+    name: 'Academia Principiantes',
     color: '#0ea5e9',
     levelId: 'level-1',
     maxPlayers: 4,
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
+    participants: [mockPlayers[0], mockPlayers[1], mockPlayers[2], mockPlayers[3]],
     parentClass: mockParentClasses[0],
   },
   // Thursday - Academia Avanzado
@@ -157,11 +164,11 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '17:00',
     endTime: '18:30',
     status: 'scheduled',
-    name: 'Academia Avanzado',
+    name: 'Academia Avançados',
     color: '#8b5cf6',
     levelId: 'level-3',
     maxPlayers: 4,
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
+    participants: [mockPlayers[4], mockPlayers[5], mockPlayers[6], mockPlayers[7]],
     parentClass: mockParentClasses[1],
   },
   // Friday - Private class
@@ -173,10 +180,10 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '11:00',
     endTime: '12:00',
     status: 'scheduled',
-    name: 'Clase privada Carlos & María',
+    name: 'Aula privada Pedro & Tomás',
     color: '#ec4899',
     maxPlayers: 2,
-    participants: [mockStudents[0], mockStudents[1]],
+    participants: [mockPlayers[0], mockPlayers[1]],
     parentClass: mockParentClasses[2],
   },
   // Friday - One-off private
@@ -187,10 +194,10 @@ export const mockClassInstances: ClassInstance[] = [
     startTime: '16:00',
     endTime: '17:00',
     status: 'scheduled',
-    name: 'Privada Pablo',
+    name: 'Privada Bernardo',
     color: '#f97316',
     maxPlayers: 1,
-    participants: [mockStudents[2]],
+    participants: [mockPlayers[2]],
   },
   // Saturday morning
   {
@@ -204,16 +211,16 @@ export const mockClassInstances: ClassInstance[] = [
     color: '#22c55e',
     levelId: 'level-2',
     maxPlayers: 4,
-    participants: [mockStudents[2], mockStudents[3], mockStudents[6]],
+    participants: [mockPlayers[2], mockPlayers[3], mockPlayers[6]],
   },
 ];
 
 // Presences for completed class
 export const mockPresences: Presence[] = [
-  { id: 'presence-1', classInstanceId: 'instance-1', studentId: 'student-1', status: 'present', invited: true, validated: true, student: mockStudents[0] },
-  { id: 'presence-2', classInstanceId: 'instance-1', studentId: 'student-2', status: 'present', invited: true, validated: true, student: mockStudents[1] },
-  { id: 'presence-3', classInstanceId: 'instance-1', studentId: 'student-3', status: 'absent', justification: 'justified', invited: true, validated: true, student: mockStudents[2] },
-  { id: 'presence-4', classInstanceId: 'instance-1', studentId: 'student-4', status: 'present', invited: true, validated: true, student: mockStudents[3] },
+  { id: 'presence-1', classInstanceId: 'instance-1', playerId: 'player-1', status: 'present', invited: true, validated: true, player: mockPlayers[0] },
+  { id: 'presence-2', classInstanceId: 'instance-1', playerId: 'player-2', status: 'present', invited: true, validated: true, player: mockPlayers[1] },
+  { id: 'presence-3', classInstanceId: 'instance-1', playerId: 'player-3', status: 'absent', justification: 'justified', invited: true, validated: true, player: mockPlayers[2] },
+  { id: 'presence-4', classInstanceId: 'instance-1', playerId: 'player-4', status: 'present', invited: true, validated: false, player: mockPlayers[3] },
 ];
 
 // Calendar blocks
@@ -226,7 +233,7 @@ export const mockCalendarBlocks: CalendarBlock[] = [
     startTime: '13:00',
     endTime: '14:00',
     isRecurring: false,
-    title: 'Almuerzo',
+    title: 'Almoço',
   },
   {
     id: 'block-2',
@@ -236,14 +243,47 @@ export const mockCalendarBlocks: CalendarBlock[] = [
     startTime: '08:00',
     endTime: '10:00',
     isRecurring: false,
-    title: 'Cita médico',
+    title: 'Consulta médico',
   },
 ];
 
 // Dashboard stats
 export const mockDashboardStats = {
-  totalStudents: mockStudents.length,
+  totalPlayers: mockPlayers.length,
   upcomingClasses: mockClassInstances.filter(c => c.status === 'scheduled').length,
   pendingValidations: 2,
   monthlyRevenue: 2450,
 };
+
+const classInstanceEvents: CalendarEvent[] = mockClassInstances.map(
+  (instance) => ({
+    model: 'lesson_instance',
+    originalId: instance.id,
+    id: `lesson-${instance.id}`,
+    type: "class",
+    title: instance.name,
+    date: instance.date,
+    startTime: instance.startTime,
+    endTime: instance.endTime,
+    color: instance.color,
+    status: instance.status,
+    data: instance,
+  })
+);
+
+const calendarBlockEvents: CalendarEvent[] = mockCalendarBlocks.map(
+  (block) => ({
+    id: `block-${block.id}`,
+    type: "block",
+    title: block.title ?? block.type,
+    date: block.date,
+    startTime: block.startTime ?? null,
+    endTime: block.endTime ?? null,
+    data: block, // 🔥 REQUIRED
+  })
+);
+
+export const mockCalendarEvents: CalendarEvent[] = [
+  ...classInstanceEvents,
+  ...calendarBlockEvents,
+];

@@ -7,21 +7,25 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right';
 
-export interface Coach {
+export interface User {
   id: string;
   name: string;
   email: string;
   phone?: string;
   avatarUrl?: string;
+  abbreviation: string;
 }
 
-export interface Student {
+export interface Coach {
   id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  avatarUrl?: string;
-  userId?: string; // null/undefined means inactive (hasn't created account)
+  userId: string;
+  user?: User;
+}
+
+export interface Player {
+  id: string;
+  userId: string;
+  user?: User;
 }
 
 export interface CoachLevel {
@@ -32,39 +36,24 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
-export interface CoachStudent {
+export interface CoachPlayer {
   id: string;
   coachId: string;
-  studentId: string;
+  playerId: string;
+  name: string,
+  email: string,
+  username: string,
   levelId?: string;
-  side?: PlayerSide;
+  side?: 'left' | 'right';
   notes?: string;
-  student?: Student;
   level?: CoachLevel;
+  phone?: string,
 }
 
 export interface RecurrenceRule {
   frequency: 'weekly' | 'biweekly' | 'monthly';
   daysOfWeek: number[]; // 0 = Sunday, 1 = Monday, etc.
   interval?: number;
-}
-
-export interface ParentClass {
-  id: string;
-  coachId: string;
-  type: ClassType;
-  isRecurring: boolean;
-  recurrenceRule?: RecurrenceRule;
-  startDate: string;
-  endDate?: string;
-  defaultStartTime: string;
-  defaultEndTime: string;
-  defaultLevelId?: string;
-  maxPlayers: number;
-  name?: string;
-  color?: string;
-  status: 'active' | 'ended';
-  participants?: Student[];
 }
 
 export interface ClassInstance {
@@ -75,43 +64,52 @@ export interface ClassInstance {
   startTime: string;
   endTime: string;
   status: ClassInstanceStatus;
+  classType?: string;
   name?: string;
   color?: string;
   levelId?: string;
   maxPlayers: number;
   notes?: string;
   overriddenFields?: string[];
-  parentClass?: ParentClass;
-  participants?: Student[];
+  participants?: Player[];
   presences?: Presence[];
 }
 
 export interface Presence {
   id: string;
-  classInstanceId: string;
-  studentId: string;
-  status?: PresenceStatus;
-  justification?: AbsenceJustification;
+  lessonInstanceId: string;
+  playerId: string;
+
+  status?: 'present' | 'absent';
+  justification?: 'justified' | 'unjustified';
+
   invited: boolean;
+  confirmed: boolean;
   validated: boolean;
-  student?: Student;
+
+  player?: Player;
 }
 
 export interface CalendarBlock {
   id: string;
   coachId: string;
-  type: CalendarBlockType;
+  type: 'break' | 'holiday' | 'off_work' | 'personal';
+
   date?: string;
   startTime?: string;
   endTime?: string;
+
   isRecurring: boolean;
   recurrenceRule?: RecurrenceRule;
+
   title?: string;
   description?: string;
 }
 
 // Calendar view types
 export interface CalendarEvent {
+  model: string,
+  originalId: number,
   id: string;
   type: 'class' | 'block';
   title: string;
@@ -124,7 +122,6 @@ export interface CalendarEvent {
   status?: ClassInstanceStatus;
   participantCount?: number;
   maxPlayers?: number;
-  data: ClassInstance | CalendarBlock;
 }
 
 export interface TimeSlot {
@@ -135,8 +132,27 @@ export interface TimeSlot {
 
 // Dashboard types
 export interface DashboardStats {
-  totalStudents: number;
+  totalPlayers: number;
   upcomingClasses: number;
   pendingValidations: number;
   monthlyRevenue: number;
+}
+
+export interface Message {
+  id: string;
+  senderId: number;
+  content: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participantId: string;
+  participantName: string;
+  participantAvatar?: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+  messages: Message[];
 }

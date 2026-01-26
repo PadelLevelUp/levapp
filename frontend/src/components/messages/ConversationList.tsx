@@ -3,18 +3,17 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Conversation } from '@/data/mockMessages';
+import type { Conversation } from '@/types';
 import { useState } from 'react';
-import { NewConversationDialog } from './NewConversationDialog';
 
 interface ConversationListProps {
   conversations: Conversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onNewConversation: (studentId: string, studentName: string) => void;
+  loading?: boolean;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredConversations = conversations.filter(conv =>
@@ -30,25 +29,17 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
       .slice(0, 2);
   };
 
-  const existingParticipantIds = conversations.map(c => c.participantId);
-
   return (
-    <div className="w-80 border-r border-border bg-card flex flex-col">
+    <div className="w-full md:w-80 border-border">
       {/* Search Header */}
-      <div className="p-4 border-b border-border space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar conversación..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <NewConversationDialog
-            existingParticipantIds={existingParticipantIds}
-            onSelectStudent={onNewConversation}
+      <div className="p-4 border-b border-border">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search conversation..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
           />
         </div>
       </div>
@@ -58,7 +49,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
         <div className="p-2">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              No se encontraron conversaciones
+              No conversations found
             </div>
           ) : (
             filteredConversations.map((conversation) => (
@@ -81,10 +72,12 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={cn(
-                      "font-medium text-sm truncate",
-                      conversation.unreadCount > 0 && "text-foreground"
-                    )}>
+                    <span
+                      className={cn(
+                        "font-medium text-sm truncate",
+                        conversation.unreadCount > 0 && "text-foreground"
+                      )}
+                    >
                       {conversation.participantName}
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
@@ -92,12 +85,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className={cn(
-                      "text-sm truncate",
-                      conversation.unreadCount > 0
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground"
-                    )}>
+                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                       {conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (

@@ -152,7 +152,7 @@ export type Database = {
         }
         Relationships: []
       }
-      coach_students: {
+      coach_players: {
         Row: {
           coach_id: string
           created_at: string
@@ -160,7 +160,7 @@ export type Database = {
           level_id: string | null
           notes: string | null
           side: Database["public"]["Enums"]["player_side"] | null
-          student_id: string
+          player_id: string
         }
         Insert: {
           coach_id: string
@@ -169,7 +169,7 @@ export type Database = {
           level_id?: string | null
           notes?: string | null
           side?: Database["public"]["Enums"]["player_side"] | null
-          student_id: string
+          player_id: string
         }
         Update: {
           coach_id?: string
@@ -178,21 +178,21 @@ export type Database = {
           level_id?: string | null
           notes?: string | null
           side?: Database["public"]["Enums"]["player_side"] | null
-          student_id?: string
+          player_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "coach_students_level_id_fkey"
+            foreignKeyName: "coach_players_level_id_fkey"
             columns: ["level_id"]
             isOneToOne: false
             referencedRelation: "coach_levels"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "coach_students_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "coach_players_player_id_fkey"
+            columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "students"
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -202,19 +202,19 @@ export type Database = {
           created_at: string
           id: string
           parent_class_id: string
-          student_id: string
+          player_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           parent_class_id: string
-          student_id: string
+          player_id: string
         }
         Update: {
           created_at?: string
           id?: string
           parent_class_id?: string
-          student_id?: string
+          player_id?: string
         }
         Relationships: [
           {
@@ -225,10 +225,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "parent_class_participants_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "parent_class_participants_player_id_fkey"
+            columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "students"
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -308,7 +308,7 @@ export type Database = {
             | Database["public"]["Enums"]["absence_justification"]
             | null
           status: Database["public"]["Enums"]["presence_status"] | null
-          student_id: string
+          player_id: string
           updated_at: string
           validated: boolean
         }
@@ -321,7 +321,7 @@ export type Database = {
             | Database["public"]["Enums"]["absence_justification"]
             | null
           status?: Database["public"]["Enums"]["presence_status"] | null
-          student_id: string
+          player_id: string
           updated_at?: string
           validated?: boolean
         }
@@ -334,7 +334,7 @@ export type Database = {
             | Database["public"]["Enums"]["absence_justification"]
             | null
           status?: Database["public"]["Enums"]["presence_status"] | null
-          student_id?: string
+          player_id?: string
           updated_at?: string
           validated?: boolean
         }
@@ -347,10 +347,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "presences_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "presences_player_id_fkey"
+            columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "students"
+            referencedRelation: "players"
             referencedColumns: ["id"]
           },
         ]
@@ -385,7 +385,7 @@ export type Database = {
         }
         Relationships: []
       }
-      students: {
+      players: {
         Row: {
           created_at: string
           email: string | null
@@ -451,7 +451,7 @@ export type Database = {
     }
     Enums: {
       absence_justification: "justified" | "unjustified"
-      app_role: "coach" | "student"
+      app_role: "coach" | "player"
       calendar_block_type: "break" | "holiday" | "off_work" | "personal"
       class_instance_status: "scheduled" | "canceled" | "completed"
       class_type: "academy" | "private"
@@ -585,7 +585,7 @@ export const Constants = {
   public: {
     Enums: {
       absence_justification: ["justified", "unjustified"],
-      app_role: ["coach", "student"],
+      app_role: ["coach", "player"],
       calendar_block_type: ["break", "holiday", "off_work", "personal"],
       class_instance_status: ["scheduled", "canceled", "completed"],
       class_type: ["academy", "private"],
