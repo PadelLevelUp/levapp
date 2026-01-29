@@ -21,6 +21,7 @@ export interface Student {
   email?: string;
   phone?: string;
   avatarUrl?: string;
+  userId?: string; // null/undefined means inactive (hasn't created account)
 }
 
 export interface CoachLevel {

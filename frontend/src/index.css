@@ -1,4 +1,15 @@
 @tailwind base;
+
+/* Custom warning color for invitation prompts */
+:root {
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+}
+
+.dark {
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+}
 @tailwind components;
 @tailwind utilities;
 
