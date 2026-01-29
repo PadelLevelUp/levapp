@@ -8,7 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  Dumbbell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ interface AppLayoutProps {
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Calendar, label: 'Calendario', path: '/calendar' },
+  { icon: Dumbbell, label: 'Training', path: '/training' },
   { icon: Users, label: 'Alumnos', path: '/students' },
   { icon: MessageSquare, label: 'Mensajes', path: '/messages' },
   { icon: Settings, label: 'Ajustes', path: '/settings' },
