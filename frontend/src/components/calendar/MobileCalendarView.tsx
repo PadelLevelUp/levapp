@@ -62,11 +62,11 @@ export function MobileCalendarView({ weekDays, events, onEventClick }: MobileCal
 
                 {/* Stacked Event Titles */}
                 <ScrollArea className="flex-1">
-                  <div className="flex flex-col gap-0.5">
-                    {dayEvents.slice(0, 5).map((event) => (
+                  <div className="flex flex-col gap-1 px-0.5">
+                    {dayEvents.slice(0, 4).map((event) => (
                       <div
                         key={event.id}
-                        className="px-1 py-0.5 rounded text-[9px] truncate"
+                        className="px-1.5 py-1.5 rounded text-[9px] leading-tight line-clamp-3 min-h-[32px]"
                         style={{ 
                           backgroundColor: event.color || (event.type === 'block' ? 'hsl(var(--muted))' : 'hsl(var(--primary))'),
                           color: event.type === 'block' ? 'hsl(var(--muted-foreground))' : 'white'
@@ -75,9 +75,9 @@ export function MobileCalendarView({ weekDays, events, onEventClick }: MobileCal
                         {event.title}
                       </div>
                     ))}
-                    {dayEvents.length > 5 && (
+                    {dayEvents.length > 4 && (
                       <p className="text-[9px] text-muted-foreground text-center">
-                        +{dayEvents.length - 5}
+                        +{dayEvents.length - 4}
                       </p>
                     )}
                   </div>
