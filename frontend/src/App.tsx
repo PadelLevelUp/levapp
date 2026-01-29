@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
 import CalendarLoadingDemo from "./pages/CalendarLoadingDemo";
+import TrainingPage from "./pages/TrainingPage";
 import StudentsPage from "./pages/StudentsPage";
 import MessagesPage from "./pages/MessagesPage";
 import MessagesLoadingDemo from "./pages/MessagesLoadingDemo";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/calendar/loading" element={<CalendarLoadingDemo />} />
+          <Route path="/training" element={<TrainingPage />} />
           <Route path="/students" element={<StudentsPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/messages/loading" element={<MessagesLoadingDemo />} />

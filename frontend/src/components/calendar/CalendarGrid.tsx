@@ -13,7 +13,7 @@ interface CalendarGridProps {
   onSlotClick?: (date: Date, time: string) => void;
 }
 
-const HOUR_HEIGHT = 60; // pixels per hour
+const HOUR_HEIGHT = 80; // pixels per hour - increased for better event visibility
 const SLOT_MINUTES = 30;
 
 export function CalendarGrid({ 

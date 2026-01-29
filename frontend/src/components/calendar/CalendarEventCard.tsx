@@ -47,13 +47,13 @@ export function CalendarEventCard({ event, style, onClick }: CalendarEventCardPr
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
           <p className={cn(
-            "text-xs font-medium truncate",
+            "text-xs font-medium line-clamp-2",
             isBlock && "text-muted-foreground"
           )}>
             {event.title}
           </p>
           <p className={cn(
-            "text-[10px] opacity-80",
+            "text-[10px] opacity-80 mt-0.5",
             isBlock && "text-muted-foreground"
           )}>
             {event.startTime} - {event.endTime}
