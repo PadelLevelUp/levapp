@@ -14,14 +14,14 @@ export const MOCK_COACH_ID = 'coach-1';
 
 // Students
 export const mockStudents: Student[] = [
-  { id: 'student-1', name: 'Carlos García', email: 'carlos@email.com', phone: '+34 612 345 678' },
-  { id: 'student-2', name: 'María López', email: 'maria@email.com', phone: '+34 623 456 789' },
-  { id: 'student-3', name: 'Pablo Rodríguez', email: 'pablo@email.com' },
-  { id: 'student-4', name: 'Ana Martínez', email: 'ana@email.com', phone: '+34 634 567 890' },
-  { id: 'student-5', name: 'David Fernández', email: 'david@email.com' },
-  { id: 'student-6', name: 'Laura Sánchez', email: 'laura@email.com', phone: '+34 645 678 901' },
-  { id: 'student-7', name: 'Javier Ruiz', email: 'javier@email.com' },
-  { id: 'student-8', name: 'Elena Torres', email: 'elena@email.com' },
+  { id: 'student-1', name: 'Carlos García', email: 'carlos@email.com', phone: '+34 612 345 678', userId: 'user-1' },
+  { id: 'student-2', name: 'María López', email: 'maria@email.com', phone: '+34 623 456 789', userId: 'user-2' },
+  { id: 'student-3', name: 'Pablo Rodríguez', email: 'pablo@email.com' }, // Inactive - no userId
+  { id: 'student-4', name: 'Ana Martínez', email: 'ana@email.com', phone: '+34 634 567 890', userId: 'user-4' },
+  { id: 'student-5', name: 'David Fernández', email: 'david@email.com' }, // Inactive - no userId
+  { id: 'student-6', name: 'Laura Sánchez', email: 'laura@email.com', phone: '+34 645 678 901', userId: 'user-6' },
+  { id: 'student-7', name: 'Javier Ruiz', email: 'javier@email.com' }, // Inactive - no userId
+  { id: 'student-8', name: 'Elena Torres', email: 'elena@email.com', userId: 'user-8' },
 ];
 
 // Levels
