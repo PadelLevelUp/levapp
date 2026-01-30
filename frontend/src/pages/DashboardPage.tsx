@@ -50,8 +50,8 @@ export default function DashboardPage() {
           conversationsData,
         ] = await Promise.all([
           getDashboardStats(),
-          getCalendarEvents(from, to, USER_ID),
-          getConversations(USER_ID),
+          getCalendarEvents(from, to),
+          getConversations(),
         ]);
 
         setStats(statsData);

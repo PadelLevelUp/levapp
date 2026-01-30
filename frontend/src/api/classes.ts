@@ -1,4 +1,5 @@
 import type { CalendarEvent, ClassInstance } from "@/types";
+import { api } from "@/api/client";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -6,23 +7,22 @@ const API_URL = import.meta.env.VITE_API_URL;
 export async function getClassInstances(
   from: string,
   to: string,
-  user_id: number
 ): Promise<ClassInstance[]> {
 
-  const res = await fetch(
-    `${API_URL}/api/app/lesson_instances?from=${from}&to=${to}&user_id=${user_id}`
+  const res = await api.post(
+    `${API_URL}/api/app/lesson_instances?from=${from}&to=${to}`
   );
-  return res.json();
+  return res.data;
 }
 
 export async function getClassInstance(
   event: CalendarEvent
 ): Promise<ClassInstance> {
-  const res = await fetch(
+  const res = await api.post(
     `${API_URL}/api/app/class_instance?model=${event.model}&id=${event.originalId}`
   );
 
-  const instanceData = await res.json();
+  const instanceData = await res.data;
 
   return {
     id: event.id,
@@ -37,18 +37,33 @@ export async function getClassInstance(
   };
 }
 
+
 export async function addClass(data: any) {
-  const res = await fetch(`${API_URL}/api/app/add_class`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
+  const res = await api.post(`${API_URL}/api/app/add_class`, JSON.stringify(data));
+  return res.data;
+}
 
-  if (!res.ok) {
-    throw new Error('Failed to create class');
-  }
+export async function removeClass(
+  event: CalendarEvent,
+  scope: 'single' | 'future'
+) {
+  const res = await api.post(`${API_URL}/api/app/remove_class`,JSON.stringify({
+    event,
+    scope,
+  }));
+  return res.data;
+}
 
-  return res.json();
+export async function editClass(
+  event: CalendarEvent,
+  updates: any,
+  scope: 'single' | 'future'
+) {
+  const res = await api.post(`${API_URL}/api/app/edit_class`, JSON.stringify({
+    event,
+    scope,
+    updates,
+  }));
+
+  return res.data;
 }

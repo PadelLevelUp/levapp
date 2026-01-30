@@ -1,42 +1,29 @@
 import type { CalendarEvent } from "@/types";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { api } from "@/api/client";
 
 export async function getCalendarEvents(
   from: string,
-  to: string,
-  user_id: number
+  to: string
 ): Promise<CalendarEvent[]> {
-  const res = await fetch(
-    `${API_URL}/api/app/calendar?from=${from}&to=${to}&user_id=${user_id}`,
-    {
-      credentials: "include",
-    }
-  );
+  const res = await api.get("/api/app/calendar", {
+    params: {
+      from,
+      to,
+    },
+  });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text);
-  }
-
-  return res.json();
+  return res.data;
 }
-
 
 export async function getCalendarEvent(
   event: CalendarEvent
-): Promise<CalendarEvent[]> {
-  const res = await fetch(
-    `${API_URL}/api/app/calendar_event?model=${event.model}&original_d=${event.originalId}`,
-    {
-      credentials: "include",
-    }
-  );
+): Promise<CalendarEvent> {
+  const res = await api.get("/api/app/calendar_event", {
+    params: {
+      model: event.model,
+      original_id: event.originalId,
+    },
+  });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text);
-  }
-
-  return res.json();
+  return res.data;
 }

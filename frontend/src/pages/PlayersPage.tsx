@@ -12,6 +12,8 @@ import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
+import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
+import { addPlayer, editPlayer } from "@/api/players";
 
 function safeId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -23,6 +25,7 @@ const COACH_ID = "1"; // TODO: replace with auth context
 export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -41,13 +44,18 @@ export default function PlayersPage() {
 
   useEffect(() => {
     async function load() {
-      const [playersData, levelsData] = await Promise.all([
-        getCoachPlayers(COACH_ID),
-        getCoachLevels(COACH_ID),
-      ]);
+      setLoading(true);
+      try {
+        const [playersData, levelsData] = await Promise.all([
+          getCoachPlayers(),
+          getCoachLevels(),
+        ]);
 
-      setCoachPlayers(playersData);
-      setLevels(levelsData);
+        setCoachPlayers(playersData);
+        setLevels(levelsData);
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();
@@ -64,54 +72,97 @@ export default function PlayersPage() {
 
   const coachId = COACH_ID;
 
-  const handleAddPlayer = (data: AddPlayerInput) => {
-    const player: Player = {
-      id: safeId(),
-      userId: safeId(),
-    };
+  const handleAddPlayer = async (data: AddPlayerInput) => {
+    const tempId = safeId();
 
-    const level = data.levelId ? levels.find((l) => l.id === data.levelId) : undefined;
+    const level = data.levelId
+      ? levels.find((l) => l.id === data.levelId)
+      : undefined;
 
-    const newCoachPlayer: CoachPlayer = {
-      id: safeId(),
+    const optimisticPlayer: CoachPlayer = {
+      id: tempId,
       coachId,
       name: data.name,
       email: data.email,
       username: data.username,
-      playerId: player.id,
+      isActive: data.isActive,
+      playerId: tempId,
       levelId: data.levelId,
       side: data.side,
       notes: data.notes,
       level,
     };
 
-    setCoachPlayers((prev) => [newCoachPlayer, ...prev]);
+    setCoachPlayers((prev) => [optimisticPlayer, ...prev]);
+
+    try {
+      const created = await addPlayer({
+        coachId,
+        ...data,
+      });
+      
+      setCoachPlayers((prev) =>
+        prev.map((p) => (p.id === tempId ? created : p))
+      );
+    } catch (err) {
+      setCoachPlayers((prev) => prev.filter((p) => p.id !== tempId));
+    }
   };
 
-  const handleEditSave = (data: EditPlayerInput) => {
+
+  const handleEditSave = async (data: EditPlayerInput) => {
     if (!selected) return;
-    
-    const level = data.levelId ? levels.find((l) => l.id === data.levelId) : undefined;
 
-    setCoachPlayers((prev) =>
-      prev.map((cs) => {
-        if (cs.id !== selected.id) return cs;
+    const prev = selected;
 
-        return {
-          ...cs,
-          levelId: data.levelId,
-          side: data.side,
-          notes: data.notes,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          level,
-        };
-      })
+    const level = data.levelId
+      ? levels.find((l) => l.id === data.levelId)
+      : undefined;
+
+    const updated: CoachPlayer = {
+      ...selected,
+      name: data.name,
+      username: data.username,
+      email: data.email,
+      phone: data.phone,
+      levelId: data.levelId,
+      side: data.side,
+      notes: data.notes,
+      isActive: data.isActive,
+      level,
+    };
+
+    setCoachPlayers((prevList) =>
+      prevList.map((cs) => (cs.id === selected.id ? updated : cs))
     );
 
     setSelected(null);
+
+    try {
+      await editPlayer(selected, data);
+    } catch (err) {
+      setCoachPlayers((prevList) =>
+        prevList.map((cs) => (cs.id === prev.id ? prev : cs))
+      );
+    }
   };
+
+  if (loading) {
+    return (
+    <AppLayout>
+      <div className="p-6 space-y-6">
+        <PlayersToolbar
+          search={search}
+          onSearchChange={setSearch}
+          onAddPlayer={() => setIsAddOpen(true)}
+        />
+        <div className="relative h-full">
+          <LoadingPlayersGrid />
+        </div>
+      </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -121,16 +172,16 @@ export default function PlayersPage() {
           onSearchChange={setSearch}
           onAddPlayer={() => setIsAddOpen(true)}
         />
-
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((cs) => {
             const level = cs.level;
             return (
               <Card
-                key={cs.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setSelected(cs)}
-              >
+                  key={`coach-player-${cs.id}-${cs.playerId}`}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setSelected(cs)}
+                >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-12 h-12">
@@ -175,6 +226,7 @@ export default function PlayersPage() {
           levels={levels}
           initialValues={{
             name: selected?.name ?? "",
+            username: selected?.username ?? "",
             email: selected?.email ?? "",
             phone: selected?.phone ?? "",
             levelId: selected?.levelId,

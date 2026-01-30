@@ -15,6 +15,7 @@ import {
 
 export interface AddPlayerInput {
   name: string;
+  isActive: boolean;
   username?: string,
   email?: string;
   phone?: string;
@@ -39,6 +40,7 @@ export function AddPlayerSheet({
   initialValues,
 }: AddPlayerSheetProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
+  const [username, setUsername] = useState(initialValues?.username ?? "");
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
   const [levelId, setLevelId] = useState<string>(initialValues?.levelId ?? "");
@@ -50,6 +52,7 @@ export function AddPlayerSheet({
     if (!open) return;
 
     setName(initialValues?.name ?? "");
+    setUsername(initialValues?.username ?? "");
     setEmail(initialValues?.email ?? "");
     setPhone(initialValues?.phone ?? "");
     setLevelId(initialValues?.levelId ?? "");
@@ -60,6 +63,7 @@ export function AddPlayerSheet({
   const handleClose = () => {
     // Reset to defaults so next open is clean (unless initialValues used)
     setName("");
+    setUsername("");
     setEmail("");
     setPhone("");
     setLevelId("");
@@ -73,6 +77,7 @@ export function AddPlayerSheet({
 
     onSave({
       name: name.trim(),
+      username: username.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       levelId: levelId || undefined,
@@ -98,6 +103,16 @@ export function AddPlayerSheet({
               placeholder="e.g. John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="player-username">Username</Label>
+            <Input
+              id="player-username"
+              placeholder="e.g. johndoe"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 

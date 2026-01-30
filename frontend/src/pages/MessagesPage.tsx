@@ -12,13 +12,12 @@ import {
   LoadingConversationList,
   LoadingChatThread,
 } from "@/components/ui/loading-skeleton";
+import { useAuth } from "@/auth/AuthContext"
 
-
-// REPLACE THIS WITH AUTH 
-const USER_ID = 2;
 
 export default function MessagesPage() {
   const isMobile = useIsMobile();
+  const { user, logout } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
@@ -33,7 +32,7 @@ export default function MessagesPage() {
     async function load() {
       try {
         setInitialLoading(true);
-        const data = await getConversations(USER_ID);
+        const data = await getConversations();
         setConversations(data);
       } finally {
         setInitialLoading(false);
@@ -51,10 +50,10 @@ export default function MessagesPage() {
     );
   }
 
-  const handleSelectConversation = async (conversation_id: string) => {
+  const handleSelectConversation = async (conversationId: string) => {
     setThreadLoading(true);
     try {
-      const convo = await getConversation(USER_ID, conversation_id);
+      const convo = await getConversation(conversationId);
       setSelectedConversation(convo);
       if (isMobile) setMobileView("thread");
     } finally {
@@ -129,7 +128,7 @@ export default function MessagesPage() {
             ) : (
               <ChatThread
                 conversation={selectedConversation}
-                user_id={USER_ID}
+                user_id={user.id}
               />
             )}
           </div>

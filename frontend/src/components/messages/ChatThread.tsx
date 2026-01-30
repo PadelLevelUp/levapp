@@ -13,7 +13,8 @@ import {
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { enGB } from 'date-fns/locale';
+import { enGB } from 'date-fns/locale'
+import { sendMessage } from "@/api/messages";
 
 interface ChatThreadProps {
   conversation?: Conversation;
@@ -70,11 +71,20 @@ export function ChatThread({ conversation, user_id }: ChatThreadProps) {
     return groups;
   };
 
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
-    // In a real app, this would send the message
-    console.log('Sending message:', newMessage);
-    setNewMessage('');
+  const handleSend = async () => {
+    if (!newMessage.trim() || !conversation) return;
+
+    try {
+      await sendMessage({
+        conversationId: conversation.id,
+        content: newMessage,
+      });
+
+      setNewMessage("");
+    } catch (err) {
+      console.error("Failed to send message", err);
+      // later: toast / error UI
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

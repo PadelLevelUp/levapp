@@ -1,20 +1,7 @@
 import type { CoachLevel } from "@/types";
+import { api } from "@/api/client";
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-export async function getCoachLevels(
-  coachId: string
-): Promise<CoachLevel[]> {
-  const res = await fetch(
-    `${API_URL}/api/app/coach_levels?coach_id=${coachId}`,
-    {
-      credentials: "include",
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-
-  return res.json();
+export async function getCoachLevels(): Promise<CoachLevel[]> {
+  const res = await api.get("/api/app/coach_levels");
+  return res.data;
 }

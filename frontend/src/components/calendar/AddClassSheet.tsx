@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
+import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { X, Users, Clock, Calendar, Plus, Minus, Repeat } from 'lucide-react';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { addClass } from '@/api/classes';
 
 const COACH_ID = "1";
 
@@ -101,6 +100,22 @@ export function AddClassSheet({
     );
   };
 
+  useEffect(() => {
+    if (!isRecurring || !date) return;
+
+    const weekday = getWeekdayFromDate(date);
+    if (weekday === null) return;
+
+    setSelectedDays(prev =>
+      prev.includes(weekday) ? prev : [weekday, ...prev]
+    );
+  }, [isRecurring, date]);
+
+  const getWeekdayFromDate = (dateStr: string) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).getDay(); // 0 (Sun) → 6 (Sat)
+  };
+
   const toggleDay = (day: number) => {
     setSelectedDays(prev =>
       prev.includes(day)
@@ -109,10 +124,17 @@ export function AddClassSheet({
     );
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
+    if (isRecurring && selectedDays.length === 0) return;
+
+    const computedEndDate =
+      isRecurring
+        ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
+        : null;
+
     const data = {
-      coach_id: COACH_ID,
-      type: classType,
+      coachId: COACH_ID,
+      classType,
       isRecurring,
       name,
       date,
@@ -122,22 +144,19 @@ export function AddClassSheet({
       color: selectedColor,
       levelId: selectedLevel || null,
       playerIds: selectedPlayers,
+
       recurrenceRule: isRecurring
         ? {
             frequency: 'weekly',
             daysOfWeek: selectedDays,
           }
         : null,
-      endDate: isRecurring ? endDate : null,
+
+      endDate: computedEndDate,
     };
 
-    try {
-      await addClass(data);
-      onSave?.(data);
-      handleClose();
-    } catch (err) {
-      console.error(err);
-    }
+    onSave?.(data);
+    handleClose();
   };
 
   const handleClose = () => {

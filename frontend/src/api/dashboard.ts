@@ -1,8 +1,7 @@
 import type { DashboardStats } from "@/types";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { api } from "@/api/client";
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const res = await fetch(`${API_URL}/api/app/dashboard`);
-  return res.json();
+  const res = await api.get("/api/app/dashboard");
+  return res.data;
 }

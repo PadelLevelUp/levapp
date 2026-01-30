@@ -42,6 +42,7 @@ export interface CoachPlayer {
   playerId: string;
   name: string,
   email: string,
+  isActive: boolean,
   username: string,
   levelId?: string;
   side?: 'left' | 'right';
@@ -70,6 +71,7 @@ export interface ClassInstance {
   levelId?: string;
   maxPlayers: number;
   notes?: string;
+  recurrenceEnd?: string;
   overriddenFields?: string[];
   participants?: Player[];
   presences?: Presence[];
@@ -112,6 +114,7 @@ export interface CalendarEvent {
   originalId: number,
   id: string;
   type: 'class' | 'block';
+  isRecurring: boolean;
   title: string;
   date: string;
   startTime: string;
@@ -122,6 +125,7 @@ export interface CalendarEvent {
   status?: ClassInstanceStatus;
   participantCount?: number;
   maxPlayers?: number;
+  isTemporary?: boolean;
 }
 
 export interface TimeSlot {
