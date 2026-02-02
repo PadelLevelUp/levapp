@@ -5,14 +5,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Conversation } from '@/data/mockMessages';
 import { useState } from 'react';
+import { NewConversationDialog } from './NewConversationDialog';
 
 interface ConversationListProps {
   conversations: Conversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onNewConversation: (studentId: string, studentName: string) => void;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredConversations = conversations.filter(conv =>
@@ -28,17 +30,25 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
       .slice(0, 2);
   };
 
+  const existingParticipantIds = conversations.map(c => c.participantId);
+
   return (
     <div className="w-80 border-r border-border bg-card flex flex-col">
       {/* Search Header */}
-      <div className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar conversación..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+      <div className="p-4 border-b border-border space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar conversación..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <NewConversationDialog
+            existingParticipantIds={existingParticipantIds}
+            onSelectStudent={onNewConversation}
           />
         </div>
       </div>
