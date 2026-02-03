@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Calendar, 
@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { mockConversations } from '@/data/mockMessages';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -38,6 +39,10 @@ const navItems = [
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const totalUnreadCount = useMemo(() => {
+    return mockConversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -65,19 +70,31 @@ export function AppLayout({ children }: AppLayoutProps) {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || 
               (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+            const isMessages = item.path === '/messages';
+            const showBadge = isMessages && totalUnreadCount > 0;
             
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative",
                   isActive 
                     ? "bg-sidebar-primary text-sidebar-primary-foreground" 
                     : "hover:bg-sidebar-accent text-sidebar-foreground"
                 )}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                <div className="relative shrink-0">
+                  <item.icon className="w-5 h-5" />
+                  {showBadge && (
+                    <span className={cn(
+                      "absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1",
+                      isActive && "bg-sidebar-primary-foreground text-sidebar-primary"
+                    )}>
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                  )}
+                </div>
                 {!sidebarCollapsed && <span className="text-sm font-medium">{item.label}</span>}
               </Link>
             );
@@ -151,19 +168,28 @@ export function AppLayout({ children }: AppLayoutProps) {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || 
               (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+            const isMessages = item.path === '/messages';
+            const showBadge = isMessages && totalUnreadCount > 0;
             
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px]",
+                  "flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px] relative",
                   isActive 
                     ? "text-primary" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <item.icon className="w-5 h-5" />
+                <div className="relative">
+                  <item.icon className="w-5 h-5" />
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );
