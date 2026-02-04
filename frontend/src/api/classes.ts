@@ -39,7 +39,7 @@ export async function getClassInstance(
 
 
 export async function addClass(data: any) {
-  const res = await api.post(`${API_URL}/api/app/add_class`, JSON.stringify(data));
+  const res = await api.post(`${API_URL}/api/app/add_class`, data);
   return res.data;
 }
 
@@ -47,10 +47,10 @@ export async function removeClass(
   event: CalendarEvent,
   scope: 'single' | 'future'
 ) {
-  const res = await api.post(`${API_URL}/api/app/remove_class`,JSON.stringify({
+  const res = await api.post(`${API_URL}/api/app/remove_class`,{
     event,
     scope,
-  }));
+  });
   return res.data;
 }
 
@@ -59,11 +59,11 @@ export async function editClass(
   updates: any,
   scope: 'single' | 'future'
 ) {
-  const res = await api.post(`${API_URL}/api/app/edit_class`, JSON.stringify({
+  const res = await api.post(`${API_URL}/api/app/edit_class`, {
     event,
     scope,
     updates,
-  }));
+  });
 
   return res.data;
 }

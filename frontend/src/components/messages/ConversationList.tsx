@@ -5,15 +5,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types';
 import { useState } from 'react';
+import { NewConversationDialog } from './NewConversationDialog';
 
 interface ConversationListProps {
   conversations: Conversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   loading?: boolean;
+  onNewConversation: (userId: string) => void;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect , onNewConversation}: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredConversations = conversations.filter(conv =>
@@ -29,11 +31,22 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
       .slice(0, 2);
   };
 
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const existingParticipantIds = conversations.map(c => c.participantId);
+
   return (
     <div className="w-full md:w-80 border-border">
       {/* Search Header */}
       <div className="p-4 border-b border-border">
-        <div className="relative">
+        <div className="flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search conversation..."
@@ -41,6 +54,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <NewConversationDialog
+          existingParticipantIds={existingParticipantIds}
+          onSelectUser={onNewConversation}
+        />
         </div>
       </div>
 
@@ -81,7 +99,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                       {conversation.participantName}
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
-                      {conversation.lastMessageTime}
+                      {formatTime(conversation.lastMessageAt)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">

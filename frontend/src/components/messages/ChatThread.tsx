@@ -14,22 +14,16 @@ import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { enGB } from 'date-fns/locale'
-import { sendMessage } from "@/api/messages";
 
 interface ChatThreadProps {
-  conversation?: Conversation;
-  user_id?: number;
+  conversation: Conversation;
+  user_id: number;
+  onSendMessage: (content: string) => Promise<void>;
 }
 
-export function ChatThread({ conversation, user_id }: ChatThreadProps) {
+export function ChatThread({ conversation, user_id, onSendMessage }: ChatThreadProps) {
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [conversation?.messages]);
 
   const getInitials = (name: string) => {
     return name
@@ -74,17 +68,8 @@ export function ChatThread({ conversation, user_id }: ChatThreadProps) {
   const handleSend = async () => {
     if (!newMessage.trim() || !conversation) return;
 
-    try {
-      await sendMessage({
-        conversationId: conversation.id,
-        content: newMessage,
-      });
-
-      setNewMessage("");
-    } catch (err) {
-      console.error("Failed to send message", err);
-      // later: toast / error UI
-    }
+    await onSendMessage(newMessage);
+    setNewMessage("");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -108,7 +93,7 @@ export function ChatThread({ conversation, user_id }: ChatThreadProps) {
   const messageGroups = getMessageGroups();
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background h-[100dvh]">
       {/* Chat Header */}
       <div className="h-16 border-b border-border px-4 flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">
@@ -141,8 +126,8 @@ export function ChatThread({ conversation, user_id }: ChatThreadProps) {
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-6 max-w-3xl mx-auto">
+      <ScrollArea className="flex-1 overflow-y p-4">
+        <div className="space-y-6 max-w-3xl mx-auto" ref={scrollRef}>
           {messageGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
               {/* Date Header */}
@@ -191,7 +176,7 @@ export function ChatThread({ conversation, user_id }: ChatThreadProps) {
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t border-border bg-card">
+      <div className="p-4 border-t border-border bg-card sticky bottom-0">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
           <Input
             placeholder="Type a message..."

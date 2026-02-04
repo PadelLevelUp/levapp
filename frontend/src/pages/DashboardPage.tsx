@@ -97,8 +97,8 @@ export default function DashboardPage() {
 
   const latestConversation = conversations
     .sort((a, b) => {
-      const timeA = a.lastMessageTime.split(':').reduce((acc, t) => acc * 60 + Number(t), 0);
-      const timeB = b.lastMessageTime.split(':').reduce((acc, t) => acc * 60 + Number(t), 0);
+      const timeA = a.lastMessageAt.split(':').reduce((acc, t) => acc * 60 + Number(t), 0);
+      const timeB = b.lastMessageAt.split(':').reduce((acc, t) => acc * 60 + Number(t), 0);
       
       return timeB - timeA;
     })[0];

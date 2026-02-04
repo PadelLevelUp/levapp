@@ -29,12 +29,44 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Calendar, label: "Calendar", path: "/calendar" },
-  { icon: Users, label: "Players", path: "/players" },
-  { icon: MessageSquare, label: "Messages", path: "/messages" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+type NavItem = {
+  icon: any;
+  label: string;
+  path: string;
+  roles: string[];
+};
+
+const navItems: NavItem[] = [
+  {
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    path: "/dashboard",
+    roles: ["coach", "player"],
+  },
+  {
+    icon: Calendar,
+    label: "Calendar",
+    path: "/calendar",
+    roles: ["coach", "player"],
+  },
+  {
+    icon: Users,
+    label: "Players",
+    path: "/players",
+    roles: ["coach"],
+  },
+  {
+    icon: MessageSquare,
+    label: "Messages",
+    path: "/messages",
+    roles: ["coach", "player"],
+  },
+  {
+    icon: Settings,
+    label: "Settings",
+    path: "/settings",
+    roles: ["coach"],
+  },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -47,6 +79,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   const totalUnreadCount = useMemo(() => {
     return mockConversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   }, []);
+
+  const visibleNavItems = navItems.filter(item =>
+    item.roles.some(role => user?.roles.includes(role))
+  );
+
+  const totalUnreadCount = 4;
 
   const userInitials =
     user?.name
@@ -82,24 +120,37 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Nav Items */}
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               location.pathname === item.path ||
               (item.path !== "/dashboard" &&
                 location.pathname.startsWith(item.path));
+
+            const isMessages = item.path === '/messages';
+            const showBadge = isMessages && totalUnreadCount > 0;
 
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative",
                   isActive
                     ? "bg-sidebar-primary text-sidebar-primary-foreground"
                     : "hover:bg-sidebar-accent text-sidebar-foreground"
                 )}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                <div className="relative shrink-0">
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  {showBadge && (
+                    <span className={cn(
+                      "absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1",
+                      isActive && "bg-sidebar-primary-foreground text-sidebar-primary"
+                    )}>
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                  )}
+                </div>
                 {!sidebarCollapsed && (
                   <span className="text-sm font-medium">{item.label}</span>
                 )}
@@ -134,58 +185,40 @@ export function AppLayout({ children }: AppLayoutProps) {
       )}
 
       {/* Mobile Sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground transform transition-transform duration-300 md:hidden",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-3"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">
-                LU
-              </span>
-            </div>
-            <span className="font-semibold text-lg">LevelUp</span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-sidebar-foreground"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
+        {visibleNavItems.map((item) => {
+          const isActive =
+            location.pathname === item.path ||
+            (item.path !== "/dashboard" &&
+              location.pathname.startsWith(item.path));
 
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+          const isMessages = item.path === "/messages";
+          const showBadge = isMessages && totalUnreadCount > 0;
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent text-sidebar-foreground"
-                )}
-              >
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px] relative",
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <div className="relative">
                 <item.icon className="w-5 h-5" />
-                <span className="text-sm font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
+                {showBadge && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -202,7 +235,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </Button>
 
             <h1 className="text-lg font-semibold hidden sm:block">
-              {navItems.find(
+              {visibleNavItems.find(
                 (item) =>
                   location.pathname === item.path ||
                   (item.path !== "/dashboard" &&
@@ -249,7 +282,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto pb-16 md:pb-0">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -40,6 +40,7 @@ export interface CoachPlayer {
   id: string;
   coachId: string;
   playerId: string;
+  userId: string;
   name: string,
   email: string,
   isActive: boolean,

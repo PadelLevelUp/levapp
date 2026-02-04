@@ -24,3 +24,17 @@ export async function sendMessage(payload: {
 
   return res.data;
 }
+
+export async function createConversation(payload: {
+  otherParticipants: [string];
+}): Promise<Conversation> {
+  const res = await api.post("/api/app/conversation", {
+    otherParticipants: payload.otherParticipants,
+  });
+
+  return res.data;
+}
+
+export async function markConversationRead(conversationId: string) {
+  await api.post(`/api/app/conversation/${conversationId}/read`);
+}

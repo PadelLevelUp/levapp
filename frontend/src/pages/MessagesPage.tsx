@@ -13,11 +13,13 @@ import {
   LoadingChatThread,
 } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext"
+import { sendMessage, createConversation, markConversationRead } from "@/api/messages";
+import { createEventSource } from "@/api/events";
 
 
 export default function MessagesPage() {
   const isMobile = useIsMobile();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
@@ -27,6 +29,37 @@ export default function MessagesPage() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [mobileView, setMobileView] =
     useState<"list" | "thread">("list");
+
+  const sortedConversations = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      if (!a.lastMessageAt) return 1;
+      if (!b.lastMessageAt) return -1;
+
+      return (
+        new Date(b.lastMessageAt).getTime() -
+        new Date(a.lastMessageAt).getTime()
+      );
+    });
+  }, [conversations]);
+
+  const ensureConversationExists = async (conversationId: string) => {
+    setConversations((prev) => {
+      if (prev.some((c) => c.id === conversationId)) {
+        return prev;
+      }
+      return prev;
+    });
+
+    const convo = await getConversation(conversationId);
+
+    setConversations((prev) => {
+      if (prev.some((c) => c.id === convo.id)) {
+        return prev;
+      }
+
+      return [convo, ...prev];
+    });
+  };
 
   useEffect(() => {
     async function load() {
@@ -42,6 +75,80 @@ export default function MessagesPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (!token) return;
+
+    const es = createEventSource(token);
+
+    es.onmessage = async (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type !== "message_created") return;
+
+      const message = data.payload;
+
+      await ensureConversationExists(message.conversationId);
+
+      setSelectedConversation((prev) => {
+
+        if (!prev) return prev;
+
+        if (prev.id !== message.conversationId) {
+          return prev;
+        }
+
+      return {
+        ...prev,
+        messages: [...prev.messages, message],
+      };
+      });
+
+      setConversations((prev) => {
+        const existing = prev.find(
+          (c) => c.id === message.conversationId
+        );
+
+        if (!existing) return prev;
+
+        const isOpen =
+          selectedConversation?.id === message.conversationId;
+
+        console.log(message)
+        console.log(message.timestamp)
+        console.log(new Date(message.timestamp).toLocaleTimeString(
+            [],
+            { hour: "2-digit", minute: "2-digit" }
+          ))
+
+        const updatedConversation = {
+          ...existing,
+          lastMessage: message.content,
+          lastMessageAt: message.timestamp,
+          unreadCount: isOpen
+            ? 0
+            : existing.unreadCount + 1,
+        };
+
+        return [
+          updatedConversation,
+          ...prev.filter((c) => c.id !== existing.id),
+        ];
+      });
+
+      if (selectedConversation?.id === message.conversationId) {
+        markConversationRead(message.conversationId);
+      }
+    };
+
+    es.onerror = (err) => {
+      console.warn("SSE error", err);
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [token]);
+
   if (initialLoading) {
     return (
       <AppLayout>
@@ -55,6 +162,15 @@ export default function MessagesPage() {
     try {
       const convo = await getConversation(conversationId);
       setSelectedConversation(convo);
+      markConversationRead(convo.id);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convo.id
+            ? { ...c, unreadCount: 0 }
+            : c
+        )
+      );
+
       if (isMobile) setMobileView("thread");
     } finally {
       setThreadLoading(false);
@@ -63,6 +179,30 @@ export default function MessagesPage() {
 
   const handleBack = () => {
     setMobileView("list");
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!selectedConversation) return;
+
+    const message = await sendMessage({
+      conversationId: selectedConversation.id,
+      content,
+    });
+  };
+
+  const handleNewConversation = async (userId: string) => {
+    const existing = conversations.find(c => c.participantId === userId);
+    if (existing) {
+      setSelectedConversation(existing);
+      return;
+    }
+
+    const newConversation = await createConversation({
+      otherParticipants : [userId]
+    })
+
+    setConversations(prev => [newConversation, ...prev]);
+    setSelectedConversation(newConversation);
   };
 
   return (
@@ -82,9 +222,10 @@ export default function MessagesPage() {
             <LoadingConversationList />
           ) : (
             <ConversationList
-              conversations={conversations}
+              conversations={sortedConversations}
               selectedId={selectedConversation?.id ?? null}
               onSelect={handleSelectConversation}
+              onNewConversation={handleNewConversation}
             />
           )}
         </div>
@@ -129,6 +270,7 @@ export default function MessagesPage() {
               <ChatThread
                 conversation={selectedConversation}
                 user_id={user.id}
+                onSendMessage={handleSendMessage}
               />
             )}
           </div>

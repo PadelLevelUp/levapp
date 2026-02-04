@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
+import RegisterPage from "./pages/RegisterPage";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
 import MessagesPage from "./pages/MessagesPage";
@@ -14,6 +15,7 @@ import NotFound from "./pages/NotFound";
 
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { RoleRoute } from "@/auth/RoleRoute";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/register/:userId" element={<RegisterPage />} />
 
             <Route
               path="/"
@@ -57,9 +60,9 @@ const App = () => (
             <Route
               path="/players"
               element={
-                <ProtectedRoute>
+                <RoleRoute allowedRoles={["coach"]}>
                   <PlayersPage />
-                </ProtectedRoute>
+                </RoleRoute>
               }
             />
 

@@ -35,6 +35,7 @@ import {
 export interface EditPlayerInput {
   name?: string;
   username?: string;
+  userId: string;
   email?: string;
   phone?: string;
   levelId?: string;
@@ -66,12 +67,14 @@ export function EditPlayerSheet({
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [levelId, setLevelId] = useState("");
   const [side, setSide] = useState<PlayerSide | "">("");
   const [notes, setNotes] = useState("");
 
+  console.log(initialValues)
   const isInactive = !initialValues.isActive;
 
   useEffect(() => {
@@ -81,6 +84,7 @@ export function EditPlayerSheet({
 
     setName(initialValues?.name ?? "");
     setUsername(initialValues?.username ?? "");
+    setUserId(initialValues.userId ?? "");
     setEmail(initialValues?.email ?? "");
     setPhone(initialValues?.phone ?? "");
     setLevelId(initialValues?.levelId ?? "");
@@ -99,7 +103,7 @@ export function EditPlayerSheet({
 
   const levelLabel = levels.find((l) => l.id === levelId.toString());
 
-  const inviteLink = `${window.location.origin}/invite/${username || "player"}`;
+  const inviteLink = `${window.location.origin}/register/${userId || "player"}`;
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -107,6 +111,7 @@ export function EditPlayerSheet({
     onSave({
       name: name.trim(),
       username: username.trim(),
+      userId: userId || undefined,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       levelId: levelId || undefined,

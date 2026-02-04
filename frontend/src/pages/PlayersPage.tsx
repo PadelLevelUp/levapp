@@ -82,6 +82,7 @@ export default function PlayersPage() {
     const optimisticPlayer: CoachPlayer = {
       id: tempId,
       coachId,
+      userId: 'temp',
       name: data.name,
       email: data.email,
       username: data.username,
@@ -227,11 +228,13 @@ export default function PlayersPage() {
           initialValues={{
             name: selected?.name ?? "",
             username: selected?.username ?? "",
+            userId: selected?.userId ?? "",
             email: selected?.email ?? "",
             phone: selected?.phone ?? "",
             levelId: selected?.levelId,
             side: selected?.side,
             notes: selected?.notes,
+            isActive: selected?.isActive,
           }}
         />
       </div>
