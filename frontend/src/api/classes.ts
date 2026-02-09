@@ -1,16 +1,13 @@
 import type { CalendarEvent, ClassInstance } from "@/types";
 import { api } from "@/api/client";
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-//TODO: Check if this makes sense
 export async function getClassInstances(
   from: string,
   to: string,
 ): Promise<ClassInstance[]> {
 
   const res = await api.post(
-    `${API_URL}/api/app/lesson_instances?from=${from}&to=${to}`
+    `/api/app/lesson_instances?from=${from}&to=${to}`
   );
   return res.data;
 }
@@ -19,7 +16,7 @@ export async function getClassInstance(
   event: CalendarEvent
 ): Promise<ClassInstance> {
   const res = await api.post(
-    `${API_URL}/api/app/class_instance?model=${event.model}&id=${event.originalId}`
+    `/api/app/class_instance?model=${event.model}&id=${event.originalId}`
   );
 
   const instanceData = await res.data;
@@ -39,7 +36,7 @@ export async function getClassInstance(
 
 
 export async function addClass(data: any) {
-  const res = await api.post(`${API_URL}/api/app/add_class`, data);
+  const res = await api.post(`/api/app/add_class`, data);
   return res.data;
 }
 
@@ -47,7 +44,7 @@ export async function removeClass(
   event: CalendarEvent,
   scope: 'single' | 'future'
 ) {
-  const res = await api.post(`${API_URL}/api/app/remove_class`,{
+  const res = await api.post(`/api/app/remove_class`,{
     event,
     scope,
   });
@@ -59,7 +56,7 @@ export async function editClass(
   updates: any,
   scope: 'single' | 'future'
 ) {
-  const res = await api.post(`${API_URL}/api/app/edit_class`, {
+  const res = await api.post(`/api/app/edit_class`, {
     event,
     scope,
     updates,

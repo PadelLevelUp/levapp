@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { RoleRoute } from "@/auth/RoleRoute";
+import { LayoutProvider } from "@/components/layout/LayoutContext";
 
 const queryClient = new QueryClient();
 
@@ -25,68 +26,70 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/register/:userId" element={<RegisterPage />} />
+        <LayoutProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/register/:userId" element={<RegisterPage />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/dashboard" replace />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/dashboard" replace />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/calendar"
-              element={
-                <ProtectedRoute>
-                  <CalendarPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/calendar"
+                element={
+                  <ProtectedRoute>
+                    <CalendarPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/players"
-              element={
-                <RoleRoute allowedRoles={["coach"]}>
-                  <PlayersPage />
-                </RoleRoute>
-              }
-            />
+              <Route
+                path="/players"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <PlayersPage />
+                  </RoleRoute>
+                }
+              />
 
-            <Route
-              path="/messages"
-              element={
-                <ProtectedRoute>
-                  <MessagesPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute>
+                    <MessagesPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </LayoutProvider>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>

@@ -74,7 +74,6 @@ export function EditPlayerSheet({
   const [side, setSide] = useState<PlayerSide | "">("");
   const [notes, setNotes] = useState("");
 
-  console.log(initialValues)
   const isInactive = !initialValues.isActive;
 
   useEffect(() => {

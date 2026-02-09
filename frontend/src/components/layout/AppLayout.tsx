@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/auth/AuthContext";
+import { LayoutProvider, useLayout } from "@/components/layout/LayoutContext";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -70,6 +71,16 @@ const navItems: NavItem[] = [
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
+  return (
+    <LayoutProvider>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </LayoutProvider>
+  );
+}
+
+export function AppLayoutInner({ children }: AppLayoutProps) {
+  const { providerId, unreadCount: totalUnreadCount, refreshUnreadCount, scrollMode, bottomNavHidden } = useLayout();
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -84,8 +95,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     item.roles.some(role => user?.roles.includes(role))
   );
 
-  const totalUnreadCount = 4;
-
   const userInitials =
     user?.name
       ?.split(" ")
@@ -95,8 +104,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     user?.username?.slice(0, 2).toUpperCase() ??
     "U";
 
+  try {
+    void refreshUnreadCount();
+  } catch (e) {
+    console.warn("refreshUnreadCount failed", e);
+  }
+  
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-[100dvh] overflow-hidden bg-background">
       {/* Desktop Sidebar */}
       <aside
         className={cn(
@@ -185,7 +200,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       )}
 
       {/* Mobile Sidebar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
+      <nav
+        className={cn(
+          "md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 transition-transform duration-200",
+          bottomNavHidden ? "translate-y-full" : "translate-y-0"
+        )}
+      >
         {visibleNavItems.map((item) => {
           const isActive =
             location.pathname === item.path ||
@@ -223,7 +243,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
+        <header className="hidden md:flex md:h-16 h-0 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -282,7 +302,15 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <main
+          className={cn(
+            "flex-1 min-h-0 md:pb-0",
+            scrollMode === "page" ? "overflow-auto" : "overflow-hidden",
+            bottomNavHidden
+              ? "pb-[env(safe-area-inset-bottom)]"
+              : "pb-[calc(4rem+env(safe-area-inset-bottom))]"
+          )}
+        >
           {children}
         </main>
       </div>

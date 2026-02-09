@@ -14,18 +14,18 @@ import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPla
 import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
 import { addPlayer, editPlayer } from "@/api/players";
+import { useAuth } from "@/auth/AuthContext";
 
 function safeId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return String(Date.now() + Math.floor(Math.random() * 1000));
 }
 
-const COACH_ID = "1"; // TODO: replace with auth context
-
 export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -70,8 +70,6 @@ export default function PlayersPage() {
       .toUpperCase()
       .slice(0, 2);
 
-  const coachId = COACH_ID;
-
   const handleAddPlayer = async (data: AddPlayerInput) => {
     const tempId = safeId();
 
@@ -81,7 +79,7 @@ export default function PlayersPage() {
 
     const optimisticPlayer: CoachPlayer = {
       id: tempId,
-      coachId,
+      coachId: user.coachId,
       userId: 'temp',
       name: data.name,
       email: data.email,

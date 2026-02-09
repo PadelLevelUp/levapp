@@ -5,7 +5,7 @@ export type MeResponse = {
   username: string;
   name: string;
   roles: string[];
-  coachId: number | null;
+  coachId: string | null;
 };
 
 export async function getMe(): Promise<MeResponse> {

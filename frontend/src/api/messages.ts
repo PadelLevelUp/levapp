@@ -13,6 +13,11 @@ export async function getConversation(
   return res.data;
 }
 
+export async function getUnreadMessagesCount() {
+  const res = await api.get(`/api/app/messages/unread_count`);
+  return res.data;
+}
+
 export async function sendMessage(payload: {
   conversationId: string;
   content: string;

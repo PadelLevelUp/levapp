@@ -156,8 +156,10 @@ export interface Conversation {
   participantId: string;
   participantName: string;
   participantAvatar?: string;
-  lastMessage: string;
-  lastMessageTime: string;
+
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+
   unreadCount: number;
   messages: Message[];
 }

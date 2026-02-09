@@ -3,8 +3,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatThread } from "@/components/messages/ChatThread";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { getConversations, getConversation } from "@/api/messages";
 import type { Conversation } from "@/types";
 import {
@@ -15,11 +13,14 @@ import {
 import { useAuth } from "@/auth/AuthContext"
 import { sendMessage, createConversation, markConversationRead } from "@/api/messages";
 import { createEventSource } from "@/api/events";
+import { useLayout } from "@/components/layout/LayoutContext";
 
 
 export default function MessagesPage() {
   const isMobile = useIsMobile();
   const { user, token, logout } = useAuth();
+
+  const { setScrollMode, refreshUnreadCount } = useLayout();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
@@ -108,16 +109,9 @@ export default function MessagesPage() {
         );
 
         if (!existing) return prev;
-
+        
         const isOpen =
           selectedConversation?.id === message.conversationId;
-
-        console.log(message)
-        console.log(message.timestamp)
-        console.log(new Date(message.timestamp).toLocaleTimeString(
-            [],
-            { hour: "2-digit", minute: "2-digit" }
-          ))
 
         const updatedConversation = {
           ...existing,
@@ -127,6 +121,8 @@ export default function MessagesPage() {
             ? 0
             : existing.unreadCount + 1,
         };
+
+        void refreshUnreadCount();
 
         return [
           updatedConversation,
@@ -148,6 +144,11 @@ export default function MessagesPage() {
       es.close();
     };
   }, [token]);
+
+  useEffect(() => {
+    setScrollMode("none");
+    return () => setScrollMode("page");
+  }, [setScrollMode]);
 
   if (initialLoading) {
     return (
@@ -240,21 +241,7 @@ export default function MessagesPage() {
               : "flex flex-1"
           }
         >
-          <div className="flex flex-col flex-1">
-            {isMobile && (
-              <div className="p-3 border-b border-border bg-card">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  className="gap-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back
-                </Button>
-              </div>
-            )}
-
+          <div className="flex flex-col flex-1 min-h-0">
             {threadLoading ? (
               <LoadingChatThread />
             ) : !selectedConversation ? (
@@ -271,6 +258,8 @@ export default function MessagesPage() {
                 conversation={selectedConversation}
                 user_id={user.id}
                 onSendMessage={handleSendMessage}
+                onBack={isMobile ? handleBack : undefined}
+                isMobile={isMobile}
               />
             )}
           </div>

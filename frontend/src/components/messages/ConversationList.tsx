@@ -103,7 +103,7 @@ export function ConversationList({ conversations, selectedId, onSelect , onNewCo
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden break-all [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                       {conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
