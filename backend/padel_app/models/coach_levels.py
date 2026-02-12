@@ -20,13 +20,26 @@ class CoachLevel(db.Model, model.Model):
     )
     coach = relationship("Coach", back_populates="levels")
 
-    name = Column(String(100), nullable=False)  # e.g. "A1", "Beginner", "Pro"
+    label = Column(String(100), nullable=False)  # e.g. "A1", "Beginner", "Pro"
+    code = Column(String(10), nullable=False)
+    
+    coach_player_relations = relationship(
+        "Association_CoachPlayer", 
+        back_populates="level",
+        cascade="all, delete-orphan"
+    )
+    
+    display_order = Column(Integer, default=0)
+    
+    @property
+    def name(self):
+        return self.label
 
     def __repr__(self):
-        return f"<CoachLevel {self.coach.name}: {self.name}>"
+        return f"<CoachLevel {self.coach.name}: {self.label}>"
 
     def __str__(self):
-        return f"{self.coach.name} - {self.name}"
+        return f"{self.coach.name} - {self.label}"
 
     @property
     def display_name(self):
@@ -34,10 +47,10 @@ class CoachLevel(db.Model, model.Model):
 
     @classmethod
     def display_all_info(cls):
-        searchable = {"field": "name", "label": "Level"}
+        searchable = {"field": "label", "label": "Level"}
         columns = [
             {"field": "coach", "label": "Coach"},
-            {"field": "name", "label": "Level Name"},
+            {"field": "label", "label": "Level"},
         ]
         return searchable, columns
 
@@ -58,9 +71,10 @@ class CoachLevel(db.Model, model.Model):
             "info_block",
             fields=[
                 get_field(
-                    "coach_id", "ManyToOne", label="Coach", related_model="Coach"
+                    "coach", "ManyToOne", label="Coach", related_model="Coach"
                 ),
-                get_field("name", "Text", label="Level Name"),
+                get_field("label", "Text", label="Level label"),
+                get_field("code", "Text", label="Level code"),
             ],
         )
         form.add_block(info_block)

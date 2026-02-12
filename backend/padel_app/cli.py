@@ -1,5 +1,6 @@
 import click
 from werkzeug.security import generate_password_hash
+from padel_app.sql_db import db
 
 
 def register_cli(app):
@@ -34,3 +35,55 @@ def register_cli(app):
                 apps_app.create()
 
             click.echo("Seeding done.")
+
+    @app.cli.command("db-reset")
+    @click.option(
+        "--yes",
+        is_flag=True,
+        help="Confirm database reset (required).",
+    )
+    @click.option(
+        "--table",
+        "tables",
+        multiple=True,
+        help="Table name(s) to truncate. If omitted, all tables are truncated.",
+    )
+    def db_reset(yes, tables):
+        """Truncate tables and reset identities (DEV ONLY)."""
+
+        if not yes:
+            click.echo("❌ Aborted. Use --yes to confirm.")
+            return
+
+        click.echo("⚠️  Resetting database…")
+
+        all_tables = set(db.metadata.tables.keys())
+
+        if tables:
+            requested_tables = set(tables)
+            invalid_tables = requested_tables - all_tables
+
+            if invalid_tables:
+                click.echo(
+                    f"❌ Unknown table(s): {', '.join(invalid_tables)}"
+                )
+                return
+
+            table_names = sorted(requested_tables)
+        else:
+            table_names = sorted(all_tables)
+
+        if not table_names:
+            click.echo("ℹ️  No tables found.")
+            return
+
+        sql = (
+            "TRUNCATE TABLE "
+            + ", ".join(table_names)
+            + " RESTART IDENTITY CASCADE"
+        )
+
+        db.session.execute(sql)
+        db.session.commit()
+
+        click.echo(f"✅ Reset {len(table_names)} table(s): {', '.join(table_names)}")

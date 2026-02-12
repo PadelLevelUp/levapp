@@ -120,11 +120,12 @@ class Field:
         return True
 
     def set_relationship_value(self, request):
-        self.value = [
-            int(ele)
+        values = [
+            ele
             for ele in request.form.getlist(self.name)
             if request.form.getlist(self.name)
         ]
+        self.value = [int(value) if value else None for value in values]
         return True
 
     def set_date_value(self, request):

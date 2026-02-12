@@ -8,6 +8,10 @@ from .messages import Message
 from .player_level_history import PlayerLevelHistory
 from .players import Player
 from .users import User
+from .presences import Presence
+from .calendar_blocks import CalendarBlock
+from .conversations import Conversation
+from .conversation_participants import ConversationParticipant
 from .Association_CoachClub import Association_CoachClub
 from .Association_CoachLesson import Association_CoachLesson
 from .Association_CoachLessonInstance import Association_CoachLessonInstance
@@ -27,6 +31,10 @@ MODELS = {
     "playerlevelhistory": PlayerLevelHistory,
     "player": Player,
     "user": User,
+    "presence": Presence,
+    "calendarblock": CalendarBlock,
+    "conversation": Conversation,
+    "conversation_participant": ConversationParticipant,
     "association_coachclub": Association_CoachClub,
     "association_coachlesson": Association_CoachLesson,
     "association_coachlessoninstance": Association_CoachLessonInstance,

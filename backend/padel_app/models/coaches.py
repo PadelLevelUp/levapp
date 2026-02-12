@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -13,16 +13,27 @@ class Coach(db.Model, model.Model):
     model_name = "Coach"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
+    
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user = relationship("User", back_populates="coach")
 
     # One-to-many to Club
     clubs_relations = relationship(
-        "Association_CoachClub", back_populates="coach", cascade="all, delete-orphan"
+        "Association_CoachClub", back_populates="coach", cascade="all, delete-orphan",
+        order_by="desc(Association_CoachClub.created_at)",
     )
+    
+    @property
+    def name(self):
+        return self.user.name
 
     @property
     def clubs(self):
         return [rel.club for rel in self.clubs_relations]
+    
+    @property
+    def current_club(self):
+        return self.clubs[-1] if self.clubs else None
 
     # Many-to-many: Lessons
     lessons_relations = relationship(
@@ -101,20 +112,7 @@ class Coach(db.Model, model.Model):
         info_block = Block(
             "info_block",
             fields=[
-                get_field("name", "Name", "Text"),
-                get_field("club_id", "Club", "ManyToOne", model="club"),
-                get_field(
-                    "lessons_relations",
-                    "Lessons",
-                    "ManyToMany",
-                    model="association_coachlesson",
-                ),
-                get_field(
-                    "players_relations",
-                    "Players",
-                    "ManyToMany",
-                    model="association_coachplayer",
-                ),
+                get_field("user", "User", "ManyToOne", related_model="User"),
             ],
         )
         form.add_block(info_block)

@@ -1,0 +1,25 @@
+{"classInstance": {"id": "lessoninstance-6", "model": "LessonInstance", "originalId": 6, "date": "2026-02-11", "startTime": "11: 00", "endTime": "12: 30", "status": "scheduled", "color": "#0ea5e9", "classType": "academy", "maxPlayers": 4, "coachId": "2", "levelId": "1", "name": "Academia Principiantes", "notes": None, "overriddenFields": [], "parentClassId": "1", "participants": [
+            {"id": 1, "user": {"abbreviation": "PP", "avatarUrl": None, "email": "pedropacheco@gmail.com", "id": 6, "isActive": True, "name": "Pedro Pacheco", "phone": "+351918966340", "username": "pedropacheco"
+                }, "userId": 6
+            },
+            {"id": 2, "user": {"abbreviation": "TP", "avatarUrl": None, "email": "tomaspacheco@gmail.com", "id": 7, "isActive": True, "name": "Tomás Pacheco", "phone": "+34623456789", "username": "tomaspacheco"
+                }, "userId": 7
+            },
+            {"id": 3, "user": {"abbreviation": "BC", "avatarUrl": None, "email": "bernardoc@gmail.com", "id": 8, "isActive": True, "name": "Bernardo Castro", "phone": None, "username": "bernardoc"
+                }, "userId": 8
+            },
+            {"id": 4, "user": {"abbreviation": "DB", "avatarUrl": None, "email": "dudasbf@gmail.com", "id": 9, "isActive": True, "name": "Dudas BF", "phone": "+351911111111", "username": "dudasbf"
+                }, "userId": 9
+            }
+        ], "presences": [], "recurrenceEnd": "2026-02-28"
+    }, "presences": [
+        {"playerId": 1, "status": "present"
+        },
+        {"playerId": 2, "status": "absent", "justification": "unjustified"
+        },
+        {"playerId": 3, "status": "absent", "justification": "justified"
+        },
+        {"playerId": 4, "status": "present"
+        }
+    ]
+}

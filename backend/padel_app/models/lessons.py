@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -18,12 +18,21 @@ class Lesson(db.Model, model.Model):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    start_datetime = Column(DateTime, nullable=False)
+    end_datetime = Column(DateTime, nullable=False)
 
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_rule = Column(Text, nullable=True)
-    recurrence_end = Column(DateTime, nullable=True)
+    recurrence_end = Column(Date, nullable=True)
+    
+    type = Column(Enum("academy", "private", name="lesson_type"), nullable=False)
+
+    default_level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    level = relationship("CoachLevel")
+    max_players = Column(Integer, nullable=False)
+
+    color = Column(String(10))
+    status = Column(Enum("active", "ended", name="lesson_status"), default="active")
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(
@@ -38,6 +47,10 @@ class Lesson(db.Model, model.Model):
     @property
     def coaches(self):
         return [rel.coach for rel in self.coaches_relations]
+    
+    @property
+    def name(self):
+        return self.title
 
     # Many-to-many: Lesson <-> Player
     players_relations = relationship(
@@ -66,8 +79,8 @@ class Lesson(db.Model, model.Model):
         searchable = {"field": "title", "label": "Title"}
         columns = [
             {"field": "title", "label": "Title"},
-            {"field": "start_time", "label": "Start"},
-            {"field": "end_time", "label": "End"},
+            {"field": "start_datetime", "label": "Start"},
+            {"field": "end_datetime", "label": "End"},
             {"field": "is_recurring", "label": "Recurring"},
         ]
         return searchable, columns
@@ -88,13 +101,19 @@ class Lesson(db.Model, model.Model):
         info_block = Block(
             "info_block",
             fields=[
-                get_field("title", "Text", label="Title"),
-                get_field("description", "Text", label="Description"),
-                get_field("start_time", "DateTime", label="Start Time"),
-                get_field("end_time", "DateTime", label="End Time"),
-                get_field("is_recurring", "Boolean", label="Is Recurring"),
-                get_field("recurrence_rule", "Text", label="Recurrence Rule"),
-                get_field("recurrence_end", "DateTime", label="Recurrence End"),
+                get_field("title", type="Text", label="Title"),
+                get_field("club", type="ManyToOne", label="Club", related_model="Club"),
+                get_field("description", type="Text", label="Description"),
+                get_field("type", type="Select", label="Type", options=["academy", "private"]),
+                get_field("status", type="Select", label="Status", options=["active", "ended"]),
+                get_field("color", type="Color", label="Color"),
+                get_field("max_players", type="Integer", label="Max players"),
+                get_field("level", type="ManyToOne", label="Level", related_model="CoachLevel"),
+                get_field("start_datetime", type="DateTime", label="Start Time"),
+                get_field("end_datetime", type="DateTime", label="End Time"),
+                get_field("is_recurring", type="Boolean", label="Is Recurring"),
+                get_field("recurrence_rule", type="Text", label="Recurrence Rule"),
+                get_field("recurrence_end", type="Date", label="Recurrence End"),
                 get_field(
                     "coaches_relations",
                     "OneToMany",
@@ -112,3 +131,17 @@ class Lesson(db.Model, model.Model):
         form.add_block(info_block)
 
         return form
+
+    def to_instance_data(self):
+        """
+        Extracts relevant template data from the Lesson to populate a LessonInstance.
+        Note: start_datetime and end_datetime should be calculated externally 
+        based on the specific occurrence date.
+        """
+        return {
+            "lesson_id": self.id,
+            "level_id": self.default_level_id,
+            "max_players": self.max_players,
+            "overwrite_title": self.title,
+            "status": "scheduled",
+        }

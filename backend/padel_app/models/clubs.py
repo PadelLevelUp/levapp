@@ -50,11 +50,6 @@ class Club(db.Model, model.Model):
         "Lesson", back_populates="club", cascade="all, delete-orphan"
     )
 
-    # One-to-many: Club ↔ LessonInstances
-    lesson_instances = relationship(
-        "LessonInstance", back_populates="club", cascade="all, delete-orphan"
-    )
-
     def __repr__(self):
         return f"<Club {self.name}>"
 

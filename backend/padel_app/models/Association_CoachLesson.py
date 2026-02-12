@@ -58,8 +58,8 @@ class Association_CoachLesson(db.Model, model.Model):
         info_block = Block(
             "info_block",
             fields=[
-                get_field("coach_id", "Coach", "ManyToOne", model="coach"),
-                get_field("lesson_id", "Lesson", "ManyToOne", model="lesson"),
+                get_field("coach_id", "Coach", "ManyToOne", related_model="Coach"),
+                get_field("lesson_id", "Lesson", "ManyToOne", related_model="Lesson"),
             ],
         )
         form.add_block(info_block)

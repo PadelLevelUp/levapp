@@ -72,13 +72,13 @@ class PlayerLevelHistory(db.Model, model.Model):
             "info_block",
             fields=[
                 get_field(
-                    "player_id", "ManyToOne", label="Player", related_model="Player"
+                    "player", "ManyToOne", label="Player", related_model="Player"
                 ),
                 get_field(
-                    "coach_id", "ManyToOne", label="Coach", related_model="Coach"
+                    "coach", "ManyToOne", label="Coach", related_model="Coach"
                 ),
                 get_field(
-                    "level_id", "ManyToOne", label="Level", related_model="CoachLevel"
+                    "level", "ManyToOne", label="Level", related_model="CoachLevel"
                 ),
                 get_field("assigned_at", "DateTime", label="Assigned At"),
             ],

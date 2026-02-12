@@ -16,26 +16,26 @@ class Message(db.Model, model.Model):
     id = Column(Integer, primary_key=True)
     text = Column(String, nullable=False)
     sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    read_at = Column(DateTime, nullable=True)
-
+    
     # Relationships with User
     sender_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    receiver_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     sender = relationship(
         "User", foreign_keys=[sender_id], back_populates="messages_sent"
     )
-    receiver = relationship(
-        "User", foreign_keys=[receiver_id], back_populates="messages_received"
-    )
 
     # Attachment
     attachment_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     attachment = relationship("Image", foreign_keys=[attachment_id])
+    
+    conversation_id = Column(
+        Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation = relationship(
+        "Conversation", back_populates="messages"
+    )
 
     @property
     def attachment_url(self):
@@ -45,9 +45,7 @@ class Message(db.Model, model.Model):
         searchable = {"field": "text", "label": "Message Text"}
         fields = [
             {"field": "sent_at", "label": "Sent At"},
-            {"field": "read_at", "label": "Read At"},
             {"field": "sender_id", "label": "Sender"},
-            {"field": "receiver_id", "label": "Receiver"},
         ]
         return searchable, fields
 
@@ -76,11 +74,8 @@ class Message(db.Model, model.Model):
             fields=[
                 get_field("text", "Text", "Text"),
                 get_field("sent_at", "Sent At", "DateTime"),
-                get_field("read_at", "Read At", "DateTime"),
-                get_field("sender_id", "Sender", "ManyToOne", relation_model="User"),
-                get_field(
-                    "receiver_id", "Receiver", "ManyToOne", relation_model="User"
-                ),
+                get_field("sender", "Sender", "ManyToOne", related_model="User"),
+                get_field("conversation", "Conversation", "ManyToOne", related_model="Conversation"),
             ],
         )
         form.add_block(info_block)

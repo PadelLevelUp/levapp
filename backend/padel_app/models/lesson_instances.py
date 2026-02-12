@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, Enum
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, Enum, Text, String, Date
 from sqlalchemy.orm import relationship
 
 
@@ -21,8 +21,13 @@ class LessonInstance(db.Model, model.Model):
     )
     lesson = relationship("Lesson", back_populates="instances")
 
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    original_lesson_occurence_date = Column(Date)
+    start_datetime = Column(DateTime, nullable=False)
+    end_datetime = Column(DateTime, nullable=False)
+    overwrite_title = Column(String(255), nullable=True)
+    
+    level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    level = relationship("CoachLevel")
 
     status = Column(
         Enum(
@@ -35,39 +40,43 @@ class LessonInstance(db.Model, model.Model):
         default="scheduled",
         nullable=False,
     )
+    
+    notes = Column(Text, nullable=True)
+    max_players = Column(Integer, nullable=False)
+    overridden_fields = Column(Text)
 
-    club_id = Column(
-        Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False
-    )
-    club = relationship("Club", back_populates="lesson_instances")
-
-    # Many-to-many: LessonInstance <-> Coach
-    coaches_relations = relationship(
-        "Association_CoachLessonInstance",
+    presences = relationship(
+        "Presence",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
     )
-
-    @property
-    def coaches(self):
-        return [rel.coach for rel in self.coaches_relations]
-
+    
     # Many-to-many: LessonInstance <-> Player
     players_relations = relationship(
         "Association_PlayerLessonInstance",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
     )
+    
+    coaches_relations = relationship(
+        "Association_CoachLessonInstance", 
+        back_populates="lesson_instance", 
+        cascade="all, delete-orphan"
+    )
+    
+    @property
+    def title(self):
+        return self.overwrite_title or self.lesson.title
 
     @property
     def players(self):
         return [rel.player for rel in self.players_relations]
 
     def __repr__(self):
-        return f"<LessonInstance {self.lesson.title} {self.start_time}>"
+        return f"<LessonInstance {self.id} {self.title} {self.start_datetime.strftime('%Y-%m-%d %H:%M')}>"
 
     def __str__(self):
-        return f"{self.lesson.title} ({self.start_time.strftime('%Y-%m-%d %H:%M')})"
+        return f"<LessonInstance {self.id} {self.title} {self.start_datetime.strftime('%Y-%m-%d %H:%M')}>"
 
     @property
     def name(self):
@@ -78,8 +87,8 @@ class LessonInstance(db.Model, model.Model):
         searchable = {"field": "lesson", "label": "Lesson"}
         columns = [
             {"field": "lesson", "label": "Lesson"},
-            {"field": "start_time", "label": "Start"},
-            {"field": "end_time", "label": "End"},
+            {"field": "start_datetime", "label": "Start"},
+            {"field": "end_datetime", "label": "End"},
             {"field": "status", "label": "Status"},
         ]
         return searchable, columns
@@ -102,21 +111,22 @@ class LessonInstance(db.Model, model.Model):
             "info_block",
             fields=[
                 get_field(
-                    "lesson_id", "ManyToOne", label="Lesson", related_model="Lesson"
+                    "lesson", "ManyToOne", label="Lesson", related_model="Lesson"
                 ),
-                get_field("start_time", "DateTime", label="Start Time"),
-                get_field("end_time", "DateTime", label="End Time"),
+                get_field(
+                    "level", "ManyToOne", label="Level", related_model="CoachLevel"
+                ),
+                get_field("start_datetime", "DateTime", label="Start Time"),
+                get_field("end_datetime", "DateTime", label="End Time"),
+                get_field("original_lesson_occurence_date", "Date", label="Original lesson occurence date"),
+                get_field("notes", "Text", label="Notes"),
+                get_field("overwrite_title", "Text", label="Titulo novo"),
+                get_field("max_players", "Integer", label="Max players"),
                 get_field(
                     "status",
                     "Select",
                     label="Status",
-                    choices=["scheduled", "canceled", "rescheduled", "completed"],
-                ),
-                get_field(
-                    "coaches_relations",
-                    "OneToMany",
-                    label="Coaches",
-                    related_model="Association_CoachLessonInstance",
+                    options=["scheduled", "canceled", "rescheduled", "completed"],
                 ),
                 get_field(
                     "players_relations",

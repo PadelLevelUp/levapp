@@ -79,12 +79,17 @@ def delete(model, id):
 @bp.route("/query/<model>", methods=("GET", "POST"))
 def query(model):
     model_name = model.lower()
-    model = MODELS[model_name]
-    instances = model.query.all()
-    instances = [
-        {"value": instance.id, "name": str(instance.name)} for instance in instances
-    ]
-    return jsonify(instances)
+    model_cls = MODELS[model_name]
+
+    instances = model_cls.query.all()
+
+    def serialize(instance):
+        return {
+            column.name: getattr(instance, column.name)
+            for column in instance.__table__.columns
+        }
+
+    return jsonify([serialize(instance) for instance in instances])
 
 
 @bp.route("/remove_relationship", methods=("GET", "POST"))

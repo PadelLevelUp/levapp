@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint, Enum, String
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -19,9 +19,14 @@ class Association_CoachPlayer(db.Model, model.Model):
     id = Column(Integer, primary_key=True)
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"))
     player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
+    level_id = Column(Integer, ForeignKey("coach_levels.id"), nullable=True)
 
     coach = relationship("Coach", back_populates="players_relations")
     player = relationship("Player", back_populates="coaches_relations")
+    level = relationship("CoachLevel", back_populates="coach_player_relations")
+    
+    side = Column(Enum("left", "right", name="player_side"), nullable=True)
+    notes = Column(String(255), nullable=True)
 
     def __repr__(self):
         return f"<CoachPlayer {self.coach.name} - {self.player.name}>"
@@ -44,13 +49,14 @@ class Association_CoachPlayer(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, label, type, **kwargs):
+        def get_field(name, label, type, options=None, **kwargs):
             return Field(
                 instance_id=cls.id,
                 model=cls.model_name,
                 name=name,
                 label=label,
                 type=type,
+                options=options,
                 **kwargs,
             )
 
@@ -58,8 +64,11 @@ class Association_CoachPlayer(db.Model, model.Model):
         info_block = Block(
             "info_block",
             fields=[
-                get_field("coach_id", "Coach", "ManyToOne", model="coach"),
-                get_field("player_id", "Player", "ManyToOne", model="player"),
+                get_field("coach", "Coach", "ManyToOne", related_model="Coach"),
+                get_field("player", "Player", "ManyToOne", related_model="Player"),
+                get_field("level", "CoachLevel", "ManyToOne", related_model="CoachLevel"),
+                get_field("notes", label="Notes", type="Text"),
+                get_field("side", label="Side", type="Select" , options=["left", "right"]),
             ],
         )
         form.add_block(info_block)

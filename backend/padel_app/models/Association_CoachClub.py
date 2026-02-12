@@ -60,9 +60,9 @@ class Association_CoachClub(db.Model, model.Model):
             "info_block",
             fields=[
                 get_field(
-                    "coach_id", "ManyToOne", label="Coach", related_model="Coach"
+                    "coach", "ManyToOne", label="Coach", related_model="Coach"
                 ),
-                get_field("club_id", "ManyToOne", label="Club", related_model="Club"),
+                get_field("club", "ManyToOne", label="Club", related_model="Club"),
             ],
         )
         form.add_block(info_block)

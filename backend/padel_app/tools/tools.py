@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import current_app, url_for
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
@@ -168,4 +168,11 @@ def str_to_datetime(s):
             return date_obj
         except ValueError:
             pass
-    raise ValueError(f"Cannot convert {s} to Date")
+    raise ValueError(f"Cannot convert {s} to DateTime")
+
+def iso_date(value):
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return None

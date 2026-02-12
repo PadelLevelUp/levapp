@@ -2,15 +2,24 @@ import os
 from tempfile import mkdtemp
 
 from flask import Flask
+from flask_cors import CORS
 from flask_assets import Bundle, Environment
 from flask_login import LoginManager
 from flask_session import Session
+from flask_jwt_extended import JWTManager
+from .auth import register_jwt_handlers
 
 from . import cli, mail, modules, sql_db
 
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": "http://localhost:8080"}},
+        supports_credentials=False,
+        allow_headers=["Content-Type", "Authorization"],
+    )
 
     # Load config
     env = os.getenv("FLASK_ENV", "development")
@@ -38,6 +47,10 @@ def create_app(test_config=None):
 
     app.config["SESSION_FILE_DIR"] = mkdtemp()
     Session(app)
+
+    jwt = JWTManager(app)
+    register_jwt_handlers(jwt)
+    app.jwt = jwt
 
     mail.mail.init_app(app)
 

@@ -14,15 +14,9 @@ class Player(db.Model, model.Model):
     model_name = "Player"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-
-    # Profile picture
-    profile_picture_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
-    profile_picture = relationship("Image", foreign_keys=[profile_picture_id])
-
-    @property
-    def profile_picture_url(self):
-        return self.profile_picture.url() if self.profile_picture else None
+    
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user = relationship("User", back_populates="player")
 
     # Relations to lessons
     lessons_relations = relationship(
@@ -30,12 +24,21 @@ class Player(db.Model, model.Model):
         back_populates="player",
         cascade="all, delete-orphan",
     )
+    
+    @property
+    def name(self):
+        return self.user.name
 
     @property
     def lessons(self):
         return [rel.lesson for rel in self.lessons_relations]
+    
+    presences = relationship(
+        "Presence",
+        back_populates="player",
+        cascade="all, delete-orphan",
+    )
 
-    # Relations to lesson instances
     lesson_instances_relations = relationship(
         "Association_PlayerLessonInstance",
         back_populates="player",
@@ -64,8 +67,17 @@ class Player(db.Model, model.Model):
 
     # Level history
     level_history = relationship(
-        "PlayerLevelHistory", back_populates="player", cascade="all, delete-orphan"
+        "PlayerLevelHistory", 
+        back_populates="player", 
+        cascade="all, delete-orphan",
+        order_by="desc(PlayerLevelHistory.assigned_at)"
     )
+    
+    @property
+    def level(self):
+        if self.level_history:
+            return self.level_history[0]
+        return None
 
     def __repr__(self):
         return f"<Player {self.name}>"
@@ -82,7 +94,6 @@ class Player(db.Model, model.Model):
         searchable = {"field": "name", "label": "Name"}
         columns = [
             {"field": "name", "label": "Name"},
-            {"field": "profile_picture", "label": "Picture"},
         ]
         return searchable, columns
 
@@ -100,33 +111,25 @@ class Player(db.Model, model.Model):
 
         form = Form()
 
-        picture_block = Block(
-            "picture_block",
-            fields=[
-                get_field("profile_picture_id", "Picture", label="Profile Picture"),
-            ],
-        )
-        form.add_block(picture_block)
-
         info_block = Block(
             "info_block",
             fields=[
-                get_field("name", "Text", label="Name"),
+                get_field("user", type="ManyToOne", label="User", related_model="User"),
                 get_field(
                     "lessons_relations",
-                    "OneToMany",
+                    type="OneToMany",
                     label="Lessons",
                     related_model="Association_PlayerLesson",
                 ),
                 get_field(
                     "lesson_instances_relations",
-                    "OneToMany",
+                    type="OneToMany",
                     label="Lesson Instances",
                     related_model="Association_PlayerLessonInstance",
                 ),
                 get_field(
                     "level_history",
-                    "OneToMany",
+                    type="OneToMany",
                     label="Level History",
                     related_model="PlayerLevelHistory",
                 ),
@@ -135,3 +138,20 @@ class Player(db.Model, model.Model):
         form.add_block(info_block)
 
         return form
+
+    def coach_player_info(self, coach_id):
+        rel = next((r for r in self.coaches_relations if r.coach_id == coach_id), None)
+        return {
+            "id": f"p-{self.id}_c-{coach_id}",
+            "coachId": coach_id,
+            "playerId": self.id,
+            "levelId": rel.level_id,
+            "notes": rel.notes,
+            "name": self.user.name,        
+            "email": self.user.email,        
+            "phone": self.user.phone,        
+            "username": self.user.username,
+            "side": rel.side,
+            "userId": self.user_id,
+            "isActive": self.user.status == 'active' 
+        }

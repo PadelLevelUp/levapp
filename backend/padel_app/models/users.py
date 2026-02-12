@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -16,13 +16,18 @@ class User(db.Model, model.Model, UserMixin):
     id = Column(Integer, primary_key=True)
     name = Column(String(120), nullable=False)
     username = Column(String(80), unique=True, nullable=False)
-    email = Column(String(120), unique=True, nullable=False)
-    password = Column(String(255), nullable=False)
+    email = Column(String(120), unique=True, nullable=True)
+    phone = Column(String(20), nullable=True)
+    password = Column(String(255), nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
     generated_code = Column(Integer)
 
     user_image_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     user_image = relationship("Image", foreign_keys=[user_image_id])
+    
+    player = relationship("Player", back_populates="user", uselist=False)
+    coach = relationship("Coach", back_populates="user", uselist=False)
+    calendar_blocks = relationship("CalendarBlock", back_populates="user")
 
     # Relationships
     messages_sent = relationship(
@@ -31,12 +36,17 @@ class User(db.Model, model.Model, UserMixin):
         back_populates="sender",
         cascade="all, delete-orphan",
     )
-    messages_received = relationship(
-        "Message",
-        foreign_keys="Message.receiver_id",
-        back_populates="receiver",
-        cascade="all, delete-orphan",
+
+    status = Column(
+        Enum("inactive", "active", "disabled", name="activation_status"),
+        nullable=False,
+        server_default="inactive",
     )
+    
+    #TODO: RETHINK THIS FUNCTION
+    @property
+    def role(self):
+        return 'coach' if self.coach else 'player' 
 
     @property
     def user_image_url(self):
@@ -54,13 +64,14 @@ class User(db.Model, model.Model, UserMixin):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, label, type, required=False):
+        def get_field(name, label, type, required=False, options=None):
             return Field(
                 instance_id=cls.id,
                 model=cls.model_name,
                 name=name,
                 label=label,
                 type=type,
+                options=options,
                 required=required,
             )
 
@@ -78,9 +89,11 @@ class User(db.Model, model.Model, UserMixin):
                 get_field("name", "Name", "Text", required=True),
                 get_field("username", "Username", "Text", required=True),
                 get_field("email", "Email", "Text", required=True),
+                get_field("phone", "Phone", "Text", required=False),
                 get_field("password", "Password", "Password", required=True),
                 get_field("is_admin", "Admin", "Boolean"),
                 get_field("generated_code", "Generated Code", "Integer"),
+                get_field("status", type="Select", label="Status", options=["inactive", "active", "disabled"]),
             ],
         )
         form.add_block(info_block)
