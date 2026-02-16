@@ -31,6 +31,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "24h" | "12h";
@@ -489,6 +490,10 @@ export default function SettingsPage() {
                       onCheckedChange={(v) => setSettings((s) => ({ ...s, allowAnalytics: v }))}
                     />
                   </div>
+
+                  <Separator />
+
+                  <CoachLevelsSection />
                 </CardContent>
               </Card>
             )}
