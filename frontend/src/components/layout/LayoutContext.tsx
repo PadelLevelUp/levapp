@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 import { getUnreadMessagesCount } from "@/api/messages";
 
 type ScrollMode = "page" | "none";
+type LatestMessageSummary = { sender: string; preview: string } | null;
 
 type LayoutContextValue = {
 
@@ -15,6 +16,9 @@ type LayoutContextValue = {
   refreshUnreadCount: () => Promise<number>;
   setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
 
+  latestMessage: LatestMessageSummary;
+  setLatestMessage: React.Dispatch<React.SetStateAction<LatestMessageSummary>>;
+
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -27,6 +31,7 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const [bottomNavHidden, setBottomNavHidden] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [latestMessage, setLatestMessage] = useState<LatestMessageSummary>(null);
 
   const refreshUnreadCount = useCallback(async () => {
     const data = await getUnreadMessagesCount();
@@ -46,6 +51,8 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
       setUnreadCount,
       sidebarCollapsed,
       setSidebarCollapsed,
+      latestMessage,
+      setLatestMessage,
     }),
     [
       scrollMode,
@@ -53,6 +60,8 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
       unreadCount,
       refreshUnreadCount,
       sidebarCollapsed,
+      latestMessage,
+      setLatestMessage,
     ]
   );
 

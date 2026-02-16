@@ -23,6 +23,8 @@ export async function getClassInstance(
 
   return {
     id: event.id,
+    model: event.model,
+    originalId: event.originalId,
     date: event.date,
     startTime: event.startTime,
     endTime: event.endTime,

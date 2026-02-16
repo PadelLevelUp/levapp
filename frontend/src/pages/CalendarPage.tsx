@@ -4,6 +4,7 @@ import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClassDetailSheet } from "@/components/calendar/ClassDetailSheet";
+import { MobileCalendarView } from "@/components/calendar/MobileCalendarView";
 import { AddClassSheet } from "@/components/calendar/AddClassSheet";
 import { getCalendarEvents } from "@/api/calendar";
 import { getCoachLevels } from "@/api/coachLevel";
@@ -14,16 +15,21 @@ import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
 import { LoadingCalendar } from "@/components/ui/loading-skeleton";
 import { removeClass, editClass, addClass } from "@/api/classes";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function CalendarPage() {
   const { toast } = useToast();
-
+  const { user } = useAuth();
+  
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const isMobile = useIsMobile();
+  
+  const canManageClasses = user?.roles.includes("coach") ?? false;
   const calendar = useCalendar(allEvents);
 
   useEffect(() => {
@@ -47,6 +53,12 @@ export default function CalendarPage() {
 
   useEffect(() => {
     async function loadPopupData() {
+      if (!canManageClasses) {
+        setCoachPlayers([]);
+        setLevels([]);
+        return;
+      }
+
       try {
         const [playersData, levelsData] = await Promise.all([
           getCoachPlayers(),
@@ -61,7 +73,7 @@ export default function CalendarPage() {
     }
 
     loadPopupData();
-}, []);
+  }, [canManageClasses]);
 
   const [selectedEvent, setSelectedEvent] =
     useState<CalendarEvent | null>(null);
@@ -244,17 +256,26 @@ export default function CalendarPage() {
           onPrevWeek={() => calendar.navigateWeek("prev")}
           onNextWeek={() => calendar.navigateWeek("next")}
           onToday={calendar.goToToday}
-          onAddClass={() => setAddClassOpen(true)}
+          onAddClass={canManageClasses ? () => setAddClassOpen(true) : undefined}
         />
 
-        <CalendarHeader weekDays={calendar.weekDays} />
-
-        <CalendarGrid
-          weekDays={calendar.weekDays}
-          events={calendar.events}
-          onEventClick={setSelectedEvent}
-          onSlotClick={handleSlotClick}
-        />
+        {isMobile ? (
+          <MobileCalendarView
+            weekDays={calendar.weekDays}
+            events={calendar.events}
+            onEventClick={setSelectedEvent}
+          />
+        ) : (
+          <>
+            <CalendarHeader weekDays={calendar.weekDays} />
+            <CalendarGrid
+              weekDays={calendar.weekDays}
+              events={calendar.events}
+              onEventClick={setSelectedEvent}
+              onSlotClick={canManageClasses ? handleSlotClick : undefined}
+            />
+          </>
+        )}
       </div>
 
       <ClassDetailSheet
@@ -263,19 +284,22 @@ export default function CalendarPage() {
         players={coachPlayers}
         levels={levels}
         onClose={() => setSelectedEvent(null)}
-        onDelete={handleDeleteClass}
-        onEdit={handleEditClass}
+        canManage={canManageClasses}
+        onDelete={canManageClasses ? handleDeleteClass : undefined}
+        onEdit={canManageClasses ? handleEditClass : undefined}
       />
 
-      <AddClassSheet
-        open={addClassOpen}
-        onClose={() => setAddClassOpen(false)}
-        initialDate={newClassDate}
-        initialTime={newClassTime}
-        onSave={handleSaveClass}
-        levels={levels}
-        players={coachPlayers}
-      />
+      {canManageClasses && (
+        <AddClassSheet
+          open={addClassOpen}
+          onClose={() => setAddClassOpen(false)}
+          initialDate={newClassDate}
+          initialTime={newClassTime}
+          onSave={handleSaveClass}
+          levels={levels}
+          players={coachPlayers}
+        />
+      )}
     </AppLayout>
   );
 }

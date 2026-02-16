@@ -60,6 +60,7 @@ export interface RecurrenceRule {
 
 export interface ClassInstance {
   id: string;
+  originalId: string;
   parentClassId?: string;
   coachId: string;
   date: string;
@@ -135,14 +136,6 @@ export interface TimeSlot {
   label: string;
 }
 
-// Dashboard types
-export interface DashboardStats {
-  totalPlayers: number;
-  upcomingClasses: number;
-  pendingValidations: number;
-  monthlyRevenue: number;
-}
-
 export interface Message {
   id: string;
   senderId: number;
@@ -162,4 +155,83 @@ export interface Conversation {
 
   unreadCount: number;
   messages: Message[];
+}
+
+export type DashboardIcon =
+  | "users"
+  | "calendar"
+  | "clipboard_check"
+  | "trending_up"
+  | "user_plus";
+
+export type DashboardBlock =
+  | DashboardMessagesOverviewBlock
+  | DashboardKpiGridBlock
+  | DashboardClassListBlock
+  | DashboardGridBlock;
+
+export interface DashboardDefinition {
+  id: string;
+  title: string;
+  blocks: DashboardBlock[];
+}
+
+export interface DashboardMessagesOverviewBlock {
+  id: string;
+  type: "messages_overview";
+  data: {
+    unreadMessages: number;
+    conversationsToReply: number;
+    latest?: {
+      sender: string;
+      preview: string;
+    };
+    href: string;
+  };
+}
+
+export interface DashboardGridBlock {
+  id: string;
+  type: "grid";
+  data: {
+    cols: {
+      base: number;
+      lg?: number;
+    };
+    children: DashboardBlock[];
+  };
+}
+
+export interface DashboardKpiGridBlock {
+  id: string;
+  type: "kpi_grid";
+  data: {
+    items: Array<{
+      label: string;
+      value: number | string;
+      prefix?: string;
+      icon: DashboardIcon;
+      href: string;
+    }>;
+  };
+}
+
+export interface DashboardClassListBlock {
+  id: string;
+  type: "class_list";
+  data: {
+    title: string;
+    icon?: DashboardIcon;
+    emptyText?: string;
+    items: Array<{
+      id: string;
+      title: string;
+      dateLabel: string;
+      timeLabel: string;
+      color?: string;
+      rightLabel?: string;
+      badge?: string;
+      href: string;
+    }>;
+  };
 }

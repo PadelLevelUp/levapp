@@ -66,7 +66,7 @@ const AuthPage = () => {
       });
 
       await login(res.data.accessToken)
-      navigate("/calendar");
+      navigate("/dashboard");
       toast({
         title: "Welcome!",
         description: "You have successfully logged in.",
