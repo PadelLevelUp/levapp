@@ -77,6 +77,7 @@ export function AddPlayerSheet({
 
     onSave({
       name: name.trim(),
+      isActive: true,
       username: username.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,

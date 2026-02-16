@@ -96,7 +96,7 @@ export default function PlayersPage() {
 
     try {
       const created = await addPlayer({
-        coachId,
+        coachId: user?.coachId,
         ...data,
       });
       

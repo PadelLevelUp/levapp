@@ -116,7 +116,7 @@ export function NewConversationDialog({
                 filteredUsers.map((user) => (
                   <button
                     key={user.id}
-                    onClick={() => handleSelectUser(user.id, user.name)}
+                    onClick={() => handleSelectUser(user.id)}
                     className={cn(
                       'w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left',
                       'hover:bg-muted/50'

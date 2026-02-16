@@ -16,7 +16,7 @@ export function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
   }
 
   const hasAccess = allowedRoles.some(role =>
-    user?.roles.includes(role)
+    user?.roles?.includes(role)
   );
 
   if (!hasAccess) {
