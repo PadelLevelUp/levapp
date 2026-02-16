@@ -7,21 +7,25 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right';
 
-export interface Coach {
+export interface User {
   id: string;
   name: string;
   email: string;
   phone?: string;
   avatarUrl?: string;
+  abbreviation: string;
 }
 
-export interface Student {
+export interface Coach {
   id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  avatarUrl?: string;
-  userId?: string; // null/undefined means inactive (hasn't created account)
+  userId: string;
+  user?: User;
+}
+
+export interface Player {
+  id: string;
+  userId: string;
+  user?: User;
 }
 
 export interface CoachLevel {
@@ -32,15 +36,20 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
-export interface CoachStudent {
+export interface CoachPlayer {
   id: string;
   coachId: string;
-  studentId: string;
+  playerId: string;
+  userId: string;
+  name: string,
+  email: string,
+  isActive: boolean,
+  username: string,
   levelId?: string;
-  side?: PlayerSide;
+  side?: 'left' | 'right';
   notes?: string;
-  student?: Student;
   level?: CoachLevel;
+  phone?: string,
 }
 
 export interface RecurrenceRule {
@@ -49,71 +58,65 @@ export interface RecurrenceRule {
   interval?: number;
 }
 
-export interface ParentClass {
-  id: string;
-  coachId: string;
-  type: ClassType;
-  isRecurring: boolean;
-  recurrenceRule?: RecurrenceRule;
-  startDate: string;
-  endDate?: string;
-  defaultStartTime: string;
-  defaultEndTime: string;
-  defaultLevelId?: string;
-  maxPlayers: number;
-  name?: string;
-  color?: string;
-  status: 'active' | 'ended';
-  participants?: Student[];
-}
-
 export interface ClassInstance {
   id: string;
+  originalId: string;
   parentClassId?: string;
   coachId: string;
   date: string;
   startTime: string;
   endTime: string;
   status: ClassInstanceStatus;
+  classType?: string;
   name?: string;
   color?: string;
   levelId?: string;
   maxPlayers: number;
   notes?: string;
+  recurrenceEnd?: string;
   overriddenFields?: string[];
-  parentClass?: ParentClass;
-  participants?: Student[];
+  participants?: Player[];
   presences?: Presence[];
 }
 
 export interface Presence {
   id: string;
-  classInstanceId: string;
-  studentId: string;
-  status?: PresenceStatus;
-  justification?: AbsenceJustification;
+  lessonInstanceId: string;
+  playerId: string;
+
+  status?: 'present' | 'absent';
+  justification?: 'justified' | 'unjustified';
+
   invited: boolean;
+  confirmed: boolean;
   validated: boolean;
-  student?: Student;
+
+  player?: Player;
 }
 
 export interface CalendarBlock {
   id: string;
   coachId: string;
-  type: CalendarBlockType;
+  type: 'break' | 'holiday' | 'off_work' | 'personal';
+
   date?: string;
   startTime?: string;
   endTime?: string;
+
   isRecurring: boolean;
   recurrenceRule?: RecurrenceRule;
+
   title?: string;
   description?: string;
 }
 
 // Calendar view types
 export interface CalendarEvent {
+  model: string,
+  originalId: number,
   id: string;
   type: 'class' | 'block';
+  isRecurring: boolean;
   title: string;
   date: string;
   startTime: string;
@@ -124,7 +127,7 @@ export interface CalendarEvent {
   status?: ClassInstanceStatus;
   participantCount?: number;
   maxPlayers?: number;
-  data: ClassInstance | CalendarBlock;
+  isTemporary?: boolean;
 }
 
 export interface TimeSlot {
@@ -133,10 +136,102 @@ export interface TimeSlot {
   label: string;
 }
 
-// Dashboard types
-export interface DashboardStats {
-  totalStudents: number;
-  upcomingClasses: number;
-  pendingValidations: number;
-  monthlyRevenue: number;
+export interface Message {
+  id: string;
+  senderId: number;
+  content: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participantId: string;
+  participantName: string;
+  participantAvatar?: string;
+
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+
+  unreadCount: number;
+  messages: Message[];
+}
+
+export type DashboardIcon =
+  | "users"
+  | "calendar"
+  | "clipboard_check"
+  | "trending_up"
+  | "user_plus";
+
+export type DashboardBlock =
+  | DashboardMessagesOverviewBlock
+  | DashboardKpiGridBlock
+  | DashboardClassListBlock
+  | DashboardGridBlock;
+
+export interface DashboardDefinition {
+  id: string;
+  title: string;
+  blocks: DashboardBlock[];
+}
+
+export interface DashboardMessagesOverviewBlock {
+  id: string;
+  type: "messages_overview";
+  data: {
+    unreadMessages: number;
+    conversationsToReply: number;
+    latest?: {
+      sender: string;
+      preview: string;
+    };
+    href: string;
+  };
+}
+
+export interface DashboardGridBlock {
+  id: string;
+  type: "grid";
+  data: {
+    cols: {
+      base: number;
+      lg?: number;
+    };
+    children: DashboardBlock[];
+  };
+}
+
+export interface DashboardKpiGridBlock {
+  id: string;
+  type: "kpi_grid";
+  data: {
+    items: Array<{
+      label: string;
+      value: number | string;
+      prefix?: string;
+      icon: DashboardIcon;
+      href: string;
+    }>;
+  };
+}
+
+export interface DashboardClassListBlock {
+  id: string;
+  type: "class_list";
+  data: {
+    title: string;
+    icon?: DashboardIcon;
+    emptyText?: string;
+    items: Array<{
+      id: string;
+      title: string;
+      dateLabel: string;
+      timeLabel: string;
+      color?: string;
+      rightLabel?: string;
+      badge?: string;
+      href: string;
+    }>;
+  };
 }

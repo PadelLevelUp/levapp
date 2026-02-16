@@ -1,249 +1,421 @@
-import { 
-  Student, 
-  CoachLevel, 
-  CoachStudent, 
-  ParentClass, 
-  ClassInstance, 
-  CalendarBlock, 
-  Presence 
-} from '@/types';
-import { addDays, format, subDays, startOfWeek } from 'date-fns';
+import type {
+  User,
+  Coach,
+  Player,
+  CoachLevel,
+  CoachPlayer,
+  ClassInstance,
+  CalendarBlock,
+  CalendarEvent,
+  Presence,
+  ClassType,
+} from "@/types";
+import { addDays, format, startOfWeek } from "date-fns";
 
-// Coach ID (would come from auth in real app)
-export const MOCK_COACH_ID = 'coach-1';
+// Would come from auth in a real app
+export const MOCK_COACH_ID = "coach-1";
 
-// Students
-export const mockStudents: Student[] = [
-  { id: 'student-1', name: 'Carlos García', email: 'carlos@email.com', phone: '+34 612 345 678', userId: 'user-1' },
-  { id: 'student-2', name: 'María López', email: 'maria@email.com', phone: '+34 623 456 789', userId: 'user-2' },
-  { id: 'student-3', name: 'Pablo Rodríguez', email: 'pablo@email.com' }, // Inactive - no userId
-  { id: 'student-4', name: 'Ana Martínez', email: 'ana@email.com', phone: '+34 634 567 890', userId: 'user-4' },
-  { id: 'student-5', name: 'David Fernández', email: 'david@email.com' }, // Inactive - no userId
-  { id: 'student-6', name: 'Laura Sánchez', email: 'laura@email.com', phone: '+34 645 678 901', userId: 'user-6' },
-  { id: 'student-7', name: 'Javier Ruiz', email: 'javier@email.com' }, // Inactive - no userId
-  { id: 'student-8', name: 'Elena Torres', email: 'elena@email.com', userId: 'user-8' },
+/**
+ * Users
+ */
+export const mockCoachUser: User = {
+  id: "user-coach-1",
+  name: "Bernardo Terroso",
+  email: "bernardo.terroso@levelup.com",
+  phone: "+351 910 000 000",
+  abbreviation: "BT",
+};
+
+export const mockUsers: User[] = [
+  mockCoachUser,
+  {
+    id: "user-player-1",
+    name: "Pedro Pacheco",
+    email: "pedropacheco@gmail.com",
+    phone: "+351 918966340",
+    abbreviation: "PP",
+  },
+  {
+    id: "user-player-2",
+    name: "Tomás Pacheco",
+    email: "tomaspacheco@gmail.com",
+    phone: "+34 623 456 789",
+    abbreviation: "TP",
+  },
+  {
+    id: "user-player-3",
+    name: "Bernardo Castro",
+    email: "bernardoc@gmail.com",
+    abbreviation: "BC",
+  },
+  {
+    id: "user-player-4",
+    name: "Dudas BF",
+    email: "dudasbf@gmail.com",
+    phone: "+351 911 111 111",
+    abbreviation: "DB",
+  },
+  {
+    id: "user-player-5",
+    name: "Talinho Garrett",
+    email: "talinho@gmail.com",
+    abbreviation: "TG",
+  },
+  {
+    id: "user-player-6",
+    name: "António Neto",
+    email: "antonioneto@gmail.com",
+    phone: "+351 912 222 222",
+    abbreviation: "AN",
+  },
+  {
+    id: "user-player-7",
+    name: "Diogo Malafaya",
+    email: "diogom@gmail.com",
+    abbreviation: "DM",
+  },
+  {
+    id: "user-player-8",
+    name: "João Magalhães",
+    email: "joaom@gmail.com",
+    abbreviation: "JM",
+  },
 ];
 
-// Levels
-export const mockLevels: CoachLevel[] = [
-  { id: 'level-1', coachId: MOCK_COACH_ID, code: 'L1', label: 'Iniciación', displayOrder: 1 },
-  { id: 'level-2', coachId: MOCK_COACH_ID, code: 'L2', label: 'Intermedio', displayOrder: 2 },
-  { id: 'level-3', coachId: MOCK_COACH_ID, code: 'L3', label: 'Avanzado', displayOrder: 3 },
-  { id: 'level-4', coachId: MOCK_COACH_ID, code: 'L3+', label: 'Competición', displayOrder: 4 },
-];
+export const mockCoach: Coach = {
+  id: MOCK_COACH_ID,
+  userId: mockCoachUser.id,
+  user: mockCoachUser,
+};
 
-// Coach-Student associations
-export const mockCoachStudents: CoachStudent[] = mockStudents.map((student, index) => ({
-  id: `coach-student-${index + 1}`,
-  coachId: MOCK_COACH_ID,
-  studentId: student.id,
-  levelId: mockLevels[index % mockLevels.length].id,
-  side: index % 2 === 0 ? 'left' : 'right',
-  student,
-  level: mockLevels[index % mockLevels.length],
+const playerUsers = mockUsers.filter((u) => u.id.startsWith("user-player-"));
+
+/**
+ * Players (note: Player = { id, userId, user? })
+ */
+export const mockPlayers: Player[] = playerUsers.map((u, idx) => ({
+  id: `player-${idx + 1}`,
+  userId: u.id,
+  user: u,
 }));
 
-// Generate dates for this week
+/**
+ * Levels
+ */
+export const mockLevels: CoachLevel[] = [
+  { id: "level-1", coachId: MOCK_COACH_ID, code: "L1", label: "Principiante", displayOrder: 1 },
+  { id: "level-2", coachId: MOCK_COACH_ID, code: "L2", label: "Intermédio", displayOrder: 2 },
+  { id: "level-3", coachId: MOCK_COACH_ID, code: "L3", label: "Avançado", displayOrder: 3 },
+  { id: "level-4", coachId: MOCK_COACH_ID, code: "L3+", label: "Competição", displayOrder: 4 },
+];
+
+/**
+ * CoachPlayer associations (note: CoachPlayer carries duplicated user fields)
+ */
+export const mockCoachPlayers: CoachPlayer[] = mockPlayers.map((player, index) => {
+  const u = player.user!;
+  const level = mockLevels[index % mockLevels.length];
+
+  return {
+    id: `coach-player-${index + 1}`,
+    coachId: MOCK_COACH_ID,
+    playerId: player.id,
+
+    userId: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+
+    isActive: true,
+    username: u.email.split("@")[0],
+
+    levelId: level.id,
+    level,
+
+    side: index % 2 === 0 ? "left" : "right",
+    notes: index % 3 === 0 ? "Prefers volley drills." : undefined,
+  };
+});
+
+/**
+ * Dates for "this week"
+ */
 const today = new Date();
 const weekStart = startOfWeek(today, { weekStartsOn: 1 });
 
-// Parent Classes
-export const mockParentClasses: ParentClass[] = [
-  {
-    id: 'parent-1',
-    coachId: MOCK_COACH_ID,
-    type: 'academy',
-    isRecurring: true,
-    recurrenceRule: { frequency: 'weekly', daysOfWeek: [1, 3] }, // Monday, Wednesday
-    startDate: format(subDays(today, 30), 'yyyy-MM-dd'),
-    defaultStartTime: '09:00',
-    defaultEndTime: '10:30',
-    defaultLevelId: 'level-1',
-    maxPlayers: 4,
-    name: 'Academia Iniciación',
-    color: '#0ea5e9',
-    status: 'active',
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
-  },
-  {
-    id: 'parent-2',
-    coachId: MOCK_COACH_ID,
-    type: 'academy',
-    isRecurring: true,
-    recurrenceRule: { frequency: 'weekly', daysOfWeek: [2, 4] }, // Tuesday, Thursday
-    startDate: format(subDays(today, 30), 'yyyy-MM-dd'),
-    defaultStartTime: '17:00',
-    defaultEndTime: '18:30',
-    defaultLevelId: 'level-3',
-    maxPlayers: 4,
-    name: 'Academia Avanzado',
-    color: '#8b5cf6',
-    status: 'active',
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
-  },
-  {
-    id: 'parent-3',
-    coachId: MOCK_COACH_ID,
-    type: 'private',
-    isRecurring: true,
-    recurrenceRule: { frequency: 'weekly', daysOfWeek: [5] }, // Friday
-    startDate: format(subDays(today, 14), 'yyyy-MM-dd'),
-    defaultStartTime: '11:00',
-    defaultEndTime: '12:00',
-    maxPlayers: 2,
-    name: 'Clase privada Carlos & María',
-    color: '#ec4899',
-    status: 'active',
-    participants: [mockStudents[0], mockStudents[1]],
-  },
-];
+/**
+ * Recurring series ids (use ClassInstance.originalId to group instances)
+ */
+const SERIES = {
+  academyBeginners: "series-1",
+  academyAdvanced: "series-2",
+  privatePedroTomas: "series-3",
+} as const;
 
-// Class Instances for this week
+/**
+ * Class instances
+ * - ClassInstance.originalId is required (use a stable series id for recurring).
+ * - ClassInstance.classType is optional (string), but we keep it aligned with ClassType.
+ */
 export const mockClassInstances: ClassInstance[] = [
-  // Monday - Academia Iniciación
+  // Monday - Academy beginners (completed)
   {
-    id: 'instance-1',
-    parentClassId: 'parent-1',
+    id: "instance-1",
+    originalId: SERIES.academyBeginners,
+    parentClassId: SERIES.academyBeginners,
     coachId: MOCK_COACH_ID,
-    date: format(weekStart, 'yyyy-MM-dd'),
-    startTime: '09:00',
-    endTime: '10:30',
-    status: 'completed',
-    name: 'Academia Iniciación',
-    color: '#0ea5e9',
-    levelId: 'level-1',
+    date: format(weekStart, "yyyy-MM-dd"),
+    startTime: "09:00",
+    endTime: "10:30",
+    status: "completed",
+    classType: "academy" satisfies ClassType,
+    name: "Academia Principiantes",
+    color: "#0ea5e9",
+    levelId: "level-1",
     maxPlayers: 4,
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
-    parentClass: mockParentClasses[0],
+    participants: [mockPlayers[0], mockPlayers[1], mockPlayers[2], mockPlayers[3]],
   },
-  // Tuesday - Academia Avanzado
+
+  // Tuesday - Academy advanced (scheduled)
   {
-    id: 'instance-2',
-    parentClassId: 'parent-2',
+    id: "instance-2",
+    originalId: SERIES.academyAdvanced,
+    parentClassId: SERIES.academyAdvanced,
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 1), 'yyyy-MM-dd'),
-    startTime: '17:00',
-    endTime: '18:30',
-    status: 'scheduled',
-    name: 'Academia Avanzado',
-    color: '#8b5cf6',
-    levelId: 'level-3',
+    date: format(addDays(weekStart, 1), "yyyy-MM-dd"),
+    startTime: "17:00",
+    endTime: "18:30",
+    status: "scheduled",
+    classType: "academy" satisfies ClassType,
+    name: "Academia Avançados",
+    color: "#8b5cf6",
+    levelId: "level-3",
     maxPlayers: 4,
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
-    parentClass: mockParentClasses[1],
+    participants: [mockPlayers[4], mockPlayers[5], mockPlayers[6], mockPlayers[7]],
   },
-  // Wednesday - Academia Iniciación
+
+  // Wednesday - Academy beginners (scheduled)
   {
-    id: 'instance-3',
-    parentClassId: 'parent-1',
+    id: "instance-3",
+    originalId: SERIES.academyBeginners,
+    parentClassId: SERIES.academyBeginners,
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 2), 'yyyy-MM-dd'),
-    startTime: '09:00',
-    endTime: '10:30',
-    status: 'scheduled',
-    name: 'Academia Iniciación',
-    color: '#0ea5e9',
-    levelId: 'level-1',
+    date: format(addDays(weekStart, 2), "yyyy-MM-dd"),
+    startTime: "09:00",
+    endTime: "10:30",
+    status: "scheduled",
+    classType: "academy" satisfies ClassType,
+    name: "Academia Principiantes",
+    color: "#0ea5e9",
+    levelId: "level-1",
     maxPlayers: 4,
-    participants: [mockStudents[0], mockStudents[1], mockStudents[2], mockStudents[3]],
-    parentClass: mockParentClasses[0],
+    participants: [mockPlayers[0], mockPlayers[1], mockPlayers[2], mockPlayers[3]],
   },
-  // Thursday - Academia Avanzado
+
+  // Thursday - Academy advanced (scheduled)
   {
-    id: 'instance-4',
-    parentClassId: 'parent-2',
+    id: "instance-4",
+    originalId: SERIES.academyAdvanced,
+    parentClassId: SERIES.academyAdvanced,
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 3), 'yyyy-MM-dd'),
-    startTime: '17:00',
-    endTime: '18:30',
-    status: 'scheduled',
-    name: 'Academia Avanzado',
-    color: '#8b5cf6',
-    levelId: 'level-3',
+    date: format(addDays(weekStart, 3), "yyyy-MM-dd"),
+    startTime: "17:00",
+    endTime: "18:30",
+    status: "scheduled",
+    classType: "academy" satisfies ClassType,
+    name: "Academia Avançados",
+    color: "#8b5cf6",
+    levelId: "level-3",
     maxPlayers: 4,
-    participants: [mockStudents[4], mockStudents[5], mockStudents[6], mockStudents[7]],
-    parentClass: mockParentClasses[1],
+    participants: [mockPlayers[4], mockPlayers[5], mockPlayers[6], mockPlayers[7]],
   },
-  // Friday - Private class
+
+  // Friday - recurring private (scheduled)
   {
-    id: 'instance-5',
-    parentClassId: 'parent-3',
+    id: "instance-5",
+    originalId: SERIES.privatePedroTomas,
+    parentClassId: SERIES.privatePedroTomas,
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 4), 'yyyy-MM-dd'),
-    startTime: '11:00',
-    endTime: '12:00',
-    status: 'scheduled',
-    name: 'Clase privada Carlos & María',
-    color: '#ec4899',
+    date: format(addDays(weekStart, 4), "yyyy-MM-dd"),
+    startTime: "11:00",
+    endTime: "12:00",
+    status: "scheduled",
+    classType: "private" satisfies ClassType,
+    name: "Aula privada Pedro & Tomás",
+    color: "#ec4899",
     maxPlayers: 2,
-    participants: [mockStudents[0], mockStudents[1]],
-    parentClass: mockParentClasses[2],
+    participants: [mockPlayers[0], mockPlayers[1]],
   },
-  // Friday - One-off private
+
+  // Friday - one-off private (scheduled)
   {
-    id: 'instance-6',
+    id: "instance-6",
+    originalId: "instance-6", // one-off: originalId can equal id
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 4), 'yyyy-MM-dd'),
-    startTime: '16:00',
-    endTime: '17:00',
-    status: 'scheduled',
-    name: 'Privada Pablo',
-    color: '#f97316',
+    date: format(addDays(weekStart, 4), "yyyy-MM-dd"),
+    startTime: "16:00",
+    endTime: "17:00",
+    status: "scheduled",
+    classType: "private" satisfies ClassType,
+    name: "Privada Bernardo",
+    color: "#f97316",
     maxPlayers: 1,
-    participants: [mockStudents[2]],
+    participants: [mockPlayers[2]],
   },
-  // Saturday morning
+
+  // Saturday - group (scheduled)
   {
-    id: 'instance-7',
+    id: "instance-7",
+    originalId: "instance-7",
     coachId: MOCK_COACH_ID,
-    date: format(addDays(weekStart, 5), 'yyyy-MM-dd'),
-    startTime: '10:00',
-    endTime: '11:30',
-    status: 'scheduled',
-    name: 'Grupo Sábado',
-    color: '#22c55e',
-    levelId: 'level-2',
+    date: format(addDays(weekStart, 5), "yyyy-MM-dd"),
+    startTime: "10:00",
+    endTime: "11:30",
+    status: "scheduled",
+    classType: "academy" satisfies ClassType,
+    name: "Grupo Sábado",
+    color: "#22c55e",
+    levelId: "level-2",
     maxPlayers: 4,
-    participants: [mockStudents[2], mockStudents[3], mockStudents[6]],
+    participants: [mockPlayers[2], mockPlayers[3], mockPlayers[6]],
   },
 ];
 
-// Presences for completed class
+/**
+ * Presences for completed class
+ * - Presence.lessonInstanceId (not classInstanceId)
+ * - invited/confirmed/validated are required booleans
+ */
 export const mockPresences: Presence[] = [
-  { id: 'presence-1', classInstanceId: 'instance-1', studentId: 'student-1', status: 'present', invited: true, validated: true, student: mockStudents[0] },
-  { id: 'presence-2', classInstanceId: 'instance-1', studentId: 'student-2', status: 'present', invited: true, validated: true, student: mockStudents[1] },
-  { id: 'presence-3', classInstanceId: 'instance-1', studentId: 'student-3', status: 'absent', justification: 'justified', invited: true, validated: true, student: mockStudents[2] },
-  { id: 'presence-4', classInstanceId: 'instance-1', studentId: 'student-4', status: 'present', invited: true, validated: true, student: mockStudents[3] },
+  {
+    id: "presence-1",
+    lessonInstanceId: "instance-1",
+    playerId: "player-1",
+    status: "present",
+    invited: true,
+    confirmed: true,
+    validated: true,
+    player: mockPlayers[0],
+  },
+  {
+    id: "presence-2",
+    lessonInstanceId: "instance-1",
+    playerId: "player-2",
+    status: "present",
+    invited: true,
+    confirmed: true,
+    validated: true,
+    player: mockPlayers[1],
+  },
+  {
+    id: "presence-3",
+    lessonInstanceId: "instance-1",
+    playerId: "player-3",
+    status: "absent",
+    justification: "justified",
+    invited: true,
+    confirmed: false,
+    validated: true,
+    player: mockPlayers[2],
+  },
+  {
+    id: "presence-4",
+    lessonInstanceId: "instance-1",
+    playerId: "player-4",
+    status: "present",
+    invited: true,
+    confirmed: true,
+    validated: false,
+    player: mockPlayers[3],
+  },
 ];
 
-// Calendar blocks
+/**
+ * Attach presences to the completed instance (optional field on ClassInstance)
+ */
+const presencesByInstanceId = new Map<string, Presence[]>();
+for (const p of mockPresences) {
+  const list = presencesByInstanceId.get(p.lessonInstanceId) ?? [];
+  list.push(p);
+  presencesByInstanceId.set(p.lessonInstanceId, list);
+}
+for (const inst of mockClassInstances) {
+  const presences = presencesByInstanceId.get(inst.id);
+  if (presences) inst.presences = presences;
+}
+
+/**
+ * Calendar blocks
+ */
 export const mockCalendarBlocks: CalendarBlock[] = [
   {
-    id: 'block-1',
+    id: "block-1",
     coachId: MOCK_COACH_ID,
-    type: 'break',
-    date: format(addDays(weekStart, 2), 'yyyy-MM-dd'),
-    startTime: '13:00',
-    endTime: '14:00',
+    type: "break",
+    date: format(addDays(weekStart, 2), "yyyy-MM-dd"),
+    startTime: "13:00",
+    endTime: "14:00",
     isRecurring: false,
-    title: 'Almuerzo',
+    title: "Almoço",
   },
   {
-    id: 'block-2',
+    id: "block-2",
     coachId: MOCK_COACH_ID,
-    type: 'personal',
-    date: format(addDays(weekStart, 4), 'yyyy-MM-dd'),
-    startTime: '08:00',
-    endTime: '10:00',
+    type: "personal",
+    date: format(addDays(weekStart, 4), "yyyy-MM-dd"),
+    startTime: "08:00",
+    endTime: "10:00",
     isRecurring: false,
-    title: 'Cita médico',
+    title: "Consulta médico",
   },
 ];
 
-// Dashboard stats
+/**
+ * Dashboard stats (unchanged shape, but uses the rewritten arrays)
+ */
 export const mockDashboardStats = {
-  totalStudents: mockStudents.length,
-  upcomingClasses: mockClassInstances.filter(c => c.status === 'scheduled').length,
-  pendingValidations: 2,
+  totalPlayers: mockPlayers.length,
+  upcomingClasses: mockClassInstances.filter((c) => c.status === "scheduled").length,
+  pendingValidations: mockPresences.filter((p) => p.invited && p.confirmed && !p.validated).length,
   monthlyRevenue: 2450,
 };
+
+/**
+ * Calendar events
+ * - CalendarEvent.originalId must be a number, so we generate numeric ids.
+ * - CalendarEvent has no `data` field in your type.
+ */
+const classInstanceEvents: CalendarEvent[] = mockClassInstances.map((instance, idx) => ({
+  model: "class_instance",
+  originalId: idx + 1,
+  id: `class-${instance.id}`,
+  type: "class",
+  isRecurring: instance.originalId !== instance.id,
+  title: instance.name ?? "Aula",
+  date: instance.date,
+  startTime: instance.startTime,
+  endTime: instance.endTime,
+  color: instance.color,
+  classType: (instance.classType as ClassType | undefined),
+  status: instance.status,
+  participantCount: instance.participants?.length ?? 0,
+  maxPlayers: instance.maxPlayers,
+}));
+
+const calendarBlockEvents: CalendarEvent[] = mockCalendarBlocks.map((block, idx) => ({
+  model: "calendar_block",
+  originalId: 10_000 + idx + 1,
+  id: `block-${block.id}`,
+  type: "block",
+  isRecurring: block.isRecurring,
+  title: block.title ?? block.type,
+  date: block.date ?? format(today, "yyyy-MM-dd"),
+  startTime: block.startTime ?? "00:00",
+  endTime: block.endTime ?? "23:59",
+  blockType: block.type,
+}));
+
+export const mockCalendarEvents: CalendarEvent[] = [
+  ...classInstanceEvents,
+  ...calendarBlockEvents,
+];

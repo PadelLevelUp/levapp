@@ -1,15 +1,14 @@
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState, useEffect } from 'react';
+import { format, addMonths } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 import { X, Users, Clock, Calendar, Plus, Minus, Repeat } from 'lucide-react';
-import { ClassType, Student, CoachLevel } from '@/types';
+import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sheet,
   SheetContent,
@@ -26,7 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { mockStudents, mockLevels } from '@/data/mockData';
+
+const COACH_ID = "1";
 
 interface AddClassSheetProps {
   open: boolean;
@@ -34,6 +34,9 @@ interface AddClassSheetProps {
   initialDate?: Date;
   initialTime?: string;
   onSave?: (data: any) => void;
+  
+  players: CoachPlayer[];
+  levels: CoachLevel[];
 }
 
 const COLORS = [
@@ -48,45 +51,69 @@ const COLORS = [
 ];
 
 const DAYS_OF_WEEK = [
-  { value: 1, label: 'L' },
-  { value: 2, label: 'M' },
-  { value: 3, label: 'X' },
-  { value: 4, label: 'J' },
-  { value: 5, label: 'V' },
-  { value: 6, label: 'S' },
-  { value: 0, label: 'D' },
+  { value: 1, label: 'M' }, // Monday
+  { value: 2, label: 'T' }, // Tuesday
+  { value: 3, label: 'W' }, // Wednesday
+  { value: 4, label: 'T' }, // Thursday
+  { value: 5, label: 'F' }, // Friday
+  { value: 6, label: 'S' }, // Saturday
+  { value: 0, label: 'S' }, // Sunday
 ];
 
 export function AddClassSheet({ 
-  open, 
-  onClose, 
+  open,
+  onClose,
   initialDate,
   initialTime,
-  onSave 
+  onSave,
+  players,
+  levels,
 }: AddClassSheetProps) {
   const [classType, setClassType] = useState<ClassType>('academy');
   const [isRecurring, setIsRecurring] = useState(false);
   const [name, setName] = useState('');
-  const [date, setDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '');
+  const [date, setDate] = useState(
+    initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : ''
+  );
   const [startTime, setStartTime] = useState(initialTime || '09:00');
   const [endTime, setEndTime] = useState('10:30');
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedLevel, setSelectedLevel] = useState<string>('');
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+  const togglePlayer = (playerId: string) => {
+    setSelectedPlayers(prev =>
+      prev.includes(playerId)
+        ? prev.filter(id => id !== playerId)
+        : [...prev, playerId]
+    );
   };
 
-  const toggleStudent = (studentId: string) => {
-    setSelectedStudents(prev => 
-      prev.includes(studentId) 
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId]
+  useEffect(() => {
+    if (!isRecurring || !date) return;
+
+    const weekday = getWeekdayFromDate(date);
+    if (weekday === null) return;
+
+    setSelectedDays(prev =>
+      prev.includes(weekday) ? prev : [weekday, ...prev]
     );
+  }, [isRecurring, date]);
+
+  const getWeekdayFromDate = (dateStr: string) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).getDay(); // 0 (Sun) → 6 (Sat)
   };
 
   const toggleDay = (day: number) => {
@@ -98,8 +125,16 @@ export function AddClassSheet({
   };
 
   const handleSave = () => {
+    if (isRecurring && selectedDays.length === 0) return;
+
+    const computedEndDate =
+      isRecurring
+        ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
+        : null;
+
     const data = {
-      type: classType,
+      coachId: COACH_ID,
+      classType,
       isRecurring,
       name,
       date,
@@ -107,14 +142,19 @@ export function AddClassSheet({
       endTime,
       maxPlayers,
       color: selectedColor,
-      levelId: selectedLevel,
-      studentIds: selectedStudents,
-      recurrenceRule: isRecurring ? {
-        frequency: 'weekly' as const,
-        daysOfWeek: selectedDays,
-      } : undefined,
-      endDate: isRecurring ? endDate : undefined,
+      levelId: selectedLevel || null,
+      playerIds: selectedPlayers,
+
+      recurrenceRule: isRecurring
+        ? {
+            frequency: 'weekly',
+            daysOfWeek: selectedDays,
+          }
+        : null,
+
+      endDate: computedEndDate,
     };
+
     onSave?.(data);
     handleClose();
   };
@@ -129,7 +169,7 @@ export function AddClassSheet({
     setMaxPlayers(4);
     setSelectedColor(COLORS[0]);
     setSelectedLevel('');
-    setSelectedStudents([]);
+    setSelectedPlayers([]);
     setSelectedDays([]);
     setEndDate('');
     onClose();
@@ -139,24 +179,28 @@ export function AddClassSheet({
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Nueva clase</SheetTitle>
+          <SheetTitle>New class</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
           {/* Class Type */}
           <Tabs value={classType} onValueChange={(v) => setClassType(v as ClassType)}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="academy">Academia</TabsTrigger>
-              <TabsTrigger value="private">Privada</TabsTrigger>
+              <TabsTrigger value="academy">Academy</TabsTrigger>
+              <TabsTrigger value="private">Private</TabsTrigger>
             </TabsList>
           </Tabs>
 
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Nombre (opcional)</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
-              placeholder={classType === 'academy' ? 'Ej: Academia Iniciación' : 'Ej: Privada Juan y María'}
+              placeholder={
+                classType === 'academy'
+                  ? 'e.g. Beginner Academy'
+                  : 'e.g. Private – John & Mary'
+              }
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -171,8 +215,9 @@ export function AddClassSheet({
                   key={color}
                   onClick={() => setSelectedColor(color)}
                   className={cn(
-                    "w-8 h-8 rounded-full transition-all",
-                    selectedColor === color && "ring-2 ring-offset-2 ring-primary"
+                    'w-8 h-8 rounded-full transition-all',
+                    selectedColor === color &&
+                      'ring-2 ring-offset-2 ring-primary'
                   )}
                   style={{ backgroundColor: color }}
                 />
@@ -184,7 +229,7 @@ export function AddClassSheet({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Repeat className="w-4 h-4 text-muted-foreground" />
-              <Label htmlFor="recurring">Clase recurrente</Label>
+              <Label htmlFor="recurring">Recurring class</Label>
             </div>
             <Switch
               id="recurring"
@@ -193,21 +238,21 @@ export function AddClassSheet({
             />
           </div>
 
-          {/* Date/Time or Recurrence */}
+          {/* Date / Recurrence */}
           {isRecurring ? (
             <div className="space-y-4 p-4 rounded-lg bg-muted/50">
               <div className="space-y-2">
-                <Label>Días de la semana</Label>
+                <Label>Days of the week</Label>
                 <div className="flex gap-1">
                   {DAYS_OF_WEEK.map(({ value, label }) => (
                     <button
                       key={value}
                       onClick={() => toggleDay(value)}
                       className={cn(
-                        "w-9 h-9 rounded-full text-sm font-medium transition-colors",
+                        'w-9 h-9 rounded-full text-sm font-medium transition-colors',
                         selectedDays.includes(value)
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-muted-foreground/10"
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted hover:bg-muted-foreground/10'
                       )}
                     >
                       {label}
@@ -218,7 +263,7 @@ export function AddClassSheet({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start-date">Fecha inicio</Label>
+                  <Label htmlFor="start-date">Start date</Label>
                   <Input
                     id="start-date"
                     type="date"
@@ -227,7 +272,7 @@ export function AddClassSheet({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="end-date">Fecha fin (opcional)</Label>
+                  <Label htmlFor="end-date">End date</Label>
                   <Input
                     id="end-date"
                     type="date"
@@ -239,7 +284,7 @@ export function AddClassSheet({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start-time">Hora inicio</Label>
+                  <Label htmlFor="start-time">Start time</Label>
                   <Input
                     id="start-time"
                     type="time"
@@ -248,7 +293,7 @@ export function AddClassSheet({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="end-time">Hora fin</Label>
+                  <Label htmlFor="end-time">End time</Label>
                   <Input
                     id="end-time"
                     type="time"
@@ -261,7 +306,7 @@ export function AddClassSheet({
           ) : (
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="date">Fecha</Label>
+                <Label htmlFor="date">Date</Label>
                 <Input
                   id="date"
                   type="date"
@@ -270,7 +315,7 @@ export function AddClassSheet({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="start-time">Inicio</Label>
+                <Label htmlFor="start-time">Start</Label>
                 <Input
                   id="start-time"
                   type="time"
@@ -279,7 +324,7 @@ export function AddClassSheet({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end-time">Fin</Label>
+                <Label htmlFor="end-time">End</Label>
                 <Input
                   id="end-time"
                   type="time"
@@ -292,7 +337,7 @@ export function AddClassSheet({
 
           {/* Max Players */}
           <div className="space-y-2">
-            <Label>Máximo jugadores</Label>
+            <Label>Max players</Label>
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -301,7 +346,9 @@ export function AddClassSheet({
               >
                 <Minus className="w-4 h-4" />
               </Button>
-              <span className="text-lg font-semibold w-8 text-center">{maxPlayers}</span>
+              <span className="text-lg font-semibold w-8 text-center">
+                {maxPlayers}
+              </span>
               <Button
                 variant="outline"
                 size="icon"
@@ -314,52 +361,52 @@ export function AddClassSheet({
 
           {/* Level */}
           <div className="space-y-2">
-            <Label>Nivel (opcional)</Label>
+            <Label>Level (optional)</Label>
             <Select value={selectedLevel} onValueChange={setSelectedLevel}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar nivel" />
+                <SelectValue placeholder="Select level" />
               </SelectTrigger>
               <SelectContent>
-                {mockLevels.map((level) => (
+                {levels.map((level) => (
                   <SelectItem key={level.id} value={level.id}>
-                    {level.code} - {level.label}
+                    {level.code} – {level.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Students */}
+          {/* Players */}
           <div className="space-y-2">
-            <Label>Participantes</Label>
+            <Label>Participants</Label>
             <div className="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
-              {mockStudents.map((student) => (
+              {players.map((player) => (
                 <div
-                  key={student.id}
+                  key={player.playerId}
                   className={cn(
-                    "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-                    selectedStudents.includes(student.id)
-                      ? "bg-primary/10"
-                      : "hover:bg-muted"
+                    'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors',
+                    selectedPlayers.includes(player.playerId)
+                      ? 'bg-primary/10'
+                      : 'hover:bg-muted'
                   )}
-                  onClick={() => toggleStudent(student.id)}
+                  onClick={() => togglePlayer(player.playerId)}
                 >
                   <Checkbox
-                    checked={selectedStudents.includes(student.id)}
-                    onCheckedChange={() => toggleStudent(student.id)}
+                    checked={selectedPlayers.includes(player.playerId)}
+                    onCheckedChange={() => togglePlayer(player.playerId)}
                   />
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {getInitials(student.name)}
+                      {getInitials(player.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{student.name}</span>
+                  <span className="text-sm">{player.name}</span>
                 </div>
               ))}
             </div>
-            {selectedStudents.length > 0 && (
+            {selectedPlayers.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                {selectedStudents.length} seleccionados
+                {selectedPlayers.length} selected
               </p>
             )}
           </div>
@@ -367,10 +414,10 @@ export function AddClassSheet({
 
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={handleClose}>
-            Cancelar
+            Cancel
           </Button>
           <Button onClick={handleSave}>
-            Crear clase
+            Create class
           </Button>
         </SheetFooter>
       </SheetContent>

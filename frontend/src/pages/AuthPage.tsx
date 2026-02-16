@@ -1,57 +1,54 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { api } from "@/api/client";
+import { useAuth } from "@/auth/AuthContext";
 
-const emailSchema = z.string().email("Por favor ingresa un email válido");
-const passwordSchema = z.string().min(6, "La contraseña debe tener al menos 6 caracteres");
+const usernameSchema = z
+  .string()
+  .min(3, "Username must have at least 3 characters");
+
+const passwordSchema = z
+  .string()
+  .min(6, "Password must have at least 6 characters");
 
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{
+    username?: string;
+    password?: string;
+  }>({});
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          navigate("/dashboard");
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate("/dashboard");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  const { login } = useAuth();
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    const emailResult = emailSchema.safeParse(email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
+    const newErrors: { username?: string; password?: string } = {};
+
+    const usernameResult = usernameSchema.safeParse(username);
+    if (!usernameResult.success) {
+      newErrors.username = usernameResult.error.errors[0].message;
     }
-    
+
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
       newErrors.password = passwordResult.error.errors[0].message;
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -59,60 +56,30 @@ const AuthPage = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) {
+    setLoading(true);
+
+    try {
+      const res = await api.post("/api/auth/login", {
+        username,
+        password,
+      });
+
+      await login(res.data.accessToken)
+      navigate("/dashboard");
+      toast({
+        title: "Welcome!",
+        description: "You have successfully logged in.",
+      });
+    } catch (err) {
       toast({
         variant: "destructive",
-        title: "Error al iniciar sesión",
-        description: error.message === "Invalid login credentials" 
-          ? "Credenciales inválidas. Verifica tu email y contraseña."
-          : error.message,
+        title: "Login failed",
+        description: "Invalid username or password.",
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    
-    setLoading(true);
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (error) {
-      let errorMessage = error.message;
-      if (error.message.includes("already registered")) {
-        errorMessage = "Este email ya está registrado. Intenta iniciar sesión.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Error al registrarse",
-        description: errorMessage,
-      });
-    } else {
-      toast({
-        title: "¡Cuenta creada!",
-        description: "Tu cuenta ha sido creada exitosamente.",
-      });
-    }
-    setLoading(false);
   };
 
   return (
@@ -120,48 +87,36 @@ const AuthPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
+            Sign In
           </CardTitle>
           <CardDescription className="text-center">
-            {isLogin
-              ? "Ingresa tus credenciales para acceder"
-              : "Completa el formulario para registrarte"}
+            Enter your credentials to access the platform
           </CardDescription>
         </CardHeader>
+
         <CardContent>
-          <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Nombre completo</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="Juan Pérez"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
-            )}
-            
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={email}
+                id="username"
+                type="text"
+                placeholder="your-username"
+                value={username}
                 onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErrors((prev) => ({ ...prev, email: undefined }));
+                  setUsername(e.target.value);
+                  setErrors((prev) => ({ ...prev, username: undefined }));
                 }}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
+              {errors.username && (
+                <p className="text-sm text-destructive">
+                  {errors.username}
+                </p>
               )}
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -173,34 +128,16 @@ const AuthPage = () => {
                 }}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
+                <p className="text-sm text-destructive">
+                  {errors.password}
+                </p>
               )}
             </div>
-            
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading
-                ? "Cargando..."
-                : isLogin
-                ? "Iniciar Sesión"
-                : "Crear Cuenta"}
+              {loading ? "Signing in…" : "Sign In"}
             </Button>
           </form>
-          
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">
-              {isLogin ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
-            </span>
-            <button
-              type="button"
-              className="text-primary hover:underline font-medium"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setErrors({});
-              }}
-            >
-              {isLogin ? "Regístrate" : "Inicia sesión"}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>

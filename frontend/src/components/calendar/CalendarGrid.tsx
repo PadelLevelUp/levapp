@@ -56,6 +56,33 @@ export function CalendarGrid({
     }
   };
 
+  function groupOverlappingEvents(events: CalendarEvent[]) {
+    const groups: CalendarEvent[][] = [];
+
+    events.forEach(event => {
+      let placed = false;
+
+      for (const group of groups) {
+        const overlaps = group.some(e =>
+          e.startTime < event.endTime &&
+          event.startTime < e.endTime
+        );
+
+        if (overlaps) {
+          group.push(event);
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        groups.push([event]);
+      }
+    });
+
+    return groups;
+  }
+
   return (
     <div className="flex-1 overflow-auto scrollbar-thin">
       <div className="grid grid-cols-[60px_repeat(7,1fr)] min-h-full">
@@ -101,23 +128,27 @@ export function CalendarGrid({
               ))}
 
               {/* Events */}
-              {dayEvents.map((event) => {
-                const style = getEventStyle(event);
-                return (
-                  <CalendarEventCard
-                    key={event.id}
-                    event={event}
-                    style={{
-                      position: 'absolute',
-                      top: style.top,
-                      left: 2,
-                      right: 2,
-                      height: style.height,
-                    }}
-                    onClick={() => onEventClick?.(event)}
-                  />
-                );
-              })}
+              {groupOverlappingEvents(dayEvents).flatMap(group =>
+                group.map((event, index) => {
+                  const style = getEventStyle(event);
+                  const columnWidth = 100 / group.length;
+
+                  return (
+                    <CalendarEventCard
+                      key={event.id}
+                      event={event}
+                      style={{
+                        position: 'absolute',
+                        top: style.top,
+                        left: `${index * columnWidth}%`,
+                        width: `${columnWidth}%`,
+                        height: style.height,
+                      }}
+                      onClick={() => onEventClick?.(event)}
+                    />
+                  );
+                })
+              )}
             </div>
           );
         })}

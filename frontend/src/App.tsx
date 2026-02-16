@@ -3,39 +3,95 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
-import CalendarLoadingDemo from "./pages/CalendarLoadingDemo";
-import TrainingPage from "./pages/TrainingPage";
-import StudentsPage from "./pages/StudentsPage";
-import MessagesPage from "./pages/MessagesPage";
-import MessagesLoadingDemo from "./pages/MessagesLoadingDemo";
+import PlayersPage from "./pages/PlayersPage";
+import RegisterPage from "./pages/RegisterPage";
 import AuthPage from "./pages/AuthPage";
+import SettingsPage from "./pages/SettingsPage";
+import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
+
+import { AuthProvider } from "@/auth/AuthContext";
+import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { RoleRoute } from "@/auth/RoleRoute";
+import { LayoutProvider } from "@/components/layout/LayoutContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/calendar/loading" element={<CalendarLoadingDemo />} />
-          <Route path="/training" element={<TrainingPage />} />
-          <Route path="/students" element={<StudentsPage />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/messages/loading" element={<MessagesLoadingDemo />} />
-          <Route path="/settings" element={<DashboardPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <LayoutProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/register/:userId" element={<RegisterPage />} />
+
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/dashboard" replace />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/calendar"
+                element={
+                  <ProtectedRoute>
+                    <CalendarPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/players"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <PlayersPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute>
+                    <MessagesPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </LayoutProvider>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

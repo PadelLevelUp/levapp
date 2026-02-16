@@ -20,7 +20,7 @@ export function CalendarToolbar({
     <div className="flex items-center justify-between p-4 border-b border-border bg-card">
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onToday}>
-          Hoy
+          Today
         </Button>
         <div className="flex items-center">
           <Button variant="ghost" size="icon" onClick={onPrevWeek}>
@@ -30,14 +30,14 @@ export function CalendarToolbar({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <h2 className="text-lg font-semibold capitalize ml-2">
+        <h2 className="text-lg font-semibold ml-2">
           {weekLabel}
         </h2>
       </div>
 
       <Button onClick={onAddClass} className="gap-2">
         <Plus className="w-4 h-4" />
-        <span className="hidden sm:inline">Añadir clase</span>
+        <span className="hidden sm:inline">Add class</span>
       </Button>
     </div>
   );
