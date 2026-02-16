@@ -133,7 +133,7 @@ function getAllOptions(ele){
     $.getJSON(`/api/query/${model_name}` , function(data) {
         for (let option of data) {
             let option_text = option.name;
-            let option_value = option.value;
+            let option_value = option.id;
             let show = !values.includes(option_value);
             let option_div = createManyToManyOption(ele.dataset.name,option_text,option_value,show);
             ele.insertBefore(option_div, ele.lastElementChild);
@@ -154,6 +154,10 @@ function fillAllManyToManyOptions(){
 
 function createManyToManyOption(field_name,option_text,option_value,show){
     var div = document.createElement("div");
+    console.log(field_name)
+    console.log(option_text)
+    console.log(option_value)
+    console.log(show)
     div.setAttribute("id", "option_" + option_value)
     div.setAttribute("data-name", field_name);
     div.setAttribute("data-value", option_value);

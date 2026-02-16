@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, abort, g, Response
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, time, timedelta
 from dateutil import parser
 import json
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -24,6 +24,9 @@ from padel_app.models import (
     Association_CoachPlayer
 )
 
+from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.tools.calendar_tools import build_datetime
+
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.serializers.lesson import (
     serialize_lesson,
@@ -38,13 +41,13 @@ from padel_app.serializers.conversation import serialize_conversation_detail, se
 from padel_app.serializers.coach_level import serialize_coach_level
 from padel_app.helpers.calendar_helpers import (
     load_lessons_for_coach, 
-    load_lesson_instances_for_coach, 
+    load_lesson_instances_for_coach,
+    load_lessons_for_player,
+    load_lesson_instances_for_player,
     build_lesson_events, 
     load_calendar_blocks_for_user, 
     build_block_events
 )
-from padel_app.tools.request_adapter import JsonRequestAdapter
-from padel_app.tools.calendar_tools import build_datetime
 
 from padel_app.helpers.lesson_services import (
     create_lesson_helper, 
@@ -56,6 +59,7 @@ from padel_app.helpers.lesson_services import (
     edit_lesson_helper,
     add_presences
 )
+from padel_app.helpers.dashboard_services import build_dashboard_payload
 from padel_app.helpers.player_services import create_player_helper, edit_player_helper
 from padel_app.realtime import publish, subscribe, unsubscribe
 
@@ -95,9 +99,17 @@ def current_coach():
     if 'current_coach' not in g:
         user = current_user()
         if not user.coach:
-            abort(403)
+            g.current_coach = None
         g.current_coach = user.coach
     return g.current_coach
+
+def current_player():
+    if 'current_player' not in g:
+        user = current_user()
+        if not user.player:
+            g.current_player = None
+        g.current_player = user.player
+    return g.current_player
 
 def current_club():
     coach = current_coach()
@@ -165,7 +177,6 @@ def unread_total():
 @bp.get("/calendar")
 @jwt_required()
 def calendar():
-    
     start = request.args.get("from")
     end = request.args.get("to")
 
@@ -174,17 +185,19 @@ def calendar():
 
     user = current_user()
     coach = current_coach()
-
-    if not start or not end:
-        abort(400, "from and to are required")
+    player = current_player()
 
     range_start = parser.isoparse(start).astimezone(timezone.utc)
     range_end = parser.isoparse(end).astimezone(timezone.utc)
 
-    lessons = load_lessons_for_coach(coach.id, range_start, range_end)
-    instances_by_key = load_lesson_instances_for_coach(
-        coach.id, range_start, range_end
-    )
+    if coach is not None:
+        lessons = load_lessons_for_coach(coach.id, range_start, range_end)
+        instances_by_key = load_lesson_instances_for_coach(coach.id, range_start, range_end)
+    elif player is not None:
+        lessons = load_lessons_for_player(player.id, range_start, range_end)
+        instances_by_key = load_lesson_instances_for_player(player.id, range_start, range_end)
+    else:
+        abort(403, "User has no coach or player profile")
 
     lesson_events = build_lesson_events(
         lessons,
@@ -193,14 +206,9 @@ def calendar():
         range_end,
     )
 
-    blocks = load_calendar_blocks_for_user(
-        user.id, range_start, range_end
-    )
+    blocks = load_calendar_blocks_for_user(user.id, range_start, range_end)
+    block_events = build_block_events(blocks, range_start, range_end)
 
-    block_events = build_block_events(
-        blocks, range_start, range_end
-    )
-    
     return jsonify(lesson_events + block_events)
 
 @bp.get("/lesson_instance/<int:instance_id>")
@@ -238,17 +246,15 @@ def activate_user(user_id):
 
     return jsonify(success=True)
 
-#TODO this is completely wrong, everything should be associated with current user
 @bp.get("/dashboard")
+@jwt_required()
 def dashboard():
-    return jsonify({
-        "totalPlayers": Player.query.count(),
-        "upcomingClasses": LessonInstance.query.filter(
-            LessonInstance.start_datetime >= datetime.utcnow()
-        ).count(),
-        "pendingValidations": Presence.query.filter_by(validated=False).count(),
-        "monthlyRevenue": 0,
-    })
+    user = current_user()
+    coach = current_coach()
+    player = current_player()
+
+    payload = build_dashboard_payload(user=user, coach=coach, player=player)
+    return jsonify(payload)
     
 @bp.get("/conversations")
 @jwt_required()
@@ -645,6 +651,7 @@ def create_conversation():
 @jwt_required()
 def add_class():
     data = request.get_json() or {}
+    coach = current_coach()
     club = current_club()
     
     lesson_payload = {
@@ -662,7 +669,7 @@ def add_class():
             data["date"], data["endTime"]
         ),
         "club" : club.id,
-        "coach": data["coachId"],
+        "coach": coach.id,
         "player_ids": data.get("playerIds", []),
     }
 
@@ -795,22 +802,98 @@ def update_lesson_status(lesson_id):
 
 @bp.post("/edit_class")
 def edit_class():
+    from datetime import datetime, timedelta
+
     data = request.get_json() or {}
 
     event = data.get("event")
     scope = data.get("scope")
     updates = data.get("updates", {})
+
+    if not event or not scope:
+        return jsonify({"error": "Invalid payload"}), 400
+
+    def _apply_future_edit_to_lesson(*, lesson, event_date, new_date, payload):
+        """
+        Applies 'future' semantics to a lesson series:
+        - Split series if editing from the middle
+        - Reconnect existing future instances to the new lesson
+        - Edit the (possibly duplicated) series lesson with edit_lesson_helper
+        Returns: (lesson_to_edit, from_date)
+        """
+        from datetime import datetime, timedelta, time
+
+        from_date = new_date or event_date  # boundary where "future" starts
+        from_dt = datetime.combine(from_date, time.min)
+
+        def _reassign_future_instances(*, old_lesson, new_lesson, boundary_dt):
+            """
+            Move existing materialized instances from old_lesson to new_lesson
+            for all instances occurring on/after boundary_dt.
+            """
+            (
+                LessonInstance.query
+                .filter(LessonInstance.lesson_id == old_lesson.id)
+                .filter(LessonInstance.start_datetime >= boundary_dt)
+                .update({LessonInstance.lesson_id: new_lesson.id}, synchronize_session=False)
+            )
+            db.session.commit()
+
+        if event_date != lesson.start_datetime.date():
+            lesson_to_edit = duplicate_lesson_helper(lesson)
+
+            # Truncate old lesson up to the day before the future boundary
+            split_date = from_date - timedelta(days=1)
+            lesson.recurrence_end = split_date
+            lesson.save()  # likely commits old lesson changes
+
+            # IMPORTANT: reconnect existing instances after the split to the new lesson
+            _reassign_future_instances(
+                old_lesson=lesson,
+                new_lesson=lesson_to_edit,
+                boundary_dt=from_dt,
+            )
+        else:
+            lesson_to_edit = lesson
+
+        payload_for_lesson = dict(payload)
+        payload_for_lesson["event_date"] = event_date
+
+        lesson_to_edit = edit_lesson_helper(data=payload_for_lesson, lesson=lesson_to_edit)
+        lesson_to_edit.save()
+
+        return lesson_to_edit, from_date
+
+    def _edit_future_instances(*, lesson, from_date, payload):
+        """
+        Edit all existing instances for a lesson from 'from_date' onward
+        using edit_lesson_instance_helper.
+        """
+        from_dt = datetime.combine(from_date, time.min)
+        instances = (
+            LessonInstance.query
+            .filter(LessonInstance.lesson_id == lesson.id)
+            .filter(LessonInstance.start_datetime >= from_dt)
+            .all()
+        )
+
+        for inst in instances:
+            inst_payload = dict(payload)
+            inst_payload["date"] = inst.start_datetime.date().strftime("%Y-%m-%d")
+            edit_lesson_instance_helper(inst_payload, inst)
+
+    def _ensure_date(payload, date_obj):
+        """Ensure payload['date'] is always present as YYYY-MM-DD for helpers that expect it."""
+        payload["date"] = payload.get("date") or date_obj.strftime("%Y-%m-%d")
+        return payload
+
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
-    new_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str
-        else None
-    )
-    
+    new_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
+
     payload = {
-        "title": updates.get("name", ''),
-        "color": updates.get("color", ''),
+        "title": updates.get("name", ""),
+        "color": updates.get("color", ""),
         "max_players": updates.get("maxPlayers", None),
         "level": updates.get("levelId", None),
         "date": updates.get("date", None),
@@ -821,65 +904,62 @@ def edit_class():
         "remove_player_ids": updates.get("removePlayers", []),
     }
 
-    if not event or not scope:
-        return jsonify({"error": "Invalid payload"}), 400
-
     model = event.get("model")
     original_id = event.get("originalId")
 
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)
 
-        if not instance:
-            return jsonify({"error": "Lesson instance not found"}), 404
+        if scope == "single":
+            _ensure_date(payload, event_date)
+            edit_lesson_instance_helper(payload, instance)
+            return jsonify({"id": instance.id}), 200
 
-        payload['date'] = payload['date'] or event_date.strftime("%Y-%m-%d")
-        edit_lesson_instance_helper(payload, instance)
+        if scope == "future":
+            parent_lesson = instance.lesson
 
-        return jsonify({"id": instance.id}), 200
+            _ensure_date(payload, event_date)
+            lesson_to_edit, from_date = _apply_future_edit_to_lesson(
+                lesson=parent_lesson,
+                event_date=event_date,
+                new_date=new_date,
+                payload=payload,
+            )
+
+            _edit_future_instances(
+                lesson=lesson_to_edit,
+                from_date=from_date,
+                payload=payload,
+            )
+
+            return jsonify({"id": lesson_to_edit.id}), 201
+
+        return jsonify({"error": "Invalid scope"}), 400
 
     lesson = Lesson.query.get_or_404(original_id)
 
-    if not lesson:
-        return jsonify({"error": "Lesson not found"}), 404
-
     if scope == "single":
-        payload['original_lesson_occurence_date'] = event_date.strftime("%Y-%m-%d")
-        payload['date'] = payload['date'] or event_date.strftime("%Y-%m-%d")
-        instance = create_lesson_instance_helper(
-            data=payload,
-            parent_lesson=lesson
-        )
-
+        payload["original_lesson_occurence_date"] = event_date.strftime("%Y-%m-%d")
+        _ensure_date(payload, event_date)
+        instance = create_lesson_instance_helper(data=payload, parent_lesson=lesson)
         return jsonify({"id": instance.id}), 201
 
     if scope == "future":
-        if event_date != lesson.start_datetime.date():
-            lesson_to_edit = duplicate_lesson_helper(
-                lesson
-            )
-            split_date = (
-                new_date - timedelta(days=1)
-                if new_date
-                else event_date - timedelta(days=1)
-            )
-            payload['date'] = payload['date'] or event_date.strftime("%Y-%m-%d")
-            lesson.recurrence_end = split_date
-            lesson.save()
-        else:
-            lesson_to_edit = lesson
-
-        payload['event_date'] = event_date
-        
-        lesson_to_edit = edit_lesson_helper(data=payload, lesson=lesson_to_edit)
-        lesson_to_edit.save()
-
+        _ensure_date(payload, event_date)
+        lesson_to_edit, _ = _apply_future_edit_to_lesson(
+            lesson=lesson,
+            event_date=event_date,
+            new_date=new_date,
+            payload=payload,
+        )
         return jsonify({"id": lesson_to_edit.id}), 201
 
     return jsonify({"error": "Invalid scope"}), 400
 
 @bp.post("/remove_class")
 def remove_class():
+    from datetime import datetime, timedelta
+
     data = request.get_json() or {}
 
     models = {
@@ -887,31 +967,64 @@ def remove_class():
         "LessonInstance": LessonInstance,
     }
 
-    event = data.get("event", {})
+    event = data.get("event", {}) or {}
     scope = data.get("scope")
     model_name = event.get("model")
     class_id = event.get("originalId")
 
-    obj = models[model_name].query.get_or_404(class_id)
+    if not model_name or model_name not in models or not class_id:
+        return jsonify({"error": "Invalid payload"}), 400
+
+    if "date" not in event:
+        return jsonify({"error": "Invalid payload"}), 400
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
 
+    def _truncate_lesson_future(*, lesson, from_date):
+        """
+        Implements 'future' removal semantics on a Lesson:
+        - truncate recurrence_end to the day before from_date
+        - delete future materialized instances from from_date onward
+        """
+        lesson.recurrence_end = from_date - timedelta(days=1)
+        lesson.save()
+        delete_future_instances(lesson, from_date)
+
+    def _remove_single_occurrence_from_lesson(*, lesson, date):
+        """
+        Implements 'single' removal semantics on a Lesson:
+        - if non-recurring: delete the lesson
+        - if recurring: split lesson around that date and remove current date
+        """
+        if not lesson.recurrence_rule:
+            lesson.delete()
+            return
+        split_lesson(lesson, date, remove_current_date=True)
+
+    obj = models[model_name].query.get_or_404(class_id)
+
     if model_name == "LessonInstance":
-        obj.delete()
-        return jsonify({"status": "deleted"}), 200
+        if scope == "single" or not scope:
+            obj.delete()
+            return jsonify({"status": "deleted"}), 200
+
+        if scope == "future":
+            parent_lesson = obj.lesson
+            obj.delete()
+            delete_future_instances(parent_lesson, event_date)
+            _truncate_lesson_future(lesson=parent_lesson, from_date=event_date)
+
+            return jsonify({"status": "recurrence_truncated"}), 200
+
+        return jsonify({"error": "Invalid request"}), 400
 
     if model_name == "Lesson":
         if scope == "future":
-            obj.recurrence_end = event_date - timedelta(days=1)
-            obj.save()
-            delete_future_instances(obj, event_date)
+            _truncate_lesson_future(lesson=obj, from_date=event_date)
             return jsonify({"status": "recurrence_truncated"}), 200
 
         if scope == "single":
-            if not obj.recurrence_rule:
-                obj.delete()
-                return jsonify({"status": "single_removed"}), 200
-            split_lesson(obj, event_date, remove_current_date=True)
+            _remove_single_occurrence_from_lesson(lesson=obj, date=event_date)
             return jsonify({"status": "single_removed"}), 200
 
     return jsonify({"error": "Invalid request"}), 400

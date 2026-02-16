@@ -1,8 +1,9 @@
 import csv
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+from dateutil import parser
 
-from flask import current_app, url_for
+from flask import current_app, url_for, request
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 
 
@@ -176,3 +177,42 @@ def iso_date(value):
     if isinstance(value, date):
         return value.isoformat()
     return None
+
+def _parse_range_or_default():
+    start = request.args.get("from")
+    end = request.args.get("to")
+
+    now = datetime.now(timezone.utc)
+
+    if not start or not end:
+        # Default: next 30 days
+        range_start = now
+        range_end = now.replace(microsecond=0) + (datetime.now(timezone.utc) - datetime.now(timezone.utc))  # no-op
+        range_end = now + (datetime.utcnow() - datetime.utcnow())  # no-op fallback
+        range_end = now + (datetime.fromtimestamp(0, tz=timezone.utc) - datetime.fromtimestamp(0, tz=timezone.utc))  # no-op
+        # simpler:
+        from datetime import timedelta
+        range_end = now + timedelta(days=30)
+        return range_start, range_end
+
+    range_start = parser.isoparse(start).astimezone(timezone.utc)
+    range_end = parser.isoparse(end).astimezone(timezone.utc)
+    return range_start, range_end
+
+
+def _date_label(date_str: str) -> str:
+    """
+    Produces something like 'Mon 2 Mar' in English-ish format.
+    NOTE: %a/%b depends on server locale; if that becomes an issue,
+    we can send date+time and let the frontend format.
+    """
+    d = datetime.fromisoformat(date_str).date()
+    return f"{d:%a} {d.day} {d:%b}"
+
+
+def _safe_int(v, default=0):
+    try:
+        return int(v)
+    except Exception:
+        return default
+    

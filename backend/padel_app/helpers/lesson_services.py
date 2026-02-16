@@ -37,10 +37,10 @@ def update_recurrence_weekday(
     rule["daysOfWeek"] = sorted(days)
     return json.dumps(rule)
 
-def transform_to_datetime(lesson, data):
+def transform_to_datetime(obj, data):
     date = data.get('date')
-    start_time = data.get('start_time') if data.get('start_time') else _format_time(lesson.start_datetime)
-    end_time = data.get('end_time') if data.get('end_time') else _format_time(lesson.end_datetime)
+    start_time = data.get('start_time') if data.get('start_time') else _format_time(obj.start_datetime)
+    end_time = data.get('end_time') if data.get('end_time') else _format_time(obj.end_datetime)
     
     data["start_datetime"] = build_datetime(
         date, start_time
@@ -120,7 +120,7 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
             data.get("lesson_instance_id")
         )
         
-    data = transform_to_datetime(lesson_instance.lesson, data)
+    data = transform_to_datetime(lesson_instance, data)
     data['overwrite_title'] = data.get('title')
 
     form = lesson_instance.get_edit_form()

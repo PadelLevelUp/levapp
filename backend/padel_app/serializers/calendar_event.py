@@ -57,7 +57,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 "maxPlayers": obj.max_players,
                 "color": lesson.color,
                 "levelId": obj.level_id or lesson.default_level_id,
-                "isRecurring": False
+                "isRecurring": True if lesson.recurrence_rule else False
             }
         )
 

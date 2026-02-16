@@ -120,6 +120,14 @@ class Field:
         return True
 
     def set_relationship_value(self, request):
+        print(':::::::::::::::::')
+        print(':::::::::::::::::')
+        print(':::::::::::::::::')
+        print(request)
+        print(request.form)
+        print(':::::::::::::::::')
+        print(':::::::::::::::::')
+        print(':::::::::::::::::')
         values = [
             ele
             for ele in request.form.getlist(self.name)
