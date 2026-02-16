@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getMe, MeResponse } from "@/api/auth";
+import { USE_MOCK_DATA } from "@/config";
 
 type AuthContextType = {
   token: string | null;
@@ -14,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem("accessToken")
+    USE_MOCK_DATA ? "mock-token" : localStorage.getItem("accessToken")
   );
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,8 +32,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getMe()
       .then(setUser)
       .catch(() => {
-        localStorage.removeItem("accessToken");
-        setToken(null);
+        if (!USE_MOCK_DATA) {
+          localStorage.removeItem("accessToken");
+          setToken(null);
+        }
         setUser(null);
       })
       .finally(() => {
@@ -45,7 +48,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(newToken);
     
     try {
-      // Fetch user data immediately so it's ready before redirecting
       const userData = await getMe();
       setUser(userData);
     } catch (error) {
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("accessToken");
-    setToken(null);
+    setToken(USE_MOCK_DATA ? "mock-token" : null);
     setUser(null);
   };
 
