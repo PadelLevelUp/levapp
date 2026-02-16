@@ -6,11 +6,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Search, UserX, MoreVertical, MessageSquare, Eye, Link, Trash2 } from 'lucide-react';
-import { mockCoachStudents, mockLevels } from '@/data/mockData';
+import { mockCoachPlayers as mockCoachStudents, mockLevels } from '@/data/mockData';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StudentDetailSheet } from '@/components/students/StudentDetailSheet';
-import { CoachStudent } from '@/types';
+import { CoachPlayer as CoachStudent } from '@/types';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -34,7 +34,7 @@ export default function StudentsPage() {
   const navigate = useNavigate();
   
   const students = mockCoachStudents.filter(cs => 
-    cs.student?.name.toLowerCase().includes(search.toLowerCase())
+    cs.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -46,8 +46,7 @@ export default function StudentsPage() {
 
   const handleSendMessage = (coachStudent: CoachStudent, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    // Navigate to messages with this student
-    navigate('/messages', { state: { newConversationWith: coachStudent.student } });
+    navigate('/messages', { state: { newConversationWith: coachStudent } });
   };
 
   const handleCopyInviteLink = (coachStudent: CoachStudent, e?: React.MouseEvent) => {
@@ -58,8 +57,8 @@ export default function StudentsPage() {
   };
 
   const renderStudentCard = (coachStudent: CoachStudent) => {
-    const { student, level, side } = coachStudent;
-    const isInactive = !student?.userId;
+    const { level, side } = coachStudent;
+    const isInactive = !coachStudent.userId;
 
     const cardContent = (
       <Card 
@@ -115,11 +114,11 @@ export default function StudentsPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <Avatar className="w-12 h-12">
-              <AvatarFallback className="bg-primary/10 text-primary">{getInitials(student?.name || '')}</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary">{getInitials(coachStudent.name || '')}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{student?.name}</p>
-              <p className="text-sm text-muted-foreground truncate">{student?.email}</p>
+              <p className="font-medium truncate">{coachStudent.name}</p>
+              <p className="text-sm text-muted-foreground truncate">{coachStudent.email}</p>
             </div>
           </div>
           <div className="flex gap-2 mt-3">
@@ -131,7 +130,7 @@ export default function StudentsPage() {
     );
 
     return (
-      <ContextMenu key={student?.id}>
+      <ContextMenu key={coachStudent.id}>
         <ContextMenuTrigger>
           {cardContent}
         </ContextMenuTrigger>

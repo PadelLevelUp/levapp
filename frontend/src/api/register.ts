@@ -2,7 +2,7 @@ import { api } from "@/api/client";
 
 export async function registerUser(
   userId: string
-): any {
+): Promise<any> {
   const res = await api.get(`/api/app/register/user/${userId}`);
   return res.data;
 }

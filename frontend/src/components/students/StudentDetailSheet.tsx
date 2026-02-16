@@ -9,10 +9,10 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Copy, Check, UserX, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
-import { CoachStudent, CoachLevel } from '@/types';
+import { CoachPlayer, CoachLevel } from '@/types';
 
 interface StudentDetailSheetProps {
-  student: CoachStudent | null;
+  student: CoachPlayer | null;
   levels: CoachLevel[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,9 +21,10 @@ interface StudentDetailSheetProps {
 export function StudentDetailSheet({ student, levels, open, onOpenChange }: StudentDetailSheetProps) {
   const [copied, setCopied] = useState(false);
   
-  if (!student?.student) return null;
+  if (!student) return null;
 
-  const { student: studentData, level, side } = student;
+  const studentData = { name: student.name, email: student.email, phone: student.phone, userId: student.userId };
+  const { level, side } = student;
   const isInactive = !studentData.userId;
   
   const getInitials = (name: string) => 
