@@ -79,17 +79,14 @@ export function AppLayout({ children }: AppLayoutProps) {
 }
 
 export function AppLayoutInner({ children }: AppLayoutProps) {
-  const { providerId, unreadCount: totalUnreadCount, refreshUnreadCount, scrollMode, bottomNavHidden } = useLayout();
+  const { unreadCount: totalUnreadCount, refreshUnreadCount, scrollMode, bottomNavHidden } = useLayout();
 
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  const totalUnreadCount = useMemo(() => {
-    return mockConversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
-  }, []);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const visibleNavItems = navItems.filter(item =>
     item.roles.some(role => user?.roles.includes(role))
