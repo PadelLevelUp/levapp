@@ -11,3 +11,13 @@ export async function getCoachLevels(): Promise<CoachLevel[]> {
   const res = await api.get("/api/app/coach_levels");
   return res.data;
 }
+
+export async function addCoachLevel(data: any) {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] addCoachLevel", data);
+    return { id: crypto.randomUUID(), ...data };
+  }
+
+  const res = await api.post(`/api/app/add_coach_level`, data);
+  return res.data;
+}

@@ -6,8 +6,10 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { GripVertical, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
+import { api } from "@/api/client";
 import { getCoachLevels } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
+import { addCoachLevel } from "@/api/coachLevel";
 
 interface LevelDraft {
   id: string;
@@ -92,9 +94,8 @@ export function CoachLevelsSection() {
       return;
     }
 
-    // Real API: POST each level with displayOrder
-    // const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
-    // await api.post("/api/app/coach_levels/bulk", payload);
+    const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
+    await addCoachLevel(payload);
     toast({ title: "Levels saved", description: `${levels.length} levels updated.` });
   };
 
