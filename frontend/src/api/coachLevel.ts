@@ -8,7 +8,7 @@ export async function getCoachLevels(): Promise<CoachLevel[]> {
     return mockLevels;
   }
 
-  const res = await api.get("/api/app/coach_levels");
+  const res = await api.get("/app/coach_levels");
   return res.data;
 }
 
@@ -18,6 +18,6 @@ export async function addCoachLevel(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post(`/api/app/add_coach_level`, data);
+  const res = await api.post(`/app/add_coach_level`, data);
   return res.data;
 }

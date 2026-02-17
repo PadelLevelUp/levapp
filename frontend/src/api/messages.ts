@@ -8,7 +8,7 @@ export async function getConversations(): Promise<Conversation[]> {
     return mockConversations;
   }
 
-  const res = await api.get("/api/app/conversations");
+  const res = await api.get("/app/conversations");
   return res.data;
 }
 
@@ -21,7 +21,7 @@ export async function getConversation(
     throw new Error(`Conversation ${conversationId} not found`);
   }
 
-  const res = await api.get(`/api/app/conversation/${conversationId}`);
+  const res = await api.get(`/app/conversation/${conversationId}`);
   return res.data;
 }
 
@@ -31,7 +31,7 @@ export async function getUnreadMessagesCount() {
     return { count: total };
   }
 
-  const res = await api.get(`/api/app/messages/unread_count`);
+  const res = await api.get(`/app/messages/unread_count`);
   return res.data;
 }
 
@@ -50,7 +50,7 @@ export async function sendMessage(payload: {
     };
   }
 
-  const res = await api.post("/api/app/message", {
+  const res = await api.post("/app/message", {
     conversationId: payload.conversationId,
     text: payload.content,
   });
@@ -73,7 +73,7 @@ export async function createConversation(payload: {
     };
   }
 
-  const res = await api.post("/api/app/conversation", {
+  const res = await api.post("/app/conversation", {
     otherParticipants: payload.otherParticipants,
   });
   return res.data;
@@ -85,5 +85,5 @@ export async function markConversationRead(conversationId: string) {
     return;
   }
 
-  await api.post(`/api/app/conversation/${conversationId}/read`);
+  await api.post(`/app/conversation/${conversationId}/read`);
 }

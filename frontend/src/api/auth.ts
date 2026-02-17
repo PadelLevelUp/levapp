@@ -21,6 +21,6 @@ export async function getMe(): Promise<MeResponse> {
     };
   }
 
-  const res = await api.get("/api/auth/me");
+  const res = await api.get("/auth/me");
   return res.data;
 }

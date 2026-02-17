@@ -14,7 +14,7 @@ export async function getClassInstances(
   }
 
   const res = await api.post(
-    `/api/app/lesson_instances?from=${from}&to=${to}`
+    `/app/lesson_instances?from=${from}&to=${to}`
   );
   return res.data;
 }
@@ -28,7 +28,7 @@ export async function getClassInstance(
   }
 
   const res = await api.post(
-    `/api/app/class_instance?model=${event.model}&id=${event.originalId}`
+    `/app/class_instance?model=${event.model}&id=${event.originalId}`
   );
 
   const instanceData = await res.data;
@@ -54,7 +54,7 @@ export async function addClass(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post(`/api/app/add_class`, data);
+  const res = await api.post(`/app/add_class`, data);
   return res.data;
 }
 
@@ -67,7 +67,7 @@ export async function removeClass(
     return { success: true };
   }
 
-  const res = await api.post(`/api/app/remove_class`, { event, scope });
+  const res = await api.post(`/app/remove_class`, { event, scope });
   return res.data;
 }
 
@@ -81,6 +81,6 @@ export async function editClass(
     return { success: true };
   }
 
-  const res = await api.post(`/api/app/edit_class`, { event, scope, updates });
+  const res = await api.post(`/app/edit_class`, { event, scope, updates });
   return res.data;
 }

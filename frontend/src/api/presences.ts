@@ -16,7 +16,7 @@ export async function confirmClassPresences(
     return mockPresences;
   }
 
-  const res = await api.post(`/api/app/class_instance/presences/confirm`, {
+  const res = await api.post(`/app/class_instance/presences/confirm`, {
     classInstance,
     presences,
   });
@@ -31,7 +31,7 @@ export async function getClassPresences(
   }
 
   const res = await api.get(
-    `/api/app/class_instance/${lessonInstanceId}/presences`
+    `/app/class_instance/${lessonInstanceId}/presences`
   );
   return res.data;
 }

@@ -8,7 +8,7 @@ export async function getPlayers(): Promise<Player[]> {
     return mockPlayers;
   }
 
-  const res = await api.get("/api/app/players");
+  const res = await api.get("/app/players");
   return res.data;
 }
 
@@ -17,7 +17,7 @@ export async function getCoachPlayers(): Promise<CoachPlayer[]> {
     return mockCoachPlayers;
   }
 
-  const res = await api.get("/api/app/coach_players");
+  const res = await api.get("/app/coach_players");
   return res.data;
 }
 
@@ -27,7 +27,7 @@ export async function addPlayer(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post("/api/app/add_player", data);
+  const res = await api.post("/app/add_player", data);
   return res.data;
 }
 
@@ -37,6 +37,6 @@ export async function editPlayer(player: CoachPlayer, updates: any) {
     return { ...player, ...updates };
   }
 
-  const res = await api.post("/api/app/edit_player", { player, updates });
+  const res = await api.post("/app/edit_player", { player, updates });
   return res.data;
 }

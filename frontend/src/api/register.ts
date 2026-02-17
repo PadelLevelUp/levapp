@@ -23,7 +23,7 @@ export async function activateAccount(payload: {
   }
 
   const res = await api.post(
-    `/api/app/activate/user/${payload.userId}`,
+    `/app/activate/user/${payload.userId}`,
     payload.content
   );
   return res.data;

@@ -8,6 +8,6 @@ export async function getUsers(): Promise<User[]> {
     return mockUsers;
   }
 
-  const res = await api.get("/api/app/users");
+  const res = await api.get("/app/users");
   return res.data;
 }

@@ -13,7 +13,7 @@ export async function getCalendarEvents(
     );
   }
 
-  const res = await api.get("/api/app/calendar", {
+  const res = await api.get("/app/calendar", {
     params: { from, to },
   });
   return res.data;
@@ -27,7 +27,7 @@ export async function getCalendarEvent(
     return found ?? event;
   }
 
-  const res = await api.get("/api/app/calendar_event", {
+  const res = await api.get("/app/calendar_event", {
     params: {
       model: event.model,
       original_id: event.originalId,

@@ -105,7 +105,7 @@ export async function getDashboard(params?: {
     return buildMockDashboard();
   }
 
-  const res = await api.get("/api/app/dashboard", {
+  const res = await api.get("/app/dashboard", {
     params: {
       from: params?.from,
       to: params?.to,
