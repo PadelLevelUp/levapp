@@ -1,20 +1,37 @@
 import type { Conversation, Message } from "@/types";
 import { api } from "@/api/client";
+import { USE_MOCK_DATA } from "@/config";
+import { mockConversations } from "@/data/mockMessages";
 
 export async function getConversations(): Promise<Conversation[]> {
-  const res = await api.get("/api/app/conversations");
+  if (USE_MOCK_DATA) {
+    return mockConversations;
+  }
+
+  const res = await api.get("/app/conversations");
   return res.data;
 }
 
 export async function getConversation(
   conversationId: string
 ): Promise<Conversation> {
-  const res = await api.get(`/api/app/conversation/${conversationId}`);
+  if (USE_MOCK_DATA) {
+    const conv = mockConversations.find((c) => c.id === conversationId);
+    if (conv) return conv;
+    throw new Error(`Conversation ${conversationId} not found`);
+  }
+
+  const res = await api.get(`/app/conversation/${conversationId}`);
   return res.data;
 }
 
 export async function getUnreadMessagesCount() {
-  const res = await api.get(`/api/app/messages/unread_count`);
+  if (USE_MOCK_DATA) {
+    const total = mockConversations.reduce((sum, c) => sum + c.unreadCount, 0);
+    return { count: total };
+  }
+
+  const res = await api.get(`/app/messages/unread_count`);
   return res.data;
 }
 
@@ -22,24 +39,51 @@ export async function sendMessage(payload: {
   conversationId: string;
   content: string;
 }): Promise<Message> {
-  const res = await api.post("/api/app/message", {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] sendMessage", payload);
+    return {
+      id: crypto.randomUUID(),
+      senderId: 1,
+      content: payload.content,
+      timestamp: new Date().toISOString(),
+      isRead: true,
+    };
+  }
+
+  const res = await api.post("/app/message", {
     conversationId: payload.conversationId,
     text: payload.content,
   });
-
   return res.data;
 }
 
 export async function createConversation(payload: {
   otherParticipants: [string];
 }): Promise<Conversation> {
-  const res = await api.post("/api/app/conversation", {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] createConversation", payload);
+    return {
+      id: `conv-mock-${Date.now()}`,
+      participantId: payload.otherParticipants[0],
+      participantName: "New Conversation",
+      lastMessage: null,
+      lastMessageAt: null,
+      unreadCount: 0,
+      messages: [],
+    };
+  }
+
+  const res = await api.post("/app/conversation", {
     otherParticipants: payload.otherParticipants,
   });
-
   return res.data;
 }
 
 export async function markConversationRead(conversationId: string) {
-  await api.post(`/api/app/conversation/${conversationId}/read`);
+  if (USE_MOCK_DATA) {
+    console.log("[mock] markConversationRead", conversationId);
+    return;
+  }
+
+  await api.post(`/app/conversation/${conversationId}/read`);
 }

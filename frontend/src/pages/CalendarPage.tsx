@@ -10,7 +10,7 @@ import { getCalendarEvents } from "@/api/calendar";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getCoachPlayers } from "@/api/players";
 import { useCalendar } from "@/hooks/useCalendar";
-import type { CalendarEvent, CoachLevel, CoachPlayer } from "@/types";
+import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
 import { LoadingCalendar } from "@/components/ui/loading-skeleton";

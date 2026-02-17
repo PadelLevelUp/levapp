@@ -162,7 +162,10 @@ export type DashboardIcon =
   | "calendar"
   | "clipboard_check"
   | "trending_up"
-  | "user_plus";
+  | "user_plus"
+  | "check_circle"
+  | "x_circle"
+  | "mail";
 
 export type DashboardBlock =
   | DashboardMessagesOverviewBlock

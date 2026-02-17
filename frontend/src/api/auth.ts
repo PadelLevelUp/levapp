@@ -1,4 +1,6 @@
 import { api } from "@/api/client";
+import { USE_MOCK_DATA } from "@/config";
+import { MOCK_COACH_ID } from "@/data/mockData";
 
 export type MeResponse = {
   id: number;
@@ -9,6 +11,16 @@ export type MeResponse = {
 };
 
 export async function getMe(): Promise<MeResponse> {
-  const res = await api.get("/api/auth/me");
+  if (USE_MOCK_DATA) {
+    return {
+      id: 1,
+      username: "bernardo.terroso",
+      name: "Bernardo Terroso",
+      roles: ["coach"],
+      coachId: MOCK_COACH_ID,
+    };
+  }
+
+  const res = await api.get("/auth/me");
   return res.data;
 }
