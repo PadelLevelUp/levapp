@@ -125,7 +125,9 @@ export function AddClassSheet({
   };
 
   const handleSave = () => {
+    if (!date) return;
     if (isRecurring && selectedDays.length === 0) return;
+    if (isRecurring && !endDate) return;
 
     const computedEndDate =
       isRecurring
