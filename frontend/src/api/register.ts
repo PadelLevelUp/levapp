@@ -9,7 +9,7 @@ export async function registerUser(
     return { success: true };
   }
 
-  const res = await api.get(`/api/app/register/user/${userId}`);
+  const res = await api.get(`/app/register/user/${userId}`);
   return res.data;
 }
 
