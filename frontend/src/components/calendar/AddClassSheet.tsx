@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { X, Users, Clock, Calendar, Plus, Minus, Repeat } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,8 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
 
   const getInitials = (name: string) =>
     name
@@ -124,8 +127,39 @@ export function AddClassSheet({
     );
   };
 
+  // Auto-adjust endTime when startTime changes
+  useEffect(() => {
+    if (!startTime) return;
+    if (endTime <= startTime) {
+      const [h, m] = startTime.split(':').map(Number);
+      const totalMin = h * 60 + m + 90; // default 1.5h duration
+      const newH = Math.min(Math.floor(totalMin / 60), 23);
+      const newM = totalMin % 60;
+      setEndTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+    }
+  }, [startTime]);
+
   const handleSave = () => {
-    if (isRecurring && selectedDays.length === 0) return;
+    const newErrors: Record<string, boolean> = {};
+    if (!date) newErrors.date = true;
+    if (isRecurring && selectedDays.length === 0) newErrors.days = true;
+    if (isRecurring && !endDate) newErrors.endDate = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const missing = [
+        newErrors.date && 'Date',
+        newErrors.days && 'Days of the week',
+        newErrors.endDate && 'End date',
+      ].filter(Boolean).join(', ');
+      toast({
+        variant: 'destructive',
+        title: 'Missing required fields',
+        description: `Please fill in: ${missing}`,
+      });
+      return;
+    }
+    setErrors({});
 
     const computedEndDate =
       isRecurring
@@ -172,6 +206,7 @@ export function AddClassSheet({
     setSelectedPlayers([]);
     setSelectedDays([]);
     setEndDate('');
+    setErrors({});
     onClose();
   };
 
@@ -243,11 +278,11 @@ export function AddClassSheet({
             <div className="space-y-4 p-4 rounded-lg bg-muted/50">
               <div className="space-y-2">
                 <Label>Days of the week</Label>
-                <div className="flex gap-1">
+                <div className={cn("flex gap-1 p-1 rounded-lg", errors.days && "ring-2 ring-destructive")}>
                   {DAYS_OF_WEEK.map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => toggleDay(value)}
+                      onClick={() => { toggleDay(value); setErrors(e => ({ ...e, days: false })); }}
                       className={cn(
                         'w-9 h-9 rounded-full text-sm font-medium transition-colors',
                         selectedDays.includes(value)
@@ -267,8 +302,9 @@ export function AddClassSheet({
                   <Input
                     id="start-date"
                     type="date"
+                    className={cn(errors.date && "border-destructive ring-1 ring-destructive")}
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -276,8 +312,9 @@ export function AddClassSheet({
                   <Input
                     id="end-date"
                     type="date"
+                    className={cn(errors.endDate && "border-destructive ring-1 ring-destructive")}
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
                   />
                 </div>
               </div>
@@ -310,8 +347,9 @@ export function AddClassSheet({
                 <Input
                   id="date"
                   type="date"
+                  className={cn(errors.date && "border-destructive ring-1 ring-destructive")}
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
                 />
               </div>
               <div className="space-y-2">
