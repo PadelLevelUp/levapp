@@ -124,6 +124,18 @@ export function AddClassSheet({
     );
   };
 
+  // Auto-adjust endTime when startTime changes
+  useEffect(() => {
+    if (!startTime) return;
+    if (endTime <= startTime) {
+      const [h, m] = startTime.split(':').map(Number);
+      const totalMin = h * 60 + m + 90; // default 1.5h duration
+      const newH = Math.min(Math.floor(totalMin / 60), 23);
+      const newM = totalMin % 60;
+      setEndTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+    }
+  }, [startTime]);
+
   const handleSave = () => {
     if (!date) return;
     if (isRecurring && selectedDays.length === 0) return;
