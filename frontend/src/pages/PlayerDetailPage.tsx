@@ -28,18 +28,17 @@ export default function PlayerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [playersData, levelsData, cats] = await Promise.all([
+        const [playersData, levelsData] = await Promise.all([
           getCoachPlayers(),
           getCoachLevels(),
-          getEvaluationCategories(),
         ]);
         setLevels(levelsData);
-        setCategories(cats);
 
         const found = playersData.find((p) => p.playerId === playerId);
         setPlayer(found ?? null);
@@ -81,6 +80,19 @@ export default function PlayerDetailPage() {
     } catch {
       setPlayer(prev);
     }
+  };
+
+  const handleOpenEval = async () => {
+    if (categories.length === 0) {
+      setCategoriesLoading(true);
+      try {
+        const cats = await getEvaluationCategories();
+        setCategories(cats);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    }
+    setIsEvalOpen(true);
   };
 
   const handleEvalSave = async (data: {
@@ -148,8 +160,8 @@ export default function PlayerDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
           </Button>
-          <Button size="sm" onClick={() => setIsEvalOpen(true)}>
-            <ClipboardPlus className="mr-2 h-4 w-4" /> Add Evaluation
+          <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
+            <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
           </Button>
         </div>
 
