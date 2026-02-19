@@ -1,7 +1,7 @@
 import type { Conversation, Message } from "@/types";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
-import { mockConversations } from "@/data/mockMessages";
+import { mockConversations } from "@/data/mockData";
 
 export async function getConversations(): Promise<Conversation[]> {
   if (USE_MOCK_DATA) {
