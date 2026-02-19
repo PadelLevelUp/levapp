@@ -4,15 +4,17 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { getCoachPlayers } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getPlayerProfile } from "@/api/playerProfile";
+import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
 import { editPlayer } from "@/api/players";
-import type { CoachPlayer, CoachLevel, PlayerProfile } from "@/types";
+import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory } from "@/types";
 import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
+import { AddEvaluationSheet } from "@/components/players/detail/AddEvaluationSheet";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations";
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ClipboardPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function PlayerDetailPage() {
@@ -22,18 +24,22 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<CoachPlayer | null>(null);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [categories, setCategories] = useState<EvaluationCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEvalOpen, setIsEvalOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [playersData, levelsData] = await Promise.all([
+        const [playersData, levelsData, cats] = await Promise.all([
           getCoachPlayers(),
           getCoachLevels(),
+          getEvaluationCategories(),
         ]);
         setLevels(levelsData);
+        setCategories(cats);
 
         const found = playersData.find((p) => p.playerId === playerId);
         setPlayer(found ?? null);
@@ -77,6 +83,39 @@ export default function PlayerDetailPage() {
     }
   };
 
+  const handleEvalSave = async (data: {
+    scores: { categoryId: string; value: number }[];
+    strengths: string[];
+    weaknesses: string[];
+  }) => {
+    if (!player) return;
+
+    // Optimistic update
+    const newEvaluations = data.scores.map((s) => {
+      const cat = categories.find((c) => c.id === s.categoryId);
+      return { topic: cat?.name ?? s.categoryId, score: s.value };
+    });
+
+    setProfile((prev) => ({
+      playerId: player.playerId,
+      evaluations: newEvaluations,
+      strengths: data.strengths,
+      weaknesses: data.weaknesses,
+      ...(prev ? {} : {}),
+    }));
+
+    try {
+      await postEvaluationEntry({
+        playerId: player.playerId,
+        scores: data.scores,
+        strengths: data.strengths,
+        weaknesses: data.weaknesses,
+      });
+    } catch {
+      // Could revert here
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -105,9 +144,14 @@ export default function PlayerDetailPage() {
   return (
     <AppLayout>
       <div className="p-6 space-y-6 max-w-4xl mx-auto">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
+          </Button>
+          <Button size="sm" onClick={() => setIsEvalOpen(true)}>
+            <ClipboardPlus className="mr-2 h-4 w-4" /> Add Evaluation
+          </Button>
+        </div>
 
         <PlayerHeader player={player} levels={levels} onEdit={() => setIsEditOpen(true)} />
 
@@ -140,6 +184,16 @@ export default function PlayerDetailPage() {
             notes: player.notes,
             isActive: player.isActive,
           }}
+        />
+
+        <AddEvaluationSheet
+          open={isEvalOpen}
+          onClose={() => setIsEvalOpen(false)}
+          onSave={handleEvalSave}
+          categories={categories}
+          currentEvaluations={profile?.evaluations ?? []}
+          currentStrengths={profile?.strengths ?? []}
+          currentWeaknesses={profile?.weaknesses ?? []}
         />
       </div>
     </AppLayout>
