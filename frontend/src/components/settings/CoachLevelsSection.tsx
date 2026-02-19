@@ -21,6 +21,7 @@ interface LevelDraft {
 export function CoachLevelsSection() {
   const { toast } = useToast();
   const [levels, setLevels] = useState<LevelDraft[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -49,6 +50,9 @@ export function CoachLevelsSection() {
   };
 
   const handleRemove = (id: string) => {
+    if (!id.startsWith("new-")) {
+      setDeletedIds((prev) => [...prev, id]);
+    }
     setLevels((prev) => prev.filter((l) => l.id !== id));
   };
 
@@ -94,6 +98,10 @@ export function CoachLevelsSection() {
       return;
     }
 
+    if (deletedIds.length > 0) {
+      await api.post("/delete/coach_level", { ids: deletedIds });
+      setDeletedIds([]);
+    }
     const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
     await addCoachLevel(payload);
     toast({ title: "Levels saved", description: `${levels.length} levels updated.` });
