@@ -6,7 +6,7 @@ import {
   mockClassInstances,
   mockCalendarEvents,
 } from "@/data/mockData";
-import { mockConversations } from "@/data/mockMessages";
+import { mockConversations } from "@/data/mockData";
 import { format, addDays } from "date-fns";
 
 function buildMockDashboard(): DashboardDefinition {

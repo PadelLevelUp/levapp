@@ -9,6 +9,10 @@ import type {
   CalendarEvent,
   Presence,
   ClassType,
+  PlayerProfile,
+  EvaluationCategory,
+  Conversation,
+  Message,
 } from "@/types";
 import { addDays, format, startOfWeek } from "date-fns";
 
@@ -418,4 +422,152 @@ const calendarBlockEvents: CalendarEvent[] = mockCalendarBlocks.map((block, idx)
 export const mockCalendarEvents: CalendarEvent[] = [
   ...classInstanceEvents,
   ...calendarBlockEvents,
+];
+
+/**
+ * Evaluation categories
+ */
+export const mockEvaluationCategories: EvaluationCategory[] = [
+  { id: "cat-1", name: "Technique", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-2", name: "Tactics", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-3", name: "Physical Capacity", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-4", name: "Attitude", scaleMin: 0, scaleMax: 100 },
+];
+
+/**
+ * Player profiles (evaluations, strengths, weaknesses)
+ */
+function buildProfile(
+  playerId: string,
+  evaluations: [string, number][],
+  strengths: string[],
+  weaknesses: string[],
+): PlayerProfile {
+  return {
+    playerId,
+    evaluations: evaluations.map(([topic, score]) => ({ topic, score })),
+    strengths,
+    weaknesses,
+  };
+}
+
+export const mockPlayerProfiles: Record<string, PlayerProfile> = {
+  "player-1": buildProfile("player-1",
+    [["Technique", 78], ["Tactics", 65], ["Physical Capacity", 82], ["Attitude", 90]],
+    ["Strong forehand", "Excellent court positioning", "High stamina"],
+    ["Weak backhand under pressure", "Slow net transitions"]),
+  "player-2": buildProfile("player-2",
+    [["Technique", 70], ["Tactics", 80], ["Physical Capacity", 60], ["Attitude", 85]],
+    ["Smart play selection", "Good doubles partner"],
+    ["Needs conditioning improvement", "Inconsistent serve"]),
+  "player-3": buildProfile("player-3",
+    [["Technique", 55], ["Tactics", 50], ["Physical Capacity", 70], ["Attitude", 95]],
+    ["Very motivated", "Great attitude in training"],
+    ["Technique still developing", "Tactical awareness needs work"]),
+  "player-4": buildProfile("player-4",
+    [["Technique", 85], ["Tactics", 75], ["Physical Capacity", 68], ["Attitude", 72]],
+    ["Natural racket skills", "Powerful smash"],
+    ["Sometimes unfocused", "Endurance could improve"]),
+  "player-5": buildProfile("player-5",
+    [["Technique", 62], ["Tactics", 58], ["Physical Capacity", 90], ["Attitude", 88]],
+    ["Exceptional fitness", "Never gives up on a point"],
+    ["Technical polish needed", "Rushing shots"]),
+  "player-6": buildProfile("player-6",
+    [["Technique", 80], ["Tactics", 72], ["Physical Capacity", 75], ["Attitude", 80]],
+    ["Consistent baseline play", "Good volleys"],
+    ["Could be more aggressive", "Second serve needs work"]),
+  "player-7": buildProfile("player-7",
+    [["Technique", 48], ["Tactics", 45], ["Physical Capacity", 55], ["Attitude", 92]],
+    ["Eager to learn", "Positive team player"],
+    ["Beginner level technique", "Needs match experience"]),
+  "player-8": buildProfile("player-8",
+    [["Technique", 73], ["Tactics", 68], ["Physical Capacity", 72], ["Attitude", 78]],
+    ["Well-rounded game", "Reliable under pressure"],
+    ["Lacks a standout weapon", "Footwork could improve"]),
+};
+
+/**
+ * Conversations & messages
+ */
+const COACH_SENDER_ID = 1;
+const PLAYER_SENDER: Record<string, number> = {
+  "player-1": 101,
+  "player-2": 102,
+  "player-3": 103,
+  "player-4": 104,
+  "player-5": 105,
+};
+
+const msg = (m: Message) => m;
+
+export const mockConversations: Conversation[] = [
+  {
+    id: "conv-1",
+    participantId: "player-1",
+    participantName: "Pedro Pacheco",
+    participantAvatar: undefined,
+    lastMessage: "Perfect, see you tomorrow then! I'll arrive a bit earlier so we can warm up properly and review what we worked on last week.",
+    lastMessageAt: "2024-01-15T10:30:00",
+    unreadCount: 2,
+    messages: [
+      msg({ id: "msg-1", senderId: COACH_SENDER_ID, content: "Hi Pedro, how are you? I'm texting to confirm tomorrow's lesson.", timestamp: "2024-01-15T09:00:00", isRead: true }),
+      msg({ id: "msg-2", senderId: PLAYER_SENDER["player-1"], content: "Hi! Yes, everything is confirmed. At 18:00 as usual?", timestamp: "2024-01-15T09:15:00", isRead: true }),
+      msg({ id: "msg-3", senderId: COACH_SENDER_ID, content: "Exactly, 18:00 on court 3. Bring the new racket if you want to try it.", timestamp: "2024-01-15T09:20:00", isRead: true }),
+      msg({ id: "msg-4", senderId: PLAYER_SENDER["player-1"], content: "Perfect, see you tomorrow then! I'll arrive a bit earlier so we can warm up properly and review what we worked on last week.", timestamp: "2024-01-15T10:30:00", isRead: false }),
+    ],
+  },
+  {
+    id: "conv-2",
+    participantId: "player-2",
+    participantName: "Tomás Pacheco",
+    participantAvatar: undefined,
+    lastMessage: "Thanks for today's lesson, I learned a lot about the backhand.",
+    lastMessageAt: "2024-01-14T20:00:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-5", senderId: PLAYER_SENDER["player-2"], content: "Hi coach! I wanted to ask if there's availability for an extra lesson this week.", timestamp: "2024-01-14T14:00:00", isRead: true }),
+      msg({ id: "msg-6", senderId: COACH_SENDER_ID, content: "Hi Tomás! Let me check my schedule. I have a slot on Thursday at 17:00, does that work for you?", timestamp: "2024-01-14T14:30:00", isRead: true }),
+      msg({ id: "msg-7", senderId: PLAYER_SENDER["player-2"], content: "Perfect! Thursday works great for me. Shall we work on the backhand?", timestamp: "2024-01-14T14:45:00", isRead: true }),
+      msg({ id: "msg-8", senderId: COACH_SENDER_ID, content: "Of course, we'll focus on the backhand and the bandeja. Bring extra water!", timestamp: "2024-01-14T15:00:00", isRead: true }),
+      msg({ id: "msg-9", senderId: PLAYER_SENDER["player-2"], content: "Thanks for today's lesson, I learned a lot about the backhand.", timestamp: "2024-01-14T20:00:00", isRead: true }),
+    ],
+  },
+  {
+    id: "conv-3",
+    participantId: "player-3",
+    participantName: "Bernardo Castro",
+    participantAvatar: undefined,
+    lastMessage: "Understood, I'll cancel Friday's lesson.",
+    lastMessageAt: "2024-01-13T11:30:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-10", senderId: COACH_SENDER_ID, content: "Hi Bernardo, just letting you know that I won't be able to give the lesson on Friday due to a personal commitment.", timestamp: "2024-01-13T11:00:00", isRead: true }),
+      msg({ id: "msg-11", senderId: PLAYER_SENDER["player-3"], content: "Understood, I'll cancel Friday's lesson.", timestamp: "2024-01-13T11:30:00", isRead: true }),
+    ],
+  },
+  {
+    id: "conv-4",
+    participantId: "player-4",
+    participantName: "Dudas BF",
+    participantAvatar: undefined,
+    lastMessage: "Can we move Tuesday's lesson to Wednesday?",
+    lastMessageAt: "2024-01-12T16:00:00",
+    unreadCount: 1,
+    messages: [
+      msg({ id: "msg-12", senderId: PLAYER_SENDER["player-4"], content: "Can we move Tuesday's lesson to Wednesday?", timestamp: "2024-01-12T16:00:00", isRead: false }),
+    ],
+  },
+  {
+    id: "conv-5",
+    participantId: "player-5",
+    participantName: "Talinho Garrett",
+    participantAvatar: undefined,
+    lastMessage: "Perfect, thanks!",
+    lastMessageAt: "2024-01-10T09:15:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-13", senderId: COACH_SENDER_ID, content: "Talinho, remember to bring the new outfit for the group photo.", timestamp: "2024-01-10T09:00:00", isRead: true }),
+      msg({ id: "msg-14", senderId: PLAYER_SENDER["player-5"], content: "Perfect, thanks!", timestamp: "2024-01-10T09:15:00", isRead: true }),
+    ],
+  },
 ];
