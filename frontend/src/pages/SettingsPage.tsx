@@ -32,6 +32,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
+import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
 
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "24h" | "12h";
@@ -494,6 +495,10 @@ export default function SettingsPage() {
                   <Separator />
 
                   <CoachLevelsSection />
+
+                  <Separator />
+
+                  <EvaluationCategoriesSection />
                 </CardContent>
               </Card>
             )}
