@@ -7,6 +7,18 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right';
 
+export interface PlayerEvaluation {
+  topic: string;
+  score: number; // 0-100
+}
+
+export interface PlayerProfile {
+  playerId: string;
+  evaluations: PlayerEvaluation[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
 export interface User {
   id: string;
   name: string;
