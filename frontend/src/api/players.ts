@@ -1,7 +1,7 @@
-import type { Player, CoachPlayer } from "@/types";
+import type { Player, CoachPlayer, PlayerProfile } from "@/types";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
-import { mockPlayers, mockCoachPlayers } from "@/data/mockData";
+import { mockPlayers, mockCoachPlayers, mockPlayerProfiles } from "@/data/mockData";
 
 export async function getPlayers(): Promise<Player[]> {
   if (USE_MOCK_DATA) {
@@ -38,5 +38,14 @@ export async function editPlayer(player: CoachPlayer, updates: any) {
   }
 
   const res = await api.post("/app/edit_player", { player, updates });
+  return res.data;
+}
+
+export async function getPlayerProfile(playerId: string): Promise<PlayerProfile | null> {
+  if (USE_MOCK_DATA) {
+    return mockPlayerProfiles[playerId] ?? null;
+  }
+  console.log('asking')
+  const res = await api.get(`/app/player_profile/${playerId}`);
   return res.data;
 }

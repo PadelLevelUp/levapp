@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
-import { getPlayerProfile } from "@/api/playerProfile";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
 import { editPlayer } from "@/api/players";
 import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory } from "@/types";
@@ -40,7 +39,7 @@ export default function PlayerDetailPage() {
         ]);
         setLevels(levelsData);
 
-        const found = playersData.find((p) => p.playerId === playerId);
+        const found = playersData.find((p) => String(p.playerId) === String(playerId));
         setPlayer(found ?? null);
 
         if (found) {
