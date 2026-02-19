@@ -12,6 +12,20 @@ export interface PlayerEvaluation {
   score: number; // 0-100
 }
 
+export interface EvaluationCategory {
+  id: string;
+  name: string;
+  scaleMin: number;
+  scaleMax: number;
+}
+
+export interface EvaluationEntryPayload {
+  playerId: string;
+  scores: { categoryId: string; value: number }[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
 export interface PlayerProfile {
   playerId: string;
   evaluations: PlayerEvaluation[];
