@@ -1,2 +1,2 @@
 export const createEventSource = (token: string) =>
-  new EventSource(`/app/events?token=${token}`);
+  new EventSource(`/api/app/events?token=${token}`);
