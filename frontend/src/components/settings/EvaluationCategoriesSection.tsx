@@ -21,6 +21,7 @@ interface CategoryDraft {
 export function EvaluationCategoriesSection() {
   const { toast } = useToast();
   const [categories, setCategories] = useState<CategoryDraft[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -42,6 +43,9 @@ export function EvaluationCategoriesSection() {
   };
 
   const handleRemove = (id: string) => {
+    if (!id.startsWith("new-")) {
+      setDeletedIds((prev) => [...prev, id]);
+    }
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -82,6 +86,10 @@ export function EvaluationCategoriesSection() {
       return;
     }
 
+    if (deletedIds.length > 0) {
+      await api.post("/delete/evaluation_category", { ids: deletedIds });
+      setDeletedIds([]);
+    }
     const payload = categories.map((c) => ({
       name: c.name,
       scaleMin: c.scaleMin,
