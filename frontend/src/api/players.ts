@@ -1,4 +1,4 @@
-import type { Player, CoachPlayer, PlayerProfile } from "@/types";
+import type { Player, CoachPlayer, PlayerProfile, CoachNote } from "@/types";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPlayers, mockCoachPlayers, mockPlayerProfiles } from "@/data/mockData";
@@ -47,4 +47,20 @@ export async function getPlayerProfile(playerId: string): Promise<PlayerProfile 
   }
   const res = await api.get(`/app/player_profile/${playerId}`);
   return res.data;
+}
+
+export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] addCoachNote", { playerId, type, text });
+    return;
+  }
+  await api.post("/app/add_coach_note", { playerId, type, text });
+}
+
+export async function deleteCoachNote(note: CoachNote): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] deleteCoachNote", note);
+    return;
+  }
+  await api.post("/delete/coach_note", { ids: [note] });
 }

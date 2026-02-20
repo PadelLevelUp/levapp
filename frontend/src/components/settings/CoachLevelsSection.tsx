@@ -6,10 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { GripVertical, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
-import { api } from "@/api/client";
-import { getCoachLevels } from "@/api/coachLevel";
+import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
-import { addCoachLevel } from "@/api/coachLevel";
 
 interface LevelDraft {
   id: string;
@@ -50,8 +48,8 @@ export function CoachLevelsSection() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!id.startsWith("new-") && !USE_MOCK_DATA) {
-      await api.post("/app/delete/coach_level", { id: id });
+    if (!id.startsWith("new-")) {
+      await deleteCoachLevel(id);
     }
     setLevels((prev) => prev.filter((l) => l.id !== id));
   };
