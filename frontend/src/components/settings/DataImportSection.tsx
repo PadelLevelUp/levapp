@@ -29,6 +29,8 @@ import {
   AlertCircle,
   Pencil,
 } from "lucide-react";
+import { importAllData } from "@/api/import";
+import { useToast } from "@/hooks/use-toast";
 
 /* ---------- types ---------- */
 
@@ -306,18 +308,95 @@ function EditableCell({
 
 /* ---------- import table ---------- */
 
+function GroupedTableBody({
+  table,
+  groupByCol,
+  editing,
+  onToggleRow,
+  onCellChange,
+}: {
+  table: ImportTable;
+  groupByCol: string;
+  editing: boolean;
+  onToggleRow: (rowId: string) => void;
+  onCellChange: (rowId: string, col: string, val: string) => void;
+}) {
+  const otherCols = table.columns.filter((c) => c !== groupByCol);
+  const groups = new Map<string, ImportTableRow[]>();
+  for (const row of table.rows) {
+    const key = row.cells[groupByCol] || "—";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10" />
+            {otherCols.map((col) => (
+              <TableHead key={col} className="text-xs whitespace-nowrap">
+                {col}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from(groups.entries()).map(([groupName, rows]) => (
+            <>
+              <TableRow key={`group-${groupName}`} className="bg-muted/40">
+                <TableCell colSpan={otherCols.length + 1} className="py-2">
+                  <span className="text-xs font-semibold text-foreground">{groupName}</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({rows.filter((r) => r.selected).length}/{rows.length})
+                  </span>
+                </TableCell>
+              </TableRow>
+              {rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={cn("transition-colors", !row.selected && "opacity-50")}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={row.selected}
+                      onCheckedChange={() => onToggleRow(row.id)}
+                    />
+                  </TableCell>
+                  {otherCols.map((col) => (
+                    <TableCell key={col} className="text-xs py-1.5">
+                      <EditableCell
+                        value={row.cells[col] || ""}
+                        editing={editing && row.selected}
+                        onChange={(val) => onCellChange(row.id, col, val)}
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 function ImportTableView({
   table,
   onToggleAll,
   onToggleRow,
   onToggleExpand,
   onCellChange,
+  groupByCol,
 }: {
   table: ImportTable;
   onToggleAll: () => void;
   onToggleRow: (rowId: string) => void;
   onToggleExpand: () => void;
   onCellChange: (rowId: string, col: string, val: string) => void;
+  groupByCol?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const selectedCount = table.rows.filter((r) => r.selected).length;
@@ -371,7 +450,15 @@ function ImportTableView({
       </button>
 
       {/* Table body */}
-      {table.expanded && (
+      {table.expanded && groupByCol ? (
+        <GroupedTableBody
+          table={table}
+          groupByCol={groupByCol}
+          editing={editing}
+          onToggleRow={onToggleRow}
+          onCellChange={onCellChange}
+        />
+      ) : table.expanded ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -413,12 +500,18 @@ function ImportTableView({
             </TableBody>
           </Table>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 /* ---------- main component ---------- */
+
+// Map table names to their groupBy column
+const GROUP_BY_MAP: Record<string, string> = {
+  "Players in Classes": "Class",
+  "Presences": "Class",
+};
 
 export function DataImportSection() {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -427,7 +520,9 @@ export function DataImportSection() {
   const [progress, setProgress] = useState(0);
   const [tables, setTables] = useState<ImportTable[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   /* ---- simulate a phase with thinking lines ---- */
   const runPhase = useCallback(
@@ -709,6 +804,7 @@ export function DataImportSection() {
                     onToggleRow={(rowId) => toggleRow(idx, rowId)}
                     onToggleExpand={() => toggleExpand(idx)}
                     onCellChange={(rowId, col, val) => updateCell(idx, rowId, col, val)}
+                    groupByCol={GROUP_BY_MAP[table.name]}
                   />
                 ))}
               </div>
@@ -719,12 +815,46 @@ export function DataImportSection() {
                   <span>Importing will add records to your existing data.</span>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleReset}>
+                  <Button variant="outline" onClick={handleReset} disabled={importing}>
                     Cancel
                   </Button>
-                  <Button className="gap-2" disabled={totalSelected === 0}>
-                    <Upload className="w-4 h-4" />
-                    Import {totalSelected} records
+                  <Button
+                    className="gap-2"
+                    disabled={totalSelected === 0 || importing}
+                    onClick={async () => {
+                      setImporting(true);
+                      try {
+                        const results = await importAllData(
+                          tables.map((t) => ({ name: t.name, rows: t.rows, columns: t.columns })),
+                          (tableName, result) => {
+                            console.log(`Imported ${tableName}:`, result);
+                          }
+                        );
+                        const totalImported = results.reduce((s, r) => s + r.imported, 0);
+                        const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
+                        toast({
+                          title: "Import complete",
+                          description: `${totalImported} records imported${totalErrors > 0 ? `, ${totalErrors} errors` : ""}.`,
+                          variant: totalErrors > 0 ? "destructive" : "default",
+                        });
+                        if (totalErrors === 0) handleReset();
+                      } catch (e: any) {
+                        toast({
+                          title: "Import failed",
+                          description: e.message,
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setImporting(false);
+                      }
+                    }}
+                  >
+                    {importing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    {importing ? "Importing..." : `Import ${totalSelected} records`}
                   </Button>
                 </div>
               </div>
