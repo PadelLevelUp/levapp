@@ -40,9 +40,11 @@ export async function analyzeFile(
   const formData = new FormData();
   formData.append("file", file);
 
+  // Reuse the same baseURL and auth token the axios client uses
+  const baseURL = api.defaults.baseURL || "/api";
   const token = localStorage.getItem("accessToken");
 
-  const response = await fetch("/api/app/import/analyze", {
+  const response = await fetch(`${baseURL}/app/import/analyze`, {
     method: "POST",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -52,6 +54,12 @@ export async function analyzeFile(
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Mirror the axios interceptor redirect behaviour
+      localStorage.removeItem("accessToken");
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.assign(`/auth?next=${next}`);
+    }
     const text = await response.text().catch(() => "Unknown error");
     throw new Error(`Analyze failed (${response.status}): ${text}`);
   }
@@ -67,35 +75,24 @@ export async function analyzeFile(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-
-    // Parse SSE lines
     const lines = buffer.split("\n");
-    buffer = lines.pop() || ""; // keep incomplete line in buffer
+    buffer = lines.pop() || "";
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(":")) continue; // skip comments/keep-alive
-
+      if (!trimmed || trimmed.startsWith(":")) continue;
       if (trimmed.startsWith("data: ")) {
-        const jsonStr = trimmed.slice(6);
         try {
-          const event = JSON.parse(jsonStr) as AnalyzeSSEEvent;
-          onEvent(event);
-        } catch {
-          // skip malformed JSON
-        }
+          onEvent(JSON.parse(trimmed.slice(6)) as AnalyzeSSEEvent);
+        } catch { /* skip malformed */ }
       }
     }
   }
 
-  // Process any remaining buffer
   if (buffer.trim().startsWith("data: ")) {
     try {
-      const event = JSON.parse(buffer.trim().slice(6)) as AnalyzeSSEEvent;
-      onEvent(event);
-    } catch {
-      // ignore
-    }
+      onEvent(JSON.parse(buffer.trim().slice(6)) as AnalyzeSSEEvent);
+    } catch { /* ignore */ }
   }
 }
 
