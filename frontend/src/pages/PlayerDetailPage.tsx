@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers, getPlayerProfile } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
-import { editPlayer } from "@/api/players";
-import { USE_MOCK_DATA } from "@/config";
-import { api } from "@/api/client";
 import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote } from "@/types";
 import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
 import { AddEvaluationSheet } from "@/components/players/detail/AddEvaluationSheet";
@@ -185,28 +182,20 @@ export default function PlayerDetailPage() {
               onAddStrength={async (text) => {
                 const note: CoachNote = { id: -Date.now(), text };
                 setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
-                if (!USE_MOCK_DATA) {
-                  await api.post("/app/add_coach_note", { playerId: player.playerId, type: "strength", text });
-                }
+                await addCoachNote(player.playerId, "strength", text);
               }}
               onRemoveStrength={async (_i, note) => {
                 setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
-                if (!USE_MOCK_DATA) {
-                  await api.post("/delete/coach_note", { ids: [note] });
-                }
+                await deleteCoachNote(note);
               }}
               onAddWeakness={async (text) => {
                 const note: CoachNote = { id: -Date.now(), text };
                 setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
-                if (!USE_MOCK_DATA) {
-                  await api.post("/app/add_coach_note", { playerId: player.playerId, type: "weakness", text });
-                }
+                await addCoachNote(player.playerId, "weakness", text);
               }}
               onRemoveWeakness={async (_i, note) => {
                 setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
-                if (!USE_MOCK_DATA) {
-                  await api.post("/delete/coach_note", { ids: [note] });
-                }
+                await deleteCoachNote(note);
               }}
             />
           </div>

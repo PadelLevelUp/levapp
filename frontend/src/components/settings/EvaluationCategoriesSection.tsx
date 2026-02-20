@@ -6,9 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { GripVertical, Plus, Trash2, ClipboardList } from "lucide-react";
 import type { EvaluationCategory } from "@/types";
-import { getEvaluationCategories } from "@/api/evaluation";
+import { getEvaluationCategories, addEvaluationCategories, deleteEvaluationCategory } from "@/api/evaluation";
 import { USE_MOCK_DATA } from "@/config";
-import { api } from "@/api/client";
 
 interface CategoryDraft {
   id: string;
@@ -43,8 +42,8 @@ export function EvaluationCategoriesSection() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!id.startsWith("new-") && !USE_MOCK_DATA) {
-      await api.post("/app/delete/evaluation_category", { id: id });
+    if (!id.startsWith("new-")) {
+      await deleteEvaluationCategory(id);
     }
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
@@ -91,7 +90,7 @@ export function EvaluationCategoriesSection() {
       scaleMin: c.scaleMin,
       scaleMax: c.scaleMax,
     }));
-    await api.post("/app/add_evaluation_categories", payload);
+    await addEvaluationCategories(payload);
     toast({ title: "Categories saved", description: `${categories.length} categories updated.` });
   };
 

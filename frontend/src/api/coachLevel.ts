@@ -21,3 +21,11 @@ export async function addCoachLevel(data: any) {
   const res = await api.post(`/app/add_coach_level`, data);
   return res.data;
 }
+
+export async function deleteCoachLevel(id: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] deleteCoachLevel", id);
+    return;
+  }
+  await api.post("/delete/coach_level", { ids: [id] });
+}
