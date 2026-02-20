@@ -33,11 +33,12 @@ import {
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
+import { DataImportSection } from "@/components/settings/DataImportSection";
 
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "24h" | "12h";
 type ThemePref = "system" | "light" | "dark";
-type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "billing" | "security";
+type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "billing" | "security" | "import";
 
 interface CoachSettings {
   // Profile
@@ -93,6 +94,7 @@ function SettingsNav({
     { id: "notifications", label: "Notifications", icon: <Bell className="w-4 h-4" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="w-4 h-4" /> },
     { id: "security", label: "Security", icon: <Shield className="w-4 h-4" /> },
+    { id: "import", label: "Import Data", icon: <Upload className="w-4 h-4" /> },
   ];
 
   return (
@@ -300,6 +302,8 @@ export default function SettingsPage() {
                   <SelectItem value="calendar">Calendar</SelectItem>
                   <SelectItem value="notifications">Notifications</SelectItem>
                   <SelectItem value="billing">Billing</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="import">Import Data</SelectItem>
                   <SelectItem value="security">Security</SelectItem>
                 </SelectContent>
               </Select>
@@ -770,6 +774,24 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
               </div>
+            )}
+
+            {/* IMPORT DATA */}
+            {tab === "import" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    Import Data
+                  </CardTitle>
+                  <CardDescription>
+                    Upload a file and let AI extract your levels, players, classes, evaluations and more.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DataImportSection />
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
