@@ -51,7 +51,7 @@ export function CoachLevelsSection() {
 
   const handleRemove = async (id: string) => {
     if (!id.startsWith("new-") && !USE_MOCK_DATA) {
-      await api.post("/delete/coach_level", { ids: [id] });
+      await api.post("/app/delete/coach_level", { id: id });
     }
     setLevels((prev) => prev.filter((l) => l.id !== id));
   };

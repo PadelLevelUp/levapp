@@ -44,7 +44,7 @@ export function EvaluationCategoriesSection() {
 
   const handleRemove = async (id: string) => {
     if (!id.startsWith("new-") && !USE_MOCK_DATA) {
-      await api.post("/delete/evaluation_category", { ids: [id] });
+      await api.post("/app/delete/evaluation_category", { id: id });
     }
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
@@ -91,7 +91,7 @@ export function EvaluationCategoriesSection() {
       scaleMin: c.scaleMin,
       scaleMax: c.scaleMax,
     }));
-    await api.post("/app/evaluation_categories", payload);
+    await api.post("/app/add_evaluation_categories", payload);
     toast({ title: "Categories saved", description: `${categories.length} categories updated.` });
   };
 

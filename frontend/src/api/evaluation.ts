@@ -16,5 +16,5 @@ export async function postEvaluationEntry(payload: EvaluationEntryPayload): Prom
     console.log("[mock] postEvaluationEntry", payload);
     return;
   }
-  await api.post("/app/evaluation_entry", payload);
+  await api.post("/app/add_evaluation_entry", payload);
 }
