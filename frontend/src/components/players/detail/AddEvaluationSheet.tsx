@@ -15,6 +15,8 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { USE_MOCK_DATA } from "@/config";
+import { api } from "@/api/client";
 
 interface AddEvaluationSheetProps {
   open: boolean;
@@ -143,7 +145,12 @@ export function AddEvaluationSheet({
                   {s}
                   <button
                     type="button"
-                    onClick={() => setStrengths((prev) => prev.filter((_, idx) => idx !== i))}
+                    onClick={async () => {
+                      if (!USE_MOCK_DATA) {
+                        await api.post("/delete/coach_note", { ids: [s] });
+                      }
+                      setStrengths((prev) => prev.filter((_, idx) => idx !== i));
+                    }}
                     className="ml-1 rounded-full hover:bg-muted p-0.5"
                   >
                     <X className="h-3 w-3" />
@@ -176,7 +183,12 @@ export function AddEvaluationSheet({
                   {w}
                   <button
                     type="button"
-                    onClick={() => setWeaknesses((prev) => prev.filter((_, idx) => idx !== i))}
+                    onClick={async () => {
+                      if (!USE_MOCK_DATA) {
+                        await api.post("/delete/coach_note", { ids: [w] });
+                      }
+                      setWeaknesses((prev) => prev.filter((_, idx) => idx !== i));
+                    }}
                     className="ml-1 rounded-full hover:bg-muted p-0.5"
                   >
                     <X className="h-3 w-3" />
