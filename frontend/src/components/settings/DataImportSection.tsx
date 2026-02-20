@@ -29,7 +29,7 @@ import {
   AlertCircle,
   Pencil,
 } from "lucide-react";
-import { importAllData } from "@/api/import";
+import { analyzeFile, confirmImport, type AnalyzeSSEEvent, type ImportTable as ApiImportTable } from "@/api/import";
 import { useToast } from "@/hooks/use-toast";
 
 /* ---------- types ---------- */
@@ -524,38 +524,7 @@ export function DataImportSection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  /* ---- simulate a phase with thinking lines ---- */
-  const runPhase = useCallback(
-    (phaseName: "uploading" | "processing" | "analyzing"): Promise<void> => {
-      return new Promise((resolve) => {
-        const lines = thinkingSequences[phaseName];
-        let i = 0;
-
-        const interval = setInterval(() => {
-          if (i > 0) {
-            setThinking((prev) =>
-              prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
-            );
-          }
-
-          if (i < lines.length) {
-            setThinking((prev) => [...prev, { text: lines[i], done: false }]);
-            const phaseOffsets = { uploading: 0, processing: 20, analyzing: 50 };
-            const phaseWeights = { uploading: 20, processing: 30, analyzing: 50 };
-            const pct =
-              phaseOffsets[phaseName] +
-              ((i + 1) / lines.length) * phaseWeights[phaseName];
-            setProgress(Math.min(pct, 100));
-            i++;
-          } else {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 600 + Math.random() * 400);
-      });
-    },
-    []
-  );
+  /* ---- runPhase removed — SSE drives thinking/progress now ---- */
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -563,26 +532,68 @@ export function DataImportSection() {
       setThinking([]);
       setProgress(0);
       setTables([]);
-
       setPhase("uploading");
-      await runPhase("uploading");
 
-      setPhase("processing");
-      await runPhase("processing");
-
-      setPhase("analyzing");
-      await runPhase("analyzing");
-
-      setThinking((prev) =>
-        prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
-      );
-      setProgress(100);
-
-      setTables(generateMockResults());
-      setPhase("done");
+      try {
+        await analyzeFile(file, (event: AnalyzeSSEEvent) => {
+          switch (event.type) {
+            case "thinking":
+              // Mark previous line as done, add new one
+              setThinking((prev) => {
+                const updated = prev.length > 0
+                  ? prev.map((l, idx) => (idx === prev.length - 1 && !l.done ? { ...l, done: true } : l))
+                  : prev;
+                return [...updated, { text: event.text, done: false }];
+              });
+              break;
+            case "phase":
+              setPhase(event.phase as Phase);
+              break;
+            case "progress":
+              setProgress(event.value);
+              break;
+            case "tables": {
+              const mapped: ImportTable[] = event.tables.map((t: ApiImportTable) => ({
+                name: t.name,
+                icon: tableIcons[t.name] || "📄",
+                columns: t.columns || Object.keys(t.rows[0]?.cells || {}),
+                rows: t.rows.map((r) => ({ ...r, selected: true })),
+                allSelected: true,
+                expanded: false,
+              }));
+              setTables(mapped);
+              break;
+            }
+            case "error":
+              toast({ title: "Analysis error", description: event.message, variant: "destructive" });
+              break;
+            case "done":
+              // Mark last thinking line done
+              setThinking((prev) =>
+                prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
+              );
+              setProgress(100);
+              setPhase("done");
+              break;
+          }
+        });
+      } catch (e: any) {
+        toast({ title: "Analysis failed", description: e.message, variant: "destructive" });
+        setPhase("idle");
+      }
     },
-    [runPhase]
+    [toast]
   );
+
+  const tableIcons: Record<string, string> = {
+    Levels: "🏷️",
+    "Evaluation Categories": "📊",
+    Players: "🎾",
+    Classes: "📅",
+    "Players in Classes": "👥",
+    Presences: "✅",
+    "Player Evaluations": "📝",
+  };
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -824,11 +835,8 @@ export function DataImportSection() {
                     onClick={async () => {
                       setImporting(true);
                       try {
-                        const results = await importAllData(
-                          tables.map((t) => ({ name: t.name, rows: t.rows, columns: t.columns })),
-                          (tableName, result) => {
-                            console.log(`Imported ${tableName}:`, result);
-                          }
+                        const { results } = await confirmImport(
+                          tables.map((t) => ({ name: t.name, rows: t.rows, columns: t.columns }))
                         );
                         const totalImported = results.reduce((s, r) => s + r.imported, 0);
                         const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
