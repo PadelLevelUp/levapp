@@ -5,7 +5,7 @@ import { getCoachPlayers, getPlayerProfile } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
 import { editPlayer } from "@/api/players";
-import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory } from "@/types";
+import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote } from "@/types";
 import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
 import { AddEvaluationSheet } from "@/components/players/detail/AddEvaluationSheet";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
@@ -96,15 +96,22 @@ export default function PlayerDetailPage() {
 
   const handleEvalSave = async (data: {
     scores: { categoryId: string; value: number }[];
-    strengths: string[];
-    weaknesses: string[];
+    strengths: CoachNote[];
+    weaknesses: CoachNote[];
   }) => {
     if (!player) return;
 
     // Optimistic update
     const newEvaluations = data.scores.map((s) => {
       const cat = categories.find((c) => c.id === s.categoryId);
-      return { topic: cat?.name ?? s.categoryId, score: s.value };
+      return {
+        categoryId: Number(s.categoryId),
+        categoryName: cat?.name ?? String(s.categoryId),
+        score: s.value,
+        scaleMin: cat?.scaleMin ?? 0,
+        scaleMax: cat?.scaleMax ?? 10,
+        evaluatedAt: new Date().toISOString(),
+      };
     });
 
     setProfile((prev) => ({

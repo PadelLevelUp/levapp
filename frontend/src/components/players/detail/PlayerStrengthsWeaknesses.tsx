@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { CoachNote } from "@/types";
 
 interface PlayerStrengthsWeaknessesProps {
-  strengths: string[];
-  weaknesses: string[];
+  strengths: CoachNote[];
+  weaknesses: CoachNote[];
 }
 
 export function PlayerStrengthsWeaknesses({ strengths, weaknesses }: PlayerStrengthsWeaknessesProps) {
@@ -24,7 +25,7 @@ export function PlayerStrengthsWeaknesses({ strengths, weaknesses }: PlayerStren
               {strengths.map((s, i) => (
                 <li key={i} className="text-sm flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
-                  {s}
+                  {s.text}
                 </li>
               ))}
             </ul>
@@ -47,7 +48,7 @@ export function PlayerStrengthsWeaknesses({ strengths, weaknesses }: PlayerStren
               {weaknesses.map((w, i) => (
                 <li key={i} className="text-sm flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
-                  {w}
+                  {w.text}
                 </li>
               ))}
             </ul>

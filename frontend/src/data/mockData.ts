@@ -13,6 +13,7 @@ import type {
   EvaluationCategory,
   Conversation,
   Message,
+  CoachNote,
 } from "@/types";
 import { addDays, format, startOfWeek } from "date-fns";
 
@@ -437,51 +438,104 @@ export const mockEvaluationCategories: EvaluationCategory[] = [
 /**
  * Player profiles (evaluations, strengths, weaknesses)
  */
+let mockNoteId = 1;
+
+function buildNote(text: string): CoachNote {
+  return { id: mockNoteId++, text };
+}
+
 function buildProfile(
   playerId: string,
-  evaluations: [string, number][],
+  evaluations: { categoryId: number; categoryName: string; score: number; scaleMin: number; scaleMax: number; evaluatedAt: string }[],
   strengths: string[],
   weaknesses: string[],
 ): PlayerProfile {
   return {
     playerId,
-    evaluations: evaluations.map(([topic, score]) => ({ topic, score })),
-    strengths,
-    weaknesses,
+    evaluations,
+    strengths: strengths.map(buildNote),
+    weaknesses: weaknesses.map(buildNote),
   };
 }
 
 export const mockPlayerProfiles: Record<string, PlayerProfile> = {
   "player-1": buildProfile("player-1",
-    [["Technique", 78], ["Tactics", 65], ["Physical Capacity", 82], ["Attitude", 90]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 78, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 65, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 82, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 90, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Strong forehand", "Excellent court positioning", "High stamina"],
     ["Weak backhand under pressure", "Slow net transitions"]),
+
   "player-2": buildProfile("player-2",
-    [["Technique", 70], ["Tactics", 80], ["Physical Capacity", 60], ["Attitude", 85]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 70, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 60, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 85, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Smart play selection", "Good doubles partner"],
     ["Needs conditioning improvement", "Inconsistent serve"]),
+
   "player-3": buildProfile("player-3",
-    [["Technique", 55], ["Tactics", 50], ["Physical Capacity", 70], ["Attitude", 95]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 55, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 50, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 70, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 95, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Very motivated", "Great attitude in training"],
     ["Technique still developing", "Tactical awareness needs work"]),
+
   "player-4": buildProfile("player-4",
-    [["Technique", 85], ["Tactics", 75], ["Physical Capacity", 68], ["Attitude", 72]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 85, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 75, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 68, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Natural racket skills", "Powerful smash"],
     ["Sometimes unfocused", "Endurance could improve"]),
+
   "player-5": buildProfile("player-5",
-    [["Technique", 62], ["Tactics", 58], ["Physical Capacity", 90], ["Attitude", 88]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 62, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 58, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 90, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 88, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Exceptional fitness", "Never gives up on a point"],
     ["Technical polish needed", "Rushing shots"]),
+
   "player-6": buildProfile("player-6",
-    [["Technique", 80], ["Tactics", 72], ["Physical Capacity", 75], ["Attitude", 80]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 75, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Consistent baseline play", "Good volleys"],
     ["Could be more aggressive", "Second serve needs work"]),
+
   "player-7": buildProfile("player-7",
-    [["Technique", 48], ["Tactics", 45], ["Physical Capacity", 55], ["Attitude", 92]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 48, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 45, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 55, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 92, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Eager to learn", "Positive team player"],
     ["Beginner level technique", "Needs match experience"]),
+
   "player-8": buildProfile("player-8",
-    [["Technique", 73], ["Tactics", 68], ["Physical Capacity", 72], ["Attitude", 78]],
+    [
+      { categoryId: 1, categoryName: "Technique", score: 73, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 68, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 78, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
     ["Well-rounded game", "Reliable under pressure"],
     ["Lacks a standout weapon", "Footwork could improve"]),
 };

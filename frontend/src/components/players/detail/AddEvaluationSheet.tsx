@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { EvaluationCategory, PlayerEvaluation } from "@/types";
+import type { CoachNote, EvaluationCategory, PlayerEvaluation } from "@/types";
 import {
   Sheet,
   SheetContent,
@@ -23,13 +23,13 @@ interface AddEvaluationSheetProps {
   onClose: () => void;
   onSave: (data: {
     scores: { categoryId: string; value: number }[];
-    strengths: string[];
-    weaknesses: string[];
+    strengths: CoachNote[];
+    weaknesses: CoachNote[];
   }) => void;
   categories: EvaluationCategory[];
   currentEvaluations: PlayerEvaluation[];
-  currentStrengths: string[];
-  currentWeaknesses: string[];
+  currentStrengths: CoachNote[];
+  currentWeaknesses: CoachNote[];
 }
 
 export function AddEvaluationSheet({
@@ -44,8 +44,8 @@ export function AddEvaluationSheet({
   const { toast } = useToast();
 
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [strengths, setStrengths] = useState<string[]>([]);
-  const [weaknesses, setWeaknesses] = useState<string[]>([]);
+  const [strengths, setStrengths] = useState<CoachNote[]>([]);
+  const [weaknesses, setWeaknesses] = useState<CoachNote[]>([]);
   const [newStrength, setNewStrength] = useState("");
   const [newWeakness, setNewWeakness] = useState("");
 
@@ -56,7 +56,7 @@ export function AddEvaluationSheet({
     const initial: Record<string, number> = {};
     categories.forEach((cat) => {
       const existing = currentEvaluations.find(
-        (e) => e.topic.toLowerCase() === cat.name.toLowerCase()
+        (e) => e.categoryName.toLowerCase() === cat.name.toLowerCase()
       );
       initial[cat.id] = existing?.score ?? Math.round((cat.scaleMin + cat.scaleMax) / 2);
     });
@@ -70,16 +70,16 @@ export function AddEvaluationSheet({
   const handleAddStrength = () => {
     const val = newStrength.trim();
     if (!val) return;
-    if (strengths.includes(val)) return;
-    setStrengths((prev) => [...prev, val]);
+    if (strengths.some((s) => s.text === val)) return;
+    setStrengths((prev) => [...prev, { id: -Date.now(), text: val }]);
     setNewStrength("");
   };
 
   const handleAddWeakness = () => {
     const val = newWeakness.trim();
     if (!val) return;
-    if (weaknesses.includes(val)) return;
-    setWeaknesses((prev) => [...prev, val]);
+    if (weaknesses.some((w) => w.text === val)) return;
+    setWeaknesses((prev) => [...prev, { id: -Date.now(), text: val }]);
     setNewWeakness("");
   };
 
@@ -142,12 +142,12 @@ export function AddEvaluationSheet({
             <div className="flex flex-wrap gap-2">
               {strengths.map((s, i) => (
                 <Badge key={i} variant="secondary" className="gap-1 pr-1">
-                  {s}
+                  {s.text}
                   <button
                     type="button"
                     onClick={async () => {
                       if (!USE_MOCK_DATA) {
-                        await api.post("/delete/coach_note", { ids: [s] });
+                        await api.post("/app/delete/coach_note", { id: s.id });
                       }
                       setStrengths((prev) => prev.filter((_, idx) => idx !== i));
                     }}
@@ -180,14 +180,14 @@ export function AddEvaluationSheet({
             <div className="flex flex-wrap gap-2">
               {weaknesses.map((w, i) => (
                 <Badge key={i} variant="outline" className="gap-1 pr-1">
-                  {w}
+                  {w.text}
                   <button
                     type="button"
                     onClick={async () => {
                       if (!USE_MOCK_DATA) {
-                        await api.post("/delete/coach_note", { ids: [w] });
+                        await api.post("/app/delete/coach_note", { id: w.id });
                       }
-                      setWeaknesses((prev) => prev.filter((_, idx) => idx !== i));
+                      setStrengths((prev) => prev.filter((_, idx) => idx !== i));
                     }}
                     className="ml-1 rounded-full hover:bg-muted p-0.5"
                   >

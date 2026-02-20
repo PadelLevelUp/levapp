@@ -8,8 +8,12 @@ export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right';
 
 export interface PlayerEvaluation {
-  topic: string;
-  score: number; // 0-100
+  categoryId: number;
+  categoryName: string;
+  score: number;
+  scaleMin: number;
+  scaleMax: number;
+  evaluatedAt: string;
 }
 
 export interface EvaluationCategory {
@@ -22,15 +26,20 @@ export interface EvaluationCategory {
 export interface EvaluationEntryPayload {
   playerId: string;
   scores: { categoryId: string; value: number }[];
-  strengths: string[];
-  weaknesses: string[];
+  strengths: CoachNote[];
+  weaknesses: CoachNote[];
+}
+
+export interface CoachNote {
+  id: number;
+  text: string;
 }
 
 export interface PlayerProfile {
   playerId: string;
   evaluations: PlayerEvaluation[];
-  strengths: string[];
-  weaknesses: string[];
+  strengths: CoachNote[];
+  weaknesses: CoachNote[];
 }
 
 export interface User {

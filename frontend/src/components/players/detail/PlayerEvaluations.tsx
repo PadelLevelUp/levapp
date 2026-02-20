@@ -26,15 +26,18 @@ export function PlayerEvaluations({ evaluations }: PlayerEvaluationsProps) {
         <CardTitle className="text-lg">Evaluation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {evaluations.map((ev) => (
-          <div key={ev.topic} className="space-y-1.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{ev.topic}</span>
-              <span className="text-muted-foreground">{ev.score}%</span>
+        {evaluations.map((ev) => {
+          const pct = Math.round(((ev.score - ev.scaleMin) / (ev.scaleMax - ev.scaleMin)) * 100);
+          return (
+            <div key={ev.categoryId} className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{ev.categoryName}</span>
+                <span className="text-muted-foreground">{ev.score} / {ev.scaleMax}</span>
+              </div>
+              <Progress value={pct} className="h-2" />
             </div>
-            <Progress value={ev.score} className="h-2" />
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );

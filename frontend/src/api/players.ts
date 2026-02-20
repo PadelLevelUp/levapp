@@ -45,7 +45,6 @@ export async function getPlayerProfile(playerId: string): Promise<PlayerProfile 
   if (USE_MOCK_DATA) {
     return mockPlayerProfiles[playerId] ?? null;
   }
-  console.log('asking')
   const res = await api.get(`/app/player_profile/${playerId}`);
   return res.data;
 }
