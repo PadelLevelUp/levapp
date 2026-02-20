@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -26,6 +27,7 @@ import {
   Loader2,
   FileSpreadsheet,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 
 /* ---------- types ---------- */
@@ -100,28 +102,57 @@ function generateMockResults(): ImportTable[] {
     {
       name: "Classes",
       icon: "📅",
-      columns: ["Name", "Type", "Day", "Start", "End", "Max Players"],
+      columns: ["Name", "Type", "Recurring", "Day", "Start", "End", "Max Players"],
       allSelected: true,
       expanded: false,
       rows: [
-        { id: "c1", cells: { Name: "Morning Academy", Type: "academy", Day: "Monday", Start: "09:00", End: "10:30", "Max Players": "4" }, selected: true },
-        { id: "c2", cells: { Name: "Evening Private", Type: "private", Day: "Tuesday", Start: "18:00", End: "19:00", "Max Players": "2" }, selected: true },
-        { id: "c3", cells: { Name: "Weekend Group", Type: "academy", Day: "Saturday", Start: "10:00", End: "11:30", "Max Players": "6" }, selected: true },
+        { id: "c1", cells: { Name: "Morning Academy", Type: "academy", Recurring: "Yes", Day: "Monday", Start: "09:00", End: "10:30", "Max Players": "4" }, selected: true },
+        { id: "c2", cells: { Name: "Evening Private", Type: "private", Recurring: "No", Day: "Tuesday", Start: "18:00", End: "19:00", "Max Players": "2" }, selected: true },
+        { id: "c3", cells: { Name: "Weekend Group", Type: "academy", Recurring: "Yes", Day: "Saturday", Start: "10:00", End: "11:30", "Max Players": "6" }, selected: true },
+      ],
+    },
+    {
+      name: "Players in Classes",
+      icon: "👥",
+      columns: ["Class", "Player"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pc1", cells: { Class: "Morning Academy", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc2", cells: { Class: "Morning Academy", Player: "Carlos Silva" }, selected: true },
+        { id: "pc3", cells: { Class: "Morning Academy", Player: "Maria Santos" }, selected: true },
+        { id: "pc4", cells: { Class: "Evening Private", Player: "João Costa" }, selected: true },
+        { id: "pc5", cells: { Class: "Evening Private", Player: "Sofia Mendes" }, selected: true },
+        { id: "pc6", cells: { Class: "Weekend Group", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc7", cells: { Class: "Weekend Group", Player: "Carlos Silva" }, selected: true },
+        { id: "pc8", cells: { Class: "Weekend Group", Player: "João Costa" }, selected: true },
+      ],
+    },
+    {
+      name: "Presences",
+      icon: "✅",
+      columns: ["Class", "Date", "Player", "Status", "Justification"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pr1", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Ana Rodrigues", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr2", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Carlos Silva", Status: "Absent", Justification: "Justified" }, selected: true },
+        { id: "pr3", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Maria Santos", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr4", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "João Costa", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr5", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "Sofia Mendes", Status: "Absent", Justification: "Unjustified" }, selected: true },
       ],
     },
     {
       name: "Player Evaluations",
       icon: "📝",
-      columns: ["Player", "Category", "Score", "Date"],
+      columns: ["Player", "Date", "Forehand", "Backhand", "Serve", "Volley", "Positioning"],
       allSelected: true,
       expanded: false,
       rows: [
-        { id: "pe1", cells: { Player: "Ana Rodrigues", Category: "Forehand", Score: "7", Date: "2025-01-15" }, selected: true },
-        { id: "pe2", cells: { Player: "Ana Rodrigues", Category: "Backhand", Score: "6", Date: "2025-01-15" }, selected: true },
-        { id: "pe3", cells: { Player: "Carlos Silva", Category: "Serve", Score: "8", Date: "2025-01-20" }, selected: true },
-        { id: "pe4", cells: { Player: "Carlos Silva", Category: "Volley", Score: "9", Date: "2025-01-20" }, selected: true },
-        { id: "pe5", cells: { Player: "Maria Santos", Category: "Positioning", Score: "5", Date: "2025-02-01" }, selected: true },
-        { id: "pe6", cells: { Player: "João Costa", Category: "Forehand", Score: "9", Date: "2025-02-05" }, selected: true },
+        { id: "pe1", cells: { Player: "Ana Rodrigues", Date: "2025-01-15", Forehand: "7", Backhand: "6", Serve: "5", Volley: "6", Positioning: "7" }, selected: true },
+        { id: "pe2", cells: { Player: "Carlos Silva", Date: "2025-01-20", Forehand: "8", Backhand: "7", Serve: "8", Volley: "9", Positioning: "7" }, selected: true },
+        { id: "pe3", cells: { Player: "Maria Santos", Date: "2025-02-01", Forehand: "4", Backhand: "5", Serve: "3", Volley: "4", Positioning: "5" }, selected: true },
+        { id: "pe4", cells: { Player: "João Costa", Date: "2025-02-05", Forehand: "9", Backhand: "8", Serve: "9", Volley: "8", Positioning: "9" }, selected: true },
       ],
     },
   ];
@@ -146,7 +177,9 @@ const thinkingSequences: Record<string, string[]> = {
     "Sending data to AI model...",
     "Identifying entity types...",
     "Mapping fields to schema: Levels, Players, Classes...",
-    "Cross-referencing player names with evaluations...",
+    "Cross-referencing player names with class participants...",
+    "Pivoting evaluation scores into category columns...",
+    "Extracting presence records and justifications...",
     "Resolving ambiguous categories...",
     "Validating data integrity...",
     "Generating import preview...",
@@ -158,11 +191,8 @@ const thinkingSequences: Record<string, string[]> = {
 function AiSpinner({ className }: { className?: string }) {
   return (
     <div className={cn("relative flex items-center justify-center", className)}>
-      {/* Outer ring */}
       <div className="absolute w-12 h-12 rounded-full border-2 border-primary/20 animate-ping" />
-      {/* Middle ring */}
       <div className="absolute w-10 h-10 rounded-full border-2 border-t-primary border-r-primary/40 border-b-primary/10 border-l-primary/40 animate-spin" />
-      {/* Inner icon */}
       <Sparkles className="w-5 h-5 text-primary animate-pulse" />
     </div>
   );
@@ -250,6 +280,30 @@ function ThinkingLog({ lines }: { lines: ThinkingLine[] }) {
   );
 }
 
+/* ---------- editable cell ---------- */
+
+function EditableCell({
+  value,
+  editing,
+  onChange,
+}: {
+  value: string;
+  editing: boolean;
+  onChange: (val: string) => void;
+}) {
+  if (!editing) {
+    return <span>{value || "—"}</span>;
+  }
+
+  return (
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-7 text-xs px-2 py-1 min-w-[60px]"
+    />
+  );
+}
+
 /* ---------- import table ---------- */
 
 function ImportTableView({
@@ -257,12 +311,15 @@ function ImportTableView({
   onToggleAll,
   onToggleRow,
   onToggleExpand,
+  onCellChange,
 }: {
   table: ImportTable;
   onToggleAll: () => void;
   onToggleRow: (rowId: string) => void;
   onToggleExpand: () => void;
+  onCellChange: (rowId: string, col: string, val: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const selectedCount = table.rows.filter((r) => r.selected).length;
 
   return (
@@ -280,6 +337,20 @@ function ImportTableView({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {table.expanded && (
+            <Button
+              variant={editing ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditing(!editing);
+              }}
+            >
+              <Pencil className="w-3 h-3" />
+              {editing ? "Done" : "Edit"}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -307,7 +378,7 @@ function ImportTableView({
               <TableRow>
                 <TableHead className="w-10" />
                 {table.columns.map((col) => (
-                  <TableHead key={col} className="text-xs">
+                  <TableHead key={col} className="text-xs whitespace-nowrap">
                     {col}
                   </TableHead>
                 ))}
@@ -329,8 +400,12 @@ function ImportTableView({
                     />
                   </TableCell>
                   {table.columns.map((col) => (
-                    <TableCell key={col} className="text-xs">
-                      {row.cells[col] || "—"}
+                    <TableCell key={col} className="text-xs py-1.5">
+                      <EditableCell
+                        value={row.cells[col] || ""}
+                        editing={editing && row.selected}
+                        onChange={(val) => onCellChange(row.id, col, val)}
+                      />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -363,7 +438,6 @@ export function DataImportSection() {
 
         const interval = setInterval(() => {
           if (i > 0) {
-            // Mark previous line as done
             setThinking((prev) =>
               prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
             );
@@ -371,7 +445,6 @@ export function DataImportSection() {
 
           if (i < lines.length) {
             setThinking((prev) => [...prev, { text: lines[i], done: false }]);
-            // Update progress
             const phaseOffsets = { uploading: 0, processing: 20, analyzing: 50 };
             const phaseWeights = { uploading: 20, processing: 30, analyzing: 50 };
             const pct =
@@ -405,13 +478,11 @@ export function DataImportSection() {
       setPhase("analyzing");
       await runPhase("analyzing");
 
-      // Mark last line done
       setThinking((prev) =>
         prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
       );
       setProgress(100);
 
-      // Generate results
       setTables(generateMockResults());
       setPhase("done");
     },
@@ -471,6 +542,20 @@ export function DataImportSection() {
       prev.map((t, i) =>
         i === tableIdx ? { ...t, expanded: !t.expanded } : t
       )
+    );
+  };
+
+  const updateCell = (tableIdx: number, rowId: string, col: string, val: string) => {
+    setTables((prev) =>
+      prev.map((t, i) => {
+        if (i !== tableIdx) return t;
+        return {
+          ...t,
+          rows: t.rows.map((r) =>
+            r.id === rowId ? { ...r, cells: { ...r.cells, [col]: val } } : r
+          ),
+        };
+      })
     );
   };
 
@@ -607,7 +692,7 @@ export function DataImportSection() {
                     Import Preview
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Review and select the data you want to import. Click a table to expand it.
+                    Review and select the data you want to import. Click Edit to modify values inline.
                   </p>
                 </div>
                 <Badge variant="outline">
@@ -623,6 +708,7 @@ export function DataImportSection() {
                     onToggleAll={() => toggleAll(idx)}
                     onToggleRow={(rowId) => toggleRow(idx, rowId)}
                     onToggleExpand={() => toggleExpand(idx)}
+                    onCellChange={(rowId, col, val) => updateCell(idx, rowId, col, val)}
                   />
                 ))}
               </div>
