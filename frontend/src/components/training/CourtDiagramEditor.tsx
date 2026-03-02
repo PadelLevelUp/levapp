@@ -1,6 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { CourtElement, CourtElementType, CourtDiagram } from "@/types/training";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 import {
   MousePointer2,
   User,
@@ -27,11 +30,11 @@ const SERVICE_LINE = 167;
 
 // Player colors
 const PLAYER_COLORS: Record<string, string> = {
-  player_1: "#3b82f6", // blue
-  player_2: "#ef4444", // red
-  player_3: "#22c55e", // green
-  player_4: "#a855f7", // purple
-  coach: "#f59e0b",    // amber
+  player_1: "#3b82f6",
+  player_2: "#ef4444",
+  player_3: "#22c55e",
+  player_4: "#a855f7",
+  coach: "#f59e0b",
 };
 
 const PLAYER_LABELS: Record<string, string> = {
@@ -73,6 +76,41 @@ const TOOLS: { tool: Tool; icon: any; label: string; colorClass?: string }[] = [
   { tool: "eraser", icon: Trash2, label: "Eraser" },
 ];
 
+/** Compute quadratic bezier control point from curve offset */
+function getControlPoint(x1: number, y1: number, x2: number, y2: number, curve: number) {
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  // Perpendicular unit vector
+  const px = -dy / len;
+  const py = dx / len;
+  return { cx: mx + px * curve, cy: my + py * curve };
+}
+
+/** Build SVG path for a quadratic bezier arrow */
+function bezierPath(x1: number, y1: number, x2: number, y2: number, curve: number) {
+  if (Math.abs(curve) < 2) {
+    return `M${x1},${y1} L${x2},${y2}`;
+  }
+  const { cx, cy } = getControlPoint(x1, y1, x2, y2, curve);
+  return `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+}
+
+/** Get midpoint on the bezier for label placement */
+function bezierMidpoint(x1: number, y1: number, x2: number, y2: number, curve: number) {
+  if (Math.abs(curve) < 2) {
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  }
+  const { cx, cy } = getControlPoint(x1, y1, x2, y2, curve);
+  // Quadratic bezier at t=0.5: B = (1-t)²P0 + 2(1-t)tP1 + t²P2
+  return {
+    x: 0.25 * x1 + 0.5 * cx + 0.25 * x2,
+    y: 0.25 * y1 + 0.5 * cy + 0.25 * y2,
+  };
+}
+
 interface Props {
   value: CourtDiagram;
   onChange: (diagram: CourtDiagram) => void;
@@ -88,6 +126,8 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   const [linePreview, setLinePreview] = useState<{ x: number; y: number } | null>(null);
 
   const elements = value.elements;
+  const selectedEl = selectedId ? elements.find((e) => e.id === selectedId) : null;
+  const isLineSelected = selectedEl?.type === "arrow" || selectedEl?.type === "movement";
 
   const setElements = useCallback(
     (els: CourtElement[]) => onChange({ elements: els }),
@@ -115,6 +155,11 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     return { x: svgPt.x, y: svgPt.y };
   }
 
+  function updateSelectedElement(updates: Partial<CourtElement>) {
+    if (!selectedId) return;
+    setElements(elements.map((el) => (el.id === selectedId ? { ...el, ...updates } : el)));
+  }
+
   function handleCanvasPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (e.target !== svgRef.current && tool === "select") return;
 
@@ -133,15 +178,8 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
 
     if (tool === "eraser") return;
 
-    // Enforce max 4 players
-    if (isPlayerTool(tool) && playerCount() >= MAX_PLAYERS) {
-      return;
-    }
-
-    // Prevent duplicate of same player type
-    if (isPlayerTool(tool) && elements.some((el) => el.type === tool)) {
-      return;
-    }
+    if (isPlayerTool(tool) && playerCount() >= MAX_PLAYERS) return;
+    if (isPlayerTool(tool) && elements.some((el) => el.type === tool)) return;
 
     const newEl: CourtElement = {
       id: crypto.randomUUID(),
@@ -186,6 +224,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
           y: lineStart.y,
           endX: linePreview.x,
           endY: linePreview.y,
+          curve: 0,
         };
         setElements([...elements, newEl]);
         setSelectedId(newEl.id);
@@ -209,7 +248,6 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     if (tool === "select") {
       const el = elements.find((el) => el.id === elId)!;
       if (el.type === "arrow" || el.type === "movement") {
-        // For lines, just select (no drag)
         setSelectedId(elId);
       } else {
         const pt = toSvgCoords(e);
@@ -244,7 +282,6 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedId, elements]);
 
-  // Disable player tools if already placed
   function isToolDisabled(t: Tool) {
     if (isPlayerTool(t) && elements.some((el) => el.type === t)) return true;
     if (t === "coach" && elements.some((el) => el.type === "coach")) return true;
@@ -291,6 +328,32 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
           <span className="hidden sm:inline">Clear</span>
         </Button>
       </div>
+
+      {/* Line properties editor */}
+      {isLineSelected && selectedEl && (
+        <div className="flex flex-col sm:flex-row gap-3 p-3 bg-muted/60 rounded-lg border">
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs">Label</Label>
+            <Input
+              value={selectedEl.label || ""}
+              onChange={(e) => updateSelectedElement({ label: e.target.value || undefined })}
+              placeholder="e.g. Lob, Smash, Drop"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs">Curve: {selectedEl.curve ?? 0}</Label>
+            <Slider
+              min={-60}
+              max={60}
+              step={5}
+              value={[selectedEl.curve ?? 0]}
+              onValueChange={([v]) => updateSelectedElement({ curve: v })}
+              className="mt-2"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Court SVG */}
       <div className="border rounded-lg bg-emerald-900/90 overflow-hidden" style={{ touchAction: "none" }}>
@@ -372,7 +435,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Select a tool and click on the court to place elements. Drag to move. Press Delete to remove. Max 4 players.
+        Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players.
       </p>
     </div>
   );
@@ -431,38 +494,68 @@ function CourtElementRenderer({
         </g>
       );
     case "arrow":
+    case "movement": {
+      const x1 = el.x;
+      const y1 = el.y;
+      const x2 = el.endX ?? el.x;
+      const y2 = el.endY ?? el.y;
+      const curve = el.curve ?? 0;
+      const isArrow = el.type === "arrow";
+
+      const d = bezierPath(x1, y1, x2, y2, curve);
+      const mid = bezierMidpoint(x1, y1, x2, y2, curve);
+
+      const strokeColor = isSelected
+        ? "hsl(var(--ring))"
+        : isArrow
+        ? "white"
+        : "#facc15";
+      const markerEnd = isSelected
+        ? "url(#arrowhead-sel)"
+        : isArrow
+        ? "url(#arrowhead)"
+        : "url(#arrowhead-dashed)";
+
       return (
         <g onPointerDown={onPointerDown} style={{ cursor }}>
-          {/* Invisible wider hitbox for easier selection */}
-          <line
-            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
-            stroke="transparent" strokeWidth="14"
+          {/* Wide invisible hitbox */}
+          <path d={d} stroke="transparent" strokeWidth="14" fill="none" />
+          {/* Visible path */}
+          <path
+            d={d}
+            stroke={strokeColor}
+            strokeWidth={isArrow ? 2.5 : 2}
+            strokeDasharray={isArrow ? "none" : "6 4"}
+            fill="none"
+            markerEnd={markerEnd}
           />
-          <line
-            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
-            stroke={isSelected ? "hsl(var(--ring))" : "white"}
-            strokeWidth="2.5"
-            markerEnd={isSelected ? "url(#arrowhead-sel)" : "url(#arrowhead)"}
-          />
+          {/* Label at midpoint */}
+          {el.label && (
+            <>
+              <rect
+                x={mid.x - el.label.length * 3.5 - 4}
+                y={mid.y - 7}
+                width={el.label.length * 7 + 8}
+                height={14}
+                rx="3"
+                fill="rgba(0,0,0,0.7)"
+              />
+              <text
+                x={mid.x}
+                y={mid.y + 1}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill="white"
+                fontSize="9"
+                fontWeight="600"
+              >
+                {el.label}
+              </text>
+            </>
+          )}
         </g>
       );
-    case "movement":
-      return (
-        <g onPointerDown={onPointerDown} style={{ cursor }}>
-          {/* Invisible wider hitbox */}
-          <line
-            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
-            stroke="transparent" strokeWidth="14"
-          />
-          <line
-            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
-            stroke={isSelected ? "hsl(var(--ring))" : "#facc15"}
-            strokeWidth="2"
-            strokeDasharray="6 4"
-            markerEnd={isSelected ? "url(#arrowhead-sel)" : "url(#arrowhead-dashed)"}
-          />
-        </g>
-      );
+    }
     default:
       return null;
   }

@@ -51,8 +51,10 @@ export interface CourtElement {
   // For arrows / movement lines
   endX?: number;
   endY?: number;
-  // For players
+  // For players or line labels (e.g. "Lob", "Smash")
   label?: string;
+  // Curve offset for arrows/movements (perpendicular px offset for quadratic bezier)
+  curve?: number;
   // Rotation in degrees
   rotation?: number;
 }
