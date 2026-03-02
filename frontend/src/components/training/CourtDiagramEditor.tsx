@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import type { CourtElement, CourtElementType, CourtDiagram } from "@/types/training";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+
 import { Label } from "@/components/ui/label";
 import {
   MousePointer2,
@@ -124,6 +124,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(null);
   const [linePreview, setLinePreview] = useState<{ x: number; y: number } | null>(null);
+  const [curveDragging, setCurveDragging] = useState<string | null>(null);
 
   const elements = value.elements;
   const selectedEl = selectedId ? elements.find((e) => e.id === selectedId) : null;
@@ -196,6 +197,22 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   function handleCanvasPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     const pt = toSvgCoords(e);
 
+    if (curveDragging) {
+      const el = elements.find((el) => el.id === curveDragging);
+      if (el && el.endX != null && el.endY != null) {
+        const mx = (el.x + el.endX) / 2;
+        const my = (el.y + el.endY) / 2;
+        const dx = el.endX - el.x;
+        const dy = el.endY - el.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const px = -dy / len;
+        const py = dx / len;
+        const curve = ((pt.x - mx) * px + (pt.y - my) * py);
+        setElements(elements.map((el2) => el2.id === curveDragging ? { ...el2, curve: Math.round(curve / 5) * 5 } : el2));
+      }
+      return;
+    }
+
     if (lineStart) {
       setLinePreview(pt);
       return;
@@ -213,6 +230,11 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   }
 
   function handleCanvasPointerUp() {
+    if (curveDragging) {
+      setCurveDragging(null);
+      return;
+    }
+
     if (lineStart && linePreview) {
       const dx = linePreview.x - lineStart.x;
       const dy = linePreview.y - lineStart.y;
@@ -329,9 +351,9 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
         </Button>
       </div>
 
-      {/* Line properties editor */}
+      {/* Line label editor */}
       {isLineSelected && selectedEl && (
-        <div className="flex flex-col sm:flex-row gap-3 p-3 bg-muted/60 rounded-lg border">
+        <div className="flex gap-3 p-3 bg-muted/60 rounded-lg border">
           <div className="flex-1 space-y-1">
             <Label className="text-xs">Label</Label>
             <Input
@@ -341,17 +363,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
               className="h-8 text-xs"
             />
           </div>
-          <div className="flex-1 space-y-1">
-            <Label className="text-xs">Curve: {selectedEl.curve ?? 0}</Label>
-            <Slider
-              min={-60}
-              max={60}
-              step={5}
-              value={[selectedEl.curve ?? 0]}
-              onValueChange={([v]) => updateSelectedElement({ curve: v })}
-              className="mt-2"
-            />
-          </div>
+          <p className="text-xs text-muted-foreground self-end pb-1">Drag the ● handle on the arrow to curve it</p>
         </div>
       )}
 
@@ -428,6 +440,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
               element={el}
               isSelected={selectedId === el.id}
               onPointerDown={(e) => handleElementPointerDown(e, el.id)}
+              onCurveDragStart={() => { setSelectedId(el.id); setCurveDragging(el.id); }}
               cursor={tool === "eraser" ? "crosshair" : tool === "select" ? "grab" : "default"}
             />
           ))}
@@ -445,11 +458,13 @@ function CourtElementRenderer({
   element: el,
   isSelected,
   onPointerDown,
+  onCurveDragStart,
   cursor,
 }: {
   element: CourtElement;
   isSelected: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
+  onCurveDragStart?: () => void;
   cursor: string;
 }) {
   const selectionStroke = isSelected ? "hsl(var(--ring))" : "transparent";
@@ -538,7 +553,7 @@ function CourtElementRenderer({
                 width={el.label.length * 7 + 8}
                 height={14}
                 rx="3"
-                fill="rgba(0,0,0,0.7)"
+                fill="#1a6b35"
               />
               <text
                 x={mid.x}
@@ -552,6 +567,22 @@ function CourtElementRenderer({
                 {el.label}
               </text>
             </>
+          )}
+          {/* Draggable curve handle when selected */}
+          {isSelected && (
+            <circle
+              cx={mid.x}
+              cy={mid.y}
+              r="5"
+              fill="white"
+              stroke="hsl(var(--ring))"
+              strokeWidth="2"
+              style={{ cursor: "grab" }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onCurveDragStart?.();
+              }}
+            />
           )}
         </g>
       );
