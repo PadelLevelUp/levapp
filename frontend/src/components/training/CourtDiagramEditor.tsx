@@ -125,6 +125,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(null);
   const [linePreview, setLinePreview] = useState<{ x: number; y: number } | null>(null);
   const [curveDragging, setCurveDragging] = useState<string | null>(null);
+  const [endpointDragging, setEndpointDragging] = useState<{ id: string; point: "start" | "end" } | null>(null);
 
   const elements = value.elements;
   const selectedEl = selectedId ? elements.find((e) => e.id === selectedId) : null;
@@ -197,6 +198,14 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   function handleCanvasPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     const pt = toSvgCoords(e);
 
+    if (endpointDragging) {
+      const updates = endpointDragging.point === "start"
+        ? { x: pt.x, y: pt.y }
+        : { endX: pt.x, endY: pt.y };
+      setElements(elements.map((el) => el.id === endpointDragging.id ? { ...el, ...updates } : el));
+      return;
+    }
+
     if (curveDragging) {
       const el = elements.find((el) => el.id === curveDragging);
       if (el && el.endX != null && el.endY != null) {
@@ -230,6 +239,11 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
   }
 
   function handleCanvasPointerUp() {
+    if (endpointDragging) {
+      setEndpointDragging(null);
+      return;
+    }
+
     if (curveDragging) {
       setCurveDragging(null);
       return;
@@ -441,6 +455,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
               isSelected={selectedId === el.id}
               onPointerDown={(e) => handleElementPointerDown(e, el.id)}
               onCurveDragStart={() => { setSelectedId(el.id); setCurveDragging(el.id); }}
+              onEndpointDragStart={(point) => { setSelectedId(el.id); setEndpointDragging({ id: el.id, point }); }}
               cursor={tool === "eraser" ? "crosshair" : tool === "select" ? "grab" : "default"}
             />
           ))}
@@ -459,12 +474,14 @@ function CourtElementRenderer({
   isSelected,
   onPointerDown,
   onCurveDragStart,
+  onEndpointDragStart,
   cursor,
 }: {
   element: CourtElement;
   isSelected: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onCurveDragStart?: () => void;
+  onEndpointDragStart?: (point: "start" | "end") => void;
   cursor: string;
 }) {
   const selectionStroke = isSelected ? "hsl(var(--ring))" : "transparent";
@@ -568,21 +585,31 @@ function CourtElementRenderer({
               </text>
             </>
           )}
-          {/* Draggable curve handle when selected */}
+          {/* Draggable handles when selected */}
           {isSelected && (
-            <circle
-              cx={mid.x}
-              cy={mid.y}
-              r="5"
-              fill="white"
-              stroke="hsl(var(--ring))"
-              strokeWidth="2"
-              style={{ cursor: "grab" }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onCurveDragStart?.();
-              }}
-            />
+            <>
+              {/* Start endpoint */}
+              <rect
+                x={x1 - 4} y={y1 - 4} width={8} height={8} rx="1"
+                fill="white" stroke="hsl(var(--ring))" strokeWidth="1.5"
+                style={{ cursor: "grab" }}
+                onPointerDown={(e) => { e.stopPropagation(); onEndpointDragStart?.("start"); }}
+              />
+              {/* End endpoint */}
+              <rect
+                x={x2 - 4} y={y2 - 4} width={8} height={8} rx="1"
+                fill="white" stroke="hsl(var(--ring))" strokeWidth="1.5"
+                style={{ cursor: "grab" }}
+                onPointerDown={(e) => { e.stopPropagation(); onEndpointDragStart?.("end"); }}
+              />
+              {/* Curve handle at midpoint */}
+              <circle
+                cx={mid.x} cy={mid.y} r="5"
+                fill="white" stroke="hsl(var(--ring))" strokeWidth="2"
+                style={{ cursor: "grab" }}
+                onPointerDown={(e) => { e.stopPropagation(); onCurveDragStart?.(); }}
+              />
+            </>
           )}
         </g>
       );
