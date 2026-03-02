@@ -29,7 +29,6 @@ export default function TrainingPage() {
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Filters
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
@@ -44,9 +43,9 @@ export default function TrainingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       setSheetOpen(false);
-      toast.success("Ejercicio creado");
+      toast.success("Exercise created");
     },
-    onError: () => toast.error("Error al crear ejercicio"),
+    onError: () => toast.error("Failed to create exercise"),
   });
 
   const updateMut = useMutation({
@@ -55,9 +54,9 @@ export default function TrainingPage() {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       setSheetOpen(false);
       setEditingExercise(null);
-      toast.success("Ejercicio actualizado");
+      toast.success("Exercise updated");
     },
-    onError: () => toast.error("Error al actualizar ejercicio"),
+    onError: () => toast.error("Failed to update exercise"),
   });
 
   const deleteMut = useMutation({
@@ -65,9 +64,9 @@ export default function TrainingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       setDeletingId(null);
-      toast.success("Ejercicio eliminado");
+      toast.success("Exercise deleted");
     },
-    onError: () => toast.error("Error al eliminar ejercicio"),
+    onError: () => toast.error("Failed to delete exercise"),
   });
 
   function handleSubmit(data: ExercisePayload) {
@@ -88,7 +87,6 @@ export default function TrainingPage() {
     setSheetOpen(true);
   }
 
-  // Filter exercises
   const filtered = exercises.filter((ex) => {
     if (search && !ex.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterType !== "all" && ex.type !== filterType) return false;
@@ -111,24 +109,22 @@ export default function TrainingPage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-4">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Entrenamientos</h1>
-            <p className="text-muted-foreground text-sm">Gestiona ejercicios y rutinas de entrenamiento</p>
+            <h1 className="text-2xl font-bold">Training</h1>
+            <p className="text-muted-foreground text-sm">Manage exercises and training routines</p>
           </div>
           <Button onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
-            Nuevo ejercicio
+            New Exercise
           </Button>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar ejercicios..."
+              placeholder="Search exercises..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -136,10 +132,10 @@ export default function TrainingPage() {
           </div>
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Tipo" />
+              <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los tipos</SelectItem>
+              <SelectItem value="all">All types</SelectItem>
               {EXERCISE_TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
@@ -147,10 +143,10 @@ export default function TrainingPage() {
           </Select>
           <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Dificultad" />
+              <SelectValue placeholder="Difficulty" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toda dificultad</SelectItem>
+              <SelectItem value="all">All difficulties</SelectItem>
               {DIFFICULTY_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
               ))}
@@ -158,7 +154,6 @@ export default function TrainingPage() {
           </Select>
         </div>
 
-        {/* Exercise grid */}
         {isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
@@ -171,17 +166,17 @@ export default function TrainingPage() {
           <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
             <Dumbbell className="w-12 h-12 mb-3 opacity-40" />
             <p className="text-lg font-medium">
-              {exercises.length === 0 ? "No hay ejercicios aún" : "Sin resultados"}
+              {exercises.length === 0 ? "No exercises yet" : "No results"}
             </p>
             <p className="text-sm mt-1">
               {exercises.length === 0
-                ? "Crea tu primer ejercicio para empezar"
-                : "Prueba con otros filtros"}
+                ? "Create your first exercise to get started"
+                : "Try different filters"}
             </p>
             {exercises.length === 0 && (
               <Button className="mt-4" onClick={openCreate}>
                 <Plus className="w-4 h-4 mr-2" />
-                Crear ejercicio
+                Create Exercise
               </Button>
             )}
           </div>
@@ -194,15 +189,16 @@ export default function TrainingPage() {
                 onClick={() => openEdit(ex)}
               >
                 <CardContent className="p-4 space-y-2">
-                  {/* Thumbnail preview of diagram */}
                   {ex.diagram && ex.diagram.elements.length > 0 && (
                     <div className="h-24 bg-emerald-900/80 rounded overflow-hidden mb-2">
-                      <svg viewBox="0 0 240 440" className="w-full h-full">
-                        <rect x="20" y="20" width="200" height="400" fill="#2d6a3f" stroke="white" strokeWidth="2" rx="2" />
-                        <line x1="20" y1="220" x2="220" y2="220" stroke="white" strokeWidth="2" />
+                      <svg viewBox="0 0 280 520" className="w-full h-full">
+                        <rect x="20" y="20" width="240" height="480" fill="#1a6b35" stroke="white" strokeWidth="2" rx="2" />
+                        <line x1="20" y1="260" x2="260" y2="260" stroke="white" strokeWidth="2" />
                         {ex.diagram.elements.slice(0, 15).map((el) => {
-                          if (el.type === "player_a") return <circle key={el.id} cx={el.x} cy={el.y} r="8" fill="#3b82f6" />;
-                          if (el.type === "player_b") return <circle key={el.id} cx={el.x} cy={el.y} r="8" fill="#ef4444" />;
+                          const color = el.type.startsWith("player_") || el.type === "coach"
+                            ? (({ player_1: "#3b82f6", player_2: "#ef4444", player_3: "#22c55e", player_4: "#a855f7", coach: "#f59e0b" } as any)[el.type] || "#3b82f6")
+                            : undefined;
+                          if (color) return <circle key={el.id} cx={el.x} cy={el.y} r="8" fill={color} />;
                           if (el.type === "cone") return <polygon key={el.id} points={`${el.x},${el.y - 6} ${el.x - 5},${el.y + 4} ${el.x + 5},${el.y + 4}`} fill="#f97316" />;
                           if (el.type === "ball") return <circle key={el.id} cx={el.x} cy={el.y} r="4" fill="#facc15" />;
                           if ((el.type === "arrow" || el.type === "movement") && el.endX != null) {
@@ -246,7 +242,6 @@ export default function TrainingPage() {
         )}
       </div>
 
-      {/* Form Sheet */}
       <ExerciseFormSheet
         open={sheetOpen}
         onOpenChange={(o) => {
@@ -258,20 +253,19 @@ export default function TrainingPage() {
         loading={createMut.isPending || updateMut.isPending}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar ejercicio?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+            <AlertDialogTitle>Delete exercise?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deletingId && deleteMut.mutate(deletingId)}
             >
-              Eliminar
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -38,7 +38,6 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
     queryFn: getCoachLevels,
   });
 
-  // Reset form when exercise changes
   useEffect(() => {
     if (exercise) {
       setName(exercise.name);
@@ -85,26 +84,23 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{exercise ? "Editar ejercicio" : "Nuevo ejercicio"}</SheetTitle>
+          <SheetTitle>{exercise ? "Edit Exercise" : "New Exercise"}</SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
-          {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="ex-name">Nombre *</Label>
-            <Input id="ex-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Bandeja cruzada" required />
+            <Label htmlFor="ex-name">Name *</Label>
+            <Input id="ex-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cross-court bandeja" required />
           </div>
 
-          {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="ex-desc">Descripción</Label>
-            <Textarea id="ex-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe el ejercicio..." rows={3} />
+            <Label htmlFor="ex-desc">Description</Label>
+            <Textarea id="ex-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the exercise..." rows={3} />
           </div>
 
-          {/* Type + Custom */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo *</Label>
+              <Label>Type *</Label>
               <Select value={type} onValueChange={(v) => setType(v as ExerciseType)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -121,13 +117,13 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
 
             {type === "custom" && (
               <div className="space-y-1.5">
-                <Label htmlFor="ex-custom-type">Tipo personalizado</Label>
-                <Input id="ex-custom-type" value={customType} onChange={(e) => setCustomType(e.target.value)} placeholder="Ej: Táctica" />
+                <Label htmlFor="ex-custom-type">Custom type</Label>
+                <Input id="ex-custom-type" value={customType} onChange={(e) => setCustomType(e.target.value)} placeholder="e.g. Tactics" />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label>Dificultad *</Label>
+              <Label>Difficulty *</Label>
               <Select value={String(difficulty)} onValueChange={(v) => setDifficulty(Number(v) as Difficulty)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -143,10 +139,9 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
             </div>
           </div>
 
-          {/* Levels */}
           {levels.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Niveles</Label>
+              <Label>Levels</Label>
               <div className="flex flex-wrap gap-1.5">
                 {levels.map((level) => {
                   const isSelected = selectedLevels.includes(level.id);
@@ -166,22 +161,19 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
             </div>
           )}
 
-          {/* Court Diagram */}
           <CourtDiagramEditor value={diagram} onChange={setDiagram} />
 
-          {/* Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="ex-notes">Notas adicionales</Label>
-            <Textarea id="ex-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Variaciones, puntos clave..." rows={2} />
+            <Label htmlFor="ex-notes">Additional notes</Label>
+            <Textarea id="ex-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Variations, key points..." rows={2} />
           </div>
 
-          {/* Submit */}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
+              Cancel
             </Button>
             <Button type="submit" disabled={!name.trim() || loading}>
-              {loading ? "Guardando..." : exercise ? "Guardar cambios" : "Crear ejercicio"}
+              {loading ? "Saving..." : exercise ? "Save Changes" : "Create Exercise"}
             </Button>
           </div>
         </form>

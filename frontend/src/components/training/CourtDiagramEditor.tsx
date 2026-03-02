@@ -11,20 +11,46 @@ import {
   Route,
   Trash2,
   RotateCcw,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Court dimensions (padel court: 10m x 20m, using 200x400 SVG units)
-const COURT_W = 200;
-const COURT_H = 400;
+// Padel court: 10m wide x 20m long → 240 x 480 SVG units (ratio 1:2)
+const COURT_W = 240;
+const COURT_H = 480;
 const PADDING = 20;
 const VB_W = COURT_W + PADDING * 2;
 const VB_H = COURT_H + PADDING * 2;
 
+// Service line distance from back wall: ~6.95m → ~167 units
+const SERVICE_LINE = 167;
+
+// Player colors
+const PLAYER_COLORS: Record<string, string> = {
+  player_1: "#3b82f6", // blue
+  player_2: "#ef4444", // red
+  player_3: "#22c55e", // green
+  player_4: "#a855f7", // purple
+  coach: "#f59e0b",    // amber
+};
+
+const PLAYER_LABELS: Record<string, string> = {
+  player_1: "P1",
+  player_2: "P2",
+  player_3: "P3",
+  player_4: "P4",
+  coach: "C",
+};
+
+const MAX_PLAYERS = 4;
+
 type Tool =
   | "select"
-  | "player_a"
-  | "player_b"
+  | "player_1"
+  | "player_2"
+  | "player_3"
+  | "player_4"
+  | "coach"
   | "cone"
   | "blocker"
   | "ball"
@@ -32,16 +58,19 @@ type Tool =
   | "movement"
   | "eraser";
 
-const TOOLS: { tool: Tool; icon: any; label: string }[] = [
-  { tool: "select", icon: MousePointer2, label: "Seleccionar" },
-  { tool: "player_a", icon: User, label: "Jugador A" },
-  { tool: "player_b", icon: User, label: "Jugador B" },
-  { tool: "cone", icon: Triangle, label: "Cono" },
-  { tool: "blocker", icon: RectangleHorizontal, label: "Bloqueador" },
-  { tool: "ball", icon: Circle, label: "Pelota" },
-  { tool: "arrow", icon: ArrowRight, label: "Flecha" },
-  { tool: "movement", icon: Route, label: "Movimiento" },
-  { tool: "eraser", icon: Trash2, label: "Borrar" },
+const TOOLS: { tool: Tool; icon: any; label: string; colorClass?: string }[] = [
+  { tool: "select", icon: MousePointer2, label: "Select" },
+  { tool: "player_1", icon: User, label: "Player 1", colorClass: "text-blue-500" },
+  { tool: "player_2", icon: User, label: "Player 2", colorClass: "text-red-500" },
+  { tool: "player_3", icon: User, label: "Player 3", colorClass: "text-green-500" },
+  { tool: "player_4", icon: User, label: "Player 4", colorClass: "text-purple-500" },
+  { tool: "coach", icon: GraduationCap, label: "Coach", colorClass: "text-amber-500" },
+  { tool: "cone", icon: Triangle, label: "Cone" },
+  { tool: "blocker", icon: RectangleHorizontal, label: "Blocker" },
+  { tool: "ball", icon: Circle, label: "Ball" },
+  { tool: "arrow", icon: ArrowRight, label: "Arrow" },
+  { tool: "movement", icon: Route, label: "Movement" },
+  { tool: "eraser", icon: Trash2, label: "Eraser" },
 ];
 
 interface Props {
@@ -65,14 +94,15 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     [onChange]
   );
 
-  // Counter for player labels
-  const nextPlayerLabel = useCallback(
-    (team: "player_a" | "player_b") => {
-      const existing = elements.filter((e) => e.type === team);
-      return String(existing.length + 1);
-    },
-    [elements]
-  );
+  const playerTypes = ["player_1", "player_2", "player_3", "player_4"] as const;
+
+  function isPlayerTool(t: Tool): t is "player_1" | "player_2" | "player_3" | "player_4" {
+    return playerTypes.includes(t as any);
+  }
+
+  function playerCount() {
+    return elements.filter((e) => playerTypes.includes(e.type as any)).length;
+  }
 
   function toSvgCoords(e: React.PointerEvent | React.MouseEvent) {
     const svg = svgRef.current!;
@@ -85,7 +115,6 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     return { x: svgPt.x, y: svgPt.y };
   }
 
-  // Place element on canvas click
   function handleCanvasPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (e.target !== svgRef.current && tool === "select") return;
 
@@ -104,16 +133,23 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
 
     if (tool === "eraser") return;
 
-    // Place element
+    // Enforce max 4 players
+    if (isPlayerTool(tool) && playerCount() >= MAX_PLAYERS) {
+      return;
+    }
+
+    // Prevent duplicate of same player type
+    if (isPlayerTool(tool) && elements.some((el) => el.type === tool)) {
+      return;
+    }
+
     const newEl: CourtElement = {
       id: crypto.randomUUID(),
       type: tool as CourtElementType,
       x: pt.x,
       y: pt.y,
+      label: PLAYER_LABELS[tool] || undefined,
     };
-    if (tool === "player_a" || tool === "player_b") {
-      newEl.label = nextPlayerLabel(tool);
-    }
     setElements([...elements, newEl]);
     setSelectedId(newEl.id);
     setTool("select");
@@ -138,7 +174,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     }
   }
 
-  function handleCanvasPointerUp(e: React.PointerEvent<SVGSVGElement>) {
+  function handleCanvasPointerUp() {
     if (lineStart && linePreview) {
       const dx = linePreview.x - lineStart.x;
       const dy = linePreview.y - lineStart.y;
@@ -152,6 +188,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
           endY: linePreview.y,
         };
         setElements([...elements, newEl]);
+        setSelectedId(newEl.id);
       }
       setLineStart(null);
       setLinePreview(null);
@@ -170,11 +207,16 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     }
 
     if (tool === "select") {
-      const pt = toSvgCoords(e);
       const el = elements.find((el) => el.id === elId)!;
-      setDragOffset({ x: pt.x - el.x, y: pt.y - el.y });
-      setDragging(elId);
-      setSelectedId(elId);
+      if (el.type === "arrow" || el.type === "movement") {
+        // For lines, just select (no drag)
+        setSelectedId(elId);
+      } else {
+        const pt = toSvgCoords(e);
+        setDragOffset({ x: pt.x - el.x, y: pt.y - el.y });
+        setDragging(elId);
+        setSelectedId(elId);
+      }
     }
   }
 
@@ -190,7 +232,6 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     }
   }
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -203,30 +244,51 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedId, elements]);
 
+  // Disable player tools if already placed
+  function isToolDisabled(t: Tool) {
+    if (isPlayerTool(t) && elements.some((el) => el.type === t)) return true;
+    if (t === "coach" && elements.some((el) => el.type === "coach")) return true;
+    return false;
+  }
+
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Diagrama de pista</label>
+      <label className="text-sm font-medium">Court Diagram</label>
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-1 bg-muted rounded-lg">
-        {TOOLS.map(({ tool: t, icon: Icon, label }) => (
-          <Button
-            key={t}
-            type="button"
-            variant={tool === t ? "default" : "ghost"}
-            size="sm"
-            className={cn("h-8 px-2 text-xs gap-1", t === "player_a" && "text-blue-600", t === "player_b" && "text-red-600")}
-            onClick={() => setTool(t)}
-            title={label}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{label}</span>
-          </Button>
-        ))}
+        {TOOLS.map(({ tool: t, icon: Icon, label, colorClass }) => {
+          const disabled = isToolDisabled(t);
+          return (
+            <Button
+              key={t}
+              type="button"
+              variant={tool === t ? "default" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-2 text-xs gap-1",
+                colorClass && tool !== t && colorClass,
+                disabled && "opacity-40 pointer-events-none"
+              )}
+              onClick={() => setTool(t)}
+              title={label}
+              disabled={disabled}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{label}</span>
+            </Button>
+          );
+        })}
         <div className="flex-1" />
-        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={handleClear} title="Limpiar todo">
+        {selectedId && (
+          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-destructive" onClick={handleDeleteSelected} title="Delete selected">
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Delete</span>
+          </Button>
+        )}
+        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={handleClear} title="Clear all">
           <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Limpiar</span>
+          <span className="hidden sm:inline">Clear</span>
         </Button>
       </div>
 
@@ -236,47 +298,50 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
           ref={svgRef}
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           className="w-full"
-          style={{ maxHeight: "500px" }}
+          style={{ maxHeight: "520px" }}
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
         >
           <defs>
             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--primary))" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="white" />
             </marker>
             <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--chart-4))" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#facc15" />
+            </marker>
+            <marker id="arrowhead-sel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--ring))" />
             </marker>
           </defs>
 
           {/* Court background */}
-          <rect x={PADDING} y={PADDING} width={COURT_W} height={COURT_H} fill="#2d6a3f" stroke="white" strokeWidth="2" rx="2" />
+          <rect x={PADDING} y={PADDING} width={COURT_W} height={COURT_H} fill="#1a6b35" stroke="white" strokeWidth="2" rx="2" />
 
           {/* Net */}
           <line x1={PADDING} y1={PADDING + COURT_H / 2} x2={PADDING + COURT_W} y2={PADDING + COURT_H / 2} stroke="white" strokeWidth="3" />
 
           {/* Service lines */}
-          <line x1={PADDING} y1={PADDING + 140} x2={PADDING + COURT_W} y2={PADDING + 140} stroke="white" strokeWidth="1.5" opacity="0.8" />
-          <line x1={PADDING} y1={PADDING + 260} x2={PADDING + COURT_W} y2={PADDING + 260} stroke="white" strokeWidth="1.5" opacity="0.8" />
+          <line x1={PADDING} y1={PADDING + SERVICE_LINE} x2={PADDING + COURT_W} y2={PADDING + SERVICE_LINE} stroke="white" strokeWidth="1.5" opacity="0.8" />
+          <line x1={PADDING} y1={PADDING + COURT_H - SERVICE_LINE} x2={PADDING + COURT_W} y2={PADDING + COURT_H - SERVICE_LINE} stroke="white" strokeWidth="1.5" opacity="0.8" />
 
           {/* Center service lines */}
-          <line x1={PADDING + COURT_W / 2} y1={PADDING + 140} x2={PADDING + COURT_W / 2} y2={PADDING + COURT_H / 2} stroke="white" strokeWidth="1" opacity="0.6" />
-          <line x1={PADDING + COURT_W / 2} y1={PADDING + COURT_H / 2} x2={PADDING + COURT_W / 2} y2={PADDING + 260} stroke="white" strokeWidth="1" opacity="0.6" />
+          <line x1={PADDING + COURT_W / 2} y1={PADDING + SERVICE_LINE} x2={PADDING + COURT_W / 2} y2={PADDING + COURT_H / 2} stroke="white" strokeWidth="1" opacity="0.6" />
+          <line x1={PADDING + COURT_W / 2} y1={PADDING + COURT_H / 2} x2={PADDING + COURT_W / 2} y2={PADDING + COURT_H - SERVICE_LINE} stroke="white" strokeWidth="1" opacity="0.6" />
 
-          {/* Glass walls - thicker lines at top/bottom */}
-          <line x1={PADDING} y1={PADDING} x2={PADDING + COURT_W} y2={PADDING} stroke="#aaddff" strokeWidth="4" opacity="0.6" />
-          <line x1={PADDING} y1={PADDING + COURT_H} x2={PADDING + COURT_W} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="4" opacity="0.6" />
+          {/* Glass walls — back walls */}
+          <line x1={PADDING} y1={PADDING} x2={PADDING + COURT_W} y2={PADDING} stroke="#aaddff" strokeWidth="5" opacity="0.5" />
+          <line x1={PADDING} y1={PADDING + COURT_H} x2={PADDING + COURT_W} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="5" opacity="0.5" />
 
-          {/* Side glass (partial - 3m = 60 units from back) */}
-          <line x1={PADDING} y1={PADDING} x2={PADDING} y2={PADDING + 60} stroke="#aaddff" strokeWidth="3" opacity="0.5" />
-          <line x1={PADDING + COURT_W} y1={PADDING} x2={PADDING + COURT_W} y2={PADDING + 60} stroke="#aaddff" strokeWidth="3" opacity="0.5" />
-          <line x1={PADDING} y1={PADDING + COURT_H - 60} x2={PADDING} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="3" opacity="0.5" />
-          <line x1={PADDING + COURT_W} y1={PADDING + COURT_H - 60} x2={PADDING + COURT_W} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="3" opacity="0.5" />
+          {/* Side glass (3m from back = 72 units) */}
+          <line x1={PADDING} y1={PADDING} x2={PADDING} y2={PADDING + 72} stroke="#aaddff" strokeWidth="3" opacity="0.4" />
+          <line x1={PADDING + COURT_W} y1={PADDING} x2={PADDING + COURT_W} y2={PADDING + 72} stroke="#aaddff" strokeWidth="3" opacity="0.4" />
+          <line x1={PADDING} y1={PADDING + COURT_H - 72} x2={PADDING} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="3" opacity="0.4" />
+          <line x1={PADDING + COURT_W} y1={PADDING + COURT_H - 72} x2={PADDING + COURT_W} y2={PADDING + COURT_H} stroke="#aaddff" strokeWidth="3" opacity="0.4" />
 
-          {/* Side fence (wire) */}
-          <line x1={PADDING} y1={PADDING + 60} x2={PADDING} y2={PADDING + COURT_H - 60} stroke="white" strokeWidth="1" strokeDasharray="4 3" opacity="0.4" />
-          <line x1={PADDING + COURT_W} y1={PADDING + 60} x2={PADDING + COURT_W} y2={PADDING + COURT_H - 60} stroke="white" strokeWidth="1" strokeDasharray="4 3" opacity="0.4" />
+          {/* Side fence (wire mesh) */}
+          <line x1={PADDING} y1={PADDING + 72} x2={PADDING} y2={PADDING + COURT_H - 72} stroke="white" strokeWidth="1" strokeDasharray="4 3" opacity="0.3" />
+          <line x1={PADDING + COURT_W} y1={PADDING + 72} x2={PADDING + COURT_W} y2={PADDING + COURT_H - 72} stroke="white" strokeWidth="1" strokeDasharray="4 3" opacity="0.3" />
 
           {/* Drawing preview line */}
           {lineStart && linePreview && (
@@ -285,7 +350,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
               y1={lineStart.y}
               x2={linePreview.x}
               y2={linePreview.y}
-              stroke={tool === "arrow" ? "hsl(var(--primary))" : "hsl(var(--chart-4))"}
+              stroke={tool === "arrow" ? "white" : "#facc15"}
               strokeWidth="2"
               strokeDasharray={tool === "movement" ? "6 4" : "none"}
               markerEnd={tool === "arrow" ? "url(#arrowhead)" : "url(#arrowhead-dashed)"}
@@ -307,13 +372,12 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Selecciona una herramienta y haz clic en la pista para colocar elementos. Arrastra para mover. Supr para borrar.
+        Select a tool and click on the court to place elements. Drag to move. Press Delete to remove. Max 4 players.
       </p>
     </div>
   );
 }
 
-// Render individual court elements
 function CourtElementRenderer({
   element: el,
   isSelected,
@@ -328,25 +392,21 @@ function CourtElementRenderer({
   const selectionStroke = isSelected ? "hsl(var(--ring))" : "transparent";
   const selectionWidth = isSelected ? 2 : 0;
 
+  const isPlayer = el.type.startsWith("player_") || el.type === "coach";
+  const color = PLAYER_COLORS[el.type];
+
+  if (isPlayer) {
+    return (
+      <g onPointerDown={onPointerDown} style={{ cursor }}>
+        <circle cx={el.x} cy={el.y} r="14" fill={color} stroke={selectionStroke} strokeWidth={selectionWidth + 2} />
+        <text x={el.x} y={el.y + 1} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">
+          {el.label || el.type}
+        </text>
+      </g>
+    );
+  }
+
   switch (el.type) {
-    case "player_a":
-      return (
-        <g onPointerDown={onPointerDown} style={{ cursor }}>
-          <circle cx={el.x} cy={el.y} r="14" fill="#3b82f6" stroke={selectionStroke} strokeWidth={selectionWidth + 2} />
-          <text x={el.x} y={el.y + 1} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="11" fontWeight="bold">
-            {el.label || "A"}
-          </text>
-        </g>
-      );
-    case "player_b":
-      return (
-        <g onPointerDown={onPointerDown} style={{ cursor }}>
-          <circle cx={el.x} cy={el.y} r="14" fill="#ef4444" stroke={selectionStroke} strokeWidth={selectionWidth + 2} />
-          <text x={el.x} y={el.y + 1} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="11" fontWeight="bold">
-            {el.label || "B"}
-          </text>
-        </g>
-      );
     case "cone":
       return (
         <g onPointerDown={onPointerDown} style={{ cursor }}>
@@ -372,32 +432,36 @@ function CourtElementRenderer({
       );
     case "arrow":
       return (
-        <line
-          x1={el.x}
-          y1={el.y}
-          x2={el.endX ?? el.x}
-          y2={el.endY ?? el.y}
-          stroke={isSelected ? "hsl(var(--ring))" : "hsl(var(--primary))"}
-          strokeWidth="2.5"
-          markerEnd="url(#arrowhead)"
-          onPointerDown={onPointerDown}
-          style={{ cursor }}
-        />
+        <g onPointerDown={onPointerDown} style={{ cursor }}>
+          {/* Invisible wider hitbox for easier selection */}
+          <line
+            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
+            stroke="transparent" strokeWidth="14"
+          />
+          <line
+            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
+            stroke={isSelected ? "hsl(var(--ring))" : "white"}
+            strokeWidth="2.5"
+            markerEnd={isSelected ? "url(#arrowhead-sel)" : "url(#arrowhead)"}
+          />
+        </g>
       );
     case "movement":
       return (
-        <line
-          x1={el.x}
-          y1={el.y}
-          x2={el.endX ?? el.x}
-          y2={el.endY ?? el.y}
-          stroke={isSelected ? "hsl(var(--ring))" : "hsl(var(--chart-4))"}
-          strokeWidth="2"
-          strokeDasharray="6 4"
-          markerEnd="url(#arrowhead-dashed)"
-          onPointerDown={onPointerDown}
-          style={{ cursor }}
-        />
+        <g onPointerDown={onPointerDown} style={{ cursor }}>
+          {/* Invisible wider hitbox */}
+          <line
+            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
+            stroke="transparent" strokeWidth="14"
+          />
+          <line
+            x1={el.x} y1={el.y} x2={el.endX ?? el.x} y2={el.endY ?? el.y}
+            stroke={isSelected ? "hsl(var(--ring))" : "#facc15"}
+            strokeWidth="2"
+            strokeDasharray="6 4"
+            markerEnd={isSelected ? "url(#arrowhead-sel)" : "url(#arrowhead-dashed)"}
+          />
+        </g>
       );
     default:
       return null;
