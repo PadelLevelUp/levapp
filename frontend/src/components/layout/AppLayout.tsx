@@ -7,6 +7,7 @@ import {
   Settings,
   Menu,
   MessageSquare,
+  Dumbbell,
   X,
   ChevronLeft,
   ChevronRight,
@@ -55,6 +56,12 @@ const navItems: NavItem[] = [
     icon: Users,
     label: "Players",
     path: "/players",
+    roles: ["coach"],
+  },
+  {
+    icon: Dumbbell,
+    label: "Training",
+    path: "/training",
     roles: ["coach"],
   },
   {

@@ -13,6 +13,7 @@ import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
 import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
+import TrainingPage from "./pages/TrainingPage";
 
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
@@ -93,6 +94,14 @@ const App = () => (
                   <ProtectedRoute>
                     <MessagesPage />
                   </ProtectedRoute>
+                  }
+              />
+              <Route
+                path="/training"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <TrainingPage />
+                  </RoleRoute>
                 }
               />
 
