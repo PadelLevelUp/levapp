@@ -15,9 +15,8 @@ export interface ImportTable {
 }
 
 export interface ImportResult {
-  tableName: string;
   imported: number;
-  errors: string[];
+  errors: Array<{ row: number; error: string }>;
 }
 
 /* ---------- SSE event types from /analyze ---------- */
@@ -26,7 +25,7 @@ export type AnalyzeSSEEvent =
   | { type: "thinking"; text: string }
   | { type: "phase"; phase: string }
   | { type: "progress"; value: number }
-  | { type: "tables"; tables: ImportTable[] }
+  | { type: "tables"; tables: Record<string, Array<Record<string, unknown>>> }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -115,9 +114,7 @@ export interface ConfirmPayload {
   [tableName: string]: Array<Record<string, string>>;
 }
 
-export interface ConfirmResult {
-  results: ImportResult[];
-}
+export type ConfirmResult = Record<string, ImportResult>;
 
 export async function confirmImport(
   tables: ImportTable[]
@@ -128,9 +125,6 @@ export async function confirmImport(
     if (selected.length === 0) continue;
     payload[table.name] = selected.map((r) => r.cells);
   }
-  const { data } = await api.post<ConfirmResult>(
-    "/app/import/confirm",
-    payload
-  );
+  const { data } = await api.post<ConfirmResult>("/app/import/confirm", payload);
   return data;
 }

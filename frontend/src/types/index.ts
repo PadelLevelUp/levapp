@@ -274,7 +274,14 @@ export interface DashboardClassListBlock {
   };
 }
 
-export type Phase = "idle" | "uploading" | "processing" | "analyzing" | "done";
+export type Phase =
+  | "idle"
+  | "selecting"
+  | "uploading"
+  | "processing"
+  | "analyzing"
+  | "validating"
+  | "done";
 
 export interface ThinkingLine {
   text: string;

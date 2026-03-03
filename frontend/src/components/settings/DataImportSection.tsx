@@ -311,12 +311,14 @@ function GroupedTableBody({
   editing,
   onToggleRow,
   onCellChange,
+  onRemoveColumn,
 }: {
   table: ImportTable;
   groupByCol: string;
   editing: boolean;
   onToggleRow: (rowId: string) => void;
   onCellChange: (rowId: string, col: string, val: string) => void;
+  onRemoveColumn: (col: string) => void;
 }) {
   const otherCols = table.columns.filter((c) => c !== groupByCol);
   const groups = new Map<string, ImportTableRow[]>();
@@ -334,7 +336,19 @@ function GroupedTableBody({
             <TableHead className="w-10" />
             {otherCols.map((col) => (
               <TableHead key={col} className="text-xs whitespace-nowrap">
-                {col}
+                <div className="flex items-center gap-1">
+                  <span>{col}</span>
+                  {editing && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemoveColumn(col)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
               </TableHead>
             ))}
           </TableRow>
@@ -393,6 +407,7 @@ function ImportTableView({
   onToggleRow,
   onToggleExpand,
   onCellChange,
+  onRemoveColumn,
   groupByCol,
 }: {
   table: ImportTable;
@@ -400,6 +415,7 @@ function ImportTableView({
   onToggleRow: (rowId: string) => void;
   onToggleExpand: () => void;
   onCellChange: (rowId: string, col: string, val: string) => void;
+  onRemoveColumn: (col: string) => void;
   groupByCol?: string;
 }) {
   const [editing, setEditing] = useState(false);
@@ -462,6 +478,7 @@ function ImportTableView({
           editing={editing}
           onToggleRow={onToggleRow}
           onCellChange={onCellChange}
+          onRemoveColumn={onRemoveColumn}
         />
       ) : table.expanded ? (
         <div className="overflow-x-auto">
@@ -471,7 +488,19 @@ function ImportTableView({
                 <TableHead className="w-10" />
                 {table.columns.map((col) => (
                   <TableHead key={col} className="text-xs whitespace-nowrap">
-                    {col}
+                    <div className="flex items-center gap-1">
+                      <span>{col}</span>
+                      {editing && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => onRemoveColumn(col)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   </TableHead>
                 ))}
               </TableRow>
@@ -745,13 +774,13 @@ export function DataImportSection() {
               setProgress(event.value);
               break;
             case "tables": {
-              const tablesObj = event.tables as unknown as Record<
+              const tablesObj = event.tables as Record<
                 string,
-                Array<Record<string, any>>
+                Array<Record<string, unknown>>
               >;
               const mapped: ImportTable[] = Object.entries(tablesObj).map(
                 ([name, rows]) => {
-                  const rowArray = rows as Array<Record<string, any>>;
+                  const rowArray = rows as Array<Record<string, unknown>>;
                   const columns =
                     rowArray.length > 0 ? Object.keys(rowArray[0]) : [];
                   return {
@@ -900,10 +929,27 @@ export function DataImportSection() {
     );
   };
 
+  const removeColumn = (tableIdx: number, col: string) => {
+    setTables((prev) =>
+      prev.map((t, i) => {
+        if (i !== tableIdx) return t;
+        return {
+          ...t,
+          columns: t.columns.filter((c) => c !== col),
+          rows: t.rows.map((r) => {
+            const nextCells = { ...r.cells };
+            delete nextCells[col];
+            return { ...r, cells: nextCells };
+          }),
+        };
+      })
+    );
+  };
+
   const handleConfirmImport = async () => {
     setImporting(true);
     try {
-      const { results } = await confirmImport(
+      const results = await confirmImport(
         tables.map((t) => ({
           name: t.name,
           rows: t.rows,
@@ -1120,6 +1166,7 @@ export function DataImportSection() {
                     onCellChange={(rowId, col, val) =>
                       updateCell(idx, rowId, col, val)
                     }
+                    onRemoveColumn={(col) => removeColumn(idx, col)}
                     groupByCol={GROUP_BY_MAP[table.name]}
                   />
                 ))}
