@@ -42,9 +42,7 @@ export function EvaluationCategoriesSection() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!id.startsWith("new-")) {
-      await deleteEvaluationCategory(id);
-    }
+    await deleteEvaluationCategory(id);
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 

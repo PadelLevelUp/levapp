@@ -27,5 +27,5 @@ export async function deleteCoachLevel(id: string): Promise<void> {
     console.log("[mock] deleteCoachLevel", id);
     return;
   }
-  await api.post("/delete/coach_level", { ids: [id] });
+  await api.post("/app/delete/coach_level", { id: id });
 }

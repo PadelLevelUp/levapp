@@ -14,6 +14,7 @@ import type {
   Conversation,
   Message,
   CoachNote,
+  ImportTable
 } from "@/types";
 import { addDays, format, startOfWeek } from "date-fns";
 
@@ -625,3 +626,105 @@ export const mockConversations: Conversation[] = [
     ],
   },
 ];
+
+export function generateMockResults(): ImportTable[] {
+  return [
+    {
+      name: "Coach Levels",
+      icon: "🏷️",
+      columns: ["Code", "Label", "Order"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "l1", cells: { Code: "INI", Label: "Initiation", Order: "1" }, selected: true },
+        { id: "l2", cells: { Code: "INT", Label: "Intermediate", Order: "2" }, selected: true },
+        { id: "l3", cells: { Code: "ADV", Label: "Advanced", Order: "3" }, selected: true },
+        { id: "l4", cells: { Code: "PRO", Label: "Professional", Order: "4" }, selected: true },
+      ],
+    },
+    {
+      name: "Evaluation Categories",
+      icon: "📊",
+      columns: ["Name", "Scale Min", "Scale Max"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "ec1", cells: { Name: "Forehand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec2", cells: { Name: "Backhand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec3", cells: { Name: "Serve", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec4", cells: { Name: "Volley", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec5", cells: { Name: "Positioning", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+      ],
+    },
+    {
+      name: "Players",
+      icon: "🎾",
+      columns: ["Name", "Email", "Phone", "Level", "Side"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "p1", cells: { Name: "Ana Rodrigues", Email: "ana@email.com", Phone: "+351 912 345 678", Level: "INT", Side: "Right" }, selected: true },
+        { id: "p2", cells: { Name: "Carlos Silva", Email: "carlos@email.com", Phone: "+351 923 456 789", Level: "ADV", Side: "Left" }, selected: true },
+        { id: "p3", cells: { Name: "Maria Santos", Email: "maria@email.com", Phone: "+351 934 567 890", Level: "INI", Side: "Right" }, selected: true },
+        { id: "p4", cells: { Name: "João Costa", Email: "joao@email.com", Phone: "+351 945 678 901", Level: "PRO", Side: "Left" }, selected: true },
+        { id: "p5", cells: { Name: "Sofia Mendes", Email: "sofia@email.com", Phone: "", Level: "INT", Side: "Right" }, selected: true },
+      ],
+    },
+    {
+      name: "Classes",
+      icon: "📅",
+      columns: ["Name", "Type", "Recurring", "Day", "Start", "End", "Max Players"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "c1", cells: { Name: "Morning Academy", Type: "academy", Recurring: "Yes", Day: "Monday", Start: "09:00", End: "10:30", "Max Players": "4" }, selected: true },
+        { id: "c2", cells: { Name: "Evening Private", Type: "private", Recurring: "No", Day: "Tuesday", Start: "18:00", End: "19:00", "Max Players": "2" }, selected: true },
+        { id: "c3", cells: { Name: "Weekend Group", Type: "academy", Recurring: "Yes", Day: "Saturday", Start: "10:00", End: "11:30", "Max Players": "6" }, selected: true },
+      ],
+    },
+    {
+      name: "Players in Classes",
+      icon: "👥",
+      columns: ["Class", "Player"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pc1", cells: { Class: "Morning Academy", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc2", cells: { Class: "Morning Academy", Player: "Carlos Silva" }, selected: true },
+        { id: "pc3", cells: { Class: "Morning Academy", Player: "Maria Santos" }, selected: true },
+        { id: "pc4", cells: { Class: "Evening Private", Player: "João Costa" }, selected: true },
+        { id: "pc5", cells: { Class: "Evening Private", Player: "Sofia Mendes" }, selected: true },
+        { id: "pc6", cells: { Class: "Weekend Group", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc7", cells: { Class: "Weekend Group", Player: "Carlos Silva" }, selected: true },
+        { id: "pc8", cells: { Class: "Weekend Group", Player: "João Costa" }, selected: true },
+      ],
+    },
+    {
+      name: "Presences",
+      icon: "✅",
+      columns: ["Class", "Date", "Player", "Status", "Justification"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pr1", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Ana Rodrigues", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr2", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Carlos Silva", Status: "Absent", Justification: "Justified" }, selected: true },
+        { id: "pr3", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Maria Santos", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr4", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "João Costa", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr5", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "Sofia Mendes", Status: "Absent", Justification: "Unjustified" }, selected: true },
+      ],
+    },
+    {
+      name: "Player Evaluations",
+      icon: "📝",
+      columns: ["Player", "Date", "Forehand", "Backhand", "Serve", "Volley", "Positioning"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pe1", cells: { Player: "Ana Rodrigues", Date: "2025-01-15", Forehand: "7", Backhand: "6", Serve: "5", Volley: "6", Positioning: "7" }, selected: true },
+        { id: "pe2", cells: { Player: "Carlos Silva", Date: "2025-01-20", Forehand: "8", Backhand: "7", Serve: "8", Volley: "9", Positioning: "7" }, selected: true },
+        { id: "pe3", cells: { Player: "Maria Santos", Date: "2025-02-01", Forehand: "4", Backhand: "5", Serve: "3", Volley: "4", Positioning: "5" }, selected: true },
+        { id: "pe4", cells: { Player: "João Costa", Date: "2025-02-05", Forehand: "9", Backhand: "8", Serve: "9", Volley: "8", Positioning: "9" }, selected: true },
+      ],
+    },
+  ];
+}

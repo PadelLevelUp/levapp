@@ -32,5 +32,5 @@ export async function deleteEvaluationCategory(id: string): Promise<void> {
     console.log("[mock] deleteEvaluationCategory", id);
     return;
   }
-  await api.post("/delete/evaluation_category", { ids: [id] });
+  await api.post("/app/delete/evaluation_category", { id: id });
 }

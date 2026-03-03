@@ -35,10 +35,18 @@ export type AnalyzeSSEEvent =
 export async function analyzeFile(
   file: File,
   onEvent: (event: AnalyzeSSEEvent) => void,
-  signal?: AbortSignal
+  options?: {
+    signal?: AbortSignal;
+    requestedTables?: string[];
+  }
 ): Promise<void> {
   const formData = new FormData();
   formData.append("file", file);
+
+  // Pass selected tables to backend so it only extracts what's needed
+  if (options?.requestedTables && options.requestedTables.length > 0) {
+    formData.append("tables", options.requestedTables.join(","));
+  }
 
   // Reuse the same baseURL and auth token the axios client uses
   const baseURL = api.defaults.baseURL || "/api";
@@ -50,14 +58,15 @@ export async function analyzeFile(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: formData,
-    signal,
+    signal: options?.signal,
   });
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Mirror the axios interceptor redirect behaviour
       localStorage.removeItem("accessToken");
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      const next = encodeURIComponent(
+        window.location.pathname + window.location.search
+      );
       window.location.assign(`/auth?next=${next}`);
     }
     const text = await response.text().catch(() => "Unknown error");
@@ -84,7 +93,9 @@ export async function analyzeFile(
       if (trimmed.startsWith("data: ")) {
         try {
           onEvent(JSON.parse(trimmed.slice(6)) as AnalyzeSSEEvent);
-        } catch { /* skip malformed */ }
+        } catch {
+          /* skip malformed */
+        }
       }
     }
   }
@@ -92,7 +103,9 @@ export async function analyzeFile(
   if (buffer.trim().startsWith("data: ")) {
     try {
       onEvent(JSON.parse(buffer.trim().slice(6)) as AnalyzeSSEEvent);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -109,14 +122,15 @@ export interface ConfirmResult {
 export async function confirmImport(
   tables: ImportTable[]
 ): Promise<ConfirmResult> {
-  // Build payload: only selected rows, mapped by table name
   const payload: ConfirmPayload = {};
   for (const table of tables) {
     const selected = table.rows.filter((r) => r.selected);
     if (selected.length === 0) continue;
     payload[table.name] = selected.map((r) => r.cells);
   }
-
-  const { data } = await api.post<ConfirmResult>("/app/import/confirm", payload);
+  const { data } = await api.post<ConfirmResult>(
+    "/app/import/confirm",
+    payload
+  );
   return data;
 }

@@ -62,5 +62,5 @@ export async function deleteCoachNote(note: CoachNote): Promise<void> {
     console.log("[mock] deleteCoachNote", note);
     return;
   }
-  await api.post("/delete/coach_note", { ids: [note] });
+  await api.post("/app/delete/coach_note", { id: note.id });
 }

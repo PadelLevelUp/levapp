@@ -273,3 +273,24 @@ export interface DashboardClassListBlock {
     }>;
   };
 }
+
+export type Phase = "idle" | "uploading" | "processing" | "analyzing" | "done";
+
+export interface ThinkingLine {
+  text: string;
+  done: boolean;
+}
+
+export interface ImportTableRow {
+  id: string;
+  cells: Record<string, string>;
+  selected: boolean;
+}
+export interface ImportTable {
+  name: string;
+  icon: string;
+  columns: string[];
+  rows: ImportTableRow[];
+  allSelected: boolean;
+  expanded: boolean;
+}

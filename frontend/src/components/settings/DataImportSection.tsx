@@ -1,5 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { useState, useCallback, useRef, useEffect, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,164 +27,42 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Pencil,
+  Settings2,
 } from "lucide-react";
-import { analyzeFile, confirmImport, type AnalyzeSSEEvent, type ImportTable as ApiImportTable } from "@/api/import";
+import {
+  analyzeFile,
+  confirmImport,
+  type AnalyzeSSEEvent,
+} from "@/api/import";
 import { useToast } from "@/hooks/use-toast";
+import { Phase, ImportTableRow, ImportTable, ThinkingLine } from "@/types";
 
-/* ---------- types ---------- */
+const TABLE_ICONS: Record<string, string> = {
+  "Coach Levels": "🏷️",
+  "Evaluation Categories": "📊",
+  Players: "🎾",
+  Classes: "📅",
+  "Players in Classes": "👥",
+  Presences: "✅",
+  Evaluations: "📝",
+  Strengths: "💪",
+  Weaknesses: "🎯",
+};
 
-type Phase = "idle" | "uploading" | "processing" | "analyzing" | "done";
+/** Tables the user can toggle on/off */
+const SELECTABLE_TABLES = [
+  { key: "Players", label: "Players", icon: "🎾", description: "Player profiles and contact info" },
+  { key: "Classes", label: "Classes", icon: "📅", description: "Training sessions and schedules" },
+  { key: "Players in Classes", label: "Players in Classes", icon: "👥", description: "Which players attend which class" },
+  { key: "Presences", label: "Presences", icon: "✅", description: "Attendance records" },
+  { key: "Evaluations", label: "Evaluations", icon: "📝", description: "Player scores and assessments" },
+  { key: "Strengths", label: "Strengths", icon: "💪", description: "Player strengths" },
+  { key: "Weaknesses", label: "Weaknesses", icon: "🎯", description: "Areas for improvement" },
+] as const;
 
-interface ThinkingLine {
-  text: string;
-  done: boolean;
-}
-
-interface ImportTableRow {
-  id: string;
-  cells: Record<string, string>;
-  selected: boolean;
-}
-
-interface ImportTable {
-  name: string;
-  icon: string;
-  columns: string[];
-  rows: ImportTableRow[];
-  allSelected: boolean;
-  expanded: boolean;
-}
-
-/* ---------- mock data generator ---------- */
-
-function generateMockResults(): ImportTable[] {
-  return [
-    {
-      name: "Levels",
-      icon: "🏷️",
-      columns: ["Code", "Label", "Order"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "l1", cells: { Code: "INI", Label: "Initiation", Order: "1" }, selected: true },
-        { id: "l2", cells: { Code: "INT", Label: "Intermediate", Order: "2" }, selected: true },
-        { id: "l3", cells: { Code: "ADV", Label: "Advanced", Order: "3" }, selected: true },
-        { id: "l4", cells: { Code: "PRO", Label: "Professional", Order: "4" }, selected: true },
-      ],
-    },
-    {
-      name: "Evaluation Categories",
-      icon: "📊",
-      columns: ["Name", "Scale Min", "Scale Max"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "ec1", cells: { Name: "Forehand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
-        { id: "ec2", cells: { Name: "Backhand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
-        { id: "ec3", cells: { Name: "Serve", "Scale Min": "1", "Scale Max": "10" }, selected: true },
-        { id: "ec4", cells: { Name: "Volley", "Scale Min": "1", "Scale Max": "10" }, selected: true },
-        { id: "ec5", cells: { Name: "Positioning", "Scale Min": "1", "Scale Max": "10" }, selected: true },
-      ],
-    },
-    {
-      name: "Players",
-      icon: "🎾",
-      columns: ["Name", "Email", "Phone", "Level", "Side"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "p1", cells: { Name: "Ana Rodrigues", Email: "ana@email.com", Phone: "+351 912 345 678", Level: "INT", Side: "Right" }, selected: true },
-        { id: "p2", cells: { Name: "Carlos Silva", Email: "carlos@email.com", Phone: "+351 923 456 789", Level: "ADV", Side: "Left" }, selected: true },
-        { id: "p3", cells: { Name: "Maria Santos", Email: "maria@email.com", Phone: "+351 934 567 890", Level: "INI", Side: "Right" }, selected: true },
-        { id: "p4", cells: { Name: "João Costa", Email: "joao@email.com", Phone: "+351 945 678 901", Level: "PRO", Side: "Left" }, selected: true },
-        { id: "p5", cells: { Name: "Sofia Mendes", Email: "sofia@email.com", Phone: "", Level: "INT", Side: "Right" }, selected: true },
-      ],
-    },
-    {
-      name: "Classes",
-      icon: "📅",
-      columns: ["Name", "Type", "Recurring", "Day", "Start", "End", "Max Players"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "c1", cells: { Name: "Morning Academy", Type: "academy", Recurring: "Yes", Day: "Monday", Start: "09:00", End: "10:30", "Max Players": "4" }, selected: true },
-        { id: "c2", cells: { Name: "Evening Private", Type: "private", Recurring: "No", Day: "Tuesday", Start: "18:00", End: "19:00", "Max Players": "2" }, selected: true },
-        { id: "c3", cells: { Name: "Weekend Group", Type: "academy", Recurring: "Yes", Day: "Saturday", Start: "10:00", End: "11:30", "Max Players": "6" }, selected: true },
-      ],
-    },
-    {
-      name: "Players in Classes",
-      icon: "👥",
-      columns: ["Class", "Player"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "pc1", cells: { Class: "Morning Academy", Player: "Ana Rodrigues" }, selected: true },
-        { id: "pc2", cells: { Class: "Morning Academy", Player: "Carlos Silva" }, selected: true },
-        { id: "pc3", cells: { Class: "Morning Academy", Player: "Maria Santos" }, selected: true },
-        { id: "pc4", cells: { Class: "Evening Private", Player: "João Costa" }, selected: true },
-        { id: "pc5", cells: { Class: "Evening Private", Player: "Sofia Mendes" }, selected: true },
-        { id: "pc6", cells: { Class: "Weekend Group", Player: "Ana Rodrigues" }, selected: true },
-        { id: "pc7", cells: { Class: "Weekend Group", Player: "Carlos Silva" }, selected: true },
-        { id: "pc8", cells: { Class: "Weekend Group", Player: "João Costa" }, selected: true },
-      ],
-    },
-    {
-      name: "Presences",
-      icon: "✅",
-      columns: ["Class", "Date", "Player", "Status", "Justification"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "pr1", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Ana Rodrigues", Status: "Present", Justification: "" }, selected: true },
-        { id: "pr2", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Carlos Silva", Status: "Absent", Justification: "Justified" }, selected: true },
-        { id: "pr3", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Maria Santos", Status: "Present", Justification: "" }, selected: true },
-        { id: "pr4", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "João Costa", Status: "Present", Justification: "" }, selected: true },
-        { id: "pr5", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "Sofia Mendes", Status: "Absent", Justification: "Unjustified" }, selected: true },
-      ],
-    },
-    {
-      name: "Player Evaluations",
-      icon: "📝",
-      columns: ["Player", "Date", "Forehand", "Backhand", "Serve", "Volley", "Positioning"],
-      allSelected: true,
-      expanded: false,
-      rows: [
-        { id: "pe1", cells: { Player: "Ana Rodrigues", Date: "2025-01-15", Forehand: "7", Backhand: "6", Serve: "5", Volley: "6", Positioning: "7" }, selected: true },
-        { id: "pe2", cells: { Player: "Carlos Silva", Date: "2025-01-20", Forehand: "8", Backhand: "7", Serve: "8", Volley: "9", Positioning: "7" }, selected: true },
-        { id: "pe3", cells: { Player: "Maria Santos", Date: "2025-02-01", Forehand: "4", Backhand: "5", Serve: "3", Volley: "4", Positioning: "5" }, selected: true },
-        { id: "pe4", cells: { Player: "João Costa", Date: "2025-02-05", Forehand: "9", Backhand: "8", Serve: "9", Volley: "8", Positioning: "9" }, selected: true },
-      ],
-    },
-  ];
-}
-
-/* ---------- thinking lines per phase ---------- */
-
-const thinkingSequences: Record<string, string[]> = {
-  uploading: [
-    "Receiving file...",
-    "Validating file format...",
-    "File uploaded successfully.",
-  ],
-  processing: [
-    "Parsing document structure...",
-    "Extracting raw text content...",
-    "Identifying tables and sections...",
-    "Normalizing data formats...",
-    "Building structured representation...",
-  ],
-  analyzing: [
-    "Sending data to AI model...",
-    "Identifying entity types...",
-    "Mapping fields to schema: Levels, Players, Classes...",
-    "Cross-referencing player names with class participants...",
-    "Pivoting evaluation scores into category columns...",
-    "Extracting presence records and justifications...",
-    "Resolving ambiguous categories...",
-    "Validating data integrity...",
-    "Generating import preview...",
-  ],
+const GROUP_BY_MAP: Record<string, string> = {
+  "Players in Classes": "Class",
+  Presences: "Class",
 };
 
 /* ---------- AI spinner ---------- */
@@ -209,14 +86,15 @@ const phaseConfig: { key: Phase; label: string; icon: React.ReactNode }[] = [
   { key: "done", label: "Results", icon: <Check className="w-4 h-4" /> },
 ];
 
+const PHASE_ORDER: Phase[] = ["uploading", "processing", "analyzing", "done"];
+
 function PhaseIndicator({ current }: { current: Phase }) {
-  const phaseOrder: Phase[] = ["uploading", "processing", "analyzing", "done"];
-  const currentIdx = phaseOrder.indexOf(current);
+  const currentIdx = PHASE_ORDER.indexOf(current);
 
   return (
     <div className="flex items-center gap-2">
       {phaseConfig.map((p, i) => {
-        const idx = phaseOrder.indexOf(p.key);
+        const idx = PHASE_ORDER.indexOf(p.key);
         const isActive = idx === currentIdx;
         const isDone = idx < currentIdx;
 
@@ -234,7 +112,8 @@ function PhaseIndicator({ current }: { current: Phase }) {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500",
                 isDone && "bg-primary/10 text-primary",
-                isActive && "bg-primary text-primary-foreground shadow-md shadow-primary/25",
+                isActive &&
+                  "bg-primary text-primary-foreground shadow-md shadow-primary/25",
                 !isDone && !isActive && "bg-muted text-muted-foreground"
               )}
             >
@@ -282,6 +161,126 @@ function ThinkingLog({ lines }: { lines: ThinkingLine[] }) {
   );
 }
 
+/* ---------- table selection step ---------- */
+
+function TableSelectionStep({
+  selectedTables,
+  onToggle,
+  onSelectAll,
+  onDeselectAll,
+  onConfirm,
+  onCancel,
+  fileName,
+}: {
+  selectedTables: Set<string>;
+  onToggle: (key: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  fileName: string;
+}) {
+  const allSelected = selectedTables.size === SELECTABLE_TABLES.length;
+
+  return (
+    <div className="space-y-5">
+      {/* File info */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium text-sm">{fileName}</p>
+            <p className="text-xs text-muted-foreground">
+              Choose what to import from this file
+            </p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onCancel} className="gap-1.5">
+          <X className="w-4 h-4" />
+          Cancel
+        </Button>
+      </div>
+
+      {/* Selection header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
+          <p className="text-sm font-medium">What would you like to import?</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs h-7"
+          onClick={allSelected ? onDeselectAll : onSelectAll}
+        >
+          {allSelected ? "Deselect all" : "Select all"}
+        </Button>
+      </div>
+
+      {/* Table checkboxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {SELECTABLE_TABLES.map((t) => {
+          const isSelected = selectedTables.has(t.key);
+          return (
+            <div
+              key={t.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => onToggle(t.key)}
+              onKeyDown={(e) => e.key === "Enter" && onToggle(t.key)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-all",
+                isSelected
+                  ? "border-primary/50 bg-primary/5"
+                  : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+              )}
+            >
+              <Checkbox checked={isSelected} tabIndex={-1} />
+              <span className="text-base">{t.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    !isSelected && "text-muted-foreground"
+                  )}
+                >
+                  {t.label}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {t.description}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Note about auto-included tables */}
+      <p className="text-xs text-muted-foreground">
+        Coach Levels and Evaluation Categories are automatically included when needed.
+      </p>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          onClick={onConfirm}
+          disabled={selectedTables.size === 0}
+          className="gap-2"
+        >
+          <Brain className="w-4 h-4" />
+          Analyze {selectedTables.size}{" "}
+          {selectedTables.size === 1 ? "table" : "tables"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- editable cell ---------- */
 
 function EditableCell({
@@ -293,9 +292,7 @@ function EditableCell({
   editing: boolean;
   onChange: (val: string) => void;
 }) {
-  if (!editing) {
-    return <span>{value || "—"}</span>;
-  }
+  if (!editing) return <span>{value || "—"}</span>;
 
   return (
     <Input
@@ -306,7 +303,7 @@ function EditableCell({
   );
 }
 
-/* ---------- import table ---------- */
+/* ---------- grouped table body ---------- */
 
 function GroupedTableBody({
   table,
@@ -344,10 +341,12 @@ function GroupedTableBody({
         </TableHeader>
         <TableBody>
           {Array.from(groups.entries()).map(([groupName, rows]) => (
-            <>
-              <TableRow key={`group-${groupName}`} className="bg-muted/40">
+            <Fragment key={groupName}>
+              <TableRow className="bg-muted/40">
                 <TableCell colSpan={otherCols.length + 1} className="py-2">
-                  <span className="text-xs font-semibold text-foreground">{groupName}</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {groupName}
+                  </span>
                   <span className="text-xs text-muted-foreground ml-2">
                     ({rows.filter((r) => r.selected).length}/{rows.length})
                   </span>
@@ -356,7 +355,10 @@ function GroupedTableBody({
               {rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={cn("transition-colors", !row.selected && "opacity-50")}
+                  className={cn(
+                    "transition-colors",
+                    !row.selected && "opacity-50"
+                  )}
                 >
                   <TableCell>
                     <Checkbox
@@ -375,13 +377,15 @@ function GroupedTableBody({
                   ))}
                 </TableRow>
               ))}
-            </>
+            </Fragment>
           ))}
         </TableBody>
       </Table>
     </div>
   );
 }
+
+/* ---------- import table view ---------- */
 
 function ImportTableView({
   table,
@@ -403,10 +407,12 @@ function ImportTableView({
 
   return (
     <div className="rounded-lg border overflow-hidden animate-fade-in">
-      {/* Header */}
-      <button
+      <div
         onClick={onToggleExpand}
-        className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onToggleExpand()}
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <span className="text-lg">{table.icon}</span>
@@ -447,9 +453,8 @@ function ImportTableView({
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
         </div>
-      </button>
+      </div>
 
-      {/* Table body */}
       {table.expanded && groupByCol ? (
         <GroupedTableBody
           table={table}
@@ -505,44 +510,231 @@ function ImportTableView({
   );
 }
 
-/* ---------- main component ---------- */
+/* ---------- import results view ---------- */
 
-// Map table names to their groupBy column
-const GROUP_BY_MAP: Record<string, string> = {
-  "Players in Classes": "Class",
-  "Presences": "Class",
-};
+interface TableImportResult {
+  imported: number;
+  errors: Array<{ row: number; error: string }>;
+}
+
+function ImportResultsView({
+  tables,
+  results,
+  onReset,
+}: {
+  tables: ImportTable[];
+  results: Record<string, TableImportResult>;
+  onReset: () => void;
+}) {
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(
+    () =>
+      new Set(
+        Object.entries(results)
+          .filter(([, r]) => r.errors.length > 0)
+          .map(([name]) => name)
+      )
+  );
+
+  const totalImported = Object.values(results).reduce(
+    (s, r) => s + r.imported,
+    0
+  );
+  const totalErrors = Object.values(results).reduce(
+    (s, r) => s + r.errors.length,
+    0
+  );
+
+  const toggleExpand = (name: string) => {
+    setExpandedTables((prev) => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <Separator />
+
+      <div
+        className={cn(
+          "rounded-lg px-4 py-3 flex items-center justify-between",
+          totalErrors === 0
+            ? "bg-green-50 border border-green-200"
+            : "bg-amber-50 border border-amber-200"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {totalErrors === 0 ? (
+            <Check className="w-4 h-4 text-green-600" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-amber-600" />
+          )}
+          <span
+            className={cn(
+              "text-sm font-medium",
+              totalErrors === 0 ? "text-green-800" : "text-amber-800"
+            )}
+          >
+            {totalErrors === 0
+              ? `All ${totalImported} records imported successfully`
+              : `${totalImported} records imported, ${totalErrors} failed`}
+          </span>
+        </div>
+        <Button size="sm" onClick={onReset}>
+          Import another file
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {tables.map((table) => {
+          const result = results[table.name];
+          if (!result) return null;
+
+          const hasErrors = result.errors.length > 0;
+          const isExpanded = expandedTables.has(table.name);
+          const sentRows = table.rows.filter((r) => r.selected);
+
+          return (
+            <div key={table.name} className="rounded-lg border overflow-hidden">
+              <div
+                className={cn(
+                  "flex items-center justify-between px-4 py-3",
+                  hasErrors ? "bg-red-50/60" : "bg-green-50/40"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{table.icon}</span>
+                  <span className="font-medium text-sm">{table.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {result.imported > 0 && (
+                    <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+                      <Check className="w-3 h-3" />
+                      {result.imported} imported
+                    </Badge>
+                  )}
+                  {hasErrors && (
+                    <Badge variant="destructive" className="gap-1 text-xs">
+                      <X className="w-3 h-3" />
+                      {result.errors.length} failed
+                    </Badge>
+                  )}
+                  {hasErrors && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => toggleExpand(table.name)}
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                      {isExpanded ? "Hide" : "Show"} errors
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {hasErrors && isExpanded && (
+                <div className="overflow-x-auto border-t">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        {table.columns.map((col) => (
+                          <TableHead
+                            key={col}
+                            className="text-xs whitespace-nowrap"
+                          >
+                            {col}
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-xs text-destructive whitespace-nowrap">
+                          Error
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.errors.map(({ row: rowIdx, error }) => {
+                        const row = sentRows[rowIdx];
+                        if (!row) return null;
+                        return (
+                          <TableRow key={rowIdx} className="bg-red-50/40">
+                            {table.columns.map((col) => (
+                              <TableCell key={col} className="text-xs py-1.5">
+                                {row.cells[col] || "—"}
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-xs py-1.5 text-destructive font-medium max-w-[240px]">
+                              {error}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- main component ---------- */
 
 export function DataImportSection() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [fileName, setFileName] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(
+    () => new Set(SELECTABLE_TABLES.map((t) => t.key))
+  );
   const [thinking, setThinking] = useState<ThinkingLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [tables, setTables] = useState<ImportTable[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<Record<
+    string,
+    TableImportResult
+  > | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  /* ---- runPhase removed — SSE drives thinking/progress now ---- */
+  // Step 1: User drops/selects a file -> go to table selection
+  const handleFilePicked = useCallback((file: File) => {
+    setPendingFile(file);
+    setFileName(file.name);
+    setPhase("selecting");
+  }, []);
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      setFileName(file.name);
+  // Step 2: User confirms table selection -> start analysis
+  const startAnalysis = useCallback(
+    async (file: File, requestedTables: string[]) => {
       setThinking([]);
       setProgress(0);
       setTables([]);
+      setImportResults(null);
       setPhase("uploading");
 
       try {
         await analyzeFile(file, (event: AnalyzeSSEEvent) => {
           switch (event.type) {
             case "thinking":
-              // Mark previous line as done, add new one
               setThinking((prev) => {
-                const updated = prev.length > 0
-                  ? prev.map((l, idx) => (idx === prev.length - 1 && !l.done ? { ...l, done: true } : l))
-                  : prev;
+                const updated =
+                  prev.length > 0
+                    ? prev.map((l, idx) =>
+                        idx === prev.length - 1 && !l.done
+                          ? { ...l, done: true }
+                          : l
+                      )
+                    : prev;
                 return [...updated, { text: event.text, done: false }];
               });
               break;
@@ -553,64 +745,100 @@ export function DataImportSection() {
               setProgress(event.value);
               break;
             case "tables": {
-              const mapped: ImportTable[] = event.tables.map((t: ApiImportTable) => ({
-                name: t.name,
-                icon: tableIcons[t.name] || "📄",
-                columns: t.columns || Object.keys(t.rows[0]?.cells || {}),
-                rows: t.rows.map((r) => ({ ...r, selected: true })),
-                allSelected: true,
-                expanded: false,
-              }));
+              const tablesObj = event.tables as unknown as Record<
+                string,
+                Array<Record<string, any>>
+              >;
+              const mapped: ImportTable[] = Object.entries(tablesObj).map(
+                ([name, rows]) => {
+                  const rowArray = rows as Array<Record<string, any>>;
+                  const columns =
+                    rowArray.length > 0 ? Object.keys(rowArray[0]) : [];
+                  return {
+                    name,
+                    icon: TABLE_ICONS[name] || "📄",
+                    columns,
+                    rows: rowArray.map((r, i) => ({
+                      id: `${name}-${i}`,
+                      cells: Object.fromEntries(
+                        Object.entries(r).map(([k, v]) => [
+                          k,
+                          v == null ? "" : String(v),
+                        ])
+                      ),
+                      selected: true,
+                    })),
+                    allSelected: true,
+                    expanded: false,
+                  };
+                }
+              );
               setTables(mapped);
               break;
             }
             case "error":
-              toast({ title: "Analysis error", description: event.message, variant: "destructive" });
+              toast({
+                title: "Analysis error",
+                description: event.message,
+                variant: "destructive",
+              });
               break;
             case "done":
-              // Mark last thinking line done
               setThinking((prev) =>
-                prev.map((l, idx) => (idx === prev.length - 1 ? { ...l, done: true } : l))
+                prev.map((l, idx) =>
+                  idx === prev.length - 1 ? { ...l, done: true } : l
+                )
               );
               setProgress(100);
               setPhase("done");
               break;
           }
-        });
+        }, { requestedTables });
       } catch (e: any) {
-        toast({ title: "Analysis failed", description: e.message, variant: "destructive" });
+        toast({
+          title: "Analysis failed",
+          description: e.message,
+          variant: "destructive",
+        });
         setPhase("idle");
       }
     },
     [toast]
   );
 
-  const tableIcons: Record<string, string> = {
-    Levels: "🏷️",
-    "Evaluation Categories": "📊",
-    Players: "🎾",
-    Classes: "📅",
-    "Players in Classes": "👥",
-    Presences: "✅",
-    "Player Evaluations": "📝",
-  };
+  const handleConfirmTableSelection = useCallback(() => {
+    if (!pendingFile) return;
+    const tables = Array.from(selectedTables);
+    startAnalysis(pendingFile, tables);
+  }, [pendingFile, selectedTables, startAnalysis]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      if (file) handleFilePicked(file);
     },
-    [handleFile]
+    [handleFilePicked]
   );
 
   const handleReset = () => {
     setPhase("idle");
     setFileName("");
+    setPendingFile(null);
     setThinking([]);
     setProgress(0);
     setTables([]);
+    setImportResults(null);
+    setSelectedTables(new Set(SELECTABLE_TABLES.map((t) => t.key)));
+  };
+
+  const toggleTableSelection = (key: string) => {
+    setSelectedTables((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   };
 
   const toggleAll = (tableIdx: number) => {
@@ -651,18 +879,65 @@ export function DataImportSection() {
     );
   };
 
-  const updateCell = (tableIdx: number, rowId: string, col: string, val: string) => {
+  const updateCell = (
+    tableIdx: number,
+    rowId: string,
+    col: string,
+    val: string
+  ) => {
     setTables((prev) =>
       prev.map((t, i) => {
         if (i !== tableIdx) return t;
         return {
           ...t,
           rows: t.rows.map((r) =>
-            r.id === rowId ? { ...r, cells: { ...r.cells, [col]: val } } : r
+            r.id === rowId
+              ? { ...r, cells: { ...r.cells, [col]: val } }
+              : r
           ),
         };
       })
     );
+  };
+
+  const handleConfirmImport = async () => {
+    setImporting(true);
+    try {
+      const { results } = await confirmImport(
+        tables.map((t) => ({
+          name: t.name,
+          rows: t.rows,
+          columns: t.columns,
+        }))
+      );
+
+      setImportResults(results as Record<string, TableImportResult>);
+
+      const totalImported = Object.values(results).reduce(
+        (s: number, r: any) => s + r.imported,
+        0
+      );
+      const totalErrors = Object.values(results).reduce(
+        (s: number, r: any) => s + r.errors.length,
+        0
+      );
+
+      toast({
+        title: "Import complete",
+        description: `${totalImported} records imported${
+          totalErrors > 0 ? `, ${totalErrors} errors` : ""
+        }.`,
+        variant: totalErrors > 0 ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Import failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
   };
 
   const totalSelected = tables.reduce(
@@ -670,12 +945,15 @@ export function DataImportSection() {
     0
   );
   const totalRows = tables.reduce((sum, t) => sum + t.rows.length, 0);
-
-  const isProcessing = phase === "uploading" || phase === "processing" || phase === "analyzing";
+  const isProcessing =
+    phase === "uploading" ||
+    phase === "processing" ||
+    phase === "analyzing" ||
+    phase === "validating";
 
   return (
     <div className="space-y-6">
-      {/* Drop zone — idle state */}
+      {/* Drop zone — idle */}
       {phase === "idle" && (
         <div
           onDragOver={(e) => {
@@ -707,7 +985,9 @@ export function DataImportSection() {
           </div>
           <div className="text-center">
             <p className="font-medium">
-              {isDragging ? "Drop your file here" : "Drop a file to import data"}
+              {isDragging
+                ? "Drop your file here"
+                : "Drop a file to import data"}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               Supports CSV, Excel, PDF, or any structured document
@@ -724,17 +1004,32 @@ export function DataImportSection() {
             accept=".csv,.xlsx,.xls,.pdf,.txt,.json"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) handleFile(file);
+              if (file) handleFilePicked(file);
               e.target.value = "";
             }}
           />
         </div>
       )}
 
+      {/* Table selection step */}
+      {phase === "selecting" && (
+        <TableSelectionStep
+          selectedTables={selectedTables}
+          onToggle={toggleTableSelection}
+          onSelectAll={() =>
+            setSelectedTables(new Set(SELECTABLE_TABLES.map((t) => t.key)))
+          }
+          onDeselectAll={() => setSelectedTables(new Set())}
+          onConfirm={handleConfirmTableSelection}
+          onCancel={handleReset}
+          fileName={fileName}
+        />
+      )}
+
       {/* Processing / done state */}
-      {phase !== "idle" && (
+      {phase !== "idle" && phase !== "selecting" && (
         <div className="space-y-6">
-          {/* File info + reset */}
+          {/* File info + cancel */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -749,7 +1044,12 @@ export function DataImportSection() {
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="gap-1.5"
+            >
               <X className="w-4 h-4" />
               Cancel
             </Button>
@@ -768,14 +1068,16 @@ export function DataImportSection() {
             </div>
           )}
 
-          {/* AI thinking / processing area */}
+          {/* AI thinking log */}
           {(isProcessing || phase === "done") && thinking.length > 0 && (
             <div className="space-y-3">
               {isProcessing && (
                 <div className="flex items-center gap-3">
                   <AiSpinner />
                   <div>
-                    <p className="text-sm font-medium">AI is analyzing your data</p>
+                    <p className="text-sm font-medium">
+                      AI is analyzing your data
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Identifying entities and mapping to your schema...
                     </p>
@@ -786,8 +1088,8 @@ export function DataImportSection() {
             </div>
           )}
 
-          {/* Results tables */}
-          {phase === "done" && tables.length > 0 && (
+          {/* Preview tables */}
+          {phase === "done" && tables.length > 0 && !importResults && (
             <div className="space-y-4">
               <Separator />
 
@@ -798,7 +1100,8 @@ export function DataImportSection() {
                     Import Preview
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Review and select the data you want to import. Click Edit to modify values inline.
+                    Review and select the data you want to import. Click Edit to
+                    modify values inline.
                   </p>
                 </div>
                 <Badge variant="outline">
@@ -814,7 +1117,9 @@ export function DataImportSection() {
                     onToggleAll={() => toggleAll(idx)}
                     onToggleRow={(rowId) => toggleRow(idx, rowId)}
                     onToggleExpand={() => toggleExpand(idx)}
-                    onCellChange={(rowId, col, val) => updateCell(idx, rowId, col, val)}
+                    onCellChange={(rowId, col, val) =>
+                      updateCell(idx, rowId, col, val)
+                    }
                     groupByCol={GROUP_BY_MAP[table.name]}
                   />
                 ))}
@@ -823,50 +1128,44 @@ export function DataImportSection() {
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4" />
-                  <span>Importing will add records to your existing data.</span>
+                  <span>
+                    Importing will add records to your existing data.
+                  </span>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleReset} disabled={importing}>
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={importing}
+                  >
                     Cancel
                   </Button>
                   <Button
                     className="gap-2"
                     disabled={totalSelected === 0 || importing}
-                    onClick={async () => {
-                      setImporting(true);
-                      try {
-                        const { results } = await confirmImport(
-                          tables.map((t) => ({ name: t.name, rows: t.rows, columns: t.columns }))
-                        );
-                        const totalImported = results.reduce((s, r) => s + r.imported, 0);
-                        const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
-                        toast({
-                          title: "Import complete",
-                          description: `${totalImported} records imported${totalErrors > 0 ? `, ${totalErrors} errors` : ""}.`,
-                          variant: totalErrors > 0 ? "destructive" : "default",
-                        });
-                        if (totalErrors === 0) handleReset();
-                      } catch (e: any) {
-                        toast({
-                          title: "Import failed",
-                          description: e.message,
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setImporting(false);
-                      }
-                    }}
+                    onClick={handleConfirmImport}
                   >
                     {importing ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Upload className="w-4 h-4" />
                     )}
-                    {importing ? "Importing..." : `Import ${totalSelected} records`}
+                    {importing
+                      ? "Importing..."
+                      : `Import ${totalSelected} records`}
                   </Button>
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Results view */}
+          {importResults && (
+            <ImportResultsView
+              tables={tables}
+              results={importResults}
+              onReset={handleReset}
+            />
           )}
         </div>
       )}
