@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { ClassPlanningSection } from "./ClassPlanningSection";
+
 import type {
   CalendarEvent,
   ClassInstance,
