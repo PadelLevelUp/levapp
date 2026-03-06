@@ -14,6 +14,8 @@ import SettingsPage from "./pages/SettingsPage";
 import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 import TrainingPage from "./pages/TrainingPage";
+import TrainingExercisesPage from "./pages/TrainingExercisesPage";
+import TrainingGroupsPage from "./pages/TrainingGroupsPage";
 
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
