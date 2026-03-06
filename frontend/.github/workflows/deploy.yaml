@@ -38,6 +38,7 @@ jobs:
           key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
           script: |
             docker network create levelup_net || true
+            docker network connect levelup_net padelapp || true
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
             docker stop levelup_frontend || true && docker rm levelup_frontend || true
             docker run -d --name levelup_frontend \
