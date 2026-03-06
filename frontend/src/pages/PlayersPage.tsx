@@ -6,24 +6,23 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-import { getCoachPlayers } from "@/api/players";
+import { getCoachPlayersPaginated, addPlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
-import { addPlayer } from "@/api/players";
 import { useAuth } from "@/auth/AuthContext";
 
-function safeId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return String(Date.now() + Math.floor(Math.random() * 1000));
-}
-
 export default function PlayersPage() {
+  const PAGE_SIZE = 25;
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -39,21 +38,31 @@ export default function PlayersPage() {
   }, [coachPlayers, search]);
 
   useEffect(() => {
-    async function load() {
+    async function loadLevels() {
+      try {
+        const levelsData = await getCoachLevels();
+        setLevels(levelsData);
+      } catch {
+        // Keep empty levels on failure.
+      }
+    }
+    loadLevels();
+  }, []);
+
+  useEffect(() => {
+    async function loadPlayersPage() {
       setLoading(true);
       try {
-        const [playersData, levelsData] = await Promise.all([
-          getCoachPlayers(),
-          getCoachLevels(),
-        ]);
-        setCoachPlayers(playersData);
-        setLevels(levelsData);
+        const playersData = await getCoachPlayersPaginated(currentPage, PAGE_SIZE);
+        setCoachPlayers(playersData.items);
+        setTotalPages(playersData.pagination.pages || 1);
+        setTotalItems(playersData.pagination.total || 0);
       } finally {
         setLoading(false);
       }
     }
-    load();
-  }, []);
+    loadPlayersPage();
+  }, [currentPage]);
 
   const getInitials = (name: string) =>
     name
@@ -65,31 +74,18 @@ export default function PlayersPage() {
       .slice(0, 2);
 
   const handleAddPlayer = async (data: AddPlayerInput) => {
-    const tempId = safeId();
-    const level = data.levelId ? levels.find((l) => l.id === data.levelId) : undefined;
-
-    const optimisticPlayer: CoachPlayer = {
-      id: tempId,
-      coachId: user.coachId,
-      userId: "temp",
-      name: data.name,
-      email: data.email,
-      username: data.username,
-      isActive: data.isActive,
-      playerId: tempId,
-      levelId: data.levelId,
-      side: data.side,
-      notes: data.notes,
-      level,
-    };
-
-    setCoachPlayers((prev) => [optimisticPlayer, ...prev]);
-
     try {
-      const created = await addPlayer({ coachId: user?.coachId, ...data });
-      setCoachPlayers((prev) => prev.map((p) => (p.id === tempId ? created : p)));
+      await addPlayer({ coachId: user?.coachId, ...data });
+      setCurrentPage(1);
+      setLoading(true);
+      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE);
+      setCoachPlayers(playersData.items);
+      setTotalPages(playersData.pagination.pages || 1);
+      setTotalItems(playersData.pagination.total || 0);
     } catch {
-      setCoachPlayers((prev) => prev.filter((p) => p.id !== tempId));
+      // Keep previous list if create fails.
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -142,6 +138,30 @@ export default function PlayersPage() {
               </Card>
             );
           })}
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} • {totalItems} players
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
         </div>
 
         <AddPlayerSheet

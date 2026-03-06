@@ -556,12 +556,7 @@ function ImportResultsView({
   onReset: () => void;
 }) {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(
-    () =>
-      new Set(
-        Object.entries(results)
-          .filter(([, r]) => r.errors.length > 0)
-          .map(([name]) => name)
-      )
+    () => new Set()
   );
 
   const totalImported = Object.values(results).reduce(
@@ -585,26 +580,10 @@ function ImportResultsView({
     <div className="space-y-4">
       <Separator />
 
-      <div
-        className={cn(
-          "rounded-lg px-4 py-3 flex items-center justify-between",
-          totalErrors === 0
-            ? "bg-green-50 border border-green-200"
-            : "bg-amber-50 border border-amber-200"
-        )}
-      >
+      <div className="rounded-lg px-4 py-3 flex items-center justify-between bg-green-50 border border-green-200">
         <div className="flex items-center gap-2">
-          {totalErrors === 0 ? (
-            <Check className="w-4 h-4 text-green-600" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-amber-600" />
-          )}
-          <span
-            className={cn(
-              "text-sm font-medium",
-              totalErrors === 0 ? "text-green-800" : "text-amber-800"
-            )}
-          >
+          <Check className="w-4 h-4 text-green-600" />
+          <span className="text-sm font-medium text-green-800">
             {totalErrors === 0
               ? `All ${totalImported} records imported successfully`
               : `${totalImported} records imported, ${totalErrors} failed`}
@@ -626,12 +605,7 @@ function ImportResultsView({
 
           return (
             <div key={table.name} className="rounded-lg border overflow-hidden">
-              <div
-                className={cn(
-                  "flex items-center justify-between px-4 py-3",
-                  hasErrors ? "bg-red-50/60" : "bg-green-50/40"
-                )}
-              >
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{table.icon}</span>
                   <span className="font-medium text-sm">{table.name}</span>
