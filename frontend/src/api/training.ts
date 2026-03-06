@@ -1,6 +1,6 @@
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
-import type { Exercise, ExercisePayload } from "@/types/training";
+import type { Exercise, ExercisePayload, ExerciseGroup, ExerciseGroupPayload } from "@/types/training";
 
 const mockExercises: Exercise[] = [
   {
@@ -50,7 +50,48 @@ const mockExercises: Exercise[] = [
     createdAt: "2025-12-10T08:30:00Z",
     updatedAt: "2025-12-10T08:30:00Z",
   },
+  {
+    id: "ex-mock-3",
+    name: "Net Approach Volley",
+    description: "Quick volley exchanges at the net. Both players rally volleys cross-court with emphasis on soft hands.",
+    type: "volley",
+    difficulty: 2,
+    levelIds: [],
+    createdAt: "2025-12-08T09:00:00Z",
+    updatedAt: "2025-12-08T09:00:00Z",
+  },
+  {
+    id: "ex-mock-4",
+    name: "Smash & Bandeja Rotation",
+    description: "Coach feeds high balls alternating between smash and bandeja zones. Players rotate after each shot.",
+    type: "attack",
+    difficulty: 4,
+    levelIds: [],
+    createdAt: "2025-12-05T14:00:00Z",
+    updatedAt: "2025-12-05T14:00:00Z",
+  },
 ];
+
+const mockGroups: ExerciseGroup[] = [
+  {
+    id: "grp-mock-1",
+    name: "Attacking Training at the Net",
+    description: "A series of drills focused on net play, volleys and finishing shots.",
+    exerciseIds: ["ex-mock-2", "ex-mock-3", "ex-mock-4"],
+    createdAt: "2025-12-16T10:00:00Z",
+    updatedAt: "2025-12-16T10:00:00Z",
+  },
+  {
+    id: "grp-mock-2",
+    name: "Defensive Positioning",
+    description: "Drills for lob recovery and defensive transitions.",
+    exerciseIds: ["ex-mock-1"],
+    createdAt: "2025-12-17T10:00:00Z",
+    updatedAt: "2025-12-17T10:00:00Z",
+  },
+];
+
+// ── Exercises ──
 
 export async function getExercises(): Promise<Exercise[]> {
   if (USE_MOCK_DATA) return mockExercises;
@@ -101,4 +142,48 @@ export async function deleteExercise(id: string): Promise<void> {
     return;
   }
   await api.delete(`/app/exercises/${id}`);
+}
+
+// ── Exercise Groups ──
+
+export async function getExerciseGroups(): Promise<ExerciseGroup[]> {
+  if (USE_MOCK_DATA) return mockGroups;
+  const res = await api.get("/app/exercise-groups");
+  return res.data;
+}
+
+export async function createExerciseGroup(data: ExerciseGroupPayload): Promise<ExerciseGroup> {
+  if (USE_MOCK_DATA) {
+    const grp: ExerciseGroup = {
+      id: crypto.randomUUID(),
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockGroups.push(grp);
+    return grp;
+  }
+  const res = await api.post("/app/exercise-groups", data);
+  return res.data;
+}
+
+export async function updateExerciseGroup(id: string, data: ExerciseGroupPayload): Promise<ExerciseGroup> {
+  if (USE_MOCK_DATA) {
+    const idx = mockGroups.findIndex((g) => g.id === id);
+    if (idx >= 0) {
+      mockGroups[idx] = { ...mockGroups[idx], ...data, updatedAt: new Date().toISOString() };
+      return mockGroups[idx];
+    }
+  }
+  const res = await api.put(`/app/exercise-groups/${id}`, data);
+  return res.data;
+}
+
+export async function deleteExerciseGroup(id: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    const idx = mockGroups.findIndex((g) => g.id === id);
+    if (idx >= 0) mockGroups.splice(idx, 1);
+    return;
+  }
+  await api.delete(`/app/exercise-groups/${id}`);
 }
