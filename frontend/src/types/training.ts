@@ -87,3 +87,18 @@ export interface ExercisePayload {
   diagram?: CourtDiagram;
   notes?: string;
 }
+
+export interface ExerciseGroup {
+  id: string;
+  name: string;
+  description?: string;
+  exerciseIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExerciseGroupPayload {
+  name: string;
+  description?: string;
+  exerciseIds: string[];
+}
