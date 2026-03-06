@@ -124,6 +124,7 @@ export function ClassDetailSheet({
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!canManage) {
@@ -766,7 +767,13 @@ export function ClassDetailSheet({
 
           <Separator />
 
-          {!isEditing ? (
+          <ClassPlanningSection
+            exerciseIds={plannedExerciseIds}
+            onChange={setPlannedExerciseIds}
+            disabled={!canManage || isValidating}
+          />
+
+          <Separator />
             <>
               {canManage && (
                 <div className="flex gap-2 flex-wrap">
