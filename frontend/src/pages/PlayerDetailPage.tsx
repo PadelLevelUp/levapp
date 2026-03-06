@@ -12,8 +12,10 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ClipboardPlus } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
+import { toast } from "sonner";
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>();
