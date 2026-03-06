@@ -29,6 +29,7 @@ export default function PlayerDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [isClassesOpen, setIsClassesOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
