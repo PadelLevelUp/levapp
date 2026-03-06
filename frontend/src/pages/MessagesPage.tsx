@@ -5,6 +5,7 @@ import { ChatThread } from "@/components/messages/ChatThread";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getConversations, getConversation } from "@/api/messages";
 import type { Conversation } from "@/types";
+import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
   LoadingConversationList,
@@ -14,6 +15,7 @@ import { useAuth } from "@/auth/AuthContext"
 import { sendMessage, createConversation, markConversationRead } from "@/api/messages";
 import { createEventSource } from "@/api/events";
 import { useLayout } from "@/components/layout/LayoutContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const normalizeConversationId = (
   id: string | number | null | undefined
@@ -25,6 +27,7 @@ const normalizeConversationId = (
 export default function MessagesPage() {
   const isMobile = useIsMobile();
   const { user, token } = useAuth();
+  const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 
@@ -225,7 +228,28 @@ export default function MessagesPage() {
 
   return (
     <AppLayout>
-      <div className="flex h-full">
+      <div className="flex flex-col h-full">
+        {isSupported && !isSubscribed && permission !== "denied" && (
+          <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Enable message notifications</p>
+            <Button size="sm" variant="outline" onClick={() => void subscribe()}>
+              Enable
+            </Button>
+          </div>
+        )}
+        {isSupported && permission === "denied" && (
+          <div className="px-3 py-2 border-b border-border bg-muted/30">
+            <p className="text-xs text-muted-foreground">
+              Notifications blocked. Enable them in browser settings.
+            </p>
+          </div>
+        )}
+        {isSupported && isSubscribed && (
+          <div className="px-3 py-2 border-b border-border bg-muted/30">
+            <p className="text-xs text-muted-foreground">Notifications on ✓</p>
+          </div>
+        )}
+        <div className="flex h-full">
         {/* Conversation list */}
         <div
           className={
@@ -280,6 +304,7 @@ export default function MessagesPage() {
               />
             )}
           </div>
+        </div>
         </div>
       </div>
     </AppLayout>
