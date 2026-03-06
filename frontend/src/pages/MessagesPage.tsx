@@ -244,11 +244,6 @@ export default function MessagesPage() {
             </p>
           </div>
         )}
-        {isSupported && isSubscribed && (
-          <div className="px-3 py-2 border-b border-border bg-muted/30">
-            <p className="text-xs text-muted-foreground">Notifications on ✓</p>
-          </div>
-        )}
         <div className="flex h-full">
         {/* Conversation list */}
         <div
