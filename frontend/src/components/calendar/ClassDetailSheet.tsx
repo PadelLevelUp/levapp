@@ -774,7 +774,8 @@ export function ClassDetailSheet({
           />
 
           <Separator />
-            <>
+
+          {!isEditing ? (
               {canManage && (
                 <div className="flex gap-2 flex-wrap">
                   <Button
