@@ -108,6 +108,24 @@ const App = () => (
               />
 
               <Route
+                path="/training/exercises"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <TrainingExercisesPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
+                path="/training/groups"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <TrainingGroupsPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
                 path="/settings"
                 element={
                   <ProtectedRoute>
