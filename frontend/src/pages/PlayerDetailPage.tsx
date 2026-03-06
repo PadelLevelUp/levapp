@@ -237,6 +237,15 @@ export default function PlayerDetailPage() {
           currentStrengths={profile?.strengths ?? []}
           currentWeaknesses={profile?.weaknesses ?? []}
         />
+
+        <AddToClassesDialog
+          open={isClassesOpen}
+          onClose={() => setIsClassesOpen(false)}
+          player={player}
+          onSave={(classIds) => {
+            toast.success(`Added ${player.name} to ${classIds.length} ${classIds.length === 1 ? "class" : "classes"}`);
+          }}
+        />
       </div>
     </AppLayout>
   );
