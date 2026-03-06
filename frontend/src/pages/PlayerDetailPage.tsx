@@ -168,6 +168,9 @@ export default function PlayerDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setIsClassesOpen(true)}>
+            <CalendarPlus className="mr-2 h-4 w-4" /> Add to Classes
+          </Button>
           <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
             <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
           </Button>
