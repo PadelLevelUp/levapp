@@ -7,6 +7,41 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right';
 
+export interface PlayerEvaluation {
+  categoryId: number;
+  categoryName: string;
+  score: number;
+  scaleMin: number;
+  scaleMax: number;
+  evaluatedAt: string;
+}
+
+export interface EvaluationCategory {
+  id: string;
+  name: string;
+  scaleMin: number;
+  scaleMax: number;
+}
+
+export interface EvaluationEntryPayload {
+  playerId: string;
+  scores: { categoryId: string; value: number }[];
+  strengths: CoachNote[];
+  weaknesses: CoachNote[];
+}
+
+export interface CoachNote {
+  id: number;
+  text: string;
+}
+
+export interface PlayerProfile {
+  playerId: string;
+  evaluations: PlayerEvaluation[];
+  strengths: CoachNote[];
+  weaknesses: CoachNote[];
+}
+
 export interface User {
   id: string;
   name: string;
@@ -237,4 +272,32 @@ export interface DashboardClassListBlock {
       href: string;
     }>;
   };
+}
+
+export type Phase =
+  | "idle"
+  | "selecting"
+  | "uploading"
+  | "processing"
+  | "analyzing"
+  | "validating"
+  | "done";
+
+export interface ThinkingLine {
+  text: string;
+  done: boolean;
+}
+
+export interface ImportTableRow {
+  id: string;
+  cells: Record<string, string>;
+  selected: boolean;
+}
+export interface ImportTable {
+  name: string;
+  icon: string;
+  columns: string[];
+  rows: ImportTableRow[];
+  allSelected: boolean;
+  expanded: boolean;
 }

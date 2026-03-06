@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
+import PlayerDetailPage from "./pages/PlayerDetailPage";
 import RegisterPage from "./pages/RegisterPage";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -64,6 +65,15 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["coach"]}>
                     <PlayersPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
+                path="/players/:playerId"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <PlayerDetailPage />
                   </RoleRoute>
                 }
               />

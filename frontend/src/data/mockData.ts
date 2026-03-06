@@ -9,6 +9,12 @@ import type {
   CalendarEvent,
   Presence,
   ClassType,
+  PlayerProfile,
+  EvaluationCategory,
+  Conversation,
+  Message,
+  CoachNote,
+  ImportTable
 } from "@/types";
 import { addDays, format, startOfWeek } from "date-fns";
 
@@ -419,3 +425,306 @@ export const mockCalendarEvents: CalendarEvent[] = [
   ...classInstanceEvents,
   ...calendarBlockEvents,
 ];
+
+/**
+ * Evaluation categories
+ */
+export const mockEvaluationCategories: EvaluationCategory[] = [
+  { id: "cat-1", name: "Technique", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-2", name: "Tactics", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-3", name: "Physical Capacity", scaleMin: 0, scaleMax: 100 },
+  { id: "cat-4", name: "Attitude", scaleMin: 0, scaleMax: 100 },
+];
+
+/**
+ * Player profiles (evaluations, strengths, weaknesses)
+ */
+let mockNoteId = 1;
+
+function buildNote(text: string): CoachNote {
+  return { id: mockNoteId++, text };
+}
+
+function buildProfile(
+  playerId: string,
+  evaluations: { categoryId: number; categoryName: string; score: number; scaleMin: number; scaleMax: number; evaluatedAt: string }[],
+  strengths: string[],
+  weaknesses: string[],
+): PlayerProfile {
+  return {
+    playerId,
+    evaluations,
+    strengths: strengths.map(buildNote),
+    weaknesses: weaknesses.map(buildNote),
+  };
+}
+
+export const mockPlayerProfiles: Record<string, PlayerProfile> = {
+  "player-1": buildProfile("player-1",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 78, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 65, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 82, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 90, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Strong forehand", "Excellent court positioning", "High stamina"],
+    ["Weak backhand under pressure", "Slow net transitions"]),
+
+  "player-2": buildProfile("player-2",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 70, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 60, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 85, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Smart play selection", "Good doubles partner"],
+    ["Needs conditioning improvement", "Inconsistent serve"]),
+
+  "player-3": buildProfile("player-3",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 55, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 50, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 70, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 95, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Very motivated", "Great attitude in training"],
+    ["Technique still developing", "Tactical awareness needs work"]),
+
+  "player-4": buildProfile("player-4",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 85, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 75, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 68, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Natural racket skills", "Powerful smash"],
+    ["Sometimes unfocused", "Endurance could improve"]),
+
+  "player-5": buildProfile("player-5",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 62, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 58, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 90, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 88, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Exceptional fitness", "Never gives up on a point"],
+    ["Technical polish needed", "Rushing shots"]),
+
+  "player-6": buildProfile("player-6",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 75, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 80, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Consistent baseline play", "Good volleys"],
+    ["Could be more aggressive", "Second serve needs work"]),
+
+  "player-7": buildProfile("player-7",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 48, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 45, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 55, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 92, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Eager to learn", "Positive team player"],
+    ["Beginner level technique", "Needs match experience"]),
+
+  "player-8": buildProfile("player-8",
+    [
+      { categoryId: 1, categoryName: "Technique", score: 73, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 2, categoryName: "Tactics", score: 68, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 3, categoryName: "Physical Capacity", score: 72, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+      { categoryId: 4, categoryName: "Attitude", score: 78, scaleMin: 0, scaleMax: 100, evaluatedAt: "2025-01-01T00:00:00Z" },
+    ],
+    ["Well-rounded game", "Reliable under pressure"],
+    ["Lacks a standout weapon", "Footwork could improve"]),
+};
+
+/**
+ * Conversations & messages
+ */
+const COACH_SENDER_ID = 1;
+const PLAYER_SENDER: Record<string, number> = {
+  "player-1": 101,
+  "player-2": 102,
+  "player-3": 103,
+  "player-4": 104,
+  "player-5": 105,
+};
+
+const msg = (m: Message) => m;
+
+export const mockConversations: Conversation[] = [
+  {
+    id: "conv-1",
+    participantId: "player-1",
+    participantName: "Pedro Pacheco",
+    participantAvatar: undefined,
+    lastMessage: "Perfect, see you tomorrow then! I'll arrive a bit earlier so we can warm up properly and review what we worked on last week.",
+    lastMessageAt: "2024-01-15T10:30:00",
+    unreadCount: 2,
+    messages: [
+      msg({ id: "msg-1", senderId: COACH_SENDER_ID, content: "Hi Pedro, how are you? I'm texting to confirm tomorrow's lesson.", timestamp: "2024-01-15T09:00:00", isRead: true }),
+      msg({ id: "msg-2", senderId: PLAYER_SENDER["player-1"], content: "Hi! Yes, everything is confirmed. At 18:00 as usual?", timestamp: "2024-01-15T09:15:00", isRead: true }),
+      msg({ id: "msg-3", senderId: COACH_SENDER_ID, content: "Exactly, 18:00 on court 3. Bring the new racket if you want to try it.", timestamp: "2024-01-15T09:20:00", isRead: true }),
+      msg({ id: "msg-4", senderId: PLAYER_SENDER["player-1"], content: "Perfect, see you tomorrow then! I'll arrive a bit earlier so we can warm up properly and review what we worked on last week.", timestamp: "2024-01-15T10:30:00", isRead: false }),
+    ],
+  },
+  {
+    id: "conv-2",
+    participantId: "player-2",
+    participantName: "Tomás Pacheco",
+    participantAvatar: undefined,
+    lastMessage: "Thanks for today's lesson, I learned a lot about the backhand.",
+    lastMessageAt: "2024-01-14T20:00:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-5", senderId: PLAYER_SENDER["player-2"], content: "Hi coach! I wanted to ask if there's availability for an extra lesson this week.", timestamp: "2024-01-14T14:00:00", isRead: true }),
+      msg({ id: "msg-6", senderId: COACH_SENDER_ID, content: "Hi Tomás! Let me check my schedule. I have a slot on Thursday at 17:00, does that work for you?", timestamp: "2024-01-14T14:30:00", isRead: true }),
+      msg({ id: "msg-7", senderId: PLAYER_SENDER["player-2"], content: "Perfect! Thursday works great for me. Shall we work on the backhand?", timestamp: "2024-01-14T14:45:00", isRead: true }),
+      msg({ id: "msg-8", senderId: COACH_SENDER_ID, content: "Of course, we'll focus on the backhand and the bandeja. Bring extra water!", timestamp: "2024-01-14T15:00:00", isRead: true }),
+      msg({ id: "msg-9", senderId: PLAYER_SENDER["player-2"], content: "Thanks for today's lesson, I learned a lot about the backhand.", timestamp: "2024-01-14T20:00:00", isRead: true }),
+    ],
+  },
+  {
+    id: "conv-3",
+    participantId: "player-3",
+    participantName: "Bernardo Castro",
+    participantAvatar: undefined,
+    lastMessage: "Understood, I'll cancel Friday's lesson.",
+    lastMessageAt: "2024-01-13T11:30:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-10", senderId: COACH_SENDER_ID, content: "Hi Bernardo, just letting you know that I won't be able to give the lesson on Friday due to a personal commitment.", timestamp: "2024-01-13T11:00:00", isRead: true }),
+      msg({ id: "msg-11", senderId: PLAYER_SENDER["player-3"], content: "Understood, I'll cancel Friday's lesson.", timestamp: "2024-01-13T11:30:00", isRead: true }),
+    ],
+  },
+  {
+    id: "conv-4",
+    participantId: "player-4",
+    participantName: "Dudas BF",
+    participantAvatar: undefined,
+    lastMessage: "Can we move Tuesday's lesson to Wednesday?",
+    lastMessageAt: "2024-01-12T16:00:00",
+    unreadCount: 1,
+    messages: [
+      msg({ id: "msg-12", senderId: PLAYER_SENDER["player-4"], content: "Can we move Tuesday's lesson to Wednesday?", timestamp: "2024-01-12T16:00:00", isRead: false }),
+    ],
+  },
+  {
+    id: "conv-5",
+    participantId: "player-5",
+    participantName: "Talinho Garrett",
+    participantAvatar: undefined,
+    lastMessage: "Perfect, thanks!",
+    lastMessageAt: "2024-01-10T09:15:00",
+    unreadCount: 0,
+    messages: [
+      msg({ id: "msg-13", senderId: COACH_SENDER_ID, content: "Talinho, remember to bring the new outfit for the group photo.", timestamp: "2024-01-10T09:00:00", isRead: true }),
+      msg({ id: "msg-14", senderId: PLAYER_SENDER["player-5"], content: "Perfect, thanks!", timestamp: "2024-01-10T09:15:00", isRead: true }),
+    ],
+  },
+];
+
+export function generateMockResults(): ImportTable[] {
+  return [
+    {
+      name: "Coach Levels",
+      icon: "🏷️",
+      columns: ["Code", "Label", "Order"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "l1", cells: { Code: "INI", Label: "Initiation", Order: "1" }, selected: true },
+        { id: "l2", cells: { Code: "INT", Label: "Intermediate", Order: "2" }, selected: true },
+        { id: "l3", cells: { Code: "ADV", Label: "Advanced", Order: "3" }, selected: true },
+        { id: "l4", cells: { Code: "PRO", Label: "Professional", Order: "4" }, selected: true },
+      ],
+    },
+    {
+      name: "Evaluation Categories",
+      icon: "📊",
+      columns: ["Name", "Scale Min", "Scale Max"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "ec1", cells: { Name: "Forehand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec2", cells: { Name: "Backhand", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec3", cells: { Name: "Serve", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec4", cells: { Name: "Volley", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+        { id: "ec5", cells: { Name: "Positioning", "Scale Min": "1", "Scale Max": "10" }, selected: true },
+      ],
+    },
+    {
+      name: "Players",
+      icon: "🎾",
+      columns: ["Name", "Email", "Phone", "Level", "Side"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "p1", cells: { Name: "Ana Rodrigues", Email: "ana@email.com", Phone: "+351 912 345 678", Level: "INT", Side: "Right" }, selected: true },
+        { id: "p2", cells: { Name: "Carlos Silva", Email: "carlos@email.com", Phone: "+351 923 456 789", Level: "ADV", Side: "Left" }, selected: true },
+        { id: "p3", cells: { Name: "Maria Santos", Email: "maria@email.com", Phone: "+351 934 567 890", Level: "INI", Side: "Right" }, selected: true },
+        { id: "p4", cells: { Name: "João Costa", Email: "joao@email.com", Phone: "+351 945 678 901", Level: "PRO", Side: "Left" }, selected: true },
+        { id: "p5", cells: { Name: "Sofia Mendes", Email: "sofia@email.com", Phone: "", Level: "INT", Side: "Right" }, selected: true },
+      ],
+    },
+    {
+      name: "Classes",
+      icon: "📅",
+      columns: ["Name", "Type", "Recurring", "Day", "Start", "End", "Max Players"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "c1", cells: { Name: "Morning Academy", Type: "academy", Recurring: "Yes", Day: "Monday", Start: "09:00", End: "10:30", "Max Players": "4" }, selected: true },
+        { id: "c2", cells: { Name: "Evening Private", Type: "private", Recurring: "No", Day: "Tuesday", Start: "18:00", End: "19:00", "Max Players": "2" }, selected: true },
+        { id: "c3", cells: { Name: "Weekend Group", Type: "academy", Recurring: "Yes", Day: "Saturday", Start: "10:00", End: "11:30", "Max Players": "6" }, selected: true },
+      ],
+    },
+    {
+      name: "Players in Classes",
+      icon: "👥",
+      columns: ["Class", "Player"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pc1", cells: { Class: "Morning Academy", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc2", cells: { Class: "Morning Academy", Player: "Carlos Silva" }, selected: true },
+        { id: "pc3", cells: { Class: "Morning Academy", Player: "Maria Santos" }, selected: true },
+        { id: "pc4", cells: { Class: "Evening Private", Player: "João Costa" }, selected: true },
+        { id: "pc5", cells: { Class: "Evening Private", Player: "Sofia Mendes" }, selected: true },
+        { id: "pc6", cells: { Class: "Weekend Group", Player: "Ana Rodrigues" }, selected: true },
+        { id: "pc7", cells: { Class: "Weekend Group", Player: "Carlos Silva" }, selected: true },
+        { id: "pc8", cells: { Class: "Weekend Group", Player: "João Costa" }, selected: true },
+      ],
+    },
+    {
+      name: "Presences",
+      icon: "✅",
+      columns: ["Class", "Date", "Player", "Status", "Justification"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pr1", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Ana Rodrigues", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr2", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Carlos Silva", Status: "Absent", Justification: "Justified" }, selected: true },
+        { id: "pr3", cells: { Class: "Morning Academy", Date: "2025-02-10", Player: "Maria Santos", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr4", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "João Costa", Status: "Present", Justification: "" }, selected: true },
+        { id: "pr5", cells: { Class: "Evening Private", Date: "2025-02-11", Player: "Sofia Mendes", Status: "Absent", Justification: "Unjustified" }, selected: true },
+      ],
+    },
+    {
+      name: "Player Evaluations",
+      icon: "📝",
+      columns: ["Player", "Date", "Forehand", "Backhand", "Serve", "Volley", "Positioning"],
+      allSelected: true,
+      expanded: false,
+      rows: [
+        { id: "pe1", cells: { Player: "Ana Rodrigues", Date: "2025-01-15", Forehand: "7", Backhand: "6", Serve: "5", Volley: "6", Positioning: "7" }, selected: true },
+        { id: "pe2", cells: { Player: "Carlos Silva", Date: "2025-01-20", Forehand: "8", Backhand: "7", Serve: "8", Volley: "9", Positioning: "7" }, selected: true },
+        { id: "pe3", cells: { Player: "Maria Santos", Date: "2025-02-01", Forehand: "4", Backhand: "5", Serve: "3", Volley: "4", Positioning: "5" }, selected: true },
+        { id: "pe4", cells: { Player: "João Costa", Date: "2025-02-05", Forehand: "9", Backhand: "8", Serve: "9", Volley: "8", Positioning: "9" }, selected: true },
+      ],
+    },
+  ];
+}

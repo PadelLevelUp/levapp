@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatThread } from "@/components/messages/ChatThread";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getConversations, getConversation } from "@/api/messages";
 import type { Conversation } from "@/types";
+import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
   LoadingConversationList,
@@ -14,11 +15,19 @@ import { useAuth } from "@/auth/AuthContext"
 import { sendMessage, createConversation, markConversationRead } from "@/api/messages";
 import { createEventSource } from "@/api/events";
 import { useLayout } from "@/components/layout/LayoutContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
+const normalizeConversationId = (
+  id: string | number | null | undefined
+): string | null => {
+  if (id === null || id === undefined) return null;
+  return String(id);
+};
 
 export default function MessagesPage() {
   const isMobile = useIsMobile();
-  const { user, token, logout } = useAuth();
+  const { user, token } = useAuth();
+  const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 
@@ -30,6 +39,7 @@ export default function MessagesPage() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [mobileView, setMobileView] =
     useState<"list" | "thread">("list");
+  const selectedConversationIdRef = useRef<string | null>(null);
 
   const sortedConversations = useMemo(() => {
     return [...conversations].sort((a, b) => {
@@ -45,7 +55,7 @@ export default function MessagesPage() {
 
   const ensureConversationExists = async (conversationId: string) => {
     setConversations((prev) => {
-      if (prev.some((c) => c.id === conversationId)) {
+      if (prev.some((c) => normalizeConversationId(c.id) === conversationId)) {
         return prev;
       }
       return prev;
@@ -54,13 +64,17 @@ export default function MessagesPage() {
     const convo = await getConversation(conversationId);
 
     setConversations((prev) => {
-      if (prev.some((c) => c.id === convo.id)) {
+      if (prev.some((c) => normalizeConversationId(c.id) === normalizeConversationId(convo.id))) {
         return prev;
       }
 
       return [convo, ...prev];
     });
   };
+
+  useEffect(() => {
+    selectedConversationIdRef.current = normalizeConversationId(selectedConversation?.id);
+  }, [selectedConversation]);
 
   useEffect(() => {
     async function load() {
@@ -86,14 +100,17 @@ export default function MessagesPage() {
       if (data.type !== "message_created") return;
 
       const message = data.payload;
+      const messageConversationId = normalizeConversationId(message.conversationId);
+      if (!messageConversationId) return;
+      const isOwnMessage = Number(message.senderId) === Number(user.id);
 
-      await ensureConversationExists(message.conversationId);
+      await ensureConversationExists(messageConversationId);
 
       setSelectedConversation((prev) => {
 
         if (!prev) return prev;
 
-        if (prev.id !== message.conversationId) {
+        if (normalizeConversationId(prev.id) !== messageConversationId) {
           return prev;
         }
 
@@ -105,13 +122,13 @@ export default function MessagesPage() {
 
       setConversations((prev) => {
         const existing = prev.find(
-          (c) => c.id === message.conversationId
+          (c) => normalizeConversationId(c.id) === messageConversationId
         );
 
         if (!existing) return prev;
-        
+
         const isOpen =
-          selectedConversation?.id === message.conversationId;
+          selectedConversationIdRef.current === messageConversationId;
 
         const updatedConversation = {
           ...existing,
@@ -119,10 +136,8 @@ export default function MessagesPage() {
           lastMessageAt: message.timestamp,
           unreadCount: isOpen
             ? 0
-            : existing.unreadCount + 1,
+            : (isOwnMessage ? existing.unreadCount : existing.unreadCount + 1),
         };
-
-        void refreshUnreadCount();
 
         return [
           updatedConversation,
@@ -130,9 +145,13 @@ export default function MessagesPage() {
         ];
       });
 
-      if (selectedConversation?.id === message.conversationId) {
-        markConversationRead(message.conversationId);
+      const isOpenConversation =
+        selectedConversationIdRef.current === messageConversationId;
+      if (isOpenConversation && !isOwnMessage) {
+        void markConversationRead(messageConversationId);
       }
+
+      void refreshUnreadCount();
     };
 
     es.onerror = (err) => {
@@ -143,7 +162,7 @@ export default function MessagesPage() {
     return () => {
       es.close();
     };
-  }, [token]);
+  }, [token, user.id, refreshUnreadCount]);
 
   useEffect(() => {
     setScrollMode("none");
@@ -163,10 +182,11 @@ export default function MessagesPage() {
     try {
       const convo = await getConversation(conversationId);
       setSelectedConversation(convo);
-      markConversationRead(convo.id);
+      void markConversationRead(convo.id);
+      void refreshUnreadCount();
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === convo.id
+          normalizeConversationId(c.id) === normalizeConversationId(convo.id)
             ? { ...c, unreadCount: 0 }
             : c
         )
@@ -185,7 +205,7 @@ export default function MessagesPage() {
   const handleSendMessage = async (content: string) => {
     if (!selectedConversation) return;
 
-    const message = await sendMessage({
+    await sendMessage({
       conversationId: selectedConversation.id,
       content,
     });
@@ -208,7 +228,28 @@ export default function MessagesPage() {
 
   return (
     <AppLayout>
-      <div className="flex h-full">
+      <div className="flex flex-col h-full">
+        {isSupported && !isSubscribed && permission !== "denied" && (
+          <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Enable message notifications</p>
+            <Button size="sm" variant="outline" onClick={() => void subscribe()}>
+              Enable
+            </Button>
+          </div>
+        )}
+        {isSupported && permission === "denied" && (
+          <div className="px-3 py-2 border-b border-border bg-muted/30">
+            <p className="text-xs text-muted-foreground">
+              Notifications blocked. Enable them in browser settings.
+            </p>
+          </div>
+        )}
+        {isSupported && isSubscribed && (
+          <div className="px-3 py-2 border-b border-border bg-muted/30">
+            <p className="text-xs text-muted-foreground">Notifications on ✓</p>
+          </div>
+        )}
+        <div className="flex h-full">
         {/* Conversation list */}
         <div
           className={
@@ -263,6 +304,7 @@ export default function MessagesPage() {
               />
             )}
           </div>
+        </div>
         </div>
       </div>
     </AppLayout>
