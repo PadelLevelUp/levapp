@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/auth/AuthContext";
 import { LayoutProvider, useLayout } from "@/components/layout/LayoutContext";
+import { createEventSource } from "@/api/events";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -83,7 +84,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -101,11 +102,35 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     user?.username?.slice(0, 2).toUpperCase() ??
     "U";
 
-  try {
-    void refreshUnreadCount();
-  } catch (e) {
-    console.warn("refreshUnreadCount failed", e);
-  }
+  useEffect(() => {
+    void refreshUnreadCount().catch((e) => {
+      console.warn("refreshUnreadCount failed", e);
+    });
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const es = createEventSource(token);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.type === "message_created") {
+          void refreshUnreadCount();
+        }
+      } catch (error) {
+        console.warn("Invalid SSE message payload", error);
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [refreshUnreadCount, token]);
   
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
