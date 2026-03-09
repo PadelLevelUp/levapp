@@ -58,8 +58,16 @@ export function PlayerSelector({
       result = result.filter((p) => p.levelId === filterLevelId);
     }
 
+    // Sort: selected players first
+    const selectedSet = new Set(selectedPlayerIds);
+    result = [...result].sort((a, b) => {
+      const aSelected = selectedSet.has(a.playerId) ? 0 : 1;
+      const bSelected = selectedSet.has(b.playerId) ? 0 : 1;
+      return aSelected - bSelected;
+    });
+
     return result;
-  }, [players, search, filterLevelId, isSearching]);
+  }, [players, search, filterLevelId, isSearching, selectedPlayerIds]);
 
   const levelTabs = useMemo(() => {
     const allLevels = [{ id: null, label: "All" }, ...levels.map((l) => ({ id: l.id, label: l.code }))];
