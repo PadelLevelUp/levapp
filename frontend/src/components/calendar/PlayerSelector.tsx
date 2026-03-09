@@ -39,6 +39,8 @@ export function PlayerSelector({
     setFilterLevelId(classLevelId ?? null);
   }, [classLevelId]);
 
+  const isSearching = search.trim().length > 0;
+
   const normalize = (s: string) =>
     s
       .normalize("NFD")
