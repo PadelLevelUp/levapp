@@ -39,14 +39,19 @@ export function PlayerSelector({
     setFilterLevelId(classLevelId ?? null);
   }, [classLevelId]);
 
-  const isSearching = search.trim().length > 0;
+  const normalize = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .toLowerCase();
 
   const filteredPlayers = useMemo(() => {
     let result = players;
 
     if (isSearching) {
-      const q = search.toLowerCase();
-      result = result.filter((p) => p.name.toLowerCase().includes(q));
+      const q = normalize(search);
+      result = result.filter((p) => normalize(p.name).includes(q));
     } else if (filterLevelId) {
       result = result.filter((p) => p.levelId === filterLevelId);
     }
