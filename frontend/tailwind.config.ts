@@ -77,6 +77,8 @@ export default {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
         },
+        online: "#22c55e",
+        unread: "hsl(var(--primary))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -100,6 +102,10 @@ export default {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        "message-in": {
+          "0%":   { opacity: "0", transform: "scale(0.95) translateY(4px)" },
+          "100%": { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
         shimmer: {
           "100%": { transform: "translateX(100%)" },
         },
@@ -113,6 +119,7 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
+        "message-in": "message-in 0.15s ease-out",
         shimmer: "shimmer 2s infinite",
         wave: "wave 1.5s ease-in-out infinite",
       },

@@ -171,12 +171,20 @@ export interface TimeSlot {
   label: string;
 }
 
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+
 export interface Message {
   id: string;
   senderId: number;
+  conversationId?: string | number;
   content: string;
   timestamp: string;
   isRead: boolean;
+  status?: MessageStatus;
+  replyTo?: string | number | null;
+  edited?: boolean;
+  isDeleted?: boolean;
+  reactions?: { emoji: string; userId: string | number }[];
 }
 
 export interface Conversation {

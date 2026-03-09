@@ -13,6 +13,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.message-action-menu {
+  @apply bg-card border border-border rounded-2xl shadow-xl overflow-hidden;
+}
+
 /* LevelUp Design System - Padel Coaching Platform */
 
 @layer base {

@@ -38,6 +38,7 @@ export async function getUnreadMessagesCount() {
 export async function sendMessage(payload: {
   conversationId: string;
   content: string;
+  replyToId?: string;
 }): Promise<Message> {
   if (USE_MOCK_DATA) {
     console.log("[mock] sendMessage", payload);
@@ -47,14 +48,53 @@ export async function sendMessage(payload: {
       content: payload.content,
       timestamp: new Date().toISOString(),
       isRead: true,
+      status: "delivered",
+      replyTo: payload.replyToId ?? null,
+      edited: false,
+      isDeleted: false,
+      reactions: [],
     };
   }
 
   const res = await api.post("/app/message", {
     conversationId: payload.conversationId,
     text: payload.content,
+    replyToId: payload.replyToId ?? null,
   });
   return res.data;
+}
+
+export async function editMessage(
+  messageId: string,
+  content: string
+): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] editMessage", messageId, content);
+    return;
+  }
+
+  await api.put(`/app/message/${messageId}`, { text: content });
+}
+
+export async function deleteMessage(messageId: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] deleteMessage", messageId);
+    return;
+  }
+
+  await api.delete(`/app/message/${messageId}`);
+}
+
+export async function toggleReaction(
+  messageId: string,
+  emoji: string
+): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] toggleReaction", messageId, emoji);
+    return;
+  }
+
+  await api.post(`/app/message/${messageId}/reaction`, { emoji });
 }
 
 export async function createConversation(payload: {
