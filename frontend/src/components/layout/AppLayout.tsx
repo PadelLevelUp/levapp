@@ -265,17 +265,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="hidden md:flex md:h-16 h-0 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
+        <header className="md:flex md:h-16 h-12 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setMobileMenuOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-
             <h1 className="text-lg font-semibold hidden sm:block">
               {visibleNavItems.find(
                 (item) =>

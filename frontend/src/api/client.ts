@@ -24,7 +24,13 @@ function redirectToAuth() {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const newToken = response.headers["x-new-token"];
+    if (newToken) {
+      localStorage.setItem("accessToken", newToken);
+    }
+    return response;
+  },
   (error) => {
     const status = error?.response?.status;
 

@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getMe, MeResponse } from "@/api/auth";
+import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
+import { requestAndSubscribe } from "@/utils/pushNotifications";
 
 type AuthContextType = {
   token: string | null;
@@ -30,7 +32,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
 
     getMe()
-      .then(setUser)
+      .then((userData) => {
+        setUser(userData);
+        // Refresh push subscription on every silent restore
+        if (!USE_MOCK_DATA) {
+          void requestAndSubscribe(token);
+        }
+      })
       .catch(() => {
         if (!USE_MOCK_DATA) {
           localStorage.removeItem("accessToken");
@@ -46,10 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (newToken: string) => {
     localStorage.setItem("accessToken", newToken);
     setToken(newToken);
-    
+
     try {
       const userData = await getMe();
       setUser(userData);
+      // Subscribe to push after successful login
+      if (!USE_MOCK_DATA) {
+        void requestAndSubscribe(newToken);
+      }
     } catch (error) {
       logout();
       throw error;
@@ -57,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    const currentToken = localStorage.getItem("accessToken");
+    if (currentToken && !USE_MOCK_DATA) {
+      // Best-effort server-side invalidation — don't await to avoid blocking UI
+      api.post("/auth/logout").catch(() => undefined);
+    }
     localStorage.removeItem("accessToken");
     setToken(USE_MOCK_DATA ? "mock-token" : null);
     setUser(null);

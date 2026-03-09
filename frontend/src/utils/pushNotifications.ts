@@ -46,7 +46,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
 
-  const response = await fetch("/api/notifications/subscribe", {
+  const response = await fetch("/api/notifications/save-subscription", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -60,6 +60,36 @@ export async function subscribeToPush(token: string): Promise<boolean> {
   }
 
   return true;
+}
+
+/**
+ * Requests notification permission (if not already decided) and subscribes to push.
+ * Safe to call silently — errors are swallowed so they don't interrupt auth flows.
+ */
+export async function requestAndSubscribe(token: string): Promise<void> {
+  try {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window)
+    ) {
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      return;
+    }
+
+    if (Notification.permission !== "granted") {
+      const result = await Notification.requestPermission();
+      if (result !== "granted") return;
+    }
+
+    await subscribeToPush(token);
+  } catch {
+    // Don't let push subscription failures break auth flows
+  }
 }
 
 export async function unsubscribeFromPush(token: string): Promise<boolean> {
