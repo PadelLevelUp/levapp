@@ -35,6 +35,10 @@ export function PlayerSelector({
     classLevelId ?? null
   );
 
+  useEffect(() => {
+    setFilterLevelId(classLevelId ?? null);
+  }, [classLevelId]);
+
   const isSearching = search.trim().length > 0;
 
   const filteredPlayers = useMemo(() => {
