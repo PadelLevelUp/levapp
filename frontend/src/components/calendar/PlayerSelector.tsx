@@ -119,7 +119,7 @@ export function PlayerSelector({
           {filteredPlayers.map((player) => {
             const selected = selectedPlayerIds.includes(player.playerId);
             const isOutOfLevel =
-              isSearching && classLevelId && player.levelId !== classLevelId;
+              classLevelId && player.levelId !== classLevelId;
 
             return (
               <div
