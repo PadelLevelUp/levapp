@@ -63,6 +63,7 @@ import {
 
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
+import { PlayerSelector } from "./PlayerSelector";
 
 const COLORS = [
   "#0ea5e9",
