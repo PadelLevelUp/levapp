@@ -659,32 +659,13 @@ export function ClassDetailSheet({
             </div>
 
             {isEditing ? (
-              <div className={cn("space-y-2", "max-h-48 overflow-y-auto")}>
-                {players.map((player) => {
-                  const selected = active.participants.some(
-                    (p: any) => p.id === player.playerId
-                  );
-
-                  return (
-                    <div
-                      key={`player-${player.playerId}`}
-                      onClick={() => togglePlayer(player.playerId)}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-lg cursor-pointer",
-                        selected ? "bg-primary/10" : "hover:bg-muted"
-                      )}
-                    >
-                      <Checkbox checked={selected} />
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                          {getInitials(player.name)}
-                        </div>
-                        <span className="text-sm">{player.name}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <PlayerSelector
+                players={players}
+                levels={levels}
+                selectedPlayerIds={active.participants.map((p: any) => p.id)}
+                classLevelId={active.levelId}
+                onToggle={togglePlayer}
+              />
             ) : (
               <div className="space-y-2">
                 {active.participants.map((p) => (
