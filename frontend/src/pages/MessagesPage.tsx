@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatThread } from "@/components/messages/ChatThread";
@@ -36,6 +37,8 @@ export default function MessagesPage() {
   const isMobile = useIsMobile();
   const { user, token } = useAuth();
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
+  const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 
@@ -44,7 +47,7 @@ export default function MessagesPage() {
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
-  const [mobileView, setMobileView] = useState<"list" | "thread">("list");
+  const mobileView = id ? "thread" : "list";
   const selectedConversationIdRef = useRef<string | null>(null);
 
   const sortedConversations = useMemo(() => {
@@ -149,7 +152,7 @@ export default function MessagesPage() {
 
         const isOpenConversation = selectedConversationIdRef.current === messageConversationId;
         if (isOpenConversation && !isOwnMessage) {
-          void markConversationRead(messageConversationId);
+          await markConversationRead(messageConversationId);
         }
 
         void refreshUnreadCount();
@@ -228,18 +231,6 @@ export default function MessagesPage() {
     return () => setScrollMode("page");
   }, [setScrollMode]);
 
-  if (initialLoading) {
-    return (
-      <AppLayout>
-        <LoadingMessages />
-      </AppLayout>
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------------------
-
   const handleSelectConversation = async (conversationId: string) => {
     setThreadLoading(true);
     try {
@@ -254,14 +245,32 @@ export default function MessagesPage() {
             : c
         )
       );
-      if (isMobile) setMobileView("thread");
+      navigate(`/messages/${conversationId}`);
     } finally {
       setThreadLoading(false);
     }
   };
 
+  // Auto-load the conversation when navigating directly to /messages/:id (deep link / notification tap)
+  useEffect(() => {
+    if (!id || normalizeConversationId(selectedConversation?.id) === id) return;
+    void handleSelectConversation(id);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (initialLoading) {
+    return (
+      <AppLayout>
+        <LoadingMessages />
+      </AppLayout>
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------
+
   const handleBack = () => {
-    setMobileView("list");
+    navigate("/messages");
   };
 
   const handleSendMessage = async (content: string, replyToId?: string) => {
@@ -356,12 +365,14 @@ export default function MessagesPage() {
   const handleNewConversation = async (userId: string) => {
     const existing = conversations.find((c) => c.participantId === userId);
     if (existing) {
+      navigate(`/messages/${existing.id}`);
       setSelectedConversation(existing);
       return;
     }
     const newConversation = await createConversation({ otherParticipants: [userId] });
     setConversations((prev) => [newConversation, ...prev]);
     setSelectedConversation(newConversation);
+    navigate(`/messages/${newConversation.id}`);
   };
 
   // -------------------------------------------------------------------

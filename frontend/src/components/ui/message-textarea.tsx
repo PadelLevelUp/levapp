@@ -81,11 +81,7 @@ export const MessageTextarea = React.forwardRef<
       // Prevent default and focus manually to avoid the jump-to-top glitch.
       if (isMobile) {
         e.preventDefault();
-        try {
-          innerRef.current?.focus({ preventScroll: true } as any);
-        } catch {
-          innerRef.current?.focus();
-        }
+        innerRef.current?.focus();
       }
 
       onPointerDown?.(e);

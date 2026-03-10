@@ -118,7 +118,7 @@ export function MessageList({ messages, userId, participantName, onReply, onEdit
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="absolute inset-0 overflow-y-auto overscroll-contain px-1 py-3"
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain px-1 py-3"
       >
         {grouped.map(group => (
           <div key={group.date}>

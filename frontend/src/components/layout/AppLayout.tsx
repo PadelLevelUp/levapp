@@ -115,7 +115,9 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data?.type === "message_created") {
+        // When viewing a specific conversation, MessagesPage marks it read first
+        // then calls refreshUnreadCount — avoid racing with it here.
+        if (data?.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
           void refreshUnreadCount();
         }
       } catch (error) {

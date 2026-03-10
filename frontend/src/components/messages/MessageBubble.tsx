@@ -42,11 +42,11 @@ export function MessageBubble({
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const x = useMotionValue(0);
-  const replyOpacity = useTransform(x, [-80, -40], [1, 0]);
+  const replyOpacity = useTransform(x, [40, 80], [0, 1]);
   const hasSwipedRef = useRef(false);
 
   const handlePanEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -60 && !hasSwipedRef.current) {
+    if (info.offset.x > 60 && !hasSwipedRef.current) {
       hasSwipedRef.current = true;
       onReply(message);
       setTimeout(() => { hasSwipedRef.current = false; }, 300);
@@ -85,7 +85,7 @@ export function MessageBubble({
       <motion.div
         className={`relative max-w-[80%] md:max-w-[65%] ${message.reactions?.length ? 'pb-4' : ''}`}
         drag="x"
-        dragConstraints={{ left: -80, right: 0 }}
+        dragConstraints={{ left: 0, right: 80 }}
         dragElastic={0.1}
         onDragEnd={handlePanEnd}
         style={{ x }}
@@ -94,7 +94,7 @@ export function MessageBubble({
       >
         {/* Reply indicator on swipe */}
         <motion.div
-          className="absolute right-full top-1/2 -translate-y-1/2 mr-2"
+          className="absolute left-full top-1/2 -translate-y-1/2 ml-2"
           style={{ opacity: replyOpacity }}
         >
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">

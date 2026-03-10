@@ -88,6 +88,15 @@ const App = () => (
               />
 
               <Route
+                path="/messages/:id"
+                element={
+                  <ProtectedRoute>
+                    <MessagesPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
                 path="/settings"
                 element={
                   <ProtectedRoute>
