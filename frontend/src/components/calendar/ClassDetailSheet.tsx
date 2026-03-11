@@ -11,6 +11,8 @@ import {
   Plus,
   Minus,
   Check,
+  Bell,
+  Send,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -25,10 +27,13 @@ import type {
 
 import { getClassInstance } from "@/api/classes";
 import { confirmClassPresences } from "@/api/presences";
+import { toggleLessonNotifications } from "@/api/notificationEngine";
 import { useToast } from "@/hooks/use-toast";
+import { ManualNotificationModal } from "./ManualNotificationModal";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -105,6 +110,8 @@ export function ClassDetailSheet({
   const [isValidating, setIsValidating] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
 
   useEffect(() => {
     if (!canManage) {
@@ -149,6 +156,7 @@ export function ClassDetailSheet({
     setAttendance(initial);
     setIsValidating(false);
     setSavingAttendance(false);
+    setNotificationsEnabled(classInstance.notificationsEnabled ?? true);
   }, [classInstance?.id]);
 
   const active = draft ?? classInstance;
@@ -253,6 +261,18 @@ export function ClassDetailSheet({
     setDraft(null);
   };
 
+  const handleToggleNotifications = async () => {
+    if (!event) return;
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next);
+    try {
+      await toggleLessonNotifications(event.model, String(event.originalId), event.date);
+    } catch {
+      setNotificationsEnabled(!next);
+      toast({ variant: "destructive", title: "Failed to update notifications" });
+    }
+  };
+
   const handleDeleteClick = () => {
     if (!canManage || !onDelete) return;
     if (!event) return;
@@ -335,18 +355,20 @@ export function ClassDetailSheet({
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>
-            {isEditing ? (
-              <Input
-                value={active.name}
-                onChange={(e) =>
-                  setDraft((d) => (d ? { ...d, name: e.target.value } : d))
-                }
-              />
-            ) : (
-              active.name
-            )}
-          </SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle className="flex-1 min-w-0">
+              {isEditing ? (
+                <Input
+                  value={active.name}
+                  onChange={(e) =>
+                    setDraft((d) => (d ? { ...d, name: e.target.value } : d))
+                  }
+                />
+              ) : (
+                <span className="truncate">{active.name}</span>
+              )}
+            </SheetTitle>
+          </div>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -475,37 +497,63 @@ export function ClassDetailSheet({
             </Select>
           </div>
 
+          {canManage && event?.type === "class" && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Automatic notifications</span>
+                </div>
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={() => handleToggleNotifications()}
+                  disabled={isEditing}
+                />
+              </div>
+            </>
+          )}
+
           <Separator />
 
           <div className="space-y-2">
-            <div className="text-sm font-medium">Max players</div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={!isEditing}
-                onClick={() =>
-                  setDraft((d) =>
-                    d ? { ...d, maxPlayers: Math.max(1, d.maxPlayers - 1) } : d
-                  )
-                }
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="w-8 text-center font-semibold">
-                {active.maxPlayers}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={!isEditing}
-                onClick={() =>
-                  setDraft((d) => (d ? { ...d, maxPlayers: d.maxPlayers + 1 } : d))
-                }
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+            <div className="text-sm font-medium">Capacity</div>
+            {isEditing ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setDraft((d) =>
+                      d ? { ...d, maxPlayers: Math.max(1, d.maxPlayers - 1) } : d
+                    )
+                  }
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <span className="w-8 text-center font-semibold">
+                  {active.maxPlayers}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setDraft((d) => (d ? { ...d, maxPlayers: d.maxPlayers + 1 } : d))
+                  }
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm">
+                {active.participants.length}/{active.maxPlayers}
+                {active.maxPlayers - active.participants.length > 0 && (
+                  <span className="text-muted-foreground ml-1">
+                    ({active.maxPlayers - active.participants.length} open)
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -587,7 +635,7 @@ export function ClassDetailSheet({
           {!isEditing ? (
             <>
               {canManage && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     className="flex-1"
@@ -597,6 +645,17 @@ export function ClassDetailSheet({
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
                   </Button>
+                  {event?.type === "class" && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowNotifyModal(true)}
+                      disabled={isValidating}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Notify
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     className="text-destructive"
@@ -643,6 +702,18 @@ export function ClassDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      {canManage && event && (
+        <ManualNotificationModal
+          open={showNotifyModal}
+          onClose={() => setShowNotifyModal(false)}
+          eventModel={event.model}
+          eventOriginalId={String(event.originalId)}
+          eventDate={event.date}
+          coachPlayers={players}
+          existingPlayerIds={(classInstance?.participants ?? []).map((p) => p.id)}
+        />
+      )}
 
       {canManage && onDelete && (
         <ClassScopeDialog

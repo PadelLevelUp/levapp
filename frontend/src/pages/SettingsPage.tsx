@@ -34,6 +34,7 @@ import {
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
 import { DataImportSection } from "@/components/settings/DataImportSection";
+import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "24h" | "12h";
@@ -662,6 +663,10 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {tab === "notifications" && (
+              <NotificationsEngineSection />
             )}
 
             {/* BILLING */}

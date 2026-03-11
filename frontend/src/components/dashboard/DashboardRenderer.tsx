@@ -2,6 +2,7 @@ import type { DashboardBlock } from "@/types";
 import { MessagesOverviewBlock } from "./blocks/MessagesOverviewBlock";
 import { KpiGridBlock } from "./blocks/KpiGridBlock";
 import { ClassListBlock } from "./blocks/ClassListBlock";
+import { NotificationActivityBlock } from "./blocks/NotificationActivityBlock";
 
 function renderBlock(block: DashboardBlock): React.ReactNode {
   switch (block.type) {
@@ -11,6 +12,8 @@ function renderBlock(block: DashboardBlock): React.ReactNode {
       return <KpiGridBlock key={block.id} block={block} />;
     case "class_list":
       return <ClassListBlock key={block.id} block={block} />;
+    case "notification_activity":
+      return <NotificationActivityBlock key={block.id} block={block} />;
     case "grid": {
       const baseCols = block.data.cols.base;
       const lgCols = block.data.cols.lg;

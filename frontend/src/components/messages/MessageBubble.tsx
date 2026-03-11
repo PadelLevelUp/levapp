@@ -3,6 +3,8 @@ import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, Clock, AlertCircle, Reply } from 'lucide-react';
 import type { Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
+import { respondToNotification } from '@/api/notificationEngine';
+import { toast } from 'sonner';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -40,6 +42,28 @@ export function MessageBubble({
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [responding, setResponding] = useState(false);
+
+  const isInvite = message.messageType === "notification_invite";
+  const canRespond = isInvite && !isMine && !message.metadata?.responded;
+
+  const handleRespond = async (action: "yes" | "no") => {
+    const eventId = message.metadata?.notificationEventId;
+    if (!eventId || responding) return;
+    setResponding(true);
+    try {
+      const result = await respondToNotification(eventId, action);
+      if (result.action === "spot_filled") {
+        toast.info("Sorry, that spot was just filled.");
+      } else if (result.action === "confirmed") {
+        toast.success("You're in! See you there.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setResponding(false);
+    }
+  };
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const x = useMotionValue(0);
   const replyOpacity = useTransform(x, [40, 80], [0, 1]);
@@ -150,6 +174,26 @@ export function MessageBubble({
             {isMine && message.status && <StatusIcon status={message.status} />}
           </div>
         </div>
+
+        {/* Notification invite Yes/No buttons */}
+        {canRespond && (
+          <div className="flex gap-2 mt-1.5 ml-1">
+            <button
+              onClick={() => handleRespond("yes")}
+              disabled={responding}
+              className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+            >
+              {responding ? "…" : "Yes"}
+            </button>
+            <button
+              onClick={() => handleRespond("no")}
+              disabled={responding}
+              className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+            >
+              No
+            </button>
+          </div>
+        )}
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (

@@ -112,6 +112,7 @@ export interface ClassInstance {
   overriddenFields?: string[];
   participants?: Player[];
   presences?: Presence[];
+  notificationsEnabled?: boolean;
 }
 
 export interface Presence {
@@ -185,6 +186,13 @@ export interface Message {
   edited?: boolean;
   isDeleted?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
+  messageType?: string;
+  metadata?: {
+    notificationEventId?: number;
+    lessonInstanceId?: number;
+    responded?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 export interface Conversation {
@@ -214,7 +222,8 @@ export type DashboardBlock =
   | DashboardMessagesOverviewBlock
   | DashboardKpiGridBlock
   | DashboardClassListBlock
-  | DashboardGridBlock;
+  | DashboardGridBlock
+  | DashboardNotificationActivityBlock;
 
 export interface DashboardDefinition {
   id: string;
@@ -279,6 +288,82 @@ export interface DashboardClassListBlock {
       badge?: string;
       href: string;
     }>;
+  };
+}
+
+// ── Notification engine types ──────────────────────────────────────────────
+
+export interface PriorityCriterion {
+  id: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface NotificationRestrictions {
+  maxSimultaneous: { enabled: boolean; value: number };
+  maxTotal: { enabled: boolean; value: number };
+  maxLevelDeviation: { enabled: boolean; value: number };
+  minTimeBeforeClass: { enabled: boolean; value: number };
+  maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
+  quietHours: { enabled: boolean };
+}
+
+export interface NotificationRound {
+  id: number;
+  duration: number;
+  description: string;
+}
+
+export interface NotificationGroup {
+  id: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface StudentGroupPlayer {
+  id: string;
+  name: string;
+  levelCode: string | null;
+  levelId: string | null;
+}
+
+export interface StudentGroup {
+  id: string;
+  label: string;
+  players: StudentGroupPlayer[];
+}
+
+export interface MessageTemplates {
+  invite: string;
+  decline: string;
+  spot_filled: string;
+}
+
+export interface NotificationConfig {
+  autoNotifyEnabled: boolean;
+  priorityCriteria: PriorityCriterion[];
+  restrictions: NotificationRestrictions;
+  rounds: NotificationRound[];
+  notificationGroups: NotificationGroup[];
+  messageTemplates: MessageTemplates;
+}
+
+export interface NotificationEventItem {
+  id: string;
+  type: 'manual' | 'auto';
+  roundNumber: number;
+  status: 'sent' | 'confirmed' | 'expired' | 'queued';
+  createdAt: string;
+  lessonInstance: { id: string; title: string | null; startDatetime: string | null };
+  player: { id: string; name: string | null };
+}
+
+export interface DashboardNotificationActivityBlock {
+  id: string;
+  type: "notification_activity";
+  data: {
+    title: string;
+    items: NotificationEventItem[];
   };
 }
 
