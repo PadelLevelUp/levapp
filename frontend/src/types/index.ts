@@ -180,20 +180,7 @@ export interface TimeSlot {
   label: string;
 }
 
-<<<<<<< HEAD
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
-=======
-export type MessageActionType = 'class_invitation';
-
-export interface MessageAction {
-  type: MessageActionType;
-  label: string;
-  /** e.g. class instance id */
-  referenceId?: string;
-  /** filled once the recipient clicks */
-  response?: 'accepted' | 'declined';
-}
->>>>>>> 2ad6dac (Add button actions to chat)
 
 export interface Message {
   id: string;
@@ -202,7 +189,6 @@ export interface Message {
   content: string;
   timestamp: string;
   isRead: boolean;
-<<<<<<< HEAD
   status?: MessageStatus;
   replyTo?: string | number | null;
   edited?: boolean;
@@ -215,10 +201,6 @@ export interface Message {
     responded?: boolean;
     [key: string]: unknown;
   };
-=======
-  /** Interactive action buttons attached to this message */
-  actions?: MessageAction[];
->>>>>>> 2ad6dac (Add button actions to chat)
 }
 
 export interface Conversation {
