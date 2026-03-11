@@ -28,7 +28,7 @@ export async function getClassInstance(
   }
 
   const res = await api.post(
-    `/app/class_instance?model=${event.model}&id=${event.originalId}`
+    `/app/class_instance?model=${event.model}&id=${event.originalId}&date=${event.date}`
   );
 
   const instanceData = await res.data;
