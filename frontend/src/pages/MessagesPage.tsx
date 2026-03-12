@@ -362,33 +362,6 @@ export default function MessagesPage() {
     void toggleReaction(messageId, emoji);
   };
 
-  const handleRespondAction = (messageId: string, action: MessageAction, response: 'accepted' | 'declined') => {
-    setSelectedConversation((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        messages: prev.messages.map((m) =>
-          m.id === messageId && m.actions
-            ? {
-                ...m,
-                actions: m.actions.map((a) =>
-                  a === action ? { ...a, response } : a
-                ),
-              }
-            : m
-        ),
-      };
-    });
-
-    const replyText =
-      response === 'accepted'
-        ? "Yes, I'll be there! ✅"
-        : "Sorry, I can't make it ❌";
-    handleSendMessage(replyText);
-
-    // TODO: update attendance via API when backend is ready
-  };
-
   const handleNewConversation = async (userId: string) => {
     const existing = conversations.find((c) => c.participantId === userId);
     if (existing) {

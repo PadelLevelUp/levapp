@@ -33,6 +33,7 @@ import type {
 
 import { getClassInstance } from "@/api/classes";
 import { confirmClassPresences } from "@/api/presences";
+import { confirmClassTraining } from "@/api/training";
 import { createEventSource } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -126,6 +127,9 @@ export function ClassDetailSheet({
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
+  const [isPlanningMode, setIsPlanningMode] = useState(false);
+  const [savingTraining, setSavingTraining] = useState(false);
+  const savedPlannedIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!canManage) {
@@ -172,6 +176,8 @@ export function ClassDetailSheet({
     setSavingAttendance(false);
     setLocalInvitations(classInstance.invitations ?? []);
     setInvitationsOpen(false);
+    setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
+    setIsPlanningMode(false);
   }, [classInstance?.id]);
 
   // Keep a live ref to event so SSE handlers don't go stale
@@ -408,6 +414,31 @@ export function ClassDetailSheet({
       });
     } finally {
       setSavingAttendance(false);
+    }
+  };
+
+  const startPlanning = () => {
+    savedPlannedIdsRef.current = [...plannedExerciseIds];
+    setIsPlanningMode(true);
+  };
+
+  const cancelPlanning = () => {
+    setPlannedExerciseIds(savedPlannedIdsRef.current);
+    setIsPlanningMode(false);
+  };
+
+  const handleSaveTraining = async () => {
+    if (!classInstance) return;
+    setSavingTraining(true);
+    try {
+      const { plannedExerciseIds: saved } = await confirmClassTraining(classInstance, plannedExerciseIds);
+      setPlannedExerciseIds(saved);
+      setIsPlanningMode(false);
+      toast({ title: "Training saved" });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to save training" });
+    } finally {
+      setSavingTraining(false);
     }
   };
 
@@ -752,8 +783,32 @@ export function ClassDetailSheet({
           <ClassPlanningSection
             exerciseIds={plannedExerciseIds}
             onChange={setPlannedExerciseIds}
-            disabled={!canManage || isValidating}
+            disabled={!canManage || isValidating || isEditing}
+            isEditing={isPlanningMode}
+            onEditStart={startPlanning}
           />
+
+          {canManage && isPlanningMode && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={cancelPlanning}
+                disabled={savingTraining}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveTraining}
+                disabled={savingTraining}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                {savingTraining ? "Saving…" : "Confirm"}
+              </Button>
+            </div>
+          )}
 
           <Separator />
 

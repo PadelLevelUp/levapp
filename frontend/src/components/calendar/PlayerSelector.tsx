@@ -40,6 +40,11 @@ export function PlayerSelector({
   }, [classLevelId]);
 
   const isSearching = search.trim().length > 0;
+  const normalizedClassLevelId = classLevelId ? String(classLevelId) : null;
+  const normalizedSelectedPlayerIds = useMemo(
+    () => new Set(selectedPlayerIds.map((id) => String(id))),
+    [selectedPlayerIds]
+  );
 
   const normalize = (s: string) =>
     s
@@ -48,6 +53,9 @@ export function PlayerSelector({
       .replace(/[^a-zA-Z0-9\s]/g, "")
       .toLowerCase();
 
+  const getPlayerLevel = (player: CoachPlayer) =>
+    player.level ?? levels.find((level) => String(level.id) === String(player.levelId));
+
   const filteredPlayers = useMemo(() => {
     let result = players;
 
@@ -55,19 +63,18 @@ export function PlayerSelector({
       const q = normalize(search);
       result = result.filter((p) => normalize(p.name).includes(q));
     } else if (filterLevelId) {
-      result = result.filter((p) => p.levelId === filterLevelId);
+      result = result.filter((p) => String(p.levelId) === String(filterLevelId));
     }
 
     // Sort: selected players first
-    const selectedSet = new Set(selectedPlayerIds);
     result = [...result].sort((a, b) => {
-      const aSelected = selectedSet.has(a.playerId) ? 0 : 1;
-      const bSelected = selectedSet.has(b.playerId) ? 0 : 1;
+      const aSelected = normalizedSelectedPlayerIds.has(String(a.playerId)) ? 0 : 1;
+      const bSelected = normalizedSelectedPlayerIds.has(String(b.playerId)) ? 0 : 1;
       return aSelected - bSelected;
     });
 
     return result;
-  }, [players, search, filterLevelId, isSearching, selectedPlayerIds]);
+  }, [players, search, filterLevelId, isSearching, normalizedSelectedPlayerIds]);
 
   const levelTabs = useMemo(() => {
     const allLevels = [{ id: null, label: "All" }, ...levels.map((l) => ({ id: l.id, label: l.code }))];
@@ -117,14 +124,17 @@ export function PlayerSelector({
           )}
 
           {filteredPlayers.map((player) => {
-            const selected = selectedPlayerIds.includes(player.playerId);
+            const playerId = String(player.playerId);
+            const playerLevel = getPlayerLevel(player);
+            const selected = normalizedSelectedPlayerIds.has(playerId);
             const isOutOfLevel =
-              classLevelId && player.levelId !== classLevelId;
+              normalizedClassLevelId !== null &&
+              String(player.levelId) !== normalizedClassLevelId;
 
             return (
               <div
-                key={player.playerId}
-                onClick={() => onToggle(player.playerId)}
+                key={playerId}
+                onClick={() => onToggle(playerId)}
                 className={cn(
                   "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
                   selected && !isOutOfLevel && "bg-primary/10",
@@ -144,7 +154,7 @@ export function PlayerSelector({
                       variant="outline"
                       className="text-[10px] border-amber-500/50 text-amber-600 bg-amber-500/10 shrink-0"
                     >
-                      {player.level?.code ?? "Other level"}
+                      {playerLevel?.code ?? "No level"}
                     </Badge>
                   )}
                 </div>

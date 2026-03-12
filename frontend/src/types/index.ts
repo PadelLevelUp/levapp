@@ -121,6 +121,7 @@ export interface ClassInstance {
   presences?: Presence[];
   notificationsEnabled?: boolean;
   invitations?: ClassInvitation[];
+  plannedExerciseIds?: string[];
 }
 
 export interface Presence {

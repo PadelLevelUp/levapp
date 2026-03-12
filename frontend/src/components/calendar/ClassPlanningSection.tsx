@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, X, Dumbbell, FolderOpen, Search } from "lucide-react";
+import { Plus, X, Dumbbell, FolderOpen, Search, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -26,9 +25,11 @@ interface Props {
   exerciseIds: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
+  isEditing: boolean;
+  onEditStart: () => void;
 }
 
-export function ClassPlanningSection({ exerciseIds, onChange, disabled }: Props) {
+export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditing, onEditStart }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -78,7 +79,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled }: Props)
           <Dumbbell className="w-4 h-4" />
           Planning ({planned.length})
         </h4>
-        {!disabled && (
+        {!disabled && isEditing && (
           <Button
             variant="ghost"
             size="sm"
@@ -87,6 +88,17 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled }: Props)
           >
             <Plus className="w-3 h-3 mr-1" />
             Add
+          </Button>
+        )}
+        {!disabled && !isEditing && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={onEditStart}
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Edit
           </Button>
         )}
       </div>
@@ -98,7 +110,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled }: Props)
           {planned.map((ex) => (
             <div
               key={ex.id}
-              className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50 group"
+              className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate">{ex.name}</p>
@@ -111,11 +123,11 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled }: Props)
                   </Badge>
                 </div>
               </div>
-              {!disabled && (
+              {isEditing && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 text-destructive"
+                  className="h-7 w-7 shrink-0 text-destructive"
                   onClick={() => removeExercise(ex.id)}
                 >
                   <X className="w-3.5 h-3.5" />
