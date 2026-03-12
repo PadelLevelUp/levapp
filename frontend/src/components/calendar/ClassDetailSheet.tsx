@@ -16,7 +16,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   CalendarEvent,
@@ -31,6 +31,8 @@ import type {
 
 import { getClassInstance } from "@/api/classes";
 import { confirmClassPresences } from "@/api/presences";
+import { createEventSource } from "@/api/events";
+import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
 
@@ -102,6 +104,7 @@ export function ClassDetailSheet({
   onEdit,
 }: ClassDetailSheetProps) {
   const { toast } = useToast();
+  const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
 
   const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
@@ -166,6 +169,48 @@ export function ClassDetailSheet({
     setLocalInvitations(classInstance.invitations ?? []);
     setInvitationsOpen(false);
   }, [classInstance?.id]);
+
+  // Keep a live ref to event so SSE handlers don't go stale
+  const eventRef = useRef<typeof event>(event);
+  eventRef.current = event;
+
+  // Real-time invitation updates via SSE
+  useEffect(() => {
+    if (!open || !canManage || !token) return;
+
+    const es = createEventSource(token);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+
+        // Player accepted / declined an invite → update badge in-place
+        if (data.type === "notification_responded") {
+          const { notificationEventId, response } = data.payload;
+          setLocalInvitations((prev) =>
+            prev.map((inv) => {
+              if (inv.id !== notificationEventId) return inv;
+              if (response === "yes") return { ...inv, status: "confirmed" as const };
+              if (response === "no" || response === "spot_filled") return { ...inv, status: "expired" as const };
+              return inv;
+            })
+          );
+        }
+
+        // Notifications were sent (auto or manual) → re-fetch to show new entries
+        if (data.type === "notify_sent") {
+          const { lessonInstanceId } = data.payload;
+          const ev = eventRef.current;
+          if (!ev) return;
+          const fetchEvent = { ...ev, model: "LessonInstance", originalId: Number(lessonInstanceId) };
+          getClassInstance(fetchEvent as typeof ev).then((updated) => {
+            setLocalInvitations(updated.invitations ?? []);
+            setInvitationsOpen(true);
+          }).catch(() => {});
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    return () => es.close();
+  }, [open, canManage, token]);
 
   const active = draft ?? classInstance;
   const isCanceled = active?.status === "canceled";
@@ -334,7 +379,14 @@ export function ClassDetailSheet({
         prev ? { ...prev, presences: updatedPresences } : prev
       );
 
-      if (notifiedPlayers.length > 0) {
+      if (notifiedPlayers.length > 0 && event && updatedPresences.length > 0) {
+        // Fetch by the actual LessonInstance ID from presences (works even for
+        // recurring lessons that were just materialized during confirmation)
+        const instanceId = Number(updatedPresences[0].lessonInstanceId);
+        const fetchEvent = { ...event, model: "LessonInstance", originalId: instanceId };
+        const updated = await getClassInstance(fetchEvent as typeof event);
+        setLocalInvitations(updated.invitations ?? []);
+        setInvitationsOpen(true);
         const n = notifiedPlayers.length;
         toast({
           title: "Attendance saved",
@@ -556,12 +608,17 @@ export function ClassDetailSheet({
                   const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
                   const effectiveFilled = active.participants.length - absentCount;
                   const openSpots = active.maxPlayers - effectiveFilled;
+                  const pendingInvites = localInvitations.filter(inv => inv.status === "sent" || inv.status === "queued").length;
+                  const details: string[] = [];
+                  if (openSpots > 0) details.push(`${openSpots} open`);
+                  if (absentCount > 0) details.push(`${absentCount} absent`);
+                  if (pendingInvites > 0) details.push(`${pendingInvites} invite${pendingInvites !== 1 ? "s" : ""} pending`);
                   return (
                     <>
                       {effectiveFilled}/{active.maxPlayers}
-                      {openSpots > 0 && (
+                      {details.length > 0 && (
                         <span className="text-muted-foreground ml-1">
-                          ({openSpots} open{absentCount > 0 ? `, ${absentCount} absent` : ""})
+                          ({details.join(", ")})
                         </span>
                       )}
                     </>
