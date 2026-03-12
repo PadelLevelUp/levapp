@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import { X, Users, Clock, Calendar, Plus, Minus, Repeat } from 'lucide-react';
+import { X, Users, Clock, Calendar, Plus, Minus, Repeat, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 
 const COACH_ID = "1";
 
@@ -70,6 +71,7 @@ export function AddClassSheet({
   players,
   levels,
 }: AddClassSheetProps) {
+  const autoInviteEnabled = useAutoInviteEnabled(open);
   const [classType, setClassType] = useState<ClassType>('academy');
   const [isRecurring, setIsRecurring] = useState(false);
   const [name, setName] = useState('');
@@ -84,6 +86,7 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
@@ -178,6 +181,7 @@ export function AddClassSheet({
       color: selectedColor,
       levelId: selectedLevel || null,
       playerIds: selectedPlayers,
+      notificationsEnabled,
 
       recurrenceRule: isRecurring
         ? {
@@ -206,6 +210,7 @@ export function AddClassSheet({
     setSelectedPlayers([]);
     setSelectedDays([]);
     setEndDate('');
+    setNotificationsEnabled(true);
     setErrors({});
     onClose();
   };
@@ -413,6 +418,19 @@ export function AddClassSheet({
               </SelectContent>
             </Select>
           </div>
+
+          {autoInviteEnabled && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-muted-foreground" />
+                <Label>Automatic notifications</Label>
+              </div>
+              <Switch
+                checked={notificationsEnabled}
+                onCheckedChange={setNotificationsEnabled}
+              />
+            </div>
+          )}
 
           {/* Players */}
           <div className="space-y-2">

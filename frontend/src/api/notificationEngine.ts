@@ -56,6 +56,14 @@ export async function respondToNotification(
   return res.data;
 }
 
+export async function coachRespondToNotification(
+  notificationEventId: number,
+  action: "yes" | "no"
+): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+  const res = await api.post("/app/notify/coach_respond", { notificationEventId, action });
+  return res.data;
+}
+
 export async function updateMessageTemplates(templates: Partial<MessageTemplates>): Promise<NotificationConfig> {
   const res = await api.post("/app/notify/config", { messageTemplates: templates });
   return res.data;

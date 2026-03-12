@@ -10,10 +10,10 @@ export async function confirmClassPresences(
     status: PresenceStatus;
     justification?: AbsenceJustification;
   }>
-): Promise<Presence[]> {
+): Promise<{ presences: Presence[]; notifiedPlayers: { id: string; name: string }[] }> {
   if (USE_MOCK_DATA) {
     console.log("[mock] confirmClassPresences", classInstance.id, presences);
-    return mockPresences;
+    return { presences: mockPresences, notifiedPlayers: [] };
   }
 
   const res = await api.post(`/app/class_instance/presences/confirm`, {

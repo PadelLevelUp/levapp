@@ -170,7 +170,7 @@ export function ManualNotificationModal({
                 <div key={group.id} className="rounded-lg border overflow-hidden">
                   <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/40">
                     <Checkbox
-                      checked={allSel || partial}
+                      checked={allSel ? true : partial ? "indeterminate" : false}
                       onCheckedChange={() => toggleGroup(group)}
                       className="shrink-0"
                       aria-label={`Select all in ${group.label}`}

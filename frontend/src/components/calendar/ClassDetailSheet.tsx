@@ -13,21 +13,24 @@ import {
   Check,
   Bell,
   Send,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   CalendarEvent,
   ClassInstance,
+  ClassInvitation,
   CoachPlayer,
   CoachLevel,
   PresenceStatus,
   AbsenceJustification,
 } from "@/types";
 
+
 import { getClassInstance } from "@/api/classes";
 import { confirmClassPresences } from "@/api/presences";
-import { toggleLessonNotifications } from "@/api/notificationEngine";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
 
@@ -37,6 +40,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useAutoInviteEnabled } from "@/hooks/useAutoInviteEnabled";
 
 import {
   Sheet,
@@ -98,6 +102,7 @@ export function ClassDetailSheet({
   onEdit,
 }: ClassDetailSheetProps) {
   const { toast } = useToast();
+  const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
 
   const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
 
@@ -110,8 +115,10 @@ export function ClassDetailSheet({
   const [isValidating, setIsValidating] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+
+  const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
 
   useEffect(() => {
     if (!canManage) {
@@ -156,7 +163,8 @@ export function ClassDetailSheet({
     setAttendance(initial);
     setIsValidating(false);
     setSavingAttendance(false);
-    setNotificationsEnabled(classInstance.notificationsEnabled ?? true);
+    setLocalInvitations(classInstance.invitations ?? []);
+    setInvitationsOpen(false);
   }, [classInstance?.id]);
 
   const active = draft ?? classInstance;
@@ -233,6 +241,7 @@ export function ClassDetailSheet({
     "maxPlayers",
     "levelId",
     "recurrenceEnd",
+    "notificationsEnabled",
   ] as const;
 
   const commitEdit = (scope: ApplyScope) => {
@@ -257,20 +266,9 @@ export function ClassDetailSheet({
     setEditScopeDialogOpen(false);
     setIsEditing(false);
 
+    setClassInstance(draft);
     onEdit(event, changes, scope);
     setDraft(null);
-  };
-
-  const handleToggleNotifications = async () => {
-    if (!event) return;
-    const next = !notificationsEnabled;
-    setNotificationsEnabled(next);
-    try {
-      await toggleLessonNotifications(event.model, String(event.originalId), event.date);
-    } catch {
-      setNotificationsEnabled(!next);
-      toast({ variant: "destructive", title: "Failed to update notifications" });
-    }
   };
 
   const handleDeleteClick = () => {
@@ -330,15 +328,21 @@ export function ClassDetailSheet({
     setSavingAttendance(true);
 
     try {
-      const updatedPresences = await confirmClassPresences(classInstance, payload);
+      const { presences: updatedPresences, notifiedPlayers } = await confirmClassPresences(classInstance, payload);
 
       setClassInstance((prev) =>
         prev ? { ...prev, presences: updatedPresences } : prev
       );
 
-      toast({
-        title: "Attendance saved",
-      });
+      if (notifiedPlayers.length > 0) {
+        const n = notifiedPlayers.length;
+        toast({
+          title: "Attendance saved",
+          description: `Sent an invite to ${n} ${n === 1 ? "player" : "players"}`,
+        });
+      } else {
+        toast({ title: "Attendance saved" });
+      }
 
       setIsValidating(false);
     } catch {
@@ -497,7 +501,7 @@ export function ClassDetailSheet({
             </Select>
           </div>
 
-          {canManage && event?.type === "class" && (
+          {canManage && event?.type === "class" && autoInviteEnabled && (
             <>
               <Separator />
               <div className="flex items-center justify-between">
@@ -506,9 +510,11 @@ export function ClassDetailSheet({
                   <span className="text-sm font-medium">Automatic notifications</span>
                 </div>
                 <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={() => handleToggleNotifications()}
-                  disabled={isEditing}
+                  checked={active.notificationsEnabled ?? true}
+                  onCheckedChange={(checked) =>
+                    setDraft((d) => d ? { ...d, notificationsEnabled: checked } : d)
+                  }
+                  disabled={!isEditing}
                 />
               </div>
             </>
@@ -546,12 +552,21 @@ export function ClassDetailSheet({
               </div>
             ) : (
               <p className="text-sm">
-                {active.participants.length}/{active.maxPlayers}
-                {active.maxPlayers - active.participants.length > 0 && (
-                  <span className="text-muted-foreground ml-1">
-                    ({active.maxPlayers - active.participants.length} open)
-                  </span>
-                )}
+                {(() => {
+                  const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
+                  const effectiveFilled = active.participants.length - absentCount;
+                  const openSpots = active.maxPlayers - effectiveFilled;
+                  return (
+                    <>
+                      {effectiveFilled}/{active.maxPlayers}
+                      {openSpots > 0 && (
+                        <span className="text-muted-foreground ml-1">
+                          ({openSpots} open{absentCount > 0 ? `, ${absentCount} absent` : ""})
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
               </p>
             )}
           </div>
@@ -629,6 +644,66 @@ export function ClassDetailSheet({
               </div>
             )}
           </div>
+
+          {canManage && !isEditing && localInvitations.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <button
+                  type="button"
+                  className="flex items-center justify-between w-full text-sm font-medium py-1"
+                  onClick={() => setInvitationsOpen((o) => !o)}
+                >
+                  <span>Invited ({localInvitations.length})</span>
+                  {invitationsOpen ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {invitationsOpen && (
+                  <div className="mt-2 space-y-1">
+                    {localInvitations.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between py-1.5">
+                        <span className="text-sm">{inv.playerName}</span>
+                        {inv.status === "confirmed" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                            <Check className="w-3 h-3" />
+                            Accepted
+                          </span>
+                        ) : inv.status === "expired" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive">
+                            <X className="w-3 h-3" />
+                            Declined
+                          </span>
+                        ) : inv.status === "queued" ? (
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                            Queued
+                          </span>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            <Button size="sm" variant="outline" disabled
+                              className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 opacity-50 cursor-not-allowed"
+                            >
+                              <Check className="w-3 h-3" />
+                              Yes
+                            </Button>
+                            <Button size="sm" variant="outline" disabled
+                              className="h-7 gap-1 text-xs border-destructive/40 text-destructive opacity-50 cursor-not-allowed"
+                            >
+                              <X className="w-3 h-3" />
+                              No
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <Separator />
 

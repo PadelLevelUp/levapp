@@ -93,6 +93,13 @@ export interface RecurrenceRule {
   interval?: number;
 }
 
+export interface ClassInvitation {
+  id: number;
+  playerId: string;
+  playerName: string;
+  status: 'sent' | 'confirmed' | 'expired' | 'queued';
+}
+
 export interface ClassInstance {
   id: string;
   originalId: string;
@@ -113,6 +120,7 @@ export interface ClassInstance {
   participants?: Player[];
   presences?: Presence[];
   notificationsEnabled?: boolean;
+  invitations?: ClassInvitation[];
 }
 
 export interface Presence {
@@ -335,6 +343,7 @@ export interface StudentGroup {
 
 export interface MessageTemplates {
   invite: string;
+  confirm: string;
   decline: string;
   spot_filled: string;
 }

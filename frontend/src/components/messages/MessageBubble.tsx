@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
 import type { Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { respondToNotification } from '@/api/notificationEngine';
@@ -43,9 +43,10 @@ export function MessageBubble({
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [responding, setResponding] = useState(false);
+  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | null>(null);
 
   const isInvite = message.messageType === "notification_invite";
-  const canRespond = isInvite && !isMine && !message.metadata?.responded;
+  const alreadyResponded = !!message.metadata?.responded;
 
   const handleRespond = async (action: "yes" | "no") => {
     const eventId = message.metadata?.notificationEventId;
@@ -55,8 +56,11 @@ export function MessageBubble({
       const result = await respondToNotification(eventId, action);
       if (result.action === "spot_filled") {
         toast.info("Sorry, that spot was just filled.");
+        setLocalResponse('declined');
       } else if (result.action === "confirmed") {
-        toast.success("You're in! See you there.");
+        setLocalResponse('accepted');
+      } else if (result.action === "declined") {
+        setLocalResponse('declined');
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -175,23 +179,55 @@ export function MessageBubble({
           </div>
         </div>
 
-        {/* Notification invite Yes/No buttons */}
-        {canRespond && (
+        {/* Notification invite response area */}
+        {isInvite && (
           <div className="flex gap-2 mt-1.5 ml-1">
-            <button
-              onClick={() => handleRespond("yes")}
-              disabled={responding}
-              className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
-            >
-              {responding ? "…" : "Yes"}
-            </button>
-            <button
-              onClick={() => handleRespond("no")}
-              disabled={responding}
-              className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
-            >
-              No
-            </button>
+            {localResponse === 'accepted' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <Check className="w-3.5 h-3.5" />
+                Accepted
+              </span>
+            ) : localResponse === 'declined' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                <X className="w-3.5 h-3.5" />
+                Declined
+              </span>
+            ) : alreadyResponded ? (
+              message.metadata?.response === "yes" ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <Check className="w-3.5 h-3.5" />
+                  Accepted
+                </span>
+              ) : message.metadata?.response === "no" ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                  <X className="w-3.5 h-3.5" />
+                  Declined
+                </span>
+              ) : (
+                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600">
+                  Spot filled
+                </span>
+              )
+            ) : isMine ? (
+              <span className="text-xs text-muted-foreground italic">Waiting for response…</span>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleRespond("yes")}
+                  disabled={responding}
+                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                >
+                  {responding ? "…" : "Yes"}
+                </button>
+                <button
+                  onClick={() => handleRespond("no")}
+                  disabled={responding}
+                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                >
+                  No
+                </button>
+              </>
+            )}
           </div>
         )}
 
