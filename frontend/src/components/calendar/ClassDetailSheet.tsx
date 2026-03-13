@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { ClassPlanningSection } from "./ClassPlanningSection";
+
 import type {
   CalendarEvent,
   ClassInstance,
@@ -31,6 +33,7 @@ import type {
 
 import { getClassInstance } from "@/api/classes";
 import { confirmClassPresences } from "@/api/presences";
+import { confirmClassTraining } from "@/api/training";
 import { createEventSource } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +64,7 @@ import {
 
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
+import { PlayerSelector } from "./PlayerSelector";
 
 const COLORS = [
   "#0ea5e9",
@@ -122,6 +126,10 @@ export function ClassDetailSheet({
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
+  const [isPlanningMode, setIsPlanningMode] = useState(false);
+  const [savingTraining, setSavingTraining] = useState(false);
+  const savedPlannedIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!canManage) {
@@ -168,6 +176,8 @@ export function ClassDetailSheet({
     setSavingAttendance(false);
     setLocalInvitations(classInstance.invitations ?? []);
     setInvitationsOpen(false);
+    setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
+    setIsPlanningMode(false);
   }, [classInstance?.id]);
 
   // Keep a live ref to event so SSE handlers don't go stale
@@ -404,6 +414,31 @@ export function ClassDetailSheet({
       });
     } finally {
       setSavingAttendance(false);
+    }
+  };
+
+  const startPlanning = () => {
+    savedPlannedIdsRef.current = [...plannedExerciseIds];
+    setIsPlanningMode(true);
+  };
+
+  const cancelPlanning = () => {
+    setPlannedExerciseIds(savedPlannedIdsRef.current);
+    setIsPlanningMode(false);
+  };
+
+  const handleSaveTraining = async () => {
+    if (!classInstance) return;
+    setSavingTraining(true);
+    try {
+      const { plannedExerciseIds: saved } = await confirmClassTraining(classInstance, plannedExerciseIds);
+      setPlannedExerciseIds(saved);
+      setIsPlanningMode(false);
+      toast({ title: "Training saved" });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to save training" });
+    } finally {
+      setSavingTraining(false);
     }
   };
 
@@ -655,32 +690,13 @@ export function ClassDetailSheet({
             </div>
 
             {isEditing ? (
-              <div className={cn("space-y-2", "max-h-48 overflow-y-auto")}>
-                {players.map((player) => {
-                  const selected = active.participants.some(
-                    (p: any) => p.id === player.playerId
-                  );
-
-                  return (
-                    <div
-                      key={`player-${player.playerId}`}
-                      onClick={() => togglePlayer(player.playerId)}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-lg cursor-pointer",
-                        selected ? "bg-primary/10" : "hover:bg-muted"
-                      )}
-                    >
-                      <Checkbox checked={selected} />
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                          {getInitials(player.name)}
-                        </div>
-                        <span className="text-sm">{player.name}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <PlayerSelector
+                players={players}
+                levels={levels}
+                selectedPlayerIds={active.participants.map((p: any) => p.id)}
+                classLevelId={active.levelId}
+                onToggle={togglePlayer}
+              />
             ) : (
               <div className="space-y-2">
                 {active.participants.map((p) => (
@@ -760,6 +776,38 @@ export function ClassDetailSheet({
                 )}
               </div>
             </>
+          )}
+
+          <Separator />
+
+          <ClassPlanningSection
+            exerciseIds={plannedExerciseIds}
+            onChange={setPlannedExerciseIds}
+            disabled={!canManage || isValidating || isEditing}
+            isEditing={isPlanningMode}
+            onEditStart={startPlanning}
+          />
+
+          {canManage && isPlanningMode && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={cancelPlanning}
+                disabled={savingTraining}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveTraining}
+                disabled={savingTraining}
+              >
+                <Check className="w-4 h-4 mr-2" />
+                {savingTraining ? "Saving…" : "Confirm"}
+              </Button>
+            </div>
           )}
 
           <Separator />

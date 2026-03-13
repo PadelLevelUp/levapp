@@ -7,9 +7,11 @@ interface CalendarEventCardProps {
   event: CalendarEvent;
   style?: CSSProperties;
   onClick?: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-export function CalendarEventCard({ event, style, onClick }: CalendarEventCardProps) {
+export function CalendarEventCard({ event, style, onClick, onDragStart, onDragEnd }: CalendarEventCardProps) {
   const isBlock = event.type === 'block';
   const isCanceled = event.status === 'canceled';
   const isCompleted = event.status === 'completed';
@@ -35,9 +37,12 @@ export function CalendarEventCard({ event, style, onClick }: CalendarEventCardPr
   return (
     <div
       style={customStyle}
+      draggable
       onClick={onClick}
+      onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
+      onDragEnd={onDragEnd}
       className={cn(
-        'rounded-md px-2 py-1 cursor-pointer transition-all hover:opacity-90 hover:shadow-md overflow-hidden',
+        'rounded-md px-2 py-1 cursor-grab active:cursor-grabbing transition-all hover:opacity-90 hover:shadow-md overflow-hidden',
         getBackgroundColor(),
         isBlock && 'border border-dashed',
         isCanceled && 'opacity-50 line-through',

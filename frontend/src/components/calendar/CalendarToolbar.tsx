@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CalendarToolbarProps {
@@ -6,15 +6,17 @@ interface CalendarToolbarProps {
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
-  onAddClass: () => void;
+  onAddClass?: () => void;
+  onAddEvent?: () => void;
 }
 
-export function CalendarToolbar({ 
-  weekLabel, 
-  onPrevWeek, 
-  onNextWeek, 
+export function CalendarToolbar({
+  weekLabel,
+  onPrevWeek,
+  onNextWeek,
   onToday,
-  onAddClass 
+  onAddClass,
+  onAddEvent,
 }: CalendarToolbarProps) {
   return (
     <div className="flex items-center justify-between p-4 border-b border-border bg-card">
@@ -35,10 +37,20 @@ export function CalendarToolbar({
         </h2>
       </div>
 
-      <Button onClick={onAddClass} className="gap-2">
-        <Plus className="w-4 h-4" />
-        <span className="hidden sm:inline">Add class</span>
-      </Button>
+      <div className="flex items-center gap-2">
+        {onAddEvent && (
+          <Button variant="outline" onClick={onAddEvent} className="gap-2">
+            <CalendarPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add event</span>
+          </Button>
+        )}
+        {onAddClass && (
+          <Button onClick={onAddClass} className="gap-2">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add class</span>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

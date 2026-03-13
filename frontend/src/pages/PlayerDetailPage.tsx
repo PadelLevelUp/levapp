@@ -12,8 +12,10 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ClipboardPlus } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
+import { toast } from "sonner";
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>();
@@ -27,6 +29,7 @@ export default function PlayerDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [isClassesOpen, setIsClassesOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -165,6 +168,9 @@ export default function PlayerDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setIsClassesOpen(true)}>
+            <CalendarPlus className="mr-2 h-4 w-4" /> Add to Classes
+          </Button>
           <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
             <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
           </Button>
@@ -230,6 +236,15 @@ export default function PlayerDetailPage() {
           currentEvaluations={profile?.evaluations ?? []}
           currentStrengths={profile?.strengths ?? []}
           currentWeaknesses={profile?.weaknesses ?? []}
+        />
+
+        <AddToClassesDialog
+          open={isClassesOpen}
+          onClose={() => setIsClassesOpen(false)}
+          player={player}
+          onSave={(classIds) => {
+            toast.success(`Added ${player.name} to ${classIds.length} ${classIds.length === 1 ? "class" : "classes"}`);
+          }}
         />
       </div>
     </AppLayout>
