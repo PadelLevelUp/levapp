@@ -182,6 +182,14 @@ export interface TimeSlot {
 }
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageActionType = 'class_invitation';
+
+export interface MessageAction {
+  type: MessageActionType;
+  label: string;
+  referenceId?: string;
+  response?: 'accepted' | 'declined';
+}
 
 export interface Message {
   id: string;
