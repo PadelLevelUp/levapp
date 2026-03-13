@@ -102,7 +102,7 @@ export function PlayerStrengthsWeaknesses({
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddStrength())}
                   className="flex-1 h-8 text-sm"
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddStrength} type="button">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddStrength} type="button" aria-label="Add strength">
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -149,7 +149,7 @@ export function PlayerStrengthsWeaknesses({
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWeakness())}
                   className="flex-1 h-8 text-sm"
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddWeakness} type="button">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddWeakness} type="button" aria-label="Add weakness">
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>

@@ -841,6 +841,7 @@ export function ClassDetailSheet({
                     className="text-destructive"
                     onClick={handleDeleteClick}
                     disabled={isValidating}
+                    aria-label="Delete class"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

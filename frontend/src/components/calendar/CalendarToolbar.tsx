@@ -25,10 +25,10 @@ export function CalendarToolbar({
           Today
         </Button>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" onClick={onPrevWeek}>
+          <Button variant="ghost" size="icon" onClick={onPrevWeek} aria-label="Previous week">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onNextWeek}>
+          <Button variant="ghost" size="icon" onClick={onNextWeek} aria-label="Next week">
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
