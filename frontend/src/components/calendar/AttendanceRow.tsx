@@ -2,8 +2,14 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Check, X, AlertCircle, CheckCircle2, Send, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface AttendanceState {
   status: PresenceStatus | null;
@@ -15,6 +21,8 @@ interface AttendanceRowProps {
   attendance: AttendanceState;
   onChange: (attendance: AttendanceState) => void;
   disabled?: boolean;
+  invited?: boolean;
+  confirmed?: boolean;
 }
 
 export function AttendanceRow({
@@ -22,6 +30,8 @@ export function AttendanceRow({
   attendance,
   onChange,
   disabled = false,
+  invited,
+  confirmed,
 }: AttendanceRowProps) {
   const name = player.user?.name ?? "Player";
 
