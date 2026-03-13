@@ -102,6 +102,7 @@ const AuthPage = () => {
                 id="username"
                 type="text"
                 placeholder="your-username"
+                autoCapitalize="none"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
