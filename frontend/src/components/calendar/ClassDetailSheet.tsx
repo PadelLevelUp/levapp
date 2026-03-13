@@ -690,15 +690,22 @@ export function ClassDetailSheet({
               />
             ) : (
               <div className="space-y-2">
-                {active.participants.map((p) => (
-                  <AttendanceRow
-                    key={p.id}
-                    player={p}
-                    attendance={attendance[p.id] || { status: null }}
-                    onChange={(state) => handleAttendanceChange(p.id, state)}
-                    disabled={!isValidating || isCanceled}
-                  />
-                ))}
+                {active.participants.map((p) => {
+                  const presence = classInstance?.presences?.find(
+                    (x) => x.playerId === p.id
+                  );
+                  return (
+                    <AttendanceRow
+                      key={p.id}
+                      player={p}
+                      attendance={attendance[p.id] || { status: null }}
+                      onChange={(state) => handleAttendanceChange(p.id, state)}
+                      disabled={!isValidating || isCanceled}
+                      invited={presence?.invited}
+                      confirmed={presence?.confirmed}
+                    />
+                  );
+                })}
 
                 {active.participants.length === 0 && (
                   <p className="text-sm text-muted-foreground">
