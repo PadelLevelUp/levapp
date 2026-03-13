@@ -15,6 +15,7 @@ import {
   Send,
   ChevronDown,
   ChevronRight,
+  Repeat,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
