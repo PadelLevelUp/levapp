@@ -43,7 +43,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useAutoInviteEnabled } from "@/hooks/useAutoInviteEnabled";
 
@@ -232,14 +231,6 @@ export function ClassDetailSheet({
 
   const canApplyScope = event?.isRecurring === true
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
   const startEdit = () => {
     if (!canManage || !onEdit) return;
     setIsEditing(true);
@@ -343,13 +334,13 @@ export function ClassDetailSheet({
 
     setDraft({
       ...draft,
-      participants: draft.participants.some((p) => p.id === playerId)
-        ? draft.participants.filter((p) => p.id !== playerId)
+      participants: draft.participants.some((p) => String(p.id) === String(playerId))
+        ? draft.participants.filter((p) => String(p.id) !== String(playerId))
         : [
             ...draft.participants,
             {
               id: playerId,
-              user: players.find((p) => p.playerId === playerId)!,
+              user: players.find((p) => String(p.playerId) === String(playerId))!,
             } as any,
           ],
     });
