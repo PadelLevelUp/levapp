@@ -116,6 +116,8 @@ export interface ClassInstance {
   maxPlayers: number;
   notes?: string;
   recurrenceEnd?: string;
+  isRecurring?: boolean;
+  recurrenceRule?: { frequency: string; daysOfWeek: number[] } | null;
   overriddenFields?: string[];
   participants?: Player[];
   presences?: Presence[];
