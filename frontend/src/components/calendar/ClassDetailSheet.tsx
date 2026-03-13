@@ -738,7 +738,7 @@ export function ClassDetailSheet({
                 </div>
               )}
             </div>
-          )
+          )}
 
           <Separator />
 
