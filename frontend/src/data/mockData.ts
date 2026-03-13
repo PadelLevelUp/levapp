@@ -335,6 +335,43 @@ export const mockPresences: Presence[] = [
     validated: false,
     player: mockPlayers[3],
   },
+  // Presences for scheduled instance-3 (showing invited/confirmed states)
+  {
+    id: "presence-5",
+    lessonInstanceId: "instance-3",
+    playerId: "player-1",
+    invited: true,
+    confirmed: true,
+    validated: false,
+    player: mockPlayers[0],
+  },
+  {
+    id: "presence-6",
+    lessonInstanceId: "instance-3",
+    playerId: "player-2",
+    invited: true,
+    confirmed: false,
+    validated: false,
+    player: mockPlayers[1],
+  },
+  {
+    id: "presence-7",
+    lessonInstanceId: "instance-3",
+    playerId: "player-3",
+    invited: false,
+    confirmed: false,
+    validated: false,
+    player: mockPlayers[2],
+  },
+  {
+    id: "presence-8",
+    lessonInstanceId: "instance-3",
+    playerId: "player-4",
+    invited: true,
+    confirmed: true,
+    validated: false,
+    player: mockPlayers[3],
+  },
 ];
 
 /**
