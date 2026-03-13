@@ -663,6 +663,83 @@ export function ClassDetailSheet({
             </div>
           )}
 
+          {/* Recurring — only in edit mode */}
+          {isEditing && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">Recurring</span>
+                </div>
+                <Switch
+                  checked={active.isRecurring ?? false}
+                  onCheckedChange={(checked) =>
+                    setDraft((d) => d ? { ...d, isRecurring: checked } : d)
+                  }
+                />
+              </div>
+              {active.isRecurring && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Days of the week</span>
+                    <div className="flex gap-1">
+                      {[
+                        { value: 1, label: "M" },
+                        { value: 2, label: "T" },
+                        { value: 3, label: "W" },
+                        { value: 4, label: "T" },
+                        { value: 5, label: "F" },
+                        { value: 6, label: "S" },
+                        { value: 0, label: "S" },
+                      ].map(({ value, label }) => {
+                        const days: number[] = (active as any).recurrenceRule?.daysOfWeek ?? [];
+                        const isSelected = days.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() =>
+                              setDraft((d) => {
+                                if (!d) return d;
+                                const current: number[] = (d as any).recurrenceRule?.daysOfWeek ?? [];
+                                const updated = isSelected
+                                  ? current.filter((x) => x !== value)
+                                  : [...current, value];
+                                return {
+                                  ...d,
+                                  recurrenceRule: { ...(d as any).recurrenceRule, frequency: "weekly", daysOfWeek: updated },
+                                };
+                              })
+                            }
+                            className={cn(
+                              "w-8 h-8 rounded-full text-xs font-medium transition-colors",
+                              isSelected
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted hover:bg-muted-foreground/10"
+                            )}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <Input
+                      type="date"
+                      value={active.recurrenceEnd ?? ""}
+                      className="h-8 text-sm"
+                      onChange={(e) =>
+                        setDraft((d) => d ? { ...d, recurrenceEnd: e.target.value } : d)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+
           <Separator />
 
           <div>
