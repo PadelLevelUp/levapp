@@ -69,6 +69,33 @@ export function AttendanceRow({
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium">{name}</span>
+
+          {/* Invited / Confirmed status icons */}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1">
+              {invited && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(
+                      "inline-flex items-center justify-center w-5 h-5 rounded-full",
+                      confirmed
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-warning/15 text-warning"
+                    )}>
+                      {confirmed ? (
+                        <UserCheck className="w-3 h-3" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {confirmed ? "Confirmed" : "Invited"}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </TooltipProvider>
         </div>
 
         {attendance.status === "present" && (

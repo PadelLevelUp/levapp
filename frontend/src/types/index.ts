@@ -203,6 +203,7 @@ export interface Message {
   edited?: boolean;
   isDeleted?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
+  actions?: MessageAction[];
   messageType?: string;
   metadata?: {
     notificationEventId?: number;

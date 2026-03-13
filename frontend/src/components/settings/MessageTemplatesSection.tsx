@@ -11,18 +11,21 @@ import { Label } from "@/components/ui/label";
 
 const VARIABLE_HINTS: Record<keyof MessageTemplates, string[]> = {
   invite: ["{name}", "{level}", "{weekday}", "{time}"],
+  confirm: [],
   decline: [],
   spot_filled: [],
 };
 
 const LABELS: Record<keyof MessageTemplates, string> = {
   invite: "Invite message",
+  confirm: "Confirm response",
   decline: "Decline response",
   spot_filled: "Spot-filled response",
 };
 
 const DESCRIPTIONS: Record<keyof MessageTemplates, string> = {
   invite: "Sent when notifying a student about an open spot.",
+  confirm: "Sent automatically when a student says Yes.",
   decline: "Sent automatically when a student says No.",
   spot_filled: "Sent when a spot is claimed before the student responds.",
 };
