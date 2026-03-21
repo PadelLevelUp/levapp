@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlayerSelector } from './PlayerSelector';
 import {
   Sheet,
   SheetContent,
@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 
@@ -79,12 +78,9 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
-
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   const togglePlayer = (playerId: string) => {
     setSelectedPlayers(prev =>
@@ -93,6 +89,12 @@ export function AddClassSheet({
         : [...prev, playerId]
     );
   };
+
+  useEffect(() => {
+    if (!open) return;
+    setDate(initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : '');
+    setStartTime(initialTime || '09:00');
+  }, [open, initialDate, initialTime]);
 
   useEffect(() => {
     if (!isRecurring || !date) return;
@@ -374,35 +376,15 @@ export function AddClassSheet({
           </div>
 
           {/* Participants */}
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Participants {selectedPlayers.length > 0 && `(${selectedPlayers.length})`}
-            </span>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {players.map((player) => (
-                <div
-                  key={player.playerId}
-                  className={cn(
-                    'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors',
-                    selectedPlayers.includes(player.playerId)
-                      ? 'bg-primary/10'
-                      : 'hover:bg-accent'
-                  )}
-                  onClick={() => togglePlayer(player.playerId)}
-                >
-                  <Checkbox
-                    checked={selectedPlayers.includes(player.playerId)}
-                    onCheckedChange={() => togglePlayer(player.playerId)}
-                  />
-                  <Avatar className="w-7 h-7">
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {getInitials(player.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm">{player.name}</span>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <span className="text-xs font-medium text-muted-foreground">Participants</span>
+            <PlayerSelector
+              players={players}
+              levels={levels}
+              selectedPlayerIds={selectedPlayers}
+              classLevelId={selectedLevel || null}
+              onToggle={togglePlayer}
+            />
           </div>
         </div>
 

@@ -22,6 +22,7 @@ from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from padel_app.models.Association_CoachClub import Association_CoachClub
+from padel_app.models.notification_config import NotificationConfig
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
 
@@ -152,6 +153,13 @@ with app.app_context():
         lesson_instance_id=instance.id,
     )
     db.session.add(student_instance)
+
+    # ── Notification config ───────────────────────────────────────────────────
+    notification_config = NotificationConfig(
+        coach_id=coach.id,
+        auto_notify_enabled=True,
+    )
+    db.session.add(notification_config)
 
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()

@@ -5,6 +5,8 @@ set -e
 PGUSER="${POSTGRES_USER:-padel_app_user}"
 PGPORT="${POSTGRES_PORT:-5433}"
 PGHOST="${POSTGRES_HOST:-localhost}"
+PGPASSWORD="${POSTGRES_PW:-}"
+export PGPASSWORD
 DB_NAME="levelup_test"
 BACKEND_DIR="$(cd "$(dirname "$0")/../../../levelup_backend" && pwd)"
 SEED_SCRIPT="$(cd "$(dirname "$0")" && pwd)/seed.py"
@@ -23,7 +25,7 @@ POSTGRES_DB="$DB_NAME" \
 POSTGRES_HOST="$PGHOST" \
 POSTGRES_PORT="$PGPORT" \
 POSTGRES_USER="$PGUSER" \
-POSTGRES_PW="" \
+POSTGRES_PW="${POSTGRES_PW:-}" \
 FLASK_APP="padel_app" \
 FLASK_ENV="development" \
 flask db upgrade
@@ -33,7 +35,7 @@ POSTGRES_DB="$DB_NAME" \
 POSTGRES_HOST="$PGHOST" \
 POSTGRES_PORT="$PGPORT" \
 POSTGRES_USER="$PGUSER" \
-POSTGRES_PW="" \
+POSTGRES_PW="${POSTGRES_PW:-}" \
 FLASK_APP="padel_app" \
 FLASK_ENV="development" \
 python "$SEED_SCRIPT"

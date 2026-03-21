@@ -1,7 +1,11 @@
-import { Minus, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Minus, Plus, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import type { NotificationRestrictions } from "@/types";
+import { searchPlayers } from "@/api/notificationEngine";
 
 interface RestrictionRowProps {
   label: string;
@@ -11,6 +15,7 @@ interface RestrictionRowProps {
   unit?: string;
   min?: number;
   max?: number;
+  step?: number;
   showValue: boolean;
   disabled?: boolean;
   onToggle: () => void;
@@ -74,6 +79,115 @@ function RestrictionRow({
   );
 }
 
+interface ExcludedPlayersRowProps {
+  enabled: boolean;
+  playerIds: string[];
+  onToggle: () => void;
+  onAddPlayer: (id: string, name: string) => void;
+  onRemovePlayer: (id: string) => void;
+  disabled?: boolean;
+}
+
+function ExcludedPlayersRow({
+  enabled,
+  playerIds,
+  onToggle,
+  onAddPlayer,
+  onRemovePlayer,
+  disabled,
+}: ExcludedPlayersRowProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
+  const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [open, setOpen] = useState(false);
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    if (searchRef.current) clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(async () => {
+      try {
+        const data = await searchPlayers(query);
+        setResults(data.players.filter((p) => !playerIds.includes(p.id)));
+        setOpen(true);
+      } catch {
+        setResults([]);
+      }
+    }, 300);
+  }, [query, playerIds]);
+
+  const handleAdd = (player: { id: string; name: string }) => {
+    setPlayerNames((prev) => ({ ...prev, [player.id]: player.name }));
+    onAddPlayer(player.id, player.name);
+    setQuery("");
+    setResults([]);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">Excluded players</p>
+          <p className="text-xs text-muted-foreground">
+            Specific players to exclude from all automatic invitations.
+          </p>
+        </div>
+        <Switch checked={enabled} onCheckedChange={onToggle} />
+      </div>
+
+      {enabled && (
+        <div className="space-y-2 ml-0">
+          <div className="relative">
+            <Input
+              placeholder="Search players…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-8 text-sm"
+              onBlur={() => setTimeout(() => setOpen(false), 150)}
+            />
+            {open && results.length > 0 && (
+              <div className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md">
+                {results.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+                    onMouseDown={() => handleAdd(p)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {playerIds.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {playerIds.map((id) => (
+                <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                  <span className="text-xs">{playerNames[id] ?? id}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => onRemovePlayer(id)}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface RestrictionsPanelProps {
   restrictions: NotificationRestrictions;
   onChange: (restrictions: NotificationRestrictions) => void;
@@ -118,18 +232,18 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Max level deviation"
-        description="Only notify students within ±N levels of the class"
-        enabled={restrictions.maxLevelDeviation.enabled}
-        value={restrictions.maxLevelDeviation.value}
-        unit="levels"
-        min={0}
-        max={5}
+        label="Max inactive time"
+        description="Minutes to wait before sending the next batch if no one responds"
+        enabled={restrictions.maxInactiveTime.enabled}
+        value={restrictions.maxInactiveTime.value}
+        unit="min"
+        min={15}
+        max={1440}
         showValue
         disabled={disabled}
-        onToggle={() => update("maxLevelDeviation", { enabled: !restrictions.maxLevelDeviation.enabled })}
-        onIncrement={() => update("maxLevelDeviation", { value: Math.min(5, restrictions.maxLevelDeviation.value + 1) })}
-        onDecrement={() => update("maxLevelDeviation", { value: Math.max(0, restrictions.maxLevelDeviation.value - 1) })}
+        onToggle={() => update("maxInactiveTime", { enabled: !restrictions.maxInactiveTime.enabled })}
+        onIncrement={() => update("maxInactiveTime", { value: Math.min(1440, restrictions.maxInactiveTime.value + 15) })}
+        onDecrement={() => update("maxInactiveTime", { value: Math.max(15, restrictions.maxInactiveTime.value - 15) })}
       />
 
       <RestrictionRow
@@ -169,6 +283,24 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         showValue={false}
         disabled={disabled}
         onToggle={() => update("quietHours", { enabled: !restrictions.quietHours.enabled })}
+      />
+
+      <ExcludedPlayersRow
+        enabled={restrictions.excludedPlayers.enabled}
+        playerIds={restrictions.excludedPlayers.playerIds}
+        onToggle={() => update("excludedPlayers", { enabled: !restrictions.excludedPlayers.enabled })}
+        onAddPlayer={(id) => update("excludedPlayers", { playerIds: [...restrictions.excludedPlayers.playerIds, id] })}
+        onRemovePlayer={(id) => update("excludedPlayers", { playerIds: restrictions.excludedPlayers.playerIds.filter((p) => p !== id) })}
+        disabled={disabled}
+      />
+
+      <RestrictionRow
+        label="Exclude unpaid subscriptions"
+        description="Don't invite students with an inactive or unpaid subscription"
+        enabled={restrictions.excludeUnpaidSubscription.enabled}
+        showValue={false}
+        disabled={disabled}
+        onToggle={() => update("excludeUnpaidSubscription", { enabled: !restrictions.excludeUnpaidSubscription.enabled })}
       />
     </div>
   );

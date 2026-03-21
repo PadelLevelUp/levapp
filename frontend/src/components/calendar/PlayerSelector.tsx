@@ -64,8 +64,6 @@ export function PlayerSelector({
       result = result.filter((p) => normalize(p.name).includes(q));
     } else if (filterLevelId) {
       result = result.filter((p) => String(p.levelId) === String(filterLevelId));
-    } else {
-      result = result.slice(0, 25);
     }
 
     return result;

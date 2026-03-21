@@ -90,7 +90,7 @@ export function AttendanceRow({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {confirmed ? "Confirmed" : "Invited"}
+                    {confirmed ? "Confirmed attendance" : "Reminder sent"}
                   </TooltipContent>
                 </Tooltip>
               )}

@@ -632,7 +632,7 @@ export function ClassDetailSheet({
                   </div>
                 </div>
                 <Switch
-                  checked={active.notificationsEnabled ?? true}
+                  checked={active.notificationsEnabled ?? false}
                   onCheckedChange={(checked) =>
                     setDraft((d) => d ? { ...d, notificationsEnabled: checked } : d)
                   }

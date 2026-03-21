@@ -47,7 +47,7 @@ export default defineConfig({
         POSTGRES_HOST: "localhost",
         POSTGRES_PORT: "5433",
         POSTGRES_USER: "padel_app_user",
-        POSTGRES_PW: "",
+        POSTGRES_PW: process.env.POSTGRES_PW ?? "",
         POSTGRES_DB: "levelup_test",
         JWT_SECRET_KEY: "e2e-test-secret",
       },
