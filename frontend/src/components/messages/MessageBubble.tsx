@@ -3,7 +3,7 @@ import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
 import type { Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
-import { respondToNotification } from '@/api/notificationEngine';
+import { respondToNotification, respondToReminder } from '@/api/notificationEngine';
 import { toast } from 'sonner';
 
 function formatTime(iso: string): string {
@@ -46,6 +46,7 @@ export function MessageBubble({
   const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | null>(null);
 
   const isInvite = message.messageType === "notification_invite";
+  const isReminder = message.messageType === "notification_reminder";
   const alreadyResponded = !!message.metadata?.responded;
 
   const handleRespond = async (action: "yes" | "no") => {
@@ -62,6 +63,20 @@ export function MessageBubble({
       } else if (result.action === "declined") {
         setLocalResponse('declined');
       }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const handleRespondReminder = async (action: "yes" | "no") => {
+    const instanceId = message.metadata?.lessonInstanceId;
+    if (!instanceId || responding) return;
+    setResponding(true);
+    try {
+      const result = await respondToReminder(instanceId, action);
+      setLocalResponse(result.action === "confirmed" ? 'accepted' : 'declined');
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -221,6 +236,52 @@ export function MessageBubble({
                 </button>
                 <button
                   onClick={() => handleRespond("no")}
+                  disabled={responding}
+                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                >
+                  No
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Reminder response area */}
+        {isReminder && !isMine && (
+          <div className="flex gap-2 mt-1.5 ml-1">
+            {localResponse === 'accepted' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <Check className="w-3.5 h-3.5" />
+                Confirmed
+              </span>
+            ) : localResponse === 'declined' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                <X className="w-3.5 h-3.5" />
+                Absent
+              </span>
+            ) : alreadyResponded ? (
+              message.metadata?.response === "yes" ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <Check className="w-3.5 h-3.5" />
+                  Confirmed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                  <X className="w-3.5 h-3.5" />
+                  Absent
+                </span>
+              )
+            ) : (
+              <>
+                <button
+                  onClick={() => handleRespondReminder("yes")}
+                  disabled={responding}
+                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                >
+                  {responding ? "…" : "Yes"}
+                </button>
+                <button
+                  onClick={() => handleRespondReminder("no")}
                   disabled={responding}
                   className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
                 >

@@ -12,6 +12,10 @@ BACKEND_DIR="$(cd "$(dirname "$0")/../../../levelup_backend" && pwd)"
 SEED_SCRIPT="$(cd "$(dirname "$0")" && pwd)/seed.py"
 
 echo "[reset-db] Dropping $DB_NAME…"
+# Terminate all existing connections first (e.g. from a previous Flask/scheduler run)
+psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" postgres -c \
+  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" \
+  > /dev/null 2>&1 || true
 psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
 echo "[reset-db] Creating $DB_NAME…"
 psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" postgres -c "CREATE DATABASE $DB_NAME;"

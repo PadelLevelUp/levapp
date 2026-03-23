@@ -48,6 +48,15 @@ with app.app_context():
     )
     db.session.add(student_user)
 
+    student2_user = User(
+        name="E2E Student Two",
+        username="e2e-student-2",
+        email="e2e-student-2@test.com",
+        password=generate_password_hash("E2eStudent2123!"),
+        status="active",
+    )
+    db.session.add(student2_user)
+
     # Inactive player (no account yet) — for invite-link tests
     ghost_user = User(
         name="Ghost Player",
@@ -66,6 +75,9 @@ with app.app_context():
 
     student = Player(user_id=student_user.id)
     db.session.add(student)
+
+    student2 = Player(user_id=student2_user.id)
+    db.session.add(student2)
 
     ghost_player = Player(user_id=ghost_user.id)
     db.session.add(ghost_player)
@@ -96,6 +108,15 @@ with app.app_context():
         notes="E2E test player",
     )
     db.session.add(assoc)
+
+    student2_assoc = Association_CoachPlayer(
+        coach_id=coach.id,
+        player_id=student2.id,
+        level_id=level_beginner.id,
+        side="left",
+        notes="E2E test player 2",
+    )
+    db.session.add(student2_assoc)
 
     ghost_assoc = Association_CoachPlayer(
         coach_id=coach.id,
@@ -165,6 +186,7 @@ with app.app_context():
     db.session.commit()
     print("[seed] Done. Created:")
     print(f"  Coach: {coach_user.username} / E2eCoach123!")
-    print(f"  Student: {student_user.username} / E2eStudent123!")
+    print(f"  Student 1: {student_user.username} / E2eStudent123!")
+    print(f"  Student 2: {student2_user.username} / E2eStudent2123!")
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")

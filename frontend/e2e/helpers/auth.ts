@@ -6,6 +6,9 @@ export const COACH_PASSWORD = "E2eCoach123!";
 export const STUDENT_USERNAME = "e2e-student";
 export const STUDENT_PASSWORD = "E2eStudent123!";
 
+export const STUDENT2_USERNAME = "e2e-student-2";
+export const STUDENT2_PASSWORD = "E2eStudent2123!";
+
 /**
  * Fills in the login form and waits for a successful redirect.
  */

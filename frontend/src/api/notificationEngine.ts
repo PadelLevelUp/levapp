@@ -27,6 +27,15 @@ export async function toggleLessonNotifications(
   return res.data;
 }
 
+export async function sendClassReminders(
+  model: string,
+  originalId: string,
+  date: string
+): Promise<{ sent: number }> {
+  const res = await api.post("/app/notify/send_reminders", { model, originalId, date });
+  return res.data;
+}
+
 export async function sendManualNotifications(
   model: string,
   originalId: string,
@@ -66,6 +75,14 @@ export async function coachRespondToNotification(
   action: "yes" | "no"
 ): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
   const res = await api.post("/app/notify/coach_respond", { notificationEventId, action });
+  return res.data;
+}
+
+export async function respondToReminder(
+  lessonInstanceId: number,
+  action: "yes" | "no"
+): Promise<{ action: "confirmed" | "declined" }> {
+  const res = await api.post("/app/notify/respond_reminder", { lessonInstanceId, action });
   return res.data;
 }
 

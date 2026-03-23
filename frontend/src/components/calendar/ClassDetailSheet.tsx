@@ -33,6 +33,7 @@ import type {
 
 
 import { getClassInstance } from "@/api/classes";
+import { sendClassReminders } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { createEventSource } from "@/api/events";
@@ -123,6 +124,7 @@ export function ClassDetailSheet({
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
@@ -910,15 +912,41 @@ export function ClassDetailSheet({
                     Edit
                   </Button>
                   {event?.type === "class" && (
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setShowNotifyModal(true)}
-                      disabled={isValidating}
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Notify
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setShowNotifyModal(true)}
+                        disabled={isValidating || sendingReminders}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Notify
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        disabled={isValidating || sendingReminders}
+                        onClick={async () => {
+                          if (!event) return;
+                          setSendingReminders(true);
+                          try {
+                            const { sent } = await sendClassReminders(
+                              event.model,
+                              String(event.originalId),
+                              event.date
+                            );
+                            toast({ title: `Reminders sent to ${sent} student${sent !== 1 ? "s" : ""}` });
+                          } catch {
+                            toast({ title: "Failed to send reminders", variant: "destructive" });
+                          } finally {
+                            setSendingReminders(false);
+                          }
+                        }}
+                      >
+                        <Bell className="w-4 h-4 mr-2" />
+                        {sendingReminders ? "Sending…" : "Remind"}
+                      </Button>
+                    </>
                   )}
                   <Button
                     variant="outline"
