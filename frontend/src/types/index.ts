@@ -116,6 +116,8 @@ export interface ClassInstance {
   maxPlayers: number;
   notes?: string;
   recurrenceEnd?: string;
+  isRecurring?: boolean;
+  recurrenceRule?: { frequency: string; daysOfWeek: number[] } | null;
   overriddenFields?: string[];
   participants?: Player[];
   presences?: Presence[];
@@ -182,6 +184,14 @@ export interface TimeSlot {
 }
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageActionType = 'class_invitation';
+
+export interface MessageAction {
+  type: MessageActionType;
+  label: string;
+  referenceId?: string;
+  response?: 'accepted' | 'declined';
+}
 
 export interface Message {
   id: string;
@@ -195,6 +205,7 @@ export interface Message {
   edited?: boolean;
   isDeleted?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
+  actions?: MessageAction[];
   messageType?: string;
   metadata?: {
     notificationEventId?: number;
@@ -302,25 +313,62 @@ export interface DashboardClassListBlock {
 
 // ── Notification engine types ──────────────────────────────────────────────
 
-export interface PriorityCriterion {
+// ── Timing types ───────────────────────────────────────────────────────────
+
+export interface TimingHoursBefore {
+  type: "hours_before";
+  value: number;
+}
+
+export interface TimingDaysBeforeAtTime {
+  type: "days_before_at_time";
+  days: number;
+  time: string; // "HH:MM"
+}
+
+export type ReminderTiming = TimingHoursBefore | TimingDaysBeforeAtTime;
+
+// ── Reminder config ────────────────────────────────────────────────────────
+
+export interface ReminderConfig {
+  firstReminder: ReminderTiming;
+  reminderCount: number;
+  hoursBetweenReminders: number;
+  invitationStart: ReminderTiming;
+}
+
+// ── Invitation groups (replaces rounds + priority criteria) ────────────────
+
+export interface GroupRule {
+  attribute: string;
+  operation: string;
+  value?: string | number;
+}
+
+export interface InvitationGroup {
+  id: string;
+  rules: GroupRule[];
+}
+
+// ── Tiebreakers (replaces PriorityCriterion) ───────────────────────────────
+
+export interface Tiebreaker {
   id: string;
   label: string;
   enabled: boolean;
 }
 
+// ── Restrictions (modified) ────────────────────────────────────────────────
+
 export interface NotificationRestrictions {
   maxSimultaneous: { enabled: boolean; value: number };
   maxTotal: { enabled: boolean; value: number };
-  maxLevelDeviation: { enabled: boolean; value: number };
+  maxInactiveTime: { enabled: boolean; value: number };
   minTimeBeforeClass: { enabled: boolean; value: number };
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
   quietHours: { enabled: boolean };
-}
-
-export interface NotificationRound {
-  id: number;
-  duration: number;
-  description: string;
+  excludedPlayers: { enabled: boolean; playerIds: string[] };
+  excludeUnpaidSubscription: { enabled: boolean };
 }
 
 export interface NotificationGroup {
@@ -342,20 +390,42 @@ export interface StudentGroup {
   players: StudentGroupPlayer[];
 }
 
+// ── Message templates (expanded) ───────────────────────────────────────────
+
 export interface MessageTemplates {
   invite: string;
   confirm: string;
   decline: string;
   spot_filled: string;
+  reminder: string;
+  reminder_followup: string;
+  reminder_confirmed: string;
+  reminder_declined: string;
+  waiting_list_offer: string;
+  waiting_list_placed: string;
 }
+
+// ── Main config (updated) ──────────────────────────────────────────────────
 
 export interface NotificationConfig {
   autoNotifyEnabled: boolean;
-  priorityCriteria: PriorityCriterion[];
+  reminderTiming: ReminderConfig;
+  invitationGroups: InvitationGroup[];
+  tiebreakers: Tiebreaker[];
   restrictions: NotificationRestrictions;
-  rounds: NotificationRound[];
   notificationGroups: NotificationGroup[];
   messageTemplates: MessageTemplates;
+}
+
+export interface StandingWaitingListEntry {
+  id: number;
+  playerId: number;
+  playerName: string | null;
+  creditsUsed: number;
+  creditsTotal: number;
+  expiresAt: string;
+  createdAt: string;
+  activeClassCount: number;
 }
 
 export interface NotificationEventItem {

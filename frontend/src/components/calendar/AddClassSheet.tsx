@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import { X, Users, Clock, Calendar, Plus, Minus, Repeat, Bell } from 'lucide-react';
+import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlayerSelector } from './PlayerSelector';
 import {
   Sheet,
   SheetContent,
@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 
@@ -36,33 +35,26 @@ interface AddClassSheetProps {
   initialDate?: Date;
   initialTime?: string;
   onSave?: (data: any) => void;
-  
   players: CoachPlayer[];
   levels: CoachLevel[];
 }
 
 const COLORS = [
-  '#0ea5e9', // blue
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#f97316', // orange
-  '#22c55e', // green
-  '#eab308', // yellow
-  '#ef4444', // red
-  '#6366f1', // indigo
+  '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316',
+  '#22c55e', '#eab308', '#ef4444', '#6366f1',
 ];
 
 const DAYS_OF_WEEK = [
-  { value: 1, label: 'M' }, // Monday
-  { value: 2, label: 'T' }, // Tuesday
-  { value: 3, label: 'W' }, // Wednesday
-  { value: 4, label: 'T' }, // Thursday
-  { value: 5, label: 'F' }, // Friday
-  { value: 6, label: 'S' }, // Saturday
-  { value: 0, label: 'S' }, // Sunday
+  { value: 1, label: 'M' },
+  { value: 2, label: 'T' },
+  { value: 3, label: 'W' },
+  { value: 4, label: 'T' },
+  { value: 5, label: 'F' },
+  { value: 6, label: 'S' },
+  { value: 0, label: 'S' },
 ];
 
-export function AddClassSheet({ 
+export function AddClassSheet({
   open,
   onClose,
   initialDate,
@@ -86,17 +78,9 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
-
-  const getInitials = (name: string) =>
-    name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
 
   const togglePlayer = (playerId: string) => {
     setSelectedPlayers(prev =>
@@ -107,35 +91,28 @@ export function AddClassSheet({
   };
 
   useEffect(() => {
+    if (!open) return;
+    setDate(initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : '');
+    setStartTime(initialTime || '09:00');
+  }, [open, initialDate, initialTime]);
+
+  useEffect(() => {
     if (!isRecurring || !date) return;
-
-    const weekday = getWeekdayFromDate(date);
-    if (weekday === null) return;
-
-    setSelectedDays(prev =>
-      prev.includes(weekday) ? prev : [weekday, ...prev]
-    );
+    const weekday = new Date(date).getDay();
+    setSelectedDays(prev => prev.includes(weekday) ? prev : [weekday, ...prev]);
   }, [isRecurring, date]);
-
-  const getWeekdayFromDate = (dateStr: string) => {
-    if (!dateStr) return null;
-    return new Date(dateStr).getDay(); // 0 (Sun) → 6 (Sat)
-  };
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev =>
-      prev.includes(day)
-        ? prev.filter(d => d !== day)
-        : [...prev, day]
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
 
-  // Auto-adjust endTime when startTime changes
   useEffect(() => {
     if (!startTime) return;
     if (endTime <= startTime) {
       const [h, m] = startTime.split(':').map(Number);
-      const totalMin = h * 60 + m + 90; // default 1.5h duration
+      const totalMin = h * 60 + m + 90;
       const newH = Math.min(Math.floor(totalMin / 60), 23);
       const newM = totalMin % 60;
       setEndTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
@@ -155,19 +132,14 @@ export function AddClassSheet({
         newErrors.days && 'Days of the week',
         newErrors.endDate && 'End date',
       ].filter(Boolean).join(', ');
-      toast({
-        variant: 'destructive',
-        title: 'Missing required fields',
-        description: `Please fill in: ${missing}`,
-      });
+      toast({ variant: 'destructive', title: 'Missing required fields', description: `Please fill in: ${missing}` });
       return;
     }
     setErrors({});
 
-    const computedEndDate =
-      isRecurring
-        ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
-        : null;
+    const computedEndDate = isRecurring
+      ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
+      : null;
 
     const data = {
       coachId: COACH_ID,
@@ -182,14 +154,9 @@ export function AddClassSheet({
       levelId: selectedLevel || null,
       playerIds: selectedPlayers,
       notificationsEnabled,
-
       recurrenceRule: isRecurring
-        ? {
-            frequency: 'weekly',
-            daysOfWeek: selectedDays,
-          }
+        ? { frequency: 'weekly', daysOfWeek: selectedDays }
         : null,
-
       endDate: computedEndDate,
     };
 
@@ -217,12 +184,12 @@ export function AddClassSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>New class</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-4">
           {/* Class Type */}
           <Tabs value={classType} onValueChange={(v) => setClassType(v as ClassType)}>
             <TabsList className="grid w-full grid-cols-2">
@@ -232,249 +199,198 @@ export function AddClassSheet({
           </Tabs>
 
           {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
-              id="name"
-              placeholder={
-                classType === 'academy'
-                  ? 'e.g. Beginner Academy'
-                  : 'e.g. Private – John & Mary'
-              }
+              placeholder={classType === 'academy' ? 'e.g. Beginner Academy' : 'e.g. Private – John & Mary'}
               value={name}
+              className="h-8 text-sm"
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
+          {/* 2×2 Info Blocks */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Date */}
+            <div className={cn("rounded-lg border bg-muted/30 p-3 space-y-1", errors.date && "ring-2 ring-destructive")}>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Date</span>
+              </div>
+              <Input
+                type="date"
+                value={date}
+                className="h-8 text-sm"
+                onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
+              />
+            </div>
+
+            {/* Time */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Time</span>
+              </div>
+              <div className="space-y-1">
+                <Input
+                  type="time"
+                  value={startTime}
+                  className="h-8 text-sm"
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+                <Input
+                  type="time"
+                  value={endTime}
+                  className="h-8 text-sm"
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Capacity */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Capacity</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setMaxPlayers(Math.max(1, maxPlayers - 1))}
+                >
+                  <Minus className="w-3 h-3" />
+                </Button>
+                <span className="w-6 text-center text-sm font-semibold">{maxPlayers}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setMaxPlayers(maxPlayers + 1)}
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">Level</span>
+              </div>
+              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {levels.map((level) => (
+                    <SelectItem key={level.id} value={level.id}>
+                      {level.code} – {level.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Recurring */}
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Repeat className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Recurring</span>
+              </div>
+              <Switch checked={isRecurring} onCheckedChange={setIsRecurring} />
+            </div>
+            {isRecurring && (
+              <div className="space-y-3 pt-1">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Days of the week</span>
+                  <div className={cn("flex gap-1", errors.days && "ring-2 ring-destructive rounded-lg p-0.5")}>
+                    {DAYS_OF_WEEK.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => { toggleDay(value); setErrors(e => ({ ...e, days: false })); }}
+                        className={cn(
+                          'w-8 h-8 rounded-full text-xs font-medium transition-colors',
+                          selectedDays.includes(value)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background hover:bg-accent'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={cn("space-y-1", errors.endDate && "ring-2 ring-destructive rounded-lg p-1")}>
+                  <span className="text-xs font-medium text-muted-foreground">End date</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    className="h-8 text-sm"
+                    onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Auto notifications */}
+          {autoInviteEnabled && (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">Auto notifications</span>
+                    <p className="text-xs text-muted-foreground">Students will be auto-invited</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={setNotificationsEnabled}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Color */}
-          <div className="space-y-2">
-            <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <span className="text-xs font-medium text-muted-foreground">Color</span>
+            <div className="flex gap-2 flex-wrap">
               {COLORS.map((color) => (
                 <button
                   key={color}
                   onClick={() => setSelectedColor(color)}
                   className={cn(
-                    'w-8 h-8 rounded-full transition-all',
-                    selectedColor === color &&
-                      'ring-2 ring-offset-2 ring-primary'
+                    'w-7 h-7 rounded-full transition-all',
+                    selectedColor === color && 'ring-2 ring-offset-2 ring-primary'
                   )}
                   style={{ backgroundColor: color }}
+                  type="button"
                 />
               ))}
             </div>
           </div>
 
-          {/* Recurring Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Repeat className="w-4 h-4 text-muted-foreground" />
-              <Label htmlFor="recurring">Recurring class</Label>
-            </div>
-            <Switch
-              id="recurring"
-              checked={isRecurring}
-              onCheckedChange={setIsRecurring}
+          {/* Participants */}
+          <div className="space-y-2">
+            <span className="text-xs font-medium text-muted-foreground">Participants</span>
+            <PlayerSelector
+              players={players}
+              levels={levels}
+              selectedPlayerIds={selectedPlayers}
+              classLevelId={selectedLevel || null}
+              onToggle={togglePlayer}
             />
-          </div>
-
-          {/* Date / Recurrence */}
-          {isRecurring ? (
-            <div className="space-y-4 p-4 rounded-lg bg-muted/50">
-              <div className="space-y-2">
-                <Label>Days of the week</Label>
-                <div className={cn("flex gap-1 p-1 rounded-lg", errors.days && "ring-2 ring-destructive")}>
-                  {DAYS_OF_WEEK.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => { toggleDay(value); setErrors(e => ({ ...e, days: false })); }}
-                      className={cn(
-                        'w-9 h-9 rounded-full text-sm font-medium transition-colors',
-                        selectedDays.includes(value)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted hover:bg-muted-foreground/10'
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start-date">Start date</Label>
-                  <Input
-                    id="start-date"
-                    type="date"
-                    className={cn(errors.date && "border-destructive ring-1 ring-destructive")}
-                    value={date}
-                    onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end-date">End date</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    className={cn(errors.endDate && "border-destructive ring-1 ring-destructive")}
-                    value={endDate}
-                    onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start-time">Start time</Label>
-                  <Input
-                    id="start-time"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end-time">End time</Label>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  className={cn(errors.date && "border-destructive ring-1 ring-destructive")}
-                  value={date}
-                  onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="start-time">Start</Label>
-                <Input
-                  id="start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-time">End</Label>
-                <Input
-                  id="end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Max Players */}
-          <div className="space-y-2">
-            <Label>Max players</Label>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setMaxPlayers(Math.max(1, maxPlayers - 1))}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="text-lg font-semibold w-8 text-center">
-                {maxPlayers}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setMaxPlayers(maxPlayers + 1)}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Level */}
-          <div className="space-y-2">
-            <Label>Level (optional)</Label>
-            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select level" />
-              </SelectTrigger>
-              <SelectContent>
-                {levels.map((level) => (
-                  <SelectItem key={level.id} value={level.id}>
-                    {level.code} – {level.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {autoInviteEnabled && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-muted-foreground" />
-                <Label>Automatic notifications</Label>
-              </div>
-              <Switch
-                checked={notificationsEnabled}
-                onCheckedChange={setNotificationsEnabled}
-              />
-            </div>
-          )}
-
-          {/* Players */}
-          <div className="space-y-2">
-            <Label>Participants</Label>
-            <div className="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
-              {players.map((player) => (
-                <div
-                  key={player.playerId}
-                  className={cn(
-                    'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors',
-                    selectedPlayers.includes(player.playerId)
-                      ? 'bg-primary/10'
-                      : 'hover:bg-muted'
-                  )}
-                  onClick={() => togglePlayer(player.playerId)}
-                >
-                  <Checkbox
-                    checked={selectedPlayers.includes(player.playerId)}
-                    onCheckedChange={() => togglePlayer(player.playerId)}
-                  />
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {getInitials(player.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm">{player.name}</span>
-                </div>
-              ))}
-            </div>
-            {selectedPlayers.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {selectedPlayers.length} selected
-              </p>
-            )}
           </div>
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Create class
-          </Button>
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleSave}>Create class</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

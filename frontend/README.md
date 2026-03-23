@@ -71,3 +71,32 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## E2E Tests
+
+End-to-end tests use [Playwright](https://playwright.dev/) and run against the real frontend and backend stack. Tests cover every validated user story and live in the `e2e/` directory, organised by feature area (auth, player management, calendar, evaluation, exercises, messaging, dashboard, settings).
+
+### Prerequisites
+
+- PostgreSQL running on port `5433` with a `padel_app_user` role
+- The backend virtualenv at `../levelup_backend/.venv`
+- `PGPASSWORD` exported in your shell (or trust auth configured for `padel_app_user`)
+
+### First-time setup
+
+```bash
+export PGPASSWORD='your-db-password'
+npm run test:e2e:reset
+```
+
+This drops and recreates the `levelup_test` database, runs all Flask-Migrate migrations, and seeds two fixture accounts — `e2e-coach / E2eCoach123!` and `e2e-student / E2eStudent123!` — along with a club, skill levels, and a sample class instance.
+
+### Running tests
+
+```bash
+npm run test:e2e           # headed (browser window visible)
+npm run test:e2e:headless  # headless (faster, good for CI)
+npm run test:e2e:ui        # Playwright interactive UI mode
+```
+
+Playwright's `globalSetup` automatically resets the database before each full test run, so every run starts from a clean, known state. The Vite dev server (port 8080) and Flask backend (port 5000) are started automatically by Playwright if they are not already running.

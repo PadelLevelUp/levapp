@@ -43,7 +43,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
 
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
+    applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
   });
 
   const response = await fetch("/api/notifications/save-subscription", {

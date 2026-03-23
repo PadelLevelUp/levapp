@@ -1,21 +1,51 @@
 import { useState } from "react";
-import type { CoachPlayer, CoachLevel } from "@/types";
+import type { CoachPlayer, CoachLevel, PlayerSide } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Copy, Pencil, UserX } from "lucide-react";
+import { Check, Copy, Pencil, UserX, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PlayerHeaderProps {
   player: CoachPlayer;
   levels: CoachLevel[];
+  isEditing: boolean;
+  draftName: string;
+  draftLevelId: string;
+  draftSide: PlayerSide | "";
+  onDraftNameChange: (v: string) => void;
+  onDraftLevelIdChange: (v: string) => void;
+  onDraftSideChange: (v: PlayerSide | "") => void;
   onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }
 
-export function PlayerHeader({ player, levels, onEdit }: PlayerHeaderProps) {
+export function PlayerHeader({
+  player,
+  levels,
+  isEditing,
+  draftName,
+  draftLevelId,
+  draftSide,
+  onDraftNameChange,
+  onDraftLevelIdChange,
+  onDraftSideChange,
+  onEdit,
+  onSave,
+  onCancel,
+}: PlayerHeaderProps) {
   const [copied, setCopied] = useState(false);
 
-  const initials = (player.name || "")
+  const displayName = isEditing ? draftName : (player.name || "");
+  const initials = displayName
     .split(" ")
     .filter(Boolean)
     .map((n) => n[0])
@@ -23,7 +53,7 @@ export function PlayerHeader({ player, levels, onEdit }: PlayerHeaderProps) {
     .toUpperCase()
     .slice(0, 2);
 
-  const level = player.level ?? levels.find((l) => l.id === player.levelId);
+  const level = player.level ?? levels.find((l) => l.id === String(player.levelId));
   const inviteLink = `${window.location.origin}/register/${player.userId || "player"}`;
 
   const handleCopy = async () => {
@@ -42,21 +72,74 @@ export function PlayerHeader({ player, levels, onEdit }: PlayerHeaderProps) {
         </Avatar>
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold truncate">{player.name || "Unnamed"}</h1>
-          <div className="flex flex-wrap gap-2 mt-1">
-            {level && <Badge variant="outline">{level.code} — {level.label}</Badge>}
-            {player.side && (
-              <Badge variant="secondary">
-                {player.side === "left" ? "Left" : "Right"}
-              </Badge>
-            )}
-            {!player.isActive && <Badge variant="destructive">Inactive</Badge>}
-          </div>
+          {isEditing ? (
+            <Input
+              value={draftName}
+              onChange={(e) => onDraftNameChange(e.target.value)}
+              className="text-lg font-semibold mb-2"
+              placeholder="Player name"
+            />
+          ) : (
+            <h1 className="text-2xl font-bold truncate">{player.name || "Unnamed"}</h1>
+          )}
+
+          {isEditing ? (
+            <div className="flex flex-wrap gap-2">
+              <Select value={draftSide} onValueChange={(v) => onDraftSideChange(v as PlayerSide | "")}>
+                <SelectTrigger className="w-28 h-7 text-xs">
+                  <SelectValue placeholder="Side" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
+                <SelectTrigger className="w-44 h-7 text-xs">
+                  <SelectValue placeholder="No Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {levels.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.code} — {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {player.side && (
+                <Badge variant="secondary">
+                  {player.side === "left" ? "Left" : "Right"}
+                </Badge>
+              )}
+              {level ? (
+                <Badge variant="outline">{level.code} — {level.label}</Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground">No Level</Badge>
+              )}
+              {!player.isActive && <Badge variant="destructive">Inactive</Badge>}
+            </div>
+          )}
         </div>
 
-        <Button variant="outline" size="sm" onClick={onEdit}>
-          <Pencil className="mr-2 h-4 w-4" /> Edit
-        </Button>
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="outline" size="sm" onClick={onCancel}>
+                <X className="mr-2 h-4 w-4" /> Cancel
+              </Button>
+              <Button size="sm" onClick={onSave} disabled={!draftName.trim()}>
+                <Check className="mr-2 h-4 w-4" /> Save
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Pencil className="mr-2 h-4 w-4" /> Edit
+            </Button>
+          )}
+        </div>
       </div>
 
       {!player.isActive && (
@@ -64,7 +147,7 @@ export function PlayerHeader({ player, levels, onEdit }: PlayerHeaderProps) {
           <div className="flex gap-2">
             <UserX className="h-4 w-4 text-warning mt-0.5" />
             <div>
-              <p className="text-sm font-medium">This player doesn’t have an account</p>
+              <p className="text-sm font-medium">This player doesn't have an account</p>
               <p className="text-sm text-muted-foreground">
                 Share this link so they can register.
               </p>

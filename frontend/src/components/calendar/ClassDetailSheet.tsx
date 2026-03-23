@@ -15,6 +15,7 @@ import {
   Send,
   ChevronDown,
   ChevronRight,
+  Repeat,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -32,6 +33,7 @@ import type {
 
 
 import { getClassInstance } from "@/api/classes";
+import { sendClassReminders } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { createEventSource } from "@/api/events";
@@ -43,7 +45,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useAutoInviteEnabled } from "@/hooks/useAutoInviteEnabled";
 
@@ -123,6 +124,7 @@ export function ClassDetailSheet({
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
@@ -232,14 +234,6 @@ export function ClassDetailSheet({
 
   const canApplyScope = event?.isRecurring === true
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
   const startEdit = () => {
     if (!canManage || !onEdit) return;
     setIsEditing(true);
@@ -343,13 +337,13 @@ export function ClassDetailSheet({
 
     setDraft({
       ...draft,
-      participants: draft.participants.some((p) => p.id === playerId)
-        ? draft.participants.filter((p) => p.id !== playerId)
+      participants: draft.participants.some((p) => String(p.id) === String(playerId))
+        ? draft.participants.filter((p) => String(p.id) !== String(playerId))
         : [
             ...draft.participants,
             {
               id: playerId,
-              user: players.find((p) => p.playerId === playerId)!,
+              user: players.find((p) => String(p.playerId) === String(playerId))!,
             } as any,
           ],
     });
@@ -463,205 +457,290 @@ export function ClassDetailSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-
+          {/* 2×2 Info Blocks */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Date */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Date</span>
+              </div>
               {isEditing ? (
-                <div className="flex gap-3 items-center">
+                <div className="space-y-2">
                   <Input
                     type="date"
                     value={active.date}
+                    className="h-8 text-sm"
                     onChange={(e) =>
                       setDraft((d) => (d ? { ...d, date: e.target.value } : d))
                     }
                   />
-
                   {active.recurrenceEnd && !active.parentClassId && (
-                    <>
-                      <span className="text-xs text-muted-foreground">
-                        repeat until
-                      </span>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Until</span>
                       <Input
                         type="date"
                         value={active.recurrenceEnd}
+                        className="h-8 text-sm"
                         onChange={(e) =>
                           setDraft((d) =>
                             d ? { ...d, recurrenceEnd: e.target.value } : d
                           )
                         }
                       />
-                    </>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="flex gap-2 items-center">
-                  <span>
-                    {format(new Date(active.date), "EEEE, MMMM d", {
-                      locale: enUS,
-                    })}
-                  </span>
-
+                <div>
+                  <p className="text-sm font-medium">
+                    {format(new Date(active.date), "EEE, MMM d", { locale: enUS })}
+                  </p>
                   {active.recurrenceEnd && !active.parentClassId && (
-                    <span className="text-xs text-muted-foreground">
-                      · repeats until{" "}
-                      {format(new Date(active.recurrenceEnd), "MMM d", {
-                        locale: enUS,
-                      })}
-                    </span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Until {format(new Date(active.recurrenceEnd), "MMM d", { locale: enUS })}
+                    </p>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <Clock className="w-4 h-4 text-muted-foreground" />
+            {/* Time */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Time</span>
+              </div>
               {isEditing ? (
-                <div className="flex gap-2">
+                <div className="space-y-1">
                   <Input
                     type="time"
                     value={active.startTime}
+                    className="h-8 text-sm"
                     onChange={(e) =>
-                      setDraft((d) =>
-                        d ? { ...d, startTime: e.target.value } : d
-                      )
+                      setDraft((d) => d ? { ...d, startTime: e.target.value } : d)
                     }
                   />
                   <Input
                     type="time"
                     value={active.endTime}
+                    className="h-8 text-sm"
                     onChange={(e) =>
-                      setDraft((d) =>
-                        d ? { ...d, endTime: e.target.value } : d
-                      )
+                      setDraft((d) => d ? { ...d, endTime: e.target.value } : d)
                     }
                   />
                 </div>
               ) : (
-                `${active.startTime} – ${active.endTime}`
+                <p className="text-sm font-medium">
+                  {active.startTime} – {active.endTime}
+                </p>
+              )}
+            </div>
+
+            {/* Capacity */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Capacity</span>
+              </div>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() =>
+                      setDraft((d) =>
+                        d ? { ...d, maxPlayers: Math.max(1, d.maxPlayers - 1) } : d
+                      )
+                    }
+                  >
+                    <Minus className="w-3 h-3" />
+                  </Button>
+                  <span className="w-6 text-center text-sm font-semibold">
+                    {active.maxPlayers}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() =>
+                      setDraft((d) => (d ? { ...d, maxPlayers: d.maxPlayers + 1 } : d))
+                    }
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  {(() => {
+                    const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
+                    const effectiveFilled = active.participants.length - absentCount;
+                    const openSpots = active.maxPlayers - effectiveFilled;
+                    const pendingInvites = localInvitations.filter(inv => inv.status === "sent" || inv.status === "queued").length;
+                    return (
+                      <>
+                        <p className="text-sm font-medium">{effectiveFilled}/{active.maxPlayers}</p>
+                        {openSpots > 0 && (
+                          <p className="text-xs text-muted-foreground">{openSpots} open{pendingInvites > 0 ? `, ${pendingInvites} pending` : ""}</p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Level */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">Level</span>
+              </div>
+              {isEditing ? (
+                <Select
+                  value={active.levelId ?? ""}
+                  onValueChange={(value) =>
+                    setDraft((d) => (d ? { ...d, levelId: value || null } : d))
+                  }
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {levels.map((level) => (
+                      <SelectItem key={level.id} value={level.id}>
+                        {level.code} – {level.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium">
+                  {levels.find((l) => l.id === active.levelId)?.code ?? "—"}
+                </p>
               )}
             </div>
           </div>
 
-          <Separator />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Color</div>
-            <div className="flex gap-2 flex-wrap">
-              {COLORS.map((color) => (
-                <button
-                  key={color}
-                  disabled={!isEditing}
-                  onClick={() => setDraft((d) => (d ? { ...d, color } : d))}
-                  className={cn(
-                    "w-8 h-8 rounded-full",
-                    active.color === color && "ring-2 ring-offset-2 ring-primary"
-                  )}
-                  style={{ backgroundColor: color }}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Level</div>
-            <Select
-              disabled={!isEditing}
-              value={active.levelId ?? ""}
-              onValueChange={(value) =>
-                setDraft((d) => (d ? { ...d, levelId: value || null } : d))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select level" />
-              </SelectTrigger>
-              <SelectContent>
-                {levels.map((level) => (
-                  <SelectItem key={level.id} value={level.id}>
-                    {level.code} – {level.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+          {/* Auto notifications */}
           {canManage && event?.type === "class" && autoInviteEnabled && (
-            <>
-              <Separator />
+            <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Automatic notifications</span>
+                  <div>
+                    <span className="text-sm font-medium">Auto notifications</span>
+                    <p className="text-xs text-muted-foreground">Students will be auto-invited</p>
+                  </div>
                 </div>
                 <Switch
-                  checked={active.notificationsEnabled ?? true}
+                  checked={active.notificationsEnabled ?? false}
                   onCheckedChange={(checked) =>
                     setDraft((d) => d ? { ...d, notificationsEnabled: checked } : d)
                   }
                   disabled={!isEditing}
                 />
               </div>
-            </>
+            </div>
           )}
 
-          <Separator />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Capacity</div>
-            {isEditing ? (
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    setDraft((d) =>
-                      d ? { ...d, maxPlayers: Math.max(1, d.maxPlayers - 1) } : d
-                    )
-                  }
-                >
-                  <Minus className="w-4 h-4" />
-                </Button>
-                <span className="w-8 text-center font-semibold">
-                  {active.maxPlayers}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    setDraft((d) => (d ? { ...d, maxPlayers: d.maxPlayers + 1 } : d))
-                  }
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
+          {/* Color — only in edit mode */}
+          {isEditing && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">Color</span>
+              <div className="flex gap-2 flex-wrap">
+                {COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setDraft((d) => (d ? { ...d, color } : d))}
+                    className={cn(
+                      "w-7 h-7 rounded-full transition-all",
+                      active.color === color && "ring-2 ring-offset-2 ring-primary"
+                    )}
+                    style={{ backgroundColor: color }}
+                    type="button"
+                  />
+                ))}
               </div>
-            ) : (
-              <p className="text-sm">
-                {(() => {
-                  const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
-                  const effectiveFilled = active.participants.length - absentCount;
-                  const openSpots = active.maxPlayers - effectiveFilled;
-                  const pendingInvites = localInvitations.filter(inv => inv.status === "sent" || inv.status === "queued").length;
-                  const details: string[] = [];
-                  if (openSpots > 0) details.push(`${openSpots} open`);
-                  if (absentCount > 0) details.push(`${absentCount} absent`);
-                  if (pendingInvites > 0) details.push(`${pendingInvites} invite${pendingInvites !== 1 ? "s" : ""} pending`);
-                  return (
-                    <>
-                      {effectiveFilled}/{active.maxPlayers}
-                      {details.length > 0 && (
-                        <span className="text-muted-foreground ml-1">
-                          ({details.join(", ")})
-                        </span>
-                      )}
-                    </>
-                  );
-                })()}
-              </p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Recurring — only in edit mode */}
+          {isEditing && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">Recurring</span>
+                </div>
+                <Switch
+                  checked={active.isRecurring ?? false}
+                  onCheckedChange={(checked) =>
+                    setDraft((d) => d ? { ...d, isRecurring: checked } : d)
+                  }
+                />
+              </div>
+              {active.isRecurring && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Days of the week</span>
+                    <div className="flex gap-1">
+                      {[
+                        { value: 1, label: "M" },
+                        { value: 2, label: "T" },
+                        { value: 3, label: "W" },
+                        { value: 4, label: "T" },
+                        { value: 5, label: "F" },
+                        { value: 6, label: "S" },
+                        { value: 0, label: "S" },
+                      ].map(({ value, label }) => {
+                        const days: number[] = (active as any).recurrenceRule?.daysOfWeek ?? [];
+                        const isSelected = days.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() =>
+                              setDraft((d) => {
+                                if (!d) return d;
+                                const current: number[] = (d as any).recurrenceRule?.daysOfWeek ?? [];
+                                const updated = isSelected
+                                  ? current.filter((x) => x !== value)
+                                  : [...current, value];
+                                return {
+                                  ...d,
+                                  recurrenceRule: { ...(d as any).recurrenceRule, frequency: "weekly", daysOfWeek: updated },
+                                };
+                              })
+                            }
+                            className={cn(
+                              "w-8 h-8 rounded-full text-xs font-medium transition-colors",
+                              isSelected
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted hover:bg-muted-foreground/10"
+                            )}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <Input
+                      type="date"
+                      value={active.recurrenceEnd ?? ""}
+                      className="h-8 text-sm"
+                      onChange={(e) =>
+                        setDraft((d) => d ? { ...d, recurrenceEnd: e.target.value } : d)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <Separator />
 
@@ -699,15 +778,22 @@ export function ClassDetailSheet({
               />
             ) : (
               <div className="space-y-2">
-                {active.participants.map((p) => (
-                  <AttendanceRow
-                    key={p.id}
-                    player={p}
-                    attendance={attendance[p.id] || { status: null }}
-                    onChange={(state) => handleAttendanceChange(p.id, state)}
-                    disabled={!isValidating || isCanceled}
-                  />
-                ))}
+                {active.participants.map((p) => {
+                  const presence = classInstance?.presences?.find(
+                    (x) => x.playerId === p.id
+                  );
+                  return (
+                    <AttendanceRow
+                      key={p.id}
+                      player={p}
+                      attendance={attendance[p.id] || { status: null }}
+                      onChange={(state) => handleAttendanceChange(p.id, state)}
+                      disabled={!isValidating || isCanceled}
+                      invited={presence?.invited}
+                      confirmed={presence?.confirmed}
+                    />
+                  );
+                })}
 
                 {active.participants.length === 0 && (
                   <p className="text-sm text-muted-foreground">
@@ -826,21 +912,48 @@ export function ClassDetailSheet({
                     Edit
                   </Button>
                   {event?.type === "class" && (
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setShowNotifyModal(true)}
-                      disabled={isValidating}
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Notify
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setShowNotifyModal(true)}
+                        disabled={isValidating || sendingReminders}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Notify
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        disabled={isValidating || sendingReminders}
+                        onClick={async () => {
+                          if (!event) return;
+                          setSendingReminders(true);
+                          try {
+                            const { sent } = await sendClassReminders(
+                              event.model,
+                              String(event.originalId),
+                              event.date
+                            );
+                            toast({ title: `Reminders sent to ${sent} student${sent !== 1 ? "s" : ""}` });
+                          } catch {
+                            toast({ title: "Failed to send reminders", variant: "destructive" });
+                          } finally {
+                            setSendingReminders(false);
+                          }
+                        }}
+                      >
+                        <Bell className="w-4 h-4 mr-2" />
+                        {sendingReminders ? "Sending…" : "Remind"}
+                      </Button>
+                    </>
                   )}
                   <Button
                     variant="outline"
                     className="text-destructive"
                     onClick={handleDeleteClick}
                     disabled={isValidating}
+                    aria-label="Delete class"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

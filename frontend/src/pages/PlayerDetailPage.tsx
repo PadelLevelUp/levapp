@@ -4,17 +4,19 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
-import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote } from "@/types";
-import { EditPlayerSheet, type EditPlayerInput } from "@/components/players/EditPlayerSheet";
+import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote, PlayerSide } from "@/types";
 import { AddEvaluationSheet } from "@/components/players/detail/AddEvaluationSheet";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations";
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ClipboardPlus, CalendarPlus } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, CalendarPlus, ListX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
+import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
+import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/notificationEngine";
+import type { StandingWaitingListEntry } from "@/types";
 import { toast } from "sonner";
 
 export default function PlayerDetailPage() {
@@ -26,10 +28,24 @@ export default function PlayerDetailPage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [categories, setCategories] = useState<EvaluationCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [isClassesOpen, setIsClassesOpen] = useState(false);
+
+  // Inline edit state
+  const [standingEntry, setStandingEntry] = useState<StandingWaitingListEntry | null>(null);
+  const [isWaitingListOpen, setIsWaitingListOpen] = useState(false);
+  const [removingWaitingList, setRemovingWaitingList] = useState(false);
+
+  // Inline edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftUsername, setDraftUsername] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
+  const [draftPhone, setDraftPhone] = useState("");
+  const [draftLevelId, setDraftLevelId] = useState("");
+  const [draftSide, setDraftSide] = useState<PlayerSide | "">("");
+  const [draftNotes, setDraftNotes] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -45,8 +61,13 @@ export default function PlayerDetailPage() {
         setPlayer(found ?? null);
 
         if (found) {
-          const profileData = await getPlayerProfile(found.playerId);
+          const [profileData, standingList] = await Promise.all([
+            getPlayerProfile(found.playerId),
+            getStandingWaitingList(),
+          ]);
           setProfile(profileData);
+          const entry = standingList.find((e) => String(e.playerId) === String(found.playerId));
+          setStandingEntry(entry ?? null);
         }
       } finally {
         setLoading(false);
@@ -55,31 +76,59 @@ export default function PlayerDetailPage() {
     load();
   }, [playerId]);
 
-  const handleEditSave = async (data: EditPlayerInput) => {
+  const handleEditStart = () => {
+    if (!player) return;
+    setDraftName(player.name ?? "");
+    setDraftUsername(player.username ?? "");
+    setDraftEmail(player.email ?? "");
+    setDraftPhone(player.phone ?? "");
+    setDraftLevelId(player.levelId ?? "");
+    setDraftSide(player.side ?? "");
+    setDraftNotes(player.notes ?? "");
+    setIsEditing(true);
+  };
+
+  const handleEditCancel = () => {
+    setIsEditing(false);
+  };
+
+  const handleEditSave = async () => {
     if (!player) return;
     const prev = player;
-    const level = data.levelId ? levels.find((l) => l.id === data.levelId) : undefined;
+    const level = draftLevelId ? levels.find((l) => l.id === draftLevelId) : undefined;
+
+    const updates = {
+      name: draftName.trim() || undefined,
+      username: draftUsername.trim() || undefined,
+      userId: player.userId,
+      email: draftEmail.trim() || undefined,
+      phone: draftPhone.trim() || undefined,
+      levelId: draftLevelId || undefined,
+      side: (draftSide || undefined) as PlayerSide | undefined,
+      notes: draftNotes.trim() || undefined,
+    };
 
     const updated: CoachPlayer = {
       ...player,
-      name: data.name,
-      username: data.username,
-      email: data.email,
-      phone: data.phone,
-      levelId: data.levelId,
-      side: data.side,
-      notes: data.notes,
-      isActive: data.isActive,
+      name: updates.name ?? player.name,
+      username: updates.username,
+      email: updates.email,
+      phone: updates.phone,
+      levelId: updates.levelId,
+      side: updates.side,
+      notes: updates.notes,
       level,
     };
 
     setPlayer(updated);
-    setIsEditOpen(false);
+    setIsEditing(false);
 
     try {
-      await editPlayer(player, data);
+      await editPlayer(player, updates);
     } catch {
       setPlayer(prev);
+      setIsEditing(true);
+      toast.error("Failed to save changes");
     }
   };
 
@@ -103,7 +152,6 @@ export default function PlayerDetailPage() {
   }) => {
     if (!player) return;
 
-    // Optimistic update
     const newEvaluations = data.scores.map((s) => {
       const cat = categories.find((c) => c.id === s.categoryId);
       return {
@@ -171,12 +219,52 @@ export default function PlayerDetailPage() {
           <Button size="sm" variant="outline" onClick={() => setIsClassesOpen(true)}>
             <CalendarPlus className="mr-2 h-4 w-4" /> Add to Classes
           </Button>
+          {standingEntry ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-amber-600 border-amber-300 hover:bg-amber-50"
+              disabled={removingWaitingList}
+              onClick={async () => {
+                setRemovingWaitingList(true);
+                try {
+                  await removeFromStandingWaitingList(standingEntry.id);
+                  setStandingEntry(null);
+                  toast.success(`Removed ${player.name} from the waiting list`);
+                } catch {
+                  toast.error("Failed to remove from waiting list");
+                } finally {
+                  setRemovingWaitingList(false);
+                }
+              }}
+            >
+              {removingWaitingList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListX className="mr-2 h-4 w-4" />}
+              On waiting list
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setIsWaitingListOpen(true)}>
+              <ListX className="mr-2 h-4 w-4" /> Waiting list
+            </Button>
+          )}
           <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
             <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
           </Button>
         </div>
 
-        <PlayerHeader player={player} levels={levels} onEdit={() => setIsEditOpen(true)} />
+        <PlayerHeader
+          player={player}
+          levels={levels}
+          isEditing={isEditing}
+          draftName={draftName}
+          draftLevelId={draftLevelId}
+          draftSide={draftSide}
+          onDraftNameChange={setDraftName}
+          onDraftLevelIdChange={setDraftLevelId}
+          onDraftSideChange={setDraftSide}
+          onEdit={handleEditStart}
+          onSave={handleEditSave}
+          onCancel={handleEditCancel}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -206,27 +294,20 @@ export default function PlayerDetailPage() {
             />
           </div>
           <div>
-            <PlayerInfoCard player={player} levels={levels} />
+            <PlayerInfoCard
+              player={player}
+              isEditing={isEditing}
+              draftUsername={draftUsername}
+              draftEmail={draftEmail}
+              draftPhone={draftPhone}
+              draftNotes={draftNotes}
+              onDraftUsernameChange={setDraftUsername}
+              onDraftEmailChange={setDraftEmail}
+              onDraftPhoneChange={setDraftPhone}
+              onDraftNotesChange={setDraftNotes}
+            />
           </div>
         </div>
-
-        <EditPlayerSheet
-          open={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
-          onSave={handleEditSave}
-          levels={levels}
-          initialValues={{
-            name: player.name ?? "",
-            username: player.username ?? "",
-            userId: player.userId ?? "",
-            email: player.email ?? "",
-            phone: player.phone ?? "",
-            levelId: player.levelId,
-            side: player.side,
-            notes: player.notes,
-            isActive: player.isActive,
-          }}
-        />
 
         <AddEvaluationSheet
           open={isEvalOpen}
@@ -244,6 +325,17 @@ export default function PlayerDetailPage() {
           player={player}
           onSave={(classIds) => {
             toast.success(`Added ${player.name} to ${classIds.length} ${classIds.length === 1 ? "class" : "classes"}`);
+          }}
+        />
+
+        <AddToStandingWaitingListDialog
+          open={isWaitingListOpen}
+          onClose={() => setIsWaitingListOpen(false)}
+          playerId={Number(player.playerId)}
+          playerName={player.name ?? null}
+          onAdded={(entry) => {
+            setStandingEntry(entry);
+            toast.success(`${player.name} added to the waiting list`);
           }}
         />
       </div>

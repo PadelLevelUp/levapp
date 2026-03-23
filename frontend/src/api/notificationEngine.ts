@@ -1,5 +1,10 @@
 import { api } from "@/api/client";
-import type { NotificationConfig, NotificationEventItem, StudentGroup, MessageTemplates } from "@/types";
+import type { NotificationConfig, NotificationEventItem, StudentGroup, MessageTemplates, StandingWaitingListEntry } from "@/types";
+
+export async function searchPlayers(query: string): Promise<{ players: { id: string; name: string }[] }> {
+  const res = await api.get("/app/notify/player_search", { params: { q: query } });
+  return res.data;
+}
 
 export async function getNotificationConfig(): Promise<NotificationConfig> {
   const res = await api.get("/app/notify/config");
@@ -19,6 +24,15 @@ export async function toggleLessonNotifications(
   date: string
 ): Promise<{ notificationsEnabled: boolean }> {
   const res = await api.post("/app/notify/toggle_class", { model, originalId, date });
+  return res.data;
+}
+
+export async function sendClassReminders(
+  model: string,
+  originalId: string,
+  date: string
+): Promise<{ sent: number }> {
+  const res = await api.post("/app/notify/send_reminders", { model, originalId, date });
   return res.data;
 }
 
@@ -64,7 +78,33 @@ export async function coachRespondToNotification(
   return res.data;
 }
 
+export async function respondToReminder(
+  lessonInstanceId: number,
+  action: "yes" | "no"
+): Promise<{ action: "confirmed" | "declined" }> {
+  const res = await api.post("/app/notify/respond_reminder", { lessonInstanceId, action });
+  return res.data;
+}
+
 export async function updateMessageTemplates(templates: Partial<MessageTemplates>): Promise<NotificationConfig> {
   const res = await api.post("/app/notify/config", { messageTemplates: templates });
   return res.data;
+}
+
+export async function getStandingWaitingList(): Promise<StandingWaitingListEntry[]> {
+  const res = await api.get("/app/notify/standing_waiting_list");
+  return res.data;
+}
+
+export async function addToStandingWaitingList(
+  playerId: number,
+  credits: number,
+  durationDays: number,
+): Promise<StandingWaitingListEntry> {
+  const res = await api.post("/app/notify/standing_waiting_list", { playerId, credits, durationDays });
+  return res.data;
+}
+
+export async function removeFromStandingWaitingList(entryId: number): Promise<void> {
+  await api.delete(`/app/notify/standing_waiting_list/${entryId}`);
 }

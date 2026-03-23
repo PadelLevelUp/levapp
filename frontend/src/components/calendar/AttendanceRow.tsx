@@ -2,8 +2,14 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Check, X, AlertCircle, CheckCircle2, Send, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface AttendanceState {
   status: PresenceStatus | null;
@@ -15,6 +21,8 @@ interface AttendanceRowProps {
   attendance: AttendanceState;
   onChange: (attendance: AttendanceState) => void;
   disabled?: boolean;
+  invited?: boolean;
+  confirmed?: boolean;
 }
 
 export function AttendanceRow({
@@ -22,6 +30,8 @@ export function AttendanceRow({
   attendance,
   onChange,
   disabled = false,
+  invited,
+  confirmed,
 }: AttendanceRowProps) {
   const name = player.user?.name ?? "Player";
 
@@ -59,6 +69,33 @@ export function AttendanceRow({
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium">{name}</span>
+
+          {/* Invited / Confirmed status icons */}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1">
+              {invited && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(
+                      "inline-flex items-center justify-center w-5 h-5 rounded-full",
+                      confirmed
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-warning/15 text-warning"
+                    )}>
+                      {confirmed ? (
+                        <UserCheck className="w-3 h-3" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {confirmed ? "Confirmed attendance" : "Reminder sent"}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </TooltipProvider>
         </div>
 
         {attendance.status === "present" && (
