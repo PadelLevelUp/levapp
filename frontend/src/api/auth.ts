@@ -8,6 +8,7 @@ export type MeResponse = {
   name: string;
   roles: string[];
   coachId: string | null;
+  isSuperAdmin: boolean;
 };
 
 export async function getMe(): Promise<MeResponse> {
@@ -18,6 +19,7 @@ export async function getMe(): Promise<MeResponse> {
       name: "Bernardo Terroso",
       roles: ["coach"],
       coachId: MOCK_COACH_ID,
+      isSuperAdmin: false,
     };
   }
 
