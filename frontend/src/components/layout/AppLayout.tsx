@@ -8,6 +8,7 @@ import {
   Menu,
   MessageSquare,
   Dumbbell,
+  Database,
   X,
   ChevronLeft,
   ChevronRight,
@@ -37,6 +38,7 @@ type NavItem = {
   label: string;
   path: string;
   roles: string[];
+  superAdminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -76,6 +78,13 @@ const navItems: NavItem[] = [
     path: "/settings",
     roles: ["coach"],
   },
+  {
+    icon: Database,
+    label: "Editor",
+    path: "/editor",
+    roles: ["coach", "player"],
+    superAdminOnly: true,
+  },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -96,9 +105,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const visibleNavItems = navItems.filter(item =>
-    item.roles.some(role => user?.roles.includes(role))
-  );
+  const visibleNavItems = navItems.filter(item => {
+    if (item.superAdminOnly) return user?.isSuperAdmin === true;
+    return item.roles.some(role => user?.roles.includes(role));
+  });
 
   const userInitials =
     user?.name
