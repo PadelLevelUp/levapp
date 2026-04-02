@@ -34,6 +34,7 @@ import {
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
 import { DataImportSection } from "@/components/settings/DataImportSection";
+import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 
 type WeekStart = "monday" | "sunday";
@@ -793,8 +794,10 @@ export default function SettingsPage() {
                     Upload a file and let AI extract your levels, players, classes, evaluations and more.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-8">
                   <DataImportSection />
+                  <Separator />
+                  <ImportHistorySection />
                 </CardContent>
               </Card>
             )}

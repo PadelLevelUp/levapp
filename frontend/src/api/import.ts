@@ -108,6 +108,31 @@ export async function analyzeFile(
   }
 }
 
+/* ---------- import history ---------- */
+
+export interface ImportHistoryEntry {
+  id: number;
+  created_at: string;
+  filename: string | null;
+  status: "active" | "reverted";
+  summary: Record<string, number>;
+}
+
+export async function getImportHistory(): Promise<ImportHistoryEntry[]> {
+  const { data } = await api.get<ImportHistoryEntry[]>("/app/import/history");
+  return data;
+}
+
+export interface RevertResult {
+  deleted: Record<string, number>;
+  status: string;
+}
+
+export async function revertImport(importId: number): Promise<RevertResult> {
+  const { data } = await api.post<RevertResult>(`/app/import/${importId}/revert`);
+  return data;
+}
+
 /* ---------- confirm import ---------- */
 
 export interface ConfirmPayload {
