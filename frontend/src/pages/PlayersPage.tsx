@@ -7,10 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, X } from "lucide-react";
 
 import { getCoachPlayersPaginated, addPlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
-import { PlayersToolbar } from "@/components/players/PlayersToolbar";
+import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
@@ -24,6 +26,10 @@ export default function PlayersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [sortOption, setSortOption] = useState<SortOption>("name-asc");
+  const [missingLevelFilter, setMissingLevelFilter] = useState(false);
+  const [missingSideFilter, setMissingSideFilter] = useState(false);
+  const [alertCounts, setAlertCounts] = useState({ missingLevel: 0, missingSide: 0 });
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -57,21 +63,58 @@ export default function PlayersPage() {
     loadLevels();
   }, []);
 
+  // Parse sort option into API params
+  const parseSortOption = (opt: SortOption) => {
+    const [sortBy, sortDir] = opt.split("-") as ["name" | "level", "asc" | "desc"];
+    return { sortBy, sortDir };
+  };
+
   useEffect(() => {
     async function loadPlayersPage() {
       setLoading(true);
       try {
         const searchParam = debouncedSearch || undefined;
-        const playersData = await getCoachPlayersPaginated(currentPage, PAGE_SIZE, searchParam);
+        const { sortBy, sortDir } = parseSortOption(sortOption);
+        const playersData = await getCoachPlayersPaginated(
+          currentPage, PAGE_SIZE, searchParam,
+          sortBy, sortDir,
+          missingLevelFilter, missingSideFilter,
+        );
         setCoachPlayers(playersData.items);
         setTotalPages(playersData.pagination.pages || 1);
         setTotalItems(playersData.pagination.total || 0);
+        if (playersData.alerts) {
+          setAlertCounts(playersData.alerts);
+        }
       } finally {
         setLoading(false);
       }
     }
     loadPlayersPage();
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortOption, missingLevelFilter, missingSideFilter]);
+
+  const handleSortChange = (value: SortOption) => {
+    setSortOption(value);
+    setCurrentPage(1);
+  };
+
+  const toggleMissingLevelFilter = () => {
+    setMissingLevelFilter((prev) => !prev);
+    setMissingSideFilter(false);
+    setCurrentPage(1);
+  };
+
+  const toggleMissingSideFilter = () => {
+    setMissingSideFilter((prev) => !prev);
+    setMissingLevelFilter(false);
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setMissingLevelFilter(false);
+    setMissingSideFilter(false);
+    setCurrentPage(1);
+  };
 
   const getInitials = (name: string) =>
     name
@@ -87,10 +130,14 @@ export default function PlayersPage() {
       await addPlayer({ coachId: user?.coachId, ...data });
       setCurrentPage(1);
       setLoading(true);
-      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE);
+      const { sortBy, sortDir } = parseSortOption(sortOption);
+      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE, undefined, sortBy, sortDir);
       setCoachPlayers(playersData.items);
       setTotalPages(playersData.pagination.pages || 1);
       setTotalItems(playersData.pagination.total || 0);
+      if (playersData.alerts) {
+        setAlertCounts(playersData.alerts);
+      }
     } catch {
       // Keep previous list if create fails.
     } finally {
@@ -98,11 +145,54 @@ export default function PlayersPage() {
     }
   };
 
+  const hasActiveFilter = missingLevelFilter || missingSideFilter;
+
+  const alertsSection = (alertCounts.missingLevel > 0 || alertCounts.missingSide > 0) && (
+    <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+      {alertCounts.missingLevel > 0 && (
+        <Alert
+          className={`cursor-pointer transition-colors ${
+            missingLevelFilter
+              ? "border-amber-500 bg-amber-50 dark:bg-amber-950"
+              : "hover:border-amber-300"
+          }`}
+          onClick={toggleMissingLevelFilter}
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="ml-2">
+            {alertCounts.missingLevel} player{alertCounts.missingLevel !== 1 ? "s" : ""} without level defined
+          </AlertDescription>
+        </Alert>
+      )}
+      {alertCounts.missingSide > 0 && (
+        <Alert
+          className={`cursor-pointer transition-colors ${
+            missingSideFilter
+              ? "border-amber-500 bg-amber-50 dark:bg-amber-950"
+              : "hover:border-amber-300"
+          }`}
+          onClick={toggleMissingSideFilter}
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="ml-2">
+            {alertCounts.missingSide} player{alertCounts.missingSide !== 1 ? "s" : ""} without Playing Side defined
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
       <AppLayout>
         <div className="p-6 space-y-6">
-          <PlayersToolbar search={search} onSearchChange={handleSearchChange} onAddPlayer={() => setIsAddOpen(true)} />
+          <PlayersToolbar
+            search={search}
+            onSearchChange={handleSearchChange}
+            onAddPlayer={() => setIsAddOpen(true)}
+            sortOption={sortOption}
+            onSortChange={handleSortChange}
+          />
           <div className="relative h-full">
             <LoadingPlayersGrid />
           </div>
@@ -114,7 +204,32 @@ export default function PlayersPage() {
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
-        <PlayersToolbar search={search} onSearchChange={handleSearchChange} onAddPlayer={() => setIsAddOpen(true)} />
+        <PlayersToolbar
+          search={search}
+          onSearchChange={handleSearchChange}
+          onAddPlayer={() => setIsAddOpen(true)}
+          sortOption={sortOption}
+          onSortChange={handleSortChange}
+        />
+
+        {alertsSection}
+
+        {hasActiveFilter && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              {missingLevelFilter ? "Missing level" : "Missing side"} filter active
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              aria-label="Clear filter"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Clear filter
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {coachPlayers.map((cs) => {
