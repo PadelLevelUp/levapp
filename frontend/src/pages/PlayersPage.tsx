@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { CoachPlayer, CoachLevel } from "@/types";
 
@@ -18,6 +18,7 @@ import { useAuth } from "@/auth/AuthContext";
 export default function PlayersPage() {
   const PAGE_SIZE = 25;
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,13 +30,20 @@ export default function PlayersPage() {
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return coachPlayers;
-    return coachPlayers.filter((cs) =>
-      (cs.name ?? "").toLowerCase().includes(q)
-    );
-  }, [coachPlayers, search]);
+  // Debounce search input — reset page to 1 on new search
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value.trim());
+      setCurrentPage(1);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
 
   useEffect(() => {
     async function loadLevels() {
@@ -53,7 +61,8 @@ export default function PlayersPage() {
     async function loadPlayersPage() {
       setLoading(true);
       try {
-        const playersData = await getCoachPlayersPaginated(currentPage, PAGE_SIZE);
+        const searchParam = debouncedSearch || undefined;
+        const playersData = await getCoachPlayersPaginated(currentPage, PAGE_SIZE, searchParam);
         setCoachPlayers(playersData.items);
         setTotalPages(playersData.pagination.pages || 1);
         setTotalItems(playersData.pagination.total || 0);
@@ -62,7 +71,7 @@ export default function PlayersPage() {
       }
     }
     loadPlayersPage();
-  }, [currentPage]);
+  }, [currentPage, debouncedSearch]);
 
   const getInitials = (name: string) =>
     name
@@ -93,7 +102,7 @@ export default function PlayersPage() {
     return (
       <AppLayout>
         <div className="p-6 space-y-6">
-          <PlayersToolbar search={search} onSearchChange={setSearch} onAddPlayer={() => setIsAddOpen(true)} />
+          <PlayersToolbar search={search} onSearchChange={handleSearchChange} onAddPlayer={() => setIsAddOpen(true)} />
           <div className="relative h-full">
             <LoadingPlayersGrid />
           </div>
@@ -105,10 +114,10 @@ export default function PlayersPage() {
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
-        <PlayersToolbar search={search} onSearchChange={setSearch} onAddPlayer={() => setIsAddOpen(true)} />
+        <PlayersToolbar search={search} onSearchChange={handleSearchChange} onAddPlayer={() => setIsAddOpen(true)} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((cs) => {
+          {coachPlayers.map((cs) => {
             const level = cs.level;
             return (
               <Card

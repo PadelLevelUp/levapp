@@ -70,11 +70,16 @@ export async function getCoachPlayers(): Promise<CoachPlayer[]> {
   return res.data;
 }
 
-export async function getCoachPlayersPaginated(page = 1, perPage = 25): Promise<CoachPlayersPageResponse> {
+export async function getCoachPlayersPaginated(page = 1, perPage = 25, search?: string): Promise<CoachPlayersPageResponse> {
   if (USE_MOCK_DATA) {
-    const total = mockCoachPlayers.length;
+    let filtered = mockCoachPlayers;
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = mockCoachPlayers.filter((p) => (p.name ?? "").toLowerCase().includes(q));
+    }
+    const total = filtered.length;
     const start = (page - 1) * perPage;
-    const items = mockCoachPlayers.slice(start, start + perPage);
+    const items = filtered.slice(start, start + perPage);
     const pages = Math.max(1, Math.ceil(total / perPage));
     return {
       items,
@@ -89,23 +94,29 @@ export async function getCoachPlayersPaginated(page = 1, perPage = 25): Promise<
     };
   }
 
-  const key = `${page}:${perPage}`;
-  const cached = coachPlayersCache.pages.get(key);
-  if (cached && isFresh(cached.expiresAt)) {
-    return cached.data;
+  // Skip cache when searching to always get fresh results
+  if (!search) {
+    const key = `${page}:${perPage}`;
+    const cached = coachPlayersCache.pages.get(key);
+    if (cached && isFresh(cached.expiresAt)) {
+      return cached.data;
+    }
   }
 
-  const res = await api.get("/app/coach_players_paginated", {
-    params: {
-      page,
-      per_page: perPage,
-    },
-  });
+  const params: Record<string, string | number> = { page, per_page: perPage };
+  if (search) {
+    params.search = search;
+  }
+
+  const res = await api.get("/app/coach_players_paginated", { params });
   const payload = res.data as CoachPlayersPageResponse;
-  coachPlayersCache.pages.set(key, {
-    data: payload,
-    expiresAt: Date.now() + COACH_PLAYERS_CACHE_TTL_MS,
-  });
+  if (!search) {
+    const key = `${page}:${perPage}`;
+    coachPlayersCache.pages.set(key, {
+      data: payload,
+      expiresAt: Date.now() + COACH_PLAYERS_CACHE_TTL_MS,
+    });
+  }
   return payload;
 }
 

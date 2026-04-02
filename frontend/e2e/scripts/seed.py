@@ -127,6 +127,33 @@ with app.app_context():
     )
     db.session.add(ghost_assoc)
 
+    # ── Bulk filler players (for pagination / search tests) ──────────────────
+    # Creates 27 extra players so the coach has 30 total (3 + 27).
+    # With PAGE_SIZE=25, the original 3 players end up on page 2 (ordered by id desc).
+    for i in range(1, 28):
+        filler_user = User(
+            name=f"Filler Player {i:02d}",
+            username=f"filler-player-{i:02d}",
+            email=f"filler{i:02d}@test.com",
+            password=generate_password_hash("Filler123!"),
+            status="active",
+        )
+        db.session.add(filler_user)
+        db.session.flush()
+        filler_player = Player(user_id=filler_user.id)
+        db.session.add(filler_player)
+        db.session.flush()
+        filler_assoc = Association_CoachPlayer(
+            coach_id=coach.id,
+            player_id=filler_player.id,
+            level_id=level_beginner.id,
+            side="right",
+            notes=f"Filler player {i:02d}",
+        )
+        db.session.add(filler_assoc)
+
+    db.session.flush()
+
     # ── Lesson + LessonInstance ───────────────────────────────────────────────
     # Future class (next Monday)
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
