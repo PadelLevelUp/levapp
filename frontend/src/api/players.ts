@@ -192,3 +192,12 @@ export async function deleteCoachNote(note: CoachNote): Promise<void> {
   }
   await api.post("/app/delete/coach_note", { id: note.id });
 }
+
+export async function removePlayer(coachId: string, playerId: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] removePlayer", { coachId, playerId });
+    return;
+  }
+  await api.post("/app/remove_player", { coachId, playerId });
+  invalidateCoachPlayersCache();
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
 import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote, PlayerSide } from "@/types";
@@ -11,17 +11,31 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ClipboardPlus, CalendarPlus, ListX, Loader2 } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageActions } from "@/components/layout/PageActions";
+import type { PageAction } from "@/components/layout/PageActions";
 import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
 import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/notificationEngine";
 import type { StandingWaitingListEntry } from "@/types";
 import { toast } from "sonner";
+import { useAuth } from "@/auth/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
 
   const [player, setPlayer] = useState<CoachPlayer | null>(null);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -47,6 +61,23 @@ export default function PlayerDetailPage() {
   const [draftLevelId, setDraftLevelId] = useState("");
   const [draftSide, setDraftSide] = useState<PlayerSide | "">("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!player || !authUser?.coachId) return;
+    setDeleting(true);
+    try {
+      await removePlayer(authUser.coachId, player.playerId);
+      toast.success(`${player.name || "Player"} has been deleted`);
+      navigate("/players");
+    } catch {
+      toast.error("Failed to delete player");
+    } finally {
+      setDeleting(false);
+      setIsDeleteOpen(false);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -218,39 +249,54 @@ export default function PlayerDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setIsClassesOpen(true)}>
-            <CalendarPlus className="mr-2 h-4 w-4" /> Add to Classes
-          </Button>
-          {standingEntry ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-amber-600 border-amber-300 hover:bg-amber-50"
-              disabled={removingWaitingList}
-              onClick={async () => {
-                setRemovingWaitingList(true);
-                try {
-                  await removeFromStandingWaitingList(standingEntry.id);
-                  setStandingEntry(null);
-                  toast.success(`Removed ${player.name} from the waiting list`);
-                } catch {
-                  toast.error("Failed to remove from waiting list");
-                } finally {
-                  setRemovingWaitingList(false);
-                }
-              }}
-            >
-              {removingWaitingList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListX className="mr-2 h-4 w-4" />}
-              On waiting list
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsWaitingListOpen(true)}>
-              <ListX className="mr-2 h-4 w-4" /> Waiting list
-            </Button>
-          )}
-          <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
-            <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
-          </Button>
+          <PageActions
+            actions={[
+              {
+                label: "Add to Classes",
+                icon: <CalendarPlus className="mr-2 h-4 w-4" />,
+                onClick: () => setIsClassesOpen(true),
+              },
+              standingEntry
+                ? {
+                    label: "On waiting list",
+                    icon: removingWaitingList
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <ListX className="mr-2 h-4 w-4" />,
+                    onClick: async () => {
+                      setRemovingWaitingList(true);
+                      try {
+                        await removeFromStandingWaitingList(standingEntry.id);
+                        setStandingEntry(null);
+                        toast.success(`Removed ${player.name} from the waiting list`);
+                      } catch {
+                        toast.error("Failed to remove from waiting list");
+                      } finally {
+                        setRemovingWaitingList(false);
+                      }
+                    },
+                    disabled: removingWaitingList,
+                    className: "text-amber-600 border-amber-300 hover:bg-amber-50",
+                  }
+                : {
+                    label: "Waiting list",
+                    icon: <ListX className="mr-2 h-4 w-4" />,
+                    onClick: () => setIsWaitingListOpen(true),
+                  },
+              {
+                label: categoriesLoading ? "Loading..." : "Add Evaluation",
+                icon: <ClipboardPlus className="mr-2 h-4 w-4" />,
+                onClick: handleOpenEval,
+                disabled: categoriesLoading,
+                variant: "default" as const,
+              },
+              {
+                label: "Delete Player",
+                icon: <Trash2 className="mr-2 h-4 w-4" />,
+                onClick: () => setIsDeleteOpen(true),
+                variant: "destructive" as const,
+              },
+            ] satisfies PageAction[]}
+          />
         </div>
 
         <PlayerHeader
@@ -357,6 +403,29 @@ export default function PlayerDetailPage() {
             toast.success(`${player.name} added to the waiting list`);
           }}
         />
+
+        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove {player.name || "this player"} from your roster.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
