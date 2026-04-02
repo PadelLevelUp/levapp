@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: `http://127.0.0.1:${process.env.VITE_BACKEND_PORT ?? "5000"}`,
