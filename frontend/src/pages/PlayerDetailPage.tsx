@@ -13,6 +13,8 @@ import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageActions } from "@/components/layout/PageActions";
+import type { PageAction } from "@/components/layout/PageActions";
 import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
 import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/notificationEngine";
@@ -247,42 +249,54 @@ export default function PlayerDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setIsClassesOpen(true)}>
-            <CalendarPlus className="mr-2 h-4 w-4" /> Add to Classes
-          </Button>
-          {standingEntry ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-amber-600 border-amber-300 hover:bg-amber-50"
-              disabled={removingWaitingList}
-              onClick={async () => {
-                setRemovingWaitingList(true);
-                try {
-                  await removeFromStandingWaitingList(standingEntry.id);
-                  setStandingEntry(null);
-                  toast.success(`Removed ${player.name} from the waiting list`);
-                } catch {
-                  toast.error("Failed to remove from waiting list");
-                } finally {
-                  setRemovingWaitingList(false);
-                }
-              }}
-            >
-              {removingWaitingList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ListX className="mr-2 h-4 w-4" />}
-              On waiting list
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsWaitingListOpen(true)}>
-              <ListX className="mr-2 h-4 w-4" /> Waiting list
-            </Button>
-          )}
-          <Button size="sm" disabled={categoriesLoading} onClick={handleOpenEval}>
-            <ClipboardPlus className="mr-2 h-4 w-4" /> {categoriesLoading ? "Loading..." : "Add Evaluation"}
-          </Button>
-          <Button size="sm" variant="destructive" onClick={() => setIsDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete Player
-          </Button>
+          <PageActions
+            actions={[
+              {
+                label: "Add to Classes",
+                icon: <CalendarPlus className="mr-2 h-4 w-4" />,
+                onClick: () => setIsClassesOpen(true),
+              },
+              standingEntry
+                ? {
+                    label: "On waiting list",
+                    icon: removingWaitingList
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <ListX className="mr-2 h-4 w-4" />,
+                    onClick: async () => {
+                      setRemovingWaitingList(true);
+                      try {
+                        await removeFromStandingWaitingList(standingEntry.id);
+                        setStandingEntry(null);
+                        toast.success(`Removed ${player.name} from the waiting list`);
+                      } catch {
+                        toast.error("Failed to remove from waiting list");
+                      } finally {
+                        setRemovingWaitingList(false);
+                      }
+                    },
+                    disabled: removingWaitingList,
+                    className: "text-amber-600 border-amber-300 hover:bg-amber-50",
+                  }
+                : {
+                    label: "Waiting list",
+                    icon: <ListX className="mr-2 h-4 w-4" />,
+                    onClick: () => setIsWaitingListOpen(true),
+                  },
+              {
+                label: categoriesLoading ? "Loading..." : "Add Evaluation",
+                icon: <ClipboardPlus className="mr-2 h-4 w-4" />,
+                onClick: handleOpenEval,
+                disabled: categoriesLoading,
+                variant: "default" as const,
+              },
+              {
+                label: "Delete Player",
+                icon: <Trash2 className="mr-2 h-4 w-4" />,
+                onClick: () => setIsDeleteOpen(true),
+                variant: "destructive" as const,
+              },
+            ] satisfies PageAction[]}
+          />
         </div>
 
         <PlayerHeader
