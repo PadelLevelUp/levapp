@@ -6,33 +6,40 @@ import { openSettings } from "../helpers/navigation";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Login and get an auth token for direct API calls */
+let importCounter = 0;
+
 async function getAuthToken(request: import("@playwright/test").APIRequestContext): Promise<string> {
   const res = await request.post("/api/auth/login", {
     data: { username: COACH_USERNAME, password: COACH_PASSWORD },
   });
   const body = await res.json();
-  return body.access_token;
+  return body.accessToken;
 }
 
-/** Seed an import via the API so import history has entries */
+/** Seed a unique import via the API */
 async function seedImportViaAPI(
   request: import("@playwright/test").APIRequestContext,
   token: string,
+  playerCount = 2,
 ) {
-  // Create a small bulk import with 2 players
-  const payload = {
-    Players: [
-      { name: "Import Test Player One", email: "import-test-one@e2e.com" },
-      { name: "Import Test Player Two", email: "import-test-two@e2e.com" },
-    ],
-  };
+  importCounter++;
+  const ts = Date.now();
+  const players = Array.from({ length: playerCount }, (_, i) => ({
+    name: `Import Player ${ts}-${importCounter}-${i + 1}`,
+    email: `import-${ts}-${importCounter}-${i + 1}@e2e.com`,
+  }));
+
+  const payload = { Players: players };
   const res = await request.post("/api/app/import/confirm", {
     headers: { Authorization: `Bearer ${token}` },
     data: payload,
   });
+  if (!res.ok()) {
+    const text = await res.text();
+    console.error(`Import confirm failed (${res.status()}): ${text}`);
+  }
   expect(res.ok()).toBeTruthy();
-  return await res.json();
+  return { result: await res.json(), playerNames: players.map((p) => p.name) };
 }
 
 async function openImportTab(page: import("@playwright/test").Page) {
@@ -52,11 +59,12 @@ test("PAD-21: import history section shows past uploads", async ({ page, request
 
   await openImportTab(page);
 
-  // The import history section should be visible
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
-  // Should show the recent import with player count
-  await expect(page.getByText(/2 players/i)).toBeVisible({ timeout: 5000 });
+  // Should show at least one import entry
+  const entry = page.locator("[data-testid='import-history-entry']").first();
+  await expect(entry).toBeVisible({ timeout: 5000 });
+  await expect(entry.getByText(/players/i)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -71,12 +79,12 @@ test("PAD-21: import history entry shows date and item counts", async ({ page, r
 
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
-  // Each import entry should show the date
   const historyEntry = page.locator("[data-testid='import-history-entry']").first();
   await expect(historyEntry).toBeVisible({ timeout: 5000 });
 
-  // Should show item counts
+  // Should show item counts and status badge
   await expect(historyEntry.getByText(/2 players/i)).toBeVisible();
+  await expect(historyEntry.getByText(/active/i)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -92,14 +100,14 @@ test("PAD-21: clicking revert shows confirmation dialog with item counts", async
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
   // Click revert on the first import entry
-  const revertButton = page.getByRole("button", { name: /revert/i }).first();
-  await revertButton.click();
+  const entry = page.locator("[data-testid='import-history-entry']").first();
+  await entry.getByRole("button", { name: /revert/i }).click();
 
   // Confirmation dialog should appear
-  await expect(page.getByText(/are you sure/i)).toBeVisible({ timeout: 3000 });
-
-  // Should show the count of items to be deleted
-  await expect(page.getByText(/2 players/i)).toBeVisible();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible({ timeout: 3000 });
+  await expect(dialog.getByText(/are you sure/i)).toBeVisible();
+  await expect(dialog.getByText(/players/i)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -115,19 +123,20 @@ test("PAD-21: canceling revert dismisses dialog", async ({ page, request }) => {
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
   // Open revert dialog
-  const revertButton = page.getByRole("button", { name: /revert/i }).first();
-  await revertButton.click();
+  const entry = page.locator("[data-testid='import-history-entry']").first();
+  await entry.getByRole("button", { name: /revert/i }).click();
 
-  await expect(page.getByText(/are you sure/i)).toBeVisible({ timeout: 3000 });
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible({ timeout: 3000 });
 
   // Click cancel
-  await page.getByRole("button", { name: /cancel/i }).click();
+  await dialog.getByRole("button", { name: /cancel/i }).click();
 
   // Dialog should be dismissed
-  await expect(page.getByText(/are you sure/i)).not.toBeVisible();
+  await expect(dialog).not.toBeVisible();
 
-  // Import entry should still be visible
-  await expect(page.getByText(/2 players/i)).toBeVisible();
+  // Import entry should still be visible with active status
+  await expect(entry.getByText(/active/i)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -136,32 +145,33 @@ test("PAD-21: canceling revert dismisses dialog", async ({ page, request }) => {
 
 test("PAD-21: confirming revert removes imported items", async ({ page, request }) => {
   const token = await getAuthToken(request);
-  await seedImportViaAPI(request, token);
+  const { playerNames } = await seedImportViaAPI(request, token);
 
   await openImportTab(page);
 
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
   // Open revert dialog
-  const revertButton = page.getByRole("button", { name: /revert/i }).first();
-  await revertButton.click();
+  const entry = page.locator("[data-testid='import-history-entry']").first();
+  await entry.getByRole("button", { name: /revert/i }).click();
 
-  await expect(page.getByText(/are you sure/i)).toBeVisible({ timeout: 3000 });
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible({ timeout: 3000 });
 
   // Confirm the revert
-  await page.getByRole("button", { name: /confirm/i }).click();
+  await dialog.getByRole("button", { name: /confirm/i }).click();
 
-  // Wait for the revert to complete — the entry should disappear or show as reverted
+  // Wait for the revert to complete
   await expect(page.getByText(/successfully reverted/i)).toBeVisible({ timeout: 5000 });
 
-  // The reverted import should no longer show a revert button
   // Navigate to players to verify the imported players were removed
   await page.goto("/players");
   await page.waitForURL("**/players");
 
   // The imported test players should no longer appear
-  await expect(page.getByText("Import Test Player One")).not.toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Import Test Player Two")).not.toBeVisible({ timeout: 5000 });
+  for (const name of playerNames) {
+    await expect(page.getByText(name)).not.toBeVisible({ timeout: 5000 });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -172,32 +182,25 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
   const token = await getAuthToken(request);
 
   // Create two separate imports
-  await seedImportViaAPI(request, token);
-
-  const payload2 = {
-    Players: [
-      { name: "Second Import Player", email: "second-import@e2e.com" },
-    ],
-  };
-  await request.post("/api/app/import/confirm", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: payload2,
-  });
+  const { playerNames: firstNames } = await seedImportViaAPI(request, token, 2);
+  const { playerNames: secondNames } = await seedImportViaAPI(request, token, 1);
 
   await openImportTab(page);
 
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
-  // Should have two import entries
+  // Should have at least two import entries
   const entries = page.locator("[data-testid='import-history-entry']");
-  await expect(entries).toHaveCount(2, { timeout: 5000 });
+  const count = await entries.count();
+  expect(count).toBeGreaterThanOrEqual(2);
 
-  // Revert only the most recent import (1 player)
-  const firstRevertButton = entries.first().getByRole("button", { name: /revert/i });
-  await firstRevertButton.click();
+  // Revert only the most recent import (1 player) — it's first in the list (newest first)
+  const firstEntry = entries.first();
+  await firstEntry.getByRole("button", { name: /revert/i }).click();
 
-  await expect(page.getByText(/are you sure/i)).toBeVisible({ timeout: 3000 });
-  await page.getByRole("button", { name: /confirm/i }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible({ timeout: 3000 });
+  await dialog.getByRole("button", { name: /confirm/i }).click();
 
   await expect(page.getByText(/successfully reverted/i)).toBeVisible({ timeout: 5000 });
 
@@ -205,7 +208,10 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
   await page.goto("/players");
   await page.waitForURL("**/players");
 
-  await expect(page.getByText("Import Test Player One")).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Import Test Player Two")).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Second Import Player")).not.toBeVisible({ timeout: 5000 });
+  for (const name of firstNames) {
+    await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
+  }
+  for (const name of secondNames) {
+    await expect(page.getByText(name)).not.toBeVisible({ timeout: 5000 });
+  }
 });

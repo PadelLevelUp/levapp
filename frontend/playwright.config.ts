@@ -48,7 +48,7 @@ export default defineConfig({
         FLASK_APP: "padel_app",
         FLASK_ENV: "development",
         POSTGRES_HOST: "localhost",
-        POSTGRES_PORT: "5433",
+        POSTGRES_PORT: process.env.POSTGRES_PORT ?? "5432",
         POSTGRES_USER: "padel_app_user",
         POSTGRES_PW: process.env.POSTGRES_PW ?? "",
         POSTGRES_DB: "levelup_test",
