@@ -18,6 +18,7 @@ import {
   revertImport,
   type ImportHistoryEntry,
 } from "@/api/import";
+import { invalidateCoachPlayersCache } from "@/api/players";
 
 const TABLE_LABELS: Record<string, string> = {
   Players: "players",
@@ -77,6 +78,7 @@ export function ImportHistorySection() {
     setRevertingId(entry.id);
     try {
       await revertImport(entry.id);
+      invalidateCoachPlayersCache();
       setRevertedMessage("Successfully reverted import");
       toast({
         title: "Import reverted",
