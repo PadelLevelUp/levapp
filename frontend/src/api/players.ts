@@ -33,6 +33,20 @@ export interface CoachPlayersPageResponse {
     hasNext: boolean;
     hasPrev: boolean;
   };
+  alerts?: {
+    missingLevel: number;
+    missingSide: number;
+  };
+}
+
+export interface PlayersQueryParams {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  sortBy?: "name" | "level";
+  sortDir?: "asc" | "desc";
+  missingLevel?: boolean;
+  missingSide?: boolean;
 }
 
 function isFresh(expiresAt: number): boolean {
@@ -70,7 +84,15 @@ export async function getCoachPlayers(): Promise<CoachPlayer[]> {
   return res.data;
 }
 
-export async function getCoachPlayersPaginated(page = 1, perPage = 25, search?: string): Promise<CoachPlayersPageResponse> {
+export async function getCoachPlayersPaginated(
+  page = 1,
+  perPage = 25,
+  search?: string,
+  sortBy?: "name" | "level",
+  sortDir?: "asc" | "desc",
+  missingLevel?: boolean,
+  missingSide?: boolean,
+): Promise<CoachPlayersPageResponse> {
   if (USE_MOCK_DATA) {
     let filtered = mockCoachPlayers;
     if (search) {
@@ -94,8 +116,11 @@ export async function getCoachPlayersPaginated(page = 1, perPage = 25, search?: 
     };
   }
 
-  // Skip cache when searching to always get fresh results
-  if (!search) {
+  const hasFilters = !!search || !!missingLevel || !!missingSide ||
+    (sortBy && sortBy !== "name") || (sortDir && sortDir !== "asc");
+
+  // Skip cache when any filter/sort is active
+  if (!hasFilters) {
     const key = `${page}:${perPage}`;
     const cached = coachPlayersCache.pages.get(key);
     if (cached && isFresh(cached.expiresAt)) {
@@ -104,13 +129,15 @@ export async function getCoachPlayersPaginated(page = 1, perPage = 25, search?: 
   }
 
   const params: Record<string, string | number> = { page, per_page: perPage };
-  if (search) {
-    params.search = search;
-  }
+  if (search) params.search = search;
+  if (sortBy) params.sort_by = sortBy;
+  if (sortDir) params.sort_dir = sortDir;
+  if (missingLevel) params.missing_level = "true";
+  if (missingSide) params.missing_side = "true";
 
   const res = await api.get("/app/coach_players_paginated", { params });
   const payload = res.data as CoachPlayersPageResponse;
-  if (!search) {
+  if (!hasFilters) {
     const key = `${page}:${perPage}`;
     coachPlayersCache.pages.set(key, {
       data: payload,
