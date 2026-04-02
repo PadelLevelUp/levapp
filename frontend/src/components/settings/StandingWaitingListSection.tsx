@@ -63,13 +63,18 @@ export function StandingWaitingListSection() {
     setSelectedPlayer(null);
   };
 
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
   const handleRemove = async (entryId: number) => {
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
+    setRemovingId(entryId);
     try {
       await removeFromStandingWaitingList(entryId);
+      setEntries((prev) => prev.filter((e) => e.id !== entryId));
     } catch {
       // Reload on failure
       getStandingWaitingList().then(setEntries);
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -142,8 +147,9 @@ export function StandingWaitingListSection() {
                 size="icon"
                 className="shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => handleRemove(entry.id)}
+                disabled={removingId === entry.id}
               >
-                <Trash2 className="w-4 h-4" />
+                {removingId === entry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               </Button>
             </div>
           ))}

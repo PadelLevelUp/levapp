@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Copy, Pencil, UserX, X } from "lucide-react";
+import { Check, Copy, Loader2, Pencil, UserX, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ interface PlayerHeaderProps {
   player: CoachPlayer;
   levels: CoachLevel[];
   isEditing: boolean;
+  saving?: boolean;
   draftName: string;
   draftLevelId: string;
   draftSide: PlayerSide | "";
@@ -32,6 +33,7 @@ export function PlayerHeader({
   player,
   levels,
   isEditing,
+  saving = false,
   draftName,
   draftLevelId,
   draftSide,
@@ -127,11 +129,12 @@ export function PlayerHeader({
         <div className="flex gap-2">
           {isEditing ? (
             <>
-              <Button variant="outline" size="sm" onClick={onCancel}>
+              <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
                 <X className="mr-2 h-4 w-4" /> Cancel
               </Button>
-              <Button size="sm" onClick={onSave} disabled={!draftName.trim()}>
-                <Check className="mr-2 h-4 w-4" /> Save
+              <Button size="sm" onClick={onSave} disabled={!draftName.trim() || saving}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                {saving ? "Saving" : "Save"}
               </Button>
             </>
           ) : (

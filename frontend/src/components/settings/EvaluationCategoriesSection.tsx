@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Plus, Trash2, ClipboardList } from "lucide-react";
+import { GripVertical, Loader2, Plus, Trash2, ClipboardList } from "lucide-react";
 import type { EvaluationCategory } from "@/types";
 import { getEvaluationCategories, addEvaluationCategories, deleteEvaluationCategory } from "@/api/evaluation";
 import { USE_MOCK_DATA } from "@/config";
@@ -22,6 +22,8 @@ export function EvaluationCategoriesSection() {
   const [categories, setCategories] = useState<CategoryDraft[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -42,8 +44,15 @@ export function EvaluationCategoriesSection() {
   };
 
   const handleRemove = async (id: string) => {
-    await deleteEvaluationCategory(id);
-    setCategories((prev) => prev.filter((c) => c.id !== id));
+    setRemovingId(id);
+    try {
+      await deleteEvaluationCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch {
+      toast({ variant: "destructive", title: "Failed to delete category" });
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   const handleChange = (id: string, field: keyof Omit<CategoryDraft, "id" | "isNew">, value: string | number) => {
@@ -88,8 +97,15 @@ export function EvaluationCategoriesSection() {
       scaleMin: c.scaleMin,
       scaleMax: c.scaleMax,
     }));
-    await addEvaluationCategories(payload);
-    toast({ title: "Categories saved", description: `${categories.length} categories updated.` });
+    setSaving(true);
+    try {
+      await addEvaluationCategories(payload);
+      toast({ title: "Categories saved", description: `${categories.length} categories updated.` });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to save categories" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -174,8 +190,9 @@ export function EvaluationCategoriesSection() {
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
               onClick={() => handleRemove(cat.id)}
+              disabled={removingId === cat.id}
             >
-              <Trash2 className="w-4 h-4" />
+              {removingId === cat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
             </Button>
           </div>
         ))}
@@ -188,8 +205,9 @@ export function EvaluationCategoriesSection() {
             Add category
           </Button>
 
-          <Button size="sm" onClick={handleSave}>
-            Save categories
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {saving ? "Saving…" : "Save categories"}
           </Button>
         </div>
       </CardContent>

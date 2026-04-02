@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronRight,
   Repeat,
+  Loader2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -96,6 +97,8 @@ interface ClassDetailSheetProps {
     updated: Partial<ClassInstance>,
     scope: ApplyScope
   ) => void;
+  deleting?: boolean;
+  saving?: boolean;
 }
 
 export function ClassDetailSheet({
@@ -107,6 +110,8 @@ export function ClassDetailSheet({
   canManage,
   onDelete,
   onEdit,
+  deleting = false,
+  saving = false,
 }: ClassDetailSheetProps) {
   const { toast } = useToast();
   const { token } = useAuth();
@@ -315,7 +320,6 @@ export function ClassDetailSheet({
     setEditScopeDialogOpen(false);
     setIsEditing(false);
 
-    setClassInstance(draft);
     onEdit(event, changes, scope);
     setDraft(null);
   };
@@ -328,7 +332,6 @@ export function ClassDetailSheet({
       setDeleteDialogOpen(true);
     } else {
       onDelete(event, "single");
-      onClose();
     }
   };
 
@@ -952,10 +955,10 @@ export function ClassDetailSheet({
                     variant="outline"
                     className="text-destructive"
                     onClick={handleDeleteClick}
-                    disabled={isValidating}
+                    disabled={isValidating || deleting}
                     aria-label="Delete class"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </Button>
                 </div>
               )}
@@ -983,13 +986,13 @@ export function ClassDetailSheet({
             </>
           ) : (
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={cancelEdit}>
+              <Button variant="outline" className="flex-1" onClick={cancelEdit} disabled={saving}>
                 <X className="w-4 h-4 mr-2" />
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={saveEdit}>
-                <Save className="w-4 h-4 mr-2" />
-                Save
+              <Button className="flex-1" onClick={saveEdit} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                {saving ? "Saving…" : "Save"}
               </Button>
             </div>
           )}
@@ -1016,7 +1019,6 @@ export function ClassDetailSheet({
           onConfirm={(scope) => {
             setDeleteDialogOpen(false);
             if (event) onDelete(event, scope);
-            onClose();
           }}
         />
       )}

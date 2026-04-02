@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Plus, Trash2, GraduationCap } from "lucide-react";
+import { GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
@@ -21,6 +21,8 @@ export function CoachLevelsSection() {
   const [levels, setLevels] = useState<LevelDraft[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -48,8 +50,15 @@ export function CoachLevelsSection() {
   };
 
   const handleRemove = async (id: string) => {
-    await deleteCoachLevel(id);
-    setLevels((prev) => prev.filter((l) => l.id !== id));
+    setRemovingId(id);
+    try {
+      await deleteCoachLevel(id);
+      setLevels((prev) => prev.filter((l) => l.id !== id));
+    } catch {
+      toast({ variant: "destructive", title: "Failed to delete level" });
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   const handleChange = (id: string, field: "code" | "label", value: string) => {
@@ -95,8 +104,15 @@ export function CoachLevelsSection() {
     }
 
     const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
-    await addCoachLevel(payload);
-    toast({ title: "Levels saved", description: `${levels.length} levels updated.` });
+    setSaving(true);
+    try {
+      await addCoachLevel(payload);
+      toast({ title: "Levels saved", description: `${levels.length} levels updated.` });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to save levels" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -173,8 +189,9 @@ export function CoachLevelsSection() {
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
               onClick={() => handleRemove(level.id)}
+              disabled={removingId === level.id}
             >
-              <Trash2 className="w-4 h-4" />
+              {removingId === level.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
             </Button>
           </div>
         ))}
@@ -187,8 +204,9 @@ export function CoachLevelsSection() {
             Add level
           </Button>
 
-          <Button size="sm" onClick={handleSave}>
-            Save levels
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {saving ? "Saving…" : "Save levels"}
           </Button>
         </div>
       </CardContent>
