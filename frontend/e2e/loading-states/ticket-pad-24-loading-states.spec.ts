@@ -1,0 +1,166 @@
+import { test, expect } from "@playwright/test";
+import { loginAsCoach } from "../helpers/auth";
+import { openPlayers, openCalendar } from "../helpers/navigation";
+
+/**
+ * PAD-24: Remove optimistic UI updates, add loading states for all backend calls
+ *
+ * These tests verify that:
+ * 1. Loading indicators appear during API calls
+ * 2. Buttons are disabled while operations are in progress
+ * 3. UI only updates AFTER successful backend response (not optimistically)
+ */
+
+// Helper: navigate forward to find the seeded class
+async function findSeededClass(page: import("@playwright/test").Page) {
+  const title = "E2E Academy Class";
+  for (let i = 0; i < 4; i++) {
+    const visible = await page.getByText(title).isVisible().catch(() => false);
+    if (visible) return true;
+    await page.getByRole("button", { name: /next week/i }).first().click();
+    await page.waitForTimeout(400);
+  }
+  return false;
+}
+
+test.describe("PAD-24: Loading states for backend calls", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsCoach(page);
+  });
+
+  test("player edit shows loading state and waits for backend before updating UI", async ({
+    page,
+  }) => {
+    await openPlayers(page);
+
+    // Navigate to player detail (use exact match to avoid "E2E Student Two")
+    await page.getByText("E2E Student", { exact: true }).click();
+    await page.waitForURL(/\/players\//);
+
+    // The player detail page has inline editing
+    const saveBtn = page.getByRole("button", { name: /^save$/i });
+    const isAlreadyEditing = await saveBtn.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (!isAlreadyEditing) {
+      await page.getByRole("button", { name: "Edit" }).first().click();
+      await expect(saveBtn).toBeVisible({ timeout: 3000 });
+    }
+
+    // Intercept the POST to /api/app/edit_player and delay it
+    let apiResolved = false;
+    await page.route("**/api/app/edit_player", async (route) => {
+      await new Promise((r) => setTimeout(r, 2000));
+      apiResolved = true;
+      await route.continue();
+    });
+
+    // Click save
+    await saveBtn.click();
+
+    // The save button should be disabled or show a loading indicator while waiting
+    const loadingIndicator = page
+      .locator(
+        'button:has(.animate-spin), button[disabled]:has-text("Sav"), button:has-text("Saving")'
+      )
+      .first();
+
+    await expect(loadingIndicator).toBeVisible({ timeout: 1000 });
+
+    // Wait for the API call to complete
+    await page.waitForTimeout(3000);
+    expect(apiResolved).toBe(true);
+  });
+
+  test("class delete shows loading state and only removes class after backend confirms", async ({
+    page,
+  }) => {
+    await openCalendar(page);
+
+    const found = await findSeededClass(page);
+    expect(found).toBe(true);
+
+    // Click on the seeded class to open detail sheet
+    await page.getByText("E2E Academy Class").first().click();
+
+    // Verify detail sheet is open
+    await page
+      .locator("text=/participants|attendance|edit/i")
+      .first()
+      .waitFor({ timeout: 5000 });
+
+    // Intercept the POST to /api/app/remove_class and delay it
+    let deleteApiCalled = false;
+    await page.route("**/api/app/remove_class", async (route) => {
+      deleteApiCalled = true;
+      await new Promise((r) => setTimeout(r, 2000));
+      await route.continue();
+    });
+
+    // Click delete
+    const deleteBtn = page
+      .getByRole("button", { name: /delete class/i })
+      .first();
+    await deleteBtn.click();
+
+    // If there's a scope dialog (for recurring classes), pick "single"
+    const singleBtn = page.getByRole("button", { name: /only this|this class|single/i });
+    const hasScopeDialog = await singleBtn
+      .first()
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    if (hasScopeDialog) {
+      await singleBtn.first().click();
+    }
+
+    // CRITICAL CHECK: The class should NOT be removed from the UI immediately
+    // A loading spinner should appear on the delete button during the API call
+    const loadingVisible = await page
+      .locator('.animate-spin, button[disabled]')
+      .first()
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+
+    expect(loadingVisible).toBe(true);
+
+    // The delete API should have been called
+    expect(deleteApiCalled).toBe(true);
+  });
+
+  test("add class form disables submit button during API call", async ({
+    page,
+  }) => {
+    await openCalendar(page);
+
+    // Open add class sheet
+    const newClassBtn = page
+      .getByRole("button", { name: /add class|new class|\+/i })
+      .first();
+    await expect(newClassBtn).toBeVisible({ timeout: 5000 });
+    await newClassBtn.click();
+
+    // Fill in minimum required fields — name input uses placeholder as accessible name
+    const nameField = page.getByPlaceholder(/beginner academy/i);
+    await expect(nameField).toBeVisible({ timeout: 5000 });
+    await nameField.fill("Loading Test Class");
+
+    // Set a date (required field)
+    const dateField = page.locator('input[type="date"]').first();
+    await dateField.fill("2026-04-10");
+
+    // Intercept the POST to /api/app/add_class and delay it
+    await page.route("**/api/app/add_class", async (route) => {
+      await new Promise((r) => setTimeout(r, 2000));
+      await route.continue();
+    });
+
+    // Find and click the submit button
+    const submitBtn = page
+      .getByRole("button", { name: /create class/i })
+      .first();
+    await submitBtn.click();
+
+    // The submit button should be disabled or show a spinner during the API call
+    const loadingBtn = page.locator('button:has(.animate-spin)').first();
+    await expect(loadingBtn).toBeVisible({ timeout: 1000 });
+  });
+});

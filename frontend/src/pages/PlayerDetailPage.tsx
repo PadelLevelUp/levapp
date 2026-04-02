@@ -38,6 +38,7 @@ export default function PlayerDetailPage() {
   const [removingWaitingList, setRemovingWaitingList] = useState(false);
 
   // Inline edit state
+  const [savingPlayer, setSavingPlayer] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftUsername, setDraftUsername] = useState("");
@@ -94,7 +95,6 @@ export default function PlayerDetailPage() {
 
   const handleEditSave = async () => {
     if (!player) return;
-    const prev = player;
     const level = draftLevelId ? levels.find((l) => l.id === draftLevelId) : undefined;
 
     const updates = {
@@ -108,27 +108,29 @@ export default function PlayerDetailPage() {
       notes: draftNotes.trim() || undefined,
     };
 
-    const updated: CoachPlayer = {
-      ...player,
-      name: updates.name ?? player.name,
-      username: updates.username,
-      email: updates.email,
-      phone: updates.phone,
-      levelId: updates.levelId,
-      side: updates.side,
-      notes: updates.notes,
-      level,
-    };
-
-    setPlayer(updated);
-    setIsEditing(false);
+    setSavingPlayer(true);
 
     try {
       await editPlayer(player, updates);
+
+      const updated: CoachPlayer = {
+        ...player,
+        name: updates.name ?? player.name,
+        username: updates.username,
+        email: updates.email,
+        phone: updates.phone,
+        levelId: updates.levelId,
+        side: updates.side,
+        notes: updates.notes,
+        level,
+      };
+
+      setPlayer(updated);
+      setIsEditing(false);
     } catch {
-      setPlayer(prev);
-      setIsEditing(true);
       toast.error("Failed to save changes");
+    } finally {
+      setSavingPlayer(false);
     }
   };
 
@@ -152,26 +154,6 @@ export default function PlayerDetailPage() {
   }) => {
     if (!player) return;
 
-    const newEvaluations = data.scores.map((s) => {
-      const cat = categories.find((c) => c.id === s.categoryId);
-      return {
-        categoryId: Number(s.categoryId),
-        categoryName: cat?.name ?? String(s.categoryId),
-        score: s.value,
-        scaleMin: cat?.scaleMin ?? 0,
-        scaleMax: cat?.scaleMax ?? 10,
-        evaluatedAt: new Date().toISOString(),
-      };
-    });
-
-    setProfile((prev) => ({
-      playerId: player.playerId,
-      evaluations: newEvaluations,
-      strengths: data.strengths,
-      weaknesses: data.weaknesses,
-      ...(prev ? {} : {}),
-    }));
-
     try {
       await postEvaluationEntry({
         playerId: player.playerId,
@@ -179,8 +161,28 @@ export default function PlayerDetailPage() {
         strengths: data.strengths,
         weaknesses: data.weaknesses,
       });
+
+      const newEvaluations = data.scores.map((s) => {
+        const cat = categories.find((c) => c.id === s.categoryId);
+        return {
+          categoryId: Number(s.categoryId),
+          categoryName: cat?.name ?? String(s.categoryId),
+          score: s.value,
+          scaleMin: cat?.scaleMin ?? 0,
+          scaleMax: cat?.scaleMax ?? 10,
+          evaluatedAt: new Date().toISOString(),
+        };
+      });
+
+      setProfile((prev) => ({
+        playerId: player.playerId,
+        evaluations: newEvaluations,
+        strengths: data.strengths,
+        weaknesses: data.weaknesses,
+        ...(prev ? {} : {}),
+      }));
     } catch {
-      // Could revert here
+      toast.error("Failed to save evaluation");
     }
   };
 
@@ -255,6 +257,7 @@ export default function PlayerDetailPage() {
           player={player}
           levels={levels}
           isEditing={isEditing}
+          saving={savingPlayer}
           draftName={draftName}
           draftLevelId={draftLevelId}
           draftSide={draftSide}
@@ -274,22 +277,38 @@ export default function PlayerDetailPage() {
               weaknesses={profile?.weaknesses ?? []}
               playerId={player.playerId}
               onAddStrength={async (text) => {
-                const note: CoachNote = { id: -Date.now(), text };
-                setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
-                await addCoachNote(player.playerId, "strength", text);
+                try {
+                  await addCoachNote(player.playerId, "strength", text);
+                  const note: CoachNote = { id: -Date.now(), text };
+                  setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
+                } catch {
+                  toast.error("Failed to add strength");
+                }
               }}
               onRemoveStrength={async (_i, note) => {
-                setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
-                await deleteCoachNote(note);
+                try {
+                  await deleteCoachNote(note);
+                  setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
+                } catch {
+                  toast.error("Failed to remove strength");
+                }
               }}
               onAddWeakness={async (text) => {
-                const note: CoachNote = { id: -Date.now(), text };
-                setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
-                await addCoachNote(player.playerId, "weakness", text);
+                try {
+                  await addCoachNote(player.playerId, "weakness", text);
+                  const note: CoachNote = { id: -Date.now(), text };
+                  setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
+                } catch {
+                  toast.error("Failed to add weakness");
+                }
               }}
               onRemoveWeakness={async (_i, note) => {
-                setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
-                await deleteCoachNote(note);
+                try {
+                  await deleteCoachNote(note);
+                  setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
+                } catch {
+                  toast.error("Failed to remove weakness");
+                }
               }}
             />
           </div>

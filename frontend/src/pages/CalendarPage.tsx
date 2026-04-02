@@ -86,6 +86,10 @@ export default function CalendarPage() {
   const [addClassOpen, setAddClassOpen] = useState(false);
   const [addEventOpen, setAddEventOpen] = useState(false);
 
+  const [deletingClassId, setDeletingClassId] = useState<string | null>(null);
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
+  const [addingClass, setAddingClass] = useState(false);
+
   const [pendingDrop, setPendingDrop] = useState<{
     event: CalendarEvent;
     newDate: string;
@@ -113,34 +117,26 @@ export default function CalendarPage() {
     event: CalendarEvent,
     scope: "single" | "future"
   ) => {
-    // Optimistic UI update
-    setAllEvents(prev =>
-      prev.filter(e => e.id !== event.id)
-    );
-
-    setSelectedClassEvent(null);
-
-    toast({
-      title: "Deleting class…",
-      description: event.title,
-    });
+    setDeletingClassId(event.id);
 
     try {
       await removeClass(event, scope);
+
+      setAllEvents(prev => prev.filter(e => e.id !== event.id));
+      setSelectedClassEvent(null);
 
       toast({
         title: "Class deleted",
         description: event.title,
       });
     } catch (err) {
-      // Rollback
-      setAllEvents(prev => [...prev, event]);
-
       toast({
         variant: "destructive",
         title: "Delete failed",
         description: "The class could not be deleted.",
       });
+    } finally {
+      setDeletingClassId(null);
     }
   };
 
@@ -177,42 +173,32 @@ export default function CalendarPage() {
     updated: any,
     scope: "single" | "future"
   ) => {
-    // Optimistic update
-    setAllEvents(prev =>
-      prev.map(e =>
-        e.id === event.id
-          ? instanceToCalendarEvent(updated, e)
-          : e
-      )
-    );
-
-    setSelectedClassEvent(null);
-
-    toast({
-      title: "Saving changes…",
-      description: updated.name || event.title,
-    });
+    setEditingClassId(event.id);
 
     try {
       await editClass(event, updated, scope);
+
+      setAllEvents(prev =>
+        prev.map(e =>
+          e.id === event.id
+            ? instanceToCalendarEvent(updated, e)
+            : e
+        )
+      );
+      setSelectedClassEvent(null);
 
       toast({
         title: "Class updated",
         description: updated.name || event.title,
       });
     } catch (err) {
-      // Rollback
-      setAllEvents(prev =>
-        prev.map(e =>
-          e.id === event.id ? event : e
-        )
-      );
-
       toast({
         variant: "destructive",
         title: "Update failed",
         description: "Changes could not be saved.",
       });
+    } finally {
+      setEditingClassId(null);
     }
   };
 
@@ -271,45 +257,25 @@ export default function CalendarPage() {
   };
 
   const handleSaveClass = async (data: any) => {
-    // Temporary optimistic event
-    const tempEvent: CalendarEvent = {
-      ...data,
-      id: `temp-${Date.now()}`,
-      isTemporary: true,
-    };
-
-    setAllEvents(prev => [...prev, tempEvent]);
-
-    toast({
-      title: "Creating class…",
-      description: data.name || "New class",
-    });
+    setAddingClass(true);
 
     try {
       const created = await addClass(data);
 
-      // Replace temp event with real one
-      setAllEvents(prev =>
-        prev.map(e =>
-          e.id === tempEvent.id ? created : e
-        )
-      );
+      setAllEvents(prev => [...prev, created]);
 
       toast({
         title: "Class created",
         description: created.name || "New class",
       });
     } catch (err) {
-      // Rollback
-      setAllEvents(prev =>
-        prev.filter(e => e.id !== tempEvent.id)
-      );
-
       toast({
         variant: "destructive",
         title: "Creation failed",
         description: "The class could not be created.",
       });
+    } finally {
+      setAddingClass(false);
     }
   };
 
@@ -364,6 +330,8 @@ export default function CalendarPage() {
         canManage={canManageClasses}
         onDelete={canManageClasses ? handleDeleteClass : undefined}
         onEdit={canManageClasses ? handleEditClass : undefined}
+        deleting={deletingClassId === selectedClassEvent?.id}
+        saving={editingClassId === selectedClassEvent?.id}
       />
 
       <RescheduleDialog
@@ -399,6 +367,7 @@ export default function CalendarPage() {
           onSave={handleSaveClass}
           levels={levels}
           players={coachPlayers}
+          loading={addingClass}
         />
       )}
     </AppLayout>

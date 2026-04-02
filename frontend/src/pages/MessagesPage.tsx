@@ -328,33 +328,39 @@ export default function MessagesPage() {
   };
 
   const handleEditMessage = async (messageId: string, content: string) => {
-    // Optimistic
-    setSelectedConversation((prev) =>
-      prev
-        ? {
-            ...prev,
-            messages: prev.messages.map((m) =>
-              String(m.id) === messageId ? { ...m, content, edited: true } : m
-            ),
-          }
-        : prev
-    );
-    await editMessage(messageId, content);
+    try {
+      await editMessage(messageId, content);
+      setSelectedConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                String(m.id) === messageId ? { ...m, content, edited: true } : m
+              ),
+            }
+          : prev
+      );
+    } catch {
+      // SSE will deliver the authoritative state
+    }
   };
 
-  const handleDeleteMessage = (messageId: string) => {
-    // Optimistic
-    setSelectedConversation((prev) =>
-      prev
-        ? {
-            ...prev,
-            messages: prev.messages.map((m) =>
-              String(m.id) === messageId ? { ...m, isDeleted: true } : m
-            ),
-          }
-        : prev
-    );
-    void deleteMessage(messageId);
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await deleteMessage(messageId);
+      setSelectedConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                String(m.id) === messageId ? { ...m, isDeleted: true } : m
+              ),
+            }
+          : prev
+      );
+    } catch {
+      // SSE will deliver the authoritative state
+    }
   };
 
   const handleToggleReaction = (messageId: string, emoji: string) => {

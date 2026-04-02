@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell } from 'lucide-react';
+import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ interface AddClassSheetProps {
   onSave?: (data: any) => void;
   players: CoachPlayer[];
   levels: CoachLevel[];
+  loading?: boolean;
 }
 
 const COLORS = [
@@ -62,6 +63,7 @@ export function AddClassSheet({
   onSave,
   players,
   levels,
+  loading = false,
 }: AddClassSheetProps) {
   const autoInviteEnabled = useAutoInviteEnabled(open);
   const [classType, setClassType] = useState<ClassType>('academy');
@@ -389,8 +391,11 @@ export function AddClassSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSave}>Create class</Button>
+          <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>
+          <Button onClick={handleSave} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? "Creating…" : "Create class"}
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
