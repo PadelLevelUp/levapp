@@ -10,12 +10,14 @@ interface MobileCalendarViewProps {
   weekDays: Date[];
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
+  onDaySelect?: (day: Date) => void;
 }
 
 export function MobileCalendarView({
   weekDays,
   events,
   onEventClick,
+  onDaySelect,
 }: MobileCalendarViewProps) {
   const initialSelectedDay = useMemo(() => {
     return weekDays.find((d) => isToday(d)) || weekDays[0];
@@ -66,7 +68,7 @@ export function MobileCalendarView({
             return (
               <button
                 key={day.toISOString()}
-                onClick={() => setSelectedDay(day)}
+                onClick={() => { setSelectedDay(day); onDaySelect?.(day); }}
                 className={cn(
                   "flex flex-col p-1 border-r border-border last:border-r-0 transition-colors",
                   isSelected && "bg-primary/10",
