@@ -106,6 +106,7 @@ export default function CalendarPage() {
   };
   const [newClassDate, setNewClassDate] = useState<Date>();
   const [newClassTime, setNewClassTime] = useState<string>();
+  const [mobileSelectedDay, setMobileSelectedDay] = useState<Date>();
 
   const handleSlotClick = (date: Date, time: string) => {
     setNewClassDate(date);
@@ -298,7 +299,11 @@ export default function CalendarPage() {
           onNextWeek={() => calendar.navigateWeek("next")}
           onToday={calendar.goToToday}
           onAddEvent={() => setAddEventOpen(true)}
-          onAddClass={canManageClasses ? () => setAddClassOpen(true) : undefined}
+          onAddClass={canManageClasses ? () => {
+            setNewClassDate(isMobile && mobileSelectedDay ? mobileSelectedDay : new Date());
+            setNewClassTime(undefined);
+            setAddClassOpen(true);
+          } : undefined}
         />
 
         {isMobile ? (
@@ -306,6 +311,7 @@ export default function CalendarPage() {
             weekDays={calendar.weekDays}
             events={calendar.events}
             onEventClick={handleEventClick}
+            onDaySelect={setMobileSelectedDay}
           />
         ) : (
           <>
