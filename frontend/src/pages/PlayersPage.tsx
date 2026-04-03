@@ -35,6 +35,7 @@ export default function PlayersPage() {
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
+  const [addPlayerError, setAddPlayerError] = useState<string | null>(null);
 
   // Debounce search input — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -125,9 +126,10 @@ export default function PlayersPage() {
       .toUpperCase()
       .slice(0, 2);
 
-  const handleAddPlayer = async (data: AddPlayerInput) => {
+  const handleAddPlayer = async (data: AddPlayerInput): Promise<boolean> => {
     try {
       await addPlayer({ coachId: user?.coachId, ...data });
+      setAddPlayerError(null);
       setCurrentPage(1);
       setLoading(true);
       const { sortBy, sortDir } = parseSortOption(sortOption);
@@ -138,8 +140,14 @@ export default function PlayersPage() {
       if (playersData.alerts) {
         setAlertCounts(playersData.alerts);
       }
-    } catch {
-      // Keep previous list if create fails.
+      setLoading(false);
+      return true;
+    } catch (err: any) {
+      if (err?.response?.status === 409 && err?.response?.data?.error === "username_taken") {
+        setAddPlayerError(err.response.data.message);
+        return false;
+      }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -290,9 +298,11 @@ export default function PlayersPage() {
 
         <AddPlayerSheet
           open={isAddOpen}
-          onClose={() => setIsAddOpen(false)}
+          onClose={() => { setIsAddOpen(false); setAddPlayerError(null); }}
           onSave={handleAddPlayer}
           levels={levels}
+          error={addPlayerError}
+          onClearError={() => setAddPlayerError(null)}
         />
       </div>
     </AppLayout>

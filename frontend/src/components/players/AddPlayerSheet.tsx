@@ -27,9 +27,11 @@ export interface AddPlayerInput {
 interface AddPlayerSheetProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: AddPlayerInput) => void;
+  onSave: (data: AddPlayerInput) => Promise<boolean>;
   levels: CoachLevel[];
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
+  error?: string | null;
+  onClearError?: () => void;
 }
 
 export function AddPlayerSheet({
@@ -38,6 +40,8 @@ export function AddPlayerSheet({
   onSave,
   levels,
   initialValues,
+  error,
+  onClearError,
 }: AddPlayerSheetProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [username, setUsername] = useState(initialValues?.username ?? "");
@@ -72,10 +76,10 @@ export function AddPlayerSheet({
     onClose();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    onSave({
+    const success = await onSave({
       name: name.trim(),
       isActive: true,
       username: username.trim(),
@@ -86,7 +90,9 @@ export function AddPlayerSheet({
       notes: notes.trim() || undefined,
     });
 
-    handleClose();
+    if (success) {
+      handleClose();
+    }
   };
 
   return (
@@ -113,8 +119,14 @@ export function AddPlayerSheet({
               id="player-username"
               placeholder="e.g. johndoe"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (error) onClearError?.();
+              }}
             />
+            {error && (
+              <p className="text-sm text-amber-600">{error}</p>
+            )}
           </div>
 
           <div className="space-y-2">
