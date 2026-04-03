@@ -13,7 +13,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { getCoachPlayersPaginated, addPlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
-import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
+import { AddPlayerSheet, type AddPlayerInput, type AddPlayerFieldError } from "@/components/players/AddPlayerSheet";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -35,7 +35,7 @@ export default function PlayersPage() {
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
-  const [addPlayerError, setAddPlayerError] = useState<string | null>(null);
+  const [addPlayerFieldError, setAddPlayerFieldError] = useState<AddPlayerFieldError | null>(null);
 
   // Debounce search input — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -129,7 +129,7 @@ export default function PlayersPage() {
   const handleAddPlayer = async (data: AddPlayerInput): Promise<boolean> => {
     try {
       await addPlayer({ coachId: user?.coachId, ...data });
-      setAddPlayerError(null);
+      setAddPlayerFieldError(null);
       setCurrentPage(1);
       setLoading(true);
       const { sortBy, sortDir } = parseSortOption(sortOption);
@@ -143,8 +143,11 @@ export default function PlayersPage() {
       setLoading(false);
       return true;
     } catch (err: any) {
-      if (err?.response?.status === 409 && err?.response?.data?.error === "username_taken") {
-        setAddPlayerError(err.response.data.message);
+      if (err?.response?.status === 409 && err?.response?.data?.field) {
+        setAddPlayerFieldError({
+          field: err.response.data.field,
+          message: err.response.data.message,
+        });
         return false;
       }
       return false;
@@ -298,11 +301,11 @@ export default function PlayersPage() {
 
         <AddPlayerSheet
           open={isAddOpen}
-          onClose={() => { setIsAddOpen(false); setAddPlayerError(null); }}
+          onClose={() => { setIsAddOpen(false); setAddPlayerFieldError(null); }}
           onSave={handleAddPlayer}
           levels={levels}
-          error={addPlayerError}
-          onClearError={() => setAddPlayerError(null)}
+          fieldError={addPlayerFieldError}
+          onClearFieldError={() => setAddPlayerFieldError(null)}
         />
       </div>
     </AppLayout>

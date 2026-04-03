@@ -24,14 +24,19 @@ export interface AddPlayerInput {
   notes?: string;
 }
 
+export interface AddPlayerFieldError {
+  field: "username" | "email";
+  message: string;
+}
+
 interface AddPlayerSheetProps {
   open: boolean;
   onClose: () => void;
   onSave: (data: AddPlayerInput) => Promise<boolean>;
   levels: CoachLevel[];
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
-  error?: string | null;
-  onClearError?: () => void;
+  fieldError?: AddPlayerFieldError | null;
+  onClearFieldError?: () => void;
 }
 
 export function AddPlayerSheet({
@@ -40,8 +45,8 @@ export function AddPlayerSheet({
   onSave,
   levels,
   initialValues,
-  error,
-  onClearError,
+  fieldError,
+  onClearFieldError,
 }: AddPlayerSheetProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [username, setUsername] = useState(initialValues?.username ?? "");
@@ -119,13 +124,14 @@ export function AddPlayerSheet({
               id="player-username"
               placeholder="e.g. johndoe"
               value={username}
+              className={fieldError?.field === "username" ? "border-red-500 focus-visible:ring-red-500" : ""}
               onChange={(e) => {
                 setUsername(e.target.value);
-                if (error) onClearError?.();
+                if (fieldError?.field === "username") onClearFieldError?.();
               }}
             />
-            {error && (
-              <p className="text-sm text-amber-600">{error}</p>
+            {fieldError?.field === "username" && (
+              <p className="text-sm text-red-500">{fieldError.message}</p>
             )}
           </div>
 
@@ -135,8 +141,15 @@ export function AddPlayerSheet({
               id="player-email"
               placeholder="e.g. john@email.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              className={fieldError?.field === "email" ? "border-red-500 focus-visible:ring-red-500" : ""}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldError?.field === "email") onClearFieldError?.();
+              }}
             />
+            {fieldError?.field === "email" && (
+              <p className="text-sm text-red-500">{fieldError.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
