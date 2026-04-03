@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ export function AddPlayerSheet({
   const [levelId, setLevelId] = useState<string>(initialValues?.levelId ?? "");
   const [side, setSide] = useState<PlayerSide | "">(initialValues?.side ?? "");
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
+  const [saving, setSaving] = useState(false);
 
   // Sync form when opening (and when initialValues changes)
   useEffect(() => {
@@ -84,19 +86,24 @@ export function AddPlayerSheet({
   const handleSave = async () => {
     if (!name.trim()) return;
 
-    const success = await onSave({
-      name: name.trim(),
-      isActive: true,
-      username: username.trim(),
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      levelId: levelId || undefined,
-      side: side || undefined,
-      notes: notes.trim() || undefined,
-    });
+    setSaving(true);
+    try {
+      const success = await onSave({
+        name: name.trim(),
+        isActive: true,
+        username: username.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        levelId: levelId || undefined,
+        side: side || undefined,
+        notes: notes.trim() || undefined,
+      });
 
-    if (success) {
-      handleClose();
+      if (success) {
+        handleClose();
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -206,10 +213,11 @@ export function AddPlayerSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
+          <Button onClick={handleSave} disabled={!name.trim() || saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create player
           </Button>
         </SheetFooter>
