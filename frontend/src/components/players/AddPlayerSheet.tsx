@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { checkPlayerFields } from "@/api/players";
 
 export interface AddPlayerInput {
   name: string;
@@ -25,19 +26,12 @@ export interface AddPlayerInput {
   notes?: string;
 }
 
-export interface AddPlayerFieldError {
-  field: "username" | "email";
-  message: string;
-}
-
 interface AddPlayerSheetProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: AddPlayerInput) => Promise<boolean>;
+  onSave: (data: AddPlayerInput) => Promise<void>;
   levels: CoachLevel[];
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
-  fieldError?: AddPlayerFieldError | null;
-  onClearFieldError?: () => void;
 }
 
 export function AddPlayerSheet({
@@ -46,8 +40,6 @@ export function AddPlayerSheet({
   onSave,
   levels,
   initialValues,
-  fieldError,
-  onClearFieldError,
 }: AddPlayerSheetProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [username, setUsername] = useState(initialValues?.username ?? "");
@@ -57,6 +49,7 @@ export function AddPlayerSheet({
   const [side, setSide] = useState<PlayerSide | "">(initialValues?.side ?? "");
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Sync form when opening (and when initialValues changes)
   useEffect(() => {
@@ -69,6 +62,7 @@ export function AddPlayerSheet({
     setLevelId(initialValues?.levelId ?? "");
     setSide(initialValues?.side ?? "");
     setNotes(initialValues?.notes ?? "");
+    setFieldErrors({});
   }, [open, initialValues]);
 
   const handleClose = () => {
@@ -80,7 +74,17 @@ export function AddPlayerSheet({
     setLevelId("");
     setSide("");
     setNotes("");
+    setFieldErrors({});
     onClose();
+  };
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -88,20 +92,32 @@ export function AddPlayerSheet({
 
     setSaving(true);
     try {
-      const success = await onSave({
+      // Validate unique fields first
+      const trimmedUsername = username.trim();
+      const trimmedEmail = email.trim();
+      if (trimmedUsername || trimmedEmail) {
+        const errors = await checkPlayerFields({
+          username: trimmedUsername || undefined,
+          email: trimmedEmail || undefined,
+        });
+        if (errors) {
+          setFieldErrors(errors);
+          return;
+        }
+      }
+
+      await onSave({
         name: name.trim(),
         isActive: true,
-        username: username.trim(),
-        email: email.trim() || undefined,
+        username: trimmedUsername,
+        email: trimmedEmail || undefined,
         phone: phone.trim() || undefined,
         levelId: levelId || undefined,
         side: side || undefined,
         notes: notes.trim() || undefined,
       });
 
-      if (success) {
-        handleClose();
-      }
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -131,14 +147,14 @@ export function AddPlayerSheet({
               id="player-username"
               placeholder="e.g. johndoe"
               value={username}
-              className={fieldError?.field === "username" ? "border-red-500 focus-visible:ring-red-500" : ""}
+              className={fieldErrors.username ? "border-red-500 focus-visible:ring-red-500" : ""}
               onChange={(e) => {
                 setUsername(e.target.value);
-                if (fieldError?.field === "username") onClearFieldError?.();
+                clearFieldError("username");
               }}
             />
-            {fieldError?.field === "username" && (
-              <p className="text-sm text-red-500">{fieldError.message}</p>
+            {fieldErrors.username && (
+              <p className="text-sm text-red-500">{fieldErrors.username}</p>
             )}
           </div>
 
@@ -148,14 +164,14 @@ export function AddPlayerSheet({
               id="player-email"
               placeholder="e.g. john@email.com"
               value={email}
-              className={fieldError?.field === "email" ? "border-red-500 focus-visible:ring-red-500" : ""}
+              className={fieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (fieldError?.field === "email") onClearFieldError?.();
+                clearFieldError("email");
               }}
             />
-            {fieldError?.field === "email" && (
-              <p className="text-sm text-red-500">{fieldError.message}</p>
+            {fieldErrors.email && (
+              <p className="text-sm text-red-500">{fieldErrors.email}</p>
             )}
           </div>
 

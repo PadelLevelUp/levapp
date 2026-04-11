@@ -147,6 +147,20 @@ export async function getCoachPlayersPaginated(
   return payload;
 }
 
+export async function checkPlayerFields(fields: { username?: string; email?: string }): Promise<Record<string, string> | null> {
+  if (USE_MOCK_DATA) return null;
+
+  try {
+    await api.post("/app/check_player_fields", fields);
+    return null;
+  } catch (err: any) {
+    if (err?.response?.status === 409) {
+      return err.response.data.errors;
+    }
+    return null;
+  }
+}
+
 export async function addPlayer(data: any) {
   if (USE_MOCK_DATA) {
     console.log("[mock] addPlayer", data);
