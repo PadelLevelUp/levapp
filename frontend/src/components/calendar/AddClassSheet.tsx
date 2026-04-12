@@ -214,7 +214,7 @@ export function AddClassSheet({
           {/* 2×2 Info Blocks */}
           <div className="grid grid-cols-2 gap-3">
             {/* Date */}
-            <div className={cn("rounded-lg border bg-muted/30 p-3 space-y-1", errors.date && "ring-2 ring-destructive")}>
+            <div className={cn("rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0", errors.date && "ring-2 ring-destructive")}>
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Date</span>
@@ -222,13 +222,13 @@ export function AddClassSheet({
               <Input
                 type="date"
                 value={date}
-                className="h-8 text-sm"
+                className="h-8 text-sm min-w-0"
                 onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
               />
             </div>
 
             {/* Time */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Time</span>
@@ -237,20 +237,20 @@ export function AddClassSheet({
                 <Input
                   type="time"
                   value={startTime}
-                  className="h-8 text-sm"
+                  className="h-8 text-sm min-w-0"
                   onChange={(e) => setStartTime(e.target.value)}
                 />
                 <Input
                   type="time"
                   value={endTime}
-                  className="h-8 text-sm"
+                  className="h-8 text-sm min-w-0"
                   onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
             </div>
 
             {/* Capacity */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Capacity</span>
@@ -277,7 +277,7 @@ export function AddClassSheet({
             </div>
 
             {/* Level */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <span className="text-xs font-medium">Level</span>
               </div>
