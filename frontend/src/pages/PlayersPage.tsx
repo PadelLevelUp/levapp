@@ -126,10 +126,10 @@ export default function PlayersPage() {
       .slice(0, 2);
 
   const handleAddPlayer = async (data: AddPlayerInput) => {
+    await addPlayer({ coachId: user?.coachId, ...data });
+    setCurrentPage(1);
+    setLoading(true);
     try {
-      await addPlayer({ coachId: user?.coachId, ...data });
-      setCurrentPage(1);
-      setLoading(true);
       const { sortBy, sortDir } = parseSortOption(sortOption);
       const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE, undefined, sortBy, sortDir);
       setCoachPlayers(playersData.items);
@@ -138,8 +138,6 @@ export default function PlayersPage() {
       if (playersData.alerts) {
         setAlertCounts(playersData.alerts);
       }
-    } catch {
-      // Keep previous list if create fails.
     } finally {
       setLoading(false);
     }

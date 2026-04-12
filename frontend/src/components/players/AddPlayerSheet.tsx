@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useFieldAvailability } from "@/hooks/useFieldAvailability";
 
 export interface AddPlayerInput {
   name: string;
@@ -27,7 +29,7 @@ export interface AddPlayerInput {
 interface AddPlayerSheetProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: AddPlayerInput) => void;
+  onSave: (data: AddPlayerInput) => Promise<void>;
   levels: CoachLevel[];
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
 }
@@ -46,6 +48,12 @@ export function AddPlayerSheet({
   const [levelId, setLevelId] = useState<string>(initialValues?.levelId ?? "");
   const [side, setSide] = useState<PlayerSide | "">(initialValues?.side ?? "");
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const usernameCheck = useFieldAvailability("user", "username", username);
+  const emailCheck = useFieldAvailability("user", "email", email);
+
+  const hasFieldError = !!usernameCheck.error || !!emailCheck.error;
 
   // Sync form when opening (and when initialValues changes)
   useEffect(() => {
@@ -61,7 +69,6 @@ export function AddPlayerSheet({
   }, [open, initialValues]);
 
   const handleClose = () => {
-    // Reset to defaults so next open is clean (unless initialValues used)
     setName("");
     setUsername("");
     setEmail("");
@@ -72,21 +79,25 @@ export function AddPlayerSheet({
     onClose();
   };
 
-  const handleSave = () => {
-    if (!name.trim()) return;
+  const handleSave = async () => {
+    if (!name.trim() || hasFieldError) return;
 
-    onSave({
-      name: name.trim(),
-      isActive: true,
-      username: username.trim(),
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      levelId: levelId || undefined,
-      side: side || undefined,
-      notes: notes.trim() || undefined,
-    });
-
-    handleClose();
+    setSaving(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        isActive: true,
+        username: username.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        levelId: levelId || undefined,
+        side: side || undefined,
+        notes: notes.trim() || undefined,
+      });
+      handleClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -109,22 +120,40 @@ export function AddPlayerSheet({
 
           <div className="space-y-2">
             <Label htmlFor="player-username">Username</Label>
-            <Input
-              id="player-username"
-              placeholder="e.g. johndoe"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
+            <div className="relative">
+              <Input
+                id="player-username"
+                placeholder="e.g. johndoe"
+                value={username}
+                className={usernameCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              {usernameCheck.checking && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            {usernameCheck.error && (
+              <p className="text-sm text-red-500">{usernameCheck.error}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="player-email">Email (optional)</Label>
-            <Input
-              id="player-email"
-              placeholder="e.g. john@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <div className="relative">
+              <Input
+                id="player-email"
+                placeholder="e.g. john@email.com"
+                value={email}
+                className={emailCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              {emailCheck.checking && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            {emailCheck.error && (
+              <p className="text-sm text-red-500">{emailCheck.error}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -181,10 +210,11 @@ export function AddPlayerSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
+          <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create player
           </Button>
         </SheetFooter>
