@@ -47,13 +47,13 @@ export function MobileCalendarView({
 
   const getEventsForDay = (day: Date) => {
     const dateStr = format(day, "yyyy-MM-dd");
-    return events.filter((e) => getEventDayKey(e) === dateStr);
+    return events
+      .filter((e) => getEventDayKey(e) === dateStr)
+      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
   };
 
   const selectedDayEvents = useMemo(() => {
-    return getEventsForDay(selectedDay)
-      .slice()
-      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+    return getEventsForDay(selectedDay);
   }, [events, selectedDay]);
 
   return (
