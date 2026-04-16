@@ -22,7 +22,9 @@ from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from padel_app.models.Association_CoachClub import Association_CoachClub
+from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.notification_config import NotificationConfig
+import json
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
 
@@ -202,6 +204,37 @@ with app.app_context():
     )
     db.session.add(student_instance)
 
+    # ── Recurring Lesson (no materialized instance) ────────────────────────────
+    # Weekly recurring class on Tuesdays, starting next Tuesday
+    days_until_tuesday = (1 - today.weekday()) % 7 or 7
+    next_tuesday = today + timedelta(days=days_until_tuesday)
+    recurring_start = next_tuesday.replace(hour=14, minute=0)
+    recurring_end = next_tuesday.replace(hour=15, minute=0)
+    recurrence_end_date = (next_tuesday + timedelta(weeks=8)).date()
+
+    recurring_lesson = Lesson(
+        title="E2E Recurring Class",
+        start_datetime=recurring_start,
+        end_datetime=recurring_end,
+        is_recurring=True,
+        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [next_tuesday.weekday()]}),
+        recurrence_end=recurrence_end_date,
+        type="academy",
+        max_players=4,
+        club_id=club.id,
+        color="#10b981",
+        status="active",
+    )
+    db.session.add(recurring_lesson)
+    db.session.flush()
+
+    # Associate coach with recurring lesson
+    coach_recurring = Association_CoachLesson(
+        coach_id=coach.id,
+        lesson_id=recurring_lesson.id,
+    )
+    db.session.add(coach_recurring)
+
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
         coach_id=coach.id,
@@ -217,3 +250,4 @@ with app.app_context():
     print(f"  Student 2: {student2_user.username} / E2eStudent2123!")
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")
+    print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
