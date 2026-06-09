@@ -3,12 +3,12 @@ import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { mockConversations } from "@/data/mockData";
 
-export async function getConversations(): Promise<Conversation[]> {
+export async function getConversations(page = 1, limit = 20): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
   if (USE_MOCK_DATA) {
-    return mockConversations;
+    return { conversations: mockConversations, hasMore: false };
   }
 
-  const res = await api.get("/app/conversations");
+  const res = await api.get("/app/conversations", { params: { page, limit } });
   return res.data;
 }
 
