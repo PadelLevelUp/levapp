@@ -56,6 +56,7 @@ export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Delete exercise"
             className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive shrink-0"
             onClick={(e) => {
               e.stopPropagation();

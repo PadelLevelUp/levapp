@@ -68,10 +68,11 @@ test.describe("PAD-25: Calendar day click should pre-populate class date field",
 
     // Navigate to next week to avoid today ambiguity
     await page.getByRole("button", { name: /next week/i }).first().click();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
 
-    // On mobile, the calendar shows day buttons. Click on Wednesday (3rd day).
-    const wednesdayBtn = page.getByRole("button", { name: /wed 8/i });
+    // On mobile, the calendar shows day buttons. Click Wednesday (the Wed day label
+    // is date-dependent, so match on the weekday prefix).
+    const wednesdayBtn = page.getByRole("button", { name: /^wed\s+\d+/i }).first();
     await expect(wednesdayBtn).toBeVisible({ timeout: 5000 });
     await wednesdayBtn.click();
 

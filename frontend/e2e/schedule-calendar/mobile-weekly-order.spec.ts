@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { addDays, format, startOfWeek } from "date-fns";
 import { loginAsCoach } from "../helpers/auth";
 
 /**
@@ -10,7 +11,12 @@ import { loginAsCoach } from "../helpers/auth";
  * preview and the daily detail view display them sorted by startTime.
  */
 
-const MOCK_DATE = "2026-04-20"; // A Monday
+// Pick the Monday of NEXT week relative to "today". Hardcoding a date here
+// would fail every time the calendar passes that date — the test loops
+// forward looking for the day, so the date must always be in the future.
+const NEXT_MONDAY = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 7);
+const MOCK_DATE = format(NEXT_MONDAY, "yyyy-MM-dd");
+const MOCK_DAY_NUMBER = format(NEXT_MONDAY, "d"); // e.g. "4" or "11"
 
 const MOCK_EVENTS = [
   {
@@ -83,13 +89,13 @@ test.describe("PAD-27: Mobile weekly view class ordering", () => {
     await page.goto("/calendar");
     await page.waitForURL("**/calendar");
 
-    // Wait for the mobile calendar to render — the week column grid has day buttons
-    // Navigate to the week containing MOCK_DATE (April 20, 2026 is a Monday)
-    // Click "Next week" until we see "20" in the column headers
+    // Wait for the mobile calendar to render — the week column grid has day buttons.
+    // Navigate to the week containing MOCK_DATE (next Monday). Click "Next week"
+    // until we see MOCK_DAY_NUMBER in the column headers.
     for (let i = 0; i < 6; i++) {
       const dayVisible = await page
         .locator("button")
-        .filter({ hasText: "20" })
+        .filter({ hasText: MOCK_DAY_NUMBER })
         .first()
         .isVisible()
         .catch(() => false);
