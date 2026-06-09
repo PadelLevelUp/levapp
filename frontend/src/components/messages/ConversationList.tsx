@@ -1,10 +1,10 @@
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
 
 interface ConversationListProps {
@@ -13,14 +13,28 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   loading?: boolean;
   onNewConversation: (userId: string) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect , onNewConversation}: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const filteredConversations = conversations.filter(conv =>
     conv.participantName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    if (!sentinelRef.current || !onLoadMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) onLoadMore(); },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [onLoadMore, hasMore]);
 
   const getInitials = (name: string) => {
     return name
@@ -42,7 +56,7 @@ export function ConversationList({ conversations, selectedId, onSelect , onNewCo
   const existingParticipantIds = conversations.map(c => c.participantId);
 
   return (
-    <div className="w-full md:w-80 border-border">
+    <div className="flex flex-col h-full w-full md:w-80 border-border">
       {/* Search Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-2">
@@ -63,7 +77,7 @@ export function ConversationList({ conversations, selectedId, onSelect , onNewCo
       </div>
 
       {/* Conversation List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -115,6 +129,12 @@ export function ConversationList({ conversations, selectedId, onSelect , onNewCo
                 </div>
               </button>
             ))
+          )}
+          {hasMore && <div ref={sentinelRef} className="h-1" />}
+          {loadingMore && (
+            <div className="flex justify-center py-3">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
           )}
         </div>
       </ScrollArea>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
@@ -47,6 +47,9 @@ export default function MessagesPage() {
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
   const mobileView = id ? "thread" : "list";
   const selectedConversationIdRef = useRef<string | null>(null);
 
@@ -76,14 +79,34 @@ export default function MessagesPage() {
     async function load() {
       try {
         setInitialLoading(true);
-        const data = await getConversations();
-        setConversations(data);
+        const result = await getConversations(1);
+        setConversations(result.conversations);
+        setHasMore(result.hasMore);
+        setPage(1);
       } finally {
         setInitialLoading(false);
       }
     }
     load();
   }, []);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const result = await getConversations(nextPage);
+      setConversations(prev => {
+        const existingIds = new Set(prev.map(c => normalizeConversationId(c.id)));
+        const fresh = result.conversations.filter(c => !existingIds.has(normalizeConversationId(c.id)));
+        return [...prev, ...fresh];
+      });
+      setPage(nextPage);
+      setHasMore(result.hasMore);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, page]);
 
   useEffect(() => {
     if (!token) return;
@@ -423,6 +446,9 @@ export default function MessagesPage() {
                 selectedId={selectedConversation?.id ?? null}
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
+                onLoadMore={loadMoreConversations}
+                hasMore={hasMore}
+                loadingMore={loadingMore}
               />
             )}
           </div>
