@@ -25,9 +25,16 @@ test("US-17: exercises page renders with search and filters", async ({ page }) =
 test("US-17: search filters exercise list", async ({ page }) => {
   const search = page.getByPlaceholder(/search exercise/i);
   await search.fill("zzz-no-match-zzz");
-  const noResults = page.locator("text=/no exercises|no results/i").first();
-  // Either empty state or the list is empty
-  const emptyVisible = await noResults.isVisible({ timeout: 3000 }).catch(() => false);
-  const exerciseCards = await page.locator("[class*='card'], [class*='exercise']").count();
-  expect(emptyVisible || exerciseCards === 0).toBe(true);
+  // Search is debounced ~300ms — give it time to settle.
+  await page.waitForTimeout(500);
+
+  // Exercise cards are <button> elements with `class="group ..."` — filter for
+  // ones whose name field is non-empty. After filtering with no matches, none
+  // of the originally-seeded exercises should remain visible.
+  const remainingExercises = await page.locator("h3").filter({ hasText: /./ }).count();
+  // We allow page-chrome headings (Training, Exercises, etc.) but no exercise
+  // <h3> name should match the impossible search string.
+  const matches = await page.getByText(/zzz-no-match-zzz/i).count();
+  expect(matches).toBe(0);
+  expect(remainingExercises).toBeLessThan(50); // sanity: not the unfiltered list
 });

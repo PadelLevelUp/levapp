@@ -15,10 +15,74 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
 }
 
+/**
+ * Locate the master "Automatic notifications" toggle inside the Auto-Invite
+ * Engine card. Target it by proximity to the heading text so it doesn't match
+ * the other switches on the Notifications tab (upcoming class reminders,
+ * missing-players alerts, validation reminders, send via email).
+ */
+function autoNotifySwitch(page: import("@playwright/test").Page) {
+  return page
+    .getByText(/^automatic notifications$/i)
+    .locator("xpath=ancestor::div[contains(@class, 'flex')][1]")
+    .locator('[role="switch"]')
+    .first();
+}
+
+/**
+ * Sections requiring auto-notify (Reminders, Invitation groups, Tiebreakers,
+ * Restrictions) are `disabled` when the master toggle is off. Tests that
+ * interact with these sections call this helper first.
+ *
+ * When invitationGroups is empty, toggling auto-notify on takes ~700ms because
+ * the component initializes default groups. We wait for the Reminders trigger
+ * to become enabled as a proxy for the config state having propagated.
+ */
+async function enableAutoNotify(page: import("@playwright/test").Page) {
+  const toggle = autoNotifySwitch(page);
+  const state = await toggle.getAttribute("data-state");
+  if (state === "unchecked") {
+    await toggle.click();
+    // Wait for the Reminders section trigger to become enabled — this happens
+    // once the config.autoNotifyEnabled state has updated in React.
+    await expect(
+      page.getByRole("button", { name: /^reminders$/i }).first()
+    ).toBeEnabled({ timeout: 5000 });
+  }
+}
+
+/**
+ * Some tests expect invitationGroups to contain the default groups (Group 1/2/3).
+ * The UI only initializes them when the master toggle flips from OFF→ON and the
+ * existing groups array is empty. If we arrive at a test where auto-notify is
+ * already ON but groups are empty (e.g. from a prior test toggling OFF), we
+ * force a refresh by flipping OFF then ON.
+ */
+async function ensureDefaultInvitationGroups(page: import("@playwright/test").Page) {
+  await openSection(page, /invitation groups/i);
+  const hasGroups = await page.getByText(/^group 1$/i).first().isVisible().catch(() => false);
+  if (hasGroups) return;
+
+  // Flip master toggle OFF then ON — component re-inits DEFAULT_INVITATION_GROUPS
+  const toggle = autoNotifySwitch(page);
+  await toggle.click();
+  await page.waitForTimeout(200);
+  await toggle.click();
+  await expect(page.getByText(/^group 1$/i).first()).toBeVisible({ timeout: 5000 });
+}
+
 async function openSection(page: import("@playwright/test").Page, label: RegExp | string) {
   const trigger = page.getByRole("button", { name: label }).first();
+  // Sections requiring auto-notify are disabled when the master toggle is off.
+  // If the trigger is disabled, enable auto-notify first so the section can open.
+  if (await trigger.isDisabled().catch(() => false)) {
+    await enableAutoNotify(page);
+  }
   await trigger.click();
-  await page.waitForTimeout(200);
+  // Wait for the Collapsible to open (aria-expanded=true) before yielding to the caller.
+  await expect(trigger).toHaveAttribute("aria-expanded", "true", { timeout: 2000 });
+  // Small buffer for the content animation to settle so interactive elements are hit-testable.
+  await page.waitForTimeout(300);
 }
 
 // ---------------------------------------------------------------------------
@@ -35,7 +99,7 @@ test("US-53: notification engine card is visible in the notifications tab", asyn
 test("US-53: master auto-notify toggle is present and interactive", async ({ page }) => {
   await openNotificationsTab(page);
 
-  const toggle = page.locator("role=switch").first();
+  const toggle = autoNotifySwitch(page);
   await expect(toggle).toBeVisible();
   // Toggle should be interactable without error
   await toggle.click();
@@ -59,8 +123,10 @@ test("US-71: reminders timing mode selector has both options", async ({ page }) 
   await openNotificationsTab(page);
   await openSection(page, /^reminders$/i);
 
-  // Open the first timing mode Select
-  const selects = page.locator('[role="combobox"]');
+  // Open the first timing mode Select — use the visible "Hours before class"
+  // label to find it (avoids matching comboboxes rendered outside the viewport).
+  const selects = page.locator('[role="combobox"]').filter({ hasText: /hours before/i });
+  await selects.first().scrollIntoViewIfNeeded();
   await selects.first().click();
 
   await expect(page.getByRole("option", { name: /hours before class/i })).toBeVisible({ timeout: 3000 });
@@ -74,7 +140,8 @@ test("US-71: switching to days-before mode shows days stepper and time input", a
   await openNotificationsTab(page);
   await openSection(page, /^reminders$/i);
 
-  const selects = page.locator('[role="combobox"]');
+  const selects = page.locator('[role="combobox"]').filter({ hasText: /hours before/i });
+  await selects.first().scrollIntoViewIfNeeded();
   await selects.first().click();
   await page.getByRole("option", { name: /days before at specific time/i }).click();
 
@@ -91,10 +158,11 @@ test("US-71: hours-between-reminders field appears only when reminder count > 1"
   const defaultVisible = await betweenLabel.isVisible().catch(() => false);
 
   if (!defaultVisible) {
-    // Increment reminder count to 2 by clicking the + button next to "Reminders per student"
-    const plusButtons = page.getByRole("button").filter({ has: page.locator("svg") });
-    // Find the + button that follows "Reminders per student" label
-    await page.getByText(/reminders per student/i).locator("..").locator("..").getByRole("button").last().click();
+    // Increment reminder count to 2 by clicking the + button in the "Reminders per student" stepper.
+    // Structure: <p>Reminders per student</p> <p>helper</p> <div class="flex gap-1"><btn>-</btn><span>N</span><btn>+</btn></div>
+    // Walk up to the wrapper div (space-y-1.5), then find the stepper row and click the + button.
+    const row = page.getByText(/^reminders per student$/i).locator("xpath=ancestor::div[contains(@class, 'space-y-1.5')][1]");
+    await row.getByRole("button").last().click();
     await expect(page.getByText(/hours between reminders/i)).toBeVisible({ timeout: 3000 });
   }
 });
@@ -115,21 +183,22 @@ test("US-71: start invitations timing selector is present", async ({ page }) => 
 
 test("US-72: invitation groups section can be opened", async ({ page }) => {
   await openNotificationsTab(page);
-  await openSection(page, /invitation groups/i);
+  await ensureDefaultInvitationGroups(page);
 
-  await expect(page.getByText(/group 1/i)).toBeVisible({ timeout: 3000 });
+  // Match "Group 1" card heading exactly (not a description line containing "group")
+  await expect(page.getByText(/^group 1$/i).first()).toBeVisible({ timeout: 3000 });
 });
 
 test("US-72: each group card shows an add rule button", async ({ page }) => {
   await openNotificationsTab(page);
-  await openSection(page, /invitation groups/i);
+  await ensureDefaultInvitationGroups(page);
 
   await expect(page.getByRole("button", { name: /add rule/i }).first()).toBeVisible({ timeout: 3000 });
 });
 
 test("US-72: adding a rule appends an attribute selector row", async ({ page }) => {
   await openNotificationsTab(page);
-  await openSection(page, /invitation groups/i);
+  await ensureDefaultInvitationGroups(page);
 
   // Count existing rule rows in group 1 before adding
   const rulesBefore = await page.locator('[role="combobox"]').count();
@@ -144,17 +213,25 @@ test("US-72: adding a rule appends an attribute selector row", async ({ page }) 
 
 test("US-72: level attribute shows level-specific operations", async ({ page }) => {
   await openNotificationsTab(page);
-  await openSection(page, /invitation groups/i);
+  await ensureDefaultInvitationGroups(page);
+
+  // Scope the combobox lookup to the Group 1 card so we don't hit the (closed)
+  // Reminders section's comboboxes.
+  const group1 = page
+    .getByText(/^group 1$/i)
+    .first()
+    .locator("xpath=ancestor::div[contains(@class, 'rounded') or contains(@class, 'border')][1]");
 
   // Open the attribute selector in the first rule of group 1
-  const firstRuleAttrSelect = page.locator('[role="combobox"]').first();
+  const firstRuleAttrSelect = group1.locator('[role="combobox"]').first();
+  await firstRuleAttrSelect.scrollIntoViewIfNeeded();
   await firstRuleAttrSelect.click();
 
   await expect(page.getByRole("option", { name: /level/i })).toBeVisible({ timeout: 3000 });
   await page.getByRole("option", { name: /^level$/i }).click();
 
   // Open operation selector
-  const opSelect = page.locator('[role="combobox"]').nth(1);
+  const opSelect = group1.locator('[role="combobox"]').nth(1);
   await opSelect.click();
 
   await expect(page.getByRole("option", { name: /same as vacancy/i })).toBeVisible();
@@ -290,9 +367,11 @@ test("US-56: message templates section shows three subheadings", async ({ page }
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  await expect(page.getByText(/^reminders$/i)).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/^invitations$/i)).toBeVisible();
-  await expect(page.getByText(/^waiting list$/i)).toBeVisible();
+  // Templates card has three <p> subheadings inside — target paragraphs to avoid
+  // matching the "Reminders" collapsible section trigger above.
+  await expect(page.locator("p", { hasText: /^reminders$/i }).first()).toBeVisible({ timeout: 3000 });
+  await expect(page.locator("p", { hasText: /^invitations$/i }).first()).toBeVisible();
+  await expect(page.locator("p", { hasText: /^waiting list$/i }).first()).toBeVisible();
 });
 
 test("US-56: new reminder templates are present", async ({ page }) => {
@@ -362,7 +441,7 @@ test("sections requiring auto-notify are locked when toggle is off", async ({ pa
   await openNotificationsTab(page);
 
   // Ensure the master toggle is OFF
-  const masterToggle = page.locator('[role="switch"]').first();
+  const masterToggle = autoNotifySwitch(page);
   if ((await masterToggle.getAttribute("data-state")) === "checked") {
     await masterToggle.click();
   }

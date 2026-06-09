@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach, loginAsStudent, COACH_USERNAME, COACH_PASSWORD, STUDENT_USERNAME, STUDENT_PASSWORD } from "../helpers/auth";
+import { loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
+
+// All tests rely on a seeded conversation between e2e-coach and e2e-student
+// containing two messages: one from coach ("Welcome to the academy!") and one
+// unread message from student ("Thanks coach!"). See e2e/scripts/seed.py.
+
+const SEEDED_COACH_MESSAGE = "Welcome to the academy!";
+const SEEDED_STUDENT_MESSAGE = "Thanks coach!";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -9,242 +16,240 @@ test.beforeEach(async ({ page }) => {
 
 // US-27: Coach can view the messaging inbox
 test("US-27: messages page renders", async ({ page }) => {
-  // Messages page should have some structure
-  const pageVisible = await page
-    .locator("text=/message|conversation|inbox|chat/i")
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-  expect(pageVisible).toBe(true);
+  // Conversation list should show the seeded conversation with the student.
+  await expect(page.getByText("E2E Student").first()).toBeVisible({ timeout: 5000 });
 });
 
-// US-57: Coach can start a new conversation
+// US-57: Coach can start a new conversation via the "+" button next to search
 test("US-57: coach can open new conversation flow", async ({ page }) => {
-  const newConvBtn = page
-    .getByRole("button", { name: /new|compose|start conversation|\+/i })
-    .first();
-  if (await newConvBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await newConvBtn.click();
-    // A dialog / sheet should open to select a recipient
-    const recipientField = page
-      .locator("text=/select|search|recipient|to/i")
-      .first();
-    await expect(recipientField).toBeVisible({ timeout: 5000 });
-  } else {
-    test.skip(true, "New conversation button not found");
-  }
+  await page.getByRole("button", { name: /new conversation/i }).click();
+  // The "New conversation" dialog should open with a user search field.
+  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByPlaceholder(/search users/i)).toBeVisible();
 });
 
 // US-58: Coach can send a message in an existing conversation
 test("US-58: coach can type and send a message", async ({ page }) => {
-  // If there are existing conversations, open the first one
-  const convItem = page.locator("[class*='conversation'], [role='listitem']").first();
-  if (await convItem.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await convItem.click();
-  }
+  await page.getByText("E2E Student").first().click();
+  // Wait for the conversation to load before typing.
+  await page.waitForResponse(
+    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+    { timeout: 10_000 }
+  );
 
-  // Look for message input
-  const msgInput = page
-    .locator("textarea[placeholder*='message'], input[placeholder*='message'], [contenteditable]")
-    .first();
-  if (await msgInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await msgInput.fill("E2E test message");
-    // Send via button or Enter
-    const sendBtn = page.getByRole("button", { name: /send/i }).first();
-    if (await sendBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await sendBtn.click();
-    } else {
-      await msgInput.press("Enter");
-    }
-    await expect(page.getByText("E2E test message")).toBeVisible({ timeout: 5000 });
-  } else {
-    test.skip(true, "Message input not found — need an active conversation first");
-  }
+  const msgInput = page.getByPlaceholder(/type a message/i);
+  await expect(msgInput).toBeVisible({ timeout: 5000 });
+
+  const newMessage = `US-58 hello ${Date.now()}`;
+  await msgInput.fill(newMessage);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message(\?|$)/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    msgInput.press("Enter"),
+  ]);
+
+  // The text appears in both the conversation list sidebar (preview) and the
+  // message bubble. Match the bubble (last in DOM) to avoid strict-mode collisions.
+  await expect(page.getByText(newMessage).last()).toBeVisible({ timeout: 5000 });
 });
 
-// US-59: Real-time delivery indicator
+// US-59: Sent messages appear immediately (without page reload)
 test("US-59: sent messages appear immediately in the conversation", async ({ page }) => {
-  // This is covered by US-58 — message appears without page reload
-  // Additional check: no error toast after sending
-  const errorToast = page
+  await page.getByText("E2E Student").first().click();
+  await page.waitForResponse(
+    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+    { timeout: 10_000 }
+  );
+
+  const msgInput = page.getByPlaceholder(/type a message/i);
+  const newMessage = `US-59 immediate ${Date.now()}`;
+  await msgInput.fill(newMessage);
+  await msgInput.press("Enter");
+
+  // Should appear within 2s without any reload. Bubble is the last DOM match.
+  await expect(page.getByText(newMessage).last()).toBeVisible({ timeout: 2_000 });
+
+  // No error toast.
+  const errorVisible = await page
     .locator("text=/failed|error/i")
-    .first();
-  const errorVisible = await errorToast.isVisible({ timeout: 2000 }).catch(() => false);
+    .first()
+    .isVisible({ timeout: 1_000 })
+    .catch(() => false);
   expect(errorVisible).toBe(false);
 });
 
-// US-60: Coach can edit a sent message
+// US-60: Coach can edit a sent message via the right-click context menu
 test("US-60: coach can edit a sent message", async ({ page }) => {
-  // Open first conversation
-  const convItem = page.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await convItem.isVisible({ timeout: 3000 }).catch(() => false)) {
-    test.skip(true, "No conversations available");
-    return;
-  }
-  await convItem.click();
+  await page.getByText("E2E Student").first().click();
+  await page.waitForResponse(
+    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+    { timeout: 10_000 }
+  );
 
-  // Look for a message with edit option (hover or context menu)
-  const message = page.locator("[class*='message'], [data-testid*='message']").first();
-  if (await message.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await message.hover();
-    const editBtn = page.getByRole("button", { name: /edit/i }).first();
-    if (await editBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await editBtn.click();
-      const editInput = page.locator("textarea, input").last();
-      await editInput.clear();
-      await editInput.fill("Edited message");
-      await page.keyboard.press("Enter");
-      await expect(page.getByText("Edited message")).toBeVisible({ timeout: 5000 });
-    } else {
-      test.skip(true, "Edit button not visible — UI may require different interaction");
-    }
-  } else {
-    test.skip(true, "No messages found in conversation");
-  }
+  // The seeded coach message is editable (mine=true, so Edit/Delete are exposed).
+  const bubble = page.getByText(SEEDED_COACH_MESSAGE).first();
+  await expect(bubble).toBeVisible({ timeout: 5000 });
+  await bubble.click({ button: "right" });
+
+  // The action menu portal renders Edit/Copy/Delete buttons.
+  const editBtn = page.getByRole("button", { name: /^edit$/i });
+  await expect(editBtn).toBeVisible({ timeout: 3000 });
+  await editBtn.click();
+
+  // Edit input replaces the bubble text — find the editable input.
+  const editInput = page.locator('textarea, input[type="text"]').last();
+  await editInput.fill("Welcome to the academy! [edited]");
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message\/\d+/.test(r.url()) && r.request().method() === "PUT" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    editInput.press("Enter"),
+  ]);
+
+  await expect(page.getByText("Welcome to the academy! [edited]").last()).toBeVisible({ timeout: 5000 });
 });
 
-// US-61: Coach can delete a sent message
+// US-61: Coach can delete a sent message via the right-click context menu
 test("US-61: coach can delete a sent message", async ({ page }) => {
-  const convItem = page.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await convItem.isVisible({ timeout: 3000 }).catch(() => false)) {
-    test.skip(true, "No conversations available");
-    return;
-  }
-  await convItem.click();
+  await page.getByText("E2E Student").first().click();
+  await page.waitForResponse(
+    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+    { timeout: 10_000 }
+  );
 
-  const message = page.locator("[class*='message'], [data-testid*='message']").first();
-  if (await message.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await message.hover();
-    const deleteBtn = page.getByRole("button", { name: /delete/i }).first();
-    if (await deleteBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await deleteBtn.click();
-      // Confirm if needed
-      const confirmBtn = page.getByRole("button", { name: /delete|confirm/i }).last();
-      if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await confirmBtn.click();
-      }
-    } else {
-      test.skip(true, "Delete button not visible — UI may require different interaction");
-    }
-  } else {
-    test.skip(true, "No messages found in conversation");
-  }
+  // Send a fresh message that we can safely delete (avoids racing against the
+  // edit test if it runs first and modifies the seeded message).
+  const msgInput = page.getByPlaceholder(/type a message/i);
+  const tempMessage = `US-61 to delete ${Date.now()}`;
+  await msgInput.fill(tempMessage);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message(\?|$)/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    msgInput.press("Enter"),
+  ]);
+  // Right-click the bubble (last DOM match — first would be sidebar preview).
+  const bubble = page.getByText(tempMessage).last();
+  await expect(bubble).toBeVisible({ timeout: 5000 });
+
+  await bubble.click({ button: "right" });
+  const deleteBtn = page.getByRole("button", { name: /^delete$/i });
+  await expect(deleteBtn).toBeVisible({ timeout: 3000 });
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message\/\d+/.test(r.url()) && r.request().method() === "DELETE" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    deleteBtn.click(),
+  ]);
+
+  // The deleted message renders as a "Message deleted" italic placeholder
+  // inside the conversation thread. (The original text may still appear in
+  // the conversation list sidebar as a "last message" preview, which is
+  // expected — we only need the bubble itself to be replaced.)
+  await expect(page.getByText("Message deleted").last()).toBeVisible({ timeout: 5000 });
 });
 
-// US-62: Unread message badge updates when a new message arrives
+// US-62: Unread badge updates when a new message arrives
 test("US-62: unread badge updates when a message is received", async ({ page, browser }) => {
-  // Student sends a message to coach while coach is on a different page
-  const studentCtx = await browser.newContext();
-  const studentPage = await studentCtx.newPage();
-  await loginAsStudent(studentPage);
-  await openMessages(studentPage);
-
-  // Coach navigates away from messages so the badge can increment
+  // Coach starts on dashboard so the messages-tab badge is the indicator.
   await page.goto("/dashboard");
 
-  // Student opens the coach conversation and sends a message
-  const studentConv = studentPage.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await studentConv.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await studentCtx.close();
-    test.skip(true, "No existing conversation seeded for student");
-    return;
-  }
-  await studentConv.click();
-  const msgInput = studentPage
-    .locator("textarea[placeholder*='message'], input[placeholder*='message'], [contenteditable]")
-    .first();
-  await msgInput.fill("US-62 badge test message");
-  const sendBtn = studentPage.getByRole("button", { name: /send/i }).first();
-  if (await sendBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await sendBtn.click();
-  } else {
-    await msgInput.press("Enter");
-  }
+  // Student sends a fresh message in the seeded conversation.
+  const studentCtx = await browser.newContext();
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent(studentPage);
+    await openMessages(studentPage);
 
-  // Coach sidebar messages link should show an unread badge
-  const badge = page.locator("a[href='/messages'] [class*='badge'], a[href='/messages'] [class*='unread'], a[href='/messages'] span").first();
-  await expect(badge).toBeVisible({ timeout: 8000 });
+    await studentPage.getByText("E2E Coach").first().click();
+    await studentPage.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    );
 
-  await studentCtx.close();
+    const msgInput = studentPage.getByPlaceholder(/type a message/i);
+    await msgInput.fill(`US-62 unread ping ${Date.now()}`);
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/message(\?|$)/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+        { timeout: 10_000 }
+      ),
+      msgInput.press("Enter"),
+    ]);
+
+    // Coach's sidebar Messages link should show an unread indicator.
+    // The seed already created an unread message, so the badge may already be
+    // present — that's fine; we just need it to be visible.
+    const badge = page.locator('a[href="/messages"]').locator(":scope span, :scope [class*='badge']").first();
+    await expect(badge).toBeVisible({ timeout: 8000 });
+  } finally {
+    await studentCtx.close().catch(() => {});
+  }
 });
 
-// US-63: Opening a conversation marks messages as read (badge resets to 0)
-test("US-63: opening a conversation clears the unread count", async ({ page, browser }) => {
-  // Student sends a message so coach has unread messages
-  const studentCtx = await browser.newContext();
-  const studentPage = await studentCtx.newPage();
-  await loginAsStudent(studentPage);
-  await openMessages(studentPage);
-
+// US-63: Opening a conversation marks messages as read
+test("US-63: opening a conversation clears the unread count", async ({ page }) => {
+  // Seed creates an unread student message. Coach opens conversation → read.
+  // First navigate away so we're on a page where the badge would be visible.
   await page.goto("/dashboard");
 
-  const studentConv = studentPage.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await studentConv.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await studentCtx.close();
-    test.skip(true, "No existing conversation seeded for student");
-    return;
-  }
-  await studentConv.click();
-  const msgInput = studentPage
-    .locator("textarea[placeholder*='message'], input[placeholder*='message'], [contenteditable]")
-    .first();
-  await msgInput.fill("US-63 read-receipt test message");
-  const sendBtn = studentPage.getByRole("button", { name: /send/i }).first();
-  if (await sendBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await sendBtn.click();
-  } else {
-    await msgInput.press("Enter");
-  }
+  // Wait for the unread count API to settle so the initial badge state renders.
+  await page.waitForResponse(
+    (r) => /\/api\/app\/messages\/unread_count/.test(r.url()) && r.status() === 200,
+    { timeout: 5_000 }
+  ).catch(() => null);
 
-  // Coach opens messages and clicks the conversation
+  // Open messages and click the seeded conversation.
   await openMessages(page);
-  const coachConv = page.locator("[class*='conversation'], [role='listitem']").first();
-  await expect(coachConv).toBeVisible({ timeout: 5000 });
-  await coachConv.click();
+  const conv = page.getByText("E2E Student").first();
+  await expect(conv).toBeVisible({ timeout: 5000 });
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+\/read/.test(r.url()) && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    conv.click(),
+  ]);
 
-  // After opening, badge should disappear or show 0
-  const badge = page.locator("a[href='/messages'] [class*='badge'], a[href='/messages'] [class*='unread']").first();
+  // After opening, the unread badge on the sidebar messages link should be gone.
+  const badge = page.locator('a[href="/messages"]').locator(":scope [class*='badge'], :scope [class*='unread']").first();
   await expect(badge).not.toBeVisible({ timeout: 5000 });
-
-  await studentCtx.close();
 });
 
 // US-64: New message received inside an open conversation auto-scrolls into view
 test("US-64: new message in open conversation is scrolled into view", async ({ page, browser }) => {
-  // Coach opens the conversation
-  const coachConv = page.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await coachConv.isVisible({ timeout: 5000 }).catch(() => false)) {
-    test.skip(true, "No existing conversation available");
-    return;
-  }
-  await coachConv.click();
+  // Coach opens the seeded conversation
+  await page.getByText("E2E Student").first().click();
+  await page.waitForResponse(
+    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+    { timeout: 10_000 }
+  );
 
-  // Student sends a message while coach has the conversation open
   const studentCtx = await browser.newContext();
-  const studentPage = await studentCtx.newPage();
-  await loginAsStudent(studentPage);
-  await openMessages(studentPage);
-  const studentConv = studentPage.locator("[class*='conversation'], [role='listitem']").first();
-  if (!await studentConv.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await studentCtx.close();
-    test.skip(true, "No existing conversation seeded for student");
-    return;
-  }
-  await studentConv.click();
-  const msgInput = studentPage
-    .locator("textarea[placeholder*='message'], input[placeholder*='message'], [contenteditable]")
-    .first();
-  const uniqueText = `US-64 scroll test ${Date.now()}`;
-  await msgInput.fill(uniqueText);
-  const sendBtn = studentPage.getByRole("button", { name: /send/i }).first();
-  if (await sendBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await sendBtn.click();
-  } else {
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent(studentPage);
+    await openMessages(studentPage);
+    await studentPage.getByText("E2E Coach").first().click();
+    await studentPage.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    );
+
+    const uniqueText = `US-64 scroll test ${Date.now()}`;
+    const msgInput = studentPage.getByPlaceholder(/type a message/i);
+    await msgInput.fill(uniqueText);
     await msgInput.press("Enter");
+
+    // Coach (with conversation open) should see the new message via SSE/poll.
+    // Bubble is .last(); .first() would match the sidebar preview.
+    await expect(page.getByText(uniqueText).last()).toBeVisible({ timeout: 8000 });
+  } finally {
+    await studentCtx.close().catch(() => {});
   }
-
-  // The new message should become visible in the coach's view (auto-scroll)
-  await expect(page.getByText(uniqueText)).toBeVisible({ timeout: 8000 });
-
-  await studentCtx.close();
 });

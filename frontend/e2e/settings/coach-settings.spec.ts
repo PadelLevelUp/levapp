@@ -32,14 +32,14 @@ test("US-67: preferences/appearance tab is present", async ({ page }) => {
 
 // US-68: Coach can configure calendar defaults
 test("US-68: calendar tab is present in settings", async ({ page }) => {
-  const calTab = page
-    .getByRole("tab", { name: /calendar/i })
-    .first();
-  const visible = await calTab.isVisible({ timeout: 5000 }).catch(() => false);
-  if (!visible) {
-    test.skip(true, "Calendar tab not found in settings");
-  }
-  await expect(calTab).toBeVisible();
+  // SettingsPage uses plain <button> elements for nav (not role="tab").
+  const calTab = page.getByRole("button", { name: /^calendar$/i }).first();
+  await expect(calTab).toBeVisible({ timeout: 5000 });
+  await calTab.click();
+  // Clicking the tab reveals the "Calendar defaults" section heading.
+  await expect(
+    page.getByRole("heading", { name: /calendar defaults/i })
+  ).toBeVisible({ timeout: 5000 });
 });
 
 // US-69: Coach can manage skill levels

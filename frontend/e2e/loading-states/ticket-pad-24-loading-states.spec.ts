@@ -88,12 +88,25 @@ test.describe("PAD-24: Loading states for backend calls", () => {
       .first()
       .waitFor({ timeout: 5000 });
 
-    // Intercept the POST to /api/app/remove_class and delay it
+    // Intercept the POST to /api/app/remove_class with a delayed-fulfill so:
+    //  (1) the click triggers a "pending" request that the loading spinner
+    //      observes, and
+    //  (2) the request NEVER reaches the backend (other test folders depend
+    //      on the seeded class still existing).
+    //
+    // Note: Playwright auto-continues the route if the handler awaits too
+    // long, which would let the request through to the backend. We delay
+    // 800ms — long enough to see the spinner, short enough to avoid the
+    // auto-continue safety net.
     let deleteApiCalled = false;
     await page.route("**/api/app/remove_class", async (route) => {
       deleteApiCalled = true;
-      await new Promise((r) => setTimeout(r, 2000));
-      await route.continue();
+      await new Promise((r) => setTimeout(r, 800));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true }),
+      });
     });
 
     // Click delete
@@ -106,23 +119,28 @@ test.describe("PAD-24: Loading states for backend calls", () => {
     const singleBtn = page.getByRole("button", { name: /only this|this class|single/i });
     const hasScopeDialog = await singleBtn
       .first()
-      .isVisible({ timeout: 1000 })
+      .isVisible({ timeout: 500 })
       .catch(() => false);
     if (hasScopeDialog) {
       await singleBtn.first().click();
     }
 
-    // CRITICAL CHECK: The class should NOT be removed from the UI immediately
-    // A loading spinner should appear on the delete button during the API call
+    // CRITICAL CHECK: while the API is in flight, a loading spinner should
+    // be visible on the delete button.
     const loadingVisible = await page
       .locator('.animate-spin, button[disabled]')
       .first()
-      .isVisible({ timeout: 1000 })
+      .isVisible({ timeout: 500 })
       .catch(() => false);
 
     expect(loadingVisible).toBe(true);
 
-    // The delete API should have been called
+    // Wait for the route handler to fulfill so the test ends cleanly.
+    await page.waitForResponse(
+      (r) => /\/api\/app\/remove_class/.test(r.url()) && r.status() === 200,
+      { timeout: 5000 }
+    );
+
     expect(deleteApiCalled).toBe(true);
   });
 

@@ -208,10 +208,20 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
   await page.goto("/players");
   await page.waitForURL("**/players");
 
+  // With pagination (PAGE_SIZE=25), imported players may not all be on page 1 —
+  // use search to locate each one by name.
+  const searchInput = page.getByPlaceholder(/search/i).first();
+
   for (const name of firstNames) {
+    await searchInput.clear();
+    await searchInput.fill(name);
     await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
   }
   for (const name of secondNames) {
+    await searchInput.clear();
+    await searchInput.fill(name);
+    // Give the debounced search time to complete, then assert absence
+    await page.waitForTimeout(500);
     await expect(page.getByText(name)).not.toBeVisible({ timeout: 5000 });
   }
 });
