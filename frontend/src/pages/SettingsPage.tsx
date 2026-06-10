@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Bell,
+  Building2,
   Calendar,
   CreditCard,
   Shield,
@@ -36,11 +37,12 @@ import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCat
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
+import { ClubSection } from "@/components/settings/ClubSection";
 
 type WeekStart = "monday" | "sunday";
 type TimeFormat = "24h" | "12h";
 type ThemePref = "system" | "light" | "dark";
-type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "billing" | "security" | "import";
+type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "billing" | "security" | "import" | "club";
 
 interface CoachSettings {
   // Profile
@@ -97,6 +99,7 @@ function SettingsNav({
     { id: "billing", label: "Billing", icon: <CreditCard className="w-4 h-4" /> },
     { id: "security", label: "Security", icon: <Shield className="w-4 h-4" /> },
     { id: "import", label: "Import Data", icon: <Upload className="w-4 h-4" /> },
+    { id: "club", label: "Club", icon: <Building2 className="w-4 h-4" /> },
   ];
 
   return (
@@ -306,7 +309,7 @@ export default function SettingsPage() {
                   <SelectItem value="billing">Billing</SelectItem>
                   <SelectItem value="security">Security</SelectItem>
                   <SelectItem value="import">Import Data</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="club">Club</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -798,6 +801,24 @@ export default function SettingsPage() {
                   <DataImportSection />
                   <Separator />
                   <ImportHistorySection />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CLUB */}
+            {tab === "club" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5" />
+                    Club
+                  </CardTitle>
+                  <CardDescription>
+                    Manage your club and invite other coaches to join.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ClubSection />
                 </CardContent>
               </Card>
             )}
