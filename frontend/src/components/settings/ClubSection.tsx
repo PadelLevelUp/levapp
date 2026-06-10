@@ -131,10 +131,9 @@ export function ClubSection() {
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div className="flex items-center gap-3">
           <Building2 className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <p className="font-medium">{club.name}</p>
-            <p className="text-sm text-muted-foreground">Your current club</p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            New coaches will join {club.name}.
+          </p>
         </div>
         <Button onClick={handleInviteCoach} disabled={creating}>
           {creating ? (
