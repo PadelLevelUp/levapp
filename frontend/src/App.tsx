@@ -9,6 +9,7 @@ import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
 import PlayerDetailPage from "./pages/PlayerDetailPage";
 import RegisterPage from "./pages/RegisterPage";
+import CoachInvitePage from "./pages/CoachInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
 import MessagesPage from "./pages/MessagesPage";
@@ -37,6 +38,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
+              <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
 
               <Route
                 path="/"
