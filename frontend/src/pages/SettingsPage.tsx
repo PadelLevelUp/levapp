@@ -811,10 +811,10 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5" />
-                    Invite new coach
+                    Club
                   </CardTitle>
                   <CardDescription>
-                    Invite other coaches to join your club.
+                    Manage your club and invite other coaches to join.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
