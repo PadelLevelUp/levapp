@@ -145,10 +145,15 @@ with app.app_context():
         filler_player = Player(user_id=filler_user.id)
         db.session.add(filler_player)
         db.session.flush()
+        # Intermediate level (NOT beginner): keeps fillers out of the early
+        # invite-queue rounds for the beginner "E2E Academy Class", so
+        # e2e-student-2 (beginner) is the first eligible replacement in
+        # notification-engine tests. Fillers exist for pagination/search tests
+        # where their level is irrelevant.
         filler_assoc = Association_CoachPlayer(
             coach_id=coach.id,
             player_id=filler_player.id,
-            level_id=level_beginner.id,
+            level_id=level_intermediate.id,
             side="right",
             notes=f"Filler player {i:02d}",
         )

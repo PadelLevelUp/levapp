@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
-import type { Message, MessageStatus } from '@/types';
+import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
+import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
 import { respondToNotification, respondToReminder } from '@/api/notificationEngine';
 import { toast } from 'sonner';
 
@@ -47,7 +48,12 @@ export function MessageBubble({
 
   const isInvite = message.messageType === "notification_invite";
   const isReminder = message.messageType === "notification_reminder";
+  const isReplacementApproval = message.messageType === "replacement_approval";
   const alreadyResponded = !!message.metadata?.responded;
+
+  const approvalBundle = isReplacementApproval
+    ? (message.metadata as unknown as ApprovalBundle | undefined)
+    : undefined;
 
   const handleRespond = async (action: "yes" | "no") => {
     const eventId = message.metadata?.notificationEventId;
@@ -243,6 +249,13 @@ export function MessageBubble({
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* Replacement approval prompt (semi-automatic mode) */}
+        {approvalBundle?.bundleId && approvalBundle.vacancies?.length > 0 && (
+          <div className="mt-1.5 ml-1">
+            <ReplacementApprovalCard bundle={approvalBundle} readOnly={isMine} />
           </div>
         )}
 

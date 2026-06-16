@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, Users } from "lucide-react";
 
-import type { NotificationConfig } from "@/types";
+import type { InvitationMode, NotificationConfig } from "@/types";
 import { getNotificationConfig, updateNotificationConfig } from "@/api/notificationEngine";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 import { RemindersSection } from "./RemindersSection";
 import { InvitationGroupsSection, DEFAULT_INVITATION_GROUPS } from "./InvitationGroupsSection";
@@ -27,7 +29,11 @@ export function NotificationsEngineSection() {
 
   useEffect(() => {
     getNotificationConfig()
-      .then(setConfig)
+      // Normalize: invitationMode must always be a concrete value so the
+      // RadioGroup is fully controlled and never fires a spurious change.
+      .then((cfg) =>
+        setConfig({ ...cfg, invitationMode: cfg.invitationMode ?? "automatic" })
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -118,6 +124,43 @@ export function NotificationsEngineSection() {
             }}
           />
         </div>
+
+        {/* Invitation mode — only relevant when the engine is on */}
+        {config.autoNotifyEnabled && (
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-medium">Invitation mode</p>
+              <p className="text-xs text-muted-foreground">
+                Send replacement invitations automatically, or ask for your approval first
+              </p>
+            </div>
+            <RadioGroup
+              value={config.invitationMode ?? "automatic"}
+              onValueChange={(value) => {
+                // Guard: only persist a real change. The payload is minimal
+                // ({invitationMode} only) so this save can never overwrite
+                // other config fields (backend patches only provided keys).
+                if (value !== (config.invitationMode ?? "automatic")) {
+                  save({ invitationMode: value as InvitationMode });
+                }
+              }}
+              className="gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="automatic" id="invitation-mode-automatic" />
+                <Label htmlFor="invitation-mode-automatic" className="text-sm font-normal">
+                  Automatic
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="semi_automatic" id="invitation-mode-semi-automatic" />
+                <Label htmlFor="invitation-mode-semi-automatic" className="text-sm font-normal">
+                  Semi-automatic
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        )}
 
         <Separator />
 

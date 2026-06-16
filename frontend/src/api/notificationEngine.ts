@@ -1,5 +1,13 @@
 import { api } from "@/api/client";
-import type { NotificationConfig, NotificationEventItem, StudentGroup, MessageTemplates, StandingWaitingListEntry } from "@/types";
+import type {
+  ApprovalAction,
+  ApprovalVacancyResult,
+  NotificationConfig,
+  NotificationEventItem,
+  StudentGroup,
+  MessageTemplates,
+  StandingWaitingListEntry,
+} from "@/types";
 
 export async function searchPlayers(query: string): Promise<{ players: { id: string; name: string }[] }> {
   const res = await api.get("/app/notify/player_search", { params: { q: query } });
@@ -75,6 +83,17 @@ export async function coachRespondToNotification(
   action: "yes" | "no"
 ): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
   const res = await api.post("/app/notify/coach_respond", { notificationEventId, action });
+  return res.data;
+}
+
+export async function respondToApproval(
+  bundleId: string,
+  action: ApprovalAction
+): Promise<{
+  action: ApprovalAction;
+  vacancies: { vacancyId: number; result: ApprovalVacancyResult }[];
+}> {
+  const res = await api.post("/app/notify/approval/respond", { bundleId, action });
   return res.data;
 }
 

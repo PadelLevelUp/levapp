@@ -9,7 +9,8 @@ export async function getConversations(): Promise<Conversation[]> {
   }
 
   const res = await api.get("/app/conversations");
-  return res.data;
+  // Endpoint is paginated: { conversations: [...], hasMore: boolean }
+  return Array.isArray(res.data) ? res.data : (res.data.conversations ?? []);
 }
 
 export async function getConversation(
