@@ -24,9 +24,16 @@ from padel_app.models.Association_PlayerLessonInstance import Association_Player
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.notification_config import NotificationConfig
+from padel_app.models.conversations import Conversation
+from padel_app.models.conversation_participants import ConversationParticipant
+from padel_app.models.messages import Message
 import json
 from werkzeug.security import generate_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 app = create_app()
 
@@ -162,8 +169,8 @@ with app.app_context():
     db.session.flush()
 
     # ── Lesson + LessonInstance ───────────────────────────────────────────────
-    # Future class (next Monday)
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Future class (next Monday) — naive UTC to match the backend's datetime contract
+    today = _utcnow_naive().replace(hour=0, minute=0, second=0, microsecond=0)
     days_until_monday = (7 - today.weekday()) % 7 or 7
     next_monday = today + timedelta(days=days_until_monday)
     class_start = next_monday.replace(hour=10, minute=0)
@@ -183,6 +190,14 @@ with app.app_context():
     db.session.add(lesson)
     db.session.flush()
 
+    # Associate coach with the lesson (not just the instance). Without this,
+    # if the LessonInstance is later deleted (e.g. by the loading-states class
+    # delete test), the calendar's load_lessons_for_coach query would not
+    # return this Lesson, and downstream tests in other folders would fail to
+    # find "E2E Academy Class" on the calendar.
+    coach_lesson = Association_CoachLesson(coach_id=coach.id, lesson_id=lesson.id)
+    db.session.add(coach_lesson)
+
     instance = LessonInstance(
         lesson_id=lesson.id,
         start_datetime=class_start,
@@ -191,6 +206,8 @@ with app.app_context():
         status="scheduled",
         level_id=level_beginner.id,
         notifications_enabled=True,
+        # Required so the calendar's (lesson_id, occ_date) lookup matches.
+        original_lesson_occurence_date=class_start.date(),
     )
     db.session.add(instance)
     db.session.flush()
@@ -247,6 +264,45 @@ with app.app_context():
     )
     db.session.add(notification_config)
 
+    # ── Conversation between coach and student (with messages) ───────────────
+    # Required by E2E messaging tests (US-57..US-64). Without this, the coach
+    # has no conversations to interact with and tests fall through to skip
+    # branches.
+    conversation = Conversation(
+        is_group=False,
+        participant_key=Conversation.build_participant_key([coach_user.id, student_user.id]),
+    )
+    db.session.add(conversation)
+    db.session.flush()
+
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation.id,
+        user_id=coach_user.id,
+        last_read_at=_utcnow_naive(),  # coach has read up to now
+    ))
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation.id,
+        user_id=student_user.id,
+        last_read_at=_utcnow_naive(),
+    ))
+    db.session.flush()
+
+    coach_msg = Message(
+        conversation_id=conversation.id,
+        sender_id=coach_user.id,
+        text="Welcome to the academy!",
+        sent_at=_utcnow_naive() - timedelta(minutes=5),
+    )
+    db.session.add(coach_msg)
+    # Student replies AFTER coach's last_read_at — this counts as unread for the coach.
+    student_msg = Message(
+        conversation_id=conversation.id,
+        sender_id=student_user.id,
+        text="Thanks coach!",
+        sent_at=_utcnow_naive() + timedelta(seconds=1),
+    )
+    db.session.add(student_msg)
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
@@ -256,3 +312,4 @@ with app.app_context():
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
+    print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")

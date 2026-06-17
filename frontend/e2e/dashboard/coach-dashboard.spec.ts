@@ -5,6 +5,14 @@ import { openDashboard } from "../helpers/navigation";
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
   await openDashboard(page);
+  // The dashboard widgets are populated by /api/app/dashboard. Wait for that
+  // to settle so we don't race the React render.
+  await page
+    .waitForResponse(
+      (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    )
+    .catch(() => null);
 });
 
 // US-62: Coach dashboard shows KPI overview
@@ -23,15 +31,8 @@ test("US-62: dashboard shows KPI cards", async ({ page }) => {
 
 // US-63: Dashboard shows upcoming classes widget
 test("US-63: upcoming classes widget is visible", async ({ page }) => {
-  const upcomingSection = page
-    .locator("text=/upcoming|next class|schedule/i")
-    .first();
-  const visible = await upcomingSection.isVisible({ timeout: 5000 }).catch(() => false);
-  if (!visible) {
-    test.skip(true, "Upcoming classes widget not found on dashboard — content depends on API response");
-    return;
-  }
-  expect(visible).toBe(true);
+  // The backend always emits the "Upcoming classes" block (even when empty).
+  await expect(page.getByText("Upcoming classes").first()).toBeVisible({ timeout: 5000 });
 });
 
 // US-64: Dashboard shows unread messages widget
@@ -48,12 +49,7 @@ test("US-64: unread messages widget or indicator is visible", async ({ page }) =
 
 // US-65: Dashboard shows notification activity feed
 test("US-65: notification activity or recent activity section is visible", async ({ page }) => {
-  const activitySection = page
-    .locator("text=/activity|notification|recent/i")
-    .first();
-  const visible = await activitySection.isVisible({ timeout: 5000 }).catch(() => false);
-  if (!visible) {
-    test.skip(true, "Activity feed not found on dashboard — may not be implemented yet");
-  }
-  expect(visible).toBe(true);
+  // The backend always emits the "Notification activity" block (with empty
+  // text when there's no activity yet).
+  await expect(page.getByText("Notification activity").first()).toBeVisible({ timeout: 5000 });
 });

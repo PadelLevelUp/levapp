@@ -79,7 +79,7 @@ export function NewConversationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="shrink-0">
+        <Button size="icon" variant="ghost" className="shrink-0" aria-label="New conversation">
           <MessageSquarePlus className="w-5 h-5" />
         </Button>
       </DialogTrigger>

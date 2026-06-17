@@ -228,7 +228,7 @@ export function NotificationsEngineSection() {
               How to rank players within each group. Higher items take priority.
             </p>
             <TiebreakersSection
-              tiebreakers={config.tiebreakers ?? DEFAULT_TIEBREAKERS}
+              tiebreakers={config.tiebreakers && config.tiebreakers.length > 0 ? config.tiebreakers : DEFAULT_TIEBREAKERS}
               onChange={(tiebreakers) => save({ tiebreakers })}
               disabled={disabled}
             />

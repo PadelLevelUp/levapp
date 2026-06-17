@@ -13,7 +13,9 @@ test("US-46: evaluation categories page/section is accessible", async ({ page })
   if (!visible) {
     // It may be under the player detail "Add Evaluation" flow
     await page.goto("/players");
-    await page.getByText("E2E Student").click();
+    // E2E Student is on page 2 (id-desc with 30 players) — use search
+    await page.getByPlaceholder(/search/i).first().fill("E2E Student");
+    await page.getByText("E2E Student", { exact: true }).click();
     const evalBtn = page.getByRole("button", { name: /add evaluation/i }).first();
     await expect(evalBtn).toBeVisible({ timeout: 5000 });
   } else {
@@ -25,7 +27,8 @@ test("US-46: evaluation categories page/section is accessible", async ({ page })
 test("US-47: coach submits an evaluation entry", async ({ page }) => {
   await loginAsCoach(page);
   await page.goto("/players");
-  await page.getByText("E2E Student").click();
+  await page.getByPlaceholder(/search/i).first().fill("E2E Student");
+  await page.getByText("E2E Student", { exact: true }).click();
 
   // Click "Add Evaluation"
   await page.getByRole("button", { name: /add evaluation/i }).first().click({ timeout: 5000 });

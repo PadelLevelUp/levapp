@@ -15,8 +15,9 @@
  */
 
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
-import { loginAsCoach, loginAsStudent } from "../helpers/auth";
+import { loginAsCoach, loginAsStudent2 } from "../helpers/auth";
 import { openCalendar, openSettings, openMessages } from "../helpers/navigation";
+import { findClassOnCalendar } from "../helpers/calendar-navigation";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -29,43 +30,44 @@ const AUTH_BASE = "http://localhost:5001/api/auth";
 /** Navigate the calendar until the seeded class is visible, then click it. */
 async function openClassDetail(page: Page) {
   await openCalendar(page);
-  for (let i = 0; i < 5; i++) {
-    const visible = await page.getByText(CLASS_TITLE).isVisible().catch(() => false);
-    if (visible) break;
-    await page.getByRole("button", { name: /next week/i }).first().click();
-    await page.waitForTimeout(400);
-  }
+  const found = await findClassOnCalendar(page, CLASS_TITLE);
+  expect(found, "seeded class must be visible on calendar").toBe(true);
   await page.getByText(CLASS_TITLE).first().click();
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 }
 
 /**
- * Open the Notify modal for the current class and send to the first available
- * student. Returns `true` if the notification was sent, `false` if there are
- * no eligible students (test should skip or handle gracefully).
+ * Open the Notify modal for the current class and send to e2e-student-2
+ * ("E2E Student Two"). Returns `true` if the notification was sent.
+ *
+ * NOTE: e2e-student is ENROLLED in the seeded class, so the notification groups
+ * endpoint correctly excludes them. We must target e2e-student-2 who is NOT
+ * enrolled but IS a coach player.
  */
 async function sendNotificationFromModal(page: Page): Promise<boolean> {
   await page.getByRole("button", { name: /^notify$/i }).first().click();
-  await expect(
-    page.locator('[role="dialog"]').filter({ hasText: /student|group|notify/i }).first()
-  ).toBeVisible({ timeout: 5000 });
+  const dialog = page.locator('[role="dialog"]').filter({ hasText: /student|group|notify/i }).first();
+  await expect(dialog).toBeVisible({ timeout: 5000 });
 
-  // Early-exit if the modal shows no eligible students
-  const noStudents = await page
-    .getByText(/no eligible students/i)
-    .isVisible({ timeout: 1000 })
-    .catch(() => false);
-  if (noStudents) {
+  // Expand the "All students" group so we can find E2E Student Two
+  const allStudentsGroup = dialog.getByText(/all students/i).first();
+  const allStudentsVisible = await allStudentsGroup.isVisible({ timeout: 3000 }).catch(() => false);
+  if (!allStudentsVisible) {
     await page.getByRole("button", { name: /cancel/i }).first().click().catch(() => null);
     return false;
   }
+  // Click the group label to expand it
+  await allStudentsGroup.click();
+  await page.waitForTimeout(300);
 
-  // Select the first checkbox (Shadcn renders as role="checkbox")
-  const checkboxes = page.locator('[role="dialog"] [role="checkbox"]');
-  const count = await checkboxes.count();
-  if (count > 0) {
-    await checkboxes.first().click();
+  // Find and click E2E Student Two to select them
+  const studentRow = dialog.getByText("E2E Student Two").first();
+  const studentVisible = await studentRow.isVisible({ timeout: 3000 }).catch(() => false);
+  if (!studentVisible) {
+    await page.getByRole("button", { name: /cancel/i }).first().click().catch(() => null);
+    return false;
   }
+  await studentRow.click();
 
   // Confirm send button is enabled before clicking
   const sendBtn = page.getByRole("button", { name: /send to \d+ student|send$/i }).first();
@@ -125,66 +127,87 @@ test("US-REM-01: coach can open Notify modal and send invite to student", async 
 // ---------------------------------------------------------------------------
 
 test("US-REM-02: student receives invitation message in messages inbox", async ({
-  page,
+  page, browser,
 }) => {
   // Send notification via UI as coach
   await loginAsCoach(page);
   await openClassDetail(page);
   await sendNotificationFromModal(page);
 
-  // Log in as student and check messages — no errors should be thrown
-  await loginAsStudent(page);
-  await openMessages(page);
+  // Use a separate browser context for the student to avoid stale JWT issues
+  const studentCtx = await browser.newContext();
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent2(studentPage);
+    await openMessages(studentPage);
 
-  // Check if any conversation is visible (depends on whether the notified
-  // student is the e2e-student; may be Ghost Player instead — that is fine)
-  const convVisible = await page
-    .getByText(/e2e coach|academy class|opening|coming/i)
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
+    // Check if any conversation is visible (e2e-student-2 should have received
+    // the invite from the coach)
+    const convVisible = await studentPage
+      .getByText(/e2e coach|academy class|opening|coming/i)
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
 
-  expect(typeof convVisible).toBe("boolean"); // flow completed without crash
+    expect(typeof convVisible).toBe("boolean"); // flow completed without crash
+  } finally {
+    await studentCtx.close().catch(() => {});
+  }
 });
 
 // ---------------------------------------------------------------------------
 // US-REM-03: Student accepts invitation
 // ---------------------------------------------------------------------------
 
-test("US-REM-03: student accepts invitation and spot is confirmed", async ({ page }) => {
-  await loginAsCoach(page);
-  await openClassDetail(page);
-  await sendNotificationFromModal(page);
-
-  // Log in as student, open messages, find invite, click Yes
-  await loginAsStudent(page);
-  await openMessages(page);
-
-  // Find the most recent conversation safely
-  const convItem = page.locator('[role="listitem"], .conversation-item, [data-testid="conversation"]').first();
-  const convVisible = await convItem.isVisible({ timeout: 5000 }).catch(() => false);
-  if (convVisible) {
-    await convItem.click();
-  } else {
-    const coachTextVisible = await page.getByText(/e2e coach/i).first().isVisible({ timeout: 3000 }).catch(() => false);
-    if (coachTextVisible) await page.getByText(/e2e coach/i).first().click();
+test("US-REM-03: student accepts invitation and spot is confirmed", async ({ request, browser }) => {
+  // Send notification via API directly (bypasses the already-notified filter
+  // that blocks the modal when previous tests already notified this student).
+  const token = await coachApiToken(request);
+  const playersRes = await request.get(`${API_BASE}/players`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const players = await playersRes.json();
+  const student2 = players.find((p: any) => p.email === "e2e-student-2@test.com" || p.name === "E2E Student Two");
+  if (!student2) {
+    test.skip(true, "e2e-student-2 not found in coach players");
+    return;
   }
 
-  await page.waitForTimeout(500);
+  await request.post(`${API_BASE}/notify/manual`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { model: "LessonInstance", originalId: 1, date: null, playerIds: [student2.id] },
+  });
 
-  // Look for a "Yes" action button
-  const yesBtn = page.getByRole("button", { name: /^yes$/i }).or(
-    page.locator("button").filter({ hasText: /^yes$/i })
-  );
-  const yesBtnVisible = await yesBtn.first().isVisible({ timeout: 5000 }).catch(() => false);
+  // Student opens messages and finds the invite
+  const studentCtx = await browser.newContext();
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent2(studentPage);
+    await openMessages(studentPage);
 
-  if (yesBtnVisible) {
-    await yesBtn.first().click();
-    await page.waitForTimeout(1000);
-    const errorShown = await page.getByText(/error|failed/i).isVisible().catch(() => false);
+    // Find the conversation with the coach by clicking the visible name. Wait
+    // for the conversation messages to load so the action menu can render.
+    const coachConv = studentPage.getByText(/e2e coach/i).first();
+    await expect(coachConv).toBeVisible({ timeout: 5000 });
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+        { timeout: 10_000 }
+      ).catch(() => null),
+      coachConv.click(),
+    ]);
+
+    // Look for the "Yes" action button on the LATEST invite message — earlier
+    // tests may have left responded invites in the conversation.
+    const yesBtn = studentPage.getByRole("button", { name: /^yes$/i }).last();
+    await expect(yesBtn).toBeVisible({ timeout: 5000 });
+    await yesBtn.click();
+    await studentPage.waitForTimeout(1000);
+
+    const errorShown = await studentPage.getByText(/error|failed/i).isVisible().catch(() => false);
     expect(errorShown).toBe(false);
-  } else {
-    test.skip(true, "Invite action buttons not found — notification may not have reached e2e-student");
+  } finally {
+    await studentCtx.close().catch(() => {});
   }
 });
 
@@ -192,38 +215,66 @@ test("US-REM-03: student accepts invitation and spot is confirmed", async ({ pag
 // US-REM-04: Student declines invitation
 // ---------------------------------------------------------------------------
 
-test("US-REM-04: student declines invitation and event is marked expired", async ({ page }) => {
-  await loginAsCoach(page);
-  await openClassDetail(page);
-  await sendNotificationFromModal(page);
-
-  // Log in as student, find and decline invite
-  await loginAsStudent(page);
-  await openMessages(page);
-
-  const convItem = page.locator('[role="listitem"], .conversation-item, [data-testid="conversation"]').first();
-  const convVisible = await convItem.isVisible({ timeout: 5000 }).catch(() => false);
-  if (convVisible) {
-    await convItem.click();
-  } else {
-    const coachTextVisible = await page.getByText(/e2e coach/i).first().isVisible({ timeout: 3000 }).catch(() => false);
-    if (coachTextVisible) await page.getByText(/e2e coach/i).first().click();
+test("US-REM-04: student declines invitation and event is marked expired", async ({ request, browser }) => {
+  // Send notification via API directly
+  const token = await coachApiToken(request);
+  const playersRes = await request.get(`${API_BASE}/players`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const players = await playersRes.json();
+  const student2 = players.find((p: any) => p.email === "e2e-student-2@test.com" || p.name === "E2E Student Two");
+  if (!student2) {
+    test.skip(true, "e2e-student-2 not found in coach players");
+    return;
   }
 
-  await page.waitForTimeout(500);
+  // Send a fresh manual notification — earlier tests may have left responded
+  // invites in the conversation, so we target the LATEST one with `.last()`.
+  await request.post(`${API_BASE}/notify/manual`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { model: "LessonInstance", originalId: 1, date: null, playerIds: [student2.id] },
+  });
 
-  const noBtn = page.getByRole("button", { name: /^no$/i }).or(
-    page.locator("button").filter({ hasText: /^no$/i })
-  );
-  const noBtnVisible = await noBtn.first().isVisible({ timeout: 5000 }).catch(() => false);
+  // Student opens messages and finds the latest unresponded invite
+  const studentCtx = await browser.newContext();
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent2(studentPage);
+    await openMessages(studentPage);
 
-  if (noBtnVisible) {
-    await noBtn.first().click();
-    await page.waitForTimeout(1000);
-    const errorShown = await page.getByText(/error|failed/i).isVisible().catch(() => false);
+    // Click on the coach conversation. Wait on the conversations API so the
+    // list is loaded before we try to interact with it.
+    const conversationsLoaded = studentPage.waitForResponse(
+      (r) => /\/api\/app\/conversations(\?|$)/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    );
+    await conversationsLoaded.catch(() => null);
+    const coachConv = studentPage.getByText(/e2e coach/i).first();
+    await expect(coachConv).toBeVisible({ timeout: 5000 });
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/conversation\//.test(r.url()) && r.status() === 200,
+        { timeout: 10_000 }
+      ).catch(() => null),
+      coachConv.click(),
+    ]);
+
+    // The new invite is the LATEST invitation message, so its No button is the
+    // last one in DOM order. Earlier tests (US-REM-03) may have responded to
+    // older invites — those messages no longer render Yes/No buttons.
+    const noBtn = studentPage.getByRole("button", { name: /^no$/i }).last();
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    // Wait for the response API call to settle before asserting no error.
+    await studentPage.waitForResponse(
+      (r) => /\/api\/app\/notify\/respond(\?|$)/.test(r.url()),
+      { timeout: 5_000 }
+    ).catch(() => null);
+
+    const errorShown = await studentPage.getByText(/error|failed/i).isVisible().catch(() => false);
     expect(errorShown).toBe(false);
-  } else {
-    test.skip(true, "Decline button not found — notification may not have reached e2e-student");
+  } finally {
+    await studentCtx.close().catch(() => {});
   }
 });
 

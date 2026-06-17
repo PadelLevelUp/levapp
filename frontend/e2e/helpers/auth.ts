@@ -17,7 +17,6 @@ async function login(page: Page, username: string, password: string) {
   await page.getByPlaceholder("your-username").fill(username);
   await page.getByPlaceholder("••••••••").fill(password);
   await page.getByRole("button", { name: "Sign In" }).click();
-  // Wait until we've left the auth page
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), {
     timeout: 10_000,
   });
@@ -29,4 +28,8 @@ export async function loginAsCoach(page: Page) {
 
 export async function loginAsStudent(page: Page) {
   await login(page, STUDENT_USERNAME, STUDENT_PASSWORD);
+}
+
+export async function loginAsStudent2(page: Page) {
+  await login(page, STUDENT2_USERNAME, STUDENT2_PASSWORD);
 }

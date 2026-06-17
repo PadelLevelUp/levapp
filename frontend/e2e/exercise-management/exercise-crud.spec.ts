@@ -33,23 +33,18 @@ test("US-18: coach can delete an exercise", async ({ page }) => {
   await page.getByRole("button", { name: /create exercise|save/i }).last().click();
   await expect(page.getByText("Exercise To Delete")).toBeVisible({ timeout: 5000 });
 
-  // Open it
-  await page.getByText("Exercise To Delete").click();
+  // Each ExerciseCard has a hover-revealed Trash2 button with aria-label
+  // "Delete exercise". Hover the specific card so the button becomes visible,
+  // then click it.
+  const card = page.locator(".group").filter({ hasText: "Exercise To Delete" }).first();
+  await card.hover();
+  await card.getByRole("button", { name: /delete exercise/i }).click();
 
-  // Click delete
-  const deleteBtn = page.getByRole("button", { name: /delete/i }).first();
-  if (await deleteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await deleteBtn.click();
-    // Confirm dialog
-    const confirmBtn = page.getByRole("button", { name: /delete|confirm/i }).last();
-    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await confirmBtn.click();
-    }
-    // Should no longer appear
-    await expect(page.getByText("Exercise To Delete")).not.toBeVisible({ timeout: 5000 });
-  } else {
-    test.skip(true, "Delete button not visible from exercise detail — UI may differ");
-  }
+  // The confirm AlertDialog has a "Delete" button.
+  await page.getByRole("alertdialog").getByRole("button", { name: /^delete$/i }).click();
+
+  // Should no longer appear in the list.
+  await expect(page.getByText("Exercise To Delete")).not.toBeVisible({ timeout: 5000 });
 });
 
 // US-48: Coach can edit an existing exercise

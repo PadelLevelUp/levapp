@@ -41,7 +41,7 @@ export default defineConfig({
     {
       command: "bash -c 'source .venv/bin/activate && flask run --host 127.0.0.1 --port 5001 --no-reload'",
       cwd: path.resolve(__dirname, "../levelup_backend"),
-      port: 5001,
+      url: "http://127.0.0.1:5001/api/app/healthz",
       reuseExistingServer: false,
       timeout: 30000,
       env: {
@@ -54,6 +54,7 @@ export default defineConfig({
         POSTGRES_DB: "levelup_test",
         JWT_SECRET_KEY: "e2e-test-secret",
         E2E_DEBUG_ENDPOINTS: "true",
+        TEST_MODE: "true",
       },
     },
     {
