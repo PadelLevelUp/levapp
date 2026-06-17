@@ -23,7 +23,7 @@ export default defineConfig({
 
   use: {
     baseURL: "http://localhost:8080",
-    headless: false,
+    headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

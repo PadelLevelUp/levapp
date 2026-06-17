@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
 import type {
+  ApprovalBundle,
   CalendarEvent,
   ClassInstance,
   ClassInvitation,
@@ -41,6 +42,7 @@ import { createEventSource } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
+import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -133,6 +135,7 @@ export function ClassDetailSheet({
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [approvalBundle, setApprovalBundle] = useState<ApprovalBundle | null>(null);
   const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
   const [isPlanningMode, setIsPlanningMode] = useState(false);
   const [savingTraining, setSavingTraining] = useState(false);
@@ -183,6 +186,7 @@ export function ClassDetailSheet({
     setSavingAttendance(false);
     setLocalInvitations(classInstance.invitations ?? []);
     setInvitationsOpen(false);
+    setApprovalBundle(null);
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
   }, [classInstance?.id]);
@@ -380,13 +384,24 @@ export function ClassDetailSheet({
     setSavingAttendance(true);
 
     try {
-      const { presences: updatedPresences, notifiedPlayers } = await confirmClassPresences(classInstance, payload);
+      const {
+        presences: updatedPresences,
+        notifiedPlayers,
+        approvalBundle: bundle,
+      } = await confirmClassPresences(classInstance, payload);
 
       setClassInstance((prev) =>
         prev ? { ...prev, presences: updatedPresences } : prev
       );
 
-      if (notifiedPlayers.length > 0 && event && updatedPresences.length > 0) {
+      if (bundle) {
+        // Semi-automatic mode: invitations await coach approval
+        setApprovalBundle(bundle);
+        toast({
+          title: "Attendance saved",
+          description: "Approval needed to invite replacements",
+        });
+      } else if (notifiedPlayers.length > 0 && event && updatedPresences.length > 0) {
         // Fetch by the actual LessonInstance ID from presences (works even for
         // recurring lessons that were just materialized during confirmation)
         const instanceId = Number(updatedPresences[0].lessonInstanceId);
@@ -806,6 +821,13 @@ export function ClassDetailSheet({
               </div>
             )}
           </div>
+
+          {canManage && !isEditing && approvalBundle && (
+            <>
+              <Separator />
+              <ReplacementApprovalCard bundle={approvalBundle} />
+            </>
+          )}
 
           {canManage && !isEditing && localInvitations.length > 0 && (
             <>

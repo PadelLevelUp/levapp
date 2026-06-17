@@ -220,6 +220,8 @@ export interface Conversation {
   participantId: string;
   participantName: string;
   participantAvatar?: string;
+  /** True when the other participant is the platform assistant (one-way channel) */
+  isAssistant?: boolean;
 
   lastMessage: string | null;
   lastMessageAt: string | null;
@@ -407,14 +409,57 @@ export interface MessageTemplates {
 
 // ── Main config (updated) ──────────────────────────────────────────────────
 
+export type InvitationMode = "automatic" | "semi_automatic";
+
 export interface NotificationConfig {
   autoNotifyEnabled: boolean;
+  invitationMode?: InvitationMode;
   reminderTiming: ReminderConfig;
   invitationGroups: InvitationGroup[];
   tiebreakers: Tiebreaker[];
   restrictions: NotificationRestrictions;
   notificationGroups: NotificationGroup[];
   messageTemplates: MessageTemplates;
+}
+
+// ── Replacement approval (semi-automatic mode) ─────────────────────────────
+
+export type ApprovalAction = "yes_now" | "yes_at_window" | "dismiss";
+
+export type ApprovalVacancyResult =
+  | "approved_now"
+  | "approved_at_window"
+  | "dismissed"
+  | "stale";
+
+export interface ApprovalQueuePlayer {
+  /** Player id as serialized by the backend (string) */
+  id: string;
+  name: string;
+  levelCode?: string | null;
+  levelId?: string | null;
+  roundNumber?: number;
+  groupIndex?: number;
+  groupLabel?: string;
+}
+
+export interface ApprovalVacancyInfo {
+  vacancyId: number;
+  declinedPlayerId: number;
+  declinedPlayerName: string;
+  queue: ApprovalQueuePlayer[];
+  waitingListPlayerId?: number;
+  waitingListPlayerName?: string;
+}
+
+export interface ApprovalBundle {
+  bundleId: string;
+  lessonInstanceId: number;
+  /** ISO datetime when the invitation window opens; null if already open/unknown */
+  windowOpenAt: string | null;
+  responded: boolean;
+  response?: ApprovalAction;
+  vacancies: ApprovalVacancyInfo[];
 }
 
 export interface StandingWaitingListEntry {

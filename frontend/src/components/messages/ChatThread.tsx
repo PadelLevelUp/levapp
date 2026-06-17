@@ -66,17 +66,20 @@ export function ChatThread({
         onReaction={onToggleReaction}
       />
 
-      <Composer
-        onSend={handleSend}
-        onEditSave={handleEditSave}
-        editingMessage={editingMessage}
-        replyingTo={replyingTo}
-        userId={user_id}
-        participantName={conversation.participantName}
-        isMobile={isMobile}
-        onCancelEdit={() => setEditingMessage(null)}
-        onCancelReply={() => setReplyingTo(null)}
-      />
+      {/* Assistant conversations are a one-way channel — no composer */}
+      {!conversation.isAssistant && (
+        <Composer
+          onSend={handleSend}
+          onEditSave={handleEditSave}
+          editingMessage={editingMessage}
+          replyingTo={replyingTo}
+          userId={user_id}
+          participantName={conversation.participantName}
+          isMobile={isMobile}
+          onCancelEdit={() => setEditingMessage(null)}
+          onCancelReply={() => setReplyingTo(null)}
+        />
+      )}
     </div>
   );
 }

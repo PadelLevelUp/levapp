@@ -1,4 +1,4 @@
-import type { AbsenceJustification, ClassInstance, Presence, PresenceStatus } from "@/types";
+import type { AbsenceJustification, ApprovalBundle, ClassInstance, Presence, PresenceStatus } from "@/types";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPresences } from "@/data/mockData";
@@ -10,7 +10,12 @@ export async function confirmClassPresences(
     status: PresenceStatus;
     justification?: AbsenceJustification;
   }>
-): Promise<{ presences: Presence[]; notifiedPlayers: { id: string; name: string }[] }> {
+): Promise<{
+  presences: Presence[];
+  notifiedPlayers: { id: string; name: string }[];
+  /** Present in semi-automatic mode when absences created vacancies awaiting approval */
+  approvalBundle?: ApprovalBundle;
+}> {
   if (USE_MOCK_DATA) {
     console.log("[mock] confirmClassPresences", classInstance.id, presences);
     return { presences: mockPresences, notifiedPlayers: [] };
