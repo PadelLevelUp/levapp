@@ -154,11 +154,13 @@ export function ReplacementApprovalCard({
                       key={player.id}
                       className="flex items-center gap-2 text-sm"
                     >
-                      <span className="w-4 text-xs text-muted-foreground text-right">
+                      <span className="w-4 shrink-0 text-xs text-muted-foreground text-right">
                         {index + 1}.
                       </span>
-                      <span>{player.name}</span>
-                      {renderQueueBadge(player)}
+                      <div className="flex flex-1 items-center justify-around gap-2">
+                        <span>{player.name}</span>
+                        {renderQueueBadge(player)}
+                      </div>
                     </li>
                   ))}
                 </ol>
