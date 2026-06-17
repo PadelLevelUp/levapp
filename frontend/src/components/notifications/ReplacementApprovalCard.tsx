@@ -148,19 +148,16 @@ export function ReplacementApprovalCard({
                 <p className="text-xs font-medium text-muted-foreground">
                   Invite queue
                 </p>
-                <ol className="space-y-1">
+                <ol className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
                   {vacancy.queue.map((player, index) => (
-                    <li
-                      key={player.id}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span className="w-4 shrink-0 text-xs text-muted-foreground text-right">
+                    <li key={player.id} className="contents">
+                      <span className="text-xs text-muted-foreground text-right">
                         {index + 1}.
                       </span>
-                      <div className="flex flex-1 items-center justify-around gap-2">
-                        <span>{player.name}</span>
+                      <span className="text-center">{player.name}</span>
+                      <span className="justify-self-start">
                         {renderQueueBadge(player)}
-                      </div>
+                      </span>
                     </li>
                   ))}
                 </ol>
