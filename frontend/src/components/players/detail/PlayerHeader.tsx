@@ -66,50 +66,67 @@ export function PlayerHeader({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16">
-          <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="flex-1 min-w-0">
-          {isEditing ? (
+      {isEditing ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
             <Input
               value={draftName}
               onChange={(e) => onDraftNameChange(e.target.value)}
-              className="text-lg font-semibold mb-2"
+              className="flex-1 text-lg font-semibold"
               placeholder="Player name"
             />
-          ) : (
-            <h1 className="text-2xl font-bold truncate">{player.name || "Unnamed"}</h1>
-          )}
+          </div>
 
-          {isEditing ? (
-            <div className="flex flex-wrap gap-2">
-              <Select value={draftSide} onValueChange={(v) => onDraftSideChange(v as PlayerSide | "")}>
-                <SelectTrigger className="w-28 h-7 text-xs">
-                  <SelectValue placeholder="Side" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
-                <SelectTrigger className="w-44 h-7 text-xs">
-                  <SelectValue placeholder="No Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {levels.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.code} — {l.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select value={draftSide} onValueChange={(v) => onDraftSideChange(v as PlayerSide | "")}>
+              <SelectTrigger className="h-10 w-full sm:w-32">
+                <SelectValue placeholder="Side" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left">Left</SelectItem>
+                <SelectItem value="right">Right</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
+              <SelectTrigger className="h-10 w-full sm:flex-1">
+                <SelectValue placeholder="No Level" />
+              </SelectTrigger>
+              <SelectContent>
+                {levels.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.code} — {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+              <X className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button size="sm" onClick={onSave} disabled={!draftName.trim() || saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              {saving ? "Saving" : "Save"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 shrink-0">
+            <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold truncate">{player.name || "Unnamed"}</h1>
+
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (
                 <Badge variant="secondary">
@@ -123,27 +140,15 @@ export function PlayerHeader({
               )}
               {!player.isActive && <Badge variant="destructive">Inactive</Badge>}
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="flex gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
-                <X className="mr-2 h-4 w-4" /> Cancel
-              </Button>
-              <Button size="sm" onClick={onSave} disabled={!draftName.trim() || saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                {saving ? "Saving" : "Save"}
-              </Button>
-            </>
-          ) : (
+          <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onEdit}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {!player.isActive && (
         <div className="rounded-lg border border-dashed border-warning bg-warning/5 p-4 space-y-3">
