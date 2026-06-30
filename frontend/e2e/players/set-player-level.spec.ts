@@ -26,7 +26,8 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   const levelSelect = page.locator('[role="combobox"]').nth(1);
   await levelSelect.click();
 
-  // Seeded levels: "B1 — Beginner" and "I1 — Intermediate". Student starts as
+  // Seeded levels: "B1 | Beginner" and "I1 | Intermediate" (code bold, "|"
+  // separator — PAD-14). Student starts as
   // Beginner; switch to Intermediate so the change is observable.
   await page.getByRole("option", { name: /Intermediate/i }).click();
 
@@ -34,12 +35,12 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   await page.getByRole("button", { name: /^save$/i }).click();
 
   // Badge should now reflect the chosen level (not in edit mode anymore).
-  await expect(page.getByText(/I1 — Intermediate/)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(/I1\s*\|\s*Intermediate/).first()).toBeVisible({ timeout: 5000 });
 
   // Regression: reload and confirm the level persists from the backend.
   await page.reload();
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
-  await expect(page.getByText(/I1 — Intermediate/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/I1\s*\|\s*Intermediate/).first()).toBeVisible({ timeout: 10000 });
 
   // Strongest regression check: re-open edit and verify the level Select itself
   // reflects the saved value (the bug was the Select couldn't show it).
