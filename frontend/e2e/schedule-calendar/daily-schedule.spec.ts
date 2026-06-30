@@ -14,8 +14,9 @@ test("US-1: weekly calendar renders with navigation controls", async ({ page }) 
   const nextBtn = page.getByRole("button", { name: /next week/i }).first();
   await expect(nextBtn).toBeVisible({ timeout: 5000 });
 
-  // Week label should be present (e.g. "10 – 16 March 2026")
-  const weekLabel = page.locator("text=/january|february|march|april|may|june|july|august|september|october|november|december/i").first();
+  // Week label should be present (e.g. "29 Jun - 5 Jul 2026"). The UI renders
+  // abbreviated month names, so match the 3-letter prefixes (also matches full names).
+  const weekLabel = page.locator("text=/jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i").first();
   await expect(weekLabel).toBeVisible({ timeout: 5000 });
 });
 
