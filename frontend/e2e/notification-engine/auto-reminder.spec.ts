@@ -98,7 +98,10 @@ async function pollForReminderMessage(
       continue;
     }
 
-    const conversations: Array<{ id: number }> = await convsRes.json();
+    // GET /conversations returns a paginated object { conversations, hasMore },
+    // not a bare array.
+    const { conversations }: { conversations: Array<{ id: number }> } =
+      await convsRes.json();
 
     for (const conv of conversations) {
       const detailRes = await request.get(`${API_BASE}/conversation/${conv.id}`, {
@@ -267,7 +270,9 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
         headers: { Authorization: `Bearer ${coachToken}` },
       });
       expect(coachConvsRes.ok()).toBeTruthy();
-      const coachConvs: Array<{ id: number }> = await coachConvsRes.json();
+      // GET /conversations returns a paginated object { conversations, hasMore }.
+      const { conversations: coachConvs }: { conversations: Array<{ id: number }> } =
+        await coachConvsRes.json();
 
       let coachReminderCount = 0;
       for (const conv of coachConvs) {
