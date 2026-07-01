@@ -173,13 +173,28 @@ export function AddPlayerSheet({
                 <SelectValue placeholder="Select level" />
               </SelectTrigger>
               <SelectContent>
-                {levels.map((lvl) => (
-                  <SelectItem key={lvl.id} value={lvl.id}>
-                    {lvl.code} – {lvl.label}
-                  </SelectItem>
-                ))}
+                {levels.length === 0 ? (
+                  <div className="px-2 py-3 text-sm text-muted-foreground">
+                    No levels defined yet — create levels in Settings to assign one.
+                  </div>
+                ) : (
+                  levels.map((lvl) => (
+                    <SelectItem key={lvl.id} value={lvl.id}>
+                      {lvl.code} – {lvl.label}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            {levels.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No levels defined yet.{" "}
+                <a href="/settings" className="underline underline-offset-2">
+                  Create levels in Settings
+                </a>{" "}
+                to assign one.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
