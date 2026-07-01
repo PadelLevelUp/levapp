@@ -211,6 +211,9 @@ export interface Message {
     notificationEventId?: number;
     lessonInstanceId?: number;
     responded?: boolean;
+    response?: string;
+    /** ISO start time of the class (on reminder messages), used to gate cancel. */
+    startsAt?: string;
     [key: string]: unknown;
   };
 }
