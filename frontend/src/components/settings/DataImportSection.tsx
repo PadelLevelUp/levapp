@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import {
   analyzeFile,
-  confirmImport,
+  confirmImportStream,
   type AnalyzeSSEEvent,
 } from "@/api/import";
 import { useToast } from "@/hooks/use-toast";
@@ -702,6 +702,7 @@ export function DataImportSection() {
   const [tables, setTables] = useState<ImportTable[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<Record<
     string,
     TableImportResult
@@ -833,6 +834,7 @@ export function DataImportSection() {
     setProgress(0);
     setTables([]);
     setImportResults(null);
+    setImportProgress(0);
     setSelectedTables(new Set(SELECTABLE_TABLES.map((t) => t.key)));
   };
 
@@ -922,13 +924,26 @@ export function DataImportSection() {
 
   const handleConfirmImport = async () => {
     setImporting(true);
+    setImportProgress(0);
     try {
-      const results = await confirmImport(
+      const results = await confirmImportStream(
         tables.map((t) => ({
           name: t.name,
           rows: t.rows,
           columns: t.columns,
-        }))
+        })),
+        (event) => {
+          if (event.type === "progress") {
+            // Prefer fine-grained row progress when available, else table-level.
+            if (event.rows_total && event.rows_total > 0) {
+              setImportProgress(
+                Math.round((event.rows_done ?? 0) / event.rows_total * 100)
+              );
+            } else if (event.total > 0) {
+              setImportProgress(Math.round((event.done / event.total) * 100));
+            }
+          }
+        }
       );
 
       setImportResults(results as Record<string, TableImportResult>);
@@ -1172,7 +1187,9 @@ export function DataImportSection() {
                       <Upload className="w-4 h-4" />
                     )}
                     {importing
-                      ? "Importing..."
+                      ? importProgress > 0
+                        ? `Importing... ${importProgress}%`
+                        : "Importing..."
                       : `Import ${totalSelected} records`}
                   </Button>
                 </div>

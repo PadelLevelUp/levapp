@@ -153,3 +153,106 @@ export async function confirmImport(
   const { data } = await api.post<ConfirmResult>("/app/import/confirm", payload);
   return data;
 }
+
+/* ---------- confirm import (SSE stream) ---------- */
+
+export type ConfirmSSEEvent =
+  | {
+      type: "progress";
+      table: string | null;
+      done: number;
+      total: number;
+      rows_done?: number;
+      rows_total?: number;
+    }
+  | { type: "done"; results: ConfirmResult }
+  | { type: "error"; message: string };
+
+/**
+ * Stream a bulk import via SSE. The backend keeps the connection alive with
+ * progress events so the front gateway never returns a false 504 on large
+ * uploads. Resolves with the final results dict (same shape as confirmImport).
+ */
+export async function confirmImportStream(
+  tables: ImportTable[],
+  onEvent?: (event: ConfirmSSEEvent) => void
+): Promise<ConfirmResult> {
+  const payload: ConfirmPayload = {};
+  for (const table of tables) {
+    const selected = table.rows.filter((r) => r.selected);
+    if (selected.length === 0) continue;
+    payload[table.name] = selected.map((r) => r.cells);
+  }
+
+  const baseURL = api.defaults.baseURL || "/api";
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(`${baseURL}/app/import/confirm/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("accessToken");
+      const next = encodeURIComponent(
+        window.location.pathname + window.location.search
+      );
+      window.location.assign(`/auth?next=${next}`);
+    }
+    const text = await response.text().catch(() => "Unknown error");
+    throw new Error(`Import failed (${response.status}): ${text}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let results: ConfirmResult = {};
+  let streamError: string | null = null;
+
+  const parse = (raw: string): ConfirmSSEEvent | null => {
+    try {
+      return JSON.parse(raw) as ConfirmSSEEvent;
+    } catch {
+      return null; // skip malformed
+    }
+  };
+
+  const handle = (event: ConfirmSSEEvent) => {
+    onEvent?.(event);
+    if (event.type === "done") results = event.results;
+    if (event.type === "error") streamError = event.message;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith(":")) continue;
+      if (trimmed.startsWith("data: ")) {
+        const event = parse(trimmed.slice(6));
+        if (event) handle(event);
+      }
+    }
+  }
+
+  if (buffer.trim().startsWith("data: ")) {
+    const event = parse(buffer.trim().slice(6));
+    if (event) handle(event);
+  }
+
+  if (streamError) throw new Error(streamError);
+  return results;
+}
