@@ -6,6 +6,13 @@ function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function getRoleLabel(conversation: Conversation): string {
+  if (conversation.isAssistant) return 'Assistant';
+  const role = conversation.participantRole;
+  if (!role) return '';
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 interface Props {
   conversation: Conversation;
   onBack?: () => void;
@@ -34,7 +41,9 @@ export function ChatHeader({ conversation, onBack, showBack }: Props) {
 
       <div className="flex-1 min-w-0">
         <h2 className="text-sm font-semibold text-foreground truncate">{conversation.participantName}</h2>
-        <p className="text-xs text-muted-foreground">Player</p>
+        {getRoleLabel(conversation) && (
+          <p className="text-xs text-muted-foreground">{getRoleLabel(conversation)}</p>
+        )}
       </div>
 
       <button className="p-2 rounded-full hover:bg-accent transition-colors" aria-label="More options">
