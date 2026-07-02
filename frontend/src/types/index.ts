@@ -220,6 +220,8 @@ export interface Conversation {
   participantId: string;
   participantName: string;
   participantAvatar?: string;
+  /** Role of the other participant, e.g. "coach" or "player" */
+  participantRole?: string;
   /** True when the other participant is the platform assistant (one-way channel) */
   isAssistant?: boolean;
 
