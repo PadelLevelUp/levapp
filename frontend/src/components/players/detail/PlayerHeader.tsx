@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LevelLabel } from "@/components/LevelLabel";
 
 interface PlayerHeaderProps {
   player: CoachPlayer;
@@ -99,7 +100,7 @@ export function PlayerHeader({
               <SelectContent>
                 {levels.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.code} — {l.label}
+                    <LevelLabel code={l.code} label={l.label} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -134,7 +135,7 @@ export function PlayerHeader({
                 </Badge>
               )}
               {level ? (
-                <Badge variant="outline">{level.code} — {level.label}</Badge>
+                <Badge variant="outline"><LevelLabel code={level.code} label={level.label} /></Badge>
               ) : (
                 <Badge variant="outline" className="text-muted-foreground">No Level</Badge>
               )}

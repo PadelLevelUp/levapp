@@ -69,6 +69,7 @@ import {
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
+import { LevelLabel } from "@/components/LevelLabel";
 
 const COLORS = [
   "#0ea5e9",
@@ -627,7 +628,7 @@ export function ClassDetailSheet({
                   <SelectContent>
                     {levels.map((level) => (
                       <SelectItem key={level.id} value={level.id}>
-                        {level.code} – {level.label}
+                        <LevelLabel code={level.code} label={level.label} />
                       </SelectItem>
                     ))}
                   </SelectContent>
