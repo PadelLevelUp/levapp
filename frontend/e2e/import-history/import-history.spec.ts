@@ -189,8 +189,11 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
 
   await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
 
-  // Should have at least two import entries
+  // Should have at least two import entries. Wait for the list to render before
+  // counting — count() is a one-shot read and does not auto-wait like the
+  // toBeVisible() assertions the other tests in this file rely on.
   const entries = page.locator("[data-testid='import-history-entry']");
+  await expect(entries.first()).toBeVisible({ timeout: 5000 });
   const count = await entries.count();
   expect(count).toBeGreaterThanOrEqual(2);
 
