@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFieldAvailability } from "@/hooks/useFieldAvailability";
+import { LevelLabel } from "@/components/LevelLabel";
 
 export interface AddPlayerInput {
   name: string;
@@ -180,7 +181,7 @@ export function AddPlayerSheet({
                 ) : (
                   levels.map((lvl) => (
                     <SelectItem key={lvl.id} value={lvl.id}>
-                      {lvl.code} – {lvl.label}
+                      <LevelLabel code={lvl.code} label={lvl.label} />
                     </SelectItem>
                   ))
                 )}

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
+import { LevelLabel } from '@/components/LevelLabel';
 
 const COACH_ID = "1";
 
@@ -288,7 +289,7 @@ export function AddClassSheet({
                 <SelectContent>
                   {levels.map((level) => (
                     <SelectItem key={level.id} value={level.id}>
-                      {level.code} – {level.label}
+                      <LevelLabel code={level.code} label={level.label} />
                     </SelectItem>
                   ))}
                 </SelectContent>
