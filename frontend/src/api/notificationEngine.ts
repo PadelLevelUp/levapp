@@ -105,6 +105,13 @@ export async function respondToReminder(
   return res.data;
 }
 
+export async function cancelAttendance(
+  lessonInstanceId: number
+): Promise<{ action: "declined" }> {
+  const res = await api.post("/app/notify/cancel_attendance", { lessonInstanceId });
+  return res.data;
+}
+
 export async function updateMessageTemplates(templates: Partial<MessageTemplates>): Promise<NotificationConfig> {
   const res = await api.post("/app/notify/config", { messageTemplates: templates });
   return res.data;

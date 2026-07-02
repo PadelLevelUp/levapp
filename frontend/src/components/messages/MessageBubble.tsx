@@ -4,7 +4,7 @@ import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
-import { respondToNotification, respondToReminder } from '@/api/notificationEngine';
+import { respondToNotification, respondToReminder, cancelAttendance } from '@/api/notificationEngine';
 import { toast } from 'sonner';
 
 function formatTime(iso: string): string {
@@ -89,6 +89,21 @@ export function MessageBubble({
       setResponding(false);
     }
   };
+  const handleCancelAttendance = async () => {
+    const instanceId = message.metadata?.lessonInstanceId;
+    if (!instanceId || responding) return;
+    setResponding(true);
+    try {
+      await cancelAttendance(instanceId);
+      setLocalResponse('declined');
+      toast.success("Attendance cancelled.");
+    } catch {
+      toast.error("Couldn't cancel attendance. The class may have already started.");
+    } finally {
+      setResponding(false);
+    }
+  };
+
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const x = useMotionValue(0);
   const replyOpacity = useTransform(x, [40, 80], [0, 1]);
@@ -260,50 +275,62 @@ export function MessageBubble({
         )}
 
         {/* Reminder response area */}
-        {isReminder && !isMine && (
-          <div className="flex gap-2 mt-1.5 ml-1">
-            {localResponse === 'accepted' ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                <Check className="w-3.5 h-3.5" />
-                Confirmed
-              </span>
-            ) : localResponse === 'declined' ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
-                <X className="w-3.5 h-3.5" />
-                Absent
-              </span>
-            ) : alreadyResponded ? (
-              message.metadata?.response === "yes" ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                  <Check className="w-3.5 h-3.5" />
-                  Confirmed
-                </span>
-              ) : (
+        {isReminder && !isMine && (() => {
+          const confirmed =
+            localResponse === 'accepted' ||
+            (localResponse === null && alreadyResponded && message.metadata?.response === "yes");
+          const declined =
+            localResponse === 'declined' ||
+            (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
+          const startsAt = message.metadata?.startsAt;
+          // Offer cancellation only while the class is still in the future.
+          const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
+
+          return (
+            <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
+              {confirmed ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                    <Check className="w-3.5 h-3.5" />
+                    Confirmed
+                  </span>
+                  {classInFuture && (
+                    <button
+                      onClick={handleCancelAttendance}
+                      disabled={responding}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      {responding ? "…" : "Cancel attendance"}
+                    </button>
+                  )}
+                </>
+              ) : declined ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
                   Absent
                 </span>
-              )
-            ) : (
-              <>
-                <button
-                  onClick={() => handleRespondReminder("yes")}
-                  disabled={responding}
-                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
-                >
-                  {responding ? "…" : "Yes"}
-                </button>
-                <button
-                  onClick={() => handleRespondReminder("no")}
-                  disabled={responding}
-                  className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
-                >
-                  No
-                </button>
-              </>
-            )}
-          </div>
-        )}
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleRespondReminder("yes")}
+                    disabled={responding}
+                    className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                  >
+                    {responding ? "…" : "Yes"}
+                  </button>
+                  <button
+                    onClick={() => handleRespondReminder("no")}
+                    disabled={responding}
+                    className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                  >
+                    No
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (

@@ -21,6 +21,7 @@ from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+from padel_app.models.presences import Presence
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.notification_config import NotificationConfig
@@ -243,6 +244,17 @@ with app.app_context():
         lesson_instance_id=instance.id,
     )
     db.session.add(student_instance)
+
+    # Presence for the enrolled student (mirrors auto-create on materialize:
+    # invited, not yet confirmed). Needed so the confirm / cancel-attendance
+    # flow has a Presence row to operate on.
+    student_presence = Presence(
+        player_id=student.id,
+        lesson_instance_id=instance.id,
+        invited=True,
+        confirmed=False,
+    )
+    db.session.add(student_presence)
 
     # ── Recurring Lesson (no materialized instance) ────────────────────────────
     # Weekly recurring class on Tuesdays, starting next Tuesday
