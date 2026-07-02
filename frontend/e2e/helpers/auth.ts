@@ -9,6 +9,10 @@ export const STUDENT_PASSWORD = "E2eStudent123!";
 export const STUDENT2_USERNAME = "e2e-student-2";
 export const STUDENT2_PASSWORD = "E2eStudent2123!";
 
+// Coach with no levels defined — for the empty-levels dropdown case (PAD-29).
+export const COACH_NOLEVELS_USERNAME = "e2e-coach-nolevels";
+export const COACH_NOLEVELS_PASSWORD = "E2eCoach123!";
+
 /**
  * Fills in the login form and waits for a successful redirect.
  */
@@ -32,4 +36,8 @@ export async function loginAsStudent(page: Page) {
 
 export async function loginAsStudent2(page: Page) {
   await login(page, STUDENT2_USERNAME, STUDENT2_PASSWORD);
+}
+
+export async function loginAsCoachNoLevels(page: Page) {
+  await login(page, COACH_NOLEVELS_USERNAME, COACH_NOLEVELS_PASSWORD);
 }

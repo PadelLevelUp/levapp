@@ -76,11 +76,25 @@ with app.app_context():
     )
     db.session.add(ghost_user)
 
+    # Coach with NO levels defined — for the empty-levels dropdown case (PAD-29)
+    nolevels_coach_user = User(
+        name="E2E Coach No Levels",
+        username="e2e-coach-nolevels",
+        email="e2e-coach-nolevels@test.com",
+        password=generate_password_hash("E2eCoach123!"),
+        status="active",
+    )
+    db.session.add(nolevels_coach_user)
+
     db.session.flush()
 
     # ── Coach / Player rows ────────────────────────────────────────────────────
     coach = Coach(user_id=coach_user.id)
     db.session.add(coach)
+
+    # Coach with no levels (PAD-29) — deliberately gets no CoachLevel rows below.
+    nolevels_coach = Coach(user_id=nolevels_coach_user.id)
+    db.session.add(nolevels_coach)
 
     student = Player(user_id=student_user.id)
     db.session.add(student)
@@ -101,6 +115,10 @@ with app.app_context():
     # Associate coach with club
     coach_club = Association_CoachClub(coach_id=coach.id, club_id=club.id)
     db.session.add(coach_club)
+
+    # Associate the no-levels coach with the same club (so player creation works)
+    nolevels_coach_club = Association_CoachClub(coach_id=nolevels_coach.id, club_id=club.id)
+    db.session.add(nolevels_coach_club)
 
     # ── Coach levels ──────────────────────────────────────────────────────────
     level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=1)
