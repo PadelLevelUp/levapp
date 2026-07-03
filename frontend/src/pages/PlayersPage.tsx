@@ -291,6 +291,7 @@ export default function PlayersPage() {
           onClose={() => setIsAddOpen(false)}
           onSave={handleAddPlayer}
           levels={levels}
+          coachId={user?.coachId}
         />
       </div>
     </AppLayout>

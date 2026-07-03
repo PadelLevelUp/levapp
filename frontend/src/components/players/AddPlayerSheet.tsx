@@ -32,6 +32,9 @@ interface AddPlayerSheetProps {
   onClose: () => void;
   onSave: (data: AddPlayerInput) => Promise<void>;
   levels: CoachLevel[];
+  // PAD-17: the requesting coach's id, used to scope the duplicate player-name
+  // warning to this coach's own roster (avoids false cross-club warnings).
+  coachId?: string | number | null;
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
 }
 
@@ -40,6 +43,7 @@ export function AddPlayerSheet({
   onClose,
   onSave,
   levels,
+  coachId,
   initialValues,
 }: AddPlayerSheetProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
@@ -55,8 +59,10 @@ export function AddPlayerSheet({
   const emailCheck = useFieldAvailability("user", "email", email);
   // PAD-17: name is not unique — this is a WARN, not a hard error. It surfaces a
   // non-blocking message and is intentionally excluded from hasFieldError so the
-  // coach can still proceed (e.g. two real students who share a name).
-  const nameCheck = useFieldAvailability("user", "name", name);
+  // coach can still proceed (e.g. two real students who share a name). The check
+  // is scoped to this coach's own roster so a same-named player at another club
+  // does not trigger a false warning.
+  const nameCheck = useFieldAvailability("user", "name", name, coachId);
 
   const hasFieldError = !!usernameCheck.error || !!emailCheck.error;
 
