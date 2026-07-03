@@ -31,6 +31,13 @@ interface AddPlayerSheetProps {
   open: boolean;
   onClose: () => void;
   onSave: (data: AddPlayerInput) => Promise<void>;
+  onInvite?: (data: {
+    name: string;
+    levelId?: string;
+    side?: string;
+    notes?: string;
+    email?: string;
+  }) => Promise<void>;
   levels: CoachLevel[];
   initialValues?: Partial<AddPlayerInput>; // optional (nice for future "edit")
 }
@@ -39,6 +46,7 @@ export function AddPlayerSheet({
   open,
   onClose,
   onSave,
+  onInvite,
   levels,
   initialValues,
 }: AddPlayerSheetProps) {
@@ -50,6 +58,7 @@ export function AddPlayerSheet({
   const [side, setSide] = useState<PlayerSide | "">(initialValues?.side ?? "");
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   const usernameCheck = useFieldAvailability("user", "username", username);
   const emailCheck = useFieldAvailability("user", "email", email);
@@ -98,6 +107,24 @@ export function AddPlayerSheet({
       handleClose();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!name.trim() || !onInvite) return;
+
+    setInviting(true);
+    try {
+      await onInvite({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        levelId: levelId || undefined,
+        side: side || undefined,
+        notes: notes.trim() || undefined,
+      });
+      handleClose();
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -226,10 +253,20 @@ export function AddPlayerSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose} disabled={saving}>
+          <Button variant="outline" onClick={handleClose} disabled={saving || inviting}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || saving}>
+          {onInvite && (
+            <Button
+              variant="secondary"
+              onClick={handleInvite}
+              disabled={!name.trim() || saving || inviting}
+            >
+              {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create &amp; invite
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || saving || inviting}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create player
           </Button>
