@@ -35,6 +35,7 @@ import {
   type AnalyzeSSEEvent,
 } from "@/api/import";
 import { useToast } from "@/hooks/use-toast";
+import { getCoachPlayers } from "@/api/players";
 import { Phase, ImportTableRow, ImportTable, ThinkingLine } from "@/types";
 
 const TABLE_ICONS: Record<string, string> = {
@@ -409,6 +410,7 @@ function ImportTableView({
   onCellChange,
   onRemoveColumn,
   groupByCol,
+  existingPlayerNames,
 }: {
   table: ImportTable;
   onToggleAll: () => void;
@@ -417,9 +419,20 @@ function ImportTableView({
   onCellChange: (rowId: string, col: string, val: string) => void;
   onRemoveColumn: (col: string) => void;
   groupByCol?: string;
+  existingPlayerNames?: Set<string>;
 }) {
   const [editing, setEditing] = useState(false);
   const selectedCount = table.rows.filter((r) => r.selected).length;
+
+  // PAD-17: only the Players table gets duplicate-name flagging.
+  const isPlayersTable = table.name === "Players";
+  const isDuplicateName = (name: string | undefined) =>
+    isPlayersTable &&
+    !!name &&
+    !!existingPlayerNames?.has(name.trim().toLowerCase());
+  const duplicateCount = isPlayersTable
+    ? table.rows.filter((r) => isDuplicateName(r.cells["name"])).length
+    : 0;
 
   return (
     <div className="rounded-lg border overflow-hidden animate-fade-in">
@@ -436,6 +449,15 @@ function ImportTableView({
           <Badge variant="secondary" className="text-xs">
             {selectedCount}/{table.rows.length} selected
           </Badge>
+          {duplicateCount > 0 && (
+            <Badge
+              variant="outline"
+              className="text-xs border-amber-500 text-amber-600"
+            >
+              {duplicateCount} possible duplicate
+              {duplicateCount === 1 ? "" : "s"}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {table.expanded && (
@@ -522,11 +544,22 @@ function ImportTableView({
                   </TableCell>
                   {table.columns.map((col) => (
                     <TableCell key={col} className="text-xs py-1.5">
-                      <EditableCell
-                        value={row.cells[col] || ""}
-                        editing={editing && row.selected}
-                        onChange={(val) => onCellChange(row.id, col, val)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <EditableCell
+                          value={row.cells[col] || ""}
+                          editing={editing && row.selected}
+                          onChange={(val) => onCellChange(row.id, col, val)}
+                        />
+                        {col === "name" && isDuplicateName(row.cells["name"]) && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] whitespace-nowrap border-amber-500 text-amber-600"
+                            title="A player with this name already exists on your roster. You can still import this row."
+                          >
+                            Possible duplicate
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                   ))}
                 </TableRow>
@@ -700,6 +733,11 @@ export function DataImportSection() {
   const [thinking, setThinking] = useState<ThinkingLine[]>([]);
   const [progress, setProgress] = useState(0);
   const [tables, setTables] = useState<ImportTable[]>([]);
+  // PAD-17: lowercased set of existing player names, used to flag possible
+  // duplicates in the import preview (WARN, not block — flagged rows stay importable).
+  const [existingPlayerNames, setExistingPlayerNames] = useState<Set<string>>(
+    () => new Set()
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -709,6 +747,29 @@ export function DataImportSection() {
   > | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // PAD-17: load the coach's existing player names once so the preview can flag
+  // rows whose name already exists (case-insensitive, exact match).
+  useEffect(() => {
+    let cancelled = false;
+    getCoachPlayers()
+      .then((players) => {
+        if (cancelled) return;
+        setExistingPlayerNames(
+          new Set(
+            players
+              .map((p) => (p.name || "").trim().toLowerCase())
+              .filter(Boolean)
+          )
+        );
+      })
+      .catch(() => {
+        /* non-fatal: preview still works, just without duplicate flags */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Step 1: User drops/selects a file -> go to table selection
   const handleFilePicked = useCallback((file: File) => {
@@ -1157,6 +1218,7 @@ export function DataImportSection() {
                     }
                     onRemoveColumn={(col) => removeColumn(idx, col)}
                     groupByCol={GROUP_BY_MAP[table.name]}
+                    existingPlayerNames={existingPlayerNames}
                   />
                 ))}
               </div>
