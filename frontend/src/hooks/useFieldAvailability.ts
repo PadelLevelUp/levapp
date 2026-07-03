@@ -5,6 +5,9 @@ export function useFieldAvailability(
   model: string,
   field: string,
   value: string,
+  // PAD-17: optional coach id used to scope warn-only checks (player name) to
+  // the requesting coach's own roster. Ignored by unique-field checks.
+  scope?: string | number | null,
   debounceMs = 500,
 ) {
   const [checking, setChecking] = useState(false);
@@ -25,13 +28,13 @@ export function useFieldAvailability(
     clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(async () => {
-      const msg = await checkFieldAvailable(model, field, trimmed);
+      const msg = await checkFieldAvailable(model, field, trimmed, scope);
       setError(msg);
       setChecking(false);
     }, debounceMs);
 
     return () => clearTimeout(timerRef.current);
-  }, [model, field, value, debounceMs]);
+  }, [model, field, value, scope, debounceMs]);
 
   return { checking, error };
 }

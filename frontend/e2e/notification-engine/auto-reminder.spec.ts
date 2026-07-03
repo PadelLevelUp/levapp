@@ -84,7 +84,7 @@ async function pollForReminderMessage(
   studentToken: string,
   instanceId: number,
   maxWaitMs: number,
-): Promise<boolean> {
+): Promise<string | null> {
   const deadline = Date.now() + maxWaitMs;
   let attempt = 0;
 
@@ -110,10 +110,14 @@ async function pollForReminderMessage(
       if (!detailRes.ok()) continue;
 
       const detail: {
-        messages: Array<{ messageType: string; metadata: Record<string, unknown> }>;
+        messages: Array<{
+          messageType: string;
+          content: string;
+          metadata: Record<string, unknown>;
+        }>;
       } = await detailRes.json();
 
-      const found = detail.messages?.some(
+      const found = detail.messages?.find(
         (m) =>
           m.messageType === "notification_reminder" &&
           Number(m.metadata?.lessonInstanceId) === instanceId,
@@ -121,7 +125,8 @@ async function pollForReminderMessage(
 
       if (found) {
         console.log(`  ✓ Reminder found for instance ${instanceId} after ${attempt} attempt(s)`);
-        return true;
+        // Return the delivered text so callers can assert which template rendered it.
+        return found.content ?? "";
       }
     }
 
@@ -130,7 +135,7 @@ async function pollForReminderMessage(
     await new Promise((r) => setTimeout(r, backoff));
   }
 
-  return false;
+  return null;
 }
 
 /** Return all notification activity events for a coach. */
@@ -173,7 +178,13 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
       console.log("\n── Step 1: Setting coach preferences ──");
       const coachToken = await getToken(request, "e2e-coach", "E2eCoach123!");
 
-      // Ensure auto_notify_enabled = true and firstReminder = 48h before
+      // A distinctive custom reminder template. The delivered message MUST
+      // render from this (PAD-37) — never from the hardcoded default.
+      const CUSTOM_REMINDER =
+        "PAD37-CUSTOM reminder for {name}: your class is {weekday} at {time}. Coming?";
+
+      // Ensure auto_notify_enabled = true, firstReminder = 48h before, and a
+      // custom reminder message template.
       await setCoachConfig(request, coachToken, {
         autoNotifyEnabled: true,
         reminderTiming: {
@@ -182,8 +193,9 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
           hoursBetweenReminders: 24,
           invitationStart: { type: "hours_before", value: 24 },
         },
+        messageTemplates: { reminder: CUSTOM_REMINDER },
       });
-      console.log("  ✓ auto_notify=true, firstReminder=48h set");
+      console.log("  ✓ auto_notify=true, firstReminder=48h, custom reminder template set");
 
       // Verify the config was saved correctly
       const configRes = await request.get(`${API_BASE}/notify/config`, {
@@ -232,33 +244,55 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
       const POLL_WINDOW_MS = 30_000;
 
       const student1Token = await getToken(request, "e2e-student", "E2eStudent123!");
-      const student1Received = await pollForReminderMessage(
+      const student1Text = await pollForReminderMessage(
         request,
         student1Token,
         instanceId,
         POLL_WINDOW_MS,
       );
       expect(
-        student1Received,
+        student1Text,
         `e2e-student did NOT receive notification_reminder for instance ${instanceId}. ` +
           "Check: (1) scheduler is running (--no-reload), " +
           "(2) apscheduler_jobs table exists in levelup_test DB, " +
           "(3) auto_notify_enabled=true on the coach's config.",
-      ).toBe(true);
+      ).not.toBeNull();
 
       const student2Token = await getToken(request, "e2e-student-2", "E2eStudent2123!");
-      const student2Received = await pollForReminderMessage(
+      const student2Text = await pollForReminderMessage(
         request,
         student2Token,
         instanceId,
         POLL_WINDOW_MS,
       );
       expect(
-        student2Received,
+        student2Text,
         `e2e-student-2 did NOT receive notification_reminder for instance ${instanceId}.`,
-      ).toBe(true);
+      ).not.toBeNull();
 
       console.log("  ✓ Both students received their reminder messages");
+
+      // ── PAD-37: delivered text MUST come from the coach's custom template ──
+      // The custom template starts with the "PAD37-CUSTOM" marker; the default
+      // template ("Hey {name}, just a reminder …") does not contain it. This is
+      // the core regression assertion for the ticket.
+      console.log("\n── PAD-37: Verifying custom reminder template was used ──");
+      for (const [label, text] of [
+        ["e2e-student", student1Text],
+        ["e2e-student-2", student2Text],
+      ] as const) {
+        expect(
+          text,
+          `${label} reminder should render the coach's CUSTOM template, ` +
+            `but got the default/fallback text instead: ${JSON.stringify(text)}`,
+        ).toContain("PAD37-CUSTOM reminder for");
+        // Placeholders must be fully substituted — no raw {token} left behind.
+        expect(
+          /\{[a-z_]+\}/.test(text ?? ""),
+          `${label} reminder still contains a raw placeholder token: ${JSON.stringify(text)}`,
+        ).toBe(false);
+      }
+      console.log("  ✓ Both reminders rendered from the coach's custom template");
 
       // ── Step 5: Coach sees reminder messages in their conversations ──────
       // Reminders create Message records (messageType = "notification_reminder"),
