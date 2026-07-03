@@ -210,6 +210,7 @@ export function AddPlayerSheet({
               <SelectContent>
                 <SelectItem value="left">Left</SelectItem>
                 <SelectItem value="right">Right</SelectItem>
+                <SelectItem value="both">Both</SelectItem>
               </SelectContent>
             </Select>
           </div>

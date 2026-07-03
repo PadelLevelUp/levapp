@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CoachPlayer, CoachLevel, PlayerSide } from "@/types";
+import { sideLabel } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ export function PlayerHeader({
               <SelectContent>
                 <SelectItem value="left">Left</SelectItem>
                 <SelectItem value="right">Right</SelectItem>
+                <SelectItem value="both">Both</SelectItem>
               </SelectContent>
             </Select>
             <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
@@ -131,7 +133,7 @@ export function PlayerHeader({
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (
                 <Badge variant="secondary">
-                  {player.side === "left" ? "Left" : "Right"}
+                  {sideLabel(player.side)}
                 </Badge>
               )}
               {level ? (

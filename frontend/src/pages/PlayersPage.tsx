@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { CoachPlayer, CoachLevel } from "@/types";
+import { sideLabel } from "@/types";
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -253,7 +254,7 @@ export default function PlayersPage() {
                   <div className="flex gap-2 mt-3 flex-wrap">
                     {level && <Badge variant="outline">{level.code}</Badge>}
                     {cs.side && (
-                      <Badge variant="secondary">{cs.side === "left" ? "Left" : "Right"}</Badge>
+                      <Badge variant="secondary">{sideLabel(cs.side)}</Badge>
                     )}
                   </div>
                 </CardContent>
