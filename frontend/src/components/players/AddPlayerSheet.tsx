@@ -53,6 +53,10 @@ export function AddPlayerSheet({
 
   const usernameCheck = useFieldAvailability("user", "username", username);
   const emailCheck = useFieldAvailability("user", "email", email);
+  // PAD-17: name is not unique — this is a WARN, not a hard error. It surfaces a
+  // non-blocking message and is intentionally excluded from hasFieldError so the
+  // coach can still proceed (e.g. two real students who share a name).
+  const nameCheck = useFieldAvailability("user", "name", name);
 
   const hasFieldError = !!usernameCheck.error || !!emailCheck.error;
 
@@ -111,12 +115,23 @@ export function AddPlayerSheet({
         <div className="mt-6 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="player-name">Name</Label>
-            <Input
-              id="player-name"
-              placeholder="e.g. John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <div className="relative">
+              <Input
+                id="player-name"
+                placeholder="e.g. John Doe"
+                value={name}
+                className={nameCheck.error ? "border-amber-500 focus-visible:ring-amber-500" : ""}
+                onChange={(e) => setName(e.target.value)}
+              />
+              {nameCheck.checking && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            {nameCheck.error && (
+              <p className="text-sm text-amber-600">
+                {nameCheck.error}. You can still create this player if that&apos;s intentional.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
