@@ -9,6 +9,7 @@ export type MeResponse = {
   roles: string[];
   coachId: string | null;
   isSuperAdmin: boolean;
+  language?: "pt" | "en";
 };
 
 export async function getMe(): Promise<MeResponse> {
@@ -20,9 +21,15 @@ export async function getMe(): Promise<MeResponse> {
       roles: ["coach"],
       coachId: MOCK_COACH_ID,
       isSuperAdmin: false,
+      language: "pt",
     };
   }
 
   const res = await api.get("/auth/me");
+  return res.data;
+}
+
+export async function updateMe(payload: { language?: "pt" | "en" }): Promise<MeResponse> {
+  const res = await api.patch("/auth/me", payload);
   return res.data;
 }

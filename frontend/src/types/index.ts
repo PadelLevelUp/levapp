@@ -5,7 +5,28 @@ export type ClassInstanceStatus = 'scheduled' | 'canceled' | 'completed';
 export type PresenceStatus = 'present' | 'absent';
 export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
-export type PlayerSide = 'left' | 'right';
+export type PlayerSide = 'left' | 'right' | 'both';
+
+// Human-readable label for a player's court side. Handles left/right/both plus
+// any unexpected value gracefully. `locale` picks the language for the label set.
+const SIDE_LABELS: Record<'en' | 'es', Record<PlayerSide, string>> = {
+  en: { left: 'Left', right: 'Right', both: 'Both' },
+  es: { left: 'Izquierda', right: 'Derecha', both: 'Ambos' },
+};
+const SIDE_LABELS_SHORT: Record<'en' | 'es', Record<PlayerSide, string>> = {
+  en: { left: 'Left', right: 'Right', both: 'Both' },
+  es: { left: 'Izq', right: 'Der', both: 'Ambos' },
+};
+
+export function sideLabel(
+  side: PlayerSide | string | null | undefined,
+  opts: { locale?: 'en' | 'es'; short?: boolean } = {}
+): string {
+  if (!side) return '';
+  const { locale = 'en', short = false } = opts;
+  const table = short ? SIDE_LABELS_SHORT[locale] : SIDE_LABELS[locale];
+  return table[side as PlayerSide] ?? String(side);
+}
 
 export interface PlayerEvaluation {
   categoryId: number;
@@ -81,7 +102,7 @@ export interface CoachPlayer {
   isActive: boolean,
   username: string,
   levelId?: string;
-  side?: 'left' | 'right';
+  side?: PlayerSide;
   notes?: string;
   level?: CoachLevel;
   phone?: string,
