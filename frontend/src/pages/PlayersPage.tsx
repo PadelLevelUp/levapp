@@ -347,6 +347,7 @@ export default function PlayersPage() {
           onSave={handleAddPlayer}
           onInvite={handleInvitePlayer}
           levels={levels}
+          coachId={user?.coachId}
         />
 
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
