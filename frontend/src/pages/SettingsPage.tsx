@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n, { AppLanguage } from "@/i18n";
+import { getMe, updateMe } from "@/api/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +60,7 @@ interface CoachSettings {
   theme: ThemePref;
   timeFormat: TimeFormat;
   weekStart: WeekStart;
+  language: AppLanguage;
 
   // Calendar defaults
   defaultClassDurationMin: number;
@@ -129,6 +133,7 @@ function isValidImageFile(file: File) {
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<SettingsTab>("profile");
 
   // In real life you load from API
@@ -143,6 +148,7 @@ export default function SettingsPage() {
     theme: "system",
     timeFormat: "24h",
     weekStart: "monday",
+    language: "pt",
 
     defaultClassDurationMin: 90,
     defaultMaxPlayers: 4,
@@ -173,6 +179,24 @@ export default function SettingsPage() {
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
+  // Load the current user's language preference on mount.
+  useEffect(() => {
+    let active = true;
+    getMe()
+      .then((me) => {
+        if (!active) return;
+        const lang = (me.language ?? "pt") as AppLanguage;
+        setSettings((s) => ({ ...s, language: lang }));
+        i18n.changeLanguage(lang);
+      })
+      .catch(() => {
+        // ignore — keep default language
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Change password form state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -194,6 +218,14 @@ export default function SettingsPage() {
     // Example pseudo:
     // const avatarUrl = avatarFile ? await api.uploadAvatar(avatarFile) : settings.avatarUrl;
     // await api.updateSettings({...settings, avatarUrl});
+
+    try {
+      await updateMe({ language: settings.language });
+      i18n.changeLanguage(settings.language);
+    } catch (e) {
+      toast({ title: "Could not save settings", description: "Please try again." });
+      return;
+    }
 
     toast({
       title: "Settings saved",
@@ -429,7 +461,7 @@ export default function SettingsPage() {
                   <CardDescription>How you want the app to behave.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label>Theme</Label>
                       <Select
@@ -481,6 +513,26 @@ export default function SettingsPage() {
                         <SelectContent>
                           <SelectItem value="monday">Monday</SelectItem>
                           <SelectItem value="sunday">Sunday</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="language-select">{t("settings.language")}</Label>
+                      <Select
+                        value={settings.language}
+                        onValueChange={(v) => {
+                          const lang = v as AppLanguage;
+                          setSettings((s) => ({ ...s, language: lang }));
+                          i18n.changeLanguage(lang);
+                        }}
+                      >
+                        <SelectTrigger id="language-select" aria-label={t("settings.language")}>
+                          <SelectValue placeholder={t("settings.language")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pt">{t("settings.portuguese")}</SelectItem>
+                          <SelectItem value="en">{t("settings.english")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
