@@ -12,6 +12,7 @@ import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
+import AvailabilityPage from "./pages/AvailabilityPage";
 import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 import TrainingPage from "./pages/TrainingPage";
@@ -135,6 +136,15 @@ const App = () => (
                   <ProtectedRoute>
                     <SettingsPage />
                   </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/availability"
+                element={
+                  <RoleRoute allowedRoles={["player"]}>
+                    <AvailabilityPage />
+                  </RoleRoute>
                 }
               />
 

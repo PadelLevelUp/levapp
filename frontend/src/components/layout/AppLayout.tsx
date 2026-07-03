@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
+  CalendarOff,
   Users,
   LayoutDashboard,
   Settings,
@@ -65,6 +66,12 @@ const navItems: NavItem[] = [
     label: "Training",
     path: "/training",
     roles: ["coach"],
+  },
+  {
+    icon: CalendarOff,
+    label: "Availability",
+    path: "/availability",
+    roles: ["player"],
   },
   {
     icon: MessageSquare,

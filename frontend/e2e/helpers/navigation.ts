@@ -34,3 +34,8 @@ export async function openSettings(page: Page) {
   await page.goto("/settings");
   await page.waitForURL("**/settings");
 }
+
+export async function openAvailability(page: Page) {
+  await page.goto("/availability");
+  await page.waitForURL("**/availability");
+}
