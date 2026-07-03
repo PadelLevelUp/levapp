@@ -8,14 +8,24 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AlertTriangle, Copy, X } from "lucide-react";
 
 import { getCoachPlayersPaginated, addPlayer } from "@/api/players";
+import { createIncompletePlayer } from "@/api/playerInvitations";
 import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function PlayersPage() {
   const PAGE_SIZE = 25;
@@ -31,7 +41,11 @@ export default function PlayersPage() {
   const [missingSideFilter, setMissingSideFilter] = useState(false);
   const [alertCounts, setAlertCounts] = useState({ missingLevel: 0, missingSide: 0 });
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -125,8 +139,7 @@ export default function PlayersPage() {
       .toUpperCase()
       .slice(0, 2);
 
-  const handleAddPlayer = async (data: AddPlayerInput) => {
-    await addPlayer({ coachId: user?.coachId, ...data });
+  const refreshPlayersList = async () => {
     setCurrentPage(1);
     setLoading(true);
     try {
@@ -140,6 +153,48 @@ export default function PlayersPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddPlayer = async (data: AddPlayerInput) => {
+    await addPlayer({ coachId: user?.coachId, ...data });
+    await refreshPlayersList();
+  };
+
+  const handleInvitePlayer = async (data: {
+    name: string;
+    levelId?: string;
+    side?: string;
+    notes?: string;
+    email?: string;
+  }) => {
+    const created = await createIncompletePlayer({ coachId: user?.coachId, ...data });
+    setInviteUrl(`${window.location.origin}${created.inviteLink}`);
+    setInviteDialogOpen(true);
+    // Refresh the list in the background without the full-page loading
+    // skeleton, so the invite dialog stays mounted and visible.
+    try {
+      const { sortBy, sortDir } = parseSortOption(sortOption);
+      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE, undefined, sortBy, sortDir);
+      setCurrentPage(1);
+      setCoachPlayers(playersData.items);
+      setTotalPages(playersData.pagination.pages || 1);
+      setTotalItems(playersData.pagination.total || 0);
+      if (playersData.alerts) {
+        setAlertCounts(playersData.alerts);
+      }
+    } catch {
+      // Non-fatal — the invite already succeeded.
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast({ title: "Link copied to clipboard" });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to copy link" });
     }
   };
 
@@ -290,9 +345,33 @@ export default function PlayersPage() {
           open={isAddOpen}
           onClose={() => setIsAddOpen(false)}
           onSave={handleAddPlayer}
+          onInvite={handleInvitePlayer}
           levels={levels}
           coachId={user?.coachId}
         />
+
+        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Player invite link</DialogTitle>
+              <DialogDescription>
+                Share this link with the player so they can complete their own
+                profile.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={inviteUrl ?? ""} />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyInvite}
+                aria-label="Copy invite link"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
