@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Copy, Check, UserX, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
-import { CoachPlayer, CoachLevel } from '@/types';
+import { CoachPlayer, CoachLevel, sideLabel } from '@/types';
 
 interface StudentDetailSheetProps {
   student: CoachPlayer | null;
@@ -65,7 +65,7 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
               <h3 className="font-semibold text-lg">{studentData.name}</h3>
               <div className="flex items-center gap-2 mt-1">
                 {level && <Badge variant="outline">{level.code}</Badge>}
-                {side && <Badge variant="secondary">{side === 'left' ? 'Izq' : 'Der'}</Badge>}
+                {side && <Badge variant="secondary">{sideLabel(side, { locale: 'es', short: true })}</Badge>}
                 {isInactive && (
                   <Badge variant="destructive" className="gap-1">
                     <UserX className="w-3 h-3" />
@@ -154,6 +154,7 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
                   <SelectContent>
                     <SelectItem value="left">Izquierda</SelectItem>
                     <SelectItem value="right">Derecha</SelectItem>
+                    <SelectItem value="both">Ambos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

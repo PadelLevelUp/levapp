@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CoachLevel, PlayerSide } from "@/types";
+import { sideLabel } from "@/types";
 
 import {
   Sheet,
@@ -163,7 +164,7 @@ export function EditPlayerSheet({
                 )}
                 {side && (
                   <Badge variant="secondary">
-                    {side === "left" ? "Left" : "Right"}
+                    {sideLabel(side)}
                   </Badge>
                 )}
                 {isInactive && (
@@ -292,11 +293,12 @@ export function EditPlayerSheet({
                     <SelectContent>
                       <SelectItem value="left">Left</SelectItem>
                       <SelectItem value="right">Right</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
                   <p className="text-sm mt-1">
-                    {side ? (side === "left" ? "Left" : "Right") : "—"}
+                    {side ? sideLabel(side) : "—"}
                   </p>
                 )}
               </div>
