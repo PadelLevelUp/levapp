@@ -1,5 +1,6 @@
+import "@/api/client";
 import type { Conversation, Message } from "@/types";
-import { api } from "@/api/client";
+import * as messagesApi from "@levelup/api/src/resources/messages";
 import { USE_MOCK_DATA } from "@/config";
 import { mockConversations } from "@/data/mockData";
 
@@ -8,8 +9,7 @@ export async function getConversations(page = 1, limit = 20): Promise<{ conversa
     return { conversations: mockConversations, hasMore: false };
   }
 
-  const res = await api.get("/app/conversations", { params: { page, limit } });
-  return res.data;
+  return messagesApi.getConversations(page, limit);
 }
 
 export async function getConversation(
@@ -21,8 +21,7 @@ export async function getConversation(
     throw new Error(`Conversation ${conversationId} not found`);
   }
 
-  const res = await api.get(`/app/conversation/${conversationId}`);
-  return res.data;
+  return messagesApi.getConversation(conversationId);
 }
 
 export async function getUnreadMessagesCount() {
@@ -31,8 +30,7 @@ export async function getUnreadMessagesCount() {
     return { count: total };
   }
 
-  const res = await api.get(`/app/messages/unread_count`);
-  return res.data;
+  return messagesApi.getUnreadMessagesCount();
 }
 
 export async function sendMessage(payload: {
@@ -56,12 +54,7 @@ export async function sendMessage(payload: {
     };
   }
 
-  const res = await api.post("/app/message", {
-    conversationId: payload.conversationId,
-    text: payload.content,
-    replyToId: payload.replyToId ?? null,
-  });
-  return res.data;
+  return messagesApi.sendMessage(payload);
 }
 
 export async function editMessage(
@@ -73,7 +66,7 @@ export async function editMessage(
     return;
   }
 
-  await api.put(`/app/message/${messageId}`, { text: content });
+  await messagesApi.editMessage(messageId, content);
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
@@ -82,7 +75,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
     return;
   }
 
-  await api.delete(`/app/message/${messageId}`);
+  await messagesApi.deleteMessage(messageId);
 }
 
 export async function toggleReaction(
@@ -94,7 +87,7 @@ export async function toggleReaction(
     return;
   }
 
-  await api.post(`/app/message/${messageId}/reaction`, { emoji });
+  await messagesApi.toggleReaction(messageId, emoji);
 }
 
 export async function createConversation(payload: {
@@ -113,10 +106,7 @@ export async function createConversation(payload: {
     };
   }
 
-  const res = await api.post("/app/conversation", {
-    otherParticipants: payload.otherParticipants,
-  });
-  return res.data;
+  return messagesApi.createConversation(payload);
 }
 
 export async function markConversationRead(conversationId: string) {
@@ -125,5 +115,5 @@ export async function markConversationRead(conversationId: string) {
     return;
   }
 
-  await api.post(`/app/conversation/${conversationId}/read`);
+  await messagesApi.markConversationRead(conversationId);
 }

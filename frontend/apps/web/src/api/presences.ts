@@ -1,5 +1,6 @@
+import "@/api/client";
 import type { AbsenceJustification, ApprovalBundle, ClassInstance, Presence, PresenceStatus } from "@/types";
-import { api } from "@/api/client";
+import * as presencesApi from "@levelup/api/src/resources/presences";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPresences } from "@/data/mockData";
 
@@ -21,11 +22,7 @@ export async function confirmClassPresences(
     return { presences: mockPresences, notifiedPlayers: [] };
   }
 
-  const res = await api.post(`/app/class_instance/presences/confirm`, {
-    classInstance,
-    presences,
-  });
-  return res.data;
+  return presencesApi.confirmClassPresences(classInstance, presences);
 }
 
 export async function getClassPresences(
@@ -35,8 +32,5 @@ export async function getClassPresences(
     return mockPresences.filter((p) => p.lessonInstanceId === lessonInstanceId);
   }
 
-  const res = await api.get(
-    `/app/class_instance/${lessonInstanceId}/presences`
-  );
-  return res.data;
+  return presencesApi.getClassPresences(lessonInstanceId);
 }

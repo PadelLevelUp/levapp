@@ -1,14 +1,14 @@
+import "@/api/client";
 import type { EvaluationCategory, EvaluationEntryPayload } from "@/types";
+import * as evaluationApi from "@levelup/api/src/resources/evaluation";
 import { USE_MOCK_DATA } from "@/config";
-import { api } from "@/api/client";
 import { mockEvaluationCategories } from "@/data/mockData";
 
 export async function getEvaluationCategories(): Promise<EvaluationCategory[]> {
   if (USE_MOCK_DATA) {
     return mockEvaluationCategories;
   }
-  const res = await api.get("/app/evaluation_categories");
-  return res.data;
+  return evaluationApi.getEvaluationCategories();
 }
 
 export async function postEvaluationEntry(payload: EvaluationEntryPayload): Promise<void> {
@@ -16,7 +16,7 @@ export async function postEvaluationEntry(payload: EvaluationEntryPayload): Prom
     console.log("[mock] postEvaluationEntry", payload);
     return;
   }
-  await api.post("/app/add_evaluation_entry", payload);
+  await evaluationApi.postEvaluationEntry(payload);
 }
 
 export async function addEvaluationCategories(payload: { name: string; scaleMin: number; scaleMax: number }[]): Promise<void> {
@@ -24,7 +24,7 @@ export async function addEvaluationCategories(payload: { name: string; scaleMin:
     console.log("[mock] addEvaluationCategories", payload);
     return;
   }
-  await api.post("/app/add_evaluation_categories", payload);
+  await evaluationApi.addEvaluationCategories(payload);
 }
 
 export async function deleteEvaluationCategory(id: string): Promise<void> {
@@ -32,5 +32,5 @@ export async function deleteEvaluationCategory(id: string): Promise<void> {
     console.log("[mock] deleteEvaluationCategory", id);
     return;
   }
-  await api.post("/app/delete/evaluation_category", { id: id });
+  await evaluationApi.deleteEvaluationCategory(id);
 }

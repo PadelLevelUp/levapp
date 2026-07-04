@@ -1,7 +1,8 @@
+import "@/api/client";
 import type { CalendarEvent, ClassInstance } from "@/types";
-import { api } from "@/api/client";
+import * as classesApi from "@levelup/api/src/resources/classes";
 import { USE_MOCK_DATA } from "@/config";
-import { mockClassInstances, mockCalendarEvents } from "@/data/mockData";
+import { mockClassInstances } from "@/data/mockData";
 
 export async function getClassInstances(
   from: string,
@@ -13,10 +14,7 @@ export async function getClassInstances(
     );
   }
 
-  const res = await api.post(
-    `/app/lesson_instances?from=${from}&to=${to}`
-  );
-  return res.data;
+  return classesApi.getClassInstances(from, to);
 }
 
 export async function getClassInstance(
@@ -27,25 +25,7 @@ export async function getClassInstance(
     if (instance) return instance;
   }
 
-  const res = await api.post(
-    `/app/class_instance?model=${event.model}&id=${event.originalId}&date=${event.date}`
-  );
-
-  const instanceData = await res.data;
-
-  return {
-    id: event.id,
-    originalId: String(event.originalId),
-    date: event.date,
-    startTime: event.startTime,
-    endTime: event.endTime,
-    status: event.status!,
-    color: event.color,
-    classType: event.classType,
-    maxPlayers: event.maxPlayers!,
-    coachId: "",
-    ...instanceData,
-  };
+  return classesApi.getClassInstance(event);
 }
 
 export async function addClass(data: any) {
@@ -54,8 +34,7 @@ export async function addClass(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post(`/app/add_class`, data);
-  return res.data;
+  return classesApi.addClass(data);
 }
 
 export async function removeClass(
@@ -67,8 +46,7 @@ export async function removeClass(
     return { success: true };
   }
 
-  const res = await api.post(`/app/remove_class`, { event, scope });
-  return res.data;
+  return classesApi.removeClass(event, scope);
 }
 
 export async function editClass(
@@ -81,6 +59,5 @@ export async function editClass(
     return { success: true };
   }
 
-  const res = await api.post(`/app/edit_class`, { event, scope, updates });
-  return res.data;
+  return classesApi.editClass(event, updates, scope);
 }

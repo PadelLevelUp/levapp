@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { playerInviteAcceptSchema as acceptSchema } from "@levelup/validation";
 import {
   getPlayerInvitation,
   acceptPlayerInvitation,
@@ -19,17 +19,6 @@ import {
 import { useAuth } from "@/auth/AuthContext";
 
 type InvitationStatus = "loading" | "valid" | "invalid";
-
-const acceptSchema = z
-  .object({
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
-    repeatPassword: z.string(),
-  })
-  .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
-    path: ["repeatPassword"],
-  });
 
 const PlayerInvitePage = () => {
   const { token } = useParams<{ token: string }>();

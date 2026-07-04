@@ -11,23 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { coachInviteAcceptSchema as acceptSchema } from "@levelup/validation";
 import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
 import { useAuth } from "@/auth/AuthContext";
 
 type InvitationStatus = "loading" | "valid" | "invalid";
-
-const acceptSchema = z
-  .object({
-    name: z.string().min(2, "Name must have at least 2 characters"),
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
-    repeatPassword: z.string(),
-  })
-  .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
-    path: ["repeatPassword"],
-  });
 
 const CoachInvitePage = () => {
   const { token } = useParams<{ token: string }>();

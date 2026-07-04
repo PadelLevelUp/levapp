@@ -1,2 +1,4 @@
+import { buildEventsUrl } from "@levelup/api";
+
 export const createEventSource = (token: string) =>
-  new EventSource(`/api/app/events?token=${token}`);
+  new EventSource(buildEventsUrl("/api", token));

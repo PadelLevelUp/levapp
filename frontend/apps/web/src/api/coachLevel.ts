@@ -1,5 +1,6 @@
+import "@/api/client";
 import type { CoachLevel } from "@/types";
-import { api } from "@/api/client";
+import * as coachLevelApi from "@levelup/api/src/resources/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
 import { mockLevels } from "@/data/mockData";
 
@@ -8,8 +9,7 @@ export async function getCoachLevels(): Promise<CoachLevel[]> {
     return mockLevels;
   }
 
-  const res = await api.get("/app/coach_levels");
-  return res.data;
+  return coachLevelApi.getCoachLevels();
 }
 
 export async function addCoachLevel(data: any) {
@@ -18,8 +18,7 @@ export async function addCoachLevel(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post(`/app/add_coach_level`, data);
-  return res.data;
+  return coachLevelApi.addCoachLevel(data);
 }
 
 export async function deleteCoachLevel(id: string): Promise<void> {
@@ -27,5 +26,5 @@ export async function deleteCoachLevel(id: string): Promise<void> {
     console.log("[mock] deleteCoachLevel", id);
     return;
   }
-  await api.post("/app/delete/coach_level", { id: id });
+  await coachLevelApi.deleteCoachLevel(id);
 }

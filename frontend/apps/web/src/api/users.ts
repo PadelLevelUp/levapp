@@ -1,5 +1,6 @@
+import "@/api/client";
 import type { User } from "@/types";
-import { api } from "@/api/client";
+import * as usersApi from "@levelup/api/src/resources/users";
 import { USE_MOCK_DATA } from "@/config";
 import { mockUsers } from "@/data/mockData";
 
@@ -8,6 +9,5 @@ export async function getUsers(): Promise<User[]> {
     return mockUsers;
   }
 
-  const res = await api.get("/app/users");
-  return res.data;
+  return usersApi.getUsers();
 }

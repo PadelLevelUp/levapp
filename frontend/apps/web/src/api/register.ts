@@ -1,4 +1,5 @@
-import { api } from "@/api/client";
+import "@/api/client";
+import * as registerApi from "@levelup/api/src/resources/register";
 import { USE_MOCK_DATA } from "@/config";
 
 export async function registerUser(
@@ -9,8 +10,7 @@ export async function registerUser(
     return { success: true };
   }
 
-  const res = await api.get(`/app/register/user/${userId}`);
-  return res.data;
+  return registerApi.registerUser(userId);
 }
 
 export async function activateAccount(payload: {
@@ -22,9 +22,5 @@ export async function activateAccount(payload: {
     return { success: true };
   }
 
-  const res = await api.post(
-    `/app/activate/user/${payload.userId}`,
-    payload.content
-  );
-  return res.data;
+  return registerApi.activateAccount(payload);
 }

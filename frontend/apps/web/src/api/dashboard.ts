@@ -1,16 +1,14 @@
+import "@/api/client";
 import type { DashboardDefinition } from "@/types";
-import { api } from "@/api/client";
+import * as dashboardApi from "@levelup/api/src/resources/dashboard";
 import { USE_MOCK_DATA } from "@/config";
 import {
   mockDashboardStats,
   mockClassInstances,
-  mockCalendarEvents,
 } from "@/data/mockData";
 import { mockConversations } from "@/data/mockData";
-import { format, addDays } from "date-fns";
 
 function buildMockDashboard(): DashboardDefinition {
-  const today = new Date();
   const upcoming = mockClassInstances
     .filter((c) => c.status === "scheduled")
     .slice(0, 3);
@@ -105,11 +103,5 @@ export async function getDashboard(params?: {
     return buildMockDashboard();
   }
 
-  const res = await api.get("/app/dashboard", {
-    params: {
-      from: params?.from,
-      to: params?.to,
-    },
-  });
-  return res.data;
+  return dashboardApi.getDashboard(params);
 }

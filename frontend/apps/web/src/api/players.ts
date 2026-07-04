@@ -1,70 +1,23 @@
+import "@/api/client";
 import type { Player, CoachPlayer, PlayerProfile, CoachNote } from "@/types";
-import { api } from "@/api/client";
+import * as playersApi from "@levelup/api/src/resources/players";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPlayers, mockCoachPlayers, mockPlayerProfiles } from "@/data/mockData";
 
-const COACH_PLAYERS_CACHE_TTL_MS = 60_000;
+export type {
+  CoachPlayersPageResponse,
+  PlayersQueryParams,
+} from "@levelup/api/src/resources/players";
+import type { CoachPlayersPageResponse } from "@levelup/api/src/resources/players";
 
-type CoachPlayersCacheEntry = {
-  data: CoachPlayer[];
-  expiresAt: number;
-};
-
-type CoachPlayersPageCacheEntry = {
-  data: CoachPlayersPageResponse;
-  expiresAt: number;
-};
-
-const coachPlayersCache: {
-  full: CoachPlayersCacheEntry | null;
-  pages: Map<string, CoachPlayersPageCacheEntry>;
-} = {
-  full: null,
-  pages: new Map(),
-};
-
-export interface CoachPlayersPageResponse {
-  items: CoachPlayer[];
-  pagination: {
-    page: number;
-    perPage: number;
-    total: number;
-    pages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-  alerts?: {
-    missingLevel: number;
-    missingSide: number;
-  };
-}
-
-export interface PlayersQueryParams {
-  page?: number;
-  perPage?: number;
-  search?: string;
-  sortBy?: "name" | "level";
-  sortDir?: "asc" | "desc";
-  missingLevel?: boolean;
-  missingSide?: boolean;
-}
-
-function isFresh(expiresAt: number): boolean {
-  return Date.now() < expiresAt;
-}
-
-export function invalidateCoachPlayersCache(): void {
-  coachPlayersCache.full = null;
-  coachPlayersCache.pages.clear();
-}
+export { invalidateCoachPlayersCache } from "@levelup/api/src/resources/players";
 
 export async function getPlayers(): Promise<Player[]> {
   if (USE_MOCK_DATA) {
     return mockPlayers;
   }
 
-  const res = await api.get("/app/players");
-  return res.data;
+  return playersApi.getPlayers();
 }
 
 export async function getCoachPlayers(): Promise<CoachPlayer[]> {
@@ -72,16 +25,7 @@ export async function getCoachPlayers(): Promise<CoachPlayer[]> {
     return mockCoachPlayers;
   }
 
-  if (coachPlayersCache.full && isFresh(coachPlayersCache.full.expiresAt)) {
-    return coachPlayersCache.full.data;
-  }
-
-  const res = await api.get("/app/coach_players");
-  coachPlayersCache.full = {
-    data: res.data,
-    expiresAt: Date.now() + COACH_PLAYERS_CACHE_TTL_MS,
-  };
-  return res.data;
+  return playersApi.getCoachPlayers();
 }
 
 export async function getCoachPlayersPaginated(
@@ -116,35 +60,15 @@ export async function getCoachPlayersPaginated(
     };
   }
 
-  const hasFilters = !!search || !!missingLevel || !!missingSide ||
-    (sortBy && sortBy !== "name") || (sortDir && sortDir !== "asc");
-
-  // Skip cache when any filter/sort is active
-  if (!hasFilters) {
-    const key = `${page}:${perPage}`;
-    const cached = coachPlayersCache.pages.get(key);
-    if (cached && isFresh(cached.expiresAt)) {
-      return cached.data;
-    }
-  }
-
-  const params: Record<string, string | number> = { page, per_page: perPage };
-  if (search) params.search = search;
-  if (sortBy) params.sort_by = sortBy;
-  if (sortDir) params.sort_dir = sortDir;
-  if (missingLevel) params.missing_level = "true";
-  if (missingSide) params.missing_side = "true";
-
-  const res = await api.get("/app/coach_players_paginated", { params });
-  const payload = res.data as CoachPlayersPageResponse;
-  if (!hasFilters) {
-    const key = `${page}:${perPage}`;
-    coachPlayersCache.pages.set(key, {
-      data: payload,
-      expiresAt: Date.now() + COACH_PLAYERS_CACHE_TTL_MS,
-    });
-  }
-  return payload;
+  return playersApi.getCoachPlayersPaginated(
+    page,
+    perPage,
+    search,
+    sortBy,
+    sortDir,
+    missingLevel,
+    missingSide,
+  );
 }
 
 export async function addPlayer(data: any) {
@@ -153,9 +77,7 @@ export async function addPlayer(data: any) {
     return { id: crypto.randomUUID(), ...data };
   }
 
-  const res = await api.post("/app/add_player", data);
-  invalidateCoachPlayersCache();
-  return res.data;
+  return playersApi.addPlayer(data);
 }
 
 export async function editPlayer(player: CoachPlayer, updates: any) {
@@ -164,17 +86,14 @@ export async function editPlayer(player: CoachPlayer, updates: any) {
     return { ...player, ...updates };
   }
 
-  const res = await api.post("/app/edit_player", { player, updates });
-  invalidateCoachPlayersCache();
-  return res.data;
+  return playersApi.editPlayer(player, updates);
 }
 
 export async function getPlayerProfile(playerId: string): Promise<PlayerProfile | null> {
   if (USE_MOCK_DATA) {
     return mockPlayerProfiles[playerId] ?? null;
   }
-  const res = await api.get(`/app/player_profile/${playerId}`);
-  return res.data;
+  return playersApi.getPlayerProfile(playerId);
 }
 
 export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<void> {
@@ -182,7 +101,7 @@ export async function addCoachNote(playerId: string, type: "strength" | "weaknes
     console.log("[mock] addCoachNote", { playerId, type, text });
     return;
   }
-  await api.post("/app/add_coach_note", { playerId, type, text });
+  await playersApi.addCoachNote(playerId, type, text);
 }
 
 export async function deleteCoachNote(note: CoachNote): Promise<void> {
@@ -190,7 +109,7 @@ export async function deleteCoachNote(note: CoachNote): Promise<void> {
     console.log("[mock] deleteCoachNote", note);
     return;
   }
-  await api.post("/app/delete/coach_note", { id: note.id });
+  await playersApi.deleteCoachNote(note);
 }
 
 export async function removePlayer(coachId: string, playerId: string): Promise<void> {
@@ -198,6 +117,5 @@ export async function removePlayer(coachId: string, playerId: string): Promise<v
     console.log("[mock] removePlayer", { coachId, playerId });
     return;
   }
-  await api.post("/app/remove_player", { coachId, playerId });
-  invalidateCoachPlayersCache();
+  await playersApi.removePlayer(coachId, playerId);
 }

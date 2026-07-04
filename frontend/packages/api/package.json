@@ -1,0 +1,11 @@
+{
+  "name": "@levelup/api",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@levelup/types": "*",
+    "axios": "^1.13.4"
+  }
+}

@@ -1,20 +1,19 @@
-import axios from "axios";
+import { initApi, getApi, type TokenStorage } from "@levelup/api";
 
-export const api = axios.create({
-  baseURL: "/api",
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Web platform adapter: tokens live in localStorage.
+export const webTokenStorage: TokenStorage = {
+  async getToken() {
+    return localStorage.getItem("accessToken");
+  },
+  async setToken(token: string) {
+    localStorage.setItem("accessToken", token);
+  },
+  async removeToken() {
+    localStorage.removeItem("accessToken");
+  },
+};
 
 function redirectToAuth() {
-  localStorage.removeItem("accessToken");
-
   const authPath = "/auth";
 
   if (window.location.pathname !== authPath) {
@@ -23,21 +22,10 @@ function redirectToAuth() {
   }
 }
 
-api.interceptors.response.use(
-  (response) => {
-    const newToken = response.headers["x-new-token"];
-    if (newToken) {
-      localStorage.setItem("accessToken", newToken);
-    }
-    return response;
-  },
-  (error) => {
-    const status = error?.response?.status;
+initApi({
+  baseURL: "/api",
+  storage: webTokenStorage,
+  onUnauthorized: redirectToAuth,
+});
 
-    if (status === 401) {
-      redirectToAuth();
-    }
-
-    return Promise.reject(error);
-  }
-);
+export const api = getApi();

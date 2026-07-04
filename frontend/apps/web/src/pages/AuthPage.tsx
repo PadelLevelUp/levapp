@@ -11,17 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { usernameSchema, passwordSchema } from "@levelup/validation";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
-
-const usernameSchema = z
-  .string()
-  .min(3, "Username must have at least 3 characters");
-
-const passwordSchema = z
-  .string()
-  .min(6, "Password must have at least 6 characters");
 
 const AuthPage = () => {
   const [username, setUsername] = useState("");

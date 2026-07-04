@@ -11,24 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { registerSchema } from "@levelup/validation";
 import { registerUser, activateAccount } from "@/api/register";
 
 type RegistrationStatus = "loading" | "ok" | "already-registered" | "invalid";
-
-const registerSchema = z
-  .object({
-    name: z.string().min(2, "Name must have at least 2 characters"),
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    email: z.string().email("Invalid email"),
-    phone: z.string().optional(),
-    password: z.string().min(6, "Password must have at least 6 characters"),
-    repeatPassword: z.string(),
-  })
-  .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
-    path: ["repeatPassword"],
-  });
 
 const RegisterPage = () => {
   const { userId } = useParams<{ userId: string }>();

@@ -1,4 +1,5 @@
-import { api } from "@/api/client";
+import "@/api/client";
+import * as trainingApi from "@levelup/api/src/resources/training";
 import { USE_MOCK_DATA } from "@/config";
 import type { Exercise, ExercisePayload, ExerciseGroup, ExerciseGroupPayload } from "@/types/training";
 import type { ClassInstance } from "@/types";
@@ -12,8 +13,7 @@ const mockGroups: ExerciseGroup[] = [..._mockGroups];
 
 export async function getExercises(): Promise<Exercise[]> {
   if (USE_MOCK_DATA) return mockExercises;
-  const res = await api.get("/app/exercises");
-  return res.data;
+  return trainingApi.getExercises();
 }
 
 export async function getExercise(id: string): Promise<Exercise> {
@@ -21,8 +21,7 @@ export async function getExercise(id: string): Promise<Exercise> {
     const found = mockExercises.find((e) => e.id === id);
     if (found) return found;
   }
-  const res = await api.get(`/app/exercises/${id}`);
-  return res.data;
+  return trainingApi.getExercise(id);
 }
 
 export async function createExercise(data: ExercisePayload): Promise<Exercise> {
@@ -36,8 +35,7 @@ export async function createExercise(data: ExercisePayload): Promise<Exercise> {
     mockExercises.push(ex);
     return ex;
   }
-  const res = await api.post("/app/exercises", data);
-  return res.data;
+  return trainingApi.createExercise(data);
 }
 
 export async function updateExercise(id: string, data: ExercisePayload): Promise<Exercise> {
@@ -48,8 +46,7 @@ export async function updateExercise(id: string, data: ExercisePayload): Promise
       return mockExercises[idx];
     }
   }
-  const res = await api.put(`/app/exercises/${id}`, data);
-  return res.data;
+  return trainingApi.updateExercise(id, data);
 }
 
 export async function deleteExercise(id: string): Promise<void> {
@@ -58,15 +55,14 @@ export async function deleteExercise(id: string): Promise<void> {
     if (idx >= 0) mockExercises.splice(idx, 1);
     return;
   }
-  await api.delete(`/app/exercises/${id}`);
+  await trainingApi.deleteExercise(id);
 }
 
 // ── Exercise Groups ──
 
 export async function getExerciseGroups(): Promise<ExerciseGroup[]> {
   if (USE_MOCK_DATA) return mockGroups;
-  const res = await api.get("/app/exercise-groups");
-  return res.data;
+  return trainingApi.getExerciseGroups();
 }
 
 export async function createExerciseGroup(data: ExerciseGroupPayload): Promise<ExerciseGroup> {
@@ -80,8 +76,7 @@ export async function createExerciseGroup(data: ExerciseGroupPayload): Promise<E
     mockGroups.push(grp);
     return grp;
   }
-  const res = await api.post("/app/exercise-groups", data);
-  return res.data;
+  return trainingApi.createExerciseGroup(data);
 }
 
 export async function updateExerciseGroup(id: string, data: ExerciseGroupPayload): Promise<ExerciseGroup> {
@@ -92,8 +87,7 @@ export async function updateExerciseGroup(id: string, data: ExerciseGroupPayload
       return mockGroups[idx];
     }
   }
-  const res = await api.put(`/app/exercise-groups/${id}`, data);
-  return res.data;
+  return trainingApi.updateExerciseGroup(id, data);
 }
 
 export async function deleteExerciseGroup(id: string): Promise<void> {
@@ -102,7 +96,7 @@ export async function deleteExerciseGroup(id: string): Promise<void> {
     if (idx >= 0) mockGroups.splice(idx, 1);
     return;
   }
-  await api.delete(`/app/exercise-groups/${id}`);
+  await trainingApi.deleteExerciseGroup(id);
 }
 
 // ── Lesson Instance Training ──
@@ -114,9 +108,5 @@ export async function confirmClassTraining(
   if (USE_MOCK_DATA) {
     return { plannedExerciseIds: exerciseIds };
   }
-  const res = await api.post(`/app/class_instance/training/confirm`, {
-    classInstance,
-    exerciseIds,
-  });
-  return res.data;
+  return trainingApi.confirmClassTraining(classInstance, exerciseIds);
 }
