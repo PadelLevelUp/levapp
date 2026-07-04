@@ -40,7 +40,7 @@ export default defineConfig({
   webServer: [
     {
       command: "bash -c 'source .venv/bin/activate && flask run --host 127.0.0.1 --port 5001 --no-reload'",
-      cwd: path.resolve(__dirname, "../levelup_backend"),
+      cwd: path.resolve(__dirname, "../../../levelup_backend"),
       url: "http://127.0.0.1:5001/api/app/healthz",
       reuseExistingServer: false,
       timeout: 30000,

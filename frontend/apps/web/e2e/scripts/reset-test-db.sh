@@ -8,7 +8,7 @@ PGHOST="${POSTGRES_HOST:-localhost}"
 PGPASSWORD="${POSTGRES_PW:-}"
 export PGPASSWORD
 DB_NAME="levelup_test"
-BACKEND_DIR="$(cd "$(dirname "$0")/../../../levelup_backend" && pwd)"
+BACKEND_DIR="$(cd "$(dirname "$0")/../../../../../levelup_backend" && pwd)"
 SEED_SCRIPT="$(cd "$(dirname "$0")" && pwd)/seed.py"
 
 echo "[reset-db] Dropping $DB_NAME…"

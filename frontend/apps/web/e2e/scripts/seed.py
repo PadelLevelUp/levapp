@@ -7,7 +7,7 @@ import sys
 import os
 
 # Ensure the backend package is importable
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../../../levelup_backend")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../../../../../levelup_backend")
 
 from padel_app import create_app
 from padel_app.sql_db import db
