@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @levelup/web",
+    "mobile": "npm run start -w @levelup/mobile",
+    "mobile:ios": "npm run ios -w @levelup/mobile",
     "build": "npm run build -w @levelup/web",
     "build:dev": "npm run build:dev -w @levelup/web",
     "lint": "npm run lint -w @levelup/web",

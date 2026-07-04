@@ -1,0 +1,22 @@
+appId: com.levelup.mobile
+name: Smoke — login as coach lands on Dashboard
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- tapOn:
+    id: "login-username"
+- inputText: "e2e-coach"
+- tapOn:
+    id: "login-password"
+- inputText: "E2eCoach123!"
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 20000
+- assertVisible: "Dashboard"
