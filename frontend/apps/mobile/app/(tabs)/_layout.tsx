@@ -1,11 +1,39 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
+import { queryKeys, useUnreadCount } from "@levelup/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs } from "expo-router";
+import * as React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { useAppEvents } from "@/lib/sse";
 
 export default function TabsLayout() {
   const { user, loading, isAuthenticated } = useAuth();
+
+  // Unread messages badge on the Messages tab, refreshed live over SSE.
+  const queryClient = useQueryClient();
+  const { data: unreadData } = useUnreadCount({ enabled: isAuthenticated });
+  useAppEvents(
+    React.useCallback(
+      (evt) => {
+        if (evt.type.startsWith("message_")) {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.unreadCount,
+          });
+          void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      },
+      [queryClient]
+    )
+  );
+  // Backend returns { unreadCount } (see /app/messages/unread_count).
+  const unreadCount = Number(
+    (unreadData as { unreadCount?: number; count?: number } | undefined)
+      ?.unreadCount ??
+      (unreadData as { count?: number } | undefined)?.count ??
+      0
+  );
 
   if (loading) {
     return (
@@ -69,6 +97,7 @@ export default function TabsLayout() {
         options={{
           title: "Messages",
           tabBarButtonTestID: "tab-messages",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" color={color} size={size} />
           ),

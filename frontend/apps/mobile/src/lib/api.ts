@@ -1,8 +1,26 @@
 import { initApi, type TokenStorage } from "@levelup/api";
+import { File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
 import { API_URL } from "./config";
 
 const TOKEN_KEY = "accessToken";
+
+/**
+ * The keychain outlives the app's data container (reinstall, or a test
+ * runner's clear-state). Detect a fresh install via a marker file in the
+ * document directory and drop any stale token so the app starts logged out.
+ */
+export async function purgeTokenOnFreshInstall(): Promise<void> {
+  try {
+    const marker = new File(Paths.document, ".installed");
+    if (!marker.exists) {
+      await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
+      marker.create();
+    }
+  } catch {
+    // Never block startup on marker bookkeeping.
+  }
+}
 
 /** SecureStore-backed TokenStorage adapter for @levelup/api. */
 export const secureTokenStorage: TokenStorage = {

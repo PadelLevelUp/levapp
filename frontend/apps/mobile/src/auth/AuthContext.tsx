@@ -7,7 +7,12 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { api, secureTokenStorage, setUnauthorizedHandler } from "@/lib/api";
+import {
+  api,
+  purgeTokenOnFreshInstall,
+  secureTokenStorage,
+  setUnauthorizedHandler,
+} from "@/lib/api";
 import { getPushRegistrar } from "@/lib/push";
 
 export type AuthUser = authApi.MeResponse;
@@ -34,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
+        await purgeTokenOnFreshInstall();
         const token = await secureTokenStorage.getToken();
         if (!token) return;
         const me = await authApi.getMe();

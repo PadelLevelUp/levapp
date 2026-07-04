@@ -133,7 +133,7 @@ export function useConversation(
 }
 
 export function useUnreadCount(
-  options?: QueryOverrides<{ count: number }>
+  options?: QueryOverrides<{ unreadCount: number }>
 ) {
   return useQuery({
     queryKey: queryKeys.unreadCount,

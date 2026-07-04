@@ -77,6 +77,7 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <View className="mb-8 items-center">
           <Text

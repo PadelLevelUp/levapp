@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
+import { router } from "expo-router";
 import * as React from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
@@ -50,25 +51,35 @@ function MenuRow({ entry }: { entry: MenuEntry }) {
 
 export default function MoreScreen() {
   const { user, logout } = useAuth();
+  const isCoach = user?.roles?.includes("coach") ?? false;
 
   const entries: MenuEntry[] = [
-    {
-      key: "training",
-      label: "Training",
-      icon: "barbell-outline",
-      testID: "more-training",
-    },
-    {
-      key: "availability",
-      label: "Availability",
-      icon: "time-outline",
-      testID: "more-availability",
-    },
+    // Training is coach-only; availability is student-only.
+    ...(isCoach
+      ? [
+          {
+            key: "training",
+            label: "Training",
+            icon: "barbell-outline",
+            testID: "more-training",
+            onPress: () => router.push("/training"),
+          } satisfies MenuEntry,
+        ]
+      : [
+          {
+            key: "availability",
+            label: "Availability",
+            icon: "time-outline",
+            testID: "more-availability",
+            onPress: () => router.push("/availability"),
+          } satisfies MenuEntry,
+        ]),
     {
       key: "settings",
       label: "Settings",
       icon: "settings-outline",
       testID: "more-settings",
+      onPress: () => router.push("/settings"),
     },
   ];
 

@@ -12,7 +12,7 @@ export function useFieldAvailability(
 ) {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const trimmed = value.trim();
