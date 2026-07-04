@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { api, secureTokenStorage, setUnauthorizedHandler } from "@/lib/api";
+import { getPushRegistrar } from "@/lib/push";
 
 export type AuthUser = authApi.MeResponse;
 
@@ -37,6 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!token) return;
         const me = await authApi.getMe();
         if (!cancelled) setUser(me);
+        // Refresh push registration on every silent restore (mirrors web).
+        // Fire-and-forget: the registrar never throws.
+        void getPushRegistrar().register();
       } catch {
         // Invalid/expired token — the 401 interceptor already removed it.
         await secureTokenStorage.removeToken().catch(() => undefined);
@@ -64,6 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await authApi.getMe();
       setUser(me);
+      // Register for push after successful login (mirrors web's
+      // requestAndSubscribe). Fire-and-forget: the registrar never throws.
+      void getPushRegistrar().register();
     } catch (error) {
       await secureTokenStorage.removeToken().catch(() => undefined);
       setUser(null);
