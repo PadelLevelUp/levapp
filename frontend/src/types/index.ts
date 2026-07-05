@@ -100,6 +100,8 @@ export interface CoachPlayer {
   name: string,
   email: string,
   isActive: boolean,
+  /** PAD-30: true once the player completed self-service registration (password set). */
+  validated: boolean,
   username: string,
   levelId?: string;
   side?: PlayerSide;
