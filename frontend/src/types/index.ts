@@ -92,6 +92,13 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
+export interface Season {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface CoachPlayer {
   id: string;
   coachId: string;
