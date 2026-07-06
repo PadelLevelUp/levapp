@@ -22,7 +22,10 @@ test("US-51: coach can create an exercise group", async ({ page }) => {
   await page.goto("/training/groups");
   await page.waitForURL(/\/training\/groups/);
 
-  await page.getByRole("button", { name: /new group/i }).click();
+  // The page renders a "New Group" button in the header and, when no groups
+  // exist yet, a second one in the empty state — both share the accessible
+  // name, so scope to the first to avoid a strict-mode violation.
+  await page.getByRole("button", { name: /new group/i }).first().click();
 
   const nameInput = page.getByPlaceholder(/attacking training/i);
   await expect(nameInput).toBeVisible({ timeout: 3000 });
