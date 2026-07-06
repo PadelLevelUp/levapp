@@ -83,6 +83,7 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
+  const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
@@ -128,7 +129,7 @@ export function AddClassSheet({
     const newErrors: Record<string, boolean> = {};
     if (!date) newErrors.date = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
-    if (isRecurring && !endDate) newErrors.endDate = true;
+    if (isRecurring && !recursUntilSeasonEnd && !endDate) newErrors.endDate = true;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -162,7 +163,8 @@ export function AddClassSheet({
       recurrenceRule: isRecurring
         ? { frequency: 'weekly', daysOfWeek: selectedDays }
         : null,
-      endDate: computedEndDate,
+      recursUntilSeasonEnd: isRecurring ? recursUntilSeasonEnd : false,
+      endDate: recursUntilSeasonEnd ? null : computedEndDate,
     };
 
     onSave?.(data);
@@ -182,6 +184,7 @@ export function AddClassSheet({
     setSelectedPlayers([]);
     setSelectedDays([]);
     setEndDate('');
+    setRecursUntilSeasonEnd(false);
     setNotificationsEnabled(true);
     setErrors({});
     onClose();
@@ -306,7 +309,7 @@ export function AddClassSheet({
                 <Repeat className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.addClass.recurring")}</span>
               </div>
-              <Switch checked={isRecurring} onCheckedChange={setIsRecurring} />
+              <Switch aria-label="Recurring" checked={isRecurring} onCheckedChange={setIsRecurring} />
             </div>
             {isRecurring && (
               <div className="space-y-3 pt-1">
@@ -329,15 +332,29 @@ export function AddClassSheet({
                     ))}
                   </div>
                 </div>
-                <div className={cn("space-y-1", errors.endDate && "ring-2 ring-destructive rounded-lg p-1")}>
-                  <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.endDate")}</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    className="h-8 text-sm"
-                    onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Recurs until season end</span>
+                  <Switch
+                    aria-label="Recurs until season end"
+                    checked={recursUntilSeasonEnd}
+                    onCheckedChange={setRecursUntilSeasonEnd}
                   />
                 </div>
+                {recursUntilSeasonEnd ? (
+                  <p className="text-xs text-muted-foreground">
+                    Ends at your season's end date.
+                  </p>
+                ) : (
+                  <div className={cn("space-y-1", errors.endDate && "ring-2 ring-destructive rounded-lg p-1")}>
+                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      className="h-8 text-sm"
+                      onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

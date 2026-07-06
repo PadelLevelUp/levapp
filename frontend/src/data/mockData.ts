@@ -134,6 +134,7 @@ export const mockCoachPlayers: CoachPlayer[] = mockPlayers.map((player, index) =
     phone: u.phone,
 
     isActive: true,
+    validated: true,
     username: u.email.split("@")[0],
 
     levelId: level.id,

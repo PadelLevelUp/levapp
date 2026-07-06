@@ -36,6 +36,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
+import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
@@ -567,6 +568,7 @@ export default function SettingsPage() {
 
             {/* CALENDAR */}
             {tab === "calendar" && (
+              <>
               <Card>
                 <CardHeader>
                   <CardTitle>{t("settings.calendar.title")}</CardTitle>
@@ -645,6 +647,11 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Separator />
+
+              <SeasonsSection />
+              </>
             )}
 
             {/* NOTIFICATIONS */}

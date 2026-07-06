@@ -92,6 +92,13 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
+export interface Season {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface CoachPlayer {
   id: string;
   coachId: string;
@@ -100,6 +107,8 @@ export interface CoachPlayer {
   name: string,
   email: string,
   isActive: boolean,
+  /** PAD-30: true once the player completed self-service registration (password set). */
+  validated: boolean,
   username: string,
   levelId?: string;
   side?: PlayerSide;

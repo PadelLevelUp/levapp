@@ -293,7 +293,11 @@ export default function PlayersPage() {
             return (
               <Card
                 key={`coach-player-${cs.id}-${cs.playerId}`}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                data-testid={`player-card-${cs.playerId}`}
+                data-validated={cs.validated ? "true" : "false"}
+                className={`cursor-pointer hover:shadow-md transition-shadow ${
+                  cs.validated ? "" : "opacity-60"
+                }`}
                 onClick={() => navigate(`/players/${cs.playerId}`)}
               >
                 <CardContent className="p-4">
@@ -304,7 +308,13 @@ export default function PlayersPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{cs.name}</p>
+                      <p
+                        className={`font-medium truncate ${
+                          cs.validated ? "" : "text-muted-foreground"
+                        }`}
+                      >
+                        {cs.name}
+                      </p>
                       <p className="text-sm text-muted-foreground truncate">{cs.email || "—"}</p>
                     </div>
                   </div>
@@ -312,6 +322,11 @@ export default function PlayersPage() {
                     {level && <Badge variant="outline">{level.code}</Badge>}
                     {cs.side && (
                       <Badge variant="secondary">{sideLabel(cs.side)}</Badge>
+                    )}
+                    {!cs.validated && (
+                      <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400">
+                        Pending registration
+                      </Badge>
                     )}
                   </div>
                 </CardContent>
