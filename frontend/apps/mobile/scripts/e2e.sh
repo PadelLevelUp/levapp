@@ -102,8 +102,31 @@ echo "[e2e] Flask healthy after reset."
 command -v maestro >/dev/null || fail "maestro not found (expected in ~/.maestro/bin)"
 echo "[e2e] Running Maestro flows..."
 cd "$MOBILE_DIR"
-maestro --device "$SIM_UDID" test .maestro
+SUITE_LOG=$(mktemp -t maestro-suite)
+maestro --device "$SIM_UDID" test .maestro 2>&1 | tee "$SUITE_LOG"
 STATUS=$?
+
+# ── 7. Retry transiently-failed flows once ──────────────────────────────────
+# The iOS XCTest driver occasionally aborts a flow within seconds with
+# "Error getting element frame kAXErrorInvalidUIElement" (stale AX handle to
+# a relaunching app). The next flow on the same driver is fine, so failed
+# flows get exactly one individual re-run, in suite order. Assertions are
+# unchanged — a real failure still fails twice.
+if [ $STATUS -ne 0 ]; then
+  FAILED_FLOWS=$(grep -oE '^\[Failed\] [0-9A-Za-z-]+' "$SUITE_LOG" | awk '{print $2}' | sort)
+  if [ -n "$FAILED_FLOWS" ]; then
+    echo "[e2e] Retrying failed flows once (transient driver flakes): $FAILED_FLOWS"
+    STATUS=0
+    for f in $FAILED_FLOWS; do
+      echo "[e2e] Re-running $f ..."
+      if ! maestro --device "$SIM_UDID" test ".maestro/flows/$f.yaml"; then
+        echo "[e2e] $f failed again — real failure." >&2
+        STATUS=1
+      fi
+    done
+  fi
+fi
+rm -f "$SUITE_LOG"
 
 if [ $STATUS -eq 0 ]; then
   echo "[e2e] Suite PASSED."

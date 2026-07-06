@@ -141,6 +141,12 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
 - **Hung Maestro java processes** from aborted runs break the next driver
   launch ("terminate for debugging launch request") — `scripts/e2e.sh` kills
   them before running.
+- **Transient XCTest driver aborts**: occasionally a flow dies within
+  seconds with `kAXErrorInvalidUIElement` (stale accessibility handle while
+  the app relaunches); the next flow is fine. `scripts/e2e.sh` re-runs
+  failed flows once, individually and in order — assertions unchanged, so a
+  real failure still fails twice. A long-booted simulator makes this more
+  frequent; reboot it if flakes cluster.
 - **Inverted FlatLists are broken on Fabric** (wrong a11y frames + broken
   hit-testing). The conversation screen intentionally uses a non-inverted
   list anchored with `scrollToEnd` — don't reintroduce `inverted`.
