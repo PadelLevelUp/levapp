@@ -62,10 +62,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // 401 anywhere → drop session and land on the login screen.
+  // Guard: only navigate when a user was actually signed in. Without it,
+  // every 401 (a wrong-password /auth/login, or queries retried right after
+  // logout) re-replaces /login, remounting the screen and wiping form state
+  // (typed credentials and the "invalid credentials" error message).
+  const userRef = React.useRef<AuthUser | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      setUser(null);
-      router.replace("/login");
+      if (userRef.current !== null) {
+        setUser(null);
+        router.replace("/login");
+      }
     });
   }, []);
 

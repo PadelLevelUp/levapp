@@ -1,0 +1,55 @@
+# Parametrized login subflow.
+# Usage:
+#   - runFlow:
+#       file: ../subflows/login.yaml
+#       env:
+#         USERNAME: e2e-coach
+#         PASSWORD: E2eCoach123!
+#
+# Strategy: launch WITHOUT clearState. Relaunching with clearState right
+# after an authenticated session triggers a delayed remount of the login
+# screen (stale-token 401 → redirect) that silently wipes typed text.
+# Instead we relaunch normally: if a previous flow left a user signed in the
+# app restores straight to the dashboard and we log out through the UI
+# (stable JS session), then type on the login screen.
+#
+# Typing is retry-verified: each attempt clears the field with a BOUNDED
+# eraseText (unbounded eraseText crashes the iOS driver), retypes and
+# asserts the value actually registered before submitting.
+appId: com.levelup.mobile
+---
+- launchApp
+# If a previous flow left someone signed in, the app lands on the tabs UI.
+- extendedWaitUntil:
+    visible:
+      id: "tab-more"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "tab-more"
+    file: logout.yaml
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: ${USERNAME}
+      - assertVisible: ${USERNAME}
+      - tapOn:
+          id: "login-password"
+      - eraseText: 40
+      - inputText: ${PASSWORD}
+      - tapOn:
+          id: "login-submit"
+      - extendedWaitUntil:
+          visible:
+            id: "screen-dashboard"
+          timeout: 25000

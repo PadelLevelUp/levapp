@@ -265,11 +265,15 @@ export default function ConversationScreen() {
     }
   };
 
-  // Inverted list expects newest-first data.
-  const messagesNewestFirst = React.useMemo(
-    () => (conversation ? [...conversation.messages].reverse() : []),
-    [conversation]
-  );
+  // NOT an inverted list: on the New Architecture (Fabric), `inverted`
+  // FlatLists (scaleY(-1) transforms) report wrong accessibility frames and
+  // break hit-testing on iOS — bubbles become untappable for VoiceOver and
+  // UI tests. Instead the list keeps natural (oldest-first) order and stays
+  // anchored to the bottom via scrollToEnd on content-size changes.
+  const listRef = React.useRef<FlatList<Message>>(null);
+  const scrollToBottom = React.useCallback(() => {
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
 
   const isTempId = (id: string | number) => String(id).startsWith("temp-");
 
@@ -320,10 +324,12 @@ export default function ConversationScreen() {
           />
         ) : (
           <FlatList
-            inverted
-            data={messagesNewestFirst}
+            ref={listRef}
+            data={conversation.messages}
             keyExtractor={(item) => String(item.id)}
             contentContainerClassName="gap-2 p-4"
+            onContentSizeChange={scrollToBottom}
+            onLayout={scrollToBottom}
             renderItem={({ item }) => {
               const own = Number(item.senderId) === myId;
               return (

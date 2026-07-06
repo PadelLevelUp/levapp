@@ -1,0 +1,31 @@
+# Mirrors: apps/web/e2e/dashboard/coach-dashboard.spec.ts
+# - the four KPI cards render with real (numeric) values — the card's
+#   accessibility label is "<label>: <value>" (children of the accessible
+#   Pressable are collapsed on iOS, so the value must live in the label)
+# - the upcoming-classes list shows the seeded "E2E Academy Class"
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-kpi-players"
+    timeout: 20000
+- assertVisible:
+    id: "dashboard-kpi-players"
+    text: "Players: [0-9]+"
+- assertVisible:
+    id: "dashboard-kpi-upcoming-classes"
+    text: "Upcoming classes: [0-9]+"
+- assertVisible:
+    id: "dashboard-kpi-pending-validation"
+    text: "Pending validation: [0-9]+"
+- assertVisible:
+    id: "dashboard-kpi-revenue-est"
+    text: "Revenue \\(est\\.\\): €?[0-9]+([.,][0-9]+)?"
+# Upcoming classes list shows the seeded class.
+- scrollUntilVisible:
+    element:
+      text: "E2E Academy Class"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "E2E Academy Class"

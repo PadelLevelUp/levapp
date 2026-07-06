@@ -1,0 +1,75 @@
+# Mirrors: apps/web/e2e/exercise-management/exercise-groups.spec.ts
+# - create group "Maestro Group" → appears in the Groups tab
+# - delete it with confirmation → gone
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-groups-tab"
+    timeout: 15000
+- tapOn:
+    id: "training-groups-tab"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 15000
+
+# ── Create ──
+- tapOn:
+    id: "group-add"
+- extendedWaitUntil:
+    visible:
+      id: "group-name"
+    timeout: 15000
+- tapOn:
+    id: "group-name"
+- inputText: "Maestro Group"
+# Dismiss the keyboard (on-drag) so it can't cover the save button.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "group-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "group-save"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Group.*"
+    timeout: 15000
+
+# ── Delete ──
+- tapOn: ".*Maestro Group.*"
+- extendedWaitUntil:
+    visible:
+      id: "group-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "group-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "group-delete"
+- extendedWaitUntil:
+    visible:
+      id: "group-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "group-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 20000
+- assertNotVisible: ".*Maestro Group.*"

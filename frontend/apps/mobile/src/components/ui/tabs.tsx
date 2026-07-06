@@ -27,11 +27,16 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.TriggerProps) {
         isActive && "text-foreground"
       )}
     >
+      {/* No shadow-* classes here: they set CSS variables, and adding them
+          dynamically on the active tab forces a css-interop "upgrade" after
+          the initial render — its DEV warning JSON.stringifies the props and
+          crashes on React Navigation's throwing context getters (RedBox:
+          "Couldn't find a navigation context"). */}
       <TabsPrimitive.Trigger
         className={cn(
           "flex-1 items-center justify-center rounded-sm px-3 py-1.5",
           props.disabled && "opacity-50",
-          isActive && "bg-background shadow-sm shadow-black/10",
+          isActive && "bg-background",
           className
         )}
         {...props}

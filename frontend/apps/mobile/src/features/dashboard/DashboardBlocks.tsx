@@ -53,7 +53,9 @@ function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
           <View key={item.label} className="w-1/2" style={{ padding: 6 }}>
             <Pressable
               testID={`dashboard-kpi-${kpiKey(item.label)}`}
-              accessibilityLabel={item.label}
+              // Label carries the value too: the accessible container hides
+              // its child Text nodes from VoiceOver/UI tests otherwise.
+              accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
               role="button"
               disabled={!target}
               onPress={() => target && router.navigate(target as never)}
