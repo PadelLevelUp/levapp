@@ -13,27 +13,32 @@
 # app restores straight to the dashboard and we log out through the UI
 # (stable JS session), then type on the login screen.
 #
-# Typing is retry-verified: each attempt clears the field with a BOUNDED
-# eraseText (unbounded eraseText crashes the iOS driver), retypes and
-# asserts the value actually registered before submitting.
+# The launch itself is retried: the dev client occasionally dies during the
+# launch animation, which hard-fails even optional waits. A retry relaunches
+# cleanly. Typing is also retry-verified: each attempt clears the field with
+# a BOUNDED eraseText (unbounded eraseText crashes the iOS driver), retypes
+# and asserts the value actually registered before submitting.
 appId: com.levelup.mobile
 ---
-- launchApp
-# If a previous flow left someone signed in, the app lands on the tabs UI.
-- extendedWaitUntil:
-    visible:
-      id: "tab-more"
-    timeout: 20000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "tab-more"
-    file: logout.yaml
-- extendedWaitUntil:
-    visible:
-      id: "login-username"
-    timeout: 30000
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp
+      # If a previous flow left someone signed in, the app lands on the tabs UI.
+      - extendedWaitUntil:
+          visible:
+            id: "tab-more"
+          timeout: 20000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "tab-more"
+          file: logout.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 30000
 - waitForAnimationToEnd
 - retry:
     maxRetries: 3
