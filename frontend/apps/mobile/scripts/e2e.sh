@@ -66,9 +66,16 @@ echo "[e2e] Metro bundler running."
 if ! xcrun simctl list devices | grep "$SIM_UDID" | grep -q "Booted"; then
   echo "[e2e] Booting simulator $SIM_UDID ..."
   xcrun simctl boot "$SIM_UDID" || fail "could not boot simulator $SIM_UDID"
-  sleep 5
 fi
+# Block until the boot fully completes — right after a (re)boot the device
+# reports "Booted" before CoreSimulator is actually connectable, which makes
+# Maestro fail with "device not connected" / driver startup timeouts.
+xcrun simctl bootstatus "$SIM_UDID" >/dev/null 2>&1 || true
 echo "[e2e] Simulator booted."
+
+# The XCTest driver reinstall can exceed Maestro's default startup timeout on
+# a freshly booted simulator.
+export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
 
 # ── 4. Kill hung Maestro java processes ─────────────────────────────────────
 HUNG=$(ps aux | grep -i "java" | grep -i "maestro" | grep -v grep | awk '{print $2}' || true)
