@@ -3,6 +3,16 @@ import { getMe, MeResponse } from "@/api/auth";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
+import i18n from "@/i18n";
+
+// PAD-40: apply the user's persisted language globally so it drives the whole UI,
+// not just the Settings screen. Called on both silent session restore and login.
+function applyUserLanguage(user: MeResponse | null) {
+  const lang = user?.language ?? "pt";
+  if (i18n.language !== lang) {
+    void i18n.changeLanguage(lang);
+  }
+}
 
 type AuthContextType = {
   token: string | null;
@@ -34,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getMe()
       .then((userData) => {
         setUser(userData);
+        applyUserLanguage(userData);
         // Refresh push subscription on every silent restore
         if (!USE_MOCK_DATA) {
           void requestAndSubscribe(token);
@@ -58,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await getMe();
       setUser(userData);
+      applyUserLanguage(userData);
       // Subscribe to push after successful login
       if (!USE_MOCK_DATA) {
         void requestAndSubscribe(newToken);

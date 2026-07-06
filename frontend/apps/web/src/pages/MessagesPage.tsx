@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatThread } from "@/components/messages/ChatThread";
@@ -34,6 +35,7 @@ const normalizeConversationId = (
 };
 
 export default function MessagesPage() {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { user, token } = useAuth();
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
@@ -413,16 +415,16 @@ export default function MessagesPage() {
       <div className="flex flex-col h-full">
         {isSupported && !isSubscribed && permission !== "denied" && (
           <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">Enable message notifications</p>
+            <p className="text-sm text-muted-foreground">{t("messages.enableNotificationsPrompt")}</p>
             <Button size="sm" variant="outline" onClick={() => void subscribe()}>
-              Enable
+              {t("messages.enable")}
             </Button>
           </div>
         )}
         {isSupported && permission === "denied" && (
           <div className="px-3 py-2 border-b border-border bg-muted/30">
             <p className="text-xs text-muted-foreground">
-              Notifications blocked. Enable them in browser settings.
+              {t("messages.notificationsBlocked")}
             </p>
           </div>
         )}
@@ -469,9 +471,9 @@ export default function MessagesPage() {
               ) : !selectedConversation ? (
                 <div className="flex-1 grid place-items-center p-6">
                   <div className="text-center">
-                    <p className="font-medium">Select a conversation</p>
+                    <p className="font-medium">{t("messages.selectConversation")}</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Choose a chat from the list to see messages.
+                      {t("messages.selectConversationHint")}
                     </p>
                   </div>
                 </div>

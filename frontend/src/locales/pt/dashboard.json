@@ -1,0 +1,14 @@
+{
+  "dashboard": {
+    "failedToLoad": "Não foi possível carregar o painel.",
+    "unreadMessages": "Mensagens por ler",
+    "messagesWaitingForReply": "Mensagens à espera de resposta",
+    "latestMessage": "Última mensagem",
+    "conversationsToReply": "Conversas por responder",
+    "withUnreadMessages": "Com mensagens por ler",
+    "noNotificationActivity": "Ainda não há atividade de notificações.",
+    "unknownStudent": "Aluno desconhecido",
+    "classFallback": "Aula",
+    "round": "Ronda {{number}}"
+  }
+}

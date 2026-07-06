@@ -385,9 +385,10 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
 
   // UI proof: student 2 logs in and sees the invitation in Messages
   await page.goto("/auth");
-  await page.getByPlaceholder("your-username").fill(STUDENT2_USERNAME);
-  await page.getByPlaceholder("••••••••").fill(STUDENT2_PASSWORD);
-  await page.getByRole("button", { name: "Sign In" }).click();
+  // Language-agnostic selectors: pre-auth login page renders in the default locale (pt).
+  await page.locator("#username").fill(STUDENT2_USERNAME);
+  await page.locator("#password").fill(STUDENT2_PASSWORD);
+  await page.locator('button[type="submit"]').click();
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), {
     timeout: 10_000,
   });

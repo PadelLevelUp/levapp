@@ -74,16 +74,23 @@ test.describe("players.invite-completion", () => {
       timeout: 10_000,
     });
 
-    // The player chooses their own username + password.
-    await invitePage.getByLabel(/^username$/i).fill(NEW_PLAYER_USERNAME);
-    await invitePage.getByLabel(/^password$/i).fill(NEW_PLAYER_PASSWORD);
-    const repeat = invitePage.getByLabel(/repeat password/i);
+    // The player chooses their own username + password. The completion page renders
+    // in the default locale (pt) pre-auth, so match either language.
+    await invitePage
+      .getByLabel(/^(username|nome de utilizador)$/i)
+      .fill(NEW_PLAYER_USERNAME);
+    await invitePage
+      .getByLabel(/^(password|palavra-passe)$/i)
+      .fill(NEW_PLAYER_PASSWORD);
+    const repeat = invitePage.getByLabel(/repeat password|repetir palavra-passe/i);
     if (await repeat.isVisible({ timeout: 1000 }).catch(() => false)) {
       await repeat.fill(NEW_PLAYER_PASSWORD);
     }
 
     await invitePage
-      .getByRole("button", { name: /complete|join|accept|create account|finish/i })
+      .getByRole("button", {
+        name: /complete|join|accept|create account|finish|concluir/i,
+      })
       .click();
 
     // Either auto-logged-in (off the invite page) or sent to /auth to sign in.
@@ -92,9 +99,9 @@ test.describe("players.invite-completion", () => {
     });
 
     if (invitePage.url().includes("/auth")) {
-      await invitePage.getByPlaceholder("your-username").fill(NEW_PLAYER_USERNAME);
-      await invitePage.getByPlaceholder("••••••••").fill(NEW_PLAYER_PASSWORD);
-      await invitePage.getByRole("button", { name: "Sign In" }).click();
+      await invitePage.locator("#username").fill(NEW_PLAYER_USERNAME);
+      await invitePage.locator("#password").fill(NEW_PLAYER_PASSWORD);
+      await invitePage.locator('button[type="submit"]').click();
       await invitePage.waitForURL((url) => !url.pathname.startsWith("/auth"), {
         timeout: 10_000,
       });
@@ -113,8 +120,10 @@ test.describe("players.invite-completion", () => {
   }) => {
     await page.goto("/invite/player/this-token-does-not-exist");
 
+    // Pre-auth page renders in the default locale (pt): EN "invalid/expired" or
+    // PT "inválido" / "já não é válido".
     await expect(
-      page.getByText(/invalid|expired|no longer valid/i).first()
+      page.getByText(/invalid|expired|no longer valid|inválid|já não é válid/i).first()
     ).toBeVisible({ timeout: 10_000 });
   });
 });

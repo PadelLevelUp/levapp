@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +23,7 @@ function TimingSelector({
   description: string;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const mode = value.type;
 
   const setMode = (newMode: "hours_before" | "days_before_at_time") => {
@@ -42,8 +44,8 @@ function TimingSelector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="hours_before">Hours before class</SelectItem>
-            <SelectItem value="days_before_at_time">Days before at specific time</SelectItem>
+            <SelectItem value="hours_before">{t("settings.reminders.hoursBeforeClass")}</SelectItem>
+            <SelectItem value="days_before_at_time">{t("settings.reminders.daysBeforeAtTime")}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -70,7 +72,7 @@ function TimingSelector({
             >
               <Plus className="w-3 h-3" />
             </Button>
-            <span className="text-xs text-muted-foreground">hours</span>
+            <span className="text-xs text-muted-foreground">{t("settings.reminders.hours")}</span>
           </div>
         )}
 
@@ -98,7 +100,7 @@ function TimingSelector({
               >
                 <Plus className="w-3 h-3" />
               </Button>
-              <span className="text-xs text-muted-foreground">days at</span>
+              <span className="text-xs text-muted-foreground">{t("settings.reminders.daysAt")}</span>
             </div>
             <input
               type="time"
@@ -115,6 +117,7 @@ function TimingSelector({
 }
 
 export function RemindersSection({ reminderTiming, onChange, disabled }: RemindersSectionProps) {
+  const { t } = useTranslation();
   const update = (patch: Partial<ReminderConfig>) => {
     onChange({ ...reminderTiming, ...patch });
   };
@@ -124,15 +127,15 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
       <TimingSelector
         value={reminderTiming.firstReminder}
         onChange={(firstReminder) => update({ firstReminder })}
-        label="First reminder timing"
-        description="When to send the first attendance reminder before class."
+        label={t("settings.reminders.firstReminderTiming")}
+        description={t("settings.reminders.firstReminderDescription")}
         disabled={disabled}
       />
 
       <div className="space-y-1.5">
-        <p className="text-sm font-medium">Reminders per student</p>
+        <p className="text-sm font-medium">{t("settings.reminders.remindersPerStudent")}</p>
         <p className="text-xs text-muted-foreground">
-          How many reminders to send if the student doesn't respond.
+          {t("settings.reminders.remindersPerStudentDescription")}
         </p>
         <div className="flex items-center gap-1">
           <Button
@@ -161,9 +164,9 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
 
       {reminderTiming.reminderCount > 1 && (
         <div className="space-y-1.5">
-          <p className="text-sm font-medium">Hours between reminders</p>
+          <p className="text-sm font-medium">{t("settings.reminders.hoursBetween")}</p>
           <p className="text-xs text-muted-foreground">
-            How long to wait before sending the next reminder.
+            {t("settings.reminders.hoursBetweenDescription")}
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -187,7 +190,7 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
             >
               <Plus className="w-3 h-3" />
             </Button>
-            <span className="text-xs text-muted-foreground">hours</span>
+            <span className="text-xs text-muted-foreground">{t("settings.reminders.hours")}</span>
           </div>
         </div>
       )}
@@ -195,8 +198,8 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
       <TimingSelector
         value={reminderTiming.invitationStart}
         onChange={(invitationStart) => update({ invitationStart })}
-        label="Start invitations"
-        description="When to begin inviting replacements for open spots."
+        label={t("settings.reminders.startInvitations")}
+        description={t("settings.reminders.startInvitationsDescription")}
         disabled={disabled}
       />
     </div>

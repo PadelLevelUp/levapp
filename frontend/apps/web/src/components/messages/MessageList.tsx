@@ -1,16 +1,18 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Message } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
-function formatDateSeparator(iso: string): string {
+function formatDateSeparator(iso: string, t: TFunction): string {
   const date = new Date(iso);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  if (date.toDateString() === today.toDateString()) return t('messages.today');
+  if (date.toDateString() === yesterday.toDateString()) return t('messages.yesterday');
   return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export function MessageList({ messages, userId, participantName, onReply, onEdit, onDelete, onReaction }: Props) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
@@ -90,7 +93,7 @@ export function MessageList({ messages, userId, participantName, onReply, onEdit
   // Group messages by date
   const grouped: { date: string; messages: Message[] }[] = [];
   messages.forEach(msg => {
-    const dateStr = formatDateSeparator(msg.timestamp);
+    const dateStr = formatDateSeparator(msg.timestamp, t);
     const last = grouped[grouped.length - 1];
     if (last && last.date === dateStr) {
       last.messages.push(msg);
@@ -106,8 +109,8 @@ export function MessageList({ messages, userId, participantName, onReply, onEdit
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">💬</span>
           </div>
-          <p className="text-muted-foreground text-sm">No messages yet</p>
-          <p className="text-muted-foreground/60 text-xs mt-1">Start the conversation!</p>
+          <p className="text-muted-foreground text-sm">{t("messages.noMessagesYet")}</p>
+          <p className="text-muted-foreground/60 text-xs mt-1">{t("messages.startConversation")}</p>
         </div>
       </div>
     );
@@ -163,7 +166,7 @@ export function MessageList({ messages, userId, participantName, onReply, onEdit
         <button
           onClick={() => scrollToBottom()}
           className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-card shadow-lg border border-border flex items-center justify-center hover:bg-accent transition-colors animate-fade-in"
-          aria-label="Scroll to bottom"
+          aria-label={t("messages.scrollToBottom")}
         >
           <ChevronDown className="h-5 w-5 text-muted-foreground" />
         </button>

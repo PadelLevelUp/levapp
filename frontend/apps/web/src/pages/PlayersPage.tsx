@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { CoachPlayer, CoachLevel } from "@/types";
 import { sideLabel } from "@/types";
 
@@ -44,6 +45,7 @@ export default function PlayersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -193,9 +195,9 @@ export default function PlayersPage() {
     if (!inviteUrl) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      toast({ title: "Link copied to clipboard" });
+      toast({ title: t("players.linkCopied") });
     } catch {
-      toast({ variant: "destructive", title: "Failed to copy link" });
+      toast({ variant: "destructive", title: t("players.linkCopyFailed") });
     }
   };
 
@@ -214,7 +216,7 @@ export default function PlayersPage() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           <AlertDescription className="ml-2">
-            {alertCounts.missingLevel} player{alertCounts.missingLevel !== 1 ? "s" : ""} without level defined
+            {t("players.missingLevelAlert", { count: alertCounts.missingLevel })}
           </AlertDescription>
         </Alert>
       )}
@@ -229,7 +231,7 @@ export default function PlayersPage() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           <AlertDescription className="ml-2">
-            {alertCounts.missingSide} player{alertCounts.missingSide !== 1 ? "s" : ""} without Playing Side defined
+            {t("players.missingSideAlert", { count: alertCounts.missingSide })}
           </AlertDescription>
         </Alert>
       )}
@@ -271,16 +273,16 @@ export default function PlayersPage() {
         {hasActiveFilter && (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
-              {missingLevelFilter ? "Missing level" : "Missing side"} filter active
+              {missingLevelFilter ? t("players.missingLevelFilterActive") : t("players.missingSideFilterActive")}
             </Badge>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              aria-label="Clear filter"
+              aria-label={t("players.clearFilterAriaLabel")}
             >
               <X className="w-4 h-4 mr-1" />
-              Clear filter
+              {t("players.clearFilter")}
             </Button>
           </div>
         )}
@@ -291,7 +293,11 @@ export default function PlayersPage() {
             return (
               <Card
                 key={`coach-player-${cs.id}-${cs.playerId}`}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                data-testid={`player-card-${cs.playerId}`}
+                data-validated={cs.validated ? "true" : "false"}
+                className={`cursor-pointer hover:shadow-md transition-shadow ${
+                  cs.validated ? "" : "opacity-60"
+                }`}
                 onClick={() => navigate(`/players/${cs.playerId}`)}
               >
                 <CardContent className="p-4">
@@ -302,7 +308,13 @@ export default function PlayersPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{cs.name}</p>
+                      <p
+                        className={`font-medium truncate ${
+                          cs.validated ? "" : "text-muted-foreground"
+                        }`}
+                      >
+                        {cs.name}
+                      </p>
                       <p className="text-sm text-muted-foreground truncate">{cs.email || "—"}</p>
                     </div>
                   </div>
@@ -310,6 +322,11 @@ export default function PlayersPage() {
                     {level && <Badge variant="outline">{level.code}</Badge>}
                     {cs.side && (
                       <Badge variant="secondary">{sideLabel(cs.side)}</Badge>
+                    )}
+                    {!cs.validated && (
+                      <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400">
+                        Pending registration
+                      </Badge>
                     )}
                   </div>
                 </CardContent>
@@ -320,7 +337,7 @@ export default function PlayersPage() {
 
         <div className="flex items-center justify-between pt-2">
           <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} • {totalItems} players
+            {t("players.pagination", { current: currentPage, total: totalPages, players: totalItems })}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -329,7 +346,7 @@ export default function PlayersPage() {
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              Previous
+              {t("common.previous")}
             </Button>
             <Button
               variant="outline"
@@ -337,7 +354,7 @@ export default function PlayersPage() {
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
-              Next
+              {t("common.next")}
             </Button>
           </div>
         </div>
@@ -354,10 +371,9 @@ export default function PlayersPage() {
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Player invite link</DialogTitle>
+              <DialogTitle>{t("players.inviteDialogTitle")}</DialogTitle>
               <DialogDescription>
-                Share this link with the player so they can complete their own
-                profile.
+                {t("players.inviteDialogDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2">
@@ -366,7 +382,7 @@ export default function PlayersPage() {
                 variant="outline"
                 size="icon"
                 onClick={handleCopyInvite}
-                aria-label="Copy invite link"
+                aria-label={t("players.copyInviteAriaLabel")}
               >
                 <Copy className="w-4 h-4" />
               </Button>

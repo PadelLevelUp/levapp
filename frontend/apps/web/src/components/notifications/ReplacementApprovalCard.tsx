@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Clock, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
 import { respondToApproval } from "@/api/notificationEngine";
@@ -31,6 +32,7 @@ export function ReplacementApprovalCard({
   onResult,
   readOnly = false,
 }: ReplacementApprovalCardProps) {
+  const { t } = useTranslation();
   const [responding, setResponding] = useState(false);
   const [localResponse, setLocalResponse] = useState<ApprovalAction | null>(
     bundle.responded ? bundle.response ?? null : null
@@ -57,11 +59,11 @@ export function ReplacementApprovalCard({
         .map((v) => v.vacancyId);
       setStaleVacancyIds(stale);
       if (stale.length === result.vacancies.length && stale.length > 0) {
-        toast.info("These spots were already filled or expired.");
+        toast.info(t("notificationsUi.replacementApproval.spotsFilledOrExpired"));
       }
       onResult?.(result.action, result.vacancies);
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("notificationsUi.replacementApproval.genericError"));
     } finally {
       setResponding(false);
     }
@@ -75,9 +77,9 @@ export function ReplacementApprovalCard({
     const label =
       player.groupLabel ??
       (player.roundNumber != null
-        ? `Round ${player.roundNumber}`
+        ? t("notificationsUi.replacementApproval.round", { number: player.roundNumber })
         : player.groupIndex != null
-          ? `Group ${player.groupIndex}`
+          ? t("notificationsUi.replacementApproval.group", { index: player.groupIndex })
           : null);
     if (!label) return null;
     return (
@@ -91,7 +93,7 @@ export function ReplacementApprovalCard({
     if (allStale) {
       return (
         <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600">
-          No longer needed
+          {t("notificationsUi.replacementApproval.noLongerNeeded")}
         </span>
       );
     }
@@ -100,21 +102,23 @@ export function ReplacementApprovalCard({
         return (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
             <Check className="w-3.5 h-3.5" />
-            Approved
+            {t("notificationsUi.replacementApproval.approved")}
           </span>
         );
       case "yes_at_window":
         return (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
             <Clock className="w-3.5 h-3.5" />
-            Scheduled for {windowLabel ?? "window open"}
+            {t("notificationsUi.replacementApproval.scheduledFor", {
+              window: windowLabel ?? t("notificationsUi.replacementApproval.windowOpen"),
+            })}
           </span>
         );
       case "dismiss":
         return (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
             <X className="w-3.5 h-3.5" />
-            Dismissed
+            {t("notificationsUi.replacementApproval.dismissed")}
           </span>
         );
       default:
@@ -133,20 +137,20 @@ export function ReplacementApprovalCard({
           <div key={vacancy.vacancyId} className="space-y-2">
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{vacancy.declinedPlayerName}</span>{" "}
-              confirmed they won't attend.
+              {t("notificationsUi.replacementApproval.confirmedWontAttend")}
             </p>
 
             {vacancy.waitingListPlayerName && (
               <p className="text-xs leading-relaxed">
                 <span className="font-medium">{vacancy.waitingListPlayerName}</span>{" "}
-                from the waiting list will be added directly to the class
+                {t("notificationsUi.replacementApproval.waitingListAdded")}
               </p>
             )}
 
             {vacancy.queue.length > 0 ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Invite queue
+                  {t("notificationsUi.replacementApproval.inviteQueue")}
                 </p>
                 <ol className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
                   {vacancy.queue.map((player, index) => (
@@ -164,13 +168,13 @@ export function ReplacementApprovalCard({
               </div>
             ) : (
               <p className="text-xs italic text-muted-foreground">
-                No eligible players to invite
+                {t("notificationsUi.replacementApproval.noEligiblePlayers")}
               </p>
             )}
 
             {isStale && !allStale && (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">
-                No longer needed
+                {t("notificationsUi.replacementApproval.noLongerNeeded")}
               </span>
             )}
           </div>
@@ -182,7 +186,7 @@ export function ReplacementApprovalCard({
       ) : readOnly ? null : (
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">
-            Invite replacements?
+            {t("notificationsUi.replacementApproval.inviteReplacements")}
           </p>
           <div className="flex flex-wrap gap-2">
             {/* NOTE: no aria-label here — the visible text must be the accessible
@@ -195,17 +199,19 @@ export function ReplacementApprovalCard({
               disabled={responding}
               className="flex-1 min-w-[7rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
             >
-              {responding ? "…" : "Yes, right now"}
+              {responding ? "…" : t("notificationsUi.replacementApproval.yesRightNow")}
             </button>
             {windowOpenInFuture && windowLabel && (
               <button
                 type="button"
-                aria-label="Approve invitations at window open"
+                aria-label={t("notificationsUi.replacementApproval.approveAtWindowAria")}
                 onClick={() => handleRespond("yes_at_window")}
                 disabled={responding}
                 className="flex-1 min-w-[7rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-primary/10 text-primary disabled:opacity-50 transition-opacity"
               >
-                {responding ? "…" : `Yes, at ${windowLabel}`}
+                {responding
+                  ? "…"
+                  : t("notificationsUi.replacementApproval.yesAt", { window: windowLabel })}
               </button>
             )}
             <button
@@ -215,7 +221,7 @@ export function ReplacementApprovalCard({
               disabled={responding}
               className="flex-1 min-w-[4rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
             >
-              {responding ? "…" : "No"}
+              {responding ? "…" : t("notificationsUi.replacementApproval.no")}
             </button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { formatDistanceToNow } from "date-fns";
 import { Bell, Send } from "lucide-react";
 
+import { useTranslation } from "react-i18next";
+
 import type { DashboardNotificationActivityBlock } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ export function NotificationActivityBlock({
   block: DashboardNotificationActivityBlock;
 }) {
   const { title, items } = block.data;
+  const { t } = useTranslation();
 
   return (
     <Card>
@@ -29,7 +32,7 @@ export function NotificationActivityBlock({
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No notification activity yet.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.noNotificationActivity")}</p>
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
@@ -47,11 +50,12 @@ export function NotificationActivityBlock({
 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {item.player.name ?? "Unknown student"}
+                    {item.player.name ?? t("dashboard.unknownStudent")}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {item.lessonInstance.title ?? "Class"}{" "}
-                    {item.type === "auto" && `· Round ${item.roundNumber}`}
+                    {item.lessonInstance.title ?? t("dashboard.classFallback")}{" "}
+                    {item.type === "auto" &&
+                      `· ${t("dashboard.round", { number: item.roundNumber })}`}
                   </p>
                 </div>
 

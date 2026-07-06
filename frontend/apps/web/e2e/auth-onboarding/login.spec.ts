@@ -13,13 +13,18 @@ test("US-33: coach logs in successfully", async ({ page }) => {
 // US-33: Invalid credentials show an error
 test("US-33: wrong password shows error", async ({ page }) => {
   await page.goto("/auth");
-  await page.getByPlaceholder("your-username").fill(COACH_USERNAME);
-  await page.getByPlaceholder("••••••••").fill("WrongPassword!");
-  await page.getByRole("button", { name: "Sign In" }).click();
+  // The login page renders in the default locale (pt) before auth, so use stable
+  // id/type selectors rather than localized placeholder / button text.
+  await page.locator("#username").fill(COACH_USERNAME);
+  await page.locator("#password").fill("WrongPassword!");
+  await page.locator('button[type="submit"]').click();
   // Should stay on auth page and show an error — wait for the request to resolve
   await expect(page).toHaveURL(/.*\/auth/);
-  // Error toast text is "Invalid username or password." — use expect with timeout to retry
-  await expect(page.locator("text=/invalid|incorrect|error/i").first()).toBeVisible({ timeout: 5000 });
+  // Error toast: EN "Invalid username or password." / PT "Nome de utilizador ou
+  // palavra-passe inválidos." — match either language.
+  await expect(
+    page.locator("text=/invalid|incorrect|error|inválid|palavra-passe/i").first()
+  ).toBeVisible({ timeout: 5000 });
 });
 
 // US-34: Student can log in with valid credentials

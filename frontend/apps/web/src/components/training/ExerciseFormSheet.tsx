@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ interface Props {
 const emptyDiagram: CourtDiagram = { elements: [] };
 
 export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, loading }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ExerciseType>("attack");
@@ -84,23 +86,23 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{exercise ? "Edit Exercise" : "New Exercise"}</SheetTitle>
+          <SheetTitle>{exercise ? t("training.form.editExercise") : t("training.form.newExercise")}</SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
           <div className="space-y-1.5">
-            <Label htmlFor="ex-name">Name *</Label>
-            <Input id="ex-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cross-court bandeja" required />
+            <Label htmlFor="ex-name">{t("training.form.name")}</Label>
+            <Input id="ex-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("training.form.namePlaceholder")} required />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ex-desc">Description</Label>
-            <Textarea id="ex-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the exercise..." rows={3} />
+            <Label htmlFor="ex-desc">{t("training.form.description")}</Label>
+            <Textarea id="ex-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("training.form.descriptionPlaceholder")} rows={3} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Type *</Label>
+              <Label>{t("training.form.type")}</Label>
               <Select value={type} onValueChange={(v) => setType(v as ExerciseType)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -117,13 +119,13 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
 
             {type === "custom" && (
               <div className="space-y-1.5">
-                <Label htmlFor="ex-custom-type">Custom type</Label>
-                <Input id="ex-custom-type" value={customType} onChange={(e) => setCustomType(e.target.value)} placeholder="e.g. Tactics" />
+                <Label htmlFor="ex-custom-type">{t("training.form.customType")}</Label>
+                <Input id="ex-custom-type" value={customType} onChange={(e) => setCustomType(e.target.value)} placeholder={t("training.form.customTypePlaceholder")} />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label>Difficulty *</Label>
+              <Label>{t("training.form.difficulty")}</Label>
               <Select value={String(difficulty)} onValueChange={(v) => setDifficulty(Number(v) as Difficulty)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -141,7 +143,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
 
           {levels.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Levels</Label>
+              <Label>{t("training.form.levels")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {levels.map((level) => {
                   const isSelected = selectedLevels.includes(level.id);
@@ -164,16 +166,16 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
           <CourtDiagramEditor value={diagram} onChange={setDiagram} />
 
           <div className="space-y-1.5">
-            <Label htmlFor="ex-notes">Additional notes</Label>
-            <Textarea id="ex-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Variations, key points..." rows={2} />
+            <Label htmlFor="ex-notes">{t("training.form.additionalNotes")}</Label>
+            <Textarea id="ex-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("training.form.notesPlaceholder")} rows={2} />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || loading}>
-              {loading ? "Saving..." : exercise ? "Save Changes" : "Create Exercise"}
+              {loading ? t("training.form.saving") : exercise ? t("training.form.saveChanges") : t("training.form.createExercise")}
             </Button>
           </div>
         </form>

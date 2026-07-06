@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CoachLevel, PlayerSide } from "@/types";
 import { sideLabel } from "@/types";
 
@@ -63,6 +64,7 @@ export function EditPlayerSheet({
   levels,
   initialValues,
 }: EditPlayerSheetProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -133,7 +135,7 @@ export function EditPlayerSheet({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Player details</SheetTitle>
+          <SheetTitle>{t("players.playerDetails")}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -151,11 +153,11 @@ export function EditPlayerSheet({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="text-lg font-semibold h-10 px-2"
-                  placeholder="Player name"
+                  placeholder={t("players.playerNamePlaceholder")}
                 />
               ) : (
                 <p className="text-lg font-semibold">
-                  {name || "Unnamed player"}
+                  {name || t("players.unnamedPlayer")}
                 </p>
               )}
               <div className="mt-1 flex flex-wrap gap-2">
@@ -170,7 +172,7 @@ export function EditPlayerSheet({
                 {isInactive && (
                   <Badge variant="destructive" className="gap-1">
                     <UserX className="h-3 w-3" />
-                    No account
+                    {t("players.noAccount")}
                   </Badge>
                 )}
               </div>
@@ -184,10 +186,10 @@ export function EditPlayerSheet({
                 <UserX className="h-4 w-4 text-warning mt-0.5" />
                 <div>
                   <p className="text-sm font-medium">
-                    This player doesn’t have an account
+                    {t("players.noAccountMessage")}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Share this link so they can register.
+                    {t("players.shareRegisterLink")}
                   </p>
                 </div>
               </div>
@@ -214,7 +216,7 @@ export function EditPlayerSheet({
           {/* CONTACT INFO */}
           <div className="space-y-3">
             <p className="text-sm font-medium text-muted-foreground">
-              Contact information
+              {t("players.contactInformation")}
             </p>
           </div>
 
@@ -225,7 +227,7 @@ export function EditPlayerSheet({
                 {isEditing && isInactive ? (
                   <Input value={username} onChange={(e) => setUsername(e.target.value)} />
                 ) : (
-                  <span>{username || "No username"}</span>
+                  <span>{username || t("players.noUsername")}</span>
                 )}
               </div>
 
@@ -234,7 +236,7 @@ export function EditPlayerSheet({
                 {isEditing && isInactive ? (
                   <Input value={email} onChange={(e) => setEmail(e.target.value)} />
                 ) : (
-                  <span>{email || "No email"}</span>
+                  <span>{email || t("players.noEmail")}</span>
                 )}
               </div>
 
@@ -243,7 +245,7 @@ export function EditPlayerSheet({
                 {isEditing && isInactive ? (
                   <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
                 ) : (
-                  <span>{phone || "No phone"}</span>
+                  <span>{phone || t("players.noPhone")}</span>
                 )}
               </div>
             </div>
@@ -254,16 +256,16 @@ export function EditPlayerSheet({
           {/* CONFIGURATION */}
           <div className="space-y-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Configuration
+              {t("players.configuration")}
             </p>
 
             <div className="space-y-3">
               <div>
-                <Label>Level</Label>
+                <Label>{t("players.level")}</Label>
                 {isEditing ? (
                   <Select value={levelId.toString()} onValueChange={setLevelId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
+                      <SelectValue placeholder={t("players.selectLevel")} />
                     </SelectTrigger>
                     <SelectContent>
                       {levels.map((l) => (
@@ -281,19 +283,19 @@ export function EditPlayerSheet({
               </div>
 
               <div>
-                <Label>Preferred side</Label>
+                <Label>{t("players.preferredSide")}</Label>
                 {isEditing ? (
                   <Select
                     value={side}
                     onValueChange={(v) => setSide(v as PlayerSide)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select side" />
+                      <SelectValue placeholder={t("players.selectSide")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="left">Left</SelectItem>
-                      <SelectItem value="right">Right</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
+                      <SelectItem value="left">{t("players.sideLeft")}</SelectItem>
+                      <SelectItem value="right">{t("players.sideRight")}</SelectItem>
+                      <SelectItem value="both">{t("players.sideBoth")}</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
@@ -304,17 +306,17 @@ export function EditPlayerSheet({
               </div>
 
               <div>
-                <Label>Notes</Label>
+                <Label>{t("players.notes")}</Label>
                 {isEditing ? (
                   <Input
                     id="player-notes"
-                    placeholder="Anything you want to remember..."
+                    placeholder={t("players.notesPlaceholder")}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                   />
                 ) : (
                   <p className="text-sm mt-1">
-                    <span>{notes || "No notes"}</span>
+                    <span>{notes || t("players.noNotes")}</span>
                   </p>
                 )}
               </div>
@@ -332,7 +334,7 @@ export function EditPlayerSheet({
                 onClick={() => setIsEditing(true)}
               >
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit
+                {t("common.edit")}
               </Button>
               {onDelete && (
                 <Button
@@ -347,9 +349,9 @@ export function EditPlayerSheet({
           ) : (
             <>
               <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button onClick={handleSave}>Save changes</Button>
+              <Button onClick={handleSave}>{t("common.saveChanges")}</Button>
             </>
           )}
         </SheetFooter>

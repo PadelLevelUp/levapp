@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,13 +53,13 @@ const TABLE_ICONS: Record<string, string> = {
 
 /** Tables the user can toggle on/off */
 const SELECTABLE_TABLES = [
-  { key: "Players", label: "Players", icon: "🎾", description: "Player profiles and contact info" },
-  { key: "Classes", label: "Classes", icon: "📅", description: "Training sessions and schedules" },
-  { key: "Players in Classes", label: "Players in Classes", icon: "👥", description: "Which players attend which class" },
-  { key: "Presences", label: "Presences", icon: "✅", description: "Attendance records" },
-  { key: "Evaluations", label: "Evaluations", icon: "📝", description: "Player scores and assessments" },
-  { key: "Strengths", label: "Strengths", icon: "💪", description: "Player strengths" },
-  { key: "Weaknesses", label: "Weaknesses", icon: "🎯", description: "Areas for improvement" },
+  { key: "Players", label: "Players", icon: "🎾", descriptionKey: "settings.import.tables.playersDescription" },
+  { key: "Classes", label: "Classes", icon: "📅", descriptionKey: "settings.import.tables.classesDescription" },
+  { key: "Players in Classes", label: "Players in Classes", icon: "👥", descriptionKey: "settings.import.tables.playersInClassesDescription" },
+  { key: "Presences", label: "Presences", icon: "✅", descriptionKey: "settings.import.tables.presencesDescription" },
+  { key: "Evaluations", label: "Evaluations", icon: "📝", descriptionKey: "settings.import.tables.evaluationsDescription" },
+  { key: "Strengths", label: "Strengths", icon: "💪", descriptionKey: "settings.import.tables.strengthsDescription" },
+  { key: "Weaknesses", label: "Weaknesses", icon: "🎯", descriptionKey: "settings.import.tables.weaknessesDescription" },
 ] as const;
 
 const GROUP_BY_MAP: Record<string, string> = {
@@ -80,16 +81,17 @@ function AiSpinner({ className }: { className?: string }) {
 
 /* ---------- phase indicator ---------- */
 
-const phaseConfig: { key: Phase; label: string; icon: React.ReactNode }[] = [
-  { key: "uploading", label: "Upload", icon: <Upload className="w-4 h-4" /> },
-  { key: "processing", label: "Process", icon: <FileText className="w-4 h-4" /> },
-  { key: "analyzing", label: "AI Analysis", icon: <Brain className="w-4 h-4" /> },
-  { key: "done", label: "Results", icon: <Check className="w-4 h-4" /> },
+const phaseConfig: { key: Phase; labelKey: string; icon: React.ReactNode }[] = [
+  { key: "uploading", labelKey: "settings.import.phaseUpload", icon: <Upload className="w-4 h-4" /> },
+  { key: "processing", labelKey: "settings.import.phaseProcess", icon: <FileText className="w-4 h-4" /> },
+  { key: "analyzing", labelKey: "settings.import.phaseAnalysis", icon: <Brain className="w-4 h-4" /> },
+  { key: "done", labelKey: "settings.import.phaseResults", icon: <Check className="w-4 h-4" /> },
 ];
 
 const PHASE_ORDER: Phase[] = ["uploading", "processing", "analyzing", "done"];
 
 function PhaseIndicator({ current }: { current: Phase }) {
+  const { t } = useTranslation();
   const currentIdx = PHASE_ORDER.indexOf(current);
 
   return (
@@ -119,7 +121,7 @@ function PhaseIndicator({ current }: { current: Phase }) {
               )}
             >
               {isDone ? <Check className="w-3 h-3" /> : p.icon}
-              <span className="hidden sm:inline">{p.label}</span>
+              <span className="hidden sm:inline">{t(p.labelKey)}</span>
             </div>
           </div>
         );
@@ -181,6 +183,7 @@ function TableSelectionStep({
   onCancel: () => void;
   fileName: string;
 }) {
+  const { t } = useTranslation();
   const allSelected = selectedTables.size === SELECTABLE_TABLES.length;
 
   return (
@@ -194,13 +197,13 @@ function TableSelectionStep({
           <div>
             <p className="font-medium text-sm">{fileName}</p>
             <p className="text-xs text-muted-foreground">
-              Choose what to import from this file
+              {t("settings.import.chooseWhatToImport")}
             </p>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel} className="gap-1.5">
           <X className="w-4 h-4" />
-          Cancel
+          {t("settings.import.cancel")}
         </Button>
       </div>
 
@@ -208,7 +211,7 @@ function TableSelectionStep({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm font-medium">What would you like to import?</p>
+          <p className="text-sm font-medium">{t("settings.import.whatToImport")}</p>
         </div>
         <Button
           variant="ghost"
@@ -216,21 +219,21 @@ function TableSelectionStep({
           className="text-xs h-7"
           onClick={allSelected ? onDeselectAll : onSelectAll}
         >
-          {allSelected ? "Deselect all" : "Select all"}
+          {allSelected ? t("settings.import.deselectAll") : t("settings.import.selectAll")}
         </Button>
       </div>
 
       {/* Table checkboxes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {SELECTABLE_TABLES.map((t) => {
-          const isSelected = selectedTables.has(t.key);
+        {SELECTABLE_TABLES.map((tbl) => {
+          const isSelected = selectedTables.has(tbl.key);
           return (
             <div
-              key={t.key}
+              key={tbl.key}
               role="button"
               tabIndex={0}
-              onClick={() => onToggle(t.key)}
-              onKeyDown={(e) => e.key === "Enter" && onToggle(t.key)}
+              onClick={() => onToggle(tbl.key)}
+              onKeyDown={(e) => e.key === "Enter" && onToggle(tbl.key)}
               className={cn(
                 "flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-all",
                 isSelected
@@ -239,7 +242,7 @@ function TableSelectionStep({
               )}
             >
               <Checkbox checked={isSelected} tabIndex={-1} />
-              <span className="text-base">{t.icon}</span>
+              <span className="text-base">{tbl.icon}</span>
               <div className="min-w-0 flex-1">
                 <p
                   className={cn(
@@ -247,10 +250,10 @@ function TableSelectionStep({
                     !isSelected && "text-muted-foreground"
                   )}
                 >
-                  {t.label}
+                  {tbl.label}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {t.description}
+                  {t(tbl.descriptionKey)}
                 </p>
               </div>
             </div>
@@ -260,13 +263,13 @@ function TableSelectionStep({
 
       {/* Note about auto-included tables */}
       <p className="text-xs text-muted-foreground">
-        Coach Levels and Evaluation Categories are automatically included when needed.
+        {t("settings.import.autoIncludedNote")}
       </p>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-2 pt-1">
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {t("settings.import.cancel")}
         </Button>
         <Button
           onClick={onConfirm}
@@ -274,8 +277,7 @@ function TableSelectionStep({
           className="gap-2"
         >
           <Brain className="w-4 h-4" />
-          Analyze {selectedTables.size}{" "}
-          {selectedTables.size === 1 ? "table" : "tables"}
+          {t("settings.import.analyzeTable", { count: selectedTables.size })}
         </Button>
       </div>
     </div>
@@ -421,6 +423,7 @@ function ImportTableView({
   groupByCol?: string;
   existingPlayerNames?: Set<string>;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const selectedCount = table.rows.filter((r) => r.selected).length;
 
@@ -447,15 +450,14 @@ function ImportTableView({
           <span className="text-lg">{table.icon}</span>
           <span className="font-medium text-sm">{table.name}</span>
           <Badge variant="secondary" className="text-xs">
-            {selectedCount}/{table.rows.length} selected
+            {t("settings.import.selectedRows", { selected: selectedCount, total: table.rows.length })}
           </Badge>
           {duplicateCount > 0 && (
             <Badge
               variant="outline"
               className="text-xs border-amber-500 text-amber-600"
             >
-              {duplicateCount} possible duplicate
-              {duplicateCount === 1 ? "" : "s"}
+              {t("settings.import.possibleDuplicate", { count: duplicateCount })}
             </Badge>
           )}
         </div>
@@ -471,7 +473,7 @@ function ImportTableView({
               }}
             >
               <Pencil className="w-3 h-3" />
-              {editing ? "Done" : "Edit"}
+              {editing ? t("settings.import.done") : t("settings.import.edit")}
             </Button>
           )}
           <Button
@@ -483,7 +485,7 @@ function ImportTableView({
               onToggleAll();
             }}
           >
-            {table.allSelected ? "Deselect all" : "Select all"}
+            {table.allSelected ? t("settings.import.deselectAll") : t("settings.import.selectAll")}
           </Button>
           {table.expanded ? (
             <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -554,9 +556,9 @@ function ImportTableView({
                           <Badge
                             variant="outline"
                             className="text-[10px] whitespace-nowrap border-amber-500 text-amber-600"
-                            title="A player with this name already exists on your roster. You can still import this row."
+                            title={t("settings.import.duplicateTooltip")}
                           >
-                            Possible duplicate
+                            {t("settings.import.possibleDuplicate")}
                           </Badge>
                         )}
                       </div>
@@ -588,6 +590,7 @@ function ImportResultsView({
   results: Record<string, TableImportResult>;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
   const [expandedTables, setExpandedTables] = useState<Set<string>>(
     () => new Set()
   );
@@ -618,12 +621,12 @@ function ImportResultsView({
           <Check className="w-4 h-4 text-green-600" />
           <span className="text-sm font-medium text-green-800">
             {totalErrors === 0
-              ? `All ${totalImported} records imported successfully`
-              : `${totalImported} records imported, ${totalErrors} failed`}
+              ? t("settings.import.allImported", { count: totalImported })
+              : t("settings.import.someFailed", { imported: totalImported, failed: totalErrors })}
           </span>
         </div>
         <Button size="sm" onClick={onReset}>
-          Import another file
+          {t("settings.import.importAnother")}
         </Button>
       </div>
 
@@ -647,13 +650,13 @@ function ImportResultsView({
                   {result.imported > 0 && (
                     <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
                       <Check className="w-3 h-3" />
-                      {result.imported} imported
+                      {t("settings.import.imported", { count: result.imported })}
                     </Badge>
                   )}
                   {hasErrors && (
                     <Badge variant="destructive" className="gap-1 text-xs">
                       <X className="w-3 h-3" />
-                      {result.errors.length} failed
+                      {t("settings.import.failed", { count: result.errors.length })}
                     </Badge>
                   )}
                   {hasErrors && (
@@ -668,7 +671,7 @@ function ImportResultsView({
                       ) : (
                         <ChevronDown className="w-4 h-4" />
                       )}
-                      {isExpanded ? "Hide" : "Show"} errors
+                      {isExpanded ? t("settings.import.hideErrors") : t("settings.import.showErrors")}
                     </Button>
                   )}
                 </div>
@@ -688,7 +691,7 @@ function ImportResultsView({
                           </TableHead>
                         ))}
                         <TableHead className="text-xs text-destructive whitespace-nowrap">
-                          Error
+                          {t("settings.import.error")}
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -747,6 +750,7 @@ export function DataImportSection() {
   > | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // PAD-17: load the coach's existing player names once so the preview can flag
   // rows whose name already exists (case-insensitive, exact match).
@@ -843,7 +847,7 @@ export function DataImportSection() {
             }
             case "error":
               toast({
-                title: "Analysis error",
+                title: t("settings.import.toast.analysisErrorTitle"),
                 description: event.message,
                 variant: "destructive",
               });
@@ -861,14 +865,14 @@ export function DataImportSection() {
         }, { requestedTables });
       } catch (e: any) {
         toast({
-          title: "Analysis failed",
+          title: t("settings.import.toast.analysisFailedTitle"),
           description: e.message,
           variant: "destructive",
         });
         setPhase("idle");
       }
     },
-    [toast]
+    [toast, t]
   );
 
   const handleConfirmTableSelection = useCallback(() => {
@@ -1019,15 +1023,15 @@ export function DataImportSection() {
       );
 
       toast({
-        title: "Import complete",
-        description: `${totalImported} records imported${
-          totalErrors > 0 ? `, ${totalErrors} errors` : ""
-        }.`,
+        title: t("settings.import.toast.importCompleteTitle"),
+        description: totalErrors > 0
+          ? t("settings.import.toast.importCompleteWithErrors", { imported: totalImported, errors: totalErrors })
+          : t("settings.import.toast.importCompleteDescription", { imported: totalImported }),
         variant: totalErrors > 0 ? "destructive" : "default",
       });
     } catch (e: any) {
       toast({
-        title: "Import failed",
+        title: t("settings.import.toast.importFailedTitle"),
         description: e.message,
         variant: "destructive",
       });
@@ -1082,16 +1086,16 @@ export function DataImportSection() {
           <div className="text-center">
             <p className="font-medium">
               {isDragging
-                ? "Drop your file here"
-                : "Drop a file to import data"}
+                ? t("settings.import.dropHere")
+                : t("settings.import.dropToImport")}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Supports CSV, Excel, PDF, or any structured document
+              {t("settings.import.supports")}
             </p>
           </div>
           <Button variant="outline" size="sm" className="gap-2">
             <Upload className="w-4 h-4" />
-            Browse files
+            {t("settings.import.browseFiles")}
           </Button>
           <input
             ref={fileInputRef}
@@ -1135,8 +1139,8 @@ export function DataImportSection() {
                 <p className="font-medium text-sm">{fileName}</p>
                 <p className="text-xs text-muted-foreground">
                   {phase === "done"
-                    ? `${totalRows} records found across ${tables.length} tables`
-                    : "Processing..."}
+                    ? t("settings.import.recordsFound", { records: totalRows, tables: tables.length })
+                    : t("settings.import.processing")}
                 </p>
               </div>
             </div>
@@ -1147,7 +1151,7 @@ export function DataImportSection() {
               className="gap-1.5"
             >
               <X className="w-4 h-4" />
-              Cancel
+              {t("settings.import.cancel")}
             </Button>
           </div>
 
@@ -1172,10 +1176,10 @@ export function DataImportSection() {
                   <AiSpinner />
                   <div>
                     <p className="text-sm font-medium">
-                      AI is analyzing your data
+                      {t("settings.import.analyzingTitle")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Identifying entities and mapping to your schema...
+                      {t("settings.import.analyzingDescription")}
                     </p>
                   </div>
                 </div>
@@ -1193,15 +1197,14 @@ export function DataImportSection() {
                 <div>
                   <p className="font-medium flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
-                    Import Preview
+                    {t("settings.import.previewTitle")}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Review and select the data you want to import. Click Edit to
-                    modify values inline.
+                    {t("settings.import.previewDescription")}
                   </p>
                 </div>
                 <Badge variant="outline">
-                  {totalSelected}/{totalRows} records selected
+                  {t("settings.import.recordsSelected", { selected: totalSelected, total: totalRows })}
                 </Badge>
               </div>
 
@@ -1227,7 +1230,7 @@ export function DataImportSection() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4" />
                   <span>
-                    Importing will add records to your existing data.
+                    {t("settings.import.willAddRecords")}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -1236,7 +1239,7 @@ export function DataImportSection() {
                     onClick={handleReset}
                     disabled={importing}
                   >
-                    Cancel
+                    {t("settings.import.cancel")}
                   </Button>
                   <Button
                     className="gap-2"
@@ -1250,9 +1253,9 @@ export function DataImportSection() {
                     )}
                     {importing
                       ? importProgress > 0
-                        ? `Importing... ${importProgress}%`
-                        : "Importing..."
-                      : `Import ${totalSelected} records`}
+                        ? t("settings.import.importingProgress", { progress: importProgress })
+                        : t("settings.import.importing")
+                      : t("settings.import.importRecords", { count: totalSelected })}
                   </Button>
                 </div>
               </div>

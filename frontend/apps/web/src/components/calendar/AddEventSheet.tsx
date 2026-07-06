@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { Repeat } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
 import type { CalendarBlockType } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ interface AddEventSheetProps {
 }
 
 export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave }: AddEventSheetProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [type, setType] = useState<CalendarBlockType>('personal');
   const [title, setTitle] = useState('');
@@ -86,11 +88,11 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       const missing = [
-        newErrors.date && 'Date',
-        newErrors.days && 'Days of the week',
-        newErrors.endDate && 'End date',
+        newErrors.date && t('calendar.addEvent.fieldDate'),
+        newErrors.days && t('calendar.addEvent.fieldDays'),
+        newErrors.endDate && t('calendar.addEvent.fieldEndDate'),
       ].filter(Boolean).join(', ');
-      toast({ variant: 'destructive', title: 'Missing required fields', description: `Please fill in: ${missing}` });
+      toast({ variant: 'destructive', title: t('calendar.addEvent.missingFieldsTitle'), description: t('calendar.addEvent.missingFieldsDescription', { fields: missing }) });
       return;
     }
     setErrors({});
@@ -127,40 +129,40 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>New event</SheetTitle>
+          <SheetTitle>{t("calendar.addEvent.title")}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label>{t("calendar.addEvent.type")}</Label>
             <Select value={type} onValueChange={(v) => setType(v as CalendarBlockType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="personal">Personal</SelectItem>
-                <SelectItem value="break">Break</SelectItem>
-                <SelectItem value="holiday">Holiday</SelectItem>
-                <SelectItem value="off_work">Off work</SelectItem>
+                <SelectItem value="personal">{t("calendar.addEvent.typePersonal")}</SelectItem>
+                <SelectItem value="break">{t("calendar.addEvent.typeBreak")}</SelectItem>
+                <SelectItem value="holiday">{t("calendar.addEvent.typeHoliday")}</SelectItem>
+                <SelectItem value="off_work">{t("calendar.addEvent.typeOffWork")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="event-title">Title (optional)</Label>
+            <Label htmlFor="event-title">{t("calendar.addEvent.titleLabel")}</Label>
             <Input
               id="event-title"
-              placeholder="e.g. Lunch break"
+              placeholder={t("calendar.addEvent.titlePlaceholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="event-description">Description (optional)</Label>
+            <Label htmlFor="event-description">{t("calendar.addEvent.descriptionLabel")}</Label>
             <Input
               id="event-description"
-              placeholder="Additional notes"
+              placeholder={t("calendar.addEvent.descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -169,7 +171,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Repeat className="w-4 h-4 text-muted-foreground" />
-              <Label htmlFor="event-recurring">Recurring</Label>
+              <Label htmlFor="event-recurring">{t("calendar.addEvent.recurring")}</Label>
             </div>
             <Switch id="event-recurring" checked={isRecurring} onCheckedChange={setIsRecurring} />
           </div>
@@ -177,7 +179,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
           {isRecurring ? (
             <div className="space-y-4 p-4 rounded-lg bg-muted/50">
               <div className="space-y-2">
-                <Label>Days of the week</Label>
+                <Label>{t("calendar.addEvent.daysOfWeek")}</Label>
                 <div className={cn('flex gap-1 p-1 rounded-lg', errors.days && 'ring-2 ring-destructive')}>
                   {DAYS_OF_WEEK.map(({ value, label }) => (
                     <button
@@ -195,7 +197,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start date</Label>
+                  <Label>{t("calendar.addEvent.startDate")}</Label>
                   <Input
                     type="date"
                     className={cn(errors.date && 'border-destructive ring-1 ring-destructive')}
@@ -204,7 +206,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End date</Label>
+                  <Label>{t("calendar.addEvent.endDate")}</Label>
                   <Input
                     type="date"
                     className={cn(errors.endDate && 'border-destructive ring-1 ring-destructive')}
@@ -215,11 +217,11 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start time</Label>
+                  <Label>{t("calendar.addEvent.startTime")}</Label>
                   <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>End time</Label>
+                  <Label>{t("calendar.addEvent.endTime")}</Label>
                   <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </div>
@@ -227,7 +229,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
           ) : (
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Date</Label>
+                <Label>{t("calendar.addEvent.dateShort")}</Label>
                 <Input
                   type="date"
                   className={cn(errors.date && 'border-destructive ring-1 ring-destructive')}
@@ -236,11 +238,11 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
                 />
               </div>
               <div className="space-y-2">
-                <Label>Start</Label>
+                <Label>{t("calendar.addEvent.startShort")}</Label>
                 <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>End</Label>
+                <Label>{t("calendar.addEvent.endShort")}</Label>
                 <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
               </div>
             </div>
@@ -248,8 +250,8 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSave}>Create event</Button>
+          <Button variant="outline" onClick={handleClose}>{t("common.cancel")}</Button>
+          <Button onClick={handleSave}>{t("calendar.addEvent.createEvent")}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

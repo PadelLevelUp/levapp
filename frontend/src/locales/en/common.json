@@ -1,0 +1,30 @@
+{
+  "common": {
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "remove": "Remove",
+    "add": "Add",
+    "create": "Create",
+    "update": "Update",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading…",
+    "search": "Search",
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "all": "All",
+    "none": "None",
+    "required": "Required",
+    "optional": "Optional",
+    "somethingWentWrong": "Something went wrong. Please try again."
+  }
+}

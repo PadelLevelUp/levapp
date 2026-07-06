@@ -1,0 +1,24 @@
+{
+  "notificationsUi": {
+    "replacementApproval": {
+      "spotsFilledOrExpired": "Estes lugares já foram preenchidos ou expiraram.",
+      "genericError": "Algo correu mal. Por favor, tente novamente.",
+      "round": "Ronda {{number}}",
+      "group": "Grupo {{index}}",
+      "noLongerNeeded": "Já não é necessário",
+      "approved": "Aprovado",
+      "scheduledFor": "Agendado para {{window}}",
+      "windowOpen": "abertura da janela",
+      "dismissed": "Ignorado",
+      "confirmedWontAttend": "confirmou que não vai comparecer.",
+      "waitingListAdded": "da lista de espera será adicionado diretamente à aula",
+      "inviteQueue": "Fila de convites",
+      "noEligiblePlayers": "Não há jogadores elegíveis para convidar",
+      "inviteReplacements": "Convidar substitutos?",
+      "yesRightNow": "Sim, agora mesmo",
+      "yesAt": "Sim, às {{window}}",
+      "approveAtWindowAria": "Aprovar convites na abertura da janela",
+      "no": "Não"
+    }
+  }
+}

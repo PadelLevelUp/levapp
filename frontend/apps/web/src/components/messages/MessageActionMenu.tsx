@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Pencil, Trash2, Copy, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 const quickReactions = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
 export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete, onCopy, onReaction }: Props) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
@@ -50,11 +52,11 @@ export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete
   }, [position]);
 
   const actions = [
-    { icon: Reply, label: 'Reply', action: onReply },
-    ...(onEdit ? [{ icon: Pencil, label: 'Edit', action: onEdit }] : []),
-    { icon: Copy, label: 'Copy', action: onCopy },
-    ...(onDelete ? [{ icon: Trash2, label: 'Delete', action: onDelete, destructive: true }] : []),
-    { icon: X, label: 'Cancel', action: onClose },
+    { icon: Reply, label: t('messages.reply'), action: onReply },
+    ...(onEdit ? [{ icon: Pencil, label: t('common.edit'), action: onEdit }] : []),
+    { icon: Copy, label: t('messages.copy'), action: onCopy },
+    ...(onDelete ? [{ icon: Trash2, label: t('common.delete'), action: onDelete, destructive: true }] : []),
+    { icon: X, label: t('messages.cancel'), action: onClose },
   ];
 
   return (

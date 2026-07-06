@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageSquare } from "lucide-react";
 
 import type { MessageTemplates } from "@/types";
@@ -17,43 +18,43 @@ const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
   waiting_list_placed: ["{name}", "{level}", "{weekday}", "{time}"],
 };
 
-const LABELS: Record<keyof MessageTemplates, string> = {
-  invite: "Invite message",
-  confirm: "Confirm response",
-  decline: "Decline response",
-  spot_filled: "Spot-filled response",
-  reminder: "Attendance reminder",
-  reminder_followup: "Reminder follow-up",
-  reminder_confirmed: "Attendance confirmed",
-  reminder_declined: "Attendance declined",
-  waiting_list_offer: "Waiting list offer",
-  waiting_list_placed: "Spot from waiting list",
+const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
+  invite: "settings.templates.labels.invite",
+  confirm: "settings.templates.labels.confirm",
+  decline: "settings.templates.labels.decline",
+  spot_filled: "settings.templates.labels.spotFilled",
+  reminder: "settings.templates.labels.reminder",
+  reminder_followup: "settings.templates.labels.reminderFollowup",
+  reminder_confirmed: "settings.templates.labels.reminderConfirmed",
+  reminder_declined: "settings.templates.labels.reminderDeclined",
+  waiting_list_offer: "settings.templates.labels.waitingListOffer",
+  waiting_list_placed: "settings.templates.labels.waitingListPlaced",
 };
 
-const DESCRIPTIONS: Record<keyof MessageTemplates, string> = {
-  invite: "Sent when notifying a student about an open spot.",
-  confirm: "Sent automatically when a student says Yes.",
-  decline: "Sent automatically when a student says No.",
-  spot_filled: "Sent when a spot is claimed before the student responds.",
-  reminder: "Sent to remind students before class and ask them to confirm attendance.",
-  reminder_followup: "Sent if the student hasn't responded to the first reminder.",
-  reminder_confirmed: "Sent automatically when a student confirms attendance.",
-  reminder_declined: "Sent automatically when a student declines attendance.",
-  waiting_list_offer: "Sent when a spot was filled, offering to be placed on the waiting list.",
-  waiting_list_placed: "Sent when a waiting-list student gets a spot.",
+const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
+  invite: "settings.templates.descriptions.invite",
+  confirm: "settings.templates.descriptions.confirm",
+  decline: "settings.templates.descriptions.decline",
+  spot_filled: "settings.templates.descriptions.spotFilled",
+  reminder: "settings.templates.descriptions.reminder",
+  reminder_followup: "settings.templates.descriptions.reminderFollowup",
+  reminder_confirmed: "settings.templates.descriptions.reminderConfirmed",
+  reminder_declined: "settings.templates.descriptions.reminderDeclined",
+  waiting_list_offer: "settings.templates.descriptions.waitingListOffer",
+  waiting_list_placed: "settings.templates.descriptions.waitingListPlaced",
 };
 
-const GROUPS: { label: string; keys: (keyof MessageTemplates)[] }[] = [
+const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   {
-    label: "Reminders",
+    labelKey: "settings.templates.groups.reminders",
     keys: ["reminder", "reminder_followup", "reminder_confirmed", "reminder_declined"],
   },
   {
-    label: "Invitations",
+    labelKey: "settings.templates.groups.invitations",
     keys: ["invite", "confirm", "decline", "spot_filled"],
   },
   {
-    label: "Waiting list",
+    labelKey: "settings.templates.groups.waitingList",
     keys: ["waiting_list_offer", "waiting_list_placed"],
   },
 ];
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export function MessageTemplatesSection({ templates, onChange }: Props) {
+  const { t } = useTranslation();
   const [local, setLocal] = useState<MessageTemplates>(templates);
   const [saving, setSaving] = useState(false);
   const textareaRefs = useRef<Partial<Record<keyof MessageTemplates, HTMLTextAreaElement | null>>>({});
@@ -75,9 +77,9 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
     try {
       await updateNotificationConfig({ messageTemplates: local });
       onChange(local);
-      toast.success("Templates saved");
+      toast.success(t("settings.templates.savedSuccess"));
     } catch {
-      toast.error("Failed to save templates");
+      toast.error(t("settings.templates.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -100,16 +102,16 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
   return (
     <div className="space-y-4">
       {GROUPS.map((group) => (
-        <div key={group.label}>
-          <p className="text-sm font-medium mt-4 mb-2">{group.label}</p>
+        <div key={group.labelKey}>
+          <p className="text-sm font-medium mt-4 mb-2">{t(group.labelKey)}</p>
           <div className="space-y-4">
             {group.keys.map((key) => (
               <div key={key} className="space-y-1.5">
                 <Label className="text-sm font-medium flex items-center gap-1.5">
                   <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                  {LABELS[key]}
+                  {t(LABEL_KEYS[key])}
                 </Label>
-                <p className="text-xs text-muted-foreground mt-0.5">{DESCRIPTIONS[key]}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t(DESCRIPTION_KEYS[key])}</p>
                 <Textarea
                   ref={(el) => { textareaRefs.current[key] = el; }}
                   value={local[key]}
@@ -143,7 +145,7 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
         disabled={!isDirty || saving}
         className="w-full"
       >
-        {saving ? "Saving…" : "Save templates"}
+        {saving ? t("settings.templates.saving") : t("settings.templates.saveTemplates")}
       </Button>
     </div>
   );

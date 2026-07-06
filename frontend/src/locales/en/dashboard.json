@@ -1,0 +1,14 @@
+{
+  "dashboard": {
+    "failedToLoad": "Failed to load dashboard.",
+    "unreadMessages": "Unread messages",
+    "messagesWaitingForReply": "Messages waiting for reply",
+    "latestMessage": "Latest message",
+    "conversationsToReply": "Conversations to reply",
+    "withUnreadMessages": "With unread messages",
+    "noNotificationActivity": "No notification activity yet.",
+    "unknownStudent": "Unknown student",
+    "classFallback": "Class",
+    "round": "Round {{number}}"
+  }
+}

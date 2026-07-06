@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
@@ -23,6 +24,7 @@ import { RescheduleDialog } from "@/components/calendar/RescheduleDialog";
 import type { ApplyScope } from "@/components/calendar/ClassScopeDialog";
 
 export default function CalendarPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -127,14 +129,14 @@ export default function CalendarPage() {
       setSelectedClassEvent(null);
 
       toast({
-        title: "Class deleted",
+        title: t("calendar.page.classDeleted"),
         description: event.title,
       });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Delete failed",
-        description: "The class could not be deleted.",
+        title: t("calendar.page.deleteFailed"),
+        description: t("calendar.page.deleteFailedDescription"),
       });
     } finally {
       setDeletingClassId(null);
@@ -189,14 +191,14 @@ export default function CalendarPage() {
       setSelectedClassEvent(null);
 
       toast({
-        title: "Class updated",
+        title: t("calendar.page.classUpdated"),
         description: updated.name || event.title,
       });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Update failed",
-        description: "Changes could not be saved.",
+        title: t("calendar.page.updateFailed"),
+        description: t("calendar.page.updateFailedDescription"),
       });
     } finally {
       setEditingClassId(null);
@@ -241,9 +243,9 @@ export default function CalendarPage() {
         await editClass(event, { date: newDate, startTime: newStartTime, endTime: newEndTime }, scope);
       }
       await refreshEvents();
-      toast({ title: 'Event rescheduled' });
+      toast({ title: t('calendar.page.eventRescheduled') });
     } catch {
-      toast({ variant: 'destructive', title: 'Failed to reschedule event' });
+      toast({ variant: 'destructive', title: t('calendar.page.failedReschedule') });
     }
   };
 
@@ -251,9 +253,9 @@ export default function CalendarPage() {
     try {
       await addCalendarBlock(data);
       await refreshEvents();
-      toast({ title: "Event created" });
+      toast({ title: t("calendar.page.eventCreated") });
     } catch {
-      toast({ variant: "destructive", title: "Failed to create event" });
+      toast({ variant: "destructive", title: t("calendar.page.failedCreateEvent") });
     }
   };
 
@@ -266,14 +268,14 @@ export default function CalendarPage() {
       setAllEvents(prev => [...prev, created]);
 
       toast({
-        title: "Class created",
-        description: created.name || "New class",
+        title: t("calendar.page.classCreated"),
+        description: created.name || t("calendar.page.newClass"),
       });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Creation failed",
-        description: "The class could not be created.",
+        title: t("calendar.page.creationFailed"),
+        description: t("calendar.page.creationFailedDescription"),
       });
     } finally {
       setAddingClass(false);

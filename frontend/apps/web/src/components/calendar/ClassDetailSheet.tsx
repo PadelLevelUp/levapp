@@ -19,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ClassPlanningSection } from "./ClassPlanningSection";
 
@@ -116,6 +117,7 @@ export function ClassDetailSheet({
   deleting = false,
   saving = false,
 }: ClassDetailSheetProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
@@ -399,8 +401,8 @@ export function ClassDetailSheet({
         // Semi-automatic mode: invitations await coach approval
         setApprovalBundle(bundle);
         toast({
-          title: "Attendance saved",
-          description: "Approval needed to invite replacements",
+          title: t("calendar.detail.attendanceSavedTitle"),
+          description: t("calendar.detail.approvalNeededDescription"),
         });
       } else if (notifiedPlayers.length > 0 && event && updatedPresences.length > 0) {
         // Fetch by the actual LessonInstance ID from presences (works even for
@@ -412,18 +414,18 @@ export function ClassDetailSheet({
         setInvitationsOpen(true);
         const n = notifiedPlayers.length;
         toast({
-          title: "Attendance saved",
-          description: `Sent an invite to ${n} ${n === 1 ? "player" : "players"}`,
+          title: t("calendar.detail.attendanceSavedTitle"),
+          description: t("calendar.detail.invitesSentDescription", { count: n }),
         });
       } else {
-        toast({ title: "Attendance saved" });
+        toast({ title: t("calendar.detail.attendanceSavedTitle") });
       }
 
       setIsValidating(false);
     } catch {
       toast({
         variant: "destructive",
-        title: "Failed to save attendance",
+        title: t("calendar.detail.failedSaveAttendance"),
       });
     } finally {
       setSavingAttendance(false);
@@ -447,9 +449,9 @@ export function ClassDetailSheet({
       const { plannedExerciseIds: saved } = await confirmClassTraining(classInstance, plannedExerciseIds);
       setPlannedExerciseIds(saved);
       setIsPlanningMode(false);
-      toast({ title: "Training saved" });
+      toast({ title: t("calendar.detail.trainingSaved") });
     } catch {
-      toast({ variant: "destructive", title: "Failed to save training" });
+      toast({ variant: "destructive", title: t("calendar.detail.failedSaveTraining") });
     } finally {
       setSavingTraining(false);
     }
@@ -482,7 +484,7 @@ export function ClassDetailSheet({
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Date</span>
+                <span className="text-xs font-medium">{t("calendar.detail.date")}</span>
               </div>
               {isEditing ? (
                 <div className="space-y-2">
@@ -496,7 +498,7 @@ export function ClassDetailSheet({
                   />
                   {active.recurrenceEnd && !active.parentClassId && (
                     <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">Until</span>
+                      <span className="text-xs text-muted-foreground">{t("calendar.detail.until")}</span>
                       <Input
                         type="date"
                         value={active.recurrenceEnd}
@@ -517,7 +519,7 @@ export function ClassDetailSheet({
                   </p>
                   {active.recurrenceEnd && !active.parentClassId && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Until {format(new Date(active.recurrenceEnd), "MMM d", { locale: enUS })}
+                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "MMM d", { locale: enUS }) })}
                     </p>
                   )}
                 </div>
@@ -528,7 +530,7 @@ export function ClassDetailSheet({
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Time</span>
+                <span className="text-xs font-medium">{t("calendar.detail.time")}</span>
               </div>
               {isEditing ? (
                 <div className="space-y-1">
@@ -560,7 +562,7 @@ export function ClassDetailSheet({
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Capacity</span>
+                <span className="text-xs font-medium">{t("calendar.detail.capacity")}</span>
               </div>
               {isEditing ? (
                 <div className="flex items-center gap-2">
@@ -601,7 +603,7 @@ export function ClassDetailSheet({
                       <>
                         <p className="text-sm font-medium">{effectiveFilled}/{active.maxPlayers}</p>
                         {openSpots > 0 && (
-                          <p className="text-xs text-muted-foreground">{openSpots} open{pendingInvites > 0 ? `, ${pendingInvites} pending` : ""}</p>
+                          <p className="text-xs text-muted-foreground">{pendingInvites > 0 ? t("calendar.detail.openSpotsPending", { count: openSpots, pending: pendingInvites }) : t("calendar.detail.openSpots", { count: openSpots })}</p>
                         )}
                       </>
                     );
@@ -613,7 +615,7 @@ export function ClassDetailSheet({
             {/* Level */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="text-xs font-medium">Level</span>
+                <span className="text-xs font-medium">{t("calendar.detail.level")}</span>
               </div>
               {isEditing ? (
                 <Select
@@ -623,7 +625,7 @@ export function ClassDetailSheet({
                   }
                 >
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={t("calendar.detail.selectPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {levels.map((level) => (
@@ -648,8 +650,8 @@ export function ClassDetailSheet({
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <span className="text-sm font-medium">Auto notifications</span>
-                    <p className="text-xs text-muted-foreground">Students will be auto-invited</p>
+                    <span className="text-sm font-medium">{t("calendar.detail.autoNotifications")}</span>
+                    <p className="text-xs text-muted-foreground">{t("calendar.detail.autoNotificationsDescription")}</p>
                   </div>
                 </div>
                 <Switch
@@ -666,7 +668,7 @@ export function ClassDetailSheet({
           {/* Color — only in edit mode */}
           {isEditing && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">Color</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("calendar.detail.color")}</span>
               <div className="flex gap-2 flex-wrap">
                 {COLORS.map((color) => (
                   <button
@@ -690,7 +692,7 @@ export function ClassDetailSheet({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Repeat className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium">Recurring</span>
+                  <span className="text-xs font-medium">{t("calendar.detail.recurring")}</span>
                 </div>
                 <Switch
                   checked={active.isRecurring ?? false}
@@ -702,7 +704,7 @@ export function ClassDetailSheet({
               {active.isRecurring && (
                 <div className="space-y-3 pt-1">
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">Days of the week</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("calendar.detail.daysOfWeek")}</span>
                     <div className="flex gap-1">
                       {[
                         { value: 1, label: "M" },
@@ -746,7 +748,7 @@ export function ClassDetailSheet({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("calendar.detail.endDate")}</span>
                     <Input
                       type="date"
                       value={active.recurrenceEnd ?? ""}
@@ -767,8 +769,11 @@ export function ClassDetailSheet({
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                {isValidating ? "Attendance" : "Participants"} (
-                {active.participants.length}/{active.maxPlayers})
+                {t("calendar.detail.participantsCount", {
+                  label: isValidating ? t("calendar.detail.attendance") : t("calendar.detail.participants"),
+                  current: active.participants.length,
+                  max: active.maxPlayers,
+                })}
               </h4>
 
               {canManage &&
@@ -782,7 +787,7 @@ export function ClassDetailSheet({
                     className="text-xs"
                     onClick={() => setIsValidating(true)}
                   >
-                    {attendanceAlreadyMarked ? "Edit attendance" : "Mark attendance"}
+                    {attendanceAlreadyMarked ? t("calendar.detail.editAttendance") : t("calendar.detail.markAttendance")}
                   </Button>
                 )}
             </div>
@@ -816,7 +821,7 @@ export function ClassDetailSheet({
 
                 {active.participants.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No participants
+                    {t("calendar.detail.noParticipants")}
                   </p>
                 )}
               </div>
@@ -839,7 +844,7 @@ export function ClassDetailSheet({
                   className="flex items-center justify-between w-full text-sm font-medium py-1"
                   onClick={() => setInvitationsOpen((o) => !o)}
                 >
-                  <span>Invited ({localInvitations.length})</span>
+                  <span>{t("calendar.detail.invited", { count: localInvitations.length })}</span>
                   {invitationsOpen ? (
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   ) : (
@@ -855,16 +860,16 @@ export function ClassDetailSheet({
                         {inv.status === "confirmed" ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                             <Check className="w-3 h-3" />
-                            Accepted
+                            {t("calendar.detail.accepted")}
                           </span>
                         ) : inv.status === "expired" ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive">
                             <X className="w-3 h-3" />
-                            Declined
+                            {t("calendar.detail.declined")}
                           </span>
                         ) : inv.status === "queued" ? (
                           <span className="text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                            Queued
+                            {t("calendar.detail.queued")}
                           </span>
                         ) : (
                           <div className="flex gap-1.5">
@@ -872,13 +877,13 @@ export function ClassDetailSheet({
                               className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 opacity-50 cursor-not-allowed"
                             >
                               <Check className="w-3 h-3" />
-                              Yes
+                              {t("calendar.detail.yes")}
                             </Button>
                             <Button size="sm" variant="outline" disabled
                               className="h-7 gap-1 text-xs border-destructive/40 text-destructive opacity-50 cursor-not-allowed"
                             >
                               <X className="w-3 h-3" />
-                              No
+                              {t("calendar.detail.no")}
                             </Button>
                           </div>
                         )}
@@ -909,7 +914,7 @@ export function ClassDetailSheet({
                 disabled={savingTraining}
               >
                 <X className="w-4 h-4 mr-2" />
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 className="flex-1"
@@ -917,7 +922,7 @@ export function ClassDetailSheet({
                 disabled={savingTraining}
               >
                 <Check className="w-4 h-4 mr-2" />
-                {savingTraining ? "Saving…" : "Confirm"}
+                {savingTraining ? t("calendar.detail.saving") : t("calendar.detail.confirm")}
               </Button>
             </div>
           )}
@@ -935,7 +940,7 @@ export function ClassDetailSheet({
                     disabled={isValidating}
                   >
                     <Edit className="w-4 h-4 mr-2" />
-                    Edit
+                    {t("calendar.detail.edit")}
                   </Button>
                   {event?.type === "class" && (
                     <>
@@ -946,7 +951,7 @@ export function ClassDetailSheet({
                         disabled={isValidating || sendingReminders}
                       >
                         <Send className="w-4 h-4 mr-2" />
-                        Notify
+                        {t("calendar.detail.notify")}
                       </Button>
                       <Button
                         variant="outline"
@@ -961,16 +966,16 @@ export function ClassDetailSheet({
                               String(event.originalId),
                               event.date
                             );
-                            toast({ title: `Reminders sent to ${sent} student${sent !== 1 ? "s" : ""}` });
+                            toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
                           } catch {
-                            toast({ title: "Failed to send reminders", variant: "destructive" });
+                            toast({ title: t("calendar.detail.failedSendReminders"), variant: "destructive" });
                           } finally {
                             setSendingReminders(false);
                           }
                         }}
                       >
                         <Bell className="w-4 h-4 mr-2" />
-                        {sendingReminders ? "Sending…" : "Remind"}
+                        {sendingReminders ? t("calendar.detail.sending") : t("calendar.detail.remind")}
                       </Button>
                     </>
                   )}
@@ -979,7 +984,7 @@ export function ClassDetailSheet({
                     className="text-destructive"
                     onClick={handleDeleteClick}
                     disabled={isValidating || deleting}
-                    aria-label="Delete class"
+                    aria-label={t("calendar.detail.deleteClass")}
                   >
                     {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </Button>
@@ -994,7 +999,7 @@ export function ClassDetailSheet({
                     onClick={() => setIsValidating(false)}
                     disabled={savingAttendance}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     className="flex-1"
@@ -1002,7 +1007,7 @@ export function ClassDetailSheet({
                     onClick={handleConfirmAttendance}
                   >
                     <Check className="w-4 h-4 mr-2" />
-                    Confirm
+                    {t("calendar.detail.confirm")}
                   </Button>
                 </div>
               )}
@@ -1011,11 +1016,11 @@ export function ClassDetailSheet({
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={cancelEdit} disabled={saving}>
                 <X className="w-4 h-4 mr-2" />
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button className="flex-1" onClick={saveEdit} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("calendar.detail.saving") : t("common.save")}
               </Button>
             </div>
           )}

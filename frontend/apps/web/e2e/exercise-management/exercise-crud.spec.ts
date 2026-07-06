@@ -9,7 +9,10 @@ test.beforeEach(async ({ page }) => {
 
 // US-16: Coach can create a new exercise
 test("US-16: coach creates a new exercise", async ({ page }) => {
-  await page.getByRole("button", { name: /new exercise|\+/i }).click();
+  // When no exercises exist yet, the page shows a "New Exercise" button in the
+  // header and a second one in the empty state — both share the accessible
+  // name, so scope to the first to avoid a strict-mode violation.
+  await page.getByRole("button", { name: /new exercise|\+/i }).first().click();
 
   // Fill in the form — input is labelled "Name *", placeholder is "e.g. Cross-court bandeja"
   const nameInput = page.getByRole("textbox", { name: /name/i }).first();
@@ -25,8 +28,9 @@ test("US-16: coach creates a new exercise", async ({ page }) => {
 
 // US-18: Coach can delete an exercise
 test("US-18: coach can delete an exercise", async ({ page }) => {
-  // First create one to delete
-  await page.getByRole("button", { name: /new exercise|\+/i }).click();
+  // First create one to delete (scope to the first "New Exercise" button — the
+  // empty state renders a second one with the same accessible name).
+  await page.getByRole("button", { name: /new exercise|\+/i }).first().click();
   const nameInput = page.getByRole("textbox", { name: /name/i }).first();
   await expect(nameInput).toBeVisible({ timeout: 5000 });
   await nameInput.fill("Exercise To Delete");
@@ -49,16 +53,22 @@ test("US-18: coach can delete an exercise", async ({ page }) => {
 
 // US-48: Coach can edit an existing exercise
 test("US-48: coach edits an exercise", async ({ page }) => {
-  // Create one first
-  await page.getByRole("button", { name: /new exercise|\+/i }).click();
+  // Create one first (scope to the first "New Exercise" button — the empty
+  // state renders a second one with the same accessible name).
+  await page.getByRole("button", { name: /new exercise|\+/i }).first().click();
   const createNameInput = page.getByRole("textbox", { name: /name/i }).first();
   await expect(createNameInput).toBeVisible({ timeout: 5000 });
   await createNameInput.fill("Exercise To Edit");
   await page.getByRole("button", { name: /create exercise|save/i }).last().click();
   await expect(page.getByText("Exercise To Edit")).toBeVisible({ timeout: 5000 });
 
-  // Open it
-  await page.getByText("Exercise To Edit").click();
+  // Wait for the create sheet (a dialog) to fully close before clicking the
+  // card — otherwise the closing Radix overlay can swallow the click and the
+  // edit sheet never opens.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Open it — click the card heading to open the edit sheet.
+  await page.getByRole("heading", { name: "Exercise To Edit" }).click();
 
   // Edit form should open (sheet opens for edit on click)
   const nameInput = page.getByRole("textbox", { name: /name/i }).first();

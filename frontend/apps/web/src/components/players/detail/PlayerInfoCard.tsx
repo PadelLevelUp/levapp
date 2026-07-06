@@ -1,4 +1,5 @@
 import type { CoachPlayer } from "@/types";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Mail, Phone, User } from "lucide-react";
@@ -28,12 +29,13 @@ export function PlayerInfoCard({
   onDraftPhoneChange,
   onDraftNotesChange,
 }: PlayerInfoCardProps) {
+  const { t } = useTranslation();
   const isInactive = !player.isActive;
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Info</CardTitle>
+        <CardTitle className="text-lg">{t("players.info")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
@@ -42,11 +44,11 @@ export function PlayerInfoCard({
             <Input
               value={draftUsername}
               onChange={(e) => onDraftUsernameChange(e.target.value)}
-              placeholder="Username"
+              placeholder={t("players.usernameFieldPlaceholder")}
               className="h-7 text-sm"
             />
           ) : (
-            <span>{player.username || "No username"}</span>
+            <span>{player.username || t("players.noUsername")}</span>
           )}
         </div>
 
@@ -56,11 +58,11 @@ export function PlayerInfoCard({
             <Input
               value={draftEmail}
               onChange={(e) => onDraftEmailChange(e.target.value)}
-              placeholder="Email"
+              placeholder={t("players.emailFieldPlaceholder")}
               className="h-7 text-sm"
             />
           ) : (
-            <span>{player.email || "No email"}</span>
+            <span>{player.email || t("players.noEmail")}</span>
           )}
         </div>
 
@@ -70,22 +72,22 @@ export function PlayerInfoCard({
             <Input
               value={draftPhone}
               onChange={(e) => onDraftPhoneChange(e.target.value)}
-              placeholder="Phone"
+              placeholder={t("players.phoneFieldPlaceholder")}
               className="h-7 text-sm"
             />
           ) : (
-            <span>{player.phone || "No phone"}</span>
+            <span>{player.phone || t("players.noPhone")}</span>
           )}
         </div>
 
         {(player.notes || isEditing) && (
           <div className="pt-2 border-t">
-            <p className="text-xs text-muted-foreground mb-1">Notes</p>
+            <p className="text-xs text-muted-foreground mb-1">{t("players.notes")}</p>
             {isEditing ? (
               <Input
                 value={draftNotes}
                 onChange={(e) => onDraftNotesChange(e.target.value)}
-                placeholder="Anything you want to remember..."
+                placeholder={t("players.notesPlaceholder")}
                 className="h-7 text-sm"
               />
             ) : (
