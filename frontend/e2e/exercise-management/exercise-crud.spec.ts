@@ -62,8 +62,13 @@ test("US-48: coach edits an exercise", async ({ page }) => {
   await page.getByRole("button", { name: /create exercise|save/i }).last().click();
   await expect(page.getByText("Exercise To Edit")).toBeVisible({ timeout: 5000 });
 
-  // Open it
-  await page.getByText("Exercise To Edit").click();
+  // Wait for the create sheet (a dialog) to fully close before clicking the
+  // card — otherwise the closing Radix overlay can swallow the click and the
+  // edit sheet never opens.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Open it — click the card heading to open the edit sheet.
+  await page.getByRole("heading", { name: "Exercise To Edit" }).click();
 
   // Edit form should open (sheet opens for edit on click)
   const nameInput = page.getByRole("textbox", { name: /name/i }).first();
