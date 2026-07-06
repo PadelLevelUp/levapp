@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,8 +20,9 @@ interface StudentDetailSheetProps {
 }
 
 export function StudentDetailSheet({ student, levels, open, onOpenChange }: StudentDetailSheetProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-  
+
   if (!student) return null;
 
   const studentData = { name: student.name, email: student.email, phone: student.phone, userId: student.userId };
@@ -36,10 +38,10 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
     try {
       await navigator.clipboard.writeText(invitationLink);
       setCopied(true);
-      toast.success('Enlace copiado al portapapeles');
+      toast.success(t('students.linkCopied'));
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error('Error al copiar el enlace');
+      toast.error(t('students.linkCopyFailed'));
     }
   };
 
@@ -47,9 +49,9 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Detalles del alumno</SheetTitle>
+          <SheetTitle>{t('students.detailsTitle')}</SheetTitle>
           <SheetDescription>
-            Ver y editar la información del alumno
+            {t('students.detailsDescription')}
           </SheetDescription>
         </SheetHeader>
 
@@ -69,7 +71,7 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
                 {isInactive && (
                   <Badge variant="destructive" className="gap-1">
                     <UserX className="w-3 h-3" />
-                    Sin cuenta
+                    {t('students.noAccount')}
                   </Badge>
                 )}
               </div>
@@ -82,9 +84,9 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
               <div className="flex items-start gap-2">
                 <UserX className="w-5 h-5 text-warning mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-medium text-sm">Este alumno aún no tiene cuenta</p>
+                  <p className="font-medium text-sm">{t('students.noAccountMessage')}</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Comparte el siguiente enlace para que pueda registrarse y acceder a su perfil.
+                    {t('students.shareRegisterLink')}
                   </p>
                 </div>
               </div>
@@ -110,16 +112,16 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
 
           {/* Contact Info */}
           <div className="space-y-4">
-            <h4 className="font-medium text-sm text-muted-foreground">Información de contacto</h4>
-            
+            <h4 className="font-medium text-sm text-muted-foreground">{t('students.contactInformation')}</h4>
+
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{studentData.email || 'Sin email'}</span>
+                <span className="text-sm">{studentData.email || t('students.noEmail')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{studentData.phone || 'Sin teléfono'}</span>
+                <span className="text-sm">{studentData.phone || t('students.noPhone')}</span>
               </div>
             </div>
           </div>
@@ -128,14 +130,14 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
 
           {/* Editable Fields */}
           <div className="space-y-4">
-            <h4 className="font-medium text-sm text-muted-foreground">Configuración</h4>
-            
+            <h4 className="font-medium text-sm text-muted-foreground">{t('students.configuration')}</h4>
+
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="level">Nivel</Label>
+                <Label htmlFor="level">{t('students.level')}</Label>
                 <Select defaultValue={level?.id}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar nivel" />
+                    <SelectValue placeholder={t('students.selectLevel')} />
                   </SelectTrigger>
                   <SelectContent>
                     {levels.map((l) => (
@@ -146,15 +148,15 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="side">Lado preferido</Label>
+                <Label htmlFor="side">{t('students.preferredSide')}</Label>
                 <Select defaultValue={side || undefined}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar lado" />
+                    <SelectValue placeholder={t('students.selectSide')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="left">Izquierda</SelectItem>
-                    <SelectItem value="right">Derecha</SelectItem>
-                    <SelectItem value="both">Ambos</SelectItem>
+                    <SelectItem value="left">{t('students.sideLeft')}</SelectItem>
+                    <SelectItem value="right">{t('students.sideRight')}</SelectItem>
+                    <SelectItem value="both">{t('students.sideBoth')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -163,7 +165,7 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
 
           {/* Actions */}
           <div className="flex gap-2 pt-4">
-            <Button className="flex-1">Guardar cambios</Button>
+            <Button className="flex-1">{t('common.saveChanges')}</Button>
           </div>
         </div>
       </SheetContent>

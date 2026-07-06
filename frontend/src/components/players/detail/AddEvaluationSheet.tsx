@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CoachNote, EvaluationCategory, PlayerEvaluation } from "@/types";
 import {
   Sheet,
@@ -40,6 +41,7 @@ export function AddEvaluationSheet({
   currentStrengths,
   currentWeaknesses,
 }: AddEvaluationSheetProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -94,7 +96,7 @@ export function AddEvaluationSheet({
       weaknesses,
     });
 
-    toast({ title: "Evaluation saved" });
+    toast({ title: t("players.evaluationSaved") });
     onClose();
   };
 
@@ -102,13 +104,13 @@ export function AddEvaluationSheet({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Add Evaluation</SheetTitle>
+          <SheetTitle>{t("players.addEvaluationTitle")}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
           {/* CATEGORY SCORES */}
           <div className="space-y-5">
-            <p className="text-sm font-medium text-muted-foreground">Scores</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("players.scores")}</p>
             {categories.map((cat) => {
               const value = scores[cat.id] ?? cat.scaleMin;
               return (
@@ -137,7 +139,7 @@ export function AddEvaluationSheet({
 
           {/* STRENGTHS */}
           <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">Strengths</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("players.strengths")}</p>
             <div className="flex flex-wrap gap-2">
               {strengths.map((s, i) => (
                 <Badge key={i} variant="secondary" className="gap-1 pr-1">
@@ -157,7 +159,7 @@ export function AddEvaluationSheet({
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="Add a strength..."
+                placeholder={t("players.addStrengthPlaceholder")}
                 value={newStrength}
                 onChange={(e) => setNewStrength(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddStrength())}
@@ -173,7 +175,7 @@ export function AddEvaluationSheet({
 
           {/* WEAKNESSES */}
           <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">Weaknesses</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("players.weaknesses")}</p>
             <div className="flex flex-wrap gap-2">
               {weaknesses.map((w, i) => (
                 <Badge key={i} variant="outline" className="gap-1 pr-1">
@@ -193,7 +195,7 @@ export function AddEvaluationSheet({
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="Add a weakness..."
+                placeholder={t("players.addWeaknessPlaceholder")}
                 value={newWeakness}
                 onChange={(e) => setNewWeakness(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWeakness())}
@@ -207,8 +209,8 @@ export function AddEvaluationSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save evaluation</Button>
+          <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
+          <Button onClick={handleSave}>{t("players.saveEvaluation")}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

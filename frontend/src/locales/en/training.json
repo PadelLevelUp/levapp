@@ -1,0 +1,123 @@
+{
+  "training": {
+    "title": "Training",
+    "subtitle": "Manage your exercises and training groups",
+    "exercisesCard": {
+      "title": "Exercises",
+      "description": "Browse, create and edit individual exercises with court diagrams"
+    },
+    "groupsCard": {
+      "title": "Groups",
+      "description": "Organize exercises into logical training groups"
+    },
+    "exercises": {
+      "title": "Exercises",
+      "subtitle": "Browse and manage individual exercises",
+      "newExercise": "New Exercise",
+      "searchPlaceholder": "Search exercises...",
+      "typePlaceholder": "Type",
+      "allTypes": "All types",
+      "difficultyPlaceholder": "Difficulty",
+      "allDifficulties": "All difficulties",
+      "emptyTitle": "No exercises yet",
+      "emptyDescription": "Create your first exercise to get started",
+      "noResultsTitle": "No results",
+      "noResultsDescription": "Try different filters",
+      "deleteTitle": "Delete exercise?",
+      "deleteDescription": "This action cannot be undone.",
+      "toast": {
+        "created": "Exercise created",
+        "createFailed": "Failed to create exercise",
+        "updated": "Exercise updated",
+        "updateFailed": "Failed to update exercise",
+        "deleted": "Exercise deleted",
+        "deleteFailed": "Failed to delete exercise"
+      }
+    },
+    "groups": {
+      "title": "Groups",
+      "subtitle": "Organize exercises into training groups",
+      "newGroup": "New Group",
+      "searchPlaceholder": "Search groups...",
+      "emptyTitle": "No groups yet",
+      "emptyDescription": "Create your first group to organize exercises",
+      "noResultsTitle": "No results",
+      "noResultsDescription": "Try a different search",
+      "deleteTitle": "Delete group?",
+      "deleteDescription": "This will remove the group but keep the exercises.",
+      "toast": {
+        "created": "Group created",
+        "createFailed": "Failed to create group",
+        "updated": "Group updated",
+        "updateFailed": "Failed to update group",
+        "deleted": "Group deleted",
+        "deleteFailed": "Failed to delete group"
+      }
+    },
+    "card": {
+      "deleteExercise": "Delete exercise"
+    },
+    "form": {
+      "editExercise": "Edit Exercise",
+      "newExercise": "New Exercise",
+      "name": "Name *",
+      "namePlaceholder": "e.g. Cross-court bandeja",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the exercise...",
+      "type": "Type *",
+      "customType": "Custom type",
+      "customTypePlaceholder": "e.g. Tactics",
+      "difficulty": "Difficulty *",
+      "levels": "Levels",
+      "additionalNotes": "Additional notes",
+      "notesPlaceholder": "Variations, key points...",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "createExercise": "Create Exercise"
+    },
+    "groupForm": {
+      "editGroup": "Edit Group",
+      "newGroup": "New Group",
+      "name": "Name *",
+      "namePlaceholder": "e.g. Attacking Training at the Net",
+      "description": "Description",
+      "descriptionPlaceholder": "What is this group about?",
+      "exercises": "Exercises",
+      "noExercisesCreated": "No exercises created yet.",
+      "selectedCount": "{{count}} exercise(s) selected",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "createGroup": "Create Group"
+    },
+    "folder": {
+      "exerciseCount_one": "{{count}} exercise",
+      "exerciseCount_other": "{{count}} exercises",
+      "emptyGroup": "No exercises in this group yet."
+    },
+    "diagram": {
+      "label": "Court Diagram",
+      "tools": {
+        "select": "Select",
+        "player1": "Player 1",
+        "player2": "Player 2",
+        "player3": "Player 3",
+        "player4": "Player 4",
+        "coach": "Coach",
+        "cone": "Cone",
+        "blocker": "Blocker",
+        "ball": "Ball",
+        "arrow": "Arrow",
+        "movement": "Movement",
+        "eraser": "Eraser"
+      },
+      "deleteSelected": "Delete selected",
+      "delete": "Delete",
+      "clearAll": "Clear all",
+      "clear": "Clear",
+      "lineLabel": "Label",
+      "lineLabelPlaceholder": "e.g. Lob, Smash, Drop",
+      "curveHint": "Drag the ● handle on the arrow to curve it",
+      "instructions": "Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players."
+    }
+  }
+}

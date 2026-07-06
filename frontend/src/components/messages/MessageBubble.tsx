@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
@@ -41,6 +42,7 @@ export function MessageBubble({
   message, isMine, userId, participantName, isHighlighted, showTail, replyToMessage,
   onReply, onEdit, onDelete, onReaction, onScrollToMessage,
 }: Props) {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [responding, setResponding] = useState(false);
@@ -62,7 +64,7 @@ export function MessageBubble({
     try {
       const result = await respondToNotification(eventId, action);
       if (result.action === "spot_filled") {
-        toast.info("Sorry, that spot was just filled.");
+        toast.info(t("messages.spotJustFilled"));
         setLocalResponse('declined');
       } else if (result.action === "confirmed") {
         setLocalResponse('accepted');
@@ -70,7 +72,7 @@ export function MessageBubble({
         setLocalResponse('declined');
       }
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("messages.somethingWentWrong"));
     } finally {
       setResponding(false);
     }
@@ -84,7 +86,7 @@ export function MessageBubble({
       const result = await respondToReminder(instanceId, action);
       setLocalResponse(result.action === "confirmed" ? 'accepted' : 'declined');
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t("messages.somethingWentWrong"));
     } finally {
       setResponding(false);
     }
@@ -96,9 +98,9 @@ export function MessageBubble({
     try {
       await cancelAttendance(instanceId);
       setLocalResponse('declined');
-      toast.success("Attendance cancelled.");
+      toast.success(t("messages.attendanceCancelled"));
     } catch {
-      toast.error("Couldn't cancel attendance. The class may have already started.");
+      toast.error(t("messages.cancelAttendanceFailed"));
     } finally {
       setResponding(false);
     }
@@ -138,7 +140,7 @@ export function MessageBubble({
         <div className={`rounded-2xl px-3.5 py-2 italic text-sm text-muted-foreground bg-muted ${
           isMine ? (showTail ? 'rounded-br-md' : '') : (showTail ? 'rounded-bl-md' : '')
         }`}>
-          Message deleted
+          {t("messages.messageDeleted")}
         </div>
       </div>
     );
@@ -192,7 +194,7 @@ export function MessageBubble({
               }`}
             >
               <span className="font-semibold block">
-                {Number(replyToMessage.senderId) === Number(userId) ? 'You' : participantName}
+                {Number(replyToMessage.senderId) === Number(userId) ? t('messages.you') : participantName}
               </span>
               <span className="line-clamp-1">{replyToMessage.content}</span>
             </button>
@@ -205,7 +207,7 @@ export function MessageBubble({
           <div className={`flex items-center gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
             {message.edited && (
               <span className={`text-[10px] ${isMine ? 'text-primary-foreground/50' : 'text-muted-foreground'}`}>
-                edited
+                {t('messages.edited')}
               </span>
             )}
             <span className={`text-[10px] ${isMine ? 'text-primary-foreground/50' : 'text-muted-foreground'}`}>
@@ -221,31 +223,31 @@ export function MessageBubble({
             {localResponse === 'accepted' ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                 <Check className="w-3.5 h-3.5" />
-                Accepted
+                {t("messages.accepted")}
               </span>
             ) : localResponse === 'declined' ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                 <X className="w-3.5 h-3.5" />
-                Declined
+                {t("messages.declined")}
               </span>
             ) : alreadyResponded ? (
               message.metadata?.response === "yes" ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                   <Check className="w-3.5 h-3.5" />
-                  Accepted
+                  {t("messages.accepted")}
                 </span>
               ) : message.metadata?.response === "no" ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
-                  Declined
+                  {t("messages.declined")}
                 </span>
               ) : (
                 <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600">
-                  Spot filled
+                  {t("messages.spotFilled")}
                 </span>
               )
             ) : isMine ? (
-              <span className="text-xs text-muted-foreground italic">Waiting for response…</span>
+              <span className="text-xs text-muted-foreground italic">{t("messages.waitingForResponse")}</span>
             ) : (
               <>
                 <button
@@ -253,14 +255,14 @@ export function MessageBubble({
                   disabled={responding}
                   className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
                 >
-                  {responding ? "…" : "Yes"}
+                  {responding ? "…" : t("messages.yes")}
                 </button>
                 <button
                   onClick={() => handleRespond("no")}
                   disabled={responding}
                   className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
                 >
-                  No
+                  {t("messages.no")}
                 </button>
               </>
             )}
@@ -292,7 +294,7 @@ export function MessageBubble({
                 <>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                     <Check className="w-3.5 h-3.5" />
-                    Confirmed
+                    {t("messages.confirmed")}
                   </span>
                   {classInFuture && (
                     <button
@@ -301,14 +303,14 @@ export function MessageBubble({
                       className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
-                      {responding ? "…" : "Cancel attendance"}
+                      {responding ? "…" : t("messages.cancelAttendance")}
                     </button>
                   )}
                 </>
               ) : declined ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
-                  Absent
+                  {t("messages.absent")}
                 </span>
               ) : (
                 <>
@@ -317,14 +319,14 @@ export function MessageBubble({
                     disabled={responding}
                     className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
                   >
-                    {responding ? "…" : "Yes"}
+                    {responding ? "…" : t("messages.yes")}
                   </button>
                   <button
                     onClick={() => handleRespondReminder("no")}
                     disabled={responding}
                     className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
                   >
-                    No
+                    {t("messages.no")}
                   </button>
                 </>
               )}

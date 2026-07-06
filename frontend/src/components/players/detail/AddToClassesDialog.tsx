@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, CalendarIcon, Check } from "lucide-react";
@@ -30,6 +31,7 @@ interface AddToClassesDialogProps {
 }
 
 export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClassesDialogProps) {
+  const { t } = useTranslation();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [classes, setClasses] = useState<ClassInstance[]>([]);
   const [loading, setLoading] = useState(false);
@@ -111,10 +113,10 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
-            Add {player.name} to Classes
+            {t("players.addToClassesTitle", { name: player.name })}
           </DialogTitle>
           <DialogDescription>
-            Select one or more classes to add this player to.
+            {t("players.addToClassesDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,7 +143,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             </div>
           ) : classes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No classes this week.
+              {t("players.noClassesThisWeek")}
             </p>
           ) : (
             <div className="space-y-4 py-2">
@@ -184,20 +186,20 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">
-                                {cls.name || "Unnamed class"}
+                                {cls.name || t("players.unnamedClass")}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {cls.startTime} – {cls.endTime}
                                 {cls.participants && (
                                   <span className="ml-2">
-                                    · {cls.participants.length}/{cls.maxPlayers} players
+                                    {t("players.classParticipants", { n: cls.participants.length, max: cls.maxPlayers })}
                                   </span>
                                 )}
                               </p>
                             </div>
                             {alreadyIn ? (
                               <Badge variant="secondary" className="text-xs shrink-0">
-                                <Check className="h-3 w-3 mr-1" /> Already in
+                                <Check className="h-3 w-3 mr-1" /> {t("players.alreadyIn")}
                               </Badge>
                             ) : (
                               <Checkbox
@@ -218,9 +220,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         </ScrollArea>
 
         <DialogFooter className="pt-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
           <Button onClick={handleSave} disabled={selectedIds.size === 0}>
-            Add to {selectedIds.size} {selectedIds.size === 1 ? "class" : "classes"}
+            {t("players.addToSelectedClasses", { count: selectedIds.size })}
           </Button>
         </DialogFooter>
       </DialogContent>

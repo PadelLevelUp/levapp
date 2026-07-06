@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandi
 import type { StandingWaitingListEntry } from "@/types";
 
 export function StandingWaitingListSection() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<StandingWaitingListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -86,7 +88,7 @@ export function StandingWaitingListSection() {
     return (
       <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
         <Loader2 className="w-4 h-4 animate-spin" />
-        Loading…
+        {t("settings.standingList.loading")}
       </div>
     );
   }
@@ -97,7 +99,7 @@ export function StandingWaitingListSection() {
       <div className="relative">
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Search player to add…"
+            placeholder={t("settings.standingList.searchToAdd")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="text-sm h-8"
@@ -123,22 +125,22 @@ export function StandingWaitingListSection() {
 
       {/* Table */}
       {entries.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No students on the standing waiting list.</p>
+        <p className="text-xs text-muted-foreground">{t("settings.standingList.empty")}</p>
       ) : (
         <div className="space-y-2">
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{entry.playerName ?? "Unknown"}</p>
+                <p className="text-sm font-medium truncate">{entry.playerName ?? t("settings.standingList.unknown")}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="secondary" className="text-xs">
-                    {entry.creditsUsed}/{entry.creditsTotal} credits
+                    {t("settings.standingList.credits", { used: entry.creditsUsed, total: entry.creditsTotal })}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    Expires {formatExpiry(entry.expiresAt)}
+                    {t("settings.standingList.expires", { date: formatExpiry(entry.expiresAt) })}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {entry.activeClassCount} {entry.activeClassCount === 1 ? "class" : "classes"}
+                    {t("settings.standingList.classCount", { count: entry.activeClassCount })}
                   </span>
                 </div>
               </div>

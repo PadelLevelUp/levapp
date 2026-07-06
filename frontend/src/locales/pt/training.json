@@ -1,0 +1,123 @@
+{
+  "training": {
+    "title": "Treino",
+    "subtitle": "Faça a gestão dos seus exercícios e grupos de treino",
+    "exercisesCard": {
+      "title": "Exercícios",
+      "description": "Consulte, crie e edite exercícios individuais com diagramas de campo"
+    },
+    "groupsCard": {
+      "title": "Grupos",
+      "description": "Organize os exercícios em grupos de treino lógicos"
+    },
+    "exercises": {
+      "title": "Exercícios",
+      "subtitle": "Consulte e faça a gestão de exercícios individuais",
+      "newExercise": "Novo Exercício",
+      "searchPlaceholder": "Pesquisar exercícios...",
+      "typePlaceholder": "Tipo",
+      "allTypes": "Todos os tipos",
+      "difficultyPlaceholder": "Dificuldade",
+      "allDifficulties": "Todas as dificuldades",
+      "emptyTitle": "Ainda não há exercícios",
+      "emptyDescription": "Crie o seu primeiro exercício para começar",
+      "noResultsTitle": "Sem resultados",
+      "noResultsDescription": "Experimente filtros diferentes",
+      "deleteTitle": "Eliminar exercício?",
+      "deleteDescription": "Esta ação não pode ser anulada.",
+      "toast": {
+        "created": "Exercício criado",
+        "createFailed": "Não foi possível criar o exercício",
+        "updated": "Exercício atualizado",
+        "updateFailed": "Não foi possível atualizar o exercício",
+        "deleted": "Exercício eliminado",
+        "deleteFailed": "Não foi possível eliminar o exercício"
+      }
+    },
+    "groups": {
+      "title": "Grupos",
+      "subtitle": "Organize os exercícios em grupos de treino",
+      "newGroup": "Novo Grupo",
+      "searchPlaceholder": "Pesquisar grupos...",
+      "emptyTitle": "Ainda não há grupos",
+      "emptyDescription": "Crie o seu primeiro grupo para organizar os exercícios",
+      "noResultsTitle": "Sem resultados",
+      "noResultsDescription": "Experimente uma pesquisa diferente",
+      "deleteTitle": "Eliminar grupo?",
+      "deleteDescription": "Isto remove o grupo mas mantém os exercícios.",
+      "toast": {
+        "created": "Grupo criado",
+        "createFailed": "Não foi possível criar o grupo",
+        "updated": "Grupo atualizado",
+        "updateFailed": "Não foi possível atualizar o grupo",
+        "deleted": "Grupo eliminado",
+        "deleteFailed": "Não foi possível eliminar o grupo"
+      }
+    },
+    "card": {
+      "deleteExercise": "Eliminar exercício"
+    },
+    "form": {
+      "editExercise": "Editar Exercício",
+      "newExercise": "Novo Exercício",
+      "name": "Nome *",
+      "namePlaceholder": "ex.: Bandeja cruzada",
+      "description": "Descrição",
+      "descriptionPlaceholder": "Descreva o exercício...",
+      "type": "Tipo *",
+      "customType": "Tipo personalizado",
+      "customTypePlaceholder": "ex.: Táctica",
+      "difficulty": "Dificuldade *",
+      "levels": "Níveis",
+      "additionalNotes": "Notas adicionais",
+      "notesPlaceholder": "Variações, pontos-chave...",
+      "saving": "A guardar...",
+      "saveChanges": "Guardar Alterações",
+      "createExercise": "Criar Exercício"
+    },
+    "groupForm": {
+      "editGroup": "Editar Grupo",
+      "newGroup": "Novo Grupo",
+      "name": "Nome *",
+      "namePlaceholder": "ex.: Treino de ataque na rede",
+      "description": "Descrição",
+      "descriptionPlaceholder": "Sobre o que é este grupo?",
+      "exercises": "Exercícios",
+      "noExercisesCreated": "Ainda não foram criados exercícios.",
+      "selectedCount": "{{count}} exercício(s) selecionado(s)",
+      "saving": "A guardar...",
+      "saveChanges": "Guardar Alterações",
+      "createGroup": "Criar Grupo"
+    },
+    "folder": {
+      "exerciseCount_one": "{{count}} exercício",
+      "exerciseCount_other": "{{count}} exercícios",
+      "emptyGroup": "Ainda não há exercícios neste grupo."
+    },
+    "diagram": {
+      "label": "Diagrama de Campo",
+      "tools": {
+        "select": "Selecionar",
+        "player1": "Jogador 1",
+        "player2": "Jogador 2",
+        "player3": "Jogador 3",
+        "player4": "Jogador 4",
+        "coach": "Treinador",
+        "cone": "Cone",
+        "blocker": "Bloqueador",
+        "ball": "Bola",
+        "arrow": "Seta",
+        "movement": "Movimento",
+        "eraser": "Borracha"
+      },
+      "deleteSelected": "Eliminar selecionado",
+      "delete": "Eliminar",
+      "clearAll": "Limpar tudo",
+      "clear": "Limpar",
+      "lineLabel": "Etiqueta",
+      "lineLabelPlaceholder": "ex.: Lob, Remate, Drop",
+      "curveHint": "Arraste a pega ● na seta para a curvar",
+      "instructions": "Selecione uma ferramenta e clique no campo. Desenhe setas e depois selecione-as para adicionar uma etiqueta e curva. Prima Delete para remover. Máximo 4 jogadores."
+    }
+  }
+}

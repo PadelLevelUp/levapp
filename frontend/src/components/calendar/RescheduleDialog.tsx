@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarClock, CalendarRange } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/types';
 import type { ApplyScope } from './ClassScopeDialog';
 
@@ -33,6 +34,7 @@ export function RescheduleDialog({
   onClose,
   onConfirm,
 }: RescheduleDialogProps) {
+  const { t } = useTranslation();
   if (!event) return null;
 
   const formattedDate = format(parseISO(newDate), 'EEEE, MMMM d', { locale: enUS });
@@ -42,9 +44,9 @@ export function RescheduleDialog({
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent className="sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Reschedule "{event.title}"?</AlertDialogTitle>
+          <AlertDialogTitle>{t("calendar.reschedule.title", { title: event.title })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Move to {formattedDate}, {newStartTime}–{newEndTime}
+            {t("calendar.reschedule.description", { date: formattedDate, start: newStartTime, end: newEndTime })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -57,8 +59,8 @@ export function RescheduleDialog({
             >
               <CalendarClock className="w-5 h-5 mr-3 shrink-0" />
               <div className="text-left">
-                <p className="font-medium">Only this event</p>
-                <p className="text-sm text-muted-foreground font-normal">Moves only this occurrence</p>
+                <p className="font-medium">{t("calendar.reschedule.onlyThisEvent")}</p>
+                <p className="text-sm text-muted-foreground font-normal">{t("calendar.reschedule.onlyThisEventDescription")}</p>
               </div>
             </Button>
 
@@ -69,21 +71,21 @@ export function RescheduleDialog({
             >
               <CalendarRange className="w-5 h-5 mr-3 shrink-0" />
               <div className="text-left">
-                <p className="font-medium">This and all future events</p>
-                <p className="text-sm text-muted-foreground font-normal">Moves this and all following occurrences</p>
+                <p className="font-medium">{t("calendar.reschedule.thisAndFutureEvents")}</p>
+                <p className="text-sm text-muted-foreground font-normal">{t("calendar.reschedule.thisAndFutureEventsDescription")}</p>
               </div>
             </Button>
           </div>
         ) : (
           <div className="py-4">
             <Button className="w-full" onClick={() => onConfirm('single')}>
-              Reschedule
+              {t("calendar.reschedule.reschedule")}
             </Button>
           </div>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

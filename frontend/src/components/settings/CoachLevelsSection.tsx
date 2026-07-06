@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ interface LevelDraft {
 
 export function CoachLevelsSection() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [levels, setLevels] = useState<LevelDraft[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export function CoachLevelsSection() {
       await deleteCoachLevel(id);
       setLevels((prev) => prev.filter((l) => l.id !== id));
     } catch {
-      toast({ variant: "destructive", title: "Failed to delete level" });
+      toast({ variant: "destructive", title: t("settings.coachLevels.deleteFailed") });
     } finally {
       setRemovingId(null);
     }
@@ -94,12 +96,12 @@ export function CoachLevelsSection() {
   const handleSave = async () => {
     const invalid = levels.some((l) => !l.code.trim() || !l.label.trim());
     if (invalid) {
-      toast({ title: "Validation error", description: "All levels need a code and label." });
+      toast({ title: t("settings.coachLevels.validationErrorTitle"), description: t("settings.coachLevels.validationErrorDescription") });
       return;
     }
 
     if (USE_MOCK_DATA) {
-      toast({ title: "Levels saved", description: `${levels.length} levels updated (mock).` });
+      toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.savedMock", { count: levels.length }) });
       return;
     }
 
@@ -107,9 +109,9 @@ export function CoachLevelsSection() {
     setSaving(true);
     try {
       await addCoachLevel(payload);
-      toast({ title: "Levels saved", description: `${levels.length} levels updated.` });
+      toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.saved", { count: levels.length }) });
     } catch {
-      toast({ variant: "destructive", title: "Failed to save levels" });
+      toast({ variant: "destructive", title: t("settings.coachLevels.saveFailed") });
     } finally {
       setSaving(false);
     }
@@ -119,7 +121,7 @@ export function CoachLevelsSection() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Loading levels…
+          {t("settings.coachLevels.loading")}
         </CardContent>
       </Card>
     );
@@ -130,24 +132,24 @@ export function CoachLevelsSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <GraduationCap className="w-4 h-4" />
-          Coach Levels
+          {t("settings.coachLevels.title")}
         </CardTitle>
         <CardDescription>
-          Define skill levels for your players. Drag to reorder.
+          {t("settings.coachLevels.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
         <div className="grid grid-cols-[32px_80px_1fr_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
-          <span>Code</span>
-          <span>Label</span>
+          <span>{t("settings.coachLevels.code")}</span>
+          <span>{t("settings.coachLevels.label")}</span>
           <span />
         </div>
 
         {levels.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No levels defined yet. Add your first one below.
+            {t("settings.coachLevels.empty")}
           </p>
         )}
 
@@ -165,7 +167,7 @@ export function CoachLevelsSection() {
             <button
               type="button"
               className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-              aria-label="Drag to reorder"
+              aria-label={t("settings.coachLevels.dragToReorder")}
             >
               <GripVertical className="w-4 h-4" />
             </button>
@@ -173,14 +175,14 @@ export function CoachLevelsSection() {
             <Input
               value={level.code}
               onChange={(e) => handleChange(level.id, "code", e.target.value)}
-              placeholder="L1"
+              placeholder={t("settings.coachLevels.codePlaceholder")}
               className="h-8 text-sm"
             />
 
             <Input
               value={level.label}
               onChange={(e) => handleChange(level.id, "label", e.target.value)}
-              placeholder="Beginner"
+              placeholder={t("settings.coachLevels.labelPlaceholder")}
               className="h-8 text-sm"
             />
 
@@ -201,12 +203,12 @@ export function CoachLevelsSection() {
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
-            Add level
+            {t("settings.coachLevels.addLevel")}
           </Button>
 
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? "Saving…" : "Save levels"}
+            {saving ? t("settings.coachLevels.saving") : t("settings.coachLevels.saveLevels")}
           </Button>
         </div>
       </CardContent>

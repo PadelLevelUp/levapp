@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CoachPlayer, CoachLevel, PlayerSide } from "@/types";
 import { sideLabel } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -46,6 +47,7 @@ export function PlayerHeader({
   onSave,
   onCancel,
 }: PlayerHeaderProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const displayName = isEditing ? draftName : (player.name || "");
@@ -80,24 +82,24 @@ export function PlayerHeader({
               value={draftName}
               onChange={(e) => onDraftNameChange(e.target.value)}
               className="flex-1 text-lg font-semibold"
-              placeholder="Player name"
+              placeholder={t("players.playerNamePlaceholder")}
             />
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <Select value={draftSide} onValueChange={(v) => onDraftSideChange(v as PlayerSide | "")}>
               <SelectTrigger className="h-10 w-full sm:w-32">
-                <SelectValue placeholder="Side" />
+                <SelectValue placeholder={t("players.side")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-                <SelectItem value="both">Both</SelectItem>
+                <SelectItem value="left">{t("players.sideLeft")}</SelectItem>
+                <SelectItem value="right">{t("players.sideRight")}</SelectItem>
+                <SelectItem value="both">{t("players.sideBoth")}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
               <SelectTrigger className="h-10 w-full sm:flex-1">
-                <SelectValue placeholder="No Level" />
+                <SelectValue placeholder={t("players.noLevel")} />
               </SelectTrigger>
               <SelectContent>
                 {levels.map((l) => (
@@ -111,11 +113,11 @@ export function PlayerHeader({
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
-              <X className="mr-2 h-4 w-4" /> Cancel
+              <X className="mr-2 h-4 w-4" /> {t("common.cancel")}
             </Button>
             <Button size="sm" onClick={onSave} disabled={!draftName.trim() || saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              {saving ? "Saving" : "Save"}
+              {saving ? t("players.saving") : t("common.save")}
             </Button>
           </div>
         </div>
@@ -128,7 +130,7 @@ export function PlayerHeader({
           </Avatar>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold truncate">{player.name || "Unnamed"}</h1>
+            <h1 className="text-2xl font-bold truncate">{player.name || t("players.unnamed")}</h1>
 
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (
@@ -139,15 +141,15 @@ export function PlayerHeader({
               {level ? (
                 <Badge variant="outline"><LevelLabel code={level.code} label={level.label} /></Badge>
               ) : (
-                <Badge variant="outline" className="text-muted-foreground">No Level</Badge>
+                <Badge variant="outline" className="text-muted-foreground">{t("players.noLevel")}</Badge>
               )}
-              {!player.isActive && <Badge variant="destructive">Inactive</Badge>}
+              {!player.isActive && <Badge variant="destructive">{t("players.inactive")}</Badge>}
             </div>
           </div>
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onEdit}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
+              <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
             </Button>
           </div>
         </div>
@@ -158,9 +160,9 @@ export function PlayerHeader({
           <div className="flex gap-2">
             <UserX className="h-4 w-4 text-warning mt-0.5" />
             <div>
-              <p className="text-sm font-medium">This player doesn't have an account</p>
+              <p className="text-sm font-medium">{t("players.noAccountMessage")}</p>
               <p className="text-sm text-muted-foreground">
-                Share this link so they can register.
+                {t("players.shareRegisterLink")}
               </p>
             </div>
           </div>

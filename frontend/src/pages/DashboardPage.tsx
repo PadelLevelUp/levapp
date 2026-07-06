@@ -5,11 +5,13 @@ import type { DashboardDefinition } from "@/types";
 import { DashboardRenderer } from "@/components/dashboard/DashboardRenderer";
 import { getDashboard } from "@/api/dashboard";
 import { useLayout } from "@/components/layout/LayoutContext";
+import { useTranslation } from "react-i18next";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<DashboardDefinition | null>(null);
   const { setUnreadCount, setLatestMessage } = useLayout();
+  const { t } = useTranslation();
 
   useEffect(() => {
     async function load() {
@@ -48,7 +50,7 @@ export default function DashboardPage() {
   if (!dashboard) {
     return (
       <AppLayout>
-        <div className="p-6">Failed to load dashboard.</div>
+        <div className="p-6">{t("dashboard.failedToLoad")}</div>
       </AppLayout>
     );
   }

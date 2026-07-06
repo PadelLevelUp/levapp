@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CoachLevel, PlayerSide } from "@/types";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
@@ -54,6 +55,7 @@ export function AddPlayerSheet({
   coachId,
   initialValues,
 }: AddPlayerSheetProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialValues?.name ?? "");
   const [username, setUsername] = useState(initialValues?.username ?? "");
   const [email, setEmail] = useState(initialValues?.email ?? "");
@@ -142,16 +144,16 @@ export function AddPlayerSheet({
     <Sheet open={open} onOpenChange={(next) => !next && handleClose()}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>New player</SheetTitle>
+          <SheetTitle>{t("players.newPlayer")}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="player-name">Name</Label>
+            <Label htmlFor="player-name">{t("players.name")}</Label>
             <div className="relative">
               <Input
                 id="player-name"
-                placeholder="e.g. John Doe"
+                placeholder={t("players.namePlaceholder")}
                 value={name}
                 className={nameCheck.error ? "border-amber-500 focus-visible:ring-amber-500" : ""}
                 onChange={(e) => setName(e.target.value)}
@@ -162,17 +164,17 @@ export function AddPlayerSheet({
             </div>
             {nameCheck.error && (
               <p className="text-sm text-amber-600">
-                {nameCheck.error}. You can still create this player if that&apos;s intentional.
+                {nameCheck.error}. {t("players.nameWarningSuffix")}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="player-username">Username</Label>
+            <Label htmlFor="player-username">{t("players.username")}</Label>
             <div className="relative">
               <Input
                 id="player-username"
-                placeholder="e.g. johndoe"
+                placeholder={t("players.usernamePlaceholder")}
                 value={username}
                 className={usernameCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
                 onChange={(e) => setUsername(e.target.value)}
@@ -187,11 +189,11 @@ export function AddPlayerSheet({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="player-email">Email (optional)</Label>
+            <Label htmlFor="player-email">{t("players.emailOptional")}</Label>
             <div className="relative">
               <Input
                 id="player-email"
-                placeholder="e.g. john@email.com"
+                placeholder={t("players.emailPlaceholder")}
                 value={email}
                 className={emailCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
                 onChange={(e) => setEmail(e.target.value)}
@@ -206,25 +208,25 @@ export function AddPlayerSheet({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="player-phone">Phone (optional)</Label>
+            <Label htmlFor="player-phone">{t("players.phoneOptional")}</Label>
             <Input
               id="player-phone"
-              placeholder="e.g. +351 9xx xxx xxx"
+              placeholder={t("players.phonePlaceholder")}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Level (optional)</Label>
+            <Label>{t("players.levelOptional")}</Label>
             <Select value={levelId} onValueChange={setLevelId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select level" />
+                <SelectValue placeholder={t("players.selectLevel")} />
               </SelectTrigger>
               <SelectContent>
                 {levels.length === 0 ? (
                   <div className="px-2 py-3 text-sm text-muted-foreground">
-                    No levels defined yet — create levels in Settings to assign one.
+                    {t("players.noLevelsSelectHint")}
                   </div>
                 ) : (
                   levels.map((lvl) => (
@@ -237,37 +239,37 @@ export function AddPlayerSheet({
             </Select>
             {levels.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No levels defined yet.{" "}
+                {t("players.noLevelsHintPrefix")}{" "}
                 <a href="/settings" className="underline underline-offset-2">
-                  Create levels in Settings
+                  {t("players.createLevelsInSettings")}
                 </a>{" "}
-                to assign one.
+                {t("players.noLevelsHintSuffix")}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label>Side (optional)</Label>
+            <Label>{t("players.sideOptional")}</Label>
             <Select
               value={side}
               onValueChange={(v) => setSide(v as PlayerSide)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select side" />
+                <SelectValue placeholder={t("players.selectSide")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-                <SelectItem value="both">Both</SelectItem>
+                <SelectItem value="left">{t("players.sideLeft")}</SelectItem>
+                <SelectItem value="right">{t("players.sideRight")}</SelectItem>
+                <SelectItem value="both">{t("players.sideBoth")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="player-notes">Notes (optional)</Label>
+            <Label htmlFor="player-notes">{t("players.notesOptional")}</Label>
             <Input
               id="player-notes"
-              placeholder="Anything you want to remember..."
+              placeholder={t("players.notesPlaceholder")}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -276,7 +278,7 @@ export function AddPlayerSheet({
 
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={handleClose} disabled={saving || inviting}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           {onInvite && (
             <Button
@@ -285,12 +287,12 @@ export function AddPlayerSheet({
               disabled={!name.trim() || saving || inviting}
             >
               {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create &amp; invite
+              {t("players.createAndInvite")}
             </Button>
           )}
           <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || saving || inviting}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create player
+            {t("players.createPlayer")}
           </Button>
         </SheetFooter>
       </SheetContent>

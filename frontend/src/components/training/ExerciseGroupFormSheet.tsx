@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ExerciseGroupFormSheet({ open, onOpenChange, group, exercises, onSubmit, loading }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -52,36 +54,36 @@ export function ExerciseGroupFormSheet({ open, onOpenChange, group, exercises, o
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{group ? "Edit Group" : "New Group"}</SheetTitle>
+          <SheetTitle>{group ? t("training.groupForm.editGroup") : t("training.groupForm.newGroup")}</SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
           <div className="space-y-1.5">
-            <Label htmlFor="grp-name">Name *</Label>
+            <Label htmlFor="grp-name">{t("training.groupForm.name")}</Label>
             <Input
               id="grp-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Attacking Training at the Net"
+              placeholder={t("training.groupForm.namePlaceholder")}
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="grp-desc">Description</Label>
+            <Label htmlFor="grp-desc">{t("training.groupForm.description")}</Label>
             <Textarea
               id="grp-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this group about?"
+              placeholder={t("training.groupForm.descriptionPlaceholder")}
               rows={2}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Exercises</Label>
+            <Label>{t("training.groupForm.exercises")}</Label>
             {exercises.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No exercises created yet.</p>
+              <p className="text-sm text-muted-foreground">{t("training.groupForm.noExercisesCreated")}</p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2">
                 {exercises.map((ex) => (
@@ -99,16 +101,16 @@ export function ExerciseGroupFormSheet({ open, onOpenChange, group, exercises, o
               </div>
             )}
             {selectedIds.length > 0 && (
-              <p className="text-xs text-muted-foreground">{selectedIds.length} exercise(s) selected</p>
+              <p className="text-xs text-muted-foreground">{t("training.groupForm.selectedCount", { count: selectedIds.length })}</p>
             )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || loading}>
-              {loading ? "Saving..." : group ? "Save Changes" : "Create Group"}
+              {loading ? t("training.groupForm.saving") : group ? t("training.groupForm.saveChanges") : t("training.groupForm.createGroup")}
             </Button>
           </div>
         </form>

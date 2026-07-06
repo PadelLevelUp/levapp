@@ -1,4 +1,5 @@
 import { Search, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,6 +20,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +65,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search conversation..."
+            placeholder={t("messages.searchConversationPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -81,7 +83,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
         <div className="p-2">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              No conversations found
+              {t("messages.noConversationsFound")}
             </div>
           ) : (
             filteredConversations.map((conversation) => (

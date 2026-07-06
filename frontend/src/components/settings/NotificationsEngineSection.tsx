@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
@@ -22,6 +23,7 @@ import { StandingWaitingListSection } from "./StandingWaitingListSection";
 type SectionKey = "reminders" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
 export function NotificationsEngineSection() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<NotificationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
@@ -57,7 +59,7 @@ export function NotificationsEngineSection() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Loading notification settings…
+          {t("settings.engine.loading")}
         </CardContent>
       </Card>
     );
@@ -94,19 +96,19 @@ export function NotificationsEngineSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BellRing className="w-4 h-4" />
-          Auto-Invite Engine
+          {t("settings.engine.title")}
         </CardTitle>
         <CardDescription>
-          Automatically notify eligible students when a spot opens in a class.
+          {t("settings.engine.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Master toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">Automatic notifications</p>
+            <p className="text-sm font-medium">{t("settings.engine.automaticNotifications")}</p>
             <p className="text-xs text-muted-foreground">
-              Notify students automatically when attendance is confirmed
+              {t("settings.engine.automaticNotificationsDescription")}
             </p>
           </div>
           <Switch
@@ -129,9 +131,9 @@ export function NotificationsEngineSection() {
         {config.autoNotifyEnabled && (
           <div className="space-y-2">
             <div>
-              <p className="text-sm font-medium">Invitation mode</p>
+              <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
               <p className="text-xs text-muted-foreground">
-                Send replacement invitations automatically, or ask for your approval first
+                {t("settings.engine.invitationModeDescription")}
               </p>
             </div>
             <RadioGroup
@@ -149,13 +151,13 @@ export function NotificationsEngineSection() {
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="automatic" id="invitation-mode-automatic" />
                 <Label htmlFor="invitation-mode-automatic" className="text-sm font-normal">
-                  Automatic
+                  {t("settings.engine.automatic")}
                 </Label>
               </div>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="semi_automatic" id="invitation-mode-semi-automatic" />
                 <Label htmlFor="invitation-mode-semi-automatic" className="text-sm font-normal">
-                  Semi-automatic
+                  {t("settings.engine.semiAutomatic")}
                 </Label>
               </div>
             </RadioGroup>
@@ -169,10 +171,10 @@ export function NotificationsEngineSection() {
           open={openSection === "reminders"}
           onOpenChange={() => toggleSection("reminders")}
         >
-          <SectionHeader sectionKey="reminders" icon={Bell} label="Reminders" />
+          <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
           <CollapsibleContent className="pt-1 pb-1">
             <p className="text-xs text-muted-foreground mb-3">
-              Automatically remind students before class and ask them to confirm attendance.
+              {t("settings.engine.remindersHint")}
             </p>
             <RemindersSection
               reminderTiming={{
@@ -195,15 +197,15 @@ export function NotificationsEngineSection() {
           open={openSection === "groups"}
           onOpenChange={() => toggleSection("groups")}
         >
-          <SectionHeader sectionKey="groups" icon={Layers} label="Invitation groups" />
+          <SectionHeader sectionKey="groups" icon={Layers} label={t("settings.engine.invitationGroups")} />
           <CollapsibleContent className="pt-1 pb-1">
             <p className="text-xs text-muted-foreground mb-3">
-              Define who gets invited and in what order. Each group is tried in sequence — if no one accepts from Group 1, the system moves to Group 2.
+              {t("settings.engine.invitationGroupsHint")}
             </p>
             {groupsInitializing ? (
               <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Setting up default invitation groups…
+                {t("settings.engine.settingUpGroups")}
               </div>
             ) : (
               <InvitationGroupsSection
@@ -222,10 +224,10 @@ export function NotificationsEngineSection() {
           open={openSection === "tiebreakers"}
           onOpenChange={() => toggleSection("tiebreakers")}
         >
-          <SectionHeader sectionKey="tiebreakers" icon={ArrowUpDown} label="Tiebreakers" />
+          <SectionHeader sectionKey="tiebreakers" icon={ArrowUpDown} label={t("settings.engine.tiebreakers")} />
           <CollapsibleContent className="pt-1 pb-1">
             <p className="text-xs text-muted-foreground mb-3">
-              How to rank players within each group. Higher items take priority.
+              {t("settings.engine.tiebreakersHint")}
             </p>
             <TiebreakersSection
               tiebreakers={config.tiebreakers && config.tiebreakers.length > 0 ? config.tiebreakers : DEFAULT_TIEBREAKERS}
@@ -242,7 +244,7 @@ export function NotificationsEngineSection() {
           open={openSection === "restrictions"}
           onOpenChange={() => toggleSection("restrictions")}
         >
-          <SectionHeader sectionKey="restrictions" icon={ShieldAlert} label="Restrictions" />
+          <SectionHeader sectionKey="restrictions" icon={ShieldAlert} label={t("settings.engine.restrictions")} />
           <CollapsibleContent className="pt-3">
             <RestrictionsPanel
               restrictions={{
@@ -267,7 +269,7 @@ export function NotificationsEngineSection() {
           <CollapsibleTrigger className="flex w-full items-center justify-between py-1 text-sm font-medium transition-colors hover:text-primary">
             <span className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Notify groups
+              {t("settings.engine.notifyGroups")}
             </span>
             {openSection === "notifyGroups" ? (
               <ChevronDown className="w-4 h-4" />
@@ -293,7 +295,7 @@ export function NotificationsEngineSection() {
           <CollapsibleTrigger className="flex w-full items-center justify-between py-1 text-sm font-medium transition-colors hover:text-primary">
             <span className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
-              Standing waiting list
+              {t("settings.engine.standingWaitingList")}
             </span>
             {openSection === "standingList" ? (
               <ChevronDown className="w-4 h-4" />
@@ -303,7 +305,7 @@ export function NotificationsEngineSection() {
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
             <p className="text-xs text-muted-foreground mb-3">
-              Add students to the waiting list for all upcoming classes. They are automatically removed once they fill the configured number of spots or the period expires.
+              {t("settings.engine.standingWaitingListHint")}
             </p>
             <StandingWaitingListSection />
           </CollapsibleContent>
@@ -319,7 +321,7 @@ export function NotificationsEngineSection() {
           <CollapsibleTrigger className="flex w-full items-center justify-between py-1 text-sm font-medium transition-colors hover:text-primary">
             <span className="flex items-center gap-2">
               <MessageSquareText className="w-4 h-4" />
-              Message templates
+              {t("settings.engine.messageTemplates")}
             </span>
             {openSection === "templates" ? (
               <ChevronDown className="w-4 h-4" />

@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
   getPlayerInvitation,
@@ -22,12 +23,12 @@ type InvitationStatus = "loading" | "valid" | "invalid";
 
 const acceptSchema = z
   .object({
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    username: z.string().min(3, "usernameMin"),
+    password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
+    message: "passwordsMismatch",
     path: ["repeatPassword"],
   });
 
@@ -36,6 +37,7 @@ const PlayerInvitePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
+  const { t } = useTranslation();
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
   const [playerName, setPlayerName] = useState("");
@@ -75,7 +77,7 @@ const PlayerInvitePage = () => {
     if (!result.success) {
       const newErrors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
-        newErrors[String(err.path[0])] = err.message;
+        newErrors[String(err.path[0])] = t(`auth.playerInvite.${err.message}`);
       });
       setErrors(newErrors);
       return false;
@@ -99,8 +101,8 @@ const PlayerInvitePage = () => {
       });
 
       toast({
-        title: "Welcome!",
-        description: "Your profile is ready.",
+        title: t("auth.playerInvite.welcomeTitle"),
+        description: t("auth.playerInvite.welcomeDescription"),
       });
 
       await login(accessToken);
@@ -108,11 +110,11 @@ const PlayerInvitePage = () => {
     } catch (error: any) {
       const code = error?.response?.status;
       if (code === 409) {
-        setSubmitError("This username is already taken. Please choose another one.");
+        setSubmitError(t("auth.playerInvite.usernameTaken"));
       } else if (code === 404 || code === 410) {
         setStatus("invalid");
       } else {
-        setSubmitError("Something went wrong. Please try again.");
+        setSubmitError(t("auth.playerInvite.genericError"));
       }
     } finally {
       setSubmitting(false);
@@ -127,15 +129,15 @@ const PlayerInvitePage = () => {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-destructive">
-              Invalid invitation
+              {t("auth.playerInvite.invalidTitle")}
             </CardTitle>
             <CardDescription>
-              This invitation is invalid or no longer valid.
+              {t("auth.playerInvite.invalidDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={() => navigate("/auth")}>
-              Go to login
+              {t("auth.playerInvite.goToLogin")}
             </Button>
           </CardContent>
         </Card>
@@ -148,21 +150,21 @@ const PlayerInvitePage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Complete your profile, {playerName}
+            {t("auth.playerInvite.title", { playerName })}
           </CardTitle>
           <CardDescription className="text-center">
-            Choose a username and password to finish setting up your account
+            {t("auth.playerInvite.description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
-              { id: "username", label: "Username" },
-              { id: "password", label: "Password", type: "password" },
+              { id: "username", label: t("auth.playerInvite.username") },
+              { id: "password", label: t("auth.playerInvite.password"), type: "password" },
               {
                 id: "repeatPassword",
-                label: "Repeat Password",
+                label: t("auth.playerInvite.repeatPassword"),
                 type: "password",
               },
             ].map(({ id, label, type = "text" }) => (
@@ -191,7 +193,7 @@ const PlayerInvitePage = () => {
             )}
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Completing…" : "Complete profile"}
+              {submitting ? t("auth.playerInvite.completing") : t("auth.playerInvite.complete")}
             </Button>
           </form>
         </CardContent>

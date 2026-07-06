@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
+  const { t } = useTranslation();
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow group"
@@ -56,7 +58,7 @@ export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Delete exercise"
+            aria-label={t("training.card.deleteExercise")}
             className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive shrink-0"
             onClick={(e) => {
               e.stopPropagation();

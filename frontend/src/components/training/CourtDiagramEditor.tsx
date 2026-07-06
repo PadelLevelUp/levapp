@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { CourtElement, CourtElementType, CourtDiagram } from "@/types/training";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,19 +62,19 @@ type Tool =
   | "movement"
   | "eraser";
 
-const TOOLS: { tool: Tool; icon: any; label: string; colorClass?: string }[] = [
-  { tool: "select", icon: MousePointer2, label: "Select" },
-  { tool: "player_1", icon: User, label: "Player 1", colorClass: "text-blue-500" },
-  { tool: "player_2", icon: User, label: "Player 2", colorClass: "text-red-500" },
-  { tool: "player_3", icon: User, label: "Player 3", colorClass: "text-green-500" },
-  { tool: "player_4", icon: User, label: "Player 4", colorClass: "text-purple-500" },
-  { tool: "coach", icon: GraduationCap, label: "Coach", colorClass: "text-amber-500" },
-  { tool: "cone", icon: Triangle, label: "Cone" },
-  { tool: "blocker", icon: RectangleHorizontal, label: "Blocker" },
-  { tool: "ball", icon: Circle, label: "Ball" },
-  { tool: "arrow", icon: ArrowRight, label: "Arrow" },
-  { tool: "movement", icon: Route, label: "Movement" },
-  { tool: "eraser", icon: Trash2, label: "Eraser" },
+const TOOLS: { tool: Tool; icon: any; labelKey: string; colorClass?: string }[] = [
+  { tool: "select", icon: MousePointer2, labelKey: "training.diagram.tools.select" },
+  { tool: "player_1", icon: User, labelKey: "training.diagram.tools.player1", colorClass: "text-blue-500" },
+  { tool: "player_2", icon: User, labelKey: "training.diagram.tools.player2", colorClass: "text-red-500" },
+  { tool: "player_3", icon: User, labelKey: "training.diagram.tools.player3", colorClass: "text-green-500" },
+  { tool: "player_4", icon: User, labelKey: "training.diagram.tools.player4", colorClass: "text-purple-500" },
+  { tool: "coach", icon: GraduationCap, labelKey: "training.diagram.tools.coach", colorClass: "text-amber-500" },
+  { tool: "cone", icon: Triangle, labelKey: "training.diagram.tools.cone" },
+  { tool: "blocker", icon: RectangleHorizontal, labelKey: "training.diagram.tools.blocker" },
+  { tool: "ball", icon: Circle, labelKey: "training.diagram.tools.ball" },
+  { tool: "arrow", icon: ArrowRight, labelKey: "training.diagram.tools.arrow" },
+  { tool: "movement", icon: Route, labelKey: "training.diagram.tools.movement" },
+  { tool: "eraser", icon: Trash2, labelKey: "training.diagram.tools.eraser" },
 ];
 
 /** Compute quadratic bezier control point from curve offset */
@@ -117,6 +118,7 @@ interface Props {
 }
 
 export function CourtDiagramEditor({ value, onChange }: Props) {
+  const { t } = useTranslation();
   const svgRef = useRef<SVGSVGElement>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -326,24 +328,25 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Court Diagram</label>
+      <label className="text-sm font-medium">{t("training.diagram.label")}</label>
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-1 bg-muted rounded-lg">
-        {TOOLS.map(({ tool: t, icon: Icon, label, colorClass }) => {
-          const disabled = isToolDisabled(t);
+        {TOOLS.map(({ tool: toolItem, icon: Icon, labelKey, colorClass }) => {
+          const disabled = isToolDisabled(toolItem);
+          const label = t(labelKey);
           return (
             <Button
-              key={t}
+              key={toolItem}
               type="button"
-              variant={tool === t ? "default" : "ghost"}
+              variant={tool === toolItem ? "default" : "ghost"}
               size="sm"
               className={cn(
                 "h-8 px-2 text-xs gap-1",
-                colorClass && tool !== t && colorClass,
+                colorClass && tool !== toolItem && colorClass,
                 disabled && "opacity-40 pointer-events-none"
               )}
-              onClick={() => setTool(t)}
+              onClick={() => setTool(toolItem)}
               title={label}
               disabled={disabled}
             >
@@ -354,14 +357,14 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
         })}
         <div className="flex-1" />
         {selectedId && (
-          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-destructive" onClick={handleDeleteSelected} title="Delete selected">
+          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-destructive" onClick={handleDeleteSelected} title={t("training.diagram.deleteSelected")}>
             <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Delete</span>
+            <span className="hidden sm:inline">{t("training.diagram.delete")}</span>
           </Button>
         )}
-        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={handleClear} title="Clear all">
+        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={handleClear} title={t("training.diagram.clearAll")}>
           <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Clear</span>
+          <span className="hidden sm:inline">{t("training.diagram.clear")}</span>
         </Button>
       </div>
 
@@ -369,15 +372,15 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
       {isLineSelected && selectedEl && (
         <div className="flex gap-3 p-3 bg-muted/60 rounded-lg border">
           <div className="flex-1 space-y-1">
-            <Label className="text-xs">Label</Label>
+            <Label className="text-xs">{t("training.diagram.lineLabel")}</Label>
             <Input
               value={selectedEl.label || ""}
               onChange={(e) => updateSelectedElement({ label: e.target.value || undefined })}
-              placeholder="e.g. Lob, Smash, Drop"
+              placeholder={t("training.diagram.lineLabelPlaceholder")}
               className="h-8 text-xs"
             />
           </div>
-          <p className="text-xs text-muted-foreground self-end pb-1">Drag the ● handle on the arrow to curve it</p>
+          <p className="text-xs text-muted-foreground self-end pb-1">{t("training.diagram.curveHint")}</p>
         </div>
       )}
 
@@ -463,7 +466,7 @@ export function CourtDiagramEditor({ value, onChange }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players.
+        {t("training.diagram.instructions")}
       </p>
     </div>
   );

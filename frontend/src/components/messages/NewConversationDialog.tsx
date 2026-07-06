@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MessageSquarePlus, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function NewConversationDialog({
   existingParticipantIds,
   onSelectUser,
 }: NewConversationDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
@@ -79,14 +81,14 @@ export function NewConversationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="shrink-0" aria-label="New conversation">
+        <Button size="icon" variant="ghost" className="shrink-0" aria-label={t("messages.newConversation")}>
           <MessageSquarePlus className="w-5 h-5" />
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New conversation</DialogTitle>
+          <DialogTitle>{t("messages.newConversation")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -94,7 +96,7 @@ export function NewConversationDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search users..."
+              placeholder={t("messages.searchUsersPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -107,10 +109,10 @@ export function NewConversationDialog({
               {loading || filteredUsers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   {loading
-                    ? 'Loading users...'
+                    ? t('messages.loadingUsers')
                     : users.length === 0
-                    ? 'You already have conversations with all users'
-                    : 'No users found'}
+                    ? t('messages.allUsersHaveConversations')
+                    : t('messages.noUsersFound')}
                 </div>
               ) : (
                 filteredUsers.map((user) => (

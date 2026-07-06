@@ -156,9 +156,10 @@ async function getNotificationActivity(
 
 async function coachLoginUI(page: Page): Promise<void> {
   await page.goto("http://localhost:8080/auth");
-  await page.getByPlaceholder("your-username").fill("e2e-coach");
-  await page.getByPlaceholder("••••••••").fill("E2eCoach123!");
-  await page.getByRole("button", { name: "Sign In" }).click();
+  // Language-agnostic selectors: pre-auth login page renders in the default locale (pt).
+  await page.locator("#username").fill("e2e-coach");
+  await page.locator("#password").fill("E2eCoach123!");
+  await page.locator('button[type="submit"]').click();
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 15_000 });
 }
 

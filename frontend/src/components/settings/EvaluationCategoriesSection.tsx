@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface CategoryDraft {
 
 export function EvaluationCategoriesSection() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [categories, setCategories] = useState<CategoryDraft[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export function EvaluationCategoriesSection() {
       await deleteEvaluationCategory(id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
     } catch {
-      toast({ variant: "destructive", title: "Failed to delete category" });
+      toast({ variant: "destructive", title: t("settings.evaluationCategories.deleteFailed") });
     } finally {
       setRemovingId(null);
     }
@@ -83,12 +85,12 @@ export function EvaluationCategoriesSection() {
   const handleSave = async () => {
     const invalid = categories.some((c) => !c.name.trim() || c.scaleMin >= c.scaleMax);
     if (invalid) {
-      toast({ title: "Validation error", description: "All categories need a name and min must be less than max." });
+      toast({ title: t("settings.evaluationCategories.validationErrorTitle"), description: t("settings.evaluationCategories.validationErrorDescription") });
       return;
     }
 
     if (USE_MOCK_DATA) {
-      toast({ title: "Categories saved", description: `${categories.length} categories updated (mock).` });
+      toast({ title: t("settings.evaluationCategories.savedTitle"), description: t("settings.evaluationCategories.savedMock", { count: categories.length }) });
       return;
     }
 
@@ -100,9 +102,9 @@ export function EvaluationCategoriesSection() {
     setSaving(true);
     try {
       await addEvaluationCategories(payload);
-      toast({ title: "Categories saved", description: `${categories.length} categories updated.` });
+      toast({ title: t("settings.evaluationCategories.savedTitle"), description: t("settings.evaluationCategories.saved", { count: categories.length }) });
     } catch {
-      toast({ variant: "destructive", title: "Failed to save categories" });
+      toast({ variant: "destructive", title: t("settings.evaluationCategories.saveFailed") });
     } finally {
       setSaving(false);
     }
@@ -112,7 +114,7 @@ export function EvaluationCategoriesSection() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Loading categories…
+          {t("settings.evaluationCategories.loading")}
         </CardContent>
       </Card>
     );
@@ -123,25 +125,25 @@ export function EvaluationCategoriesSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ClipboardList className="w-4 h-4" />
-          Evaluation Categories
+          {t("settings.evaluationCategories.title")}
         </CardTitle>
         <CardDescription>
-          Define the categories used to evaluate players. Drag to reorder.
+          {t("settings.evaluationCategories.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
         <div className="grid grid-cols-[32px_1fr_64px_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
-          <span>Name</span>
-          <span>Min</span>
-          <span>Max</span>
+          <span>{t("settings.evaluationCategories.name")}</span>
+          <span>{t("settings.evaluationCategories.min")}</span>
+          <span>{t("settings.evaluationCategories.max")}</span>
           <span />
         </div>
 
         {categories.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No categories defined yet. Add your first one below.
+            {t("settings.evaluationCategories.empty")}
           </p>
         )}
 
@@ -159,7 +161,7 @@ export function EvaluationCategoriesSection() {
             <button
               type="button"
               className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-              aria-label="Drag to reorder"
+              aria-label={t("settings.evaluationCategories.dragToReorder")}
             >
               <GripVertical className="w-4 h-4" />
             </button>
@@ -167,7 +169,7 @@ export function EvaluationCategoriesSection() {
             <Input
               value={cat.name}
               onChange={(e) => handleChange(cat.id, "name", e.target.value)}
-              placeholder="Technique"
+              placeholder={t("settings.evaluationCategories.namePlaceholder")}
               className="h-8 text-sm"
             />
 
@@ -202,12 +204,12 @@ export function EvaluationCategoriesSection() {
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
-            Add category
+            {t("settings.evaluationCategories.addCategory")}
           </Button>
 
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? "Saving…" : "Save categories"}
+            {saving ? t("settings.evaluationCategories.saving") : t("settings.evaluationCategories.saveCategories")}
           </Button>
         </div>
       </CardContent>

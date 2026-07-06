@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Minus, Plus, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ function ExcludedPlayersRow({
   onRemovePlayer,
   disabled,
 }: ExcludedPlayersRowProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
@@ -132,9 +134,9 @@ function ExcludedPlayersRow({
     <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">Excluded players</p>
+          <p className="text-sm font-medium">{t("settings.restrictions.excludedPlayers")}</p>
           <p className="text-xs text-muted-foreground">
-            Specific players to exclude from all automatic invitations.
+            {t("settings.restrictions.excludedPlayersDescription")}
           </p>
         </div>
         <Switch checked={enabled} onCheckedChange={onToggle} />
@@ -144,7 +146,7 @@ function ExcludedPlayersRow({
         <div className="space-y-2 ml-0">
           <div className="relative">
             <Input
-              placeholder="Search players…"
+              placeholder={t("settings.restrictions.searchPlayers")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-8 text-sm"
@@ -195,6 +197,7 @@ interface RestrictionsPanelProps {
 }
 
 export function RestrictionsPanel({ restrictions, onChange, disabled }: RestrictionsPanelProps) {
+  const { t } = useTranslation();
   const update = (key: keyof NotificationRestrictions, patch: object) => {
     onChange({ ...restrictions, [key]: { ...restrictions[key], ...patch } });
   };
@@ -202,11 +205,11 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
   return (
     <div className="space-y-4">
       <RestrictionRow
-        label="Max simultaneous notifications"
-        description="How many students are notified at the same time"
+        label={t("settings.restrictions.maxSimultaneous")}
+        description={t("settings.restrictions.maxSimultaneousDescription")}
         enabled={restrictions.maxSimultaneous.enabled}
         value={restrictions.maxSimultaneous.value}
-        unit="students"
+        unit={t("settings.restrictions.students")}
         min={1}
         max={20}
         showValue
@@ -217,11 +220,11 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Max total per vacancy"
-        description="Total notifications sent for one open spot"
+        label={t("settings.restrictions.maxTotal")}
+        description={t("settings.restrictions.maxTotalDescription")}
         enabled={restrictions.maxTotal.enabled}
         value={restrictions.maxTotal.value}
-        unit="total"
+        unit={t("settings.restrictions.total")}
         min={1}
         max={50}
         showValue
@@ -232,11 +235,11 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Max inactive time"
-        description="Minutes to wait before sending the next batch if no one responds"
+        label={t("settings.restrictions.maxInactiveTime")}
+        description={t("settings.restrictions.maxInactiveTimeDescription")}
         enabled={restrictions.maxInactiveTime.enabled}
         value={restrictions.maxInactiveTime.value}
-        unit="min"
+        unit={t("settings.restrictions.min")}
         min={15}
         max={1440}
         showValue
@@ -247,11 +250,11 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Min time before class"
-        description="Don't notify if class starts within X minutes"
+        label={t("settings.restrictions.minTimeBeforeClass")}
+        description={t("settings.restrictions.minTimeBeforeClassDescription")}
         enabled={restrictions.minTimeBeforeClass.enabled}
         value={restrictions.minTimeBeforeClass.value}
-        unit="min"
+        unit={t("settings.restrictions.min")}
         min={5}
         max={240}
         showValue
@@ -262,11 +265,11 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Max invitations per student / day"
-        description="Prevent spam to individual students"
+        label={t("settings.restrictions.maxInvitesPerStudent")}
+        description={t("settings.restrictions.maxInvitesPerStudentDescription")}
         enabled={restrictions.maxInvitesPerStudentPerDay.enabled}
         value={restrictions.maxInvitesPerStudentPerDay.value}
-        unit="/ day"
+        unit={t("settings.restrictions.perDay")}
         min={1}
         max={10}
         showValue
@@ -277,8 +280,8 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Quiet hours"
-        description="No notifications between 22:00 and 07:00"
+        label={t("settings.restrictions.quietHours")}
+        description={t("settings.restrictions.quietHoursDescription")}
         enabled={restrictions.quietHours.enabled}
         showValue={false}
         disabled={disabled}
@@ -295,8 +298,8 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       />
 
       <RestrictionRow
-        label="Exclude unpaid subscriptions"
-        description="Don't invite students with an inactive or unpaid subscription"
+        label={t("settings.restrictions.excludeUnpaid")}
+        description={t("settings.restrictions.excludeUnpaidDescription")}
         enabled={restrictions.excludeUnpaidSubscription.enabled}
         showValue={false}
         disabled={disabled}

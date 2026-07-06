@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardMessagesOverviewBlock } from "@/types";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export function MessagesOverviewBlock({
   block,
@@ -8,6 +9,7 @@ export function MessagesOverviewBlock({
   block: DashboardMessagesOverviewBlock;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const go = () => navigate(block.data.href);
 
   return (
@@ -21,13 +23,13 @@ export function MessagesOverviewBlock({
       >
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Unread messages
+            {t("dashboard.unreadMessages")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{block.data.unreadMessages}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            Messages waiting for reply
+            {t("dashboard.messagesWaitingForReply")}
           </p>
         </CardContent>
       </Card>
@@ -41,7 +43,7 @@ export function MessagesOverviewBlock({
       >
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Latest message
+            {t("dashboard.latestMessage")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -63,7 +65,7 @@ export function MessagesOverviewBlock({
       >
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Conversations to reply
+            {t("dashboard.conversationsToReply")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -71,7 +73,7 @@ export function MessagesOverviewBlock({
             {block.data.conversationsToReply}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            With unread messages
+            {t("dashboard.withUnreadMessages")}
           </p>
         </CardContent>
       </Card>
