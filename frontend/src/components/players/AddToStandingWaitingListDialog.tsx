@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, ListX } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,14 @@ interface Props {
 }
 
 const DURATION_OPTIONS = [
-  { label: "1 week", days: 7 },
-  { label: "2 weeks", days: 14 },
-  { label: "1 month", days: 30 },
-  { label: "2 months", days: 60 },
+  { labelKey: "players.duration1Week", days: 7 },
+  { labelKey: "players.duration2Weeks", days: 14 },
+  { labelKey: "players.duration1Month", days: 30 },
+  { labelKey: "players.duration2Months", days: 60 },
 ];
 
 export function AddToStandingWaitingListDialog({ open, onClose, playerId, playerName, onAdded }: Props) {
+  const { t } = useTranslation();
   const [durationDays, setDurationDays] = useState(30);
   const [credits, setCredits] = useState(3);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
     }
   };
 
-  const firstName = playerName?.split(" ")[0] ?? "This student";
+  const firstName = playerName?.split(" ")[0] ?? t("players.waitingListDefaultName");
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -44,18 +46,18 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ListX className="w-4 h-4" />
-            Add to waiting list
+            {t("players.addToWaitingList")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
           <p className="text-sm text-muted-foreground">
-            {firstName} will be added to the waiting list for all upcoming classes.
+            {t("players.waitingListDescription", { name: firstName })}
           </p>
 
           {/* Duration */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Duration</p>
+            <p className="text-sm font-medium">{t("players.duration")}</p>
             <div className="flex flex-wrap gap-2">
               {DURATION_OPTIONS.map((opt) => (
                 <button
@@ -68,7 +70,7 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
                       : "border-border hover:bg-muted"
                   }`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -76,9 +78,9 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
 
           {/* Credits */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Max classes to fill</p>
+            <p className="text-sm font-medium">{t("players.maxClassesToFill")}</p>
             <p className="text-xs text-muted-foreground">
-              Automatically removed after accepting this many spots.
+              {t("players.maxClassesToFillHint")}
             </p>
             <div className="flex items-center gap-3">
               <button
@@ -101,10 +103,10 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={loading}>{t("common.cancel")}</Button>
           <Button onClick={handleConfirm} disabled={loading}>
             {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-            Add to waiting list
+            {t("players.addToWaitingList")}
           </Button>
         </DialogFooter>
       </DialogContent>

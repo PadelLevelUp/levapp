@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { registerUser, activateAccount } from "@/api/register";
 
@@ -18,15 +19,15 @@ type RegistrationStatus = "loading" | "ok" | "already-registered" | "invalid";
 
 const registerSchema = z
   .object({
-    name: z.string().min(2, "Name must have at least 2 characters"),
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    email: z.string().email("Invalid email"),
+    name: z.string().min(2, "nameMin"),
+    username: z.string().min(3, "usernameMin"),
+    email: z.string().email("emailInvalid"),
     phone: z.string().optional(),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
+    message: "passwordsMismatch",
     path: ["repeatPassword"],
   });
 
@@ -34,6 +35,7 @@ const RegisterPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -71,8 +73,8 @@ const RegisterPage = () => {
       } catch {
         toast({
           variant: "destructive",
-          title: "Invalid registration link",
-          description: "This user is already active or does not exist.",
+          title: t("auth.register.invalidLinkTitle"),
+          description: t("auth.register.invalidLinkDescription"),
         });
         navigate("/auth");
       } finally {
@@ -89,7 +91,7 @@ const RegisterPage = () => {
     if (!result.success) {
       const newErrors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
-        newErrors[err.path[0]] = err.message;
+        newErrors[err.path[0]] = t(`auth.register.${err.message}`);
       });
       setErrors(newErrors);
       return false;
@@ -118,16 +120,16 @@ const RegisterPage = () => {
       });
 
       toast({
-        title: "Account activated!",
-        description: "You can now log in.",
+        title: t("auth.register.activatedTitle"),
+        description: t("auth.register.activatedDescription"),
       });
 
       navigate("/auth");
     } catch {
       toast({
         variant: "destructive",
-        title: "Registration failed",
-        description: "Please try again.",
+        title: t("auth.register.failedTitle"),
+        description: t("auth.register.failedDescription"),
       });
     } finally {
       setSubmitting(false);
@@ -142,15 +144,15 @@ const RegisterPage = () => {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-2xl font-bold">
-              Already registered
+              {t("auth.register.alreadyRegisteredTitle")}
             </CardTitle>
             <CardDescription>
-              This user already has an active account.
+              {t("auth.register.alreadyRegisteredDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={() => navigate("/auth")}>
-              Go to login
+              {t("auth.register.goToLogin")}
             </Button>
           </CardContent>
         </Card>
@@ -164,15 +166,15 @@ const RegisterPage = () => {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-destructive">
-              Invalid link
+              {t("auth.register.invalidTitle")}
             </CardTitle>
             <CardDescription>
-              This registration link is invalid or expired.
+              {t("auth.register.invalidDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={() => navigate("/auth")}>
-              Go back
+              {t("auth.register.goBack")}
             </Button>
           </CardContent>
         </Card>
@@ -185,24 +187,24 @@ const RegisterPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Complete Registration
+            {t("auth.register.title")}
           </CardTitle>
           <CardDescription className="text-center">
-            Set your details to activate your account
+            {t("auth.register.description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
-              { id: "name", label: "Name" },
-              { id: "username", label: "Username" },
-              { id: "email", label: "Email" },
-              { id: "phone", label: "Phone" },
-              { id: "password", label: "Password", type: "password" },
+              { id: "name", label: t("auth.register.name") },
+              { id: "username", label: t("auth.register.username") },
+              { id: "email", label: t("auth.register.email") },
+              { id: "phone", label: t("auth.register.phone") },
+              { id: "password", label: t("auth.register.password"), type: "password" },
               {
                 id: "repeatPassword",
-                label: "Repeat Password",
+                label: t("auth.register.repeatPassword"),
                 type: "password",
               },
             ].map(({ id, label, type = "text" }) => (
@@ -227,7 +229,7 @@ const RegisterPage = () => {
             ))}
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Activating…" : "Activate account"}
+              {submitting ? t("auth.register.activating") : t("auth.register.activate")}
             </Button>
           </form>
         </CardContent>

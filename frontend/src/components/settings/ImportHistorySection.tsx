@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,21 +22,21 @@ import {
 } from "@/api/import";
 import { invalidateCoachPlayersCache } from "@/api/players";
 
-const TABLE_LABELS: Record<string, string> = {
-  Players: "players",
-  Classes: "classes",
-  "Players in Classes": "class enrollments",
-  Presences: "attendance records",
-  Evaluations: "evaluations",
-  Strengths: "strengths",
-  Weaknesses: "weaknesses",
-  "Coach Levels": "levels",
-  "Evaluation Categories": "evaluation categories",
+const TABLE_LABEL_KEYS: Record<string, string> = {
+  Players: "settings.importHistory.labels.players",
+  Classes: "settings.importHistory.labels.classes",
+  "Players in Classes": "settings.importHistory.labels.classEnrollments",
+  Presences: "settings.importHistory.labels.attendanceRecords",
+  Evaluations: "settings.importHistory.labels.evaluations",
+  Strengths: "settings.importHistory.labels.strengths",
+  Weaknesses: "settings.importHistory.labels.weaknesses",
+  "Coach Levels": "settings.importHistory.labels.levels",
+  "Evaluation Categories": "settings.importHistory.labels.evaluationCategories",
 };
 
-function formatSummary(summary: Record<string, number>): string {
+function formatSummary(summary: Record<string, number>, t: TFunction): string {
   return Object.entries(summary)
-    .map(([key, count]) => `${count} ${TABLE_LABELS[key] || key.toLowerCase()}`)
+    .map(([key, count]) => `${count} ${TABLE_LABEL_KEYS[key] ? t(TABLE_LABEL_KEYS[key]) : key.toLowerCase()}`)
     .join(", ");
 }
 
@@ -56,6 +58,7 @@ export function ImportHistorySection() {
   const [confirmEntry, setConfirmEntry] = useState<ImportHistoryEntry | null>(null);
   const [revertedMessage, setRevertedMessage] = useState<string | null>(null);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -79,16 +82,16 @@ export function ImportHistorySection() {
     try {
       await revertImport(entry.id);
       invalidateCoachPlayersCache();
-      setRevertedMessage("Successfully reverted import");
+      setRevertedMessage(t("settings.importHistory.revertSuccess"));
       toast({
-        title: "Import reverted",
-        description: `Removed ${formatSummary(entry.summary)}`,
+        title: t("settings.importHistory.revertedTitle"),
+        description: t("settings.importHistory.revertedDescription", { summary: formatSummary(entry.summary, t) }),
       });
       await fetchHistory();
     } catch {
       toast({
-        title: "Revert failed",
-        description: "Could not revert this import. Please try again.",
+        title: t("settings.importHistory.revertFailedTitle"),
+        description: t("settings.importHistory.revertFailedDescription"),
         variant: "destructive",
       });
     } finally {
@@ -101,7 +104,7 @@ export function ImportHistorySection() {
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
         <Loader2 className="w-4 h-4 animate-spin" />
-        Loading import history...
+        {t("settings.importHistory.loading")}
       </div>
     );
   }
@@ -114,7 +117,7 @@ export function ImportHistorySection() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <History className="w-5 h-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">Import History</h3>
+        <h3 className="text-lg font-semibold">{t("settings.importHistory.title")}</h3>
       </div>
 
       {revertedMessage && (
@@ -148,7 +151,7 @@ export function ImportHistorySection() {
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {formatSummary(entry.summary)}
+                {formatSummary(entry.summary, t)}
               </p>
             </div>
 
@@ -164,7 +167,7 @@ export function ImportHistorySection() {
                 ) : (
                   <Undo2 className="w-4 h-4 mr-1" />
                 )}
-                Revert
+                {t("settings.importHistory.revert")}
               </Button>
             )}
           </div>
@@ -177,25 +180,24 @@ export function ImportHistorySection() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.importHistory.areYouSure")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all items from this import:
+              {t("settings.importHistory.confirmIntro")}
               <span className="block mt-2 font-medium text-foreground">
-                {confirmEntry && formatSummary(confirmEntry.summary)}
+                {confirmEntry && formatSummary(confirmEntry.summary, t)}
               </span>
               <span className="block mt-2">
-                This action cannot be undone. Only items from this specific
-                import will be removed — your other data will remain intact.
+                {t("settings.importHistory.confirmWarning")}
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => confirmEntry && handleRevert(confirmEntry)}
             >
-              Confirm
+              {t("common.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

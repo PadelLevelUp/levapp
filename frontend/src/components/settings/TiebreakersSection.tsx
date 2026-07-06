@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GripVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { Tiebreaker } from "@/types";
@@ -11,6 +12,14 @@ export const DEFAULT_TIEBREAKERS: Tiebreaker[] = [
   { id: "subscription_status", label: "Active subscription", enabled: false },
 ];
 
+const TIEBREAKER_LABEL_KEYS: Record<string, string> = {
+  unjustified_absences: "settings.tiebreakers.fewestUnjustified",
+  justified_absences: "settings.tiebreakers.mostJustified",
+  attendance_rate: "settings.tiebreakers.highestAttendance",
+  playing_side_match: "settings.tiebreakers.matchingSide",
+  subscription_status: "settings.tiebreakers.activeSubscription",
+};
+
 interface TiebreakersSectionProps {
   tiebreakers: Tiebreaker[];
   onChange: (tiebreakers: Tiebreaker[]) => void;
@@ -18,6 +27,7 @@ interface TiebreakersSectionProps {
 }
 
 export function TiebreakersSection({ tiebreakers, onChange, disabled }: TiebreakersSectionProps) {
+  const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const handleDragOver = useCallback(
@@ -61,7 +71,11 @@ export function TiebreakersSection({ tiebreakers, onChange, disabled }: Tiebreak
             {idx + 1}
           </span>
 
-          <span className="flex-1 text-sm">{tiebreaker.label}</span>
+          <span className="flex-1 text-sm">
+            {TIEBREAKER_LABEL_KEYS[tiebreaker.id]
+              ? t(TIEBREAKER_LABEL_KEYS[tiebreaker.id])
+              : tiebreaker.label}
+          </span>
 
           <Switch
             checked={tiebreaker.enabled}

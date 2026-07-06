@@ -1,18 +1,20 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dumbbell, FolderOpen } from "lucide-react";
 
 export default function TrainingPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Training</h1>
+          <h1 className="text-2xl font-bold">{t("training.title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Manage your exercises and training groups
+            {t("training.subtitle")}
           </p>
         </div>
 
@@ -26,9 +28,9 @@ export default function TrainingPage() {
                 <Dumbbell className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <h2 className="font-semibold text-lg">Exercises</h2>
+                <h2 className="font-semibold text-lg">{t("training.exercisesCard.title")}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Browse, create and edit individual exercises with court diagrams
+                  {t("training.exercisesCard.description")}
                 </p>
               </div>
             </CardContent>
@@ -43,9 +45,9 @@ export default function TrainingPage() {
                 <FolderOpen className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <h2 className="font-semibold text-lg">Groups</h2>
+                <h2 className="font-semibold text-lg">{t("training.groupsCard.title")}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Organize exercises into logical training groups
+                  {t("training.groupsCard.description")}
                 </p>
               </div>
             </CardContent>

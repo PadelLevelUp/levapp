@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,15 +16,12 @@ import { z } from "zod";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 
-const usernameSchema = z
-  .string()
-  .min(3, "Username must have at least 3 characters");
+const usernameSchema = z.string().min(3);
 
-const passwordSchema = z
-  .string()
-  .min(6, "Password must have at least 6 characters");
+const passwordSchema = z.string().min(6);
 
 const AuthPage = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,12 +40,12 @@ const AuthPage = () => {
 
     const usernameResult = usernameSchema.safeParse(username);
     if (!usernameResult.success) {
-      newErrors.username = usernameResult.error.errors[0].message;
+      newErrors.username = t("auth.login.usernameMin");
     }
 
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
-      newErrors.password = passwordResult.error.errors[0].message;
+      newErrors.password = t("auth.login.passwordMin");
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -68,14 +66,14 @@ const AuthPage = () => {
       await login(res.data.accessToken)
       navigate("/dashboard");
       toast({
-        title: "Welcome!",
-        description: "You have successfully logged in.",
+        title: t("auth.login.welcomeTitle"),
+        description: t("auth.login.welcomeDescription"),
       });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: "Invalid username or password.",
+        title: t("auth.login.failedTitle"),
+        description: t("auth.login.failedDescription"),
       });
     } finally {
       setLoading(false);
@@ -87,21 +85,21 @@ const AuthPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Sign In
+            {t("auth.login.title")}
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access the platform
+            {t("auth.login.description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t("auth.login.username")}</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="your-username"
+                placeholder={t("auth.login.usernamePlaceholder")}
                 autoCapitalize="none"
                 value={username}
                 onChange={(e) => {
@@ -117,7 +115,7 @@ const AuthPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -136,7 +134,7 @@ const AuthPage = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Sign In"}
+              {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
             </Button>
           </form>
         </CardContent>

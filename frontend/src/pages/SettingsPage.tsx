@@ -96,15 +96,16 @@ function SettingsNav({
   active: SettingsTab;
   onChange: (tab: SettingsTab) => void;
 }) {
+  const { t } = useTranslation();
   const items: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: "profile", label: "Profile", icon: <User className="w-4 h-4" /> },
-    { id: "preferences", label: "Preferences", icon: <Palette className="w-4 h-4" /> },
-    { id: "calendar", label: "Calendar", icon: <Calendar className="w-4 h-4" /> },
-    { id: "notifications", label: "Notifications", icon: <Bell className="w-4 h-4" /> },
-    { id: "billing", label: "Billing", icon: <CreditCard className="w-4 h-4" /> },
-    { id: "security", label: "Security", icon: <Shield className="w-4 h-4" /> },
-    { id: "import", label: "Import Data", icon: <Upload className="w-4 h-4" /> },
-    { id: "club", label: "Club", icon: <Building2 className="w-4 h-4" /> },
+    { id: "profile", label: t("settings.nav.profile"), icon: <User className="w-4 h-4" /> },
+    { id: "preferences", label: t("settings.nav.preferences"), icon: <Palette className="w-4 h-4" /> },
+    { id: "calendar", label: t("settings.nav.calendar"), icon: <Calendar className="w-4 h-4" /> },
+    { id: "notifications", label: t("settings.nav.notifications"), icon: <Bell className="w-4 h-4" /> },
+    { id: "billing", label: t("settings.nav.billing"), icon: <CreditCard className="w-4 h-4" /> },
+    { id: "security", label: t("settings.nav.security"), icon: <Shield className="w-4 h-4" /> },
+    { id: "import", label: t("settings.nav.import"), icon: <Upload className="w-4 h-4" /> },
+    { id: "club", label: t("settings.nav.club"), icon: <Building2 className="w-4 h-4" /> },
   ];
 
   return (
@@ -224,15 +225,15 @@ export default function SettingsPage() {
       await updateMe({ language: settings.language });
       i18n.changeLanguage(settings.language);
     } catch (e) {
-      toast({ title: "Could not save settings", description: "Please try again." });
+      toast({ title: t("settings.toast.couldNotSaveTitle"), description: t("settings.toast.couldNotSaveDescription") });
       return;
     }
 
     toast({
-      title: "Settings saved",
+      title: t("settings.toast.settingsSavedTitle"),
       description: avatarFile
-        ? "Settings saved. (Avatar upload hook is ready to connect.)"
-        : "Your preferences were updated.",
+        ? t("settings.toast.settingsSavedWithAvatar")
+        : t("settings.toast.settingsSavedDescription"),
     });
 
     // If you want to “commit” the avatar preview as if uploaded (mock behavior)
@@ -250,13 +251,13 @@ export default function SettingsPage() {
   const handleAvatarSelected = (file: File | null) => {
     if (!file) return;
     if (!isValidImageFile(file)) {
-      toast({ title: "Invalid file", description: "Please select an image file." });
+      toast({ title: t("settings.toast.invalidFileTitle"), description: t("settings.toast.invalidFileDescription") });
       return;
     }
     // Optional: size limit (e.g., 5MB)
     const maxBytes = 5 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast({ title: "File too large", description: "Max avatar size is 5MB." });
+      toast({ title: t("settings.toast.fileTooLargeTitle"), description: t("settings.toast.fileTooLargeDescription") });
       return;
     }
     setAvatarFile(file);
@@ -266,7 +267,7 @@ export default function SettingsPage() {
     setAvatarFile(null);
     setAvatarPreviewUrl(null);
     setSettings((s) => ({ ...s, avatarUrl: "" })); // mock removal
-    toast({ title: "Avatar removed" });
+    toast({ title: t("settings.toast.avatarRemovedTitle") });
   };
 
   const handleChangePassword = async () => {
@@ -279,9 +280,9 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast({ title: "Password updated", description: "Your password has been changed." });
+      toast({ title: t("settings.toast.passwordUpdatedTitle"), description: t("settings.toast.passwordUpdatedDescription") });
     } catch {
-      toast({ title: "Password update failed", description: "Please try again.", });
+      toast({ title: t("settings.toast.passwordUpdateFailedTitle"), description: t("settings.toast.passwordUpdateFailedDescription"), });
     } finally {
       setPwLoading(false);
     }
@@ -292,7 +293,7 @@ export default function SettingsPage() {
     // - NextAuth: signOut()
     // - Firebase: auth.signOut()
     // - Custom: clear tokens + navigate to /login
-    toast({ title: "Logged out", description: "Logout hook is ready to connect." });
+    toast({ title: t("settings.toast.loggedOutTitle"), description: t("settings.toast.loggedOutDescription") });
   };
 
   const avatarSrc = avatarPreviewUrl || settings.avatarUrl || undefined;
@@ -302,15 +303,15 @@ export default function SettingsPage() {
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Settings</h1>
+            <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Manage your profile, calendar defaults, notifications, and security.
+              {t("settings.subtitle")}
             </p>
           </div>
 
           <Button onClick={handleSave} className="gap-2">
             <Save className="w-4 h-4" />
-            Save changes
+            {t("settings.saveChanges")}
           </Button>
         </div>
 
@@ -318,8 +319,8 @@ export default function SettingsPage() {
           {/* Left nav (desktop) */}
           <Card className="lg:col-span-3 h-fit hidden lg:block">
             <CardHeader>
-              <CardTitle className="text-base">Sections</CardTitle>
-              <CardDescription>Quick navigation</CardDescription>
+              <CardTitle className="text-base">{t("settings.sections")}</CardTitle>
+              <CardDescription>{t("settings.quickNavigation")}</CardDescription>
             </CardHeader>
             <CardContent>
               <SettingsNav active={tab} onChange={setTab} />
@@ -332,17 +333,17 @@ export default function SettingsPage() {
             <div className="lg:hidden">
               <Select value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select section" />
+                  <SelectValue placeholder={t("settings.selectSection")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="profile">Profile</SelectItem>
-                  <SelectItem value="preferences">Preferences</SelectItem>
-                  <SelectItem value="calendar">Calendar</SelectItem>
-                  <SelectItem value="notifications">Notifications</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="import">Import Data</SelectItem>
-                  <SelectItem value="club">Club</SelectItem>
+                  <SelectItem value="profile">{t("settings.nav.profile")}</SelectItem>
+                  <SelectItem value="preferences">{t("settings.nav.preferences")}</SelectItem>
+                  <SelectItem value="calendar">{t("settings.nav.calendar")}</SelectItem>
+                  <SelectItem value="notifications">{t("settings.nav.notifications")}</SelectItem>
+                  <SelectItem value="billing">{t("settings.nav.billing")}</SelectItem>
+                  <SelectItem value="security">{t("settings.nav.security")}</SelectItem>
+                  <SelectItem value="import">{t("settings.nav.import")}</SelectItem>
+                  <SelectItem value="club">{t("settings.nav.club")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -351,8 +352,8 @@ export default function SettingsPage() {
             {tab === "profile" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Profile</CardTitle>
-                  <CardDescription>Basic info visible to your players.</CardDescription>
+                  <CardTitle>{t("settings.profile.title")}</CardTitle>
+                  <CardDescription>{t("settings.profile.description")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Avatar section */}
@@ -369,7 +370,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">{settings.email}</p>
                       {avatarFile && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Selected: {avatarFile.name}
+                          {t("settings.profile.selected", { name: avatarFile.name })}
                         </p>
                       )}
                     </div>
@@ -384,7 +385,7 @@ export default function SettingsPage() {
                       />
                       <Button variant="outline" onClick={handlePickAvatar} className="gap-2">
                         <Upload className="w-4 h-4" />
-                        Upload
+                        {t("settings.profile.upload")}
                       </Button>
                       <Button
                         variant="outline"
@@ -393,7 +394,7 @@ export default function SettingsPage() {
                         disabled={!settings.avatarUrl && !avatarPreviewUrl}
                       >
                         <Trash2 className="w-4 h-4" />
-                        Remove
+                        {t("settings.profile.remove")}
                       </Button>
                     </div>
                   </div>
@@ -402,7 +403,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Name</Label>
+                      <Label htmlFor="name">{t("settings.profile.name")}</Label>
                       <Input
                         id="name"
                         value={settings.name}
@@ -411,10 +412,10 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="abbr">Abbreviation (optional)</Label>
+                      <Label htmlFor="abbr">{t("settings.profile.abbreviation")}</Label>
                       <Input
                         id="abbr"
-                        placeholder="e.g. PP"
+                        placeholder={t("settings.profile.abbreviationPlaceholder")}
                         value={settings.abbreviation ?? ""}
                         onChange={(e) =>
                           setSettings((s) => ({ ...s, abbreviation: e.target.value }))
@@ -423,7 +424,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">{t("settings.profile.email")}</Label>
                       <Input
                         id="email"
                         value={settings.email}
@@ -432,7 +433,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone (optional)</Label>
+                      <Label htmlFor="phone">{t("settings.profile.phone")}</Label>
                       <Input
                         id="phone"
                         value={settings.phone ?? ""}
@@ -442,10 +443,10 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="bio">Bio (optional)</Label>
+                    <Label htmlFor="bio">{t("settings.profile.bio")}</Label>
                     <Textarea
                       id="bio"
-                      placeholder="Tell players a bit about you..."
+                      placeholder={t("settings.profile.bioPlaceholder")}
                       value={settings.bio ?? ""}
                       onChange={(e) => setSettings((s) => ({ ...s, bio: e.target.value }))}
                     />
@@ -458,13 +459,13 @@ export default function SettingsPage() {
             {tab === "preferences" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Preferences</CardTitle>
-                  <CardDescription>How you want the app to behave.</CardDescription>
+                  <CardTitle>{t("settings.preferences.title")}</CardTitle>
+                  <CardDescription>{t("settings.preferences.description")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label>Theme</Label>
+                      <Label>{t("settings.preferences.theme")}</Label>
                       <Select
                         value={settings.theme}
                         onValueChange={(v) =>
@@ -472,18 +473,18 @@ export default function SettingsPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Theme" />
+                          <SelectValue placeholder={t("settings.preferences.theme")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="system">System</SelectItem>
-                          <SelectItem value="light">Light</SelectItem>
-                          <SelectItem value="dark">Dark</SelectItem>
+                          <SelectItem value="system">{t("settings.preferences.themeSystem")}</SelectItem>
+                          <SelectItem value="light">{t("settings.preferences.themeLight")}</SelectItem>
+                          <SelectItem value="dark">{t("settings.preferences.themeDark")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Time format</Label>
+                      <Label>{t("settings.preferences.timeFormat")}</Label>
                       <Select
                         value={settings.timeFormat}
                         onValueChange={(v) =>
@@ -491,7 +492,7 @@ export default function SettingsPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Time format" />
+                          <SelectValue placeholder={t("settings.preferences.timeFormat")} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="24h">24h</SelectItem>
@@ -501,7 +502,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Week starts on</Label>
+                      <Label>{t("settings.preferences.weekStartsOn")}</Label>
                       <Select
                         value={settings.weekStart}
                         onValueChange={(v) =>
@@ -509,11 +510,11 @@ export default function SettingsPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Week start" />
+                          <SelectValue placeholder={t("settings.preferences.weekStartsOn")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="monday">Monday</SelectItem>
-                          <SelectItem value="sunday">Sunday</SelectItem>
+                          <SelectItem value="monday">{t("settings.preferences.monday")}</SelectItem>
+                          <SelectItem value="sunday">{t("settings.preferences.sunday")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -543,9 +544,9 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Enable analytics</p>
+                      <p className="font-medium">{t("settings.preferences.enableAnalytics")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Helps improve the product with anonymous usage data.
+                        {t("settings.preferences.enableAnalyticsDescription")}
                       </p>
                     </div>
                     <Switch
@@ -570,13 +571,13 @@ export default function SettingsPage() {
               <>
               <Card>
                 <CardHeader>
-                  <CardTitle>Calendar defaults</CardTitle>
-                  <CardDescription>Defaults used when creating a new class.</CardDescription>
+                  <CardTitle>{t("settings.calendar.title")}</CardTitle>
+                  <CardDescription>{t("settings.calendar.description")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Default class type</Label>
+                      <Label>{t("settings.calendar.defaultClassType")}</Label>
                       <Select
                         value={settings.defaultClassType}
                         onValueChange={(v) =>
@@ -587,17 +588,17 @@ export default function SettingsPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Class type" />
+                          <SelectValue placeholder={t("settings.calendar.classTypePlaceholder")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="academy">Academy</SelectItem>
-                          <SelectItem value="private">Private</SelectItem>
+                          <SelectItem value="academy">{t("settings.calendar.academy")}</SelectItem>
+                          <SelectItem value="private">{t("settings.calendar.private")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Default duration (minutes)</Label>
+                      <Label>{t("settings.calendar.defaultDuration")}</Label>
                       <Input
                         type="number"
                         min={30}
@@ -613,7 +614,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Default max players</Label>
+                      <Label>{t("settings.calendar.defaultMaxPlayers")}</Label>
                       <Input
                         type="number"
                         min={1}
@@ -629,9 +630,9 @@ export default function SettingsPage() {
 
                     <div className="flex items-center justify-between rounded-lg border p-3">
                       <div>
-                        <p className="font-medium">Auto pick color</p>
+                        <p className="font-medium">{t("settings.calendar.autoPickColor")}</p>
                         <p className="text-sm text-muted-foreground">
-                          Automatically choose a class color when creating.
+                          {t("settings.calendar.autoPickColorDescription")}
                         </p>
                       </div>
                       <Switch
@@ -642,7 +643,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-                    Tip: Connect these to <span className="font-medium text-foreground">AddClassSheet</span> as props later.
+                    {t("settings.calendar.tip")}
                   </div>
                 </CardContent>
               </Card>
@@ -657,15 +658,15 @@ export default function SettingsPage() {
             {tab === "notifications" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Notifications</CardTitle>
-                  <CardDescription>Control reminders and alerts.</CardDescription>
+                  <CardTitle>{t("settings.notifications.title")}</CardTitle>
+                  <CardDescription>{t("settings.notifications.description")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Upcoming class reminders</p>
+                      <p className="font-medium">{t("settings.notifications.upcomingClass")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Get reminders before your next classes.
+                        {t("settings.notifications.upcomingClassDescription")}
                       </p>
                     </div>
                     <Switch
@@ -680,9 +681,9 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Missing players alerts</p>
+                      <p className="font-medium">{t("settings.notifications.missingPlayers")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Warn when a scheduled class is not full.
+                        {t("settings.notifications.missingPlayersDescription")}
                       </p>
                     </div>
                     <Switch
@@ -697,9 +698,9 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Validation reminders</p>
+                      <p className="font-medium">{t("settings.notifications.validationReminders")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Remind you to validate presences after classes.
+                        {t("settings.notifications.validationRemindersDescription")}
                       </p>
                     </div>
                     <Switch
@@ -714,9 +715,9 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">Send via email</p>
+                      <p className="font-medium">{t("settings.notifications.sendViaEmail")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Use email in addition to in-app notifications.
+                        {t("settings.notifications.sendViaEmailDescription")}
                       </p>
                     </div>
                     <Switch
@@ -736,20 +737,20 @@ export default function SettingsPage() {
             {tab === "billing" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Billing</CardTitle>
-                  <CardDescription>Subscription and invoices (placeholder).</CardDescription>
+                  <CardTitle>{t("settings.billing.title")}</CardTitle>
+                  <CardDescription>{t("settings.billing.description")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between rounded-lg border p-4">
                     <div>
-                      <p className="font-medium">Plan</p>
-                      <p className="text-sm text-muted-foreground">Coach Pro</p>
+                      <p className="font-medium">{t("settings.billing.plan")}</p>
+                      <p className="text-sm text-muted-foreground">{t("settings.billing.coachPro")}</p>
                     </div>
-                    <Badge variant="secondary">Active</Badge>
+                    <Badge variant="secondary">{t("settings.billing.active")}</Badge>
                   </div>
 
                   <Button variant="outline" disabled>
-                    Manage billing
+                    {t("settings.billing.manageBilling")}
                   </Button>
                 </CardContent>
               </Card>
@@ -763,15 +764,15 @@ export default function SettingsPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <KeyRound className="w-4 h-4" />
-                      Change password
+                      {t("settings.security.changePassword")}
                     </CardTitle>
                     <CardDescription>
-                      Use a strong password (min 8 chars). This should call your backend.
+                      {t("settings.security.changePasswordDescription")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="current-password">Current password</Label>
+                      <Label htmlFor="current-password">{t("settings.security.currentPassword")}</Label>
                       <Input
                         id="current-password"
                         type="password"
@@ -782,7 +783,7 @@ export default function SettingsPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="new-password">New password</Label>
+                        <Label htmlFor="new-password">{t("settings.security.newPassword")}</Label>
                         <Input
                           id="new-password"
                           type="password"
@@ -791,13 +792,13 @@ export default function SettingsPage() {
                         />
                         {newPassword.length > 0 && newPassword.length < 8 && (
                           <p className="text-xs text-muted-foreground">
-                            Must be at least 8 characters.
+                            {t("settings.security.minChars")}
                           </p>
                         )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="confirm-password">Confirm new password</Label>
+                        <Label htmlFor="confirm-password">{t("settings.security.confirmNewPassword")}</Label>
                         <Input
                           id="confirm-password"
                           type="password"
@@ -806,7 +807,7 @@ export default function SettingsPage() {
                         />
                         {confirmPassword.length > 0 && confirmPassword !== newPassword && (
                           <p className="text-xs text-muted-foreground">
-                            Passwords don’t match.
+                            {t("settings.security.passwordsDontMatch")}
                           </p>
                         )}
                       </div>
@@ -817,7 +818,7 @@ export default function SettingsPage() {
                         onClick={handleChangePassword}
                         disabled={!canSubmitPassword || pwLoading}
                       >
-                        {pwLoading ? "Updating..." : "Update password"}
+                        {pwLoading ? t("settings.security.updating") : t("settings.security.updatePassword")}
                       </Button>
                     </div>
                   </CardContent>
@@ -828,16 +829,16 @@ export default function SettingsPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <LogOut className="w-4 h-4" />
-                      Logout
+                      {t("settings.security.logout")}
                     </CardTitle>
                     <CardDescription>
-                      End your session on this device.
+                      {t("settings.security.logoutDescription")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex justify-end">
                     <Button variant="destructive" onClick={handleLogout} className="gap-2">
                       <LogOut className="w-4 h-4" />
-                      Logout
+                      {t("settings.security.logout")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -850,10 +851,10 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Upload className="w-5 h-5" />
-                    Import Data
+                    {t("settings.import.title")}
                   </CardTitle>
                   <CardDescription>
-                    Upload a file and let AI extract your levels, players, classes, evaluations and more.
+                    {t("settings.import.description")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-8">
@@ -870,10 +871,10 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5" />
-                    Club
+                    {t("settings.club.title")}
                   </CardTitle>
                   <CardDescription>
-                    Manage your club and invite other coaches to join.
+                    {t("settings.club.description")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

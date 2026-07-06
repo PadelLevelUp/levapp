@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "appName": "LevelUp",
+    "dashboard": "Painel",
+    "calendar": "Calendário",
+    "players": "Jogadores",
+    "training": "Treino",
+    "availability": "Disponibilidade",
+    "messages": "Mensagens",
+    "settings": "Definições",
+    "editor": "Editor",
+    "logout": "Terminar sessão"
+  }
+}

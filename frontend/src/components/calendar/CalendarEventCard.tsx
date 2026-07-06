@@ -1,5 +1,6 @@
 import { CSSProperties } from 'react';
 import { Users, XCircle, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { CalendarEvent } from '@/types';
 
@@ -12,6 +13,7 @@ interface CalendarEventCardProps {
 }
 
 export function CalendarEventCard({ event, style, onClick, onDragStart, onDragEnd }: CalendarEventCardProps) {
+  const { t } = useTranslation();
   const isBlock = event.type === 'block';
   const isCanceled = event.status === 'canceled';
   const isCompleted = event.status === 'completed';
@@ -82,14 +84,14 @@ export function CalendarEventCard({ event, style, onClick, onDragStart, onDragEn
       {isCanceled && (
         <div className="flex items-center gap-1 mt-0.5 text-[10px]">
           <XCircle className="w-3 h-3" />
-          <span>Canceled</span>
+          <span>{t("calendar.eventCard.canceled")}</span>
         </div>
       )}
 
       {isCompleted && (
         <div className="flex items-center gap-1 mt-0.5 text-[10px]">
           <Clock className="w-3 h-3" />
-          <span>Completed</span>
+          <span>{t("calendar.eventCard.completed")}</span>
         </div>
       )}
     </div>

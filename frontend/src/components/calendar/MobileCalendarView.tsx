@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, isSameDay, isToday, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
@@ -19,6 +20,7 @@ export function MobileCalendarView({
   onEventClick,
   onDaySelect,
 }: MobileCalendarViewProps) {
+  const { t } = useTranslation();
   const initialSelectedDay = useMemo(() => {
     return weekDays.find((d) => isToday(d)) || weekDays[0];
   }, [weekDays]);
@@ -137,8 +139,7 @@ export function MobileCalendarView({
             {format(selectedDay, "EEEE d 'de' MMMM", { locale: enUS })}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {selectedDayEvents.length}{" "}
-            {selectedDayEvents.length === 1 ? "class" : "classes"}
+            {t("calendar.mobile.classCount", { count: selectedDayEvents.length })}
           </p>
         </div>
 
@@ -146,7 +147,7 @@ export function MobileCalendarView({
           <div className="p-3 space-y-2">
             {selectedDayEvents.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No classes scheduled</p>
+                <p>{t("calendar.mobile.noClassesScheduled")}</p>
               </div>
             ) : (
               selectedDayEvents.map((event) => (

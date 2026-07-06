@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronRight, FolderOpen, Folder, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ export function ExerciseGroupFolder({
   onEditExercise,
   onDeleteExercise,
 }: Props) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const groupExercises = exercises.filter((ex) => group.exerciseIds.includes(ex.id));
 
@@ -47,7 +49,7 @@ export function ExerciseGroupFolder({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm truncate">{group.name}</span>
             <Badge variant="secondary" className="text-[10px] shrink-0">
-              {groupExercises.length} exercise{groupExercises.length !== 1 ? "s" : ""}
+              {t("training.folder.exerciseCount", { count: groupExercises.length })}
             </Badge>
           </div>
           {group.description && (
@@ -83,7 +85,7 @@ export function ExerciseGroupFolder({
       {expanded && (
         <div className="px-4 pb-4 pt-1">
           {groupExercises.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">No exercises in this group yet.</p>
+            <p className="text-sm text-muted-foreground py-2">{t("training.folder.emptyGroup")}</p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {groupExercises.map((ex) => (

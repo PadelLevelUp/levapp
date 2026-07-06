@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +23,7 @@ import {
 
 export function ClubSection() {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [club, setClub] = useState<CoachClub | null>(null);
@@ -75,8 +77,8 @@ export function ClubSection() {
     } catch {
       toast({
         variant: "destructive",
-        title: "Failed to create invitation",
-        description: "Please try again.",
+        title: t("settings.club.createInvitationFailed"),
+        description: t("settings.club.createInvitationFailedDescription"),
       });
     } finally {
       setCreating(false);
@@ -87,9 +89,9 @@ export function ClubSection() {
     if (!inviteUrl) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      toast({ title: "Link copied to clipboard" });
+      toast({ title: t("settings.club.linkCopied") });
     } catch {
-      toast({ variant: "destructive", title: "Failed to copy link" });
+      toast({ variant: "destructive", title: t("settings.club.copyFailed") });
     }
   };
 
@@ -99,9 +101,9 @@ export function ClubSection() {
     try {
       await revokeCoachInvitation(token);
       await refreshInvitations(club.id);
-      toast({ title: "Invitation revoked" });
+      toast({ title: t("settings.club.invitationRevoked") });
     } catch {
-      toast({ variant: "destructive", title: "Failed to revoke invitation" });
+      toast({ variant: "destructive", title: t("settings.club.revokeFailed") });
     } finally {
       setRevokingToken(null);
     }
@@ -120,7 +122,7 @@ export function ClubSection() {
       <div className="flex flex-col items-center gap-2 py-8 text-center">
         <Building2 className="w-8 h-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          You don't belong to a club yet.
+          {t("settings.club.noClub")}
         </p>
       </div>
     );
@@ -133,7 +135,7 @@ export function ClubSection() {
           <Building2 className="w-5 h-5 text-muted-foreground" />
           <div>
             <p className="font-medium">{club.name}</p>
-            <p className="text-sm text-muted-foreground">Your current club</p>
+            <p className="text-sm text-muted-foreground">{t("settings.club.currentClub")}</p>
           </div>
         </div>
         <Button onClick={handleInviteCoach} disabled={creating}>
@@ -142,17 +144,17 @@ export function ClubSection() {
           ) : (
             <UserPlus className="w-4 h-4 mr-2" />
           )}
-          Invite coach
+          {t("settings.club.inviteCoach")}
         </Button>
       </div>
 
       <Separator />
 
       <div className="space-y-3">
-        <p className="text-sm font-medium">Pending invitations</p>
+        <p className="text-sm font-medium">{t("settings.club.pendingInvitations")}</p>
         {invitations.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No pending invitations.
+            {t("settings.club.noPendingInvitations")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -163,10 +165,10 @@ export function ClubSection() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {inv.email || "Shareable link"}
+                    {inv.email || t("settings.club.shareableLink")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                    {t("settings.club.expires", { date: new Date(inv.expiresAt).toLocaleDateString() })}
                   </p>
                 </div>
                 <Button
@@ -174,14 +176,14 @@ export function ClubSection() {
                   size="sm"
                   onClick={() => handleRevoke(inv.token)}
                   disabled={revokingToken === inv.token}
-                  aria-label="Revoke invitation"
+                  aria-label={t("settings.club.revokeInvitation")}
                 >
                   {revokingToken === inv.token ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <X className="w-4 h-4 mr-1" />
                   )}
-                  Revoke
+                  {t("settings.club.revoke")}
                 </Button>
               </div>
             ))}
@@ -192,10 +194,9 @@ export function ClubSection() {
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite a coach</DialogTitle>
+            <DialogTitle>{t("settings.club.inviteDialogTitle")}</DialogTitle>
             <DialogDescription>
-              Share this link with the coach you want to invite. It expires in
-              7 days.
+              {t("settings.club.inviteDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -204,7 +205,7 @@ export function ClubSection() {
               variant="outline"
               size="icon"
               onClick={handleCopy}
-              aria-label="Copy invite link"
+              aria-label={t("settings.club.copyInviteLink")}
             >
               <Copy className="w-4 h-4" />
             </Button>

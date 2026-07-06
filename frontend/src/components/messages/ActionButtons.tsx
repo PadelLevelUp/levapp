@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import type { MessageAction } from "@/types";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ interface ActionButtonsProps {
 }
 
 export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButtonsProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-2 mt-2">
       {actions.map((action, i) => {
@@ -31,7 +33,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
               ) : (
                 <X className="w-3.5 h-3.5" />
               )}
-              {action.response === "accepted" ? "Accepted" : "Declined"}
+              {action.response === "accepted" ? t("messages.accepted") : t("messages.declined")}
             </span>
           );
         }
@@ -40,7 +42,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
         if (isOwnMessage) {
           return (
             <span key={i} className="text-xs text-muted-foreground italic">
-              Waiting for response…
+              {t("messages.waitingForResponse")}
             </span>
           );
         }
@@ -54,7 +56,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
               onClick={() => onRespond(action, "accepted")}
             >
               <Check className="w-3.5 h-3.5" />
-              Yes
+              {t("messages.yes")}
             </Button>
             <Button
               size="sm"
@@ -63,7 +65,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
               onClick={() => onRespond(action, "declined")}
             >
               <X className="w-3.5 h-3.5" />
-              No
+              {t("messages.no")}
             </Button>
           </div>
         );

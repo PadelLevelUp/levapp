@@ -1,0 +1,9 @@
+{
+  "misc": {
+    "notFound": {
+      "heading": "404",
+      "message": "Ups! Página não encontrada",
+      "returnHome": "Voltar ao início"
+    }
+  }
+}

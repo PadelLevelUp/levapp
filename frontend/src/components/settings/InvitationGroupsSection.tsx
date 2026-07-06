@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GripVertical, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,71 +8,71 @@ import type { InvitationGroup, GroupRule } from "@/types";
 const AVAILABLE_ATTRIBUTES = [
   {
     id: "level",
-    label: "Level",
+    labelKey: "settings.invitationGroups.attributes.level",
     operations: [
-      { id: "same_as_vacancy", label: "Same as vacancy" },
-      { id: "one_above_vacancy", label: "One level above vacancy" },
-      { id: "one_below_vacancy", label: "One level below vacancy" },
-      { id: "all_above_vacancy", label: "All levels above vacancy" },
-      { id: "all_below_vacancy", label: "All levels below vacancy" },
+      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.sameAsVacancy" },
+      { id: "one_above_vacancy", labelKey: "settings.invitationGroups.operations.oneAboveVacancy" },
+      { id: "one_below_vacancy", labelKey: "settings.invitationGroups.operations.oneBelowVacancy" },
+      { id: "all_above_vacancy", labelKey: "settings.invitationGroups.operations.allAboveVacancy" },
+      { id: "all_below_vacancy", labelKey: "settings.invitationGroups.operations.allBelowVacancy" },
     ],
     valueType: "none" as const,
   },
   {
     id: "side",
-    label: "Playing side",
+    labelKey: "settings.invitationGroups.attributes.side",
     operations: [
-      { id: "same_as_vacancy", label: "Same as vacancy" },
+      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.sameAsVacancy" },
     ],
     valueType: "none" as const,
   },
   {
     id: "has_makeups",
-    label: "Aula por repor",
+    labelKey: "settings.invitationGroups.attributes.hasMakeups",
     operations: [
-      { id: "is_true", label: "Has pending makeup" },
+      { id: "is_true", labelKey: "settings.invitationGroups.operations.hasPendingMakeup" },
     ],
     valueType: "none" as const,
   },
   {
     id: "unjustified_absences",
-    label: "Unjustified absences",
+    labelKey: "settings.invitationGroups.attributes.unjustifiedAbsences",
     operations: [
-      { id: "less_than", label: "Less than" },
-      { id: "equals", label: "Equals" },
-      { id: "less_than_or_equal", label: "At most" },
+      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
+      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
+      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
     ],
     valueType: "number" as const,
   },
   {
     id: "justified_absences",
-    label: "Justified absences",
+    labelKey: "settings.invitationGroups.attributes.justifiedAbsences",
     operations: [
-      { id: "less_than", label: "Less than" },
-      { id: "equals", label: "Equals" },
-      { id: "less_than_or_equal", label: "At most" },
+      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
+      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
+      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
     ],
     valueType: "number" as const,
   },
   {
     id: "attendance_rate",
-    label: "Attendance rate",
+    labelKey: "settings.invitationGroups.attributes.attendanceRate",
     operations: [
-      { id: "greater_than", label: "Greater than" },
-      { id: "greater_than_or_equal", label: "At least" },
+      { id: "greater_than", labelKey: "settings.invitationGroups.operations.greaterThan" },
+      { id: "greater_than_or_equal", labelKey: "settings.invitationGroups.operations.atLeast" },
     ],
     valueType: "percentage" as const,
   },
   {
     id: "subscription_status",
-    label: "Subscription",
+    labelKey: "settings.invitationGroups.attributes.subscription",
     operations: [
-      { id: "equals", label: "Is" },
+      { id: "equals", labelKey: "settings.invitationGroups.operations.is" },
     ],
     valueType: "select" as const,
     valueOptions: [
-      { id: "active", label: "Active" },
-      { id: "inactive", label: "Inactive" },
+      { id: "active", labelKey: "settings.invitationGroups.subscriptionActive" },
+      { id: "inactive", labelKey: "settings.invitationGroups.subscriptionInactive" },
     ],
   },
 ];
@@ -146,6 +147,7 @@ function RuleRow({
   onRemove: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const attr = AVAILABLE_ATTRIBUTES.find((a) => a.id === rule.attribute);
 
   return (
@@ -156,12 +158,12 @@ function RuleRow({
         disabled={disabled}
       >
         <SelectTrigger className="w-[160px] h-7 text-xs">
-          <SelectValue placeholder="Attribute" />
+          <SelectValue placeholder={t("settings.invitationGroups.attribute")} />
         </SelectTrigger>
         <SelectContent>
           {AVAILABLE_ATTRIBUTES.map((a) => (
             <SelectItem key={a.id} value={a.id} className="text-xs">
-              {a.label}
+              {t(a.labelKey)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -174,12 +176,12 @@ function RuleRow({
           disabled={disabled}
         >
           <SelectTrigger className="w-[140px] h-7 text-xs">
-            <SelectValue placeholder="Operation" />
+            <SelectValue placeholder={t("settings.invitationGroups.operation")} />
           </SelectTrigger>
           <SelectContent>
             {attr.operations.map((op) => (
               <SelectItem key={op.id} value={op.id} className="text-xs">
-                {op.label}
+                {t(op.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -219,12 +221,12 @@ function RuleRow({
           disabled={disabled}
         >
           <SelectTrigger className="w-[120px] h-7 text-xs">
-            <SelectValue placeholder="Value" />
+            <SelectValue placeholder={t("settings.invitationGroups.value")} />
           </SelectTrigger>
           <SelectContent>
             {attr.valueOptions.map((opt) => (
               <SelectItem key={opt.id} value={opt.id} className="text-xs">
-                {opt.label}
+                {t(opt.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -266,6 +268,7 @@ function GroupCard({
   isDragging: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const addRule = () => {
     const defaultAttr = AVAILABLE_ATTRIBUTES[0];
     onChange({
@@ -305,7 +308,7 @@ function GroupCard({
         >
           <GripVertical className="w-4 h-4" />
         </button>
-        <span className="text-sm font-medium flex-1">Group {index + 1}</span>
+        <span className="text-sm font-medium flex-1">{t("settings.invitationGroups.group", { number: index + 1 })}</span>
         {totalGroups > 1 && (
           <button
             type="button"
@@ -320,7 +323,7 @@ function GroupCard({
 
       {group.rules.length === 0 && (
         <p className="text-xs text-muted-foreground italic">
-          No rules — open to all players.
+          {t("settings.invitationGroups.noRules")}
         </p>
       )}
 
@@ -344,7 +347,7 @@ function GroupCard({
         disabled={disabled}
       >
         <Plus className="w-3 h-3" />
-        Add rule
+        {t("settings.invitationGroups.addRule")}
       </Button>
     </div>
   );
@@ -357,6 +360,7 @@ interface InvitationGroupsSectionProps {
 }
 
 export function InvitationGroupsSection({ groups, onChange, disabled }: InvitationGroupsSectionProps) {
+  const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const handleDragOver = useCallback(
@@ -393,7 +397,7 @@ export function InvitationGroupsSection({ groups, onChange, disabled }: Invitati
   return (
     <div className={`space-y-3 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
       <p className="text-xs text-muted-foreground">
-        Groups are tried in sequence. If no one in Group 1 accepts, the system moves to Group 2, and so on.
+        {t("settings.invitationGroups.sequenceHint")}
       </p>
 
       {groups.map((group, idx) => (
@@ -414,7 +418,7 @@ export function InvitationGroupsSection({ groups, onChange, disabled }: Invitati
 
       {showLastGroupHint && (
         <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
-          Tip: Your last group has filters. Add an empty group at the end to allow any player as a last resort.
+          {t("settings.invitationGroups.lastGroupHint")}
         </p>
       )}
 
@@ -427,7 +431,7 @@ export function InvitationGroupsSection({ groups, onChange, disabled }: Invitati
           disabled={disabled}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add group
+          {t("settings.invitationGroups.addGroup")}
         </Button>
       )}
     </div>

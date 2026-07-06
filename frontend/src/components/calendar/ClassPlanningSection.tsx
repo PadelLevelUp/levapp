@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X, Dumbbell, FolderOpen, Search, Edit } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditing, onEditStart }: Props) {
+  const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -77,7 +79,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium flex items-center gap-2">
           <Dumbbell className="w-4 h-4" />
-          Planning ({planned.length})
+          {t("calendar.planning.title", { count: planned.length })}
         </h4>
         {!disabled && isEditing && (
           <Button
@@ -87,7 +89,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
             onClick={() => { setSearch(""); setPickerOpen(true); }}
           >
             <Plus className="w-3 h-3 mr-1" />
-            Add
+            {t("calendar.planning.add")}
           </Button>
         )}
         {!disabled && !isEditing && (
@@ -98,13 +100,13 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
             onClick={onEditStart}
           >
             <Edit className="w-3 h-3 mr-1" />
-            Edit
+            {t("calendar.planning.edit")}
           </Button>
         )}
       </div>
 
       {planned.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No exercises planned</p>
+        <p className="text-sm text-muted-foreground">{t("calendar.planning.noExercisesPlanned")}</p>
       ) : (
         <div className="space-y-1.5">
           {planned.map((ex) => (
@@ -141,13 +143,13 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add exercises</DialogTitle>
+            <DialogTitle>{t("calendar.planning.addExercises")}</DialogTitle>
           </DialogHeader>
 
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder={t("calendar.planning.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -158,11 +160,11 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
             <TabsList className="w-full">
               <TabsTrigger value="exercises" className="flex-1">
                 <Dumbbell className="w-3.5 h-3.5 mr-1.5" />
-                Exercises
+                {t("calendar.planning.exercises")}
               </TabsTrigger>
               <TabsTrigger value="groups" className="flex-1">
                 <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
-                Groups
+                {t("calendar.planning.groups")}
               </TabsTrigger>
             </TabsList>
 
@@ -170,7 +172,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
               <ScrollArea className="h-64">
                 {filteredExercises.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    {search ? "No exercises found" : "All exercises already added"}
+                    {search ? t("calendar.planning.noExercisesFound") : t("calendar.planning.allExercisesAdded")}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -202,7 +204,7 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
             <TabsContent value="groups">
               <ScrollArea className="h-64">
                 {filteredGroups.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No groups found</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">{t("calendar.planning.noGroupsFound")}</p>
                 ) : (
                   <div className="space-y-1">
                     {filteredGroups.map((g) => {
@@ -219,8 +221,8 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{g.name}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {groupExercises.length} exercise{groupExercises.length !== 1 ? "s" : ""}
-                              {newCount === 0 && " · all already added"}
+                              {t("calendar.planning.exerciseCount", { count: groupExercises.length })}
+                              {newCount === 0 && t("calendar.planning.allAlreadyAdded")}
                             </p>
                           </div>
                           {newCount > 0 && (

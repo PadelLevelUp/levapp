@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
 import { ClassType, CoachPlayer, CoachLevel } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ export function AddClassSheet({
   levels,
   loading = false,
 }: AddClassSheetProps) {
+  const { t } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
   const [classType, setClassType] = useState<ClassType>('academy');
   const [isRecurring, setIsRecurring] = useState(false);
@@ -132,11 +134,11 @@ export function AddClassSheet({
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       const missing = [
-        newErrors.date && 'Date',
-        newErrors.days && 'Days of the week',
-        newErrors.endDate && 'End date',
+        newErrors.date && t('calendar.addClass.fieldDate'),
+        newErrors.days && t('calendar.addClass.fieldDays'),
+        newErrors.endDate && t('calendar.addClass.fieldEndDate'),
       ].filter(Boolean).join(', ');
-      toast({ variant: 'destructive', title: 'Missing required fields', description: `Please fill in: ${missing}` });
+      toast({ variant: 'destructive', title: t('calendar.addClass.missingFieldsTitle'), description: t('calendar.addClass.missingFieldsDescription', { fields: missing }) });
       return;
     }
     setErrors({});
@@ -192,23 +194,23 @@ export function AddClassSheet({
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>New class</SheetTitle>
+          <SheetTitle>{t("calendar.addClass.title")}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
           {/* Class Type */}
           <Tabs value={classType} onValueChange={(v) => setClassType(v as ClassType)}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="academy">Academy</TabsTrigger>
-              <TabsTrigger value="private">Private</TabsTrigger>
+              <TabsTrigger value="academy">{t("calendar.addClass.typeAcademy")}</TabsTrigger>
+              <TabsTrigger value="private">{t("calendar.addClass.typePrivate")}</TabsTrigger>
             </TabsList>
           </Tabs>
 
           {/* Name */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Name</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.name")}</span>
             <Input
-              placeholder={classType === 'academy' ? 'e.g. Beginner Academy' : 'e.g. Private – John & Mary'}
+              placeholder={classType === 'academy' ? t("calendar.addClass.namePlaceholderAcademy") : t("calendar.addClass.namePlaceholderPrivate")}
               value={name}
               className="h-8 text-sm"
               onChange={(e) => setName(e.target.value)}
@@ -221,7 +223,7 @@ export function AddClassSheet({
             <div className={cn("rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0", errors.date && "ring-2 ring-destructive")}>
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Date</span>
+                <span className="text-xs font-medium">{t("calendar.addClass.date")}</span>
               </div>
               <Input
                 type="date"
@@ -235,7 +237,7 @@ export function AddClassSheet({
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Time</span>
+                <span className="text-xs font-medium">{t("calendar.addClass.time")}</span>
               </div>
               <div className="space-y-1">
                 <Input
@@ -257,7 +259,7 @@ export function AddClassSheet({
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Capacity</span>
+                <span className="text-xs font-medium">{t("calendar.addClass.capacity")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -283,11 +285,11 @@ export function AddClassSheet({
             {/* Level */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="text-xs font-medium">Level</span>
+                <span className="text-xs font-medium">{t("calendar.addClass.level")}</span>
               </div>
               <Select value={selectedLevel} onValueChange={setSelectedLevel}>
                 <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder={t("calendar.addClass.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {levels.map((level) => (
@@ -305,14 +307,14 @@ export function AddClassSheet({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Repeat className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">Recurring</span>
+                <span className="text-xs font-medium">{t("calendar.addClass.recurring")}</span>
               </div>
               <Switch aria-label="Recurring" checked={isRecurring} onCheckedChange={setIsRecurring} />
             </div>
             {isRecurring && (
               <div className="space-y-3 pt-1">
                 <div className="space-y-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">Days of the week</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.daysOfWeek")}</span>
                   <div className={cn("flex gap-1", errors.days && "ring-2 ring-destructive rounded-lg p-0.5")}>
                     {DAYS_OF_WEEK.map(({ value, label }) => (
                       <button
@@ -364,8 +366,8 @@ export function AddClassSheet({
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <span className="text-sm font-medium">Auto notifications</span>
-                    <p className="text-xs text-muted-foreground">Students will be auto-invited</p>
+                    <span className="text-sm font-medium">{t("calendar.addClass.autoNotifications")}</span>
+                    <p className="text-xs text-muted-foreground">{t("calendar.addClass.autoNotificationsDescription")}</p>
                   </div>
                 </div>
                 <Switch
@@ -378,7 +380,7 @@ export function AddClassSheet({
 
           {/* Color */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-            <span className="text-xs font-medium text-muted-foreground">Color</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.color")}</span>
             <div className="flex gap-2 flex-wrap">
               {COLORS.map((color) => (
                 <button
@@ -397,7 +399,7 @@ export function AddClassSheet({
 
           {/* Participants */}
           <div className="space-y-2">
-            <span className="text-xs font-medium text-muted-foreground">Participants</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.participants")}</span>
             <PlayerSelector
               players={players}
               levels={levels}
@@ -409,10 +411,10 @@ export function AddClassSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose} disabled={loading}>{t("common.cancel")}</Button>
           <Button onClick={handleSave} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Creating…" : "Create class"}
+            {loading ? t("calendar.addClass.creating") : t("calendar.addClass.createClass")}
           </Button>
         </SheetFooter>
       </SheetContent>

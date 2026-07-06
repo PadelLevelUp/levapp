@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { LayoutProvider, useLayout } from "@/components/layout/LayoutContext";
 import { createEventSource } from "@/api/events";
@@ -36,7 +37,7 @@ interface AppLayoutProps {
 
 type NavItem = {
   icon: any;
-  label: string;
+  labelKey: string;
   path: string;
   roles: string[];
   superAdminOnly?: boolean;
@@ -45,49 +46,49 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     icon: LayoutDashboard,
-    label: "Dashboard",
+    labelKey: "nav.dashboard",
     path: "/dashboard",
     roles: ["coach", "player"],
   },
   {
     icon: Calendar,
-    label: "Calendar",
+    labelKey: "nav.calendar",
     path: "/calendar",
     roles: ["coach", "player"],
   },
   {
     icon: Users,
-    label: "Players",
+    labelKey: "nav.players",
     path: "/players",
     roles: ["coach"],
   },
   {
     icon: Dumbbell,
-    label: "Training",
+    labelKey: "nav.training",
     path: "/training",
     roles: ["coach"],
   },
   {
     icon: CalendarOff,
-    label: "Availability",
+    labelKey: "nav.availability",
     path: "/availability",
     roles: ["player"],
   },
   {
     icon: MessageSquare,
-    label: "Messages",
+    labelKey: "nav.messages",
     path: "/messages",
     roles: ["coach", "player"],
   },
   {
     icon: Settings,
-    label: "Settings",
+    labelKey: "nav.settings",
     path: "/settings",
     roles: ["coach"],
   },
   {
     icon: Database,
-    label: "Editor",
+    labelKey: "nav.editor",
     path: "/editor",
     roles: ["coach", "player"],
     superAdminOnly: true,
@@ -108,6 +109,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, token } = useAuth();
+  const { t } = useTranslation();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -215,7 +217,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   )}
                 </div>
                 {!sidebarCollapsed && (
-                  <span className="text-sm font-medium">{item.label}</span>
+                  <span className="text-sm font-medium">{t(item.labelKey)}</span>
                 )}
               </Link>
             );
@@ -282,7 +284,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
             </Link>
           );
         })}
@@ -294,12 +296,15 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
         <header className="md:flex md:h-16 h-12 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold hidden sm:block">
-              {visibleNavItems.find(
-                (item) =>
-                  location.pathname === item.path ||
-                  (item.path !== "/dashboard" &&
-                    location.pathname.startsWith(item.path))
-              )?.label || "LevelUp"}
+              {(() => {
+                const active = visibleNavItems.find(
+                  (item) =>
+                    location.pathname === item.path ||
+                    (item.path !== "/dashboard" &&
+                      location.pathname.startsWith(item.path))
+                );
+                return active ? t(active.labelKey) : t("nav.appName");
+              })()}
             </h1>
           </div>
 
@@ -321,7 +326,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings className="w-4 h-4 mr-2" />
-                Settings
+                {t("nav.settings")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -334,7 +339,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 }}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Log out
+                {t("nav.logout")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

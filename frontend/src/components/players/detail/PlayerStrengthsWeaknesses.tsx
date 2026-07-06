@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ export function PlayerStrengthsWeaknesses({
   onAddWeakness,
   onRemoveWeakness,
 }: PlayerStrengthsWeaknessesProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [newStrength, setNewStrength] = useState("");
   const [newWeakness, setNewWeakness] = useState("");
@@ -48,7 +50,7 @@ export function PlayerStrengthsWeaknesses({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Strengths & Weaknesses</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">{t("players.strengthsAndWeaknesses")}</h3>
         {canEdit && (
           <Button
             variant="ghost"
@@ -57,7 +59,7 @@ export function PlayerStrengthsWeaknesses({
             className="h-7 px-2 text-xs"
           >
             <Pencil className="h-3.5 w-3.5 mr-1" />
-            {editing ? "Done" : "Edit"}
+            {editing ? t("players.done") : t("common.edit")}
           </Button>
         )}
       </div>
@@ -68,12 +70,12 @@ export function PlayerStrengthsWeaknesses({
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <ThumbsUp className="h-4 w-4 text-green-600" />
-              Strengths
+              {t("players.strengths")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {strengths.length === 0 && !editing ? (
-              <p className="text-sm text-muted-foreground">None recorded.</p>
+              <p className="text-sm text-muted-foreground">{t("players.noneRecorded")}</p>
             ) : (
               <ul className="space-y-2">
                 {strengths.map((s, i) => (
@@ -96,13 +98,13 @@ export function PlayerStrengthsWeaknesses({
             {editing && (
               <div className="flex gap-2 mt-3">
                 <Input
-                  placeholder="Add a strength..."
+                  placeholder={t("players.addStrengthPlaceholder")}
                   value={newStrength}
                   onChange={(e) => setNewStrength(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddStrength())}
                   className="flex-1 h-8 text-sm"
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddStrength} type="button" aria-label="Add strength">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddStrength} type="button" aria-label={t("players.addStrengthAriaLabel")}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -115,12 +117,12 @@ export function PlayerStrengthsWeaknesses({
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <ThumbsDown className="h-4 w-4 text-orange-500" />
-              Weaknesses
+              {t("players.weaknesses")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {weaknesses.length === 0 && !editing ? (
-              <p className="text-sm text-muted-foreground">None recorded.</p>
+              <p className="text-sm text-muted-foreground">{t("players.noneRecorded")}</p>
             ) : (
               <ul className="space-y-2">
                 {weaknesses.map((w, i) => (
@@ -143,13 +145,13 @@ export function PlayerStrengthsWeaknesses({
             {editing && (
               <div className="flex gap-2 mt-3">
                 <Input
-                  placeholder="Add a weakness..."
+                  placeholder={t("players.addWeaknessPlaceholder")}
                   value={newWeakness}
                   onChange={(e) => setNewWeakness(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWeakness())}
                   className="flex-1 h-8 text-sm"
                 />
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddWeakness} type="button" aria-label="Add weakness">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleAddWeakness} type="button" aria-label={t("players.addWeaknessAriaLabel")}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>

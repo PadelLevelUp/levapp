@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
 import { useAuth } from "@/auth/AuthContext";
@@ -19,13 +20,13 @@ type InvitationStatus = "loading" | "valid" | "invalid";
 
 const acceptSchema = z
   .object({
-    name: z.string().min(2, "Name must have at least 2 characters"),
-    username: z.string().min(3, "Username must have at least 3 characters"),
-    password: z.string().min(6, "Password must have at least 6 characters"),
+    name: z.string().min(2, "nameMin"),
+    username: z.string().min(3, "usernameMin"),
+    password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
   })
   .refine((data) => data.password === data.repeatPassword, {
-    message: "Passwords do not match",
+    message: "passwordsMismatch",
     path: ["repeatPassword"],
   });
 
@@ -34,6 +35,7 @@ const CoachInvitePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
+  const { t } = useTranslation();
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
   const [clubName, setClubName] = useState("");
@@ -74,7 +76,7 @@ const CoachInvitePage = () => {
     if (!result.success) {
       const newErrors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
-        newErrors[String(err.path[0])] = err.message;
+        newErrors[String(err.path[0])] = t(`auth.coachInvite.${err.message}`);
       });
       setErrors(newErrors);
       return false;
@@ -99,8 +101,8 @@ const CoachInvitePage = () => {
       });
 
       toast({
-        title: "Welcome!",
-        description: `You have joined ${clubName}.`,
+        title: t("auth.coachInvite.welcomeTitle"),
+        description: t("auth.coachInvite.welcomeDescription", { clubName }),
       });
 
       await login(accessToken);
@@ -108,11 +110,11 @@ const CoachInvitePage = () => {
     } catch (error: any) {
       const code = error?.response?.status;
       if (code === 409) {
-        setSubmitError("This username is already taken. Please choose another one.");
+        setSubmitError(t("auth.coachInvite.usernameTaken"));
       } else if (code === 404 || code === 410) {
         setStatus("invalid");
       } else {
-        setSubmitError("Something went wrong. Please try again.");
+        setSubmitError(t("auth.coachInvite.genericError"));
       }
     } finally {
       setSubmitting(false);
@@ -127,15 +129,15 @@ const CoachInvitePage = () => {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-destructive">
-              Invalid invitation
+              {t("auth.coachInvite.invalidTitle")}
             </CardTitle>
             <CardDescription>
-              This invitation is invalid or no longer valid.
+              {t("auth.coachInvite.invalidDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={() => navigate("/auth")}>
-              Go to login
+              {t("auth.coachInvite.goToLogin")}
             </Button>
           </CardContent>
         </Card>
@@ -148,22 +150,22 @@ const CoachInvitePage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            You're invited to coach at {clubName}
+            {t("auth.coachInvite.title", { clubName })}
           </CardTitle>
           <CardDescription className="text-center">
-            Create your coach account to join the club
+            {t("auth.coachInvite.description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
-              { id: "name", label: "Name" },
-              { id: "username", label: "Username" },
-              { id: "password", label: "Password", type: "password" },
+              { id: "name", label: t("auth.coachInvite.name") },
+              { id: "username", label: t("auth.coachInvite.username") },
+              { id: "password", label: t("auth.coachInvite.password"), type: "password" },
               {
                 id: "repeatPassword",
-                label: "Repeat Password",
+                label: t("auth.coachInvite.repeatPassword"),
                 type: "password",
               },
             ].map(({ id, label, type = "text" }) => (
@@ -192,7 +194,7 @@ const CoachInvitePage = () => {
             )}
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Joining…" : "Join club"}
+              {submitting ? t("auth.coachInvite.joining") : t("auth.coachInvite.join")}
             </Button>
           </form>
         </CardContent>

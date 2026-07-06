@@ -18,9 +18,12 @@ export const COACH_NOLEVELS_PASSWORD = "E2eCoach123!";
  */
 async function login(page: Page, username: string, password: string) {
   await page.goto("/auth");
-  await page.getByPlaceholder("your-username").fill(username);
-  await page.getByPlaceholder("••••••••").fill(password);
-  await page.getByRole("button", { name: "Sign In" }).click();
+  // Language-agnostic selectors: the login page renders in the default locale (pt)
+  // before any user is authenticated, so we locate inputs by their stable id/type
+  // rather than by (now-localized) placeholder or button text.
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(password);
+  await page.locator('button[type="submit"]').click();
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), {
     timeout: 10_000,
   });

@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X, AlertCircle, CheckCircle2, Send, UserCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -33,7 +34,8 @@ export function AttendanceRow({
   invited,
   confirmed,
 }: AttendanceRowProps) {
-  const name = player.user?.name ?? "Player";
+  const { t } = useTranslation();
+  const name = player.user?.name ?? t("calendar.attendance.playerFallback");
 
   const getInitials = (n: string) => {
     return n
@@ -90,7 +92,7 @@ export function AttendanceRow({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {confirmed ? "Confirmed attendance" : "Reminder sent"}
+                    {confirmed ? t("calendar.attendance.confirmedAttendance") : t("calendar.attendance.reminderSent")}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -101,21 +103,21 @@ export function AttendanceRow({
         {attendance.status === "present" && (
           <Badge variant="outline" className="text-success border-success">
             <Check className="w-3 h-3 mr-1" />
-            Present
+            {t("calendar.attendance.present")}
           </Badge>
         )}
         {attendance.status === "absent" &&
           attendance.justification === "justified" && (
             <Badge variant="outline" className="text-warning border-warning">
               <AlertCircle className="w-3 h-3 mr-1" />
-              Justified
+              {t("calendar.attendance.justified")}
             </Badge>
           )}
         {attendance.status === "absent" &&
           attendance.justification === "unjustified" && (
             <Badge variant="destructive">
               <X className="w-3 h-3 mr-1" />
-              Unjustified
+              {t("calendar.attendance.unjustified")}
             </Badge>
           )}
       </div>
@@ -134,7 +136,7 @@ export function AttendanceRow({
             onClick={() => handleStatusChange("present")}
           >
             <CheckCircle2 className="w-4 h-4 mr-1" />
-            Present
+            {t("calendar.attendance.present")}
           </Button>
 
           <Button
@@ -149,7 +151,7 @@ export function AttendanceRow({
             onClick={() => handleStatusChange("absent")}
           >
             <X className="w-4 h-4 mr-1" />
-            Absent
+            {t("calendar.attendance.absent")}
           </Button>
         </div>
       )}
@@ -170,7 +172,7 @@ export function AttendanceRow({
             onClick={() => handleJustificationChange("justified")}
           >
             <AlertCircle className="w-3 h-3 mr-1" />
-            Justified
+            {t("calendar.attendance.justified")}
           </Button>
 
           <Button
@@ -185,7 +187,7 @@ export function AttendanceRow({
             onClick={() => handleJustificationChange("unjustified")}
           >
             <X className="w-3 h-3 mr-1" />
-            Unjustified
+            {t("calendar.attendance.unjustified")}
           </Button>
         </div>
       )}

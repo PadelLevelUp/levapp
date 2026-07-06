@@ -40,12 +40,17 @@ app = create_app()
 
 with app.app_context():
     # ── Users ─────────────────────────────────────────────────────────────────
+    # PAD-40: seed the active E2E users with language="en" so the app UI renders in
+    # English for the existing E2E suite (whose locators match English copy). App-wide
+    # i18n keeps EN strings identical to the current copy; the PT rollout is verified
+    # separately in language-preference.spec.ts.
     coach_user = User(
         name="E2E Coach",
         username="e2e-coach",
         email="e2e-coach@test.com",
         password=generate_password_hash("E2eCoach123!"),
         status="active",
+        language="en",
     )
     db.session.add(coach_user)
 
@@ -55,6 +60,7 @@ with app.app_context():
         email="e2e-student@test.com",
         password=generate_password_hash("E2eStudent123!"),
         status="active",
+        language="en",
     )
     db.session.add(student_user)
 
@@ -64,6 +70,7 @@ with app.app_context():
         email="e2e-student-2@test.com",
         password=generate_password_hash("E2eStudent2123!"),
         status="active",
+        language="en",
     )
     db.session.add(student2_user)
 
@@ -84,6 +91,7 @@ with app.app_context():
         email="e2e-coach-nolevels@test.com",
         password=generate_password_hash("E2eCoach123!"),
         status="active",
+        language="en",
     )
     db.session.add(nolevels_coach_user)
 

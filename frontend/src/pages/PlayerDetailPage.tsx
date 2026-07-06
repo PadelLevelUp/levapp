@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer } from "@/api/players";
 import { getCoachLevels } from "@/api/coachLevel";
@@ -36,6 +37,7 @@ export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
+  const { t } = useTranslation();
 
   const [player, setPlayer] = useState<CoachPlayer | null>(null);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -69,10 +71,10 @@ export default function PlayerDetailPage() {
     setDeleting(true);
     try {
       await removePlayer(authUser.coachId, player.playerId);
-      toast.success(`${player.name || "Player"} has been deleted`);
+      toast.success(t("players.deleted", { name: player.name || t("players.defaultPlayerName") }));
       navigate("/players");
     } catch {
-      toast.error("Failed to delete player");
+      toast.error(t("players.deleteFailed"));
     } finally {
       setDeleting(false);
       setIsDeleteOpen(false);
@@ -159,7 +161,7 @@ export default function PlayerDetailPage() {
       setPlayer(updated);
       setIsEditing(false);
     } catch {
-      toast.error("Failed to save changes");
+      toast.error(t("players.saveChangesFailed"));
     } finally {
       setSavingPlayer(false);
     }
@@ -213,7 +215,7 @@ export default function PlayerDetailPage() {
         ...(prev ? {} : {}),
       }));
     } catch {
-      toast.error("Failed to save evaluation");
+      toast.error(t("players.saveEvaluationFailed"));
     }
   };
 
@@ -234,9 +236,9 @@ export default function PlayerDetailPage() {
       <AppLayout>
         <div className="p-6 space-y-4">
           <Button variant="ghost" onClick={() => navigate("/players")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
+            <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
           </Button>
-          <p className="text-muted-foreground">Player not found.</p>
+          <p className="text-muted-foreground">{t("players.notFound")}</p>
         </div>
       </AppLayout>
     );
@@ -247,18 +249,18 @@ export default function PlayerDetailPage() {
       <div className="p-6 space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to players
+            <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
           </Button>
           <PageActions
             actions={[
               {
-                label: "Add to Classes",
+                label: t("players.addToClasses"),
                 icon: <CalendarPlus className="mr-2 h-4 w-4" />,
                 onClick: () => setIsClassesOpen(true),
               },
               standingEntry
                 ? {
-                    label: "On waiting list",
+                    label: t("players.onWaitingList"),
                     icon: removingWaitingList
                       ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       : <ListX className="mr-2 h-4 w-4" />,
@@ -267,9 +269,9 @@ export default function PlayerDetailPage() {
                       try {
                         await removeFromStandingWaitingList(standingEntry.id);
                         setStandingEntry(null);
-                        toast.success(`Removed ${player.name} from the waiting list`);
+                        toast.success(t("players.removedFromWaitingList", { name: player.name }));
                       } catch {
-                        toast.error("Failed to remove from waiting list");
+                        toast.error(t("players.removeFromWaitingListFailed"));
                       } finally {
                         setRemovingWaitingList(false);
                       }
@@ -278,19 +280,19 @@ export default function PlayerDetailPage() {
                     className: "text-amber-600 border-amber-300 hover:bg-amber-50",
                   }
                 : {
-                    label: "Waiting list",
+                    label: t("players.waitingList"),
                     icon: <ListX className="mr-2 h-4 w-4" />,
                     onClick: () => setIsWaitingListOpen(true),
                   },
               {
-                label: categoriesLoading ? "Loading..." : "Add Evaluation",
+                label: categoriesLoading ? t("players.loading") : t("players.addEvaluation"),
                 icon: <ClipboardPlus className="mr-2 h-4 w-4" />,
                 onClick: handleOpenEval,
                 disabled: categoriesLoading,
                 variant: "default" as const,
               },
               {
-                label: "Delete Player",
+                label: t("players.deletePlayer"),
                 icon: <Trash2 className="mr-2 h-4 w-4" />,
                 onClick: () => setIsDeleteOpen(true),
                 variant: "destructive" as const,
@@ -328,7 +330,7 @@ export default function PlayerDetailPage() {
                   const note: CoachNote = { id: -Date.now(), text };
                   setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
                 } catch {
-                  toast.error("Failed to add strength");
+                  toast.error(t("players.addStrengthFailed"));
                 }
               }}
               onRemoveStrength={async (_i, note) => {
@@ -336,7 +338,7 @@ export default function PlayerDetailPage() {
                   await deleteCoachNote(note);
                   setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
                 } catch {
-                  toast.error("Failed to remove strength");
+                  toast.error(t("players.removeStrengthFailed"));
                 }
               }}
               onAddWeakness={async (text) => {
@@ -345,7 +347,7 @@ export default function PlayerDetailPage() {
                   const note: CoachNote = { id: -Date.now(), text };
                   setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
                 } catch {
-                  toast.error("Failed to add weakness");
+                  toast.error(t("players.addWeaknessFailed"));
                 }
               }}
               onRemoveWeakness={async (_i, note) => {
@@ -353,7 +355,7 @@ export default function PlayerDetailPage() {
                   await deleteCoachNote(note);
                   setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
                 } catch {
-                  toast.error("Failed to remove weakness");
+                  toast.error(t("players.removeWeaknessFailed"));
                 }
               }}
             />
@@ -389,7 +391,7 @@ export default function PlayerDetailPage() {
           onClose={() => setIsClassesOpen(false)}
           player={player}
           onSave={(classIds) => {
-            toast.success(`Added ${player.name} to ${classIds.length} ${classIds.length === 1 ? "class" : "classes"}`);
+            toast.success(t("players.addedToClasses", { name: player.name, count: classIds.length }));
           }}
         />
 
@@ -400,28 +402,27 @@ export default function PlayerDetailPage() {
           playerName={player.name ?? null}
           onAdded={(entry) => {
             setStandingEntry(entry);
-            toast.success(`${player.name} added to the waiting list`);
+            toast.success(t("players.addedToWaitingList", { name: player.name }));
           }}
         />
 
         <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will remove {player.name || "this player"} from your roster.
-                This action cannot be undone.
+                {t("players.deleteConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={deleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {deleting ? "Deleting..." : "Delete"}
+                {deleting ? t("players.deleting") : t("common.delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

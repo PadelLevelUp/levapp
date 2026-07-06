@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export function PlayerSelector({
   classLevelId,
   onToggle,
 }: PlayerSelectorProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [filterLevelId, setFilterLevelId] = useState<string | null>(null);
 
@@ -70,24 +72,24 @@ export function PlayerSelector({
   }, [players, search, filterLevelId, isSearching]);
 
   const levelTabs = useMemo(() => {
-    const allLevels = [{ id: null, label: "All" }, ...levels.map((l) => ({ id: l.id, label: l.code }))];
+    const allLevels = [{ id: null, label: t("calendar.playerSelector.all") }, ...levels.map((l) => ({ id: l.id, label: l.code }))];
     return allLevels;
-  }, [levels]);
+  }, [levels, t]);
 
   return (
     <Tabs defaultValue="participants">
       <TabsList className="w-full grid grid-cols-2">
         <TabsTrigger value="participants">
-          Participants ({selectedPlayerIds.length})
+          {t("calendar.playerSelector.participants", { count: selectedPlayerIds.length })}
         </TabsTrigger>
-        <TabsTrigger value="all">All</TabsTrigger>
+        <TabsTrigger value="all">{t("calendar.playerSelector.all")}</TabsTrigger>
       </TabsList>
 
       {/* Selected participants tab */}
       <TabsContent value="participants" className="mt-2">
         {selectedPlayers.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            No participants selected
+            {t("calendar.playerSelector.noParticipantsSelected")}
           </p>
         ) : (
           <ScrollArea className="max-h-52">
@@ -119,7 +121,7 @@ export function PlayerSelector({
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search player…"
+            placeholder={t("calendar.playerSelector.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9"
@@ -151,7 +153,7 @@ export function PlayerSelector({
           <div className="space-y-1">
             {allPlayers.length === 0 && (
               <p className="text-sm text-muted-foreground py-3 text-center">
-                No players found
+                {t("calendar.playerSelector.noPlayersFound")}
               </p>
             )}
 
@@ -186,7 +188,7 @@ export function PlayerSelector({
                         variant="outline"
                         className="text-[10px] border-amber-500/50 text-amber-600 bg-amber-500/10 shrink-0"
                       >
-                        {playerLevel?.code ?? "No level"}
+                        {playerLevel?.code ?? t("calendar.playerSelector.noLevel")}
                       </Badge>
                     )}
                   </div>

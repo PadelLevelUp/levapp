@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight, Search, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup, StudentGroupPlayer } from "@/types";
 import { sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
@@ -37,6 +38,7 @@ export function ManualNotificationModal({
   coachPlayers,
   existingPlayerIds,
 }: ManualNotificationModalProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
@@ -112,12 +114,12 @@ export function ManualNotificationModal({
         eventDate,
         [...selected]
       );
-      toast.success(`Invitation sent to ${sent} student${sent !== 1 ? "s" : ""}`);
+      toast.success(t("calendar.notify.invitationSent", { count: sent }));
       setSelected(new Set());
       setSearch("");
       onClose();
     } catch {
-      toast.error("Failed to send invitations");
+      toast.error(t("calendar.notify.failedSendInvitations"));
     } finally {
       setSending(false);
     }
@@ -154,13 +156,13 @@ export function ManualNotificationModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Notify students</DialogTitle>
+          <DialogTitle>{t("calendar.notify.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
           {/* Groups */}
           {loadingGroups ? (
-            <p className="text-xs text-muted-foreground text-center py-2">Loading groups…</p>
+            <p className="text-xs text-muted-foreground text-center py-2">{t("calendar.notify.loadingGroups")}</p>
           ) : (
             groups.map((group) => {
               const isExpanded = expandedGroups.has(group.id);
@@ -173,7 +175,7 @@ export function ManualNotificationModal({
                       checked={allSel ? true : partial ? "indeterminate" : false}
                       onCheckedChange={() => toggleGroup(group)}
                       className="shrink-0"
-                      aria-label={`Select all in ${group.label}`}
+                      aria-label={t("calendar.notify.selectAllIn", { group: group.label })}
                     />
                     <button
                       type="button"
@@ -207,7 +209,7 @@ export function ManualNotificationModal({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search individual students…"
+              placeholder={t("calendar.notify.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -217,7 +219,7 @@ export function ManualNotificationModal({
           {search && (
             <div className="space-y-0.5">
               {searchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-3">No results</p>
+                <p className="text-sm text-muted-foreground text-center py-3">{t("calendar.notify.noResults")}</p>
               ) : (
                 searchResults.map((p) => (
                   <div
@@ -249,20 +251,20 @@ export function ManualNotificationModal({
 
           {!loadingGroups && groups.length === 0 && !search && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No eligible students found
+              {t("calendar.notify.noEligibleStudents")}
             </p>
           )}
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={handleClose} disabled={sending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button disabled={selected.size === 0 || sending} onClick={handleSend}>
             <Send className="w-4 h-4 mr-2" />
             {selected.size > 0
-              ? `Send to ${selected.size} student${selected.size !== 1 ? "s" : ""}`
-              : "Send"}
+              ? t("calendar.notify.sendToCount", { count: selected.size })
+              : t("calendar.notify.send")}
           </Button>
         </DialogFooter>
       </DialogContent>

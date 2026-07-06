@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarX, CalendarX2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type DeleteScope = 'single' | 'future';
 
@@ -24,15 +25,16 @@ export function DeleteClassDialog({
   open, 
   onClose, 
   onConfirm,
-  className 
+  className
 }: DeleteClassDialogProps) {
+  const { t } = useTranslation();
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent className="sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Eliminar clase</AlertDialogTitle>
+          <AlertDialogTitle>{t("calendar.deleteDialog.title")}</AlertDialogTitle>
           <AlertDialogDescription>
-            ¿Qué clases deseas eliminar?
+            {t("calendar.deleteDialog.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         
@@ -44,9 +46,9 @@ export function DeleteClassDialog({
           >
             <CalendarX className="w-5 h-5 mr-3 shrink-0" />
             <div className="text-left">
-              <p className="font-medium">Solo esta clase</p>
+              <p className="font-medium">{t("calendar.deleteDialog.singleTitle")}</p>
               <p className="text-sm text-muted-foreground font-normal">
-                Elimina únicamente esta instancia
+                {t("calendar.deleteDialog.singleDescription")}
               </p>
             </div>
           </Button>
@@ -58,16 +60,16 @@ export function DeleteClassDialog({
           >
             <CalendarX2 className="w-5 h-5 mr-3 shrink-0" />
             <div className="text-left">
-              <p className="font-medium">Esta y todas las futuras</p>
+              <p className="font-medium">{t("calendar.deleteDialog.futureTitle")}</p>
               <p className="text-sm text-muted-foreground font-normal">
-                Elimina esta clase y todas las siguientes de la serie
+                {t("calendar.deleteDialog.futureDescription")}
               </p>
             </div>
           </Button>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

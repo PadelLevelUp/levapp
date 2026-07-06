@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarX, CalendarX2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type ApplyScope = 'single' | 'future';
 export type ClassScopeMode = 'delete' | 'edit';
@@ -21,39 +22,21 @@ interface ClassScopeDialogProps {
   className?: string;
 }
 
-const COPY: Record<ClassScopeMode, {
-  title: string;
-  description: string;
-  singleTitle: string;
-  singleDescription: string;
-  futureTitle: string;
-  futureDescription: string;
-}> = {
-  delete: {
-    title: 'Delete class',
-    description: 'Which classes would you like to delete?',
-    singleTitle: 'Only this class',
-    singleDescription: 'Deletes only this instance',
-    futureTitle: 'This and all future classes',
-    futureDescription: 'Deletes this class and all following ones in the series',
-  },
-  edit: {
-    title: 'Edit class',
-    description: 'Where should these changes be applied?',
-    singleTitle: 'Only this class',
-    singleDescription: 'Applies changes only to this instance',
-    futureTitle: 'This and all future classes',
-    futureDescription: 'Applies changes to this class and all following ones',
-  },
-};
-
 export function ClassScopeDialog({
   open,
   mode,
   onClose,
   onConfirm,
 }: ClassScopeDialogProps) {
-  const text = COPY[mode];
+  const { t } = useTranslation();
+  const text = {
+    title: t(`calendar.scope.${mode}.title`),
+    description: t(`calendar.scope.${mode}.description`),
+    singleTitle: t(`calendar.scope.${mode}.singleTitle`),
+    singleDescription: t(`calendar.scope.${mode}.singleDescription`),
+    futureTitle: t(`calendar.scope.${mode}.futureTitle`),
+    futureDescription: t(`calendar.scope.${mode}.futureDescription`),
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
@@ -96,7 +79,7 @@ export function ClassScopeDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
