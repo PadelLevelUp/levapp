@@ -1,0 +1,116 @@
+# LevelUp Mobile
+
+Native iOS/Android client for the LevelUp padel coaching platform, talking to the same Flask backend as the web app. Part of the one-core-two-shells monorepo: all platform-agnostic logic lives in `packages/*` (`@levelup/types`, `@levelup/api`, `@levelup/hooks`, `@levelup/validation`, `@levelup/config`) and is shared with `apps/web`; this app is the native shell.
+
+**Stack:** Expo (SDK 54) + Expo Router (file-based routing in `app/`), NativeWind (Tailwind for RN), react-native-reusables/@rn-primitives UI, TanStack Query, Zod. E2E tested with Maestro on the iOS Simulator.
+
+## Structure
+
+```
+app/                    # Expo Router routes
+  (tabs)/               # dashboard, calendar, players, messages, more
+  class/[id], class/new
+  player/[playerId], player/new
+  conversation/[id], conversation/new
+  training/             # exercises + groups
+  availability.tsx, settings.tsx, login.tsx
+src/
+  auth/                 # AuthContext (login, token restore, push registration)
+  components/           # UI kit (see src/components/ui/README.md)
+  features/             # availability, calendar, dashboard, messages, players, settings, training
+  lib/                  # api.ts (SecureStore token adapter), config.ts (API_URL), sse.ts, push/
+.maestro/               # Maestro E2E suite (see .maestro/README.md)
+scripts/e2e.sh          # E2E runner (preflight checks + DB reset + maestro test)
+```
+
+## Prerequisites
+
+- **Node 24.15.0** via nvm (`nvm use 24.15.0`) — the repo's toolchain expects it
+- **Xcode** with an iOS Simulator (the E2E suite pins iPhone 17 Pro, UDID `180A9433-4EA7-4F9B-9FD1-79E1250BD9BB`)
+- **Maestro** at `~/.maestro/bin/maestro` (E2E only)
+- The backend repo checked out alongside: `<repo-root>/levelup/levelup_backend` with its `.venv` set up
+
+## Running locally (dev)
+
+The API base URL is set in `src/lib/config.ts`: it defaults to `http://localhost:5001/api` (the E2E test backend) and is overridden with `EXPO_PUBLIC_API_URL`. The iOS Simulator shares the Mac's network, so `localhost` works; use a LAN IP for physical devices.
+
+1. **Start the Flask backend.** For the dev DB (`levelup` on :5000):
+
+   ```bash
+   cd <repo-root>/levelup/levelup_backend && source .venv/bin/activate
+   flask run --port 5000
+   ```
+
+2. **Boot an iOS Simulator** (Xcode → Open Developer Tool → Simulator, or `xcrun simctl boot <udid>`).
+
+3. **Install dependencies at the monorepo root** (npm workspaces — this repo uses npm, not pnpm):
+
+   ```bash
+   cd <repo-root>/levelup/levelup_frontend && npm install
+   ```
+
+4. **Run the app**, pointing it at the dev backend:
+
+   ```bash
+   cd apps/mobile
+   EXPO_PUBLIC_API_URL=http://localhost:5000/api npx expo run:ios   # builds + installs the dev client
+   # or, once the dev build is installed:
+   EXPO_PUBLIC_API_URL=http://localhost:5000/api npx expo start     # then press i
+   ```
+
+   Omit `EXPO_PUBLIC_API_URL` to hit the default `:5001` test backend instead.
+
+## E2E tests (Maestro)
+
+Full details, flow ordering, and gotchas: [`.maestro/README.md`](.maestro/README.md). The suite runs against the **test backend on :5001** (`levelup_test` DB) with the dev build loading JS from **Metro on :8081**.
+
+1. **Test backend** (`POSTGRES_HOST=localhost` — never the value from `secrets.env`, that one points at prod):
+
+   ```bash
+   cd <repo-root>/levelup && source .claude/secrets.env && cd levelup_backend && \
+   source .venv/bin/activate && \
+   FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost \
+   POSTGRES_PORT=5432 POSTGRES_USER=padel_app_user POSTGRES_DB=levelup_test \
+   JWT_SECRET_KEY=e2e-test-secret E2E_DEBUG_ENDPOINTS=true TEST_MODE=true \
+   flask run --host 127.0.0.1 --port 5001 --no-reload
+   ```
+
+2. **Metro:** `cd apps/mobile && npx expo start --port 8081`
+
+3. **Run the suite** (from the `levelup` repo root; the script verifies backend/Metro/simulator, kills hung Maestro java processes, resets + seeds `levelup_test`, then runs all flows):
+
+   ```bash
+   source .claude/secrets.env               # POSTGRES_PW for the DB reset
+   bash apps/mobile/scripts/e2e.sh
+   ```
+
+   Single flow, no DB reset (several flows need a fresh seed — see `.maestro/README.md`):
+
+   ```bash
+   cd apps/mobile && maestro test .maestro/flows/01-login.yaml
+   ```
+
+### Web Playwright → Maestro coverage
+
+The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. Summary by web spec area (the full per-spec table lives in [`.maestro/README.md`](.maestro/README.md)):
+
+| Web spec area (`apps/web/e2e/`) | Maestro flow(s) | Gaps / notes |
+|---|---|---|
+| auth-onboarding | `01-login.yaml` | invite-link completion is web-only |
+| dashboard | `02-coach-dashboard.yaml` | — |
+| schedule-calendar | `03-class-management.yaml`, `04-attendance.yaml`, `05-class-deletion.yaml`, `14-student-calendar.yaml` | web mobile-viewport spec n/a |
+| player-management / players | `06-add-player.yaml`, `07-player-notes.yaml` | level/side/sort Select portals not drivable → `08-set-player-level.skipped` (the @rn-primitives Select dropdown renders through a portal with no iOS a11y nodes, and the picker sits in a scrollable form so a coordinate tap would be flaky); delete-player and duplicate-name warnings not covered |
+| evaluation-tools | `07-player-notes.yaml` | category editor not in mobile scope (read-only evaluations) |
+| exercise-management | `10-exercise-crud.yaml`, `11-exercise-groups.yaml` | browse filters not in mobile scope |
+| messaging | `09-direct-messages.yaml` | timezone spec skipped (no clock control in Maestro) |
+| settings | `12-settings-language.yaml` | language select driven by coordinate tap; skill-levels editor outside the critical set |
+| availability | `13-student-availability.yaml` | — |
+| clubs, import-history, notification-engine, loading-states | — | not in mobile scope / web-only; student cancel-attendance exists on mobile but needs dedicated seeding (future flow) |
+
+## Push notifications
+
+Scaffolded but stubbed. `src/lib/push/` contains an `ExpoPushRegistrar` (expo-notifications) invoked fire-and-forget from `AuthContext` on login and session restore. Every step is guarded and resolves silently: it skips on simulators (`Device.isDevice`), on denied notification permission, and — the key stub — `PUSH_TOKEN_ENDPOINT` is `null` because the backend has no native push-token endpoint yet (it only exposes Web-Push at `/api/notifications/subscribe`). With the endpoint `null`, the obtained Expo token is logged and never synced. When the backend endpoint lands, set `PUSH_TOKEN_ENDPOINT` in `src/lib/push/expoPushRegistrar.ts` and registration starts syncing automatically.
+
+## API contract
+
+[`API-CONTRACT.md`](API-CONTRACT.md) documents the full backend surface (auth scheme, rolling `X-New-Token` refresh, every endpoint with request/response shapes), derived from the Flask source. The typed client in `packages/api` targets it — do not invent endpoints.
