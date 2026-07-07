@@ -80,6 +80,72 @@ function RestrictionRow({
   );
 }
 
+interface ScalarStepperRowProps {
+  label: string;
+  description: string;
+  value: number;
+  unit?: string;
+  min: number;
+  max: number;
+  step: number;
+  disabled?: boolean;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}
+
+/**
+ * A stepper row for a plain scalar restriction (no enable/disable toggle), used
+ * for the cancellation deadline. Mirrors the RestrictionRow stepper style but is
+ * always active. See PAD-45.
+ */
+function ScalarStepperRow({
+  label,
+  description,
+  value,
+  unit,
+  min,
+  max,
+  disabled,
+  onIncrement,
+  onDecrement,
+}: ScalarStepperRowProps) {
+  return (
+    <div className={`space-y-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{label}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onDecrement}
+              disabled={value <= min}
+            >
+              <Minus className="w-3 h-3" />
+            </Button>
+            <span className="text-sm font-semibold w-8 text-center">{value}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onIncrement}
+              disabled={value >= max}
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+            {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ExcludedPlayersRowProps {
   enabled: boolean;
   playerIds: string[];
@@ -198,9 +264,19 @@ interface RestrictionsPanelProps {
 
 export function RestrictionsPanel({ restrictions, onChange, disabled }: RestrictionsPanelProps) {
   const { t } = useTranslation();
-  const update = (key: keyof NotificationRestrictions, patch: object) => {
+  // Only the object-valued restriction keys go through this helper; the scalar
+  // cancellationDeadlineHours is updated directly via onChange (see below).
+  type ObjectRestrictionKey = {
+    [K in keyof NotificationRestrictions]: NotificationRestrictions[K] extends object
+      ? K
+      : never;
+  }[keyof NotificationRestrictions];
+  const update = (key: ObjectRestrictionKey, patch: object) => {
     onChange({ ...restrictions, [key]: { ...restrictions[key], ...patch } });
   };
+  // Plain scalar (hours before class start); default 24 for configs saved before
+  // the field existed. See PAD-45.
+  const cancellationDeadline = restrictions.cancellationDeadlineHours ?? 24;
 
   return (
     <div className="space-y-4">
@@ -304,6 +380,19 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         showValue={false}
         disabled={disabled}
         onToggle={() => update("excludeUnpaidSubscription", { enabled: !restrictions.excludeUnpaidSubscription.enabled })}
+      />
+
+      <ScalarStepperRow
+        label={t("settings.restrictions.cancellationDeadline")}
+        description={t("settings.restrictions.cancellationDeadlineDescription")}
+        value={cancellationDeadline}
+        unit={t("settings.restrictions.hours")}
+        min={0}
+        max={168}
+        step={1}
+        disabled={disabled}
+        onIncrement={() => onChange({ ...restrictions, cancellationDeadlineHours: Math.min(168, cancellationDeadline + 1) })}
+        onDecrement={() => onChange({ ...restrictions, cancellationDeadlineHours: Math.max(0, cancellationDeadline - 1) })}
       />
     </div>
   );

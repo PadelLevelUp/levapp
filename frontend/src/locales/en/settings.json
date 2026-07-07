@@ -383,7 +383,10 @@
       "excludedPlayersDescription": "Specific players to exclude from all automatic invitations.",
       "searchPlayers": "Search players…",
       "excludeUnpaid": "Exclude unpaid subscriptions",
-      "excludeUnpaidDescription": "Don't invite students with an inactive or unpaid subscription"
+      "excludeUnpaidDescription": "Don't invite students with an inactive or unpaid subscription",
+      "hours": "hours",
+      "cancellationDeadline": "Cancellation deadline",
+      "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"
     },
 
     "notificationGroups": {
