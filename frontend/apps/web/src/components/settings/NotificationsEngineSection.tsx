@@ -251,6 +251,7 @@ export function NotificationsEngineSection() {
                 maxInactiveTime: { enabled: false, value: 120 },
                 excludedPlayers: { enabled: false, playerIds: [] },
                 excludeUnpaidSubscription: { enabled: false },
+                cancellationDeadlineHours: 24,
                 ...config.restrictions,
               }}
               onChange={(restrictions) => save({ restrictions })}

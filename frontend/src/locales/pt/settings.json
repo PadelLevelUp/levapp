@@ -383,7 +383,10 @@
       "excludedPlayersDescription": "Jogadores específicos a excluir de todos os convites automáticos.",
       "searchPlayers": "Procurar jogadores…",
       "excludeUnpaid": "Excluir subscrições por pagar",
-      "excludeUnpaidDescription": "Não convidar alunos com uma subscrição inativa ou por pagar"
+      "excludeUnpaidDescription": "Não convidar alunos com uma subscrição inativa ou por pagar",
+      "hours": "horas",
+      "cancellationDeadline": "Prazo de cancelamento",
+      "cancellationDeadlineDescription": "Cancelamentos dentro deste número de horas antes do início da aula são marcados como tardios"
     },
 
     "notificationGroups": {

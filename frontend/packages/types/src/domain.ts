@@ -406,6 +406,10 @@ export interface NotificationRestrictions {
   quietHours: { enabled: boolean };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   excludeUnpaidSubscription: { enabled: boolean };
+  // Plain scalar (hours before class start). Cancellations after this window are
+  // still allowed but flagged as "late cancellations". Backend key:
+  // restrictions.cancellationDeadlineHours (default 24). See PAD-45 / PAD-43.
+  cancellationDeadlineHours: number;
 }
 
 export interface NotificationGroup {
