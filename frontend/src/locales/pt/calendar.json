@@ -125,7 +125,15 @@
       "failedSaveTraining": "Falha ao guardar o treino",
       "remindersSent_one": "Lembrete enviado a {{count}} aluno",
       "remindersSent_other": "Lembretes enviados a {{count}} alunos",
-      "failedSendReminders": "Falha ao enviar lembretes"
+      "failedSendReminders": "Falha ao enviar lembretes",
+      "cancelAttendance": "Cancelar presença",
+      "cancelAttendanceConfirmTitle": "Cancelar a tua presença?",
+      "cancelAttendanceConfirmBody": "Serás removido desta aula e a tua vaga será libertada.",
+      "cancelAttendanceLateBody": "O prazo de cancelamento já passou. Ainda podes cancelar, mas isto conta como um cancelamento tardio.",
+      "cancelAttendanceLateBadge": "Prazo ultrapassado",
+      "keepAttendance": "Manter a minha vaga",
+      "attendanceCancelled": "Presença cancelada.",
+      "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado."
     },
     "planning": {
       "title": "Planeamento ({{count}})",

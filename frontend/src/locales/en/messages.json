@@ -35,6 +35,8 @@
     "somethingWentWrong": "Something went wrong. Please try again.",
     "attendanceCancelled": "Attendance cancelled.",
     "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started.",
+    "lateCancellationTitle": "Late cancellation",
+    "lateCancellationWarning": "The cancellation deadline has passed. You can still cancel, but this counts as a late cancellation.",
     "today": "Today",
     "yesterday": "Yesterday",
     "noMessagesYet": "No messages yet",

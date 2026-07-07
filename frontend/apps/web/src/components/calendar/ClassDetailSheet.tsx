@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Repeat,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -36,7 +37,7 @@ import type {
 
 
 import { getClassInstance } from "@/api/classes";
-import { sendClassReminders } from "@/api/notificationEngine";
+import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { createEventSource } from "@/api/events";
@@ -58,6 +59,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import {
   Select,
@@ -144,6 +156,11 @@ export function ClassDetailSheet({
   const [savingTraining, setSavingTraining] = useState(false);
   const savedPlannedIdsRef = useRef<string[]>([]);
 
+  // PAD-46: student cancels attendance from the class-detail view.
+  const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
+  const [cancellingAttendance, setCancellingAttendance] = useState(false);
+  const [attendanceCancelled, setAttendanceCancelled] = useState(false);
+
   useEffect(() => {
     if (!canManage) {
       setIsEditing(false);
@@ -192,6 +209,9 @@ export function ClassDetailSheet({
     setApprovalBundle(null);
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
+    setCancelAttendanceOpen(false);
+    setCancellingAttendance(false);
+    setAttendanceCancelled(false);
   }, [classInstance?.id]);
 
   // Keep a live ref to event so SSE handlers don't go stale
@@ -245,6 +265,42 @@ export function ClassDetailSheet({
   if (!active) return null;
 
   const canApplyScope = event?.isRecurring === true
+
+  // PAD-46: resolve the real LessonInstance id to cancel against. Prefer the id
+  // carried on the student's own presence (works for recurring lessons that were
+  // materialized on confirmation); fall back to the event's originalId when the
+  // event already points at a LessonInstance.
+  const cancelInstanceId = (() => {
+    const fromPresence = classInstance?.presences?.[0]?.lessonInstanceId;
+    if (fromPresence != null) return Number(fromPresence);
+    if (event?.model === "LessonInstance") return Number(event.originalId);
+    return null;
+  })();
+
+  // PAD-46: a STUDENT viewer (canManage=false) is enrolled in this instance iff
+  // they appear in participants — the serializer only ever returns the viewer's
+  // own player for a student, so a non-empty list means "I'm a participant".
+  const classStartAt = new Date(`${active.date}T${active.startTime}`);
+  const classStarted = !Number.isNaN(classStartAt.getTime()) && classStartAt.getTime() <= Date.now();
+  const isStudentParticipant =
+    !canManage &&
+    event?.type === "class" &&
+    !isCanceled &&
+    (active.participants?.length ?? 0) > 0;
+  // Deadline-aware messaging: at/after (start - cancellationDeadlineHours) but
+  // before start → "late cancellation" warning (still allowed).
+  const cancellationDeadline = active.cancellationDeadline
+    ? new Date(active.cancellationDeadline)
+    : null;
+  const isLateCancellation =
+    !!cancellationDeadline &&
+    !Number.isNaN(cancellationDeadline.getTime()) &&
+    Date.now() >= cancellationDeadline.getTime();
+  const canCancelAttendance =
+    isStudentParticipant &&
+    !classStarted &&
+    !attendanceCancelled &&
+    cancelInstanceId != null;
 
   const startEdit = () => {
     if (!canManage || !onEdit) return;
@@ -454,6 +510,26 @@ export function ClassDetailSheet({
       toast({ variant: "destructive", title: t("calendar.detail.failedSaveTraining") });
     } finally {
       setSavingTraining(false);
+    }
+  };
+
+  const handleCancelAttendance = async () => {
+    if (cancelInstanceId == null || cancellingAttendance) return;
+    setCancellingAttendance(true);
+    try {
+      await cancelAttendance(cancelInstanceId);
+      setAttendanceCancelled(true);
+      setCancelAttendanceOpen(false);
+      toast({ title: t("calendar.detail.attendanceCancelled") });
+    } catch {
+      // 409 (class already started) and any other failure surface the same
+      // graceful error toast.
+      toast({
+        variant: "destructive",
+        title: t("calendar.detail.cancelAttendanceFailed"),
+      });
+    } finally {
+      setCancellingAttendance(false);
     }
   };
 
@@ -991,6 +1067,32 @@ export function ClassDetailSheet({
                 </div>
               )}
 
+              {/* PAD-46: student cancels their own attendance from the class view */}
+              {!canManage && (
+                <>
+                  {attendanceCancelled ? (
+                    <div className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                      <X className="w-4 h-4" />
+                      {t("calendar.detail.attendanceCancelled")}
+                    </div>
+                  ) : canCancelAttendance ? (
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive"
+                      onClick={() => setCancelAttendanceOpen(true)}
+                      disabled={cancellingAttendance}
+                    >
+                      {cancellingAttendance ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <X className="w-4 h-4 mr-2" />
+                      )}
+                      {t("calendar.detail.cancelAttendance")}
+                    </Button>
+                  ) : null}
+                </>
+              )}
+
               {canManage && isValidating && (
                 <div className="flex gap-2">
                   <Button
@@ -1026,6 +1128,48 @@ export function ClassDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      {/* PAD-46: confirm student cancellation, with deadline-aware messaging */}
+      {!canManage && (
+        <AlertDialog open={cancelAttendanceOpen} onOpenChange={setCancelAttendanceOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("calendar.detail.cancelAttendanceConfirmTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {isLateCancellation
+                  ? t("calendar.detail.cancelAttendanceLateBody")
+                  : t("calendar.detail.cancelAttendanceConfirmBody")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {isLateCancellation && (
+              <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {t("calendar.detail.cancelAttendanceLateBadge")}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancellingAttendance}>
+                {t("calendar.detail.keepAttendance")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCancelAttendance();
+                }}
+                disabled={cancellingAttendance}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {cancellingAttendance ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                {t("calendar.detail.cancelAttendance")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {canManage && event && (
         <ManualNotificationModal
