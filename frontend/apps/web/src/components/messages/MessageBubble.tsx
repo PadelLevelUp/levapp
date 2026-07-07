@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
@@ -47,6 +47,9 @@ export function MessageBubble({
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [responding, setResponding] = useState(false);
   const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | null>(null);
+  // PAD-46: when the cancellation deadline has passed, require an explicit
+  // confirmation of the "late cancellation" before cancelling (still allowed).
+  const [confirmingLateCancel, setConfirmingLateCancel] = useState(false);
 
   const isInvite = message.messageType === "notification_invite";
   const isReminder = message.messageType === "notification_reminder";
@@ -287,6 +290,12 @@ export function MessageBubble({
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
           const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
+          // PAD-46: past the coach's cancellation deadline (but before start) the
+          // cancel is still allowed, but we warn it counts as a late cancellation.
+          // The deadline is absent on older reminders → no warning, same as before.
+          const deadlineIso = message.metadata?.cancellationDeadline;
+          const isLateCancellation =
+            !!deadlineIso && new Date(deadlineIso).getTime() <= Date.now();
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
@@ -297,14 +306,44 @@ export function MessageBubble({
                     {t("messages.confirmed")}
                   </span>
                   {classInFuture && (
-                    <button
-                      onClick={handleCancelAttendance}
-                      disabled={responding}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      {responding ? "…" : t("messages.cancelAttendance")}
-                    </button>
+                    isLateCancellation && confirmingLateCancel ? (
+                      <div className="flex flex-col gap-1.5 w-full">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          {t("messages.lateCancellationWarning")}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleCancelAttendance}
+                            disabled={responding}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive hover:bg-destructive/25 disabled:opacity-50 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            {responding ? "…" : t("messages.cancelAttendance")}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingLateCancel(false)}
+                            disabled={responding}
+                            className="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground disabled:opacity-50 transition-colors"
+                          >
+                            {t("messages.no")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          isLateCancellation
+                            ? setConfirmingLateCancel(true)
+                            : handleCancelAttendance()
+                        }
+                        disabled={responding}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        {responding ? "…" : t("messages.cancelAttendance")}
+                      </button>
+                    )
                   )}
                 </>
               ) : declined ? (

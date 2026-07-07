@@ -154,6 +154,10 @@ export interface ClassInstance {
   notificationsEnabled?: boolean;
   invitations?: ClassInvitation[];
   plannedExerciseIds?: string[];
+  // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
+  // the student view can render deadline-aware cancel UX.
+  cancellationDeadlineHours?: number;
+  cancellationDeadline?: string | null;
 }
 
 export interface Presence {
@@ -244,6 +248,12 @@ export interface Message {
     response?: string;
     /** ISO start time of the class (on reminder messages), used to gate cancel. */
     startsAt?: string;
+    /**
+     * ISO cancellation deadline (start - cancellationDeadlineHours) when known.
+     * PAD-46: lets the reminder-bubble cancel warn about a late cancellation,
+     * consistent with the calendar class-detail view. Absent on older reminders.
+     */
+    cancellationDeadline?: string;
     [key: string]: unknown;
   };
 }

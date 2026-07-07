@@ -125,7 +125,15 @@
       "failedSaveTraining": "Failed to save training",
       "remindersSent_one": "Reminders sent to {{count}} student",
       "remindersSent_other": "Reminders sent to {{count}} students",
-      "failedSendReminders": "Failed to send reminders"
+      "failedSendReminders": "Failed to send reminders",
+      "cancelAttendance": "Cancel attendance",
+      "cancelAttendanceConfirmTitle": "Cancel your attendance?",
+      "cancelAttendanceConfirmBody": "You'll be removed from this class and your spot will be freed.",
+      "cancelAttendanceLateBody": "The cancellation deadline has passed. You can still cancel, but this counts as a late cancellation.",
+      "cancelAttendanceLateBadge": "Past deadline",
+      "keepAttendance": "Keep my spot",
+      "attendanceCancelled": "Attendance cancelled.",
+      "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started."
     },
     "planning": {
       "title": "Planning ({{count}})",

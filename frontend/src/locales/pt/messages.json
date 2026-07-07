@@ -35,6 +35,8 @@
     "somethingWentWrong": "Ocorreu um erro. Por favor tenta novamente.",
     "attendanceCancelled": "Presença cancelada.",
     "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado.",
+    "lateCancellationTitle": "Cancelamento tardio",
+    "lateCancellationWarning": "O prazo de cancelamento já passou. Ainda podes cancelar, mas isto conta como um cancelamento tardio.",
     "today": "Hoje",
     "yesterday": "Ontem",
     "noMessagesYet": "Ainda não há mensagens",
