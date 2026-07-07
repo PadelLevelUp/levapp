@@ -14,9 +14,15 @@ import { initReactI18next } from "react-i18next";
 type Dict = Record<string, unknown>;
 
 // Eagerly import every locale JSON so translations are bundled (no async loading).
-const modules = import.meta.glob<{ default: Dict }>("./locales/*/*.json", {
-  eager: true,
-});
+// The monorepo restructure (PR #47) moved this module to apps/web/src/ but left
+// the locale files at the repo-root src/locales/ tree, so the glob points there
+// (three levels up: apps/web/src -> apps/web -> apps -> repo root).
+const modules = import.meta.glob<{ default: Dict }>(
+  "../../../src/locales/*/*.json",
+  {
+    eager: true,
+  }
+);
 
 /** Deep-merge source into target (objects merge, everything else overwrites). */
 function deepMerge(target: Dict, source: Dict): Dict {
@@ -42,8 +48,8 @@ function deepMerge(target: Dict, source: Dict): Dict {
 const resources: Record<string, { translation: Dict }> = {};
 
 for (const [path, mod] of Object.entries(modules)) {
-  // path looks like "./locales/pt/nav.json" -> capture the language segment.
-  const match = path.match(/\.\/locales\/([^/]+)\//);
+  // path looks like "../../../src/locales/pt/nav.json" -> capture the language segment.
+  const match = path.match(/\/locales\/([^/]+)\//);
   if (!match) continue;
   const lng = match[1];
   const data = (mod as { default?: Dict }).default ?? (mod as Dict);
