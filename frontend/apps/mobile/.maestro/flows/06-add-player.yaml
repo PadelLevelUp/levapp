@@ -1,0 +1,51 @@
+# Mirrors: apps/web/e2e/player-management/add-player.spec.ts
+# - add "Maestro Player" with a unique username; it appears in the players
+#   list (found via search — with 30 seeded players the new one lands on
+#   page 2 of the alphabetical list).
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+
+# ── Fill name + unique username (availability-checked server-side) ──
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Player"
+- tapOn:
+    id: "player-username"
+- inputText: "maestro-player-1"
+# Dismiss the keyboard (on-drag) so it can't cover the save button.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-save"
+
+# ── Back on the list: search finds the new player ──
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- tapOn:
+    id: "players-search"
+- inputText: "Maestro"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Player.*"
+    timeout: 20000

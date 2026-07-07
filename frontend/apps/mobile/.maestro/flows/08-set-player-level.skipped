@@ -1,0 +1,18 @@
+# SKIPPED — mirrors apps/web/e2e/players/set-player-level.spec.ts
+#
+# Reason: the level picker in the mobile PlayerForm is an @rn-primitives
+# Select. Its dropdown options render through a portal that is NOT exposed
+# to the iOS accessibility tree (verified with `maestro hierarchy` while the
+# dropdown was visibly open — neither the option testIDs nor their labels
+# appear), so Maestro cannot target them by id or text.
+#
+# Unlike the settings language select (flow 12, fixed position near the top
+# of a non-scrolled screen), the level select sits inside a scrollable edit
+# form whose scroll offset and keyboard state vary, so a screen-percentage
+# coordinate tap would be flaky. Per the suite rules a flaky flow must not
+# ship, so this journey is skipped. The `.skipped` extension keeps Maestro's
+# folder runner from picking this file up.
+#
+# To make this drivable, the Select options need real a11y exposure (e.g.
+# rendering the portal content with accessible={true} elements or replacing
+# the Select with toggle buttons like the exercise difficulty picker).

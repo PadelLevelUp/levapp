@@ -1,0 +1,44 @@
+# Mirrors: apps/web/e2e/settings/language-preference.spec.ts
+# - change the preferred language to English; the change is persisted via
+#   PATCH /auth/me and confirmed by the "Language preference saved." status.
+#
+# CAVEAT — coordinate tap: the language dropdown is an @rn-primitives Select
+# whose portal options are NOT exposed to the iOS accessibility tree (see
+# 08-set-player-level.skipped). Unlike the player-level select, this dropdown
+# opens at a deterministic position (fixed cards above it, non-scrolled
+# screen), so the "English" option is tapped by screen percentage as a last
+# resort. The tap is verified by the saved-status assertion, so a miss fails
+# loudly instead of passing silently. DB reset restores language=pt between
+# suite runs.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-language-select"
+    timeout: 15000
+# (The selected value text is collapsed into the trigger's a11y label
+# "Preferred language", so it cannot be asserted directly.)
+
+# ── Open the select and tap "English" (second option) by position ──
+# retryTapIfNoChange must be off on both taps: a re-tap on the trigger
+# closes the just-opened dropdown. Each attempt ends with the saved-status
+# check — ground truth that the tap hit "English" (PATCH /auth/me OK).
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "settings-language-select"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - tapOn:
+          point: "22%,65%"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            text: "Language preference saved."
+          timeout: 8000

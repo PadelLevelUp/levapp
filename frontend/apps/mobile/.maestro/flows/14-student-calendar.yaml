@@ -1,0 +1,33 @@
+# Mobile-specific student journey (closest web specs:
+# schedule-calendar/daily-schedule.spec.ts student view +
+# schedule-calendar/class-detail-privacy.spec.ts)
+# - student sees the seeded class on their calendar
+# - opens the detail and sees their own attendance status badge
+# NOTE: after flow 04 the coach marked this student present, so the badge
+# reads "Present" in suite order; on a freshly seeded DB (flow run
+# standalone) the invited-not-confirmed presence reads "Invited" — the
+# assertion accepts either so the flow is order-independent.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-student.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+# ── Open the seeded class detail ──
+- tapOn: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+
+# ── Student sees their own attendance status ──
+- scrollUntilVisible:
+    element:
+      text: "Your attendance"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Present|Invited"
+# Students never get coach controls.
+- assertNotVisible:
+    id: "attendance-confirm"
+- assertNotVisible:
+    id: "class-delete"

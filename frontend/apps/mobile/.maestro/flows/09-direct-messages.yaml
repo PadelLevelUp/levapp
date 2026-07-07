@@ -1,0 +1,106 @@
+# Mirrors: apps/web/e2e/messaging/direct-messages.spec.ts (+ the role badge
+# from messaging/participant-role-header.spec.ts)
+# - coach sees the unread badge on the seeded conversation (id 1)
+# - opens it: header shows the participant role badge (chat-header-role)
+# - sends "Maestro message" → bubble appears
+# - edits it → text updates
+# - deletes it → "deleted" placeholder shows
+# NOTE: conversation id 1 is deterministic on a freshly reset database
+# (seed.py creates exactly one conversation). Opening it marks it read, so
+# the unread-badge assertion happens first.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+# Unread badge from the seeded student reply.
+- assertVisible:
+    id: "conversation-unread-1"
+
+# ── Open the conversation: role badge in header, seeded messages ──
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "chat-header-role"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Thanks coach!"
+    timeout: 15000
+
+# ── Send ──
+- tapOn:
+    id: "message-input"
+- inputText: "Maestro message"
+- tapOn:
+    id: "message-send"
+- extendedWaitUntil:
+    visible:
+      text: "Maestro message"
+    timeout: 15000
+
+# ── Edit (select own bubble → Edit → clear with BOUNDED erase → retype) ──
+# The keyboard is still open after sending; the first tap on the list only
+# dismisses it (keyboardShouldPersistTaps is "never") and never reaches the
+# bubble — so dismiss it first with a tap on an empty list area.
+- tapOn:
+    point: "50%, 45%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+# retryTapIfNoChange must be off: a second tap would toggle the selection
+# (and its action bar) straight back off.
+- tapOn:
+    text: "Maestro message"
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: "message-edit"
+    timeout: 10000
+- tapOn:
+    id: "message-edit"
+- extendedWaitUntil:
+    visible:
+      id: "message-edit-input"
+    timeout: 10000
+- tapOn:
+    id: "message-edit-input"
+- eraseText: 40
+- inputText: "Maestro message edited"
+- tapOn:
+    id: "message-edit-save"
+- extendedWaitUntil:
+    visible:
+      text: "Maestro message edited"
+    timeout: 15000
+
+# ── Delete (select bubble → Delete → confirm → placeholder) ──
+# Same keyboard-dismiss guard (the edit composer reopened the keyboard).
+- tapOn:
+    point: "50%, 45%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- tapOn:
+    text: "Maestro message edited"
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: "message-delete"
+    timeout: 10000
+- tapOn:
+    id: "message-delete"
+- extendedWaitUntil:
+    visible:
+      id: "message-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "message-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      text: "Message deleted|Deleted message"
+    timeout: 15000
+- assertNotVisible: "Maestro message edited"

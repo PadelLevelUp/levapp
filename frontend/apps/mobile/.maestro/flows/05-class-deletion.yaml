@@ -1,0 +1,46 @@
+# Mirrors: apps/web/e2e/schedule-calendar/class-deletion.spec.ts
+# - delete the (non-recurring) "Maestro Test Class" with confirmation; gone
+#   from the calendar afterwards.
+# ORDER DEPENDENCY: requires flow 03-class-management to have created
+# "Maestro Test Class" on the seeded Monday (order pinned in ../config.yaml).
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+# ── Open the class created by flow 03 ──
+- extendedWaitUntil:
+    visible:
+      text: "Maestro Test Class"
+    timeout: 20000
+- tapOn: "Maestro Test Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 15000
+
+# ── Delete (single class → one Delete button) with confirmation ──
+- scrollUntilVisible:
+    element:
+      id: "class-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-delete"
+- extendedWaitUntil:
+    visible:
+      id: "class-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-delete-confirm"
+
+# ── Back on the calendar: the class is gone, the seeded class remains ──
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 20000
+- assertNotVisible: "Maestro Test Class"

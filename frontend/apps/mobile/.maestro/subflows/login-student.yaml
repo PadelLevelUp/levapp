@@ -1,0 +1,8 @@
+# Log in as the seeded E2E student (e2e-student) and land on the dashboard.
+appId: com.levelup.mobile
+---
+- runFlow:
+    file: login.yaml
+    env:
+      USERNAME: e2e-student
+      PASSWORD: E2eStudent123!

@@ -1,0 +1,108 @@
+# Mirrors: apps/web/e2e/availability/student-blockers.spec.ts
+# - student adds a one-time blocker tomorrow 10:00–11:00 → card appears
+# - deletes it with confirmation → gone
+# Notes:
+# - No title is typed: iOS autocorrect mangles free text ("blocker" →
+#   "block…") and an extra focused field invites keyboard-tap collisions.
+#   The card then shows the default "Unavailable" title and the time range.
+# - The keyboard is dismissed (drag) before tapping each next field —
+#   Maestro taps element coordinates even when the keyboard covers them.
+# - Prefilled times (18:00/20:00) are cleared with BOUNDED eraseText only.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-availability"
+- extendedWaitUntil:
+    visible:
+      id: "availability-add"
+    timeout: 15000
+
+# ── Create a one-time blocker for tomorrow 10:00–11:00 ──
+- tapOn:
+    id: "availability-add"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-title"
+    timeout: 15000
+- runScript: ../scripts/seeded-monday.js
+
+# Date
+- scrollUntilVisible:
+    element:
+      id: "blocker-date"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "blocker-date"
+- inputText: ${output.tomorrow}
+- assertVisible:
+    id: "blocker-date"
+    text: ${output.tomorrow}
+
+# Start time (dismiss keyboard first so the tap reaches the field)
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 30%"
+- scrollUntilVisible:
+    element:
+      id: "blocker-start-time"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "blocker-start-time"
+- eraseText: 10
+- inputText: "10:00"
+- assertVisible:
+    id: "blocker-start-time"
+    text: "10:00"
+
+# End time
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 30%"
+- scrollUntilVisible:
+    element:
+      id: "blocker-end-time"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "blocker-end-time"
+- eraseText: 10
+- inputText: "11:00"
+- assertVisible:
+    id: "blocker-end-time"
+    text: "11:00"
+
+# Save
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 30%"
+- scrollUntilVisible:
+    element:
+      id: "blocker-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "blocker-save"
+
+# The card shows the default title and the chosen time range.
+- extendedWaitUntil:
+    visible:
+      text: ".*10:00.*11:00.*"
+    timeout: 20000
+
+# ── Delete it with confirmation ──
+- tapOn: "Delete blocker"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "blocker-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      text: "No blockers yet"
+    timeout: 15000
