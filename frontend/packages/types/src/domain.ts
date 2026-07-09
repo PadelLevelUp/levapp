@@ -254,6 +254,7 @@ export interface Message {
      * consistent with the calendar class-detail view. Absent on older reminders.
      */
     cancellationDeadline?: string;
+    superseded?: boolean;
     [key: string]: unknown;
   };
 }

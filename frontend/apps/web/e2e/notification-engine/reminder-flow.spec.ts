@@ -15,7 +15,7 @@
  */
 
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
-import { loginAsCoach, loginAsStudent2 } from "../helpers/auth";
+import { loginAsCoach, loginAsStudent, loginAsStudent2 } from "../helpers/auth";
 import { openCalendar, openSettings, openMessages } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
 
@@ -466,4 +466,91 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
     autoInviteSectionAfter.locator('[role="switch"]').first().click(),
   ]);
   await page.waitForTimeout(500);
+});
+
+// ---------------------------------------------------------------------------
+// US-REM-08: Newer reminder supersedes older reminder's buttons (PAD-49)
+//
+// When a student receives a second attendance reminder for the same class, the
+// FIRST (older) reminder must stop being actionable — its Yes/No buttons are
+// replaced by a disabled "expired" indicator — while only the latest reminder
+// remains actionable.
+// ---------------------------------------------------------------------------
+
+test("US-REM-08: newer reminder disables older reminder buttons (PAD-49)", async ({
+  request,
+  browser,
+}) => {
+  const token = await coachApiToken(request);
+
+  // Allow at least two reminders per student so the second send_reminders call
+  // actually creates a second reminder (default reminderCount is 1).
+  const cfgRes = await request.post(`${API_BASE}/notify/config`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      reminderTiming: {
+        type: "hours_before",
+        value: 48,
+        reminderCount: 2,
+        hoursBetweenReminders: 1,
+      },
+    },
+  });
+  expect(cfgRes.ok()).toBe(true);
+
+  // Create a FRESH instance (e2e-student + e2e-student-2 enrolled, un-confirmed)
+  // via the E2E debug endpoint. Using a dedicated instance keeps this test
+  // hermetic — other notification specs mutate the seeded instance's attendance
+  // (confirming presence), which would otherwise stop reminders from being sent.
+  // secondsUntilReminderFires is large so the scheduled job never fires mid-test.
+  const debugRes = await request.post(`${API_BASE}/notify/debug/schedule_reminder_test`, {
+    data: { secondsUntilReminderFires: 3600 },
+  });
+  expect(debugRes.ok()).toBe(true);
+  const { instanceId } = (await debugRes.json()) as { instanceId: number };
+  expect(typeof instanceId).toBe("number");
+
+  // Send the first reminder, then a second one that must supersede it.
+  const send = () =>
+    request.post(`${API_BASE}/notify/send_reminders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { model: "LessonInstance", originalId: instanceId, date: null },
+    });
+  expect((await send()).ok()).toBe(true);
+  expect((await send()).ok()).toBe(true);
+
+  const studentCtx = await browser.newContext();
+  try {
+    const studentPage = await studentCtx.newPage();
+    await loginAsStudent(studentPage);
+    await openMessages(studentPage);
+
+    // Open the coach conversation where the reminders were delivered.
+    const coachConv = studentPage.getByText(/e2e coach/i).first();
+    await expect(coachConv).toBeVisible({ timeout: 5000 });
+    await Promise.all([
+      studentPage
+        .waitForResponse(
+          (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+          { timeout: 10_000 }
+        )
+        .catch(() => null),
+      coachConv.click(),
+    ]);
+
+    // The older reminder must now render a disabled "expired" indicator instead
+    // of live Yes/No buttons. Before the fix this text never appears and both
+    // reminders keep active buttons.
+    await expect(
+      studentPage.getByText(/reminder expired|lembrete expirado/i).first()
+    ).toBeVisible({ timeout: 5000 });
+
+    // The latest reminder is still actionable — at least one live "Yes" button
+    // remains and is enabled.
+    const latestYes = studentPage.getByRole("button", { name: /^yes$/i }).last();
+    await expect(latestYes).toBeVisible({ timeout: 5000 });
+    await expect(latestYes).toBeEnabled();
+  } finally {
+    await studentCtx.close().catch(() => {});
+  }
 });
