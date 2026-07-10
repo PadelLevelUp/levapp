@@ -2,10 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CalendarIcon, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-import type { ClassInstance, CoachPlayer } from "@/types";
-import { getClassInstances } from "@/api/classes";
+import type { CalendarEvent, CoachPlayer } from "@/types";
+import { editClass, getClassInstances } from "@/api/classes";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,15 +27,16 @@ import {
 interface AddToClassesDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (classInstanceIds: string[]) => void;
+  onSave?: (classInstanceIds: string[]) => void;
   player: CoachPlayer;
 }
 
 export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClassesDialogProps) {
   const { t } = useTranslation();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [classes, setClasses] = useState<ClassInstance[]>([]);
+  const [classes, setClasses] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
@@ -73,14 +75,39 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
     });
   };
 
-  const handleSave = () => {
-    onSave(Array.from(selectedIds));
-    onClose();
+  const handleSave = async () => {
+    const targets = classes.filter((c) => selectedIds.has(c.id));
+    if (targets.length === 0) return;
+    setSaving(true);
+
+    let successCount = 0;
+    let failureCount = 0;
+    for (const cls of targets) {
+      try {
+        await editClass(cls, { addPlayers: [String(player.playerId)] }, "single");
+        successCount++;
+      } catch {
+        failureCount++;
+      }
+    }
+
+    setSaving(false);
+
+    if (successCount > 0) {
+      toast.success(t("players.addedToClasses", { name: player.name, count: successCount }));
+    }
+    if (failureCount > 0) {
+      toast.error(t("common.somethingWentWrong"));
+    }
+    if (successCount > 0) {
+      onSave?.(Array.from(selectedIds));
+      onClose();
+    }
   };
 
   // Group classes by date
   const classesByDate = useMemo(() => {
-    const grouped = new Map<string, ClassInstance[]>();
+    const grouped = new Map<string, CalendarEvent[]>();
     const sorted = [...classes]
       .filter((c) => c.status !== "canceled")
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
@@ -102,10 +129,6 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
     }
     return days;
   }, [weekStart]);
-
-  const isPlayerAlreadyInClass = (cls: ClassInstance) => {
-    return cls.participants?.some((p) => String(p.id) === String(player.playerId));
-  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -159,25 +182,23 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                     </p>
                     <div className="space-y-2">
                       {dayClasses.map((cls) => {
-                        const alreadyIn = isPlayerAlreadyInClass(cls);
                         const isSelected = selectedIds.has(cls.id);
-                        const isFull = cls.participants
-                          ? cls.participants.length >= cls.maxPlayers
-                          : false;
-                        const disabled = alreadyIn || isFull;
+                        const isFull =
+                          cls.maxPlayers != null &&
+                          (cls.participantCount ?? 0) >= cls.maxPlayers;
 
                         return (
                           <button
                             key={cls.id}
                             type="button"
-                            disabled={disabled}
+                            disabled={isFull}
                             onClick={() => toggleClass(cls.id)}
                             className={cn(
                               "w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
-                              isSelected && !disabled
+                              isSelected && !isFull
                                 ? "border-primary bg-primary/5"
                                 : "border-border hover:bg-accent/50",
-                              disabled && "opacity-50 cursor-not-allowed"
+                              isFull && "opacity-50 cursor-not-allowed"
                             )}
                           >
                             <div
@@ -186,25 +207,25 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">
-                                {cls.name || t("players.unnamedClass")}
+                                {cls.title || t("players.unnamedClass")}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {cls.startTime} – {cls.endTime}
-                                {cls.participants && (
+                                {cls.maxPlayers != null && (
                                   <span className="ml-2">
-                                    {t("players.classParticipants", { n: cls.participants.length, max: cls.maxPlayers })}
+                                    {t("players.classParticipants", { n: cls.participantCount ?? 0, max: cls.maxPlayers })}
                                   </span>
                                 )}
                               </p>
                             </div>
-                            {alreadyIn ? (
+                            {isFull ? (
                               <Badge variant="secondary" className="text-xs shrink-0">
-                                <Check className="h-3 w-3 mr-1" /> {t("players.alreadyIn")}
+                                {t("players.classFull")}
                               </Badge>
                             ) : (
                               <Checkbox
                                 checked={isSelected}
-                                disabled={disabled}
+                                disabled={isFull}
                                 className="shrink-0 pointer-events-none"
                               />
                             )}
@@ -220,8 +241,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         </ScrollArea>
 
         <DialogFooter className="pt-2">
-          <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button onClick={handleSave} disabled={selectedIds.size === 0}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
+          <Button onClick={handleSave} disabled={selectedIds.size === 0 || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {t("players.addToSelectedClasses", { count: selectedIds.size })}
           </Button>
         </DialogFooter>

@@ -1,0 +1,55 @@
+# New flow: coach reacts to the seeded student message with a quick
+# reaction, then removes it (Phase 5 messages parity — reactions UI).
+# No direct web E2E spec equivalent (web's reactions ship without a
+# dedicated Playwright spec of their own).
+# NOTE: conversation id 1 is deterministic on a freshly reset database.
+# Reactions are NOT optimistic — the SSE `message_reaction` event delivers
+# the authoritative state (same as web), so the pill only renders after a
+# round-trip; hence the generous extendedWaitUntil timeouts below.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      text: "Thanks coach!"
+    timeout: 20000
+
+# ── Select the seeded (student-sent) message and react with 👍 ──
+# reaction-1 is QUICK_REACTIONS[1] in conversation/[id].tsx: ["❤️","👍",...].
+# retryTapIfNoChange must be off: this is a selection toggle, same gotcha as
+# the message-edit/delete flow (09-direct-messages.yaml).
+- tapOn:
+    text: "Thanks coach!"
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: "reaction-1"
+    timeout: 10000
+- tapOn:
+    id: "reaction-1"
+    retryTapIfNoChange: false
+
+# ── A reaction pill (👍, no count since it's the only reaction) renders
+#    under the bubble once the SSE round-trip lands ──
+- extendedWaitUntil:
+    visible:
+      text: "👍"
+    timeout: 20000
+
+# ── Tap the pill again to toggle the reaction back off (leave state clean
+#    for reruns) — also not optimistic, so retryTapIfNoChange must be off. ──
+- tapOn:
+    text: "👍"
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      text: "👍"
+    timeout: 20000

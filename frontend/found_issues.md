@@ -55,3 +55,21 @@ Phase 6 of the parity plan ports only the basic Auto-Invite Engine controls (on/
 Existing mobile screens still contain hardcoded English strings that were not migrated to the i18n system introduced as foundational infrastructure in Phase 0 of the parity plan. This retrofit was scoped out as a separate follow-up rather than done inline.
 
 **Suggested action:** Create a follow-up ticket to sweep existing mobile screens and replace hardcoded strings with the `src/locales` i18n loader, consistent with the app-wide i18n work already shipped on web (PAD-40).
+
+## 10. `getClassInstances` was mistyped, causing silent bugs in web's Add-to-Classes dialog (now fixed)
+
+While building the real Add-to-Classes save (Phase 3), `getClassInstances` (`packages/api/src/resources/classes.ts`, backing `/app/lesson_instances`) turned out to be declared as returning `ClassInstance[]`, but the backend actually serializes `CalendarEvent`-shaped rows via `serialize_calendar_event` (`padel_app/serializers/calendar_event.py:29` — the same helper the main calendar-events endpoint uses): `title` not `name`, `participantCount` not a `participants` array, plus `model`/`originalId` which `ClassInstance` doesn't even have.
+
+Consequence: web's existing `AddToClassesDialog.tsx` had two silent dead-code bugs from this mistype — every class in the dialog always showed the "Unnamed class" fallback (reading `cls.name`, which was always `undefined`), and both the "already in this class" badge and the capacity/full check never fired (reading `cls.participants`, also always `undefined`).
+
+**Status: fixed on this branch.** `getClassInstances` (`packages/api/src/resources/classes.ts`) and its web wrapper (`apps/web/src/api/classes.ts`) now correctly return `Promise<CalendarEvent[]>` — `CalendarEvent` (`packages/types`) already matched the real serialized shape field-for-field, so no new type was needed. `useClassInstancesForWeek` (`apps/mobile/src/features/players/hooks.ts`) was updated to match. Both `AddToClassesDialog.tsx` (web) and `add-to-classes-dialog.tsx` (mobile) were updated to use the corrected type directly (no more local re-typing/casting) and to read `.title`/`.participantCount`.
+
+All call sites of `getClassInstances` were grepped and accounted for — there were only five: the shared definition, the web re-export wrapper, and the three consumers above (no other callers exist anywhere in web or mobile). The web wrapper's `USE_MOCK_DATA` branch (`apps/web/src/api/classes.ts`) still returns the old `ClassInstance`-shaped `mockClassInstances` cast to the new type, since `VITE_USE_MOCK_DATA=false` in `apps/web/.env` means that branch doesn't run in practice — retrofitting `mockData.ts` itself was left out of scope since `mockClassInstances` is also used correctly, unchanged, by two other mock branches (`getClassInstance` singular and `apps/web/src/api/dashboard.ts`).
+
+## 11. "Already in this class" indicator can't be rebuilt without a backend change
+
+The web bug described in #10 also killed the only signal `AddToClassesDialog` ever had for "this player is already enrolled in this class instance" — `/app/lesson_instances` only ever returned `participantCount` (a number), never a per-player list, so there was never a way to check membership from that response on either platform, even before the type was fixed. The indicator has not been reintroduced on either platform as part of the Phase 3 fix.
+
+Instead, duplicate adds are guarded server-side: `player_in_lesson_instance` has `UniqueConstraint(player_id, lesson_instance_id)` (`padel_app/models/Association_PlayerLessonInstance.py`), so attempting to add a player already in a class fails that one class's `editClass` call; both dialogs' save loops call `editClass` per selected class independently inside a try/catch and surface per-class failures in an aggregate error toast, without blocking the classes that did succeed.
+
+**Decision needed:** If the product wants the "already in" indicator back (so a coach sees it up front instead of via a failed-add toast), `/app/lesson_instances` needs a new field — e.g. a `containsPlayerId` check param, or a per-instance participant-id list — added on the backend.

@@ -17,8 +17,14 @@ export const EDITABLE_CLASS_FIELDS = [
 
 /** Generic before/after diff for scalar/object/array fields — values are
  * compared via JSON.stringify so nested fields (e.g. recurrenceRule) are
- * caught too. Ports web's ClassDetailSheet.tsx diffInstance. */
-export function diffInstance<T extends Record<string, unknown>>(
+ * caught too. Ports web's ClassDetailSheet.tsx diffInstance.
+ *
+ * Constrained to `object` rather than `Record<string, unknown>`: indexing
+ * is done via `keyof T`, which works on any object type regardless of an
+ * index signature, so `Record<string, unknown>` was an unnecessarily strict
+ * constraint — plain interfaces like ClassInstance (no index signature)
+ * don't structurally satisfy it and would need a cast at every call site. */
+export function diffInstance<T extends object>(
   original: T,
   updated: T,
   fields: readonly (keyof T)[]

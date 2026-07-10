@@ -2,7 +2,9 @@
 # Flows are named after their files (no `name:` field) so the execution
 # order below is the numbered order. Maestro does NOT guarantee order for a
 # bare folder run — this list does. Order matters: 03 creates the class 05
-# deletes, and 04 sets the presence 14 asserts.
+# deletes, and 04 sets the presence 14 asserts. 15 renames "E2E Academy
+# Class" and reverts it within itself, so its exact position isn't load
+# bearing, but it's still listed for a deterministic full-suite run.
 flows:
   - "flows/*"
 
@@ -22,3 +24,7 @@ executionOrder:
     - 12-settings-language
     - 13-student-availability
     - 14-student-calendar
+    - 15-class-edit
+    - 16-class-notify-remind
+    - 17-message-reactions
+    - 18-settings-sections

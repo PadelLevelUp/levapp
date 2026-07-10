@@ -5,7 +5,7 @@ import * as notificationEngineApi from "@levelup/api/src/resources/notificationE
 import * as classesApi from "@levelup/api/src/resources/classes";
 import { queryKeys } from "@levelup/hooks";
 import type {
-  ClassInstance,
+  CalendarEvent,
   CoachNote,
   CoachPlayer,
   EvaluationEntryPayload,
@@ -229,13 +229,18 @@ export function useRemoveFromStandingWaitingList() {
  * `calendar/hooks.ts` (checked; that file only has class/attendance
  * mutations, no week-range query). Mirrors web's `AddToClassesDialog`,
  * which calls `getClassInstances(from, to)` with "yyyy-MM-dd" week bounds.
+ *
+ * Returns `CalendarEvent[]`, not `ClassInstance[]` — `getClassInstances`
+ * hits `/app/lesson_instances`, which serializes CalendarEvent-shaped rows
+ * (title/participantCount/model/originalId), not full ClassInstance objects.
+ * Was mistyped for a while; see found_issues.md.
  */
 export function useClassInstancesForWeek(
   from: string,
   to: string,
   enabled = true
 ) {
-  return useQuery<ClassInstance[]>({
+  return useQuery<CalendarEvent[]>({
     queryKey: ["class-instances-week", from, to] as const,
     queryFn: () => classesApi.getClassInstances(from, to),
     enabled,

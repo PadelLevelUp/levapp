@@ -1,10 +1,19 @@
 import type { CalendarEvent, ClassInstance } from "@levelup/types";
 import { getApi } from "../client";
 
+/**
+ * Despite the name, this hits `/app/lesson_instances`, which returns
+ * CalendarEvent-serialized rows (padel_app/serializers/calendar_event.py
+ * `serialize_calendar_event` — same helper the main calendar-events endpoint
+ * uses), not full `ClassInstance` objects: `title` not `name`,
+ * `participantCount` not a `participants` array, plus `model`/`originalId`.
+ * Was mistyped as `ClassInstance[]` for a while (see found_issues.md) —
+ * fixed to match what the backend actually sends.
+ */
 export async function getClassInstances(
   from: string,
   to: string
-): Promise<ClassInstance[]> {
+): Promise<CalendarEvent[]> {
   const res = await getApi().post(
     `/app/lesson_instances?from=${from}&to=${to}`
   );

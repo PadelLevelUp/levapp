@@ -7,11 +7,15 @@ import { mockClassInstances } from "@/data/mockData";
 export async function getClassInstances(
   from: string,
   to: string
-): Promise<ClassInstance[]> {
+): Promise<CalendarEvent[]> {
   if (USE_MOCK_DATA) {
+    // mockClassInstances is still ClassInstance-shaped (name/participants) —
+    // never retrofitted to match the real endpoint's CalendarEvent shape.
+    // VITE_USE_MOCK_DATA=false in .env, so this branch doesn't run in
+    // practice; cast rather than reshaping mockData.ts for a dead path.
     return mockClassInstances.filter(
       (c) => c.date >= from && c.date <= to
-    );
+    ) as unknown as CalendarEvent[];
   }
 
   return classesApi.getClassInstances(from, to);
