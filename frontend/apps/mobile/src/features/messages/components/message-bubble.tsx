@@ -273,6 +273,7 @@ export function MessageBubble({
                   accessibilityLabel={`${emoji} reaction${
                     count > 1 ? ` (${count})` : ""
                   }`}
+                  accessibilityValue={{ text: emoji }}
                   role="button"
                   disabled={!onReaction}
                   onPress={() => onReaction?.(emoji)}

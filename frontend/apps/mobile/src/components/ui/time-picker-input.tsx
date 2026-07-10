@@ -100,6 +100,7 @@ export function TimePickerInput({
       <Pressable
         testID={testID}
         accessibilityLabel={label ?? "Time"}
+        accessibilityValue={{ text: value || placeholder }}
         role="button"
         disabled={disabled}
         onPress={openPicker}

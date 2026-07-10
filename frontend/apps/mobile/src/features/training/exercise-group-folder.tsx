@@ -43,55 +43,60 @@ export function ExerciseGroupFolder({
 
   return (
     <View className="overflow-hidden rounded-lg border border-border bg-card">
-      <Pressable
-        testID={`group-folder-toggle-${group.id}`}
-        accessibilityLabel={`${expanded ? "Collapse" : "Expand"} group ${group.name}`}
-        role="button"
-        onPress={() => setExpanded((prev) => !prev)}
-        className="flex-row items-center gap-3 px-4 py-3 active:bg-accent"
-      >
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={lightTheme.mutedForeground}
-          style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}
-        />
-        <Ionicons
-          name={expanded ? "folder-open-outline" : "folder-outline"}
-          size={20}
-          color={lightTheme.primary}
-        />
-        <View className="min-w-0 flex-1">
-          <View className="flex-row flex-wrap items-center gap-2">
-            <Text className="font-semibold text-sm" numberOfLines={1}>
-              {group.name}
-            </Text>
-            <Badge variant="secondary">
-              <Text className="text-[10px]">
-                {t("training.folder.exerciseCount", {
-                  count: groupExercises.length,
-                })}
+      {/* Toggle and the edit/delete icons are SIBLINGS, not nested — a
+          Pressable wrapping other Pressables collapses the whole subtree
+          into one accessible element on iOS, hiding the inner buttons from
+          both VoiceOver and UI-testing tools (found via Maestro: the edit
+          icon was visually present but unreachable by accessibilityLabel
+          while nested inside the toggle Pressable). */}
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <Pressable
+          testID={`group-folder-toggle-${group.id}`}
+          accessibilityLabel={`${expanded ? "Collapse" : "Expand"} group ${group.name}`}
+          role="button"
+          onPress={() => setExpanded((prev) => !prev)}
+          className="flex-1 flex-row items-center gap-3 active:opacity-70"
+        >
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={lightTheme.mutedForeground}
+            style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}
+          />
+          <Ionicons
+            name={expanded ? "folder-open-outline" : "folder-outline"}
+            size={20}
+            color={lightTheme.primary}
+          />
+          <View className="min-w-0 flex-1">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text className="font-semibold text-sm" numberOfLines={1}>
+                {group.name}
               </Text>
-            </Badge>
+              <Badge variant="secondary">
+                <Text className="text-[10px]">
+                  {t("training.folder.exerciseCount", {
+                    count: groupExercises.length,
+                  })}
+                </Text>
+              </Badge>
+            </View>
+            {group.description ? (
+              <Text
+                numberOfLines={1}
+                className="mt-0.5 text-xs text-muted-foreground"
+              >
+                {group.description}
+              </Text>
+            ) : null}
           </View>
-          {group.description ? (
-            <Text
-              numberOfLines={1}
-              className="mt-0.5 text-xs text-muted-foreground"
-            >
-              {group.description}
-            </Text>
-          ) : null}
-        </View>
+        </Pressable>
         <View className="flex-row items-center gap-1">
           <Pressable
             accessibilityLabel={`Edit group ${group.name}`}
             role="button"
             hitSlop={8}
-            onPress={(e) => {
-              e.stopPropagation();
-              onEditGroup();
-            }}
+            onPress={onEditGroup}
             className="h-9 w-9 items-center justify-center rounded-md active:bg-accent"
           >
             <Ionicons
@@ -104,10 +109,7 @@ export function ExerciseGroupFolder({
             accessibilityLabel={`Delete group ${group.name}`}
             role="button"
             hitSlop={8}
-            onPress={(e) => {
-              e.stopPropagation();
-              onDeleteGroup();
-            }}
+            onPress={onDeleteGroup}
             className="h-9 w-9 items-center justify-center rounded-md active:bg-accent"
           >
             <Ionicons
@@ -117,7 +119,7 @@ export function ExerciseGroupFolder({
             />
           </Pressable>
         </View>
-      </Pressable>
+      </View>
 
       {expanded ? (
         <View className="gap-2 px-4 pb-4 pt-1">

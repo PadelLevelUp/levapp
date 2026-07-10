@@ -89,6 +89,7 @@ export function DatePickerInput({
       <Pressable
         testID={testID}
         accessibilityLabel={label ?? "Date"}
+        accessibilityValue={{ text: value || placeholder }}
         role="button"
         disabled={disabled}
         onPress={openPicker}

@@ -1,15 +1,22 @@
 # Mirrors: apps/web/e2e/settings/language-preference.spec.ts
-# - change the preferred language to English; the change is persisted via
+# - change the preferred language to Portuguese; the change is persisted via
 #   PATCH /auth/me and confirmed by the "Language preference saved." status.
 #
 # CAVEAT — coordinate tap: the language dropdown is an @rn-primitives Select
 # whose portal options are NOT exposed to the iOS accessibility tree (see
 # 08-set-player-level.skipped). Unlike the player-level select, this dropdown
 # opens at a deterministic position (fixed cards above it, non-scrolled
-# screen), so the "English" option is tapped by screen percentage as a last
+# screen), so the "Português" option is tapped by screen percentage as a last
 # resort. The tap is verified by the saved-status assertion, so a miss fails
-# loudly instead of passing silently. DB reset restores language=pt between
-# suite runs.
+# loudly instead of passing silently.
+#
+# Fixed 2026-07-10: this used to tap y=65% for "English" on the assumption
+# DB reset restores language=pt — stale since apps/web/e2e/scripts/seed.py
+# (PAD-40) seeds e2e-coach with language="en", so "English" is already
+# selected and the old target tapped a same-value no-op (no PATCH fires,
+# guarded by settings.tsx's `option.value !== language` check). Verified via
+# a throwaway debug flow + screenshot: with language=en, "Português" (the
+# option that's actually different) sits at y≈61%, "English" at y≈65%.
 appId: com.levelup.mobile
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -24,10 +31,10 @@ appId: com.levelup.mobile
 # (The selected value text is collapsed into the trigger's a11y label
 # "Preferred language", so it cannot be asserted directly.)
 
-# ── Open the select and tap "English" (second option) by position ──
+# ── Open the select and tap "Português" (first option) by position ──
 # retryTapIfNoChange must be off on both taps: a re-tap on the trigger
 # closes the just-opened dropdown. Each attempt ends with the saved-status
-# check — ground truth that the tap hit "English" (PATCH /auth/me OK).
+# check — ground truth that the tap hit "Português" (PATCH /auth/me OK).
 - retry:
     maxRetries: 3
     commands:
@@ -36,7 +43,7 @@ appId: com.levelup.mobile
           retryTapIfNoChange: false
       - waitForAnimationToEnd
       - tapOn:
-          point: "22%,65%"
+          point: "22%,61%"
           retryTapIfNoChange: false
       - extendedWaitUntil:
           visible:

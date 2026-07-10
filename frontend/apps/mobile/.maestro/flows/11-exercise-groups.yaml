@@ -1,6 +1,14 @@
 # Mirrors: apps/web/e2e/exercise-management/exercise-groups.spec.ts
 # - create group "Maestro Group" → appears in the Groups tab
 # - delete it with confirmation → gone
+#
+# Fixed 2026-07-10 (Phase 4, group-folder inline browsing): the group list
+# now renders ExerciseGroupFolder (mirrors web's ExerciseGroupFolder.tsx) —
+# tapping the group's row toggles inline expand/collapse instead of opening
+# the edit form; editing requires the row's dedicated edit (pencil) icon.
+# No stable per-group testID exists for a dynamically-created group (it's
+# keyed by a runtime id this flow never captures), so the edit icon is
+# targeted by its accessibilityLabel text instead.
 appId: com.levelup.mobile
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -50,7 +58,9 @@ appId: com.levelup.mobile
     timeout: 15000
 
 # ── Delete ──
-- tapOn: ".*Maestro Group.*"
+# Tap the edit (pencil) icon on the folder row to open GroupForm — tapping
+# the row itself now just expands/collapses the folder (see header note).
+- tapOn: "Edit group Maestro Group"
 - extendedWaitUntil:
     visible:
       id: "group-form"
