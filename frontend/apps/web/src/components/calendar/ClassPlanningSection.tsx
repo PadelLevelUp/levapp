@@ -14,13 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getExercises, getExerciseGroups } from "@/api/training";
-import { EXERCISE_TYPE_OPTIONS, DIFFICULTY_OPTIONS } from "@/types/training";
-import type { Exercise, ExerciseType } from "@/types/training";
-
-const typeLabel = (t: ExerciseType) =>
-  EXERCISE_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
-const diffLabel = (d: number) =>
-  DIFFICULTY_OPTIONS.find((o) => o.value === d)?.label ?? String(d);
+import type { Exercise } from "@/types/training";
 
 interface Props {
   exerciseIds: string[];
@@ -34,6 +28,9 @@ export function ClassPlanningSection({ exerciseIds, onChange, disabled, isEditin
   const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  const typeLabel = (type: string) => t(`training.exerciseType.${type}`, { defaultValue: type });
+  const diffLabel = (d: number) => t(`training.difficulty.${d}`, { defaultValue: String(d) });
 
   const { data: allExercises = [] } = useQuery({
     queryKey: ["exercises"],

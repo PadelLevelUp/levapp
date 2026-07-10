@@ -95,7 +95,9 @@ export default function TrainingExercisesPage() {
             <SelectContent>
               <SelectItem value="all">{t("training.exercises.allTypes")}</SelectItem>
               {EXERCISE_TYPE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <SelectItem key={o.value} value={o.value}>
+                  {t(`training.exerciseType.${o.value}`, { defaultValue: o.label })}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -104,7 +106,9 @@ export default function TrainingExercisesPage() {
             <SelectContent>
               <SelectItem value="all">{t("training.exercises.allDifficulties")}</SelectItem>
               {DIFFICULTY_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                <SelectItem key={o.value} value={String(o.value)}>
+                  {t(`training.difficulty.${o.value}`, { defaultValue: o.label })}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
