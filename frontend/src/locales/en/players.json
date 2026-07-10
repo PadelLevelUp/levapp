@@ -130,6 +130,7 @@
     "unnamedClass": "Unnamed class",
     "classParticipants": "· {{n}}/{{max}} players",
     "alreadyIn": "Already in",
+    "classFull": "Full",
     "addToSelectedClasses_one": "Add to {{count}} class",
     "addToSelectedClasses_other": "Add to {{count}} classes",
     "loading": "Loading..."

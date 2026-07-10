@@ -4,6 +4,8 @@
 // Exposes:
 //   output.seededMonday  — yyyy-MM-dd of next Monday (seeded class date)
 //   output.tomorrow      — yyyy-MM-dd of tomorrow (used by blocker flows)
+//   output.today         — yyyy-MM-dd of today (used by 13-student-availability,
+//                           which drives the native date picker's own default)
 var now = new Date();
 // JS getDay(): 0=Sun..6=Sat → python weekday(): 0=Mon..6=Sun
 var weekday = (now.getDay() + 6) % 7;
@@ -28,3 +30,4 @@ output.seededMonday = fmt(
 output.tomorrow = fmt(
   new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
 );
+output.today = fmt(now);

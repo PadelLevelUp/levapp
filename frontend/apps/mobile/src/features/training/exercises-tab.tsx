@@ -8,6 +8,7 @@ import {
 import type { Exercise, ExercisePayload } from "@levelup/types";
 import { DIFFICULTY_OPTIONS, EXERCISE_TYPE_OPTIONS } from "@levelup/types";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, View } from "react-native";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -23,8 +24,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  type Option,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { ExerciseForm } from "./exercise-form";
 
 function typeLabelOf(exercise: Exercise): string {
@@ -54,8 +65,12 @@ function ListSkeleton() {
   );
 }
 
+const ALL_TYPES_VALUE = "all";
+const ALL_DIFFICULTIES_VALUE = "all";
+
 /** Exercises tab: list, create/edit form and delete confirmation. */
 export function ExercisesTab() {
+  const { t } = useTranslation();
   const { data: exercises, isLoading, isError, refetch } = useExercises();
   const { data: levels = [] } = useCoachLevels();
 
@@ -63,23 +78,76 @@ export function ExercisesTab() {
   const [editing, setEditing] = React.useState<Exercise | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
+  const [search, setSearch] = React.useState("");
+  const [typeOption, setTypeOption] = React.useState<Option>({
+    value: ALL_TYPES_VALUE,
+    label: t("training.exercises.allTypes"),
+  });
+  const [difficultyOption, setDifficultyOption] = React.useState<Option>({
+    value: ALL_DIFFICULTIES_VALUE,
+    label: t("training.exercises.allDifficulties"),
+  });
+
+  // Mirrors web's TrainingExercisesPage filter logic exactly.
+  const filtered = React.useMemo(() => {
+    const filterType = typeOption?.value ?? ALL_TYPES_VALUE;
+    const filterDifficulty = difficultyOption?.value ?? ALL_DIFFICULTIES_VALUE;
+    return (exercises ?? []).filter((ex) => {
+      if (search && !ex.name.toLowerCase().includes(search.toLowerCase())) {
+        return false;
+      }
+      if (filterType !== ALL_TYPES_VALUE && ex.type !== filterType) {
+        return false;
+      }
+      if (
+        filterDifficulty !== ALL_DIFFICULTIES_VALUE &&
+        ex.difficulty !== Number(filterDifficulty)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [exercises, search, typeOption, difficultyOption]);
+
   const closeForm = () => {
     setFormOpen(false);
     setEditing(null);
   };
 
-  const createMut = useCreateExercise({ onSuccess: closeForm });
-  const updateMut = useUpdateExercise({ onSuccess: closeForm });
+  const createMut = useCreateExercise({
+    onSuccess: () => {
+      closeForm();
+      toast.success(t("training.exercises.toast.created"));
+    },
+  });
+  const updateMut = useUpdateExercise({
+    onSuccess: () => {
+      closeForm();
+      toast.success(t("training.exercises.toast.updated"));
+    },
+  });
   const deleteMut = useDeleteExercise({
     onSuccess: () => {
       setConfirmingDelete(false);
       closeForm();
+      toast.success(t("training.exercises.toast.deleted"));
     },
   });
 
   const handleSubmit = (data: ExercisePayload) => {
-    if (editing) updateMut.mutate({ id: editing.id, data });
-    else createMut.mutate(data);
+    if (editing) {
+      updateMut.mutate(
+        { id: editing.id, data },
+        {
+          onError: () =>
+            toast.error(t("training.exercises.toast.updateFailed")),
+        }
+      );
+    } else {
+      createMut.mutate(data, {
+        onError: () => toast.error(t("training.exercises.toast.createFailed")),
+      });
+    }
   };
 
   if (formOpen) {
@@ -101,9 +169,11 @@ export function ExercisesTab() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete exercise?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {t("training.exercises.deleteTitle")}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone.
+                {t("training.exercises.deleteDescription")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -113,7 +183,13 @@ export function ExercisesTab() {
               <AlertDialogAction
                 testID="exercise-delete-confirm"
                 accessibilityLabel="Confirm delete exercise"
-                onPress={() => editing && deleteMut.mutate(editing.id)}
+                onPress={() =>
+                  editing &&
+                  deleteMut.mutate(editing.id, {
+                    onError: () =>
+                      toast.error(t("training.exercises.toast.deleteFailed")),
+                  })
+                }
               >
                 <Text>Delete</Text>
               </AlertDialogAction>
@@ -143,6 +219,68 @@ export function ExercisesTab() {
         </Button>
       </View>
 
+      {!isLoading && !isError && exercises && exercises.length > 0 ? (
+        <View className="gap-2 pb-3">
+          <Input
+            testID="exercises-search"
+            accessibilityLabel="Search exercises"
+            placeholder={t("training.exercises.searchPlaceholder")}
+            value={search}
+            onChangeText={setSearch}
+          />
+          <View className="flex-row gap-2">
+            <Select
+              value={typeOption}
+              onValueChange={setTypeOption}
+              className="flex-1"
+            >
+              <SelectTrigger
+                testID="exercises-filter-type"
+                accessibilityLabel="Filter by type"
+              >
+                <SelectValue placeholder={t("training.exercises.typePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value={ALL_TYPES_VALUE}
+                  label={t("training.exercises.allTypes")}
+                />
+                {EXERCISE_TYPE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} label={o.label} />
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={difficultyOption}
+              onValueChange={setDifficultyOption}
+              className="flex-1"
+            >
+              <SelectTrigger
+                testID="exercises-filter-difficulty"
+                accessibilityLabel="Filter by difficulty"
+              >
+                <SelectValue
+                  placeholder={t("training.exercises.difficultyPlaceholder")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value={ALL_DIFFICULTIES_VALUE}
+                  label={t("training.exercises.allDifficulties")}
+                />
+                {DIFFICULTY_OPTIONS.map((o) => (
+                  <SelectItem
+                    key={o.value}
+                    value={String(o.value)}
+                    label={o.label}
+                  />
+                ))}
+              </SelectContent>
+            </Select>
+          </View>
+        </View>
+      ) : null}
+
       {isLoading ? (
         <ListSkeleton />
       ) : isError ? (
@@ -156,9 +294,15 @@ export function ExercisesTab() {
           title="No exercises yet"
           message="Create your first exercise to get started."
         />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon="barbell-outline"
+          title={t("training.exercises.noResultsTitle")}
+          message={t("training.exercises.noResultsDescription")}
+        />
       ) : (
         <FlatList
-          data={exercises}
+          data={filtered}
           keyExtractor={(item) => item.id}
           contentContainerClassName="gap-3 pb-6"
           renderItem={({ item }) => (

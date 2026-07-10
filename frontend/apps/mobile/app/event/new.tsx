@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { useCoachLevels } from "@levelup/hooks";
+import type { CalendarBlockType } from "@levelup/types";
 import { classFormSchema } from "@levelup/validation";
 import { addMonths, format } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +13,6 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { useAuth } from "@/auth/AuthContext";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
@@ -30,21 +30,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { useAddClass } from "@/features/calendar/hooks";
+import { useAddEvent } from "@/features/calendar/hooks";
 
-const COLORS = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
-
-// Monday-first, matching the web AddClassSheet.
+// Monday-first, matching web's AddEventSheet.
 const DAYS_OF_WEEK = [
   { value: 1, label: "M" },
   { value: 2, label: "T" },
@@ -58,34 +48,38 @@ const DAYS_OF_WEEK = [
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-const TYPE_OPTIONS: Option[] = [
-  { value: "academy", label: "Academy" },
-  { value: "private", label: "Private" },
+const TYPE_VALUES: CalendarBlockType[] = [
+  "personal",
+  "break",
+  "holiday",
+  "off_work",
 ];
 
 type FieldErrors = Partial<
-  Record<"date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate", string>
+  Record<"date" | "startTime" | "endTime" | "days" | "endDate", string>
 >;
 
-export default function NewClassScreen() {
+export default function NewEventScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ date?: string }>();
-  const { user } = useAuth();
-  const { data: levels } = useCoachLevels();
-  const addClass = useAddClass();
+  const addEvent = useAddEvent();
+
+  const TYPE_OPTIONS: Option[] = TYPE_VALUES.map((value) => ({
+    value,
+    label: t(`calendar.addEvent.type${capitalize(value)}`),
+  }));
 
   const initialDate =
     typeof params.date === "string" && DATE_RE.test(params.date)
       ? params.date
       : format(new Date(), "yyyy-MM-dd");
 
-  const [name, setName] = React.useState("");
-  const [classType, setClassType] = React.useState<Option>(TYPE_OPTIONS[0]);
+  const [type, setType] = React.useState<Option>(TYPE_OPTIONS[0]);
+  const [title, setTitle] = React.useState("");
+  const [description, setDescription] = React.useState("");
   const [date, setDate] = React.useState(initialDate);
   const [startTime, setStartTime] = React.useState("09:00");
-  const [endTime, setEndTime] = React.useState("10:30");
-  const [maxPlayers, setMaxPlayers] = React.useState("4");
-  const [color, setColor] = React.useState(COLORS[0]);
-  const [levelOption, setLevelOption] = React.useState<Option>(undefined);
+  const [endTime, setEndTime] = React.useState("10:00");
   const [isRecurring, setIsRecurring] = React.useState(false);
   const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [endDate, setEndDate] = React.useState("");
@@ -99,6 +93,19 @@ export default function NewClassScreen() {
     setSelectedDays((prev) => (prev.includes(weekday) ? prev : [weekday, ...prev]));
   }, [isRecurring, date]);
 
+  // Keep end time after start time (web parity: auto-bump by 60min on change).
+  React.useEffect(() => {
+    if (!TIME_RE.test(startTime)) return;
+    if (endTime <= startTime) {
+      const [h, m] = startTime.split(":").map(Number);
+      const total = h * 60 + m + 60;
+      const newH = Math.min(Math.floor(total / 60), 23);
+      const newM = total % 60;
+      setEndTime(`${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startTime]);
+
   const toggleDay = (day: number) => {
     setSelectedDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -109,19 +116,15 @@ export default function NewClassScreen() {
   const validate = (): boolean => {
     const next: FieldErrors = {};
 
-    if (!DATE_RE.test(date)) next.date = "Use YYYY-MM-DD";
+    if (!DATE_RE.test(date)) next.date = t("calendar.addEvent.fieldDate");
     if (!TIME_RE.test(startTime)) next.startTime = "Use HH:MM";
     if (!TIME_RE.test(endTime)) next.endTime = "Use HH:MM";
-    if (!next.startTime && !next.endTime && endTime <= startTime) {
-      next.endTime = "Must be after start time";
-    }
-    const max = Number(maxPlayers);
-    if (!Number.isInteger(max) || max < 1) next.maxPlayers = "Minimum 1 player";
     if (isRecurring && endDate && !DATE_RE.test(endDate)) {
       next.endDate = "Use YYYY-MM-DD";
     }
 
-    // Shared schema: date required; recurring needs days + end date.
+    // Shared schema: date required; recurring needs days + end date (same
+    // rule set as web's AddEventSheet.handleSave, ported via AddClassSheet's schema).
     const result = classFormSchema.safeParse({
       date: DATE_RE.test(date) ? date : "",
       isRecurring,
@@ -131,9 +134,9 @@ export default function NewClassScreen() {
     if (!result.success) {
       for (const issue of result.error.errors) {
         const field = issue.path[0];
-        if (field === "date" && !next.date) next.date = "Date is required";
-        if (field === "daysOfWeek") next.days = "Pick at least one day";
-        if (field === "endDate" && !next.endDate) next.endDate = "End date is required";
+        if (field === "date" && !next.date) next.date = t("calendar.addEvent.fieldDate");
+        if (field === "daysOfWeek") next.days = t("calendar.addEvent.fieldDays");
+        if (field === "endDate" && !next.endDate) next.endDate = t("calendar.addEvent.fieldEndDate");
       }
     }
 
@@ -150,18 +153,13 @@ export default function NewClassScreen() {
       : null;
 
     const data = {
-      coachId: user?.coachId ?? "1",
-      classType: (classType?.value ?? "academy") as string,
-      isRecurring,
-      name,
+      type: (type?.value ?? "personal") as CalendarBlockType,
+      title: title || null,
+      description: description || null,
       date,
       startTime,
       endTime,
-      maxPlayers: Number(maxPlayers),
-      color,
-      levelId: levelOption?.value || null,
-      playerIds: [] as string[],
-      notificationsEnabled: false,
+      isRecurring,
       recurrenceRule: isRecurring
         ? { frequency: "weekly", daysOfWeek: selectedDays }
         : null,
@@ -169,19 +167,21 @@ export default function NewClassScreen() {
     };
 
     try {
-      await addClass.mutateAsync(data);
+      await addEvent.mutateAsync(data);
+      toast.success(t("calendar.page.eventCreated"));
       router.back();
     } catch {
-      setFormError("The class could not be created. Please try again.");
+      setFormError(t("calendar.page.failedCreateEvent"));
+      toast.error(t("calendar.page.failedCreateEvent"));
     }
   };
 
   return (
-    <Screen edges={["top"]} testID="class-new">
+    <Screen edges={["top"]} testID="event-new">
       {/* Header */}
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
-          testID="class-new-back"
+          testID="event-new-back"
           accessibilityLabel="Back"
           role="button"
           onPress={() => router.back()}
@@ -190,7 +190,7 @@ export default function NewClassScreen() {
           <Ionicons name="chevron-back" size={22} color={lightTheme.foreground} />
         </Pressable>
         <Text role="heading" aria-level={1} className="flex-1 text-lg font-bold">
-          New class
+          {t("calendar.addEvent.title")}
         </Text>
       </View>
 
@@ -204,31 +204,12 @@ export default function NewClassScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
-          {/* Name */}
-          <View className="gap-1.5">
-            <Label>Name</Label>
-            <Input
-              testID="class-name"
-              accessibilityLabel="Class name"
-              placeholder={
-                classType?.value === "private"
-                  ? "e.g. Private – John & Mary"
-                  : "e.g. Beginner Academy"
-              }
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-
           {/* Type */}
           <View className="gap-1.5">
-            <Label>Type</Label>
-            <Select value={classType} onValueChange={setClassType}>
-              <SelectTrigger
-                testID="class-type-select"
-                accessibilityLabel="Class type"
-              >
-                <SelectValue placeholder="Select type" />
+            <Label>{t("calendar.addEvent.type")}</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger testID="event-type" accessibilityLabel="Event type">
+                <SelectValue placeholder={t("calendar.addEvent.type")} />
               </SelectTrigger>
               <SelectContent>
                 {TYPE_OPTIONS.map((option) => (
@@ -242,108 +223,79 @@ export default function NewClassScreen() {
             </Select>
           </View>
 
+          {/* Title (optional) */}
+          <View className="gap-1.5">
+            <Label>{t("calendar.addEvent.titleLabel")}</Label>
+            <Input
+              testID="event-name"
+              accessibilityLabel="Event title"
+              placeholder={t("calendar.addEvent.titlePlaceholder")}
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
+
+          {/* Description (optional) */}
+          <View className="gap-1.5">
+            <Label>{t("calendar.addEvent.descriptionLabel")}</Label>
+            <Input
+              testID="event-description"
+              accessibilityLabel="Event description"
+              placeholder={t("calendar.addEvent.descriptionPlaceholder")}
+              value={description}
+              onChangeText={setDescription}
+            />
+          </View>
+
           {/* Date */}
           <DatePickerInput
-            testID="class-date"
-            label="Date"
+            testID="event-date"
+            label={
+              isRecurring
+                ? t("calendar.addEvent.startDate")
+                : t("calendar.addEvent.dateShort")
+            }
             value={date}
-            error={errors.date}
             onChange={(value) => {
               setDate(value);
               setErrors((prev) => ({ ...prev, date: undefined }));
             }}
+            error={errors.date}
           />
 
           {/* Times */}
           <View className="flex-row gap-3">
             <View className="flex-1">
               <TimePickerInput
-                testID="class-start-time"
-                label="Start"
+                testID="event-start"
+                label={
+                  isRecurring
+                    ? t("calendar.addEvent.startTime")
+                    : t("calendar.addEvent.startShort")
+                }
                 value={startTime}
-                error={errors.startTime}
                 onChange={(value) => {
                   setStartTime(value);
                   setErrors((prev) => ({ ...prev, startTime: undefined }));
                 }}
+                error={errors.startTime}
               />
             </View>
             <View className="flex-1">
               <TimePickerInput
-                testID="class-end-time"
-                label="End"
+                testID="event-end"
+                label={
+                  isRecurring
+                    ? t("calendar.addEvent.endTime")
+                    : t("calendar.addEvent.endShort")
+                }
                 value={endTime}
-                error={errors.endTime}
                 onChange={(value) => {
                   setEndTime(value);
                   setErrors((prev) => ({ ...prev, endTime: undefined }));
                 }}
+                error={errors.endTime}
               />
-            </View>
-          </View>
-
-          {/* Max players */}
-          <View className="gap-1.5">
-            <Label>Max players</Label>
-            <Input
-              testID="class-max-players"
-              accessibilityLabel="Maximum players"
-              keyboardType="number-pad"
-              value={maxPlayers}
-              onChangeText={(value) => {
-                setMaxPlayers(value.replace(/[^0-9]/g, ""));
-                setErrors((prev) => ({ ...prev, maxPlayers: undefined }));
-              }}
-            />
-            {errors.maxPlayers ? (
-              <Text className="text-sm text-destructive">
-                {errors.maxPlayers}
-              </Text>
-            ) : null}
-          </View>
-
-          {/* Level (optional) */}
-          {levels && levels.length > 0 ? (
-            <View className="gap-1.5">
-              <Label>Level (optional)</Label>
-              <Select value={levelOption} onValueChange={setLevelOption}>
-                <SelectTrigger
-                  testID="class-level-select"
-                  accessibilityLabel="Class level"
-                >
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {levels.map((level) => (
-                    <SelectItem
-                      key={level.id}
-                      value={level.id}
-                      label={level.label || level.code}
-                    />
-                  ))}
-                </SelectContent>
-              </Select>
-            </View>
-          ) : null}
-
-          {/* Color */}
-          <View className="gap-1.5">
-            <Label>Color</Label>
-            <View className="flex-row flex-wrap gap-2">
-              {COLORS.map((value) => (
-                <Pressable
-                  key={value}
-                  testID={`class-color-${value.slice(1)}`}
-                  accessibilityLabel={`Color ${value}`}
-                  role="button"
-                  onPress={() => setColor(value)}
-                  className={cn(
-                    "h-8 w-8 rounded-full",
-                    color === value && "border-2 border-primary"
-                  )}
-                  style={{ backgroundColor: value }}
-                />
-              ))}
             </View>
           </View>
 
@@ -356,11 +308,13 @@ export default function NewClassScreen() {
                   size={16}
                   color={lightTheme.mutedForeground}
                 />
-                <Text className="text-sm font-medium">Recurring weekly</Text>
+                <Text className="text-sm font-medium">
+                  {t("calendar.addEvent.recurring")}
+                </Text>
               </View>
               <Switch
-                testID="class-recurring-switch"
-                accessibilityLabel="Recurring class"
+                testID="event-recurring-switch"
+                accessibilityLabel="Recurring event"
                 checked={isRecurring}
                 onCheckedChange={(checked) => {
                   setIsRecurring(checked);
@@ -377,7 +331,7 @@ export default function NewClassScreen() {
               <>
                 <View className="gap-1.5">
                   <Text className="text-xs text-muted-foreground">
-                    Days of the week
+                    {t("calendar.addEvent.daysOfWeek")}
                   </Text>
                   <View className="flex-row gap-1.5">
                     {DAYS_OF_WEEK.map(({ value, label }) => {
@@ -385,7 +339,7 @@ export default function NewClassScreen() {
                       return (
                         <Pressable
                           key={value}
-                          testID={`class-day-${value}`}
+                          testID={`event-day-${value}`}
                           accessibilityLabel={`Repeat on day ${value}`}
                           role="button"
                           onPress={() => toggleDay(value)}
@@ -409,21 +363,19 @@ export default function NewClassScreen() {
                     })}
                   </View>
                   {errors.days ? (
-                    <Text className="text-sm text-destructive">
-                      {errors.days}
-                    </Text>
+                    <Text className="text-sm text-destructive">{errors.days}</Text>
                   ) : null}
                 </View>
 
                 <DatePickerInput
-                  testID="class-end-date"
-                  label="End date"
+                  testID="event-end-date"
+                  label={t("calendar.addEvent.endDate")}
                   value={endDate}
-                  error={errors.endDate}
                   onChange={(value) => {
                     setEndDate(value);
                     setErrors((prev) => ({ ...prev, endDate: undefined }));
                   }}
+                  error={errors.endDate}
                 />
               </>
             ) : null}
@@ -436,18 +388,29 @@ export default function NewClassScreen() {
           ) : null}
 
           <Button
-            testID="class-save"
-            accessibilityLabel="Create class"
+            testID="event-save"
+            accessibilityLabel="Create event"
             onPress={handleSave}
-            disabled={addClass.isPending}
+            disabled={addEvent.isPending}
           >
-            {addClass.isPending ? (
+            {addEvent.isPending ? (
               <Spinner color={lightTheme.primaryForeground} />
             ) : null}
-            <Text>{addClass.isPending ? "Creating…" : "Create class"}</Text>
+            <Text>
+              {addEvent.isPending
+                ? "Creating…"
+                : t("calendar.addEvent.createEvent")}
+            </Text>
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
+}
+
+function capitalize(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 }

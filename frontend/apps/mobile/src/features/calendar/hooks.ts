@@ -1,4 +1,5 @@
 import {
+  calendarApi,
   classesApi,
   notificationEngineApi,
   presencesApi,
@@ -26,6 +27,16 @@ export function useAddClass() {
   const invalidate = useInvalidateClassData();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => classesApi.addClass(data),
+    onSuccess: invalidate,
+  });
+}
+
+/** Personal/break/holiday/off-work calendar block (web's AddEventSheet parity). */
+export function useAddEvent() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      calendarApi.addCalendarBlock(data),
     onSuccess: invalidate,
   });
 }

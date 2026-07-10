@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { messagesApi } from "@levelup/api";
+import { messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { queryKeys, useConversation } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -30,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { MessageBubble } from "@/features/messages/components/message-bubble";
 import {
   invalidateMessagesLists,
@@ -54,6 +56,7 @@ function ChatSkeleton() {
 }
 
 export default function ConversationScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ id: string }>();
   const conversationId = String(params.id);
   const { user } = useAuth();
@@ -264,6 +267,53 @@ export default function ConversationScreen() {
     handleToggleReaction(messageId, emoji);
   };
 
+  // ── Notification-invite respond (Yes/No on notification_invite messages) ──
+  // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
+  // localResponse state, the result is written into the message's cached
+  // metadata (same pattern as edit/delete/reactions above) so MessageBubble
+  // renders purely off message.metadata with no local state of its own.
+  const [respondingInviteId, setRespondingInviteId] = React.useState<
+    string | number | null
+  >(null);
+
+  const handleRespondToInvite = async (
+    message: Message,
+    action: "yes" | "no"
+  ) => {
+    const eventId = message.metadata?.notificationEventId;
+    if (!eventId || respondingInviteId !== null) return;
+    setRespondingInviteId(message.id);
+    try {
+      const result = await notificationEngineApi.respondToNotification(
+        eventId,
+        action
+      );
+      if (result.action === "spot_filled") {
+        // No toast.info in the mobile toast primitive (success/error only);
+        // error is the closer fit for "this didn't work out" news.
+        toast.error(t("messages.spotJustFilled"));
+        updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+          ...m,
+          metadata: { ...m.metadata, responded: true, response: "no" },
+        }));
+      } else if (result.action === "confirmed") {
+        updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+          ...m,
+          metadata: { ...m.metadata, responded: true, response: "yes" },
+        }));
+      } else if (result.action === "declined") {
+        updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+          ...m,
+          metadata: { ...m.metadata, responded: true, response: "no" },
+        }));
+      }
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingInviteId(null);
+    }
+  };
+
   // ── Delete own message ──
   const handleConfirmDelete = async () => {
     if (!selected) return;
@@ -369,6 +419,12 @@ export default function ConversationScreen() {
                     isTempId(item.id)
                       ? undefined
                       : (emoji) => handleToggleReaction(item.id, emoji)
+                  }
+                  respondingInvite={respondingInviteId === item.id}
+                  onRespondInvite={
+                    isTempId(item.id)
+                      ? undefined
+                      : (action) => void handleRespondToInvite(item, action)
                   }
                 />
               );

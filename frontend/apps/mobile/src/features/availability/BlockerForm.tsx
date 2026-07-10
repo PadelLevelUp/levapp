@@ -12,11 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 
 /** The backend always stores student blockers as type "unavailable" (web has
@@ -187,59 +189,39 @@ export function BlockerForm({
           </View>
         ) : null}
 
-        <View className="gap-2">
-          <Label>Date (YYYY-MM-DD)</Label>
-          <Input
-            testID="blocker-date"
-            accessibilityLabel="Blocker date"
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={date}
-            onChangeText={setDate}
-          />
-        </View>
+        <DatePickerInput
+          testID="blocker-date"
+          label="Date"
+          value={date}
+          onChange={setDate}
+        />
 
         <View className="flex-row gap-3">
-          <View className="flex-1 gap-2">
-            <Label>Start time (HH:MM)</Label>
-            <Input
+          <View className="flex-1">
+            <TimePickerInput
               testID="blocker-start-time"
-              accessibilityLabel="Blocker start time"
-              placeholder="HH:MM"
-              autoCapitalize="none"
-              autoCorrect={false}
+              label="Start time"
               value={startTime}
-              onChangeText={setStartTime}
+              onChange={setStartTime}
             />
           </View>
-          <View className="flex-1 gap-2">
-            <Label>End time (HH:MM)</Label>
-            <Input
+          <View className="flex-1">
+            <TimePickerInput
               testID="blocker-end-time"
-              accessibilityLabel="Blocker end time"
-              placeholder="HH:MM"
-              autoCapitalize="none"
-              autoCorrect={false}
+              label="End time"
               value={endTime}
-              onChangeText={setEndTime}
+              onChange={setEndTime}
             />
           </View>
         </View>
 
         {isRecurring ? (
-          <View className="gap-2">
-            <Label>Repeat until (optional, YYYY-MM-DD)</Label>
-            <Input
-              testID="blocker-end-date"
-              accessibilityLabel="Blocker repeat until date"
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={endDate}
-              onChangeText={setEndDate}
-            />
-          </View>
+          <DatePickerInput
+            testID="blocker-end-date"
+            label="Repeat until (optional)"
+            value={endDate}
+            onChange={setEndDate}
+          />
         ) : null}
 
         {formError ? (

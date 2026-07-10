@@ -15,6 +15,7 @@ import { Text } from "@/components/ui/text";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import { WeekStrip } from "@/features/calendar/WeekStrip";
+import { cn } from "@/lib/utils";
 
 function eventDayKey(event: CalendarEvent): string {
   const date = event.date;
@@ -81,6 +82,7 @@ export default function CalendarScreen() {
         onSelectDay={setSelectedDay}
         onPrevWeek={() => calendar.navigateWeek("prev")}
         onNextWeek={() => calendar.navigateWeek("next")}
+        onToday={calendar.goToToday}
         eventCountByDay={eventCountByDay}
       />
 
@@ -117,6 +119,30 @@ export default function CalendarScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* "Add event" mirrors web's CalendarToolbar: available to every role
+          (coach and student alike), unlike "Add class" which is coach-only. */}
+      <Pressable
+        testID="calendar-add-event"
+        accessibilityLabel="Add event"
+        role="button"
+        onPress={() =>
+          router.push({
+            pathname: "/event/new",
+            params: { date: selectedDayKey },
+          })
+        }
+        className={cn(
+          "absolute right-6 h-12 w-12 items-center justify-center rounded-full border border-border bg-card shadow-lg active:opacity-90",
+          isCoach ? "bottom-24" : "bottom-6"
+        )}
+      >
+        <Ionicons
+          name="calendar-outline"
+          size={22}
+          color={lightTheme.foreground}
+        />
+      </Pressable>
 
       {isCoach ? (
         <Pressable

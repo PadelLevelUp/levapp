@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { format, isSameDay, isToday } from "date-fns";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ type WeekStripProps = {
   onSelectDay: (day: Date) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
+  onToday: () => void;
   /** Count of events per yyyy-MM-dd, used to render a dot under busy days. */
   eventCountByDay?: Record<string, number>;
 };
@@ -26,34 +28,49 @@ export function WeekStrip({
   onSelectDay,
   onPrevWeek,
   onNextWeek,
+  onToday,
   eventCountByDay = {},
 }: WeekStripProps) {
+  const { t } = useTranslation();
   return (
     <View className="border-b border-border bg-card px-2 pb-2 pt-1">
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center gap-2">
         <Pressable
-          testID="calendar-prev-week"
-          accessibilityLabel="Previous week"
+          testID="calendar-today"
+          accessibilityLabel={t("calendar.toolbar.today")}
           role="button"
-          onPress={onPrevWeek}
-          className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
+          onPress={onToday}
+          className="rounded-md border border-input bg-background px-3 py-1.5 active:bg-accent"
         >
-          <Ionicons name="chevron-back" size={20} color={lightTheme.foreground} />
+          <Text className="text-sm font-medium">
+            {t("calendar.toolbar.today")}
+          </Text>
         </Pressable>
-        <Text className="text-sm font-semibold">{weekLabel}</Text>
-        <Pressable
-          testID="calendar-next-week"
-          accessibilityLabel="Next week"
-          role="button"
-          onPress={onNextWeek}
-          className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
-        >
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={lightTheme.foreground}
-          />
-        </Pressable>
+        <View className="flex-1 flex-row items-center justify-between">
+          <Pressable
+            testID="calendar-prev-week"
+            accessibilityLabel="Previous week"
+            role="button"
+            onPress={onPrevWeek}
+            className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
+          >
+            <Ionicons name="chevron-back" size={20} color={lightTheme.foreground} />
+          </Pressable>
+          <Text className="text-sm font-semibold">{weekLabel}</Text>
+          <Pressable
+            testID="calendar-next-week"
+            accessibilityLabel="Next week"
+            role="button"
+            onPress={onNextWeek}
+            className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={lightTheme.foreground}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <View className="mt-1 flex-row">

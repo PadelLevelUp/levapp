@@ -31,6 +31,7 @@ export default function NewPlayerScreen() {
         phone: values.phone || undefined,
         levelId: values.levelId,
         side: values.side,
+        notes: values.notes || undefined,
       });
       router.back();
     } catch {

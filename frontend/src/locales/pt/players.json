@@ -130,6 +130,7 @@
     "unnamedClass": "Aula sem nome",
     "classParticipants": "· {{n}}/{{max}} jogadores",
     "alreadyIn": "Já inscrito",
+    "classFull": "Lotada",
     "addToSelectedClasses_one": "Adicionar a {{count}} aula",
     "addToSelectedClasses_other": "Adicionar a {{count}} aulas",
     "loading": "A carregar..."

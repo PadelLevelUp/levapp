@@ -117,7 +117,8 @@
       "lineLabel": "Etiqueta",
       "lineLabelPlaceholder": "ex.: Lob, Remate, Drop",
       "curveHint": "Arraste a pega ● na seta para a curvar",
-      "instructions": "Selecione uma ferramenta e clique no campo. Desenhe setas e depois selecione-as para adicionar uma etiqueta e curva. Prima Delete para remover. Máximo 4 jogadores."
+      "instructions": "Selecione uma ferramenta e clique no campo. Desenhe setas e depois selecione-as para adicionar uma etiqueta e curva. Prima Delete para remover. Máximo 4 jogadores.",
+      "instructionsTouch": "Toque numa ferramenta e depois toque no campo para a colocar. Toque num elemento para o selecionar — arraste para o mover, ou use o botão eliminar para o remover. Desenhe setas e linhas de movimento arrastando pelo campo e depois selecione-as para adicionar uma etiqueta ou curva. Máximo 4 jogadores."
     }
   }
 }

@@ -390,9 +390,6 @@ export default function PlayerDetailPage() {
           open={isClassesOpen}
           onClose={() => setIsClassesOpen(false)}
           player={player}
-          onSave={(classIds) => {
-            toast.success(t("players.addedToClasses", { name: player.name, count: classIds.length }));
-          }}
         />
 
         <AddToStandingWaitingListDialog

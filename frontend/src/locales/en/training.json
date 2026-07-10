@@ -117,7 +117,8 @@
       "lineLabel": "Label",
       "lineLabelPlaceholder": "e.g. Lob, Smash, Drop",
       "curveHint": "Drag the ● handle on the arrow to curve it",
-      "instructions": "Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players."
+      "instructions": "Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players.",
+      "instructionsTouch": "Tap a tool, then tap the court to place it. Tap an element to select it — drag to move it, or use the delete button to remove it. Draw arrows and movement lines by dragging across the court, then select them to add a label or curve. Max 4 players."
     }
   }
 }

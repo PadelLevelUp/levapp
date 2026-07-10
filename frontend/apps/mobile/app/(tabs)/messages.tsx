@@ -4,10 +4,12 @@ import { useConversations } from "@levelup/hooks";
 import type { Conversation } from "@levelup/types";
 import { router } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
 import { lightTheme } from "@levelup/config";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConversationItem } from "@/features/messages/components/conversation-item";
 import { normalizeId } from "@/features/messages/utils";
@@ -34,10 +36,12 @@ function ConversationListSkeleton() {
 }
 
 export default function MessagesScreen() {
+  const { t } = useTranslation();
   // Page 1 lives in react-query (kept fresh by the SSE-driven invalidations
   // in the tabs layout); extra pages are appended imperatively below.
   const { data, isLoading, isError, refetch } = useConversations(1, PAGE_SIZE);
 
+  const [search, setSearch] = React.useState("");
   const [extra, setExtra] = React.useState<Conversation[]>([]);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const pageRef = React.useRef(1);
@@ -66,6 +70,15 @@ export default function MessagesScreen() {
     });
   }, [data?.conversations, extra]);
 
+  // Mirrors web's ConversationList.tsx client-side participantName filter.
+  const filteredConversations = React.useMemo(() => {
+    if (!search) return conversations;
+    const q = search.toLowerCase();
+    return conversations.filter((c) =>
+      c.participantName.toLowerCase().includes(q)
+    );
+  }, [conversations, search]);
+
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -84,6 +97,18 @@ export default function MessagesScreen() {
 
   return (
     <View className="flex-1 bg-background" testID="screen-messages">
+      {!isLoading && !isError && conversations.length > 0 ? (
+        <View className="px-4 pt-3">
+          <Input
+            testID="conversations-search"
+            accessibilityLabel="Search conversation"
+            placeholder={t("messages.searchConversationPlaceholder")}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+      ) : null}
+
       {isLoading ? (
         <ConversationListSkeleton />
       ) : isError ? (
@@ -97,9 +122,14 @@ export default function MessagesScreen() {
           title="No conversations yet"
           message="Start a conversation with the + button."
         />
+      ) : filteredConversations.length === 0 ? (
+        <EmptyState
+          icon="chatbubbles-outline"
+          title={t("messages.noConversationsFound")}
+        />
       ) : (
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <ConversationItem

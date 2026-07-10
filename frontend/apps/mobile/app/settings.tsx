@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
+import { AutoInviteSection } from "@/features/settings/auto-invite-section";
+import { ClubSection } from "@/features/settings/club-section";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 
 type Language = "pt" | "en";
@@ -161,6 +163,12 @@ export default function SettingsScreen() {
 
         {/* Coach-only: skill levels editor */}
         {isCoach ? <CoachLevelsSection /> : null}
+
+        {/* Coach-only: club (invite/list/revoke co-coaches) */}
+        {isCoach ? <ClubSection /> : null}
+
+        {/* Coach-only: auto-invite engine basic controls */}
+        {isCoach ? <AutoInviteSection /> : null}
       </ScrollView>
     </View>
   );

@@ -1,13 +1,24 @@
 # Mirrors: apps/web/e2e/availability/student-blockers.spec.ts
-# - student adds a one-time blocker tomorrow 10:00–11:00 → card appears
+# - student adds a one-time blocker → card appears
 # - deletes it with confirmation → gone
 # Notes:
 # - No title is typed: iOS autocorrect mangles free text ("blocker" →
 #   "block…") and an extra focused field invites keyboard-tap collisions.
 #   The card then shows the default "Unavailable" title and the time range.
-# - The keyboard is dismissed (drag) before tapping each next field —
-#   Maestro taps element coordinates even when the keyboard covers them.
-# - Prefilled times (18:00/20:00) are cleared with BOUNDED eraseText only.
+# - Phase 7 (mobile-web-parity plan): date/start-time/end-time now use the
+#   native DatePickerInput/TimePickerInput pickers instead of free-text
+#   fields. Driving an iOS UIDatePicker spinner to a SPECIFIC value via
+#   Maestro (swiping a wheel a precise number of rows) is fragile —
+#   row-height/offset varies by device and OS version and isn't something
+#   Maestro exposes a stable API for. Per the plan's documented fallback,
+#   this flow instead confirms each picker's own default (tap field → tap
+#   the ${testID}-confirm button) and asserts against THAT value rather than
+#   the previous hardcoded "tomorrow 10:00–11:00": today (date picker's
+#   default when the field is blank) and 18:00–20:00 (BlockerForm's
+#   hardcoded initial startTime/endTime state for a new blocker). Verified
+#   the backend blocker list has no date/time filtering
+#   (list_student_blockers returns everything for the user, unfiltered), so
+#   "today" is safe regardless of what time of day this suite runs at.
 appId: com.levelup.mobile
 ---
 - runFlow: ../subflows/login-student.yaml
@@ -18,7 +29,7 @@ appId: com.levelup.mobile
       id: "availability-add"
     timeout: 15000
 
-# ── Create a one-time blocker for tomorrow 10:00–11:00 ──
+# ── Create a one-time blocker on today's date, default 18:00–20:00 ──
 - tapOn:
     id: "availability-add"
 - extendedWaitUntil:
@@ -27,7 +38,8 @@ appId: com.levelup.mobile
     timeout: 15000
 - runScript: ../scripts/seeded-monday.js
 
-# Date
+# Date — tap the field to open the iOS spinner dialog, confirm its default
+# (today, since the field starts blank), assert the pressable now shows it.
 - scrollUntilVisible:
     element:
       id: "blocker-date"
@@ -35,15 +47,18 @@ appId: com.levelup.mobile
     timeout: 30000
 - tapOn:
     id: "blocker-date"
-- inputText: ${output.tomorrow}
+- extendedWaitUntil:
+    visible:
+      id: "blocker-date-confirm"
+    timeout: 10000
+- tapOn:
+    id: "blocker-date-confirm"
 - assertVisible:
     id: "blocker-date"
-    text: ${output.tomorrow}
+    text: ${output.today}
 
-# Start time (dismiss keyboard first so the tap reaches the field)
-- swipe:
-    start: "50%, 45%"
-    end: "50%, 30%"
+# Start time — confirm the picker's own default (18:00, BlockerForm's
+# initial state for a new blocker).
 - scrollUntilVisible:
     element:
       id: "blocker-start-time"
@@ -51,16 +66,17 @@ appId: com.levelup.mobile
     timeout: 30000
 - tapOn:
     id: "blocker-start-time"
-- eraseText: 10
-- inputText: "10:00"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-start-time-confirm"
+    timeout: 10000
+- tapOn:
+    id: "blocker-start-time-confirm"
 - assertVisible:
     id: "blocker-start-time"
-    text: "10:00"
+    text: "18:00"
 
-# End time
-- swipe:
-    start: "50%, 45%"
-    end: "50%, 30%"
+# End time — same, default 20:00.
 - scrollUntilVisible:
     element:
       id: "blocker-end-time"
@@ -68,16 +84,17 @@ appId: com.levelup.mobile
     timeout: 30000
 - tapOn:
     id: "blocker-end-time"
-- eraseText: 10
-- inputText: "11:00"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-end-time-confirm"
+    timeout: 10000
+- tapOn:
+    id: "blocker-end-time-confirm"
 - assertVisible:
     id: "blocker-end-time"
-    text: "11:00"
+    text: "20:00"
 
 # Save
-- swipe:
-    start: "50%, 45%"
-    end: "50%, 30%"
 - scrollUntilVisible:
     element:
       id: "blocker-save"
@@ -89,7 +106,7 @@ appId: com.levelup.mobile
 # The card shows the default title and the chosen time range.
 - extendedWaitUntil:
     visible:
-      text: ".*10:00.*11:00.*"
+      text: ".*18:00.*20:00.*"
     timeout: 20000
 
 # ── Delete it with confirmation ──

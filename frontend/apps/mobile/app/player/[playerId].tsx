@@ -2,6 +2,7 @@ import * as React from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
+import { useTranslation } from "react-i18next";
 import { lightTheme } from "@levelup/config";
 import { useCoachLevels, usePlayerProfile } from "@levelup/hooks";
 import { sideLabel } from "@levelup/types";
@@ -32,10 +33,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
+import { AddEvaluationForm } from "@/features/players/add-evaluation-form";
+import { AddToClassesDialog } from "@/features/players/add-to-classes-dialog";
 import {
   useCoachPlayers,
   useEditPlayer,
+  useRemoveFromStandingWaitingList,
   useRemovePlayer,
+  useStandingWaitingList,
 } from "@/features/players/hooks";
 import { LevelLabel } from "@/features/players/LevelLabel";
 import {
@@ -43,6 +49,7 @@ import {
   type PlayerFormValues,
 } from "@/features/players/PlayerForm";
 import { StrengthsWeaknesses } from "@/features/players/StrengthsWeaknesses";
+import { WaitingListDialog } from "@/features/players/waiting-list-dialog";
 
 function getInitials(name: string) {
   return name
@@ -55,6 +62,7 @@ function getInitials(name: string) {
 }
 
 export default function PlayerDetailScreen() {
+  const { t } = useTranslation();
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -67,12 +75,17 @@ export default function PlayerDetailScreen() {
   } = useCoachPlayers();
   const { data: levels } = useCoachLevels();
   const { data: profile } = usePlayerProfile(playerId);
+  const { data: standingList } = useStandingWaitingList();
 
   const editPlayer = useEditPlayer();
   const removePlayer = useRemovePlayer();
+  const removeFromWaitingList = useRemoveFromStandingWaitingList();
 
   const [isEditing, setIsEditing] = React.useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
+  const [isEvalOpen, setIsEvalOpen] = React.useState(false);
+  const [isWaitingListOpen, setIsWaitingListOpen] = React.useState(false);
+  const [isClassesOpen, setIsClassesOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const player = React.useMemo(
@@ -81,6 +94,28 @@ export default function PlayerDetailScreen() {
       null,
     [players, playerId]
   );
+
+  // Mirrors web's PlayerDetailPage: the standing waiting list has no
+  // per-player lookup endpoint, so fetch the full list and find this player.
+  const standingEntry = React.useMemo(
+    () =>
+      (standingList ?? []).find(
+        (e) => String(e.playerId) === String(player?.playerId)
+      ) ?? null,
+    [standingList, player]
+  );
+
+  const handleRemoveFromWaitingList = async () => {
+    if (!standingEntry || !player) return;
+    try {
+      await removeFromWaitingList.mutateAsync(standingEntry.id);
+      toast.success(
+        t("players.removedFromWaitingList", { name: player.name })
+      );
+    } catch {
+      toast.error(t("players.removeFromWaitingListFailed"));
+    }
+  };
 
   const handleEditSave = async (values: PlayerFormValues) => {
     if (!player) return;
@@ -98,7 +133,7 @@ export default function PlayerDetailScreen() {
           phone: values.phone || undefined,
           levelId: values.levelId,
           side: values.side,
-          notes: player.notes,
+          notes: values.notes,
         },
       });
       setIsEditing(false);
@@ -186,6 +221,79 @@ export default function PlayerDetailScreen() {
     <Screen edges={["top"]} testID="player-detail">
       {header}
       <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="max-h-14 grow-0 border-b border-border"
+        contentContainerClassName="flex-row items-center gap-2 px-4 py-2"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          testID="player-add-to-classes"
+          accessibilityLabel={t("players.addToClasses")}
+          onPress={() => setIsClassesOpen(true)}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={16}
+            color={lightTheme.foreground}
+          />
+          <Text>{t("players.addToClasses")}</Text>
+        </Button>
+        {standingEntry ? (
+          <Button
+            variant="outline"
+            size="sm"
+            testID="player-waiting-list-remove"
+            accessibilityLabel={t("players.onWaitingList")}
+            disabled={removeFromWaitingList.isPending}
+            onPress={() => void handleRemoveFromWaitingList()}
+            className="border-amber-300"
+          >
+            {removeFromWaitingList.isPending ? (
+              <Spinner size="small" />
+            ) : (
+              <Ionicons
+                name="close-circle-outline"
+                size={16}
+                color="#b45309"
+              />
+            )}
+            <Text className="text-amber-700">
+              {t("players.onWaitingList")}
+            </Text>
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            testID="player-waiting-list"
+            accessibilityLabel={t("players.waitingList")}
+            onPress={() => setIsWaitingListOpen(true)}
+          >
+            <Ionicons
+              name="close-circle-outline"
+              size={16}
+              color={lightTheme.foreground}
+            />
+            <Text>{t("players.waitingList")}</Text>
+          </Button>
+        )}
+        <Button
+          size="sm"
+          testID="player-add-evaluation"
+          accessibilityLabel={t("players.addEvaluation")}
+          onPress={() => setIsEvalOpen(true)}
+        >
+          <Ionicons
+            name="clipboard-outline"
+            size={16}
+            color={lightTheme.primaryForeground}
+          />
+          <Text>{t("players.addEvaluation")}</Text>
+        </Button>
+      </ScrollView>
+      <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }}
@@ -206,6 +314,7 @@ export default function PlayerDetailScreen() {
                   phone: player.phone ?? "",
                   levelId: player.levelId,
                   side: player.side,
+                  notes: player.notes ?? "",
                 }}
                 saving={editPlayer.isPending}
                 submitLabel="Save changes"
@@ -373,6 +482,27 @@ export default function PlayerDetailScreen() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AddEvaluationForm
+        open={isEvalOpen}
+        onClose={() => setIsEvalOpen(false)}
+        playerId={String(player.playerId)}
+        currentEvaluations={profile?.evaluations ?? []}
+      />
+
+      <WaitingListDialog
+        open={isWaitingListOpen}
+        onClose={() => setIsWaitingListOpen(false)}
+        playerId={Number(player.playerId)}
+        playerName={player.name ?? null}
+      />
+
+      <AddToClassesDialog
+        open={isClassesOpen}
+        onClose={() => setIsClassesOpen(false)}
+        playerId={String(player.playerId)}
+        playerName={player.name ?? null}
+      />
     </Screen>
   );
 }

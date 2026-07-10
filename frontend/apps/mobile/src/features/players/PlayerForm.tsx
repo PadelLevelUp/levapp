@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useFieldAvailability } from "@levelup/hooks";
 import type { CoachLevel, PlayerSide } from "@levelup/types";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
+import { Textarea } from "@/components/ui/textarea";
 import { levelOptionLabel } from "./LevelLabel";
 
 export interface PlayerFormValues {
@@ -25,6 +27,7 @@ export interface PlayerFormValues {
   phone: string;
   levelId?: string;
   side?: PlayerSide;
+  notes?: string;
 }
 
 interface PlayerFormProps {
@@ -59,12 +62,14 @@ export function PlayerForm({
   onSubmit,
   onCancel,
 }: PlayerFormProps) {
+  const { t } = useTranslation();
   const [name, setName] = React.useState(initialValues?.name ?? "");
   const [username, setUsername] = React.useState(
     initialValues?.username ?? ""
   );
   const [email, setEmail] = React.useState(initialValues?.email ?? "");
   const [phone, setPhone] = React.useState(initialValues?.phone ?? "");
+  const [notes, setNotes] = React.useState(initialValues?.notes ?? "");
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const initialLevel = levels.find((l) => l.id === initialValues?.levelId);
@@ -116,6 +121,7 @@ export function PlayerForm({
       phone: phone.trim() || undefined,
       levelId: levelOption?.value || undefined,
       side: (sideOption?.value as PlayerSide) || undefined,
+      notes: notes.trim() || undefined,
     });
     if (!parsed.success) {
       setFormError(parsed.error.issues[0]?.message ?? "Invalid form");
@@ -133,6 +139,7 @@ export function PlayerForm({
       phone: phone.trim(),
       levelId: levelOption?.value || undefined,
       side: (sideOption?.value as PlayerSide) || undefined,
+      notes: notes.trim() || undefined,
     });
   };
 
@@ -267,6 +274,17 @@ export function PlayerForm({
             ))}
           </SelectContent>
         </Select>
+      </View>
+
+      <View className="gap-2">
+        <Label>{t("players.notesOptional")}</Label>
+        <Textarea
+          testID="player-notes"
+          accessibilityLabel="Player notes"
+          placeholder={t("players.notesPlaceholder")}
+          value={notes}
+          onChangeText={setNotes}
+        />
       </View>
 
       {formError ? (

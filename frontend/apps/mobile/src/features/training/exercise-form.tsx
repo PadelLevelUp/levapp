@@ -1,5 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
+import { lightTheme } from "@levelup/config";
 import type { CoachLevel } from "@levelup/types";
 import type {
+  CourtDiagram,
   Difficulty,
   Exercise,
   ExercisePayload,
@@ -22,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
+import { CourtDiagramEditor } from "@/features/training/court-diagram-editor";
 import { cn } from "@/lib/utils";
 
 type ExerciseFormProps = {
@@ -36,9 +40,9 @@ type ExerciseFormProps = {
 };
 
 /**
- * Exercise create/edit form, mirroring the web ExerciseFormSheet minus the
- * court-diagram canvas editor (web-only; an existing diagram is preserved
- * untouched on save).
+ * Exercise create/edit form, mirroring the web ExerciseFormSheet. The court
+ * diagram lives in a collapsible section (collapsed by default to keep the
+ * form compact) hosting the touch port of web's CourtDiagramEditor.
  */
 export function ExerciseForm({
   exercise,
@@ -65,6 +69,10 @@ export function ExerciseForm({
     exercise?.levelIds ?? []
   );
   const [notes, setNotes] = React.useState(exercise?.notes ?? "");
+  const [diagram, setDiagram] = React.useState<CourtDiagram>(
+    exercise?.diagram ?? { elements: [] }
+  );
+  const [diagramOpen, setDiagramOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const typeLabel =
@@ -93,8 +101,7 @@ export function ExerciseForm({
       return;
     }
     setError(null);
-    // Preserve any diagram drawn on web — the mobile form never edits it.
-    onSubmit({ ...parsed.data, diagram: exercise?.diagram });
+    onSubmit({ ...parsed.data, diagram });
   };
 
   return (
@@ -233,6 +240,26 @@ export function ExerciseForm({
           </View>
         </View>
       ) : null}
+
+      <View className="gap-1.5">
+        <Pressable
+          testID="exercise-diagram-toggle"
+          accessibilityLabel="Toggle court diagram"
+          role="button"
+          onPress={() => setDiagramOpen((v) => !v)}
+          className="flex-row items-center justify-between rounded-md border border-input bg-background px-3 py-3"
+        >
+          <Label className="mb-0">Court diagram</Label>
+          <Ionicons
+            name={diagramOpen ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={lightTheme.foreground}
+          />
+        </Pressable>
+        {diagramOpen ? (
+          <CourtDiagramEditor value={diagram} onChange={setDiagram} />
+        ) : null}
+      </View>
 
       <View className="gap-1.5">
         <Label>Notes</Label>

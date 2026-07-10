@@ -3,6 +3,12 @@
 # - create "Maestro Test Class" on the seeded Monday (default type/times) and
 #   it appears in the day list
 # ORDER DEPENDENCY: flow 05-class-deletion deletes the class created here.
+# Phase 7 (mobile-web-parity plan): class/new.tsx's Date/Start/End/recurrence
+# -end fields now use the native picker components instead of free-text
+# Inputs. No step below changed — this flow only ever typed into "class-name"
+# and never touched class-date/class-start-time/class-end-time (the comment
+# a few lines down already notes they "keep defaults"), so the picker swap
+# is a no-op for this flow.
 appId: com.levelup.mobile
 ---
 - runFlow: ../subflows/login-coach.yaml
