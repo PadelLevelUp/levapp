@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -58,6 +59,9 @@ function ChatSkeleton() {
 
 export default function ConversationScreen() {
   const { t } = useTranslation();
+  // Pushed route (no tab bar): the composer must clear the home indicator.
+  const insets = useSafeAreaInsets();
+  const composerPaddingBottom = Math.max(insets.bottom, 12);
   const params = useLocalSearchParams<{ id: string }>();
   const conversationId = String(params.id);
   const { user } = useAuth();
@@ -521,7 +525,10 @@ export default function ConversationScreen() {
 
         {/* Composer / edit composer */}
         {editing ? (
-          <View className="flex-row items-center gap-2 border-t border-border bg-card p-3">
+          <View
+            style={{ paddingBottom: composerPaddingBottom }}
+            className="flex-row items-center gap-2 border-t border-border bg-card p-3"
+          >
             <Pressable
               accessibilityLabel="Cancel editing"
               role="button"
@@ -556,7 +563,10 @@ export default function ConversationScreen() {
             </Button>
           </View>
         ) : (
-          <View className="border-t border-border bg-card">
+          <View
+            style={{ paddingBottom: composerPaddingBottom }}
+            className="border-t border-border bg-card"
+          >
             {/* Reply preview, mirrors web's Composer.tsx */}
             {replyingTo ? (
               <View
