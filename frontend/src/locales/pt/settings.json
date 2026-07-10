@@ -168,6 +168,13 @@
       "phaseAnalysis": "Análise de IA",
       "phaseResults": "Resultados",
       "tables": {
+        "players": "Jogadores",
+        "classes": "Aulas",
+        "playersInClasses": "Jogadores nas Aulas",
+        "presences": "Presenças",
+        "evaluations": "Avaliações",
+        "strengths": "Pontos fortes",
+        "weaknesses": "Pontos fracos",
         "playersDescription": "Perfis de jogadores e contactos",
         "classesDescription": "Sessões de treino e horários",
         "playersInClassesDescription": "Que jogadores frequentam que aula",
@@ -198,6 +205,10 @@
       "revertedDescription": "Removidos {{summary}}",
       "revertFailedTitle": "A reversão falhou",
       "revertFailedDescription": "Não foi possível reverter esta importação. Tenta novamente.",
+      "status": {
+        "active": "Ativa",
+        "reverted": "Revertida"
+      },
       "labels": {
         "players": "jogadores",
         "classes": "aulas",
@@ -394,7 +405,13 @@
       "recentAbsences": "Alunos que faltaram a uma aula recentemente",
       "justifiedAbsences": "Alunos com pelo menos uma falta justificada",
       "allStudents": "Todos os alunos elegíveis que ainda não estão na aula",
-      "empty": "Nenhum grupo configurado."
+      "empty": "Nenhum grupo configurado.",
+      "labels": {
+        "sameLevel": "Mesmo nível",
+        "recentAbsences": "Faltas recentes",
+        "justifiedAbsences": "Faltas justificadas",
+        "allStudents": "Todos os alunos"
+      }
     },
 
     "standingList": {

@@ -168,6 +168,13 @@
       "phaseAnalysis": "AI Analysis",
       "phaseResults": "Results",
       "tables": {
+        "players": "Players",
+        "classes": "Classes",
+        "playersInClasses": "Players in Classes",
+        "presences": "Presences",
+        "evaluations": "Evaluations",
+        "strengths": "Strengths",
+        "weaknesses": "Weaknesses",
         "playersDescription": "Player profiles and contact info",
         "classesDescription": "Training sessions and schedules",
         "playersInClassesDescription": "Which players attend which class",
@@ -198,6 +205,10 @@
       "revertedDescription": "Removed {{summary}}",
       "revertFailedTitle": "Revert failed",
       "revertFailedDescription": "Could not revert this import. Please try again.",
+      "status": {
+        "active": "Active",
+        "reverted": "Reverted"
+      },
       "labels": {
         "players": "players",
         "classes": "classes",
@@ -394,7 +405,13 @@
       "recentAbsences": "Students who missed a class recently",
       "justifiedAbsences": "Students with at least one justified absence",
       "allStudents": "All eligible students not already in the class",
-      "empty": "No groups configured."
+      "empty": "No groups configured.",
+      "labels": {
+        "sameLevel": "Same level",
+        "recentAbsences": "Recent absences",
+        "justifiedAbsences": "Justified absences",
+        "allStudents": "All students"
+      }
     },
 
     "standingList": {
