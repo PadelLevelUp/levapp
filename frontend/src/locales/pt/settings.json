@@ -234,6 +234,31 @@
       "createInvitationFailedDescription": "Tenta novamente."
     },
 
+    "seasons": {
+      "loading": "A carregar épocas…",
+      "title": "Épocas",
+      "description": "Define épocas com nome para que as aulas possam recorrer até à data de fim de uma época.",
+      "name": "Nome",
+      "start": "Início",
+      "end": "Fim",
+      "empty": "Ainda não há épocas definidas. Adiciona a primeira em baixo.",
+      "namePlaceholder": "Nome da época",
+      "startAriaLabel": "Início da época",
+      "endAriaLabel": "Fim da época",
+      "addSeason": "Adicionar época",
+      "saving": "A guardar…",
+      "saveSeasons": "Guardar épocas",
+      "deleteFailed": "Não foi possível eliminar a época",
+      "validationErrorTitle": "Erro de validação",
+      "validationErrorDescription": "Cada época precisa de um nome e de uma data de início anterior ou igual à data de fim.",
+      "savedTitle": "Épocas guardadas",
+      "savedMock_one": "{{count}} época atualizada (simulação).",
+      "savedMock_other": "{{count}} épocas atualizadas (simulação).",
+      "saved_one": "{{count}} época atualizada.",
+      "saved_other": "{{count}} épocas atualizadas.",
+      "saveFailed": "Não foi possível guardar as épocas"
+    },
+
     "coachLevels": {
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
