@@ -28,3 +28,4 @@ executionOrder:
     - 16-class-notify-remind
     - 17-message-reactions
     - 18-settings-sections
+    - 19-message-reply

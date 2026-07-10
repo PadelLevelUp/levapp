@@ -3,8 +3,8 @@
 # - coach sees the unread badge on the seeded conversation (id 1)
 # - opens it: header shows the participant role badge (chat-header-role)
 # - sends "Maestro message" → bubble appears
-# - edits it → text updates
-# - deletes it → "deleted" placeholder shows
+# - long-presses it to open the context menu → Edit → text updates
+# - long-presses it again → Delete → confirm → "deleted" placeholder shows
 # NOTE: conversation id 1 is deterministic on a freshly reset database
 # (seed.py creates exactly one conversation). Opening it marks it read, so
 # the unread-badge assertion happens first.
@@ -44,7 +44,7 @@ appId: com.levelup.mobile
       text: "Maestro message"
     timeout: 15000
 
-# ── Edit (select own bubble → Edit → clear with BOUNDED erase → retype) ──
+# ── Edit (long-press own bubble → context menu → Edit → retype) ──
 # The keyboard is still open after sending; the first tap on the list only
 # dismisses it (keyboardShouldPersistTaps is "never") and never reaches the
 # bubble — so dismiss it first with a tap on an empty list area.
@@ -52,11 +52,11 @@ appId: com.levelup.mobile
     point: "50%, 45%"
     retryTapIfNoChange: false
 - waitForAnimationToEnd
-# retryTapIfNoChange must be off: a second tap would toggle the selection
-# (and its action bar) straight back off.
-- tapOn:
+- longPressOn:
     text: "Maestro message"
-    retryTapIfNoChange: false
+# NOTE: the menu container's own testID (message-context-menu) does not
+# surface in the iOS a11y tree (portal-rendered View) — wait on an inner
+# menu item instead.
 - extendedWaitUntil:
     visible:
       id: "message-edit"
@@ -78,15 +78,14 @@ appId: com.levelup.mobile
       text: "Maestro message edited"
     timeout: 15000
 
-# ── Delete (select bubble → Delete → confirm → placeholder) ──
+# ── Delete (long-press bubble → context menu → Delete → confirm → placeholder) ──
 # Same keyboard-dismiss guard (the edit composer reopened the keyboard).
 - tapOn:
     point: "50%, 45%"
     retryTapIfNoChange: false
 - waitForAnimationToEnd
-- tapOn:
+- longPressOn:
     text: "Maestro message edited"
-    retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: "message-delete"

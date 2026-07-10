@@ -34,15 +34,16 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { MessageBubble } from "@/features/messages/components/message-bubble";
 import {
+  MessageContextMenu,
+  type ContextMenuAnchor,
+} from "@/features/messages/components/message-context-menu";
+import {
   invalidateMessagesLists,
   normalizeId,
   updateConversationCache,
   updateMessageInCache,
 } from "@/features/messages/utils";
 import { useAppEvents } from "@/lib/sse";
-
-// Mirrors web's MessageActionMenu.tsx quickReactions.
-const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "🙏"];
 
 function ChatSkeleton() {
   return (
@@ -71,12 +72,30 @@ export default function ConversationScreen() {
   } = useConversation(conversationId);
 
   const [draft, setDraft] = React.useState("");
-  const [selected, setSelected] = React.useState<Message | null>(null);
+  const [contextMenu, setContextMenu] = React.useState<{
+    message: Message;
+    anchor: ContextMenuAnchor;
+  } | null>(null);
+  const [replyingTo, setReplyingTo] = React.useState<Message | null>(null);
   const [editing, setEditing] = React.useState<Message | null>(null);
   const [editText, setEditText] = React.useState("");
-  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+  const [confirmingDelete, setConfirmingDelete] = React.useState<Message | null>(
+    null
+  );
   const [sending, setSending] = React.useState(false);
   const [savingEdit, setSavingEdit] = React.useState(false);
+  const [highlightedId, setHighlightedId] = React.useState<
+    string | number | null
+  >(null);
+  const highlightTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  React.useEffect(
+    () => () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    },
+    []
+  );
 
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
@@ -172,7 +191,9 @@ export default function ConversationScreen() {
   const handleSend = async () => {
     const content = draft.trim();
     if (!content || sending) return;
+    const replyToId = replyingTo ? String(replyingTo.id) : undefined;
     setDraft("");
+    setReplyingTo(null);
     setSending(true);
 
     const tempId = `temp-${Date.now()}`;
@@ -187,6 +208,7 @@ export default function ConversationScreen() {
       edited: false,
       isDeleted: false,
       reactions: [],
+      replyTo: replyToId ?? null,
     };
     updateConversationCache(queryClient, conversationId, (c) => ({
       ...c,
@@ -194,7 +216,11 @@ export default function ConversationScreen() {
     }));
 
     try {
-      const saved = await messagesApi.sendMessage({ conversationId, content });
+      const saved = await messagesApi.sendMessage({
+        conversationId,
+        content,
+        replyToId,
+      });
       updateConversationCache(queryClient, conversationId, (c) => {
         // SSE may already have delivered the saved message — drop the temp.
         const alreadyDelivered = c.messages.some(
@@ -224,12 +250,14 @@ export default function ConversationScreen() {
     }
   };
 
-  // ── Edit own message ──
+  // ── Edit own message (launched from the long-press context menu) ──
   const startEditing = () => {
-    if (!selected) return;
-    setEditing(selected);
-    setEditText(selected.content);
-    setSelected(null);
+    if (!contextMenu) return;
+    const message = contextMenu.message;
+    setContextMenu(null);
+    setReplyingTo(null);
+    setEditing(message);
+    setEditText(message.content);
   };
 
   const handleSaveEdit = async () => {
@@ -260,12 +288,51 @@ export default function ConversationScreen() {
     void messagesApi.toggleReaction(String(messageId), emoji);
   };
 
-  const handleQuickReaction = (emoji: string) => {
-    if (!selected) return;
-    const messageId = selected.id;
-    setSelected(null);
+  const handleMenuReaction = (emoji: string) => {
+    if (!contextMenu) return;
+    const messageId = contextMenu.message.id;
+    setContextMenu(null);
     handleToggleReaction(messageId, emoji);
   };
+
+  // ── Reply (launched from the swipe-right gesture on a bubble) ──
+  const handleReply = (message: Message) => {
+    setEditing(null);
+    setReplyingTo(message);
+  };
+
+  // NOT an inverted list: on the New Architecture (Fabric), `inverted`
+  // FlatLists (scaleY(-1) transforms) report wrong accessibility frames and
+  // break hit-testing on iOS — bubbles become untappable for VoiceOver and
+  // UI tests. Instead the list keeps natural (oldest-first) order and stays
+  // anchored to the bottom via scrollToEnd on content-size changes.
+  const listRef = React.useRef<FlatList<Message>>(null);
+  const scrollToBottom = React.useCallback(() => {
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
+  const scrollToMessage = React.useCallback(
+    (messageId: string | number) => {
+      if (!conversation) return;
+      const index = conversation.messages.findIndex(
+        (m) => String(m.id) === String(messageId)
+      );
+      if (index === -1) return;
+      listRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+      setHighlightedId(messageId);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(
+        () => setHighlightedId(null),
+        900
+      );
+    },
+    [conversation]
+  );
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
@@ -314,12 +381,11 @@ export default function ConversationScreen() {
     }
   };
 
-  // ── Delete own message ──
+  // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
-    if (!selected) return;
-    const messageId = selected.id;
-    setConfirmingDelete(false);
-    setSelected(null);
+    if (!confirmingDelete) return;
+    const messageId = confirmingDelete.id;
+    setConfirmingDelete(null);
     try {
       await messagesApi.deleteMessage(String(messageId));
       updateMessageInCache(queryClient, conversationId, messageId, (m) => ({
@@ -332,15 +398,12 @@ export default function ConversationScreen() {
     }
   };
 
-  // NOT an inverted list: on the New Architecture (Fabric), `inverted`
-  // FlatLists (scaleY(-1) transforms) report wrong accessibility frames and
-  // break hit-testing on iOS — bubbles become untappable for VoiceOver and
-  // UI tests. Instead the list keeps natural (oldest-first) order and stays
-  // anchored to the bottom via scrollToEnd on content-size changes.
-  const listRef = React.useRef<FlatList<Message>>(null);
-  const scrollToBottom = React.useCallback(() => {
-    listRef.current?.scrollToEnd({ animated: false });
-  }, []);
+  // ── Delete (launched from the long-press context menu) ──
+  const startConfirmingDelete = () => {
+    if (!contextMenu) return;
+    setConfirmingDelete(contextMenu.message);
+    setContextMenu(null);
+  };
 
   const isTempId = (id: string | number) => String(id).startsWith("temp-");
 
@@ -397,24 +460,41 @@ export default function ConversationScreen() {
             contentContainerClassName="gap-2 p-4"
             onContentSizeChange={scrollToBottom}
             onLayout={scrollToBottom}
+            onScrollToIndexFailed={(info) => {
+              // Item not measured yet (variable bubble heights) — retry
+              // once layout settles, standard FlatList workaround.
+              setTimeout(() => {
+                listRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true,
+                  viewPosition: 0.5,
+                });
+              }, 50);
+            }}
             renderItem={({ item }) => {
               const own = Number(item.senderId) === myId;
+              const interactive = !item.isDeleted && !isTempId(item.id);
+              const replyToMessage =
+                item.replyTo != null
+                  ? conversation.messages.find(
+                      (m) => String(m.id) === String(item.replyTo)
+                    )
+                  : undefined;
               return (
                 <MessageBubble
                   message={item}
                   own={own}
-                  selected={selected?.id === item.id}
                   userId={myId}
-                  // Selectable regardless of ownership — own messages get
-                  // edit/delete in the action bar, any message gets reactions.
-                  onSelect={
-                    !item.isDeleted && !isTempId(item.id)
-                      ? () =>
-                          setSelected((prev) =>
-                            prev?.id === item.id ? null : item
-                          )
+                  participantName={conversation.participantName}
+                  replyToMessage={replyToMessage}
+                  isHighlighted={highlightedId === item.id}
+                  onLongPressMenu={
+                    interactive
+                      ? (msg, anchor) => setContextMenu({ message: msg, anchor })
                       : undefined
                   }
+                  onReply={interactive ? handleReply : undefined}
+                  onScrollToReply={scrollToMessage}
                   onReaction={
                     isTempId(item.id)
                       ? undefined
@@ -438,69 +518,6 @@ export default function ConversationScreen() {
             }
           />
         )}
-
-        {/* Action bar for the selected message: quick reactions for any
-            message, edit/delete restricted to own messages. */}
-        {selected && !editing ? (
-          <View className="border-t border-border bg-card">
-            <View className="flex-row items-center justify-around border-b border-border px-2 py-2">
-              {QUICK_REACTIONS.map((emoji, index) => (
-                <Pressable
-                  key={emoji}
-                  testID={`reaction-${index}`}
-                  accessibilityLabel={`React with ${emoji}`}
-                  role="button"
-                  onPress={() => handleQuickReaction(emoji)}
-                  className="p-1 active:opacity-60"
-                >
-                  <Text className="text-2xl">{emoji}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View className="flex-row items-center gap-2 px-4 py-2">
-              <Text
-                numberOfLines={1}
-                className="flex-1 text-sm text-muted-foreground"
-              >
-                {selected.content}
-              </Text>
-              {Number(selected.senderId) === myId ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    testID="message-edit"
-                    accessibilityLabel="Edit message"
-                    onPress={startEditing}
-                  >
-                    <Text>Edit</Text>
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    testID="message-delete"
-                    accessibilityLabel="Delete message"
-                    onPress={() => setConfirmingDelete(true)}
-                  >
-                    <Text>Delete</Text>
-                  </Button>
-                </>
-              ) : null}
-              <Pressable
-                accessibilityLabel="Dismiss message actions"
-                role="button"
-                onPress={() => setSelected(null)}
-                className="p-1"
-              >
-                <Ionicons
-                  name="close"
-                  size={20}
-                  color={lightTheme.mutedForeground}
-                />
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
 
         {/* Composer / edit composer */}
         {editing ? (
@@ -539,41 +556,98 @@ export default function ConversationScreen() {
             </Button>
           </View>
         ) : (
-          <View className="flex-row items-end gap-2 border-t border-border bg-card p-3">
-            <Input
-              testID="message-input"
-              accessibilityLabel="Message text"
-              placeholder="Type a message…"
-              className="max-h-28 flex-1"
-              value={draft}
-              onChangeText={setDraft}
-              multiline
-            />
-            <Pressable
-              testID="message-send"
-              accessibilityLabel="Send message"
-              role="button"
-              disabled={!draft.trim() || sending || !conversation}
-              onPress={() => void handleSend()}
-              className={`h-12 w-12 items-center justify-center rounded-full bg-primary active:opacity-90 ${
-                !draft.trim() || sending ? "opacity-50" : ""
-              }`}
-            >
-              <Ionicons
-                name="send"
-                size={20}
-                color={lightTheme.primaryForeground}
+          <View className="border-t border-border bg-card">
+            {/* Reply preview, mirrors web's Composer.tsx */}
+            {replyingTo ? (
+              <View
+                testID="message-reply-preview"
+                className="flex-row items-center gap-2 px-3 pt-2"
+              >
+                <View className="flex-1 border-r-2 border-primary pr-3">
+                  <Text className="text-right text-xs font-semibold text-primary">
+                    {Number(replyingTo.senderId) === myId
+                      ? t("messages.you")
+                      : conversation?.participantName}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    className="text-right text-xs text-muted-foreground"
+                  >
+                    {replyingTo.content}
+                  </Text>
+                </View>
+                <Pressable
+                  testID="message-reply-cancel"
+                  accessibilityLabel={t("messages.cancelReply")}
+                  role="button"
+                  onPress={() => setReplyingTo(null)}
+                  className="p-1"
+                >
+                  <Ionicons
+                    name="close"
+                    size={18}
+                    color={lightTheme.mutedForeground}
+                  />
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View className="flex-row items-end gap-2 p-3">
+              <Input
+                testID="message-input"
+                accessibilityLabel="Message text"
+                placeholder="Type a message…"
+                className="max-h-28 flex-1"
+                value={draft}
+                onChangeText={setDraft}
+                multiline
               />
-            </Pressable>
+              <Pressable
+                testID="message-send"
+                accessibilityLabel="Send message"
+                role="button"
+                disabled={!draft.trim() || sending || !conversation}
+                onPress={() => void handleSend()}
+                className={`h-12 w-12 items-center justify-center rounded-full bg-primary active:opacity-90 ${
+                  !draft.trim() || sending ? "opacity-50" : ""
+                }`}
+              >
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={lightTheme.primaryForeground}
+                />
+              </Pressable>
+            </View>
           </View>
         )}
       </KeyboardAvoidingView>
 
+      {/* Long-press context menu: quick reactions + Edit/Delete (own only) */}
+      {contextMenu ? (
+        <MessageContextMenu
+          anchor={contextMenu.anchor}
+          isMine={Number(contextMenu.message.senderId) === myId}
+          onClose={() => setContextMenu(null)}
+          onEdit={
+            Number(contextMenu.message.senderId) === myId
+              ? startEditing
+              : undefined
+          }
+          onDelete={
+            Number(contextMenu.message.senderId) === myId
+              ? startConfirmingDelete
+              : undefined
+          }
+          onReaction={handleMenuReaction}
+        />
+      ) : null}
+
       {/* Delete confirmation */}
       <AlertDialog
-        open={confirmingDelete}
+        open={!!confirmingDelete}
         onOpenChange={(open) => {
-          if (!open) setConfirmingDelete(false);
+          if (!open) setConfirmingDelete(null);
         }}
       >
         <AlertDialogContent>

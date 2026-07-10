@@ -1,0 +1,42 @@
+# Swipe-right-to-reply on a message bubble (mirrors web's drag-to-reply):
+# swiping a bubble to the right past the threshold puts the composer into
+# reply mode with a quoted preview; cancelling clears it. State-neutral —
+# no message is actually sent, so reruns need no DB reset.
+#
+# The swipe targets the seeded student message "Thanks coach!" by text.
+# direction-swipe from an element starts at its center; the pan gesture
+# activates at 20px horizontal and triggers reply past 60px, which a
+# RIGHT swipe comfortably exceeds.
+appId: com.levelup.mobile
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      text: "Thanks coach!"
+    timeout: 15000
+
+# ── Swipe right on the bubble → composer enters reply mode ──
+- swipe:
+    from:
+      text: "Thanks coach!"
+    direction: RIGHT
+- extendedWaitUntil:
+    visible:
+      id: "message-reply-preview"
+    timeout: 10000
+
+# ── Cancel reply mode → preview disappears ──
+- tapOn:
+    id: "message-reply-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "message-reply-preview"
+    timeout: 10000

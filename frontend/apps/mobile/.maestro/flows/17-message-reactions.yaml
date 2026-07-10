@@ -22,33 +22,39 @@ appId: com.levelup.mobile
       text: "Thanks coach!"
     timeout: 20000
 
-# ── Select the seeded (student-sent) message and react with 👍 ──
-# reaction-1 is QUICK_REACTIONS[1] in conversation/[id].tsx: ["❤️","👍",...].
-# retryTapIfNoChange must be off: this is a selection toggle, same gotcha as
-# the message-edit/delete flow (09-direct-messages.yaml).
-- tapOn:
+# ── Long-press the seeded (student-sent) message to open the context menu,
+#    then react with 👍 ──
+# reaction-1 is QUICK_REACTIONS[1] in message-context-menu.tsx: ["❤️","👍",...].
+- longPressOn:
     text: "Thanks coach!"
-    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: "reaction-1"
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: "reaction-1"
     timeout: 10000
 - tapOn:
     id: "reaction-1"
-    retryTapIfNoChange: false
 
 # ── A reaction pill (👍, no count since it's the only reaction) renders
-#    under the bubble once the SSE round-trip lands ──
+#    overlapping the bubble once the SSE round-trip lands ──
 - extendedWaitUntil:
     visible:
       text: "👍"
     timeout: 20000
 
-# ── Tap the pill again to toggle the reaction back off (leave state clean
-#    for reruns) — also not optimistic, so retryTapIfNoChange must be off. ──
+# ── Long-press again and tap the same quick reaction to toggle it back off
+#    (leave state clean for reruns) ──
+- longPressOn:
+    text: "Thanks coach!"
+- extendedWaitUntil:
+    visible:
+      id: "reaction-1"
+    timeout: 10000
 - tapOn:
-    text: "👍"
-    retryTapIfNoChange: false
+    id: "reaction-1"
 - extendedWaitUntil:
     notVisible:
       text: "👍"
