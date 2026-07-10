@@ -13,6 +13,7 @@ import {
   secureTokenStorage,
   setUnauthorizedHandler,
 } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { getPushRegistrar } from "@/lib/push";
 
 export type AuthUser = authApi.MeResponse;
@@ -32,6 +33,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Apply the signed-in user's persisted language preference (set via
+  // Settings > Language, PATCH /auth/me) once it's known — on silent
+  // restore and right after login. Overrides the device-locale default
+  // i18n.ts picks at init.
+  useEffect(() => {
+    if (user?.language && user.language !== i18n.language) {
+      void i18n.changeLanguage(user.language);
+    }
+  }, [user?.language]);
 
   // Silent restore: if a token is in SecureStore, hydrate the user.
   useEffect(() => {

@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import * as React from "react";
 import { ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import i18n from "@/lib/i18n";
 import {
   Card,
   CardContent,
@@ -67,6 +68,7 @@ export default function SettingsScreen() {
     setLanguageStatus(null);
     try {
       await authApi.updateMe({ language: value });
+      void i18n.changeLanguage(value);
       setLanguageStatus("Language preference saved.");
     } catch {
       setLanguage(previous);

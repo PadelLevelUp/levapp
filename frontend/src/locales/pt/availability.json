@@ -45,6 +45,8 @@
     "wontReceive": "Não receberá convites automáticos durante este período.",
     "editBlockerAria": "Editar bloqueio",
     "deleteBlockerAria": "Eliminar bloqueio",
+    "deleteBlockerTitle": "Eliminar este bloqueio?",
+    "deleteBlockerDescription": "Esta ação não pode ser anulada.",
     "couldNotLoadTitle": "Não foi possível carregar os bloqueios",
     "couldNotLoadDescription": "Por favor, tente novamente.",
     "dateRequiredTitle": "Data obrigatória",

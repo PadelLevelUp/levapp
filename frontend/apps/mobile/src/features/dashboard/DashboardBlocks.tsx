@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { parseDashboardItemId } from "@/features/calendar/params";
+import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<DashboardIcon, keyof typeof Ionicons.glyphMap> = {
   users: "people-outline",
@@ -123,6 +124,9 @@ function ClassList({ block }: { block: DashboardClassListBlock }) {
             name={ICON_MAP[block.data.icon] ?? "help-circle-outline"}
             size={16}
             color={lightTheme.mutedForeground}
+            accessibilityLabel={
+              block.data.icon === "user_plus" ? "Add participants" : undefined
+            }
           />
         ) : null}
       </CardHeader>
@@ -211,14 +215,13 @@ function MessagesOverview({
   );
 }
 
-const STATUS_VARIANT: Record<
-  string,
-  "default" | "secondary" | "destructive" | "success" | "warning" | "outline"
-> = {
-  sent: "secondary",
-  confirmed: "success",
-  expired: "outline",
-  queued: "warning",
+/** Mirrors web's STATUS_STYLES (NotificationActivityBlock.tsx) so status
+ * pills match across platforms: pale fill + matching text, raw lowercase status. */
+const STATUS_STYLES: Record<string, { badge: string; text: string }> = {
+  sent: { badge: "bg-blue-100", text: "text-blue-700" },
+  confirmed: { badge: "bg-green-100", text: "text-green-700" },
+  expired: { badge: "bg-gray-100", text: "text-gray-500" },
+  queued: { badge: "bg-yellow-100", text: "text-yellow-700" },
 };
 
 function NotificationActivity({
@@ -264,8 +267,16 @@ function NotificationActivity({
                     : ""}
                 </Text>
               </View>
-              <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>
-                <Text className="capitalize">{item.status}</Text>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border-transparent",
+                  STATUS_STYLES[item.status]?.badge ?? "bg-muted"
+                )}
+              >
+                <Text className={STATUS_STYLES[item.status]?.text ?? "text-muted-foreground"}>
+                  {item.status}
+                </Text>
               </Badge>
             </View>
           ))

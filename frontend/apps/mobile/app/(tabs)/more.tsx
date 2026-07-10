@@ -54,7 +54,8 @@ export default function MoreScreen() {
   const isCoach = user?.roles?.includes("coach") ?? false;
 
   const entries: MenuEntry[] = [
-    // Training is coach-only; availability is student-only.
+    // Training is coach-only; students get Availability as a bottom tab
+    // instead (see app/(tabs)/_layout.tsx), so there's no student entry here.
     ...(isCoach
       ? [
           {
@@ -65,15 +66,7 @@ export default function MoreScreen() {
             onPress: () => router.push("/training"),
           } satisfies MenuEntry,
         ]
-      : [
-          {
-            key: "availability",
-            label: "Availability",
-            icon: "time-outline",
-            testID: "more-availability",
-            onPress: () => router.push("/availability"),
-          } satisfies MenuEntry,
-        ]),
+      : []),
     {
       key: "settings",
       label: "Settings",

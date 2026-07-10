@@ -14,35 +14,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  type Option,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
-/** Blocker payload with the UI-selected type (backend stores "unavailable"
- * blockers for students; extra keys are ignored by the endpoint). */
-export type BlockerPayload = BlockerInput & { type?: string };
+/** The backend always stores student blockers as type "unavailable" (web has
+ * no type control either), so the payload is exactly the shared BlockerInput. */
+export type BlockerPayload = BlockerInput;
 
-export const BLOCKER_TYPE_OPTIONS = [
-  { value: "unavailable", label: "Unavailable" },
-  { value: "break", label: "Break" },
-  { value: "holiday", label: "Holiday" },
-  { value: "off_work", label: "Off work" },
-  { value: "personal", label: "Personal" },
-] as const;
-
-export function blockerTypeLabel(type: string | null | undefined): string {
-  return (
-    BLOCKER_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? "Unavailable"
-  );
+/** All student blockers are backend-forced to "unavailable"; mirrors web's
+ * static badge text (AvailabilityPage.tsx). */
+export function blockerTypeLabel(_type: string | null | undefined): string {
+  return "Unavailable";
 }
 
 const DAYS_OF_WEEK = [
@@ -85,12 +69,6 @@ export function BlockerForm({
   onSubmit,
   onCancel,
 }: BlockerFormProps) {
-  const initialType =
-    BLOCKER_TYPE_OPTIONS.find((o) => o.value === initial?.type) ??
-    BLOCKER_TYPE_OPTIONS[0];
-  const [typeOption, setTypeOption] = React.useState<Option>({
-    ...initialType,
-  });
   const [title, setTitle] = React.useState(initial?.title ?? "");
   const [date, setDate] = React.useState(initial?.date ?? "");
   const [startTime, setStartTime] = React.useState(
@@ -134,7 +112,6 @@ export function BlockerForm({
     }
 
     onSubmit({
-      type: (typeOption?.value as string) || "unavailable",
       title: title || null,
       date,
       startTime,
@@ -158,27 +135,6 @@ export function BlockerForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="gap-5">
-        <View className="gap-2">
-          <Label>Type</Label>
-          <Select value={typeOption} onValueChange={setTypeOption}>
-            <SelectTrigger
-              testID="blocker-type-select"
-              accessibilityLabel="Blocker type"
-            >
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              {BLOCKER_TYPE_OPTIONS.map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                  label={opt.label}
-                />
-              ))}
-            </SelectContent>
-          </Select>
-        </View>
-
         <View className="gap-2">
           <Label>Title (optional)</Label>
           <Input

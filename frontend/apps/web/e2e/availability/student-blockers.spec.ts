@@ -83,6 +83,13 @@ test("US-PAD28: student can delete an existing blocker", async ({ page }) => {
 
   await row.getByRole("button", { name: /delete blocker/i }).click();
 
+  // A confirm dialog must appear before the blocker is actually removed.
+  await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 5_000 });
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^delete$/i })
+    .click();
+
   await expect(
     page.getByText("Temporary blocker", { exact: false })
   ).toHaveCount(0, { timeout: 10_000 });

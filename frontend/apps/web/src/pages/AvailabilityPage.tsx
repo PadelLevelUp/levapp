@@ -15,6 +15,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -74,6 +84,7 @@ export default function AvailabilityPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BlockerFormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const refresh = async () => {
     try {
@@ -404,7 +415,7 @@ export default function AvailabilityPage() {
                       variant="ghost"
                       size="icon"
                       aria-label={t("availability.deleteBlockerAria")}
-                      onClick={() => handleDelete(b.id)}
+                      onClick={() => setDeletingId(b.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -414,6 +425,29 @@ export default function AvailabilityPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={deletingId != null}
+        onOpenChange={(open) => !open && setDeletingId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("availability.deleteBlockerTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("availability.deleteBlockerDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingId != null && handleDelete(deletingId)}
+            >
+              {t("common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

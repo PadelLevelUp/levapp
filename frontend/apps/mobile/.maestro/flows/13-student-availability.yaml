@@ -12,9 +12,7 @@ appId: com.levelup.mobile
 ---
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
-    id: "tab-more"
-- tapOn:
-    id: "more-availability"
+    id: "tab-availability"
 - extendedWaitUntil:
     visible:
       id: "availability-add"

@@ -2,6 +2,7 @@ import {
   classesApi,
   notificationEngineApi,
   presencesApi,
+  trainingApi,
 } from "@levelup/api";
 import type {
   AbsenceJustification,
@@ -9,7 +10,7 @@ import type {
   ClassInstance,
   PresenceStatus,
 } from "@levelup/types";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 /** Invalidates every query a class mutation can affect. */
 function useInvalidateClassData() {
@@ -39,6 +40,98 @@ export function useRemoveClass() {
       event: CalendarEvent;
       scope: "single" | "future";
     }) => classesApi.removeClass(event, scope),
+    onSuccess: invalidate,
+  });
+}
+
+export function useEditClass() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      event,
+      updates,
+      scope,
+    }: {
+      event: CalendarEvent;
+      updates: Record<string, unknown>;
+      scope: "single" | "future";
+    }) => classesApi.editClass(event, updates, scope),
+    onSuccess: invalidate,
+  });
+}
+
+/** Coach action: nudge unconfirmed participants (POST /app/notify/send_reminders). */
+export function useSendClassReminders() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      model,
+      originalId,
+      date,
+    }: {
+      model: string;
+      originalId: string;
+      date: string;
+    }) => notificationEngineApi.sendClassReminders(model, originalId, date),
+    onSuccess: invalidate,
+  });
+}
+
+/** Coach action: invite specific players outside auto-invitation (POST /app/notify/manual). */
+export function useSendManualNotifications() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      model,
+      originalId,
+      date,
+      playerIds,
+    }: {
+      model: string;
+      originalId: string;
+      date: string;
+      playerIds: string[];
+    }) =>
+      notificationEngineApi.sendManualNotifications(
+        model,
+        originalId,
+        date,
+        playerIds
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+/** Groups/players eligible for manual notification on a class instance —
+ * feeds the notify picker (mirrors web's ManualNotificationModal). */
+export function useNotificationGroups(
+  model: string | null | undefined,
+  originalId: string | null | undefined,
+  date: string | null | undefined
+) {
+  return useQuery({
+    queryKey: ["notification-groups", model, originalId, date],
+    queryFn: () =>
+      notificationEngineApi.getNotificationGroups(
+        model as string,
+        originalId as string,
+        date as string
+      ),
+    enabled: !!model && !!originalId && !!date,
+  });
+}
+
+/** Coach action: save the confirmed exercise plan for a class instance. */
+export function useConfirmClassTraining() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      classInstance,
+      exerciseIds,
+    }: {
+      classInstance: ClassInstance;
+      exerciseIds: string[];
+    }) => trainingApi.confirmClassTraining(classInstance, exerciseIds),
     onSuccess: invalidate,
   });
 }

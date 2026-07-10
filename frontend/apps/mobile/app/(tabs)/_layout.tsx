@@ -104,6 +104,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="availability"
+        options={{
+          // Availability is student-only (inverse of the players tab, which
+          // is coach-only); href: null removes the tab for coaches.
+          href: isCoach ? null : undefined,
+          title: "Availability",
+          tabBarButtonTestID: "tab-availability",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="more"
         options={{
           title: "More",

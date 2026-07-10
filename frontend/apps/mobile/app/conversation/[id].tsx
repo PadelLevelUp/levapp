@@ -39,6 +39,9 @@ import {
 } from "@/features/messages/utils";
 import { useAppEvents } from "@/lib/sse";
 
+// Mirrors web's MessageActionMenu.tsx quickReactions.
+const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "🙏"];
+
 function ChatSkeleton() {
   return (
     <View className="flex-1 justify-end gap-3 p-4">
@@ -247,6 +250,20 @@ export default function ConversationScreen() {
     }
   };
 
+  // ── Reactions (any message, own or other's) ──
+  // Not optimistic — the message_reaction SSE event above delivers the
+  // authoritative reactions array, same as web's handleToggleReaction.
+  const handleToggleReaction = (messageId: string | number, emoji: string) => {
+    void messagesApi.toggleReaction(String(messageId), emoji);
+  };
+
+  const handleQuickReaction = (emoji: string) => {
+    if (!selected) return;
+    const messageId = selected.id;
+    setSelected(null);
+    handleToggleReaction(messageId, emoji);
+  };
+
   // ── Delete own message ──
   const handleConfirmDelete = async () => {
     if (!selected) return;
@@ -337,13 +354,21 @@ export default function ConversationScreen() {
                   message={item}
                   own={own}
                   selected={selected?.id === item.id}
+                  userId={myId}
+                  // Selectable regardless of ownership — own messages get
+                  // edit/delete in the action bar, any message gets reactions.
                   onSelect={
-                    own && !item.isDeleted && !isTempId(item.id)
+                    !item.isDeleted && !isTempId(item.id)
                       ? () =>
                           setSelected((prev) =>
                             prev?.id === item.id ? null : item
                           )
                       : undefined
+                  }
+                  onReaction={
+                    isTempId(item.id)
+                      ? undefined
+                      : (emoji) => handleToggleReaction(item.id, emoji)
                   }
                 />
               );
@@ -358,45 +383,66 @@ export default function ConversationScreen() {
           />
         )}
 
-        {/* Action bar for the selected own message */}
+        {/* Action bar for the selected message: quick reactions for any
+            message, edit/delete restricted to own messages. */}
         {selected && !editing ? (
-          <View className="flex-row items-center gap-2 border-t border-border bg-card px-4 py-2">
-            <Text
-              numberOfLines={1}
-              className="flex-1 text-sm text-muted-foreground"
-            >
-              {selected.content}
-            </Text>
-            <Button
-              variant="outline"
-              size="sm"
-              testID="message-edit"
-              accessibilityLabel="Edit message"
-              onPress={startEditing}
-            >
-              <Text>Edit</Text>
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              testID="message-delete"
-              accessibilityLabel="Delete message"
-              onPress={() => setConfirmingDelete(true)}
-            >
-              <Text>Delete</Text>
-            </Button>
-            <Pressable
-              accessibilityLabel="Dismiss message actions"
-              role="button"
-              onPress={() => setSelected(null)}
-              className="p-1"
-            >
-              <Ionicons
-                name="close"
-                size={20}
-                color={lightTheme.mutedForeground}
-              />
-            </Pressable>
+          <View className="border-t border-border bg-card">
+            <View className="flex-row items-center justify-around border-b border-border px-2 py-2">
+              {QUICK_REACTIONS.map((emoji, index) => (
+                <Pressable
+                  key={emoji}
+                  testID={`reaction-${index}`}
+                  accessibilityLabel={`React with ${emoji}`}
+                  role="button"
+                  onPress={() => handleQuickReaction(emoji)}
+                  className="p-1 active:opacity-60"
+                >
+                  <Text className="text-2xl">{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View className="flex-row items-center gap-2 px-4 py-2">
+              <Text
+                numberOfLines={1}
+                className="flex-1 text-sm text-muted-foreground"
+              >
+                {selected.content}
+              </Text>
+              {Number(selected.senderId) === myId ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    testID="message-edit"
+                    accessibilityLabel="Edit message"
+                    onPress={startEditing}
+                  >
+                    <Text>Edit</Text>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    testID="message-delete"
+                    accessibilityLabel="Delete message"
+                    onPress={() => setConfirmingDelete(true)}
+                  >
+                    <Text>Delete</Text>
+                  </Button>
+                </>
+              ) : null}
+              <Pressable
+                accessibilityLabel="Dismiss message actions"
+                role="button"
+                onPress={() => setSelected(null)}
+                className="p-1"
+              >
+                <Ionicons
+                  name="close"
+                  size={20}
+                  color={lightTheme.mutedForeground}
+                />
+              </Pressable>
+            </View>
           </View>
         ) : null}
 

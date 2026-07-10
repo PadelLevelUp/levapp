@@ -107,6 +107,7 @@ export default function MessagesScreen() {
               onPress={() => router.push(`/conversation/${item.id}`)}
             />
           )}
+          contentContainerStyle={{ paddingBottom: 96 }}
           onEndReachedThreshold={0.4}
           onEndReached={() => void loadMore()}
           ListFooterComponent={

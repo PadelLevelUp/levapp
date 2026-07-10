@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import type { AvailabilityBlocker } from "@levelup/api/src/resources/availability";
 import { useAvailabilityBlockers } from "@levelup/hooks";
-import { useRouter } from "expo-router";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
@@ -19,7 +18,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
@@ -57,7 +55,6 @@ function describeBlocker(b: AvailabilityBlocker): string {
 }
 
 export default function AvailabilityScreen() {
-  const router = useRouter();
   const { data: blockers, isPending, isError, refetch } =
     useAvailabilityBlockers();
   const createBlocker = useCreateBlocker();
@@ -206,39 +203,7 @@ export default function AvailabilityScreen() {
   };
 
   return (
-    <Screen edges={["top"]} testID="screen-availability">
-      <View className="flex-row items-center gap-1 border-b border-border px-2 py-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color={lightTheme.foreground}
-          />
-        </Button>
-        <Text
-          role="heading"
-          aria-level={1}
-          className="flex-1 text-xl font-bold"
-        >
-          Availability
-        </Text>
-        {!showForm ? (
-          <Button
-            size="sm"
-            testID="availability-add"
-            accessibilityLabel="Add blocker"
-            onPress={openCreate}
-          >
-            <Text>Add blocker</Text>
-          </Button>
-        ) : null}
-      </View>
-
+    <Screen testID="screen-availability">
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -269,6 +234,18 @@ export default function AvailabilityScreen() {
 
         {body()}
       </ScrollView>
+
+      {!showForm ? (
+        <Pressable
+          testID="availability-add"
+          accessibilityLabel="Add blocker"
+          role="button"
+          onPress={openCreate}
+          className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
+        >
+          <Ionicons name="add" size={28} color={lightTheme.primaryForeground} />
+        </Pressable>
+      ) : null}
 
       <AlertDialog
         open={pendingDelete != null}

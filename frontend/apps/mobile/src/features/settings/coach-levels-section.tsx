@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
 
 type LevelDraft = {
   id: string;
@@ -25,8 +26,10 @@ type LevelDraft = {
 };
 
 /**
- * Coach skill-levels editor, mirroring web's CoachLevelsSection minus
- * drag-and-drop reordering (order follows list position; new levels append).
+ * Coach skill-levels editor, mirroring web's CoachLevelsSection. Web reorders
+ * via HTML5 drag-and-drop; mobile uses per-row up/down buttons instead —
+ * both persist the same way (handleSave re-POSTs the array, displayOrder
+ * derived from list position).
  */
 export function CoachLevelsSection() {
   const queryClient = useQueryClient();
@@ -53,6 +56,18 @@ export function CoachLevelsSection() {
       ...prev,
       { id: `new-${Date.now()}`, code: "", label: "", isNew: true },
     ]);
+  };
+
+  /** Reordering is a pure array swap — handleSave already derives displayOrder
+   * from list position, so this is all that's needed to persist a new order. */
+  const handleMove = (index: number, direction: -1 | 1) => {
+    setDrafts((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   };
 
   const handleChange = (
@@ -122,37 +137,85 @@ export function CoachLevelsSection() {
           </View>
         ) : (
           <>
-            {drafts.map((draft) => (
-              <View key={draft.id} className="flex-row items-center gap-2">
-                <Input
-                  accessibilityLabel="Level code"
-                  placeholder="Code"
-                  className="w-20"
-                  value={draft.code}
-                  onChangeText={(v) => handleChange(draft.id, "code", v)}
-                />
-                <Input
-                  accessibilityLabel="Level label"
-                  placeholder="Label"
-                  className="flex-1"
-                  value={draft.label}
-                  onChangeText={(v) => handleChange(draft.id, "label", v)}
-                />
-                <Pressable
-                  accessibilityLabel={`Remove level ${draft.label || draft.code || "new"}`}
-                  role="button"
-                  disabled={removingId === draft.id}
-                  onPress={() => void handleRemove(draft)}
-                  className="p-2"
-                >
-                  <Ionicons
-                    name="trash-outline"
-                    size={20}
-                    color={lightTheme.destructive}
+            {drafts.map((draft, index) => {
+              const isFirst = index === 0;
+              const isLast = index === drafts.length - 1;
+              return (
+                <View key={draft.id} className="flex-row items-center gap-2">
+                  <Input
+                    accessibilityLabel="Level code"
+                    placeholder="Code"
+                    className="w-20"
+                    value={draft.code}
+                    onChangeText={(v) => handleChange(draft.id, "code", v)}
                   />
-                </Pressable>
-              </View>
-            ))}
+                  <Input
+                    accessibilityLabel="Level label"
+                    placeholder="Label"
+                    className="flex-1"
+                    value={draft.label}
+                    onChangeText={(v) => handleChange(draft.id, "label", v)}
+                  />
+                  <View className="gap-0.5">
+                    <Pressable
+                      testID={`level-move-up-${index}`}
+                      accessibilityLabel="Move level up"
+                      role="button"
+                      disabled={isFirst}
+                      onPress={() => handleMove(index, -1)}
+                      className={cn(
+                        "h-5 w-6 items-center justify-center",
+                        isFirst && "opacity-40"
+                      )}
+                    >
+                      <Ionicons
+                        name="chevron-up"
+                        size={16}
+                        color={
+                          isFirst
+                            ? lightTheme.mutedForeground
+                            : lightTheme.foreground
+                        }
+                      />
+                    </Pressable>
+                    <Pressable
+                      testID={`level-move-down-${index}`}
+                      accessibilityLabel="Move level down"
+                      role="button"
+                      disabled={isLast}
+                      onPress={() => handleMove(index, 1)}
+                      className={cn(
+                        "h-5 w-6 items-center justify-center",
+                        isLast && "opacity-40"
+                      )}
+                    >
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={
+                          isLast
+                            ? lightTheme.mutedForeground
+                            : lightTheme.foreground
+                        }
+                      />
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    accessibilityLabel={`Remove level ${draft.label || draft.code || "new"}`}
+                    role="button"
+                    disabled={removingId === draft.id}
+                    onPress={() => void handleRemove(draft)}
+                    className="p-2"
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={lightTheme.destructive}
+                    />
+                  </Pressable>
+                </View>
+              );
+            })}
 
             {status ? (
               <Text className="text-sm text-muted-foreground">{status}</Text>

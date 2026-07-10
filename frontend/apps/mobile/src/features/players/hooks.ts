@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
+import * as evaluationApi from "@levelup/api/src/resources/evaluation";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import * as classesApi from "@levelup/api/src/resources/classes";
 import { queryKeys } from "@levelup/hooks";
-import type { CoachNote, CoachPlayer } from "@levelup/types";
+import type {
+  ClassInstance,
+  CoachNote,
+  CoachPlayer,
+  EvaluationEntryPayload,
+} from "@levelup/types";
 
 /**
  * Feature-local hooks for the Players screens. Query hooks that already exist
@@ -124,5 +132,112 @@ export function useDeleteCoachNote() {
     mutationFn: ({ note }: { playerId: string; note: CoachNote }) =>
       playersApi.deleteCoachNote(note),
     onSuccess: (_data, variables) => invalidate(variables.playerId),
+  });
+}
+
+// ── Evaluations ──
+
+export const evaluationCategoriesKey = ["evaluation-categories"] as const;
+
+/**
+ * Lazy-friendly by design: pass `enabled: true` only once the "Add
+ * Evaluation" sheet is opened, mirroring web's `handleOpenEval`
+ * (`PlayerDetailPage.tsx`), which fetches categories on first open rather
+ * than eagerly on mount.
+ */
+export function useEvaluationCategories(enabled: boolean) {
+  return useQuery({
+    queryKey: evaluationCategoriesKey,
+    queryFn: evaluationApi.getEvaluationCategories,
+    enabled,
+  });
+}
+
+export function usePostEvaluationEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EvaluationEntryPayload) =>
+      evaluationApi.postEvaluationEntry(payload),
+    onSuccess: (_data, variables) => {
+      // The player-detail screen reads evaluations off the player-profile
+      // query (`profile.evaluations`, see [playerId].tsx), same as web
+      // reads `profile?.evaluations` — invalidate that key so the new
+      // entry shows up.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.playerProfile(String(variables.playerId)),
+      });
+    },
+  });
+}
+
+// ── Standing waiting list ──
+
+export const standingWaitingListKey = ["standing-waiting-list"] as const;
+
+/**
+ * Full list — web has no per-player lookup endpoint either; it fetches this
+ * same list and does `list.find(e => e.playerId === player.playerId)` to
+ * determine whether a player already has a standing entry
+ * (`PlayerDetailPage.tsx`). Do the same `.find()` against this hook's data
+ * on the mobile screen.
+ */
+export function useStandingWaitingList() {
+  return useQuery({
+    queryKey: standingWaitingListKey,
+    queryFn: notificationEngineApi.getStandingWaitingList,
+  });
+}
+
+export function useAddToStandingWaitingList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      playerId,
+      credits,
+      durationDays,
+    }: {
+      playerId: number;
+      credits: number;
+      durationDays: number;
+    }) =>
+      notificationEngineApi.addToStandingWaitingList(
+        playerId,
+        credits,
+        durationDays
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: standingWaitingListKey });
+    },
+  });
+}
+
+export function useRemoveFromStandingWaitingList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: number) =>
+      notificationEngineApi.removeFromStandingWaitingList(entryId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: standingWaitingListKey });
+    },
+  });
+}
+
+// ── Add to Classes (groundwork) ──
+
+/**
+ * Class instances for a week — no equivalent exists yet in
+ * `calendar/hooks.ts` (checked; that file only has class/attendance
+ * mutations, no week-range query). Mirrors web's `AddToClassesDialog`,
+ * which calls `getClassInstances(from, to)` with "yyyy-MM-dd" week bounds.
+ */
+export function useClassInstancesForWeek(
+  from: string,
+  to: string,
+  enabled = true
+) {
+  return useQuery<ClassInstance[]>({
+    queryKey: ["class-instances-week", from, to] as const,
+    queryFn: () => classesApi.getClassInstances(from, to),
+    enabled,
   });
 }

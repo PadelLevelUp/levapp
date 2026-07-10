@@ -45,6 +45,8 @@
     "wontReceive": "Won't receive auto-invitations during this time.",
     "editBlockerAria": "Edit blocker",
     "deleteBlockerAria": "Delete blocker",
+    "deleteBlockerTitle": "Delete this blocker?",
+    "deleteBlockerDescription": "This action cannot be undone.",
     "couldNotLoadTitle": "Could not load blockers",
     "couldNotLoadDescription": "Please try again.",
     "dateRequiredTitle": "Date required",
