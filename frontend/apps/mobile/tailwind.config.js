@@ -11,10 +11,12 @@ module.exports = {
   theme: {
     extend: {
       colors: nativewindTheme("light"),
+      // NativeWind v3 can't evaluate calc()/var() — precompute literals
+      // mirroring apps/web/tailwind.config.ts (var(--radius) = 0.625rem).
       borderRadius: {
         lg: radius,
-        md: "calc(0.625rem - 2px)",
-        sm: "calc(0.625rem - 4px)",
+        md: "0.5rem", // var(--radius) - 2px
+        sm: "0.375rem", // var(--radius) - 4px
       },
     },
   },
