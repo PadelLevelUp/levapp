@@ -10,6 +10,24 @@
       "title": "Grupos",
       "description": "Organize os exercícios em grupos de treino lógicos"
     },
+    "exerciseType": {
+      "attack": "Ataque",
+      "defense": "Defesa",
+      "serve": "Serviço",
+      "return": "Devolução",
+      "volley": "Voleio",
+      "transition": "Transição",
+      "warm_up": "Aquecimento",
+      "footwork": "Trabalho de pés",
+      "custom": "Personalizado"
+    },
+    "difficulty": {
+      "1": "Iniciante",
+      "2": "Básico",
+      "3": "Intermédio",
+      "4": "Avançado",
+      "5": "Especialista"
+    },
     "exercises": {
       "title": "Exercícios",
       "subtitle": "Consulte e faça a gestão de exercícios individuais",
