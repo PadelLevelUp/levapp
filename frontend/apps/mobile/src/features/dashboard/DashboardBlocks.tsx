@@ -50,36 +50,50 @@ function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
     <View className="flex-row flex-wrap" style={{ margin: -6 }}>
       {block.data.items.map((item) => {
         const target = mapHref(item.href);
+        const tileContent = (
+          <>
+            <View className="flex-row items-center justify-between">
+              <Text
+                className="flex-1 text-xs font-medium text-muted-foreground"
+                numberOfLines={1}
+              >
+                {item.label}
+              </Text>
+              <Ionicons
+                name={ICON_MAP[item.icon] ?? "help-circle-outline"}
+                size={16}
+                color={lightTheme.mutedForeground}
+              />
+            </View>
+            <Text className="mt-2 text-2xl font-bold">
+              {item.prefix ?? ""}
+              {item.value}
+            </Text>
+          </>
+        );
         return (
           <View key={item.label} className="w-1/2" style={{ padding: 6 }}>
-            <Pressable
-              testID={`dashboard-kpi-${kpiKey(item.label)}`}
-              // Label carries the value too: the accessible container hides
-              // its child Text nodes from VoiceOver/UI tests otherwise.
-              accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
-              role="button"
-              disabled={!target}
-              onPress={() => target && router.navigate(target as never)}
-              className="rounded-xl border border-border bg-card p-4 active:bg-accent"
-            >
-              <View className="flex-row items-center justify-between">
-                <Text
-                  className="flex-1 text-xs font-medium text-muted-foreground"
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-                <Ionicons
-                  name={ICON_MAP[item.icon] ?? "help-circle-outline"}
-                  size={16}
-                  color={lightTheme.mutedForeground}
-                />
+            {target ? (
+              <Pressable
+                testID={`dashboard-kpi-${kpiKey(item.label)}`}
+                // Label carries the value too: the accessible container hides
+                // its child Text nodes from VoiceOver/UI tests otherwise.
+                accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
+                role="button"
+                onPress={() => router.navigate(target as never)}
+                className="rounded-xl border border-border bg-card p-4 active:bg-accent"
+              >
+                {tileContent}
+              </Pressable>
+            ) : (
+              <View
+                testID={`dashboard-kpi-${kpiKey(item.label)}`}
+                accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                {tileContent}
               </View>
-              <Text className="mt-2 text-2xl font-bold">
-                {item.prefix ?? ""}
-                {item.value}
-              </Text>
-            </Pressable>
+            )}
           </View>
         );
       })}

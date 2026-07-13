@@ -1,4 +1,4 @@
-import { ArrowLeft, MoreVertical } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,9 +51,7 @@ export function ChatHeader({ conversation, onBack, showBack }: Props) {
         )}
       </div>
 
-      <button className="p-2 rounded-full hover:bg-accent transition-colors" aria-label={t("messages.moreOptions")}>
-        <MoreVertical className="h-4 w-4 text-muted-foreground" />
-      </button>
+      {/* TODO: wire up to Report/Block actions in a later phase */}
     </div>
   );
 }
