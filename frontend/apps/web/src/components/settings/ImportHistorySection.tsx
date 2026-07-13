@@ -22,6 +22,11 @@ import {
 } from "@/api/import";
 import { invalidateCoachPlayersCache } from "@/api/players";
 
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  active: "settings.importHistory.status.active",
+  reverted: "settings.importHistory.status.reverted",
+};
+
 const TABLE_LABEL_KEYS: Record<string, string> = {
   Players: "settings.importHistory.labels.players",
   Classes: "settings.importHistory.labels.classes",
@@ -147,7 +152,9 @@ export function ImportHistorySection() {
                 <Badge
                   variant={entry.status === "active" ? "default" : "secondary"}
                 >
-                  {entry.status}
+                  {STATUS_LABEL_KEYS[entry.status]
+                    ? t(STATUS_LABEL_KEYS[entry.status])
+                    : entry.status}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">

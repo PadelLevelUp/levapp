@@ -28,6 +28,7 @@
     "addToClasses": "Add to Classes",
     "onWaitingList": "On waiting list",
     "waitingList": "Waiting list",
+    "pendingRegistration": "Pending registration",
     "addEvaluation": "Add Evaluation",
     "deletePlayer": "Delete Player",
     "deleted": "{{name}} has been deleted",

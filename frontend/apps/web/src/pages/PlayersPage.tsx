@@ -325,7 +325,7 @@ export default function PlayersPage() {
                     )}
                     {!cs.validated && (
                       <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400">
-                        Pending registration
+                        {t("players.pendingRegistration")}
                       </Badge>
                     )}
                   </div>
