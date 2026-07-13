@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { enUS } from 'date-fns/locale';
 import { Calendar, Clock, Edit, Save, Trash2, X, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
+import { dateFnsLocale } from '@/lib/dateLocale';
 import type { CalendarEvent, CalendarBlockType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,7 +59,7 @@ interface EventDetailSheetProps {
 }
 
 export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: EventDetailSheetProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const BLOCK_TYPE_LABELS: Record<CalendarBlockType, string> = {
     personal: t('calendar.eventDetail.typePersonal'),
     break: t('calendar.eventDetail.typeBreak'),
@@ -259,7 +259,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
                   onChange={(e) => setDraft(d => d ? { ...d, date: e.target.value } : d)}
                 />
               ) : (
-                <span>{format(new Date(active.date), 'EEEE, MMMM d', { locale: enUS })}</span>
+                <span>{format(new Date(active.date), 'EEEE, MMMM d', { locale: dateFnsLocale(i18n.language) })}</span>
               )}
             </div>
 
