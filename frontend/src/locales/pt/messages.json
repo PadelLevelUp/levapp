@@ -31,6 +31,7 @@
     "confirmed": "Confirmado",
     "cancelAttendance": "Cancelar presença",
     "absent": "Ausente",
+    "reminderExpired": "Lembrete expirado",
     "spotJustFilled": "Lamentamos, essa vaga acabou de ser preenchida.",
     "somethingWentWrong": "Ocorreu um erro. Por favor tenta novamente.",
     "attendanceCancelled": "Presença cancelada.",
