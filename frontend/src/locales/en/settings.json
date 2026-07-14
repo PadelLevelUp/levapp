@@ -123,6 +123,12 @@
       "logoutDescription": "End your session on this device."
     },
 
+    "legal": {
+      "title": "Legal",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service"
+    },
+
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",

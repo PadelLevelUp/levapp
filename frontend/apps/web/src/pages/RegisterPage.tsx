@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -183,7 +183,7 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
@@ -234,6 +234,16 @@ const RegisterPage = () => {
           </form>
         </CardContent>
       </Card>
+
+      <p className="mt-4 text-center text-xs text-muted-foreground">
+        <Link to="/privacy" className="underline hover:text-foreground">
+          {t("auth.legal.privacyPolicy")}
+        </Link>{" "}
+        {t("auth.legal.separator")}{" "}
+        <Link to="/terms" className="underline hover:text-foreground">
+          {t("auth.legal.terms")}
+        </Link>
+      </p>
     </div>
   );
 };

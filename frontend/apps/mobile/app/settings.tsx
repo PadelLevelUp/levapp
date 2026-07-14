@@ -1,11 +1,14 @@
+import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as React from "react";
-import { ScrollView, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import i18n from "@/lib/i18n";
+import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
 import {
   Card,
   CardContent,
@@ -27,6 +30,33 @@ import { ClubSection } from "@/features/settings/club-section";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { DeleteAccountSection } from "@/features/settings/delete-account-section";
 
+function LegalLinkRow({
+  label,
+  url,
+  testID,
+}: {
+  label: string;
+  url: string;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      onPress={() => void Linking.openURL(url)}
+      className="flex-row items-center justify-between rounded-lg border border-border p-3 active:bg-accent"
+    >
+      <Text className="text-base">{label}</Text>
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={lightTheme.mutedForeground}
+      />
+    </Pressable>
+  );
+}
+
 type Language = "pt" | "en";
 
 const LANGUAGE_LABELS: Record<Language, string> = {
@@ -44,6 +74,7 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
 
@@ -170,6 +201,25 @@ export default function SettingsScreen() {
 
         {/* Coach-only: auto-invite engine basic controls */}
         {isCoach ? <AutoInviteSection /> : null}
+
+        {/* All roles: hosted legal pages (App Store 5.1.1) */}
+        <Card testID="settings-legal">
+          <CardHeader>
+            <CardTitle>{t("settings.legal.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="gap-2">
+            <LegalLinkRow
+              testID="settings-privacy-policy"
+              label={t("settings.legal.privacyPolicy")}
+              url={PRIVACY_POLICY_URL}
+            />
+            <LegalLinkRow
+              testID="settings-terms"
+              label={t("settings.legal.termsOfService")}
+              url={TERMS_URL}
+            />
+          </CardContent>
+        </Card>
 
         {/* All roles: App Store 5.1.1(v) in-app account deletion */}
         <DeleteAccountSection />

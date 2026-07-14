@@ -123,6 +123,12 @@
       "logoutDescription": "Termina a tua sessão neste dispositivo."
     },
 
+    "legal": {
+      "title": "Legal",
+      "privacyPolicy": "Política de Privacidade",
+      "termsOfService": "Termos de Serviço"
+    },
+
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",

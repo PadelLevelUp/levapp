@@ -14,6 +14,8 @@ import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
 import MessagesPage from "./pages/MessagesPage";
@@ -45,6 +47,8 @@ const App = () => (
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
 
               <Route
                 path="/"

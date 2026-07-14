@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
 import { getMe, updateMe } from "@/api/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -256,8 +257,18 @@ export default function SettingsPage() {
                     {t("settings.account.deleteAccountDescription")}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
                   <AccountSection />
+                  <Separator />
+                  <p className="text-xs text-muted-foreground">
+                    <Link to="/privacy" className="underline hover:text-foreground">
+                      {t("auth.legal.privacyPolicy")}
+                    </Link>{" "}
+                    {t("auth.legal.separator")}{" "}
+                    <Link to="/terms" className="underline hover:text-foreground">
+                      {t("auth.legal.terms")}
+                    </Link>
+                  </p>
                 </CardContent>
               </Card>
             )}
