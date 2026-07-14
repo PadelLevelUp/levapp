@@ -36,9 +36,11 @@ test("US-68: calendar tab is present in settings", async ({ page }) => {
   const calTab = page.getByRole("button", { name: /^calendar$/i }).first();
   await expect(calTab).toBeVisible({ timeout: 5000 });
   await calTab.click();
-  // Clicking the tab reveals the "Calendar defaults" section heading.
+  // chore(appstore) 804cf5d removed the wrapping "Calendar defaults" card/heading
+  // (dead UI cleanup) but kept SeasonsSection, which renders its own "Seasons"
+  // heading — assert on that instead.
   await expect(
-    page.getByRole("heading", { name: /calendar defaults/i })
+    page.getByRole("heading", { name: /^seasons$/i })
   ).toBeVisible({ timeout: 5000 });
 });
 

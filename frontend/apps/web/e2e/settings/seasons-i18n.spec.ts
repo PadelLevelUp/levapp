@@ -18,8 +18,11 @@ async function openCalendarSettings(page: Page) {
   await openSettings(page);
   // SettingsPage nav uses plain <button> elements, not role="tab".
   await page.getByRole("button", { name: /^calendar$/i }).first().click();
+  // chore(appstore) 804cf5d removed the wrapping "Calendar defaults" card/heading
+  // (dead UI cleanup) but kept SeasonsSection, which renders its own "Seasons"
+  // heading — assert on that instead.
   await expect(
-    page.getByRole("heading", { name: /calendar defaults/i })
+    page.getByRole("heading", { name: /^seasons$/i })
   ).toBeVisible({ timeout: 5000 });
 }
 
