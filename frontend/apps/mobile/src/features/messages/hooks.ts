@@ -15,3 +15,17 @@ export function useUsers(options?: QueryOverrides<User[]>) {
     ...options,
   });
 }
+
+/**
+ * Users the current user may start a NEW conversation with — scoped and
+ * block-filtered server-side (GET /app/messageable-users). Used by the
+ * "New conversation" picker instead of useUsers, which returns every active
+ * user regardless of messaging scope or block state.
+ */
+export function useMessageableUsers(options?: QueryOverrides<User[]>) {
+  return useQuery({
+    queryKey: ["messageable-users"],
+    queryFn: usersApi.getMessageableUsers,
+    ...options,
+  });
+}

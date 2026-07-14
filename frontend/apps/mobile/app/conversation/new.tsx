@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
-import { useUsers } from "@/features/messages/hooks";
+import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
 
 const HEADER_OPTIONS = {
@@ -28,7 +28,7 @@ const HEADER_OPTIONS = {
 export default function NewConversationScreen() {
   const { user: me } = useAuth();
   const queryClient = useQueryClient();
-  const { data: users, isLoading, isError, refetch } = useUsers();
+  const { data: users, isLoading, isError, refetch } = useMessageableUsers();
   // First page is enough to reuse an already-open conversation; the backend
   // create endpoint handles the rest.
   const { data: conversationsPage } = useConversations(1, 100);

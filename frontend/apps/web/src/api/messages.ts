@@ -1,5 +1,5 @@
 import "@/api/client";
-import type { Conversation, Message } from "@/types";
+import type { BlockedUser, Conversation, Message } from "@/types";
 import * as messagesApi from "@levelup/api/src/resources/messages";
 import { USE_MOCK_DATA } from "@/config";
 import { mockConversations } from "@/data/mockData";
@@ -116,4 +116,42 @@ export async function markConversationRead(conversationId: string) {
   }
 
   await messagesApi.markConversationRead(conversationId);
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] blockUser", userId);
+    return;
+  }
+
+  await messagesApi.blockUser(userId);
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] unblockUser", userId);
+    return;
+  }
+
+  await messagesApi.unblockUser(userId);
+}
+
+export async function getBlockedUsers(): Promise<BlockedUser[]> {
+  if (USE_MOCK_DATA) {
+    return [];
+  }
+
+  return messagesApi.getBlockedUsers();
+}
+
+export async function reportMessage(
+  messageId: string,
+  reason?: string
+): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] reportMessage", messageId, reason);
+    return;
+  }
+
+  await messagesApi.reportMessage(messageId, reason);
 }

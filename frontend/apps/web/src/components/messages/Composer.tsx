@@ -16,9 +16,12 @@ interface Props {
   isMobile?: boolean;
   onCancelEdit: () => void;
   onCancelReply: () => void;
+  /** True when the other participant is blocked — disables sending and shows `disabledNote`. */
+  disabled?: boolean;
+  disabledNote?: string;
 }
 
-export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userId, participantName, isMobile, onCancelEdit, onCancelReply }: Props) {
+export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userId, participantName, isMobile, onCancelEdit, onCancelReply, disabled, disabledNote }: Props) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -32,6 +35,7 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
   }, [editingMessage]);
 
   const handleSend = () => {
+    if (disabled) return;
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -45,6 +49,15 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
 
   return (
     <div className="p-4 border-t border-border bg-card">
+      {disabled && disabledNote && (
+        <p
+          data-testid="composer-blocked-note"
+          className="mb-2 text-xs text-muted-foreground"
+        >
+          {disabledNote}
+        </p>
+      )}
+
       {/* Reply preview */}
       {replyingTo && !editingMessage && (
         <div className="flex items-center gap-2 mb-2">
@@ -84,11 +97,12 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
           enterBehavior={isMobile ? 'newline' : 'send'}
           onFocus={() => { if (isMobile) setBottomNavHidden(true); }}
           onBlur={() => { if (isMobile) setBottomNavHidden(false); }}
+          disabled={disabled}
         />
         <Button
           onPointerDown={(e) => e.preventDefault()}
           onClick={handleSend}
-          disabled={!text.trim()}
+          disabled={!text.trim() || disabled}
           className="shrink-0"
         >
           <Send className="w-4 h-4" />

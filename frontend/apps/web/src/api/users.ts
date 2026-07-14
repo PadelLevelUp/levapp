@@ -11,3 +11,12 @@ export async function getUsers(): Promise<User[]> {
 
   return usersApi.getUsers();
 }
+
+/** Users the caller may start a NEW conversation with (scoped + block-filtered server-side). */
+export async function getMessageableUsers(): Promise<User[]> {
+  if (USE_MOCK_DATA) {
+    return mockUsers;
+  }
+
+  return usersApi.getMessageableUsers();
+}

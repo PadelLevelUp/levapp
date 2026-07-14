@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply, Pencil, Trash2, Copy, X } from 'lucide-react';
+import { Reply, Pencil, Trash2, Copy, Flag, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -12,12 +12,13 @@ interface Props {
   onEdit?: () => void;
   onDelete?: () => void;
   onCopy: () => void;
+  onReport: () => void;
   onReaction: (emoji: string) => void;
 }
 
 const quickReactions = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
-export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete, onCopy, onReaction }: Props) {
+export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete, onCopy, onReport, onReaction }: Props) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
@@ -56,6 +57,7 @@ export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete
     ...(onEdit ? [{ icon: Pencil, label: t('common.edit'), action: onEdit }] : []),
     { icon: Copy, label: t('messages.copy'), action: onCopy },
     ...(onDelete ? [{ icon: Trash2, label: t('common.delete'), action: onDelete, destructive: true }] : []),
+    { icon: Flag, label: t('messages.report.action'), action: onReport, testId: 'message-report' },
     { icon: X, label: t('messages.cancel'), action: onClose },
   ];
 
@@ -88,6 +90,7 @@ export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete
           {actions.map((item, i) => (
             <button
               key={item.label}
+              data-testid={'testId' in item ? item.testId : undefined}
               onClick={item.action}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent',

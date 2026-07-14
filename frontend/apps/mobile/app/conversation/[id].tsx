@@ -34,10 +34,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { MessageBubble } from "@/features/messages/components/message-bubble";
+import { ChatMoreOptionsMenu } from "@/features/messages/components/chat-more-options-menu";
 import {
   MessageContextMenu,
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
+import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
 import {
   invalidateMessagesLists,
   normalizeId,
@@ -88,6 +90,15 @@ export default function ConversationScreen() {
   );
   const [sending, setSending] = React.useState(false);
   const [savingEdit, setSavingEdit] = React.useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
+  const [blockedUserIds, setBlockedUserIds] = React.useState<Set<string>>(
+    new Set()
+  );
+  const [confirmingToggleBlock, setConfirmingToggleBlock] = React.useState(false);
+  const [togglingBlock, setTogglingBlock] = React.useState(false);
+  const [reportMessageId, setReportMessageId] = React.useState<
+    string | number | null
+  >(null);
   const [highlightedId, setHighlightedId] = React.useState<
     string | number | null
   >(null);
@@ -111,6 +122,67 @@ export default function ConversationScreen() {
       .then(() => invalidateMessagesLists(queryClient))
       .catch(() => undefined);
   }, [conversation, conversationId, queryClient]);
+
+  // ── Block state: who has the current user blocked? ──
+  const participantId = conversation?.participantId
+    ? String(conversation.participantId)
+    : null;
+  const isBlocked = participantId ? blockedUserIds.has(participantId) : false;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    messagesApi
+      .getBlockedUsers()
+      .then((list) => {
+        if (!cancelled) {
+          setBlockedUserIds(new Set(list.map((u) => String(u.id))));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [participantId]);
+
+  const handleConfirmToggleBlock = async () => {
+    if (!participantId || togglingBlock) return;
+    setTogglingBlock(true);
+    try {
+      if (isBlocked) {
+        await messagesApi.unblockUser(participantId);
+        setBlockedUserIds((prev) => {
+          const next = new Set(prev);
+          next.delete(participantId);
+          return next;
+        });
+        toast.success(t("messages.unblockSuccess"));
+      } else {
+        await messagesApi.blockUser(participantId);
+        setBlockedUserIds((prev) => new Set(prev).add(participantId));
+        toast.success(t("messages.blockSuccess"));
+      }
+      setConfirmingToggleBlock(false);
+    } catch {
+      toast.error(
+        t(isBlocked ? "messages.unblockFailed" : "messages.blockFailed")
+      );
+    } finally {
+      setTogglingBlock(false);
+    }
+  };
+
+  // Most recent message from the other participant — target for the header's
+  // "Report" action (deep-links to reporting that message).
+  const lastParticipantMessageId = React.useMemo(() => {
+    if (!conversation) return null;
+    const messages = conversation.messages;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (Number(messages[i].senderId) !== myId) {
+        return messages[i].id;
+      }
+    }
+    return null;
+  }, [conversation, myId]);
 
   // ── Live updates over SSE ──
   useAppEvents(
@@ -441,6 +513,24 @@ export default function ConversationScreen() {
               ) : null}
             </View>
           ),
+          headerRight: conversation
+            ? () => (
+                <Pressable
+                  testID="chat-more-options"
+                  accessibilityLabel={t("messages.moreOptions")}
+                  role="button"
+                  hitSlop={8}
+                  onPress={() => setMoreMenuOpen(true)}
+                  className="p-1.5 active:opacity-60"
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={22}
+                    color={lightTheme.sidebarForeground}
+                  />
+                </Pressable>
+              )
+            : undefined,
         }}
       />
 
@@ -602,6 +692,14 @@ export default function ConversationScreen() {
               </View>
             ) : null}
 
+            {isBlocked ? (
+              <View testID="chat-blocked-note" className="px-3 pt-2">
+                <Text className="text-xs text-muted-foreground">
+                  {t("messages.blockedComposerNote")}
+                </Text>
+              </View>
+            ) : null}
+
             <View className="flex-row items-end gap-2 p-3">
               <Input
                 testID="message-input"
@@ -611,15 +709,16 @@ export default function ConversationScreen() {
                 value={draft}
                 onChangeText={setDraft}
                 multiline
+                editable={!isBlocked}
               />
               <Pressable
                 testID="message-send"
                 accessibilityLabel="Send message"
                 role="button"
-                disabled={!draft.trim() || sending || !conversation}
+                disabled={!draft.trim() || sending || !conversation || isBlocked}
                 onPress={() => void handleSend()}
                 className={`h-12 w-12 items-center justify-center rounded-full bg-primary active:opacity-90 ${
-                  !draft.trim() || sending ? "opacity-50" : ""
+                  !draft.trim() || sending || isBlocked ? "opacity-50" : ""
                 }`}
               >
                 <Ionicons
@@ -633,6 +732,76 @@ export default function ConversationScreen() {
         )}
       </KeyboardAvoidingView>
 
+      {/* Header "more options": Block/Unblock + Report */}
+      {moreMenuOpen ? (
+        <ChatMoreOptionsMenu
+          isBlocked={isBlocked}
+          onClose={() => setMoreMenuOpen(false)}
+          onToggleBlock={() => {
+            setMoreMenuOpen(false);
+            setConfirmingToggleBlock(true);
+          }}
+          onReport={() => {
+            setMoreMenuOpen(false);
+            setReportMessageId(lastParticipantMessageId);
+          }}
+        />
+      ) : null}
+
+      {/* Block / unblock confirmation */}
+      <AlertDialog
+        open={confirmingToggleBlock}
+        onOpenChange={(open) => {
+          if (!open && !togglingBlock) setConfirmingToggleBlock(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBlocked
+                ? t("messages.unblockDialogTitle")
+                : t("messages.blockDialogTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBlocked
+                ? t("messages.unblockDialogDescription")
+                : t("messages.blockDialogDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={togglingBlock}
+              accessibilityLabel="Cancel"
+            >
+              <Text>{t("common.cancel")}</Text>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={togglingBlock}
+              accessibilityLabel={
+                isBlocked ? t("messages.unblockConfirm") : t("messages.blockConfirm")
+              }
+              onPress={() => void handleConfirmToggleBlock()}
+            >
+              <Text>
+                {isBlocked
+                  ? t("messages.unblockConfirm")
+                  : t("messages.blockConfirm")}
+              </Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report dialog: shared by the header's Report action and the
+          long-press context menu's Report action (reportMessageId picks the target). */}
+      <ReportMessageDialog
+        open={reportMessageId !== null}
+        onOpenChange={(open) => {
+          if (!open) setReportMessageId(null);
+        }}
+        messageId={reportMessageId}
+      />
+
       {/* Long-press context menu: quick reactions + Edit/Delete (own only) */}
       {contextMenu ? (
         <MessageContextMenu
@@ -644,6 +813,11 @@ export default function ConversationScreen() {
               ? startEditing
               : undefined
           }
+          onReport={() => {
+            if (!contextMenu) return;
+            setReportMessageId(contextMenu.message.id);
+            setContextMenu(null);
+          }}
           onDelete={
             Number(contextMenu.message.senderId) === myId
               ? startConfirmingDelete

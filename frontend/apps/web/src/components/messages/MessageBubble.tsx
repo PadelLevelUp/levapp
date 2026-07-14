@@ -4,6 +4,7 @@ import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle } from '
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
+import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
 import { respondToNotification, respondToReminder, cancelAttendance } from '@/api/notificationEngine';
 import { toast } from 'sonner';
@@ -45,6 +46,7 @@ export function MessageBubble({
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [reportOpen, setReportOpen] = useState(false);
   const [responding, setResponding] = useState(false);
   const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | null>(null);
   // PAD-46: when the cancellation deadline has passed, require an explicit
@@ -409,9 +411,16 @@ export function MessageBubble({
             onEdit={isMine ? () => { setMenuOpen(false); onEdit(message); } : undefined}
             onDelete={isMine ? () => { setMenuOpen(false); onDelete(String(message.id)); } : undefined}
             onCopy={() => { navigator.clipboard.writeText(message.content ?? ''); setMenuOpen(false); }}
+            onReport={() => { setMenuOpen(false); setReportOpen(true); }}
             onReaction={(emoji) => { onReaction(String(message.id), emoji); setMenuOpen(false); }}
           />
         )}
+
+        <ReportMessageDialog
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          messageId={String(message.id)}
+        />
       </motion.div>
     </div>
   );

@@ -72,6 +72,12 @@ export interface User {
   abbreviation: string;
 }
 
+/** Entry in the blocked-users list (GET /app/blocked-users). */
+export interface BlockedUser {
+  id: string;
+  name: string;
+}
+
 export interface Coach {
   id: string;
   userId: string;

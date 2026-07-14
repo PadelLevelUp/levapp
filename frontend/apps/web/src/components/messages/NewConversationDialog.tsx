@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { getUsers } from '@/api/users';
+import { getMessageableUsers } from '@/api/users';
 
 interface User {
   id: string;
@@ -41,7 +41,7 @@ export function NewConversationDialog({
     const loadUsers = async () => {
       setLoading(true);
       try {
-        const allUsers = await getUsers();
+        const allUsers = await getMessageableUsers();
 
         const availableUsers = allUsers.filter(
           (user) => !existingParticipantIds.includes(user.id)

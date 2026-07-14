@@ -1,4 +1,4 @@
-import type { Conversation, Message } from "@levelup/types";
+import type { BlockedUser, Conversation, Message } from "@levelup/types";
 import { getApi } from "../client";
 
 export async function getConversations(page = 1, limit = 20): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
@@ -60,4 +60,24 @@ export async function createConversation(payload: {
 
 export async function markConversationRead(conversationId: string) {
   await getApi().post(`/app/conversation/${conversationId}/read`);
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  await getApi().post(`/app/users/${userId}/block`);
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  await getApi().delete(`/app/users/${userId}/block`);
+}
+
+export async function getBlockedUsers(): Promise<BlockedUser[]> {
+  const res = await getApi().get("/app/blocked-users");
+  return res.data;
+}
+
+export async function reportMessage(
+  messageId: string,
+  reason?: string
+): Promise<void> {
+  await getApi().post(`/app/messages/${messageId}/report`, { reason });
 }

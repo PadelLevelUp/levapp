@@ -47,6 +47,34 @@
     "searchUsersPlaceholder": "Pesquisar utilizadores...",
     "loadingUsers": "A carregar utilizadores...",
     "allUsersHaveConversations": "Já tens conversas com todos os utilizadores",
-    "noUsersFound": "Nenhum utilizador encontrado"
+    "noUsersFound": "Nenhum utilizador encontrado",
+    "blockUser": "Bloquear este utilizador",
+    "unblockUser": "Desbloquear este utilizador",
+    "blockDialogTitle": "Bloquear este utilizador?",
+    "blockDialogDescription": "Não vai poder enviar-te mensagens até o desbloqueares.",
+    "blockConfirm": "Bloquear",
+    "blockSuccess": "Utilizador bloqueado",
+    "blockFailed": "Não foi possível bloquear este utilizador. Tenta novamente.",
+    "unblockDialogTitle": "Desbloquear este utilizador?",
+    "unblockDialogDescription": "Vai poder voltar a enviar-te mensagens.",
+    "unblockConfirm": "Desbloquear",
+    "unblockSuccess": "Utilizador desbloqueado",
+    "unblockFailed": "Não foi possível desbloquear este utilizador. Tenta novamente.",
+    "blockedComposerNote": "Bloqueaste este utilizador — desbloqueia para enviar mensagens",
+    "report": {
+      "action": "Denunciar",
+      "dialogTitle": "Denunciar esta mensagem",
+      "reasons": {
+        "spam": "Spam",
+        "harassment": "Assédio",
+        "inappropriate": "Conteúdo inadequado",
+        "other": "Outro"
+      },
+      "detailsPlaceholder": "Adiciona detalhes (opcional)",
+      "submit": "Enviar denúncia",
+      "submitting": "A enviar…",
+      "success": "Denúncia enviada",
+      "failed": "Não foi possível enviar a denúncia. Tenta novamente."
+    }
   }
 }

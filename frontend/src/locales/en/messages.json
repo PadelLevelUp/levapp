@@ -47,6 +47,34 @@
     "searchUsersPlaceholder": "Search users...",
     "loadingUsers": "Loading users...",
     "allUsersHaveConversations": "You already have conversations with all users",
-    "noUsersFound": "No users found"
+    "noUsersFound": "No users found",
+    "blockUser": "Block this user",
+    "unblockUser": "Unblock this user",
+    "blockDialogTitle": "Block this user?",
+    "blockDialogDescription": "They won't be able to send you messages until you unblock them.",
+    "blockConfirm": "Block",
+    "blockSuccess": "User blocked",
+    "blockFailed": "Couldn't block this user. Please try again.",
+    "unblockDialogTitle": "Unblock this user?",
+    "unblockDialogDescription": "They'll be able to send you messages again.",
+    "unblockConfirm": "Unblock",
+    "unblockSuccess": "User unblocked",
+    "unblockFailed": "Couldn't unblock this user. Please try again.",
+    "blockedComposerNote": "You've blocked this user — unblock to message",
+    "report": {
+      "action": "Report",
+      "dialogTitle": "Report this message",
+      "reasons": {
+        "spam": "Spam",
+        "harassment": "Harassment",
+        "inappropriate": "Inappropriate content",
+        "other": "Other"
+      },
+      "detailsPlaceholder": "Add details (optional)",
+      "submit": "Submit report",
+      "submitting": "Submitting…",
+      "success": "Reported",
+      "failed": "Couldn't submit the report. Please try again."
+    }
   }
 }

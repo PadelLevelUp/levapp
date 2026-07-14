@@ -24,6 +24,7 @@ type Props = {
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onReport: () => void;
   onReaction: (emoji: string) => void;
 };
 
@@ -40,6 +41,7 @@ export function MessageContextMenu({
   onClose,
   onEdit,
   onDelete,
+  onReport,
   onReaction,
 }: Props) {
   const { t } = useTranslation();
@@ -70,6 +72,14 @@ export function MessageContextMenu({
           },
         ]
       : []),
+    {
+      key: "report",
+      testID: "message-report",
+      label: t("messages.report.action"),
+      icon: "flag-outline" as const,
+      destructive: false,
+      onPress: onReport,
+    },
   ];
 
   // Rough menu height estimate (reactions row + action rows) to decide

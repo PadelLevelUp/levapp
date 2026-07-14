@@ -1,7 +1,25 @@
-import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, MoreVertical, Ban, Flag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { Conversation } from '@/types';
 
 function getInitials(name: string): string {
@@ -21,10 +39,32 @@ interface Props {
   conversation: Conversation;
   onBack?: () => void;
   showBack?: boolean;
+  /** Whether `conversation.participantId` is currently blocked. */
+  isBlocked: boolean;
+  /** Called after the user confirms the block/unblock action in the dialog. */
+  onConfirmToggleBlock: () => void | Promise<void>;
+  /** Opens the report dialog for the most recent message from this participant. */
+  onReport: () => void;
 }
 
-export function ChatHeader({ conversation, onBack, showBack }: Props) {
+export function ChatHeader({ conversation, onBack, showBack, isBlocked, onConfirmToggleBlock, onReport }: Props) {
   const { t } = useTranslation();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Assistant conversations aren't a real user — nothing to block/report.
+  const showModeration = !conversation.isAssistant;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirmToggleBlock();
+      setConfirmOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 bg-card border-b border-border min-h-[56px]">
       {showBack && (
@@ -51,7 +91,61 @@ export function ChatHeader({ conversation, onBack, showBack }: Props) {
         )}
       </div>
 
-      {/* TODO: wire up to Report/Block actions in a later phase */}
+      {showModeration && (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                data-testid="chat-more-options"
+                aria-label={t('messages.moreOptions')}
+              >
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                data-testid={isBlocked ? 'chat-unblock-user' : 'chat-block-user'}
+                onClick={() => setConfirmOpen(true)}
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                {isBlocked ? t('messages.unblockUser') : t('messages.blockUser')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onReport}>
+                <Flag className="w-4 h-4 mr-2" />
+                {t('messages.report.action')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <AlertDialog open={confirmOpen} onOpenChange={(o) => !submitting && setConfirmOpen(o)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {isBlocked ? t('messages.unblockDialogTitle') : t('messages.blockDialogTitle')}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isBlocked ? t('messages.unblockDialogDescription') : t('messages.blockDialogDescription')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={submitting}>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  className={isBlocked ? undefined : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
+                  disabled={submitting}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleConfirm();
+                  }}
+                >
+                  {isBlocked ? t('messages.unblockConfirm') : t('messages.blockConfirm')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
     </div>
   );
 }
