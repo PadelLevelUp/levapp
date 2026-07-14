@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, isSameDay, isToday, parseISO } from "date-fns";
-import { enUS } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { dateFnsLocale } from "@/lib/dateLocale";
 import type { CalendarEvent } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,7 +20,7 @@ export function MobileCalendarView({
   onEventClick,
   onDaySelect,
 }: MobileCalendarViewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const initialSelectedDay = useMemo(() => {
     return weekDays.find((d) => isToday(d)) || weekDays[0];
   }, [weekDays]);
@@ -80,7 +80,7 @@ export function MobileCalendarView({
               >
                 <div className="text-center mb-1">
                   <p className="text-[10px] text-muted-foreground uppercase">
-                    {format(day, "EEE", { locale: enUS })}
+                    {format(day, "EEE", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   <p
                     className={cn(
@@ -136,7 +136,7 @@ export function MobileCalendarView({
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="px-4 py-2 border-b border-border bg-muted/30">
           <h3 className="font-semibold">
-            {format(selectedDay, "EEEE d 'de' MMMM", { locale: enUS })}
+            {format(selectedDay, "EEEE, d MMMM", { locale: dateFnsLocale(i18n.language) })}
           </h3>
           <p className="text-sm text-muted-foreground">
             {t("calendar.mobile.classCount", { count: selectedDayEvents.length })}

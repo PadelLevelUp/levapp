@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { CalendarClock, CalendarRange } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { dateFnsLocale } from '@/lib/dateLocale';
 import type { CalendarEvent } from '@/types';
 import type { ApplyScope } from './ClassScopeDialog';
 
@@ -34,10 +34,10 @@ export function RescheduleDialog({
   onClose,
   onConfirm,
 }: RescheduleDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!event) return null;
 
-  const formattedDate = format(parseISO(newDate), 'EEEE, MMMM d', { locale: enUS });
+  const formattedDate = format(parseISO(newDate), 'EEEE, MMMM d', { locale: dateFnsLocale(i18n.language) });
   const isRecurring = event.isRecurring;
 
   return (
