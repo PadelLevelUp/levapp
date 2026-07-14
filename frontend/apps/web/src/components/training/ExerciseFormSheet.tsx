@@ -110,7 +110,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
                 <SelectContent>
                   {EXERCISE_TYPE_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {t(`training.exerciseType.${opt.value}`, { defaultValue: opt.label })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -133,7 +133,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
                 <SelectContent>
                   {DIFFICULTY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={String(opt.value)}>
-                      {opt.label}
+                      {t(`training.difficulty.${opt.value}`, { defaultValue: opt.label })}
                     </SelectItem>
                   ))}
                 </SelectContent>

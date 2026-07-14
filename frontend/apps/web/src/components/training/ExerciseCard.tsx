@@ -3,14 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { EXERCISE_TYPE_OPTIONS, DIFFICULTY_OPTIONS } from "@/types/training";
-import type { Exercise, ExerciseType } from "@/types/training";
-
-const typeLabel = (t: ExerciseType) =>
-  EXERCISE_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
-
-const diffLabel = (d: number) =>
-  DIFFICULTY_OPTIONS.find((o) => o.value === d)?.label ?? String(d);
+import type { Exercise } from "@/types/training";
 
 const diffColor = (d: number) => {
   if (d <= 2) return "bg-emerald-500/15 text-emerald-700 border-emerald-500/30";
@@ -26,6 +19,8 @@ interface Props {
 
 export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
   const { t } = useTranslation();
+  const typeLabel = (type: string) => t(`training.exerciseType.${type}`, { defaultValue: type });
+  const diffLabel = (d: number) => t(`training.difficulty.${d}`, { defaultValue: String(d) });
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow group"
