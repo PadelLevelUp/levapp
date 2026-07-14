@@ -53,13 +53,13 @@ const TABLE_ICONS: Record<string, string> = {
 
 /** Tables the user can toggle on/off */
 const SELECTABLE_TABLES = [
-  { key: "Players", label: "Players", icon: "🎾", descriptionKey: "settings.import.tables.playersDescription" },
-  { key: "Classes", label: "Classes", icon: "📅", descriptionKey: "settings.import.tables.classesDescription" },
-  { key: "Players in Classes", label: "Players in Classes", icon: "👥", descriptionKey: "settings.import.tables.playersInClassesDescription" },
-  { key: "Presences", label: "Presences", icon: "✅", descriptionKey: "settings.import.tables.presencesDescription" },
-  { key: "Evaluations", label: "Evaluations", icon: "📝", descriptionKey: "settings.import.tables.evaluationsDescription" },
-  { key: "Strengths", label: "Strengths", icon: "💪", descriptionKey: "settings.import.tables.strengthsDescription" },
-  { key: "Weaknesses", label: "Weaknesses", icon: "🎯", descriptionKey: "settings.import.tables.weaknessesDescription" },
+  { key: "Players", label: "Players", labelKey: "settings.import.tables.players", icon: "🎾", descriptionKey: "settings.import.tables.playersDescription" },
+  { key: "Classes", label: "Classes", labelKey: "settings.import.tables.classes", icon: "📅", descriptionKey: "settings.import.tables.classesDescription" },
+  { key: "Players in Classes", label: "Players in Classes", labelKey: "settings.import.tables.playersInClasses", icon: "👥", descriptionKey: "settings.import.tables.playersInClassesDescription" },
+  { key: "Presences", label: "Presences", labelKey: "settings.import.tables.presences", icon: "✅", descriptionKey: "settings.import.tables.presencesDescription" },
+  { key: "Evaluations", label: "Evaluations", labelKey: "settings.import.tables.evaluations", icon: "📝", descriptionKey: "settings.import.tables.evaluationsDescription" },
+  { key: "Strengths", label: "Strengths", labelKey: "settings.import.tables.strengths", icon: "💪", descriptionKey: "settings.import.tables.strengthsDescription" },
+  { key: "Weaknesses", label: "Weaknesses", labelKey: "settings.import.tables.weaknesses", icon: "🎯", descriptionKey: "settings.import.tables.weaknessesDescription" },
 ] as const;
 
 const GROUP_BY_MAP: Record<string, string> = {
@@ -250,7 +250,7 @@ function TableSelectionStep({
                     !isSelected && "text-muted-foreground"
                   )}
                 >
-                  {tbl.label}
+                  {t(tbl.labelKey)}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
                   {t(tbl.descriptionKey)}
