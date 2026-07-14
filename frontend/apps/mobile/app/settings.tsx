@@ -25,6 +25,7 @@ import { Text } from "@/components/ui/text";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { ClubSection } from "@/features/settings/club-section";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
+import { DeleteAccountSection } from "@/features/settings/delete-account-section";
 
 type Language = "pt" | "en";
 
@@ -169,6 +170,9 @@ export default function SettingsScreen() {
 
         {/* Coach-only: auto-invite engine basic controls */}
         {isCoach ? <AutoInviteSection /> : null}
+
+        {/* All roles: App Store 5.1.1(v) in-app account deletion */}
+        <DeleteAccountSection />
       </ScrollView>
     </View>
   );

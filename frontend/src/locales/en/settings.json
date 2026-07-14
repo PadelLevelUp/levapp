@@ -20,7 +20,8 @@
       "billing": "Billing",
       "security": "Security",
       "import": "Import Data",
-      "club": "Club"
+      "club": "Club",
+      "account": "Account"
     },
 
     "toast": {
@@ -120,6 +121,18 @@
       "updatePassword": "Update password",
       "logout": "Logout",
       "logoutDescription": "End your session on this device."
+    },
+
+    "account": {
+      "title": "Account",
+      "deleteAccount": "Delete account",
+      "deleteAccountDescription": "Permanently delete your account and all associated data. This action is permanent and cannot be undone.",
+      "deleteDialogTitle": "Delete your account?",
+      "deleteDialogDescription": "This will permanently delete your account and all of your data, including your profile, classes, evaluations, and messages. This action is permanent and cannot be undone.",
+      "deleteConfirm": "Delete account",
+      "deleting": "Deleting...",
+      "deleteSuccess": "Your account has been deleted.",
+      "deleteFailed": "Failed to delete your account. Please try again."
     },
 
     "import": {

@@ -19,3 +19,8 @@ export async function updateMe(payload: { language?: "pt" | "en" }): Promise<MeR
   const res = await getApi().patch("/auth/me", payload);
   return res.data;
 }
+
+/** Soft-deletes the signed-in account and invalidates all sessions server-side (App Store 5.1.1(v)). */
+export async function deleteAccount(): Promise<void> {
+  await getApi().delete("/auth/me");
+}

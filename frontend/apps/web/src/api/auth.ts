@@ -25,3 +25,9 @@ export async function getMe(): Promise<MeResponse> {
 export async function updateMe(payload: { language?: "pt" | "en" }): Promise<MeResponse> {
   return authApi.updateMe(payload);
 }
+
+/** Soft-deletes the signed-in account and invalidates all sessions server-side (App Store 5.1.1(v)). */
+export async function deleteAccount(): Promise<void> {
+  if (USE_MOCK_DATA) return;
+  return authApi.deleteAccount();
+}

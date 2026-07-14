@@ -20,7 +20,8 @@
       "billing": "Faturação",
       "security": "Segurança",
       "import": "Importar dados",
-      "club": "Clube"
+      "club": "Clube",
+      "account": "Conta"
     },
 
     "toast": {
@@ -120,6 +121,18 @@
       "updatePassword": "Atualizar palavra-passe",
       "logout": "Terminar sessão",
       "logoutDescription": "Termina a tua sessão neste dispositivo."
+    },
+
+    "account": {
+      "title": "Conta",
+      "deleteAccount": "Eliminar conta",
+      "deleteAccountDescription": "Elimina permanentemente a tua conta e todos os dados associados. Esta ação é permanente e não pode ser anulada.",
+      "deleteDialogTitle": "Eliminar a tua conta?",
+      "deleteDialogDescription": "Isto vai eliminar permanentemente a tua conta e todos os teus dados, incluindo o teu perfil, aulas, avaliações e mensagens. Esta ação é permanente e não pode ser anulada.",
+      "deleteConfirm": "Eliminar conta",
+      "deleting": "A eliminar...",
+      "deleteSuccess": "A tua conta foi eliminada.",
+      "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente."
     },
 
     "import": {

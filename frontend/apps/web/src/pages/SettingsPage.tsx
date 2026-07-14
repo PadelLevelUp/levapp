@@ -23,6 +23,7 @@ import {
   Palette,
   Save,
   Upload,
+  UserX,
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
@@ -31,8 +32,9 @@ import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
+import { AccountSection } from "@/components/settings/AccountSection";
 
-type SettingsTab = "preferences" | "calendar" | "notifications" | "import" | "club";
+type SettingsTab = "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
 
 function SettingsNav({
   active,
@@ -48,6 +50,7 @@ function SettingsNav({
     { id: "notifications", label: t("settings.nav.notifications"), icon: <Bell className="w-4 h-4" /> },
     { id: "import", label: t("settings.nav.import"), icon: <Upload className="w-4 h-4" /> },
     { id: "club", label: t("settings.nav.club"), icon: <Building2 className="w-4 h-4" /> },
+    { id: "account", label: t("settings.nav.account"), icon: <UserX className="w-4 h-4" /> },
   ];
 
   return (
@@ -153,6 +156,7 @@ export default function SettingsPage() {
                   <SelectItem value="notifications">{t("settings.nav.notifications")}</SelectItem>
                   <SelectItem value="import">{t("settings.nav.import")}</SelectItem>
                   <SelectItem value="club">{t("settings.nav.club")}</SelectItem>
+                  <SelectItem value="account">{t("settings.nav.account")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -236,6 +240,24 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <ClubSection />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ACCOUNT */}
+            {tab === "account" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserX className="w-5 h-5" />
+                    {t("settings.account.title")}
+                  </CardTitle>
+                  <CardDescription>
+                    {t("settings.account.deleteAccountDescription")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AccountSection />
                 </CardContent>
               </Card>
             )}
