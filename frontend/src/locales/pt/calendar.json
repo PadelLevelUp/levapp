@@ -31,6 +31,8 @@
       "recurring": "Recorrente",
       "daysOfWeek": "Dias da semana",
       "endDate": "Data de fim",
+      "recursUntilSeasonEnd": "Recorre até ao fim da época",
+      "recursUntilSeasonEndHint": "Termina na data de fim da tua época.",
       "autoNotifications": "Notificações automáticas",
       "autoNotificationsDescription": "Os alunos serão convidados automaticamente",
       "color": "Cor",

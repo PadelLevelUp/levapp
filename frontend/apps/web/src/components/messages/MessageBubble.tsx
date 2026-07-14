@@ -287,6 +287,9 @@ export function MessageBubble({
           const declined =
             localResponse === 'declined' ||
             (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
+          // PAD-49: a newer reminder for the same class supersedes this one → its
+          // Yes/No buttons stop being actionable and show an "expired" indicator.
+          const superseded = !!message.metadata?.superseded;
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
           const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
@@ -350,6 +353,11 @@ export function MessageBubble({
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
                   {t("messages.absent")}
+                </span>
+              ) : superseded ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70">
+                  <Clock className="w-3.5 h-3.5" />
+                  {t("messages.reminderExpired")}
                 </span>
               ) : (
                 <>

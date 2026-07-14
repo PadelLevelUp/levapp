@@ -4,6 +4,10 @@ import { GripVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { Tiebreaker } from "@/types";
 
+// PAD-54: `label` here is a fallback only used if a tiebreaker id doesn't have
+// an entry in TIEBREAKER_LABEL_KEYS below (see render logic). Every id in this
+// default list already maps to an i18n key, so these English strings never
+// actually render — kept as a safety fallback for unknown/future ids.
 export const DEFAULT_TIEBREAKERS: Tiebreaker[] = [
   { id: "unjustified_absences", label: "Fewest unjustified absences", enabled: true },
   { id: "justified_absences", label: "Most justified absences", enabled: true },

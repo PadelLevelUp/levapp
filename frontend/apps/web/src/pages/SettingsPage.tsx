@@ -495,6 +495,9 @@ export default function SettingsPage() {
                           <SelectValue placeholder={t("settings.preferences.timeFormat")} />
                         </SelectTrigger>
                         <SelectContent>
+                          {/* PAD-54: "24h"/"12h" are universally-understood time-format
+                              tokens, not prose — left untranslated intentionally in both
+                              locales to avoid churn. */}
                           <SelectItem value="24h">24h</SelectItem>
                           <SelectItem value="12h">12h</SelectItem>
                         </SelectContent>

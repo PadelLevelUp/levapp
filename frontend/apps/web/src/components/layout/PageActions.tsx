@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ interface PageActionsProps {
  * Use this in any page header that has multiple action buttons.
  */
 export function PageActions({ actions }: PageActionsProps) {
+  const { t } = useTranslation();
   if (actions.length === 0) return null;
 
   return (
@@ -54,7 +56,7 @@ export function PageActions({ actions }: PageActionsProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="h-8 w-8">
               <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t("common.actions")}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { dateFnsLocale } from "@/lib/dateLocale";
 import {
   Users,
   Clock,
@@ -129,7 +129,7 @@ export function ClassDetailSheet({
   deleting = false,
   saving = false,
 }: ClassDetailSheetProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
@@ -591,11 +591,11 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   <p className="text-sm font-medium">
-                    {format(new Date(active.date), "EEE, MMM d", { locale: enUS })}
+                    {format(new Date(active.date), "EEE, MMM d", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   {active.recurrenceEnd && !active.parentClassId && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "MMM d", { locale: enUS }) })}
+                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "MMM d", { locale: dateFnsLocale(i18n.language) }) })}
                     </p>
                   )}
                 </div>

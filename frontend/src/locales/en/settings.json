@@ -168,6 +168,13 @@
       "phaseAnalysis": "AI Analysis",
       "phaseResults": "Results",
       "tables": {
+        "players": "Players",
+        "classes": "Classes",
+        "playersInClasses": "Players in Classes",
+        "presences": "Presences",
+        "evaluations": "Evaluations",
+        "strengths": "Strengths",
+        "weaknesses": "Weaknesses",
         "playersDescription": "Player profiles and contact info",
         "classesDescription": "Training sessions and schedules",
         "playersInClassesDescription": "Which players attend which class",
@@ -198,6 +205,10 @@
       "revertedDescription": "Removed {{summary}}",
       "revertFailedTitle": "Revert failed",
       "revertFailedDescription": "Could not revert this import. Please try again.",
+      "status": {
+        "active": "Active",
+        "reverted": "Reverted"
+      },
       "labels": {
         "players": "players",
         "classes": "classes",
@@ -232,6 +243,31 @@
       "revokeFailed": "Failed to revoke invitation",
       "createInvitationFailed": "Failed to create invitation",
       "createInvitationFailedDescription": "Please try again."
+    },
+
+    "seasons": {
+      "loading": "Loading seasons…",
+      "title": "Seasons",
+      "description": "Define named seasons so classes can recur until a season's end date.",
+      "name": "Name",
+      "start": "Start",
+      "end": "End",
+      "empty": "No seasons defined yet. Add your first one below.",
+      "namePlaceholder": "Season name",
+      "startAriaLabel": "Season start",
+      "endAriaLabel": "Season end",
+      "addSeason": "Add season",
+      "saving": "Saving…",
+      "saveSeasons": "Save seasons",
+      "deleteFailed": "Failed to delete season",
+      "validationErrorTitle": "Validation error",
+      "validationErrorDescription": "Each season needs a name and a start date on or before the end date.",
+      "savedTitle": "Seasons saved",
+      "savedMock_one": "{{count}} season updated (mock).",
+      "savedMock_other": "{{count}} seasons updated (mock).",
+      "saved_one": "{{count}} season updated.",
+      "saved_other": "{{count}} seasons updated.",
+      "saveFailed": "Failed to save seasons"
     },
 
     "coachLevels": {
@@ -330,7 +366,7 @@
       "attributes": {
         "level": "Level",
         "side": "Playing side",
-        "hasMakeups": "Aula por repor",
+        "hasMakeups": "Makeup class",
         "unjustifiedAbsences": "Unjustified absences",
         "justifiedAbsences": "Justified absences",
         "attendanceRate": "Attendance rate",
@@ -394,7 +430,13 @@
       "recentAbsences": "Students who missed a class recently",
       "justifiedAbsences": "Students with at least one justified absence",
       "allStudents": "All eligible students not already in the class",
-      "empty": "No groups configured."
+      "empty": "No groups configured.",
+      "labels": {
+        "sameLevel": "Same level",
+        "recentAbsences": "Recent absences",
+        "justifiedAbsences": "Justified absences",
+        "allStudents": "All students"
+      }
     },
 
     "standingList": {

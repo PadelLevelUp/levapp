@@ -1,12 +1,14 @@
 import { format, isToday } from 'date-fns';
-import { enGB } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { dateFnsLocale } from '@/lib/dateLocale';
 
 interface CalendarHeaderProps {
   weekDays: Date[];
 }
 
 export function CalendarHeader({ weekDays }: CalendarHeaderProps) {
+  const { i18n } = useTranslation();
   return (
     <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border bg-muted/30">
       <div className="h-14" /> {/* Time column spacer */}
@@ -21,7 +23,7 @@ export function CalendarHeader({ weekDays }: CalendarHeaderProps) {
             )}
           >
             <span className="text-xs text-muted-foreground uppercase">
-              {format(day, 'EEE', { locale: enGB })}
+              {format(day, 'EEE', { locale: dateFnsLocale(i18n.language) })}
             </span>
             <span 
               className={cn(

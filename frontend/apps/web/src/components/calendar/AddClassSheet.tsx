@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { format, addMonths } from 'date-fns';
-import { enUS } from 'date-fns/locale';
+import { useState, useEffect, useMemo } from 'react';
+import { format, addMonths, addDays, startOfWeek } from 'date-fns';
+import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
@@ -47,15 +47,9 @@ const COLORS = [
   '#22c55e', '#eab308', '#ef4444', '#6366f1',
 ];
 
-const DAYS_OF_WEEK = [
-  { value: 1, label: 'M' },
-  { value: 2, label: 'T' },
-  { value: 3, label: 'W' },
-  { value: 4, label: 'T' },
-  { value: 5, label: 'F' },
-  { value: 6, label: 'S' },
-  { value: 0, label: 'S' },
-];
+// Monday..Sunday order (date-fns getDay() values: Mon=1 … Sat=6, Sun=0).
+// Keep this ORDER stable — only the locale-aware initial label changes per language.
+const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
 export function AddClassSheet({
   open,
@@ -67,8 +61,18 @@ export function AddClassSheet({
   levels,
   loading = false,
 }: AddClassSheetProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
+  // Locale-aware weekday initials (e.g. PT: S/T/Q/Q/S/S/D), derived from date-fns
+  // rather than hardcoded — keeps the Mon..Sun rendering order identical.
+  const daysOfWeek = useMemo(() => {
+    const dateFnsLocale = i18n.language === 'pt' ? pt : enUS;
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return WEEKDAY_VALUES.map((value, index) => ({
+      value,
+      label: format(addDays(weekStart, index), 'EEEEE', { locale: dateFnsLocale }).toUpperCase(),
+    }));
+  }, [i18n.language]);
   const [classType, setClassType] = useState<ClassType>('academy');
   const [isRecurring, setIsRecurring] = useState(false);
   const [name, setName] = useState('');
@@ -309,14 +313,14 @@ export function AddClassSheet({
                 <Repeat className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.addClass.recurring")}</span>
               </div>
-              <Switch aria-label="Recurring" checked={isRecurring} onCheckedChange={setIsRecurring} />
+              <Switch aria-label={t("calendar.addClass.recurring")} checked={isRecurring} onCheckedChange={setIsRecurring} />
             </div>
             {isRecurring && (
               <div className="space-y-3 pt-1">
                 <div className="space-y-1.5">
                   <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.daysOfWeek")}</span>
                   <div className={cn("flex gap-1", errors.days && "ring-2 ring-destructive rounded-lg p-0.5")}>
-                    {DAYS_OF_WEEK.map(({ value, label }) => (
+                    {daysOfWeek.map(({ value, label }) => (
                       <button
                         key={value}
                         onClick={() => { toggleDay(value); setErrors(e => ({ ...e, days: false })); }}
@@ -333,20 +337,20 @@ export function AddClassSheet({
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">Recurs until season end</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.recursUntilSeasonEnd")}</span>
                   <Switch
-                    aria-label="Recurs until season end"
+                    aria-label={t("calendar.addClass.recursUntilSeasonEnd")}
                     checked={recursUntilSeasonEnd}
                     onCheckedChange={setRecursUntilSeasonEnd}
                   />
                 </div>
                 {recursUntilSeasonEnd ? (
                   <p className="text-xs text-muted-foreground">
-                    Ends at your season's end date.
+                    {t("calendar.addClass.recursUntilSeasonEndHint")}
                   </p>
                 ) : (
                   <div className={cn("space-y-1", errors.endDate && "ring-2 ring-destructive rounded-lg p-1")}>
-                    <span className="text-xs font-medium text-muted-foreground">End date</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.endDate")}</span>
                     <Input
                       type="date"
                       value={endDate}

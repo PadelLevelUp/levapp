@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ interface SeasonDraft {
 }
 
 export function SeasonsSection() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [seasons, setSeasons] = useState<SeasonDraft[]>([]);
 
@@ -64,7 +66,7 @@ export function SeasonsSection() {
       await deleteSeason(id);
       setSeasons((prev) => prev.filter((s) => s.id !== id));
     } catch {
-      toast({ variant: "destructive", title: "Failed to delete season" });
+      toast({ variant: "destructive", title: t("settings.seasons.deleteFailed") });
     } finally {
       setRemovingId(null);
     }
@@ -87,8 +89,8 @@ export function SeasonsSection() {
     if (invalid) {
       toast({
         variant: "destructive",
-        title: "Validation error",
-        description: "Each season needs a name and a start date on or before the end date.",
+        title: t("settings.seasons.validationErrorTitle"),
+        description: t("settings.seasons.validationErrorDescription"),
       });
       return;
     }
@@ -100,7 +102,10 @@ export function SeasonsSection() {
     }));
 
     if (USE_MOCK_DATA) {
-      toast({ title: "Seasons saved", description: `${seasons.length} seasons updated (mock).` });
+      toast({
+        title: t("settings.seasons.savedTitle"),
+        description: t("settings.seasons.savedMock", { count: seasons.length }),
+      });
       return;
     }
 
@@ -115,12 +120,15 @@ export function SeasonsSection() {
           endDate: s.endDate,
         }))
       );
-      toast({ title: "Seasons saved", description: `${updated.length} seasons updated.` });
+      toast({
+        title: t("settings.seasons.savedTitle"),
+        description: t("settings.seasons.saved", { count: updated.length }),
+      });
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Failed to save seasons",
-        description: err?.response?.data?.error || "Failed to save seasons",
+        title: t("settings.seasons.saveFailed"),
+        description: err?.response?.data?.error || t("settings.seasons.saveFailed"),
       });
     } finally {
       setSaving(false);
@@ -131,7 +139,7 @@ export function SeasonsSection() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Loading seasons…
+          {t("settings.seasons.loading")}
         </CardContent>
       </Card>
     );
@@ -142,24 +150,24 @@ export function SeasonsSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarRange className="w-4 h-4" />
-          Seasons
+          {t("settings.seasons.title")}
         </CardTitle>
         <CardDescription>
-          Define named seasons so classes can recur until a season's end date.
+          {t("settings.seasons.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
         <div className="grid grid-cols-[1fr_150px_150px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
-          <span>Name</span>
-          <span>Start</span>
-          <span>End</span>
+          <span>{t("settings.seasons.name")}</span>
+          <span>{t("settings.seasons.start")}</span>
+          <span>{t("settings.seasons.end")}</span>
           <span />
         </div>
 
         {seasons.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No seasons defined yet. Add your first one below.
+            {t("settings.seasons.empty")}
           </p>
         )}
 
@@ -171,13 +179,13 @@ export function SeasonsSection() {
             <Input
               value={season.name}
               onChange={(e) => handleChange(season.id, "name", e.target.value)}
-              placeholder="Season name"
+              placeholder={t("settings.seasons.namePlaceholder")}
               className="h-8 text-sm"
             />
 
             <Input
               type="date"
-              aria-label="Season start"
+              aria-label={t("settings.seasons.startAriaLabel")}
               value={season.startDate}
               onChange={(e) => handleChange(season.id, "startDate", e.target.value)}
               className="h-8 text-sm"
@@ -185,7 +193,7 @@ export function SeasonsSection() {
 
             <Input
               type="date"
-              aria-label="Season end"
+              aria-label={t("settings.seasons.endAriaLabel")}
               value={season.endDate}
               onChange={(e) => handleChange(season.id, "endDate", e.target.value)}
               className="h-8 text-sm"
@@ -212,12 +220,12 @@ export function SeasonsSection() {
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
-            Add season
+            {t("settings.seasons.addSeason")}
           </Button>
 
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? "Saving…" : "Save seasons"}
+            {saving ? t("settings.seasons.saving") : t("settings.seasons.saveSeasons")}
           </Button>
         </div>
       </CardContent>

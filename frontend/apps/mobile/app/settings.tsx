@@ -1,6 +1,6 @@
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as React from "react";
 import { ScrollView, View } from "react-native";
@@ -42,6 +42,7 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
 export default function SettingsScreen() {
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  const queryClient = useQueryClient();
 
   // Fresh profile (name/username/language) straight from /auth/me.
   const { data: me } = useQuery({
@@ -66,7 +67,8 @@ export default function SettingsScreen() {
     setLanguage(value);
     setLanguageStatus(null);
     try {
-      await authApi.updateMe({ language: value });
+      const updated = await authApi.updateMe({ language: value });
+      queryClient.setQueryData(["auth-me"], updated);
       setLanguageStatus("Language preference saved.");
     } catch {
       setLanguage(previous);
