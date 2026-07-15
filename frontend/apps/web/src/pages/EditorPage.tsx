@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Trash2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -57,6 +58,7 @@ type FieldInputProps = {
 };
 
 function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps) {
+  const { t } = useTranslation();
   const { type, name, label, options, required, related_model } = field;
 
   switch (type) {
@@ -107,7 +109,7 @@ function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps)
           <Input
             id={name}
             type="password"
-            placeholder="Leave blank to keep current"
+            placeholder={t("editor.field.passwordPlaceholder")}
             value={value == null ? "" : String(value)}
             onChange={(e) => onChange(name, e.target.value || null)}
           />
@@ -123,7 +125,7 @@ function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps)
             onValueChange={(v) => onChange(name, v)}
           >
             <SelectTrigger id={name}>
-              <SelectValue placeholder="Select…" />
+              <SelectValue placeholder={t("editor.field.selectPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {(options || []).map((opt) => (
@@ -180,7 +182,7 @@ function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps)
         <div className="space-y-1">
           <Label htmlFor={name}>{label}{required && " *"}</Label>
           {value && (
-            <p className="text-xs text-muted-foreground">Current image ID: {String(value)}</p>
+            <p className="text-xs text-muted-foreground">{t("editor.field.currentImageId", { id: String(value) })}</p>
           )}
           <Input
             id={name}
@@ -215,10 +217,10 @@ function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps)
             onValueChange={(v) => onChange(name, v === "" ? null : parseInt(v, 10))}
           >
             <SelectTrigger id={name}>
-              <SelectValue placeholder="Select…" />
+              <SelectValue placeholder={t("editor.field.selectPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— None —</SelectItem>
+              <SelectItem value="">{t("editor.field.none")}</SelectItem>
               {opts.map((opt) => (
                 <SelectItem key={opt.id} value={String(opt.id)}>{opt.label}</SelectItem>
               ))}
@@ -251,7 +253,7 @@ function FieldInput({ field, value, onChange, relatedOptions }: FieldInputProps)
                 {opt.label}
               </label>
             ))}
-            {opts.length === 0 && <p className="text-xs text-muted-foreground">No options available</p>}
+            {opts.length === 0 && <p className="text-xs text-muted-foreground">{t("editor.field.noOptions")}</p>}
           </div>
         </div>
       );
@@ -295,6 +297,7 @@ function RecordSheet({
   relatedOptions,
   onSaved,
 }: RecordSheetProps) {
+  const { t } = useTranslation();
   const [values, setValues] = useState<RecordData>({});
   const [saving, setSaving] = useState(false);
 
@@ -322,15 +325,15 @@ function RecordSheet({
 
       if (mode === "create") {
         await createEditorRecord(model, payload);
-        toast.success("Record created");
+        toast.success(t("editor.toast.recordCreated"));
       } else {
         await updateEditorRecord(model, values.id as number, payload);
-        toast.success("Record updated");
+        toast.success(t("editor.toast.recordUpdated"));
       }
       onSaved();
       onClose();
     } catch {
-      toast.error("Failed to save record");
+      toast.error(t("editor.toast.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -340,7 +343,7 @@ function RecordSheet({
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{mode === "create" ? "New Record" : "Edit Record"}</SheetTitle>
+          <SheetTitle>{mode === "create" ? t("editor.sheet.newTitle") : t("editor.sheet.editTitle")}</SheetTitle>
         </SheetHeader>
         <div className="py-4 space-y-4">
           {fields.map((field) => (
@@ -355,10 +358,10 @@ function RecordSheet({
         </div>
         <SheetFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
+            {t("editor.sheet.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("editor.sheet.saving") : t("editor.sheet.save")}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -369,6 +372,7 @@ function RecordSheet({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EditorPage() {
+  const { t } = useTranslation();
   const { model: modelParam } = useParams<{ model?: string }>();
   const navigate = useNavigate();
 
@@ -394,7 +398,7 @@ export default function EditorPage() {
   useEffect(() => {
     getEditorModels()
       .then(setModels)
-      .catch(() => toast.error("Failed to load models"))
+      .catch(() => toast.error(t("editor.toast.loadModelsFailed")))
       .finally(() => setLoadingModels(false));
   }, []);
 
@@ -428,7 +432,7 @@ export default function EditorPage() {
         )
       );
       setRelatedOptions(Object.fromEntries(entries));
-    }).catch(() => toast.error("Failed to load schema"));
+    }).catch(() => toast.error(t("editor.toast.loadSchemaFailed")));
   }, [selectedModel]);
 
   // Load records when model/page/search changes
@@ -441,7 +445,7 @@ export default function EditorPage() {
         setTotal(data.total);
         setPages(data.pages);
       })
-      .catch(() => toast.error("Failed to load records"))
+      .catch(() => toast.error(t("editor.toast.loadRecordsFailed")))
       .finally(() => setLoadingRecords(false));
   }, [selectedModel, page, search]);
 
@@ -472,11 +476,11 @@ export default function EditorPage() {
     if (!deleteTarget || !selectedModel) return;
     try {
       await deleteEditorRecord(selectedModel, deleteTarget.id as number);
-      toast.success("Record deleted");
+      toast.success(t("editor.toast.recordDeleted"));
       setDeleteTarget(null);
       loadRecords();
     } catch {
-      toast.error("Failed to delete record");
+      toast.error(t("editor.toast.deleteFailed"));
     }
   }
 
@@ -489,10 +493,10 @@ export default function EditorPage() {
         {/* Model sidebar */}
         <aside className="w-56 shrink-0 border-r bg-muted/30 overflow-y-auto">
           <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Models
+            {t("editor.models")}
           </div>
           {loadingModels ? (
-            <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+            <div className="p-4 text-sm text-muted-foreground">{t("editor.loading")}</div>
           ) : (
             <ul>
               {models.map((m) => (
@@ -515,7 +519,7 @@ export default function EditorPage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {!selectedModel ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Select a model from the sidebar
+              {t("editor.selectModelPrompt")}
             </div>
           ) : (
             <>
@@ -525,7 +529,7 @@ export default function EditorPage() {
                   {currentModelMeta?.title ?? selectedModel}
                 </h2>
                 <Input
-                  placeholder="Search…"
+                  placeholder={t("editor.searchPlaceholder")}
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="max-w-xs"
@@ -533,7 +537,7 @@ export default function EditorPage() {
                 <div className="ml-auto">
                   <Button size="sm" onClick={openCreate}>
                     <Plus className="w-4 h-4 mr-1" />
-                    New
+                    {t("editor.new")}
                   </Button>
                 </div>
               </div>
@@ -541,14 +545,14 @@ export default function EditorPage() {
               {/* Table */}
               <div className="flex-1 overflow-auto">
                 {loadingRecords ? (
-                  <div className="p-6 text-muted-foreground">Loading records…</div>
+                  <div className="p-6 text-muted-foreground">{t("editor.loadingRecords")}</div>
                 ) : records.length === 0 ? (
-                  <div className="p-6 text-muted-foreground">No records found.</div>
+                  <div className="p-6 text-muted-foreground">{t("editor.noRecordsFound")}</div>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-background border-b">
                       <tr>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground w-16">ID</th>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground w-16">{t("editor.columnId")}</th>
                         {listColumns.map((col) => (
                           <th key={col.field} className="text-left px-3 py-2 font-medium text-muted-foreground">
                             {col.label}
@@ -595,7 +599,7 @@ export default function EditorPage() {
               {pages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t shrink-0 text-sm">
                   <span className="text-muted-foreground">
-                    {total} records · page {page} of {pages}
+                    {t("editor.pagination", { total, page, pages })}
                   </span>
                   <div className="flex gap-2">
                     <Button
@@ -638,18 +642,18 @@ export default function EditorPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete record?</AlertDialogTitle>
+            <AlertDialogTitle>{t("editor.delete.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete record ID {String(deleteTarget?.id)}. This action cannot be undone.
+              {t("editor.delete.description", { id: String(deleteTarget?.id) })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("editor.delete.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t("editor.delete.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
