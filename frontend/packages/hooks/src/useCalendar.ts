@@ -65,18 +65,23 @@ export function useCalendar(
     setCurrentDate(new Date());
   }, []);
 
+  // Compact week-range label (e.g. "6–13 Jul" or "28 Jun–4 Jul"). Kept short so
+  // it stays on a single line even on narrow (375px) mobile headers.
   const weekLabel = useMemo(() => {
     const start = weekStart;
     const end = addDays(weekStart, 6);
 
-    const startMonth = format(start, "MMMM", { locale: enGB });
-    const endMonth = format(end, "MMMM yyyy", { locale: enGB });
+    const sameMonth =
+      format(start, "MMM", { locale: enGB }) ===
+      format(end, "MMM", { locale: enGB });
 
-    if (startMonth === format(end, "MMMM", { locale: enGB })) {
-      return `${format(start, "d")} - ${format(end, "d")} de ${endMonth}`;
+    if (sameMonth) {
+      return `${format(start, "d")}–${format(end, "d MMM", { locale: enGB })}`;
     }
 
-    return `${format(start, "d MMM")} - ${format(end, "d MMM yyyy")}`;
+    return `${format(start, "d MMM", { locale: enGB })}–${format(end, "d MMM", {
+      locale: enGB,
+    })}`;
   }, [weekStart]);
 
   return {

@@ -1,0 +1,24 @@
+{
+  "ui": {
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Seguinte",
+      "goToPrevious": "Ir para a página anterior",
+      "goToNext": "Ir para a página seguinte",
+      "morePages": "Mais páginas"
+    },
+    "sidebar": {
+      "toggle": "Alternar barra lateral"
+    },
+    "dialog": {
+      "close": "Fechar"
+    },
+    "breadcrumb": {
+      "more": "Mais"
+    },
+    "carousel": {
+      "previousSlide": "Slide anterior",
+      "nextSlide": "Slide seguinte"
+    }
+  }
+}

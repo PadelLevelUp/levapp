@@ -1,0 +1,43 @@
+{
+  "editor": {
+    "models": "Models",
+    "loading": "Loading…",
+    "selectModelPrompt": "Select a model from the sidebar",
+    "searchPlaceholder": "Search…",
+    "new": "New",
+    "loadingRecords": "Loading records…",
+    "noRecordsFound": "No records found.",
+    "columnId": "ID",
+    "pagination": "{{total}} records · page {{page}} of {{pages}}",
+    "field": {
+      "passwordPlaceholder": "Leave blank to keep current",
+      "selectPlaceholder": "Select…",
+      "none": "— None —",
+      "currentImageId": "Current image ID: {{id}}",
+      "noOptions": "No options available"
+    },
+    "sheet": {
+      "newTitle": "New Record",
+      "editTitle": "Edit Record",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "save": "Save"
+    },
+    "toast": {
+      "recordCreated": "Record created",
+      "recordUpdated": "Record updated",
+      "saveFailed": "Failed to save record",
+      "loadModelsFailed": "Failed to load models",
+      "loadSchemaFailed": "Failed to load schema",
+      "loadRecordsFailed": "Failed to load records",
+      "recordDeleted": "Record deleted",
+      "deleteFailed": "Failed to delete record"
+    },
+    "delete": {
+      "title": "Delete record?",
+      "description": "This will permanently delete record ID {{id}}. This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    }
+  }
+}

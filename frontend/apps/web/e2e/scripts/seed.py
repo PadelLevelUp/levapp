@@ -51,6 +51,9 @@ with app.app_context():
         password=generate_password_hash("E2eCoach123!"),
         status="active",
         language="en",
+        # PAD-55: super-admin so the /editor tool (SuperAdminRoute) is reachable
+        # in E2E for the Editor i18n coverage spec.
+        is_superadmin=True,
     )
     db.session.add(coach_user)
 
