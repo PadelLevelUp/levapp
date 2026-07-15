@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "next-themes";
 import i18n, { AppLanguage } from "@/i18n";
 import { getMe, updateMe } from "@/api/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -137,6 +138,13 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [tab, setTab] = useState<SettingsTab>("profile");
+
+  // PAD-57: theme is owned by next-themes (applies instantly + persists to
+  // localStorage + toggles `.dark` on <html>). `theme` is undefined until
+  // mounted, so guard the Select value against a hydration mismatch.
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // In real life you load from API
   const [settings, setSettings] = useState<CoachSettings>({
@@ -467,12 +475,10 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label>{t("settings.preferences.theme")}</Label>
                       <Select
-                        value={settings.theme}
-                        onValueChange={(v) =>
-                          setSettings((s) => ({ ...s, theme: v as ThemePref }))
-                        }
+                        value={mounted ? theme ?? "system" : "system"}
+                        onValueChange={(v) => setTheme(v)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="theme-select" aria-label={t("settings.preferences.theme")}>
                           <SelectValue placeholder={t("settings.preferences.theme")} />
                         </SelectTrigger>
                         <SelectContent>
