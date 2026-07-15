@@ -21,8 +21,8 @@ export function CalendarToolbar({
 }: CalendarToolbarProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center justify-between p-4 border-b border-border bg-card">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-card">
+      <div className="flex items-center gap-1 sm:gap-2 min-w-0">
         <Button variant="outline" size="sm" onClick={onToday}>
           {t("calendar.toolbar.today")}
         </Button>
@@ -34,12 +34,12 @@ export function CalendarToolbar({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <h2 className="text-lg font-semibold ml-2">
+        <h2 className="text-base sm:text-lg font-semibold ml-1 sm:ml-2 whitespace-nowrap">
           {weekLabel}
         </h2>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {onAddEvent && (
           <Button variant="outline" onClick={onAddEvent} className="gap-2">
             <CalendarPlus className="w-4 h-4" />
