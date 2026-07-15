@@ -10,6 +10,7 @@ import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/auth/AuthContext";
 import { ToastHost } from "@/components/ui/toast";
+import { usePushNotificationRouting } from "@/hooks/usePushNotificationRouting";
 
 // Known-noisy RN Animated warning; its LogBox toast covers the tab bar and
 // breaks taps (both for users of dev builds and for UI automation).
@@ -32,6 +33,8 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  usePushNotificationRouting();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>

@@ -106,6 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Best-effort push token cleanup. Fire-and-forget (never awaited, the
+    // registrar never throws) but must be kicked off before the token is
+    // cleared below, since the DELETE call needs it for the auth header.
+    void getPushRegistrar().unregister();
     // Best-effort server-side invalidation — ignore failures.
     await api.post("/auth/logout").catch(() => undefined);
     await secureTokenStorage.removeToken().catch(() => undefined);

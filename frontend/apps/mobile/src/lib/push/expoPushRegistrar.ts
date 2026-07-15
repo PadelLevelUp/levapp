@@ -6,20 +6,38 @@ import { api } from "@/lib/api";
 import type { PushRegistrar } from "./types";
 
 /**
- * KNOWN BACKEND GAP: the backend has no endpoint for native (Expo/FCM/APNs)
- * push tokens yet. It only exposes Web-Push at `/api/notifications/subscribe`,
- * which expects a browser PushSubscription object — not an Expo push token.
- * When a native token endpoint lands (e.g. POST /notifications/push-tokens),
- * set its path here and registration will start syncing tokens automatically.
+ * Native device-token registration endpoint. The same path is used for both
+ * register (POST) and unregister (DELETE), per the backend contract:
+ *   POST   /notifications/device  { token, platform: "ios" | "android" }
+ *   DELETE /notifications/device  { token }
+ * `api`'s baseURL already includes the `/api` prefix, so paths here are
+ * unprefixed — matching every other resource call in this codebase (e.g.
+ * `/auth/me`, `/app/notify/config`).
  */
-export const PUSH_TOKEN_ENDPOINT: string | null = null;
+export const PUSH_TOKEN_ENDPOINT: string = "/notifications/device";
 
 /**
  * expo-notifications implementation. Every step is best-effort: missing
- * permissions, simulators, missing project config or the missing backend
- * endpoint all resolve silently — callers can fire-and-forget.
+ * permissions, simulators, or network failures all resolve silently —
+ * callers can fire-and-forget.
  */
 export class ExpoPushRegistrar implements PushRegistrar {
+  /** Cached so unregister() can send the same token without re-prompting. */
+  private currentToken: string | null = null;
+
+  /** Fetches the Expo push token for this device, or null if unavailable. */
+  private async getDeviceToken(): Promise<string | null> {
+    if (!Device.isDevice) return null;
+
+    const projectId: string | undefined =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    const { data: token } = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    );
+    return token;
+  }
+
   async register(): Promise<void> {
     try {
       if (!Device.isDevice) {
@@ -44,20 +62,9 @@ export class ExpoPushRegistrar implements PushRegistrar {
         return;
       }
 
-      const projectId: string | undefined =
-        Constants.expoConfig?.extra?.eas?.projectId ??
-        Constants.easConfig?.projectId;
-      const { data: token } = await Notifications.getExpoPushTokenAsync(
-        projectId ? { projectId } : undefined
-      );
-
-      if (!PUSH_TOKEN_ENDPOINT) {
-        console.log(
-          "[push] no backend endpoint for native push tokens yet; skipping sync",
-          token
-        );
-        return;
-      }
+      const token = await this.getDeviceToken();
+      if (!token) return;
+      this.currentToken = token;
 
       await api.post(PUSH_TOKEN_ENDPOINT, {
         token,
@@ -70,8 +77,20 @@ export class ExpoPushRegistrar implements PushRegistrar {
 
   async unregister(): Promise<void> {
     try {
-      if (!PUSH_TOKEN_ENDPOINT) return;
-      await api.delete(PUSH_TOKEN_ENDPOINT);
+      let token = this.currentToken;
+
+      if (!token) {
+        // No cached token (e.g. app was killed and relaunched straight into
+        // logout) — re-derive it without prompting for permission again.
+        if (!Device.isDevice) return;
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== "granted") return;
+        token = await this.getDeviceToken();
+      }
+      if (!token) return;
+
+      await api.delete(PUSH_TOKEN_ENDPOINT, { data: { token } });
+      this.currentToken = null;
     } catch (error) {
       console.warn("[push] unregister failed", error);
     }
