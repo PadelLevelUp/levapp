@@ -293,7 +293,10 @@ with app.app_context():
         start_datetime=recurring_start,
         end_datetime=recurring_end,
         is_recurring=True,
-        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [next_tuesday.weekday()]}),
+        # Convert Python weekday() (Mon=0, Tue=1) to the app's canonical JS
+        # getDay() convention (Sun=0, Mon=1, Tue=2) so Tuesday materializes on
+        # Tuesday. See packages/types/src/domain.ts and backend WEEKDAY_MAP.
+        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [(next_tuesday.weekday() + 1) % 7]}),
         recurrence_end=recurrence_end_date,
         type="academy",
         max_players=4,
