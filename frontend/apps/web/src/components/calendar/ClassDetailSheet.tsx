@@ -140,6 +140,7 @@ export function ClassDetailSheet({
   const [draft, setDraft] = useState<ClassInstance | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
 
   const [isValidating, setIsValidating] = useState(false);
@@ -166,6 +167,7 @@ export function ClassDetailSheet({
       setIsEditing(false);
       setDraft(null);
       setDeleteDialogOpen(false);
+      setConfirmDeleteOpen(false);
       setEditScopeDialogOpen(false);
       setIsValidating(false);
     }
@@ -392,9 +394,12 @@ export function ClassDetailSheet({
     if (!event) return;
 
     if (canApplyScope) {
+      // Recurring class: the scope dialog (single / whole series) already acts
+      // as the confirmation step.
       setDeleteDialogOpen(true);
     } else {
-      onDelete(event, "single");
+      // Non-recurring class: require an explicit confirm before deleting.
+      setConfirmDeleteOpen(true);
     }
   };
 
@@ -1181,6 +1186,38 @@ export function ClassDetailSheet({
           coachPlayers={players}
           existingPlayerIds={(classInstance?.participants ?? []).map((p) => p.id)}
         />
+      )}
+
+      {/* PAD-58: confirm deletion of a non-recurring class before removing it. */}
+      {canManage && onDelete && (
+        <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("calendar.detail.deleteConfirmTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("calendar.detail.deleteConfirmBody")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>
+                {t("calendar.detail.cancel")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfirmDeleteOpen(false);
+                  if (event) onDelete(event, "single");
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {t("calendar.detail.delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {canManage && onDelete && (

@@ -43,8 +43,11 @@ test("PAD-10: deleting a non-recurring class shows success toast and updates UI"
   const deleteBtn = page.getByRole("button", { name: /delete class/i }).first();
   await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 
-  // Click delete — non-recurring class goes directly (no scope dialog)
+  // Click delete — non-recurring class shows a confirm dialog (PAD-58).
   await deleteBtn.click();
+  const confirmDialog = page.getByRole("alertdialog");
+  await expect(confirmDialog).toBeVisible({ timeout: 5000 });
+  await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
 
   // Should show success toast, NOT error toast
   await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
