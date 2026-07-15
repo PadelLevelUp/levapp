@@ -16,6 +16,7 @@ from padel_app.models.coaches import Coach
 from padel_app.models.players import Player
 from padel_app.models.clubs import Club
 from padel_app.models.coach_levels import CoachLevel
+from padel_app.models.evaluation_category import EvaluationCategory
 from padel_app.models.lessons import Lesson
 from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
@@ -136,6 +137,18 @@ with app.app_context():
     level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=1)
     level_intermediate = CoachLevel(coach_id=coach.id, label="Intermediate", code="I1", display_order=2)
     db.session.add_all([level_beginner, level_intermediate])
+    db.session.flush()
+
+    # ── Evaluation categories ─────────────────────────────────────────────────
+    # At least one category so the Add Evaluation sheet renders a scorable slider
+    # (PAD-56: without a category, saving is a silent no-op / false success).
+    forehand_category = EvaluationCategory(
+        coach_id=coach.id,
+        name="Forehand",
+        scale_min=1,
+        scale_max=10,
+    )
+    db.session.add(forehand_category)
     db.session.flush()
 
     # ── Coach ↔ Player associations ───────────────────────────────────────────

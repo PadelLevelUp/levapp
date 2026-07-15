@@ -104,6 +104,8 @@
     "scoreValue": "{{score}} / {{max}}",
     "addEvaluationTitle": "Adicionar avaliação",
     "scores": "Pontuações",
+    "noCategoriesHint": "Ainda não há categorias de avaliação. Defina categorias de avaliação nas Definições para pontuar este jogador.",
+    "noCategoriesToSave": "Adicione uma categoria de avaliação nas Definições antes de guardar uma pontuação.",
     "scoreOutOf": "{{value}}/{{max}}",
     "strengths": "Pontos fortes",
     "weaknesses": "Pontos fracos",
