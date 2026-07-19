@@ -123,6 +123,16 @@ test.describe("PAD-24: Loading states for backend calls", () => {
       .catch(() => false);
     if (hasScopeDialog) {
       await singleBtn.first().click();
+    } else {
+      // Non-recurring class (PAD-58): a confirm dialog ("Delete this class?")
+      // must be dismissed before the actual API call fires.
+      const confirmDialog = page.getByRole("alertdialog");
+      const hasConfirmDialog = await confirmDialog
+        .isVisible({ timeout: 500 })
+        .catch(() => false);
+      if (hasConfirmDialog) {
+        await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
+      }
     }
 
     // CRITICAL CHECK: while the API is in flight, a loading spinner should
