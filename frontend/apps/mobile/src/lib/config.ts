@@ -18,6 +18,9 @@ export const API_URL =
  * EXPO_PUBLIC_WEB_URL — before App Store submission, since Apple requires a
  * working, publicly reachable privacy policy URL.
  */
-const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://levelup.app";
+// Public domain confirmed by product owner (2026-07): padellevelup.com.
+// Resolves only if apps/web (owner of /privacy + /terms) is served here with
+// SPA fallback; override via EXPO_PUBLIC_WEB_URL for a different subdomain.
+const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://www.padellevelup.com";
 export const PRIVACY_POLICY_URL = `${WEB_APP_URL}/privacy`;
 export const TERMS_URL = `${WEB_APP_URL}/terms`;
