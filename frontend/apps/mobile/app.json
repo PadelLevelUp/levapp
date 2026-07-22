@@ -23,7 +23,7 @@
       }
     },
     "android": {
-      "package": "com.levelup.mobile",
+      "package": "com.padellevelup.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
