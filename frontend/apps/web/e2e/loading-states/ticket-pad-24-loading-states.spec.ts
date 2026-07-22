@@ -115,14 +115,16 @@ test.describe("PAD-24: Loading states for backend calls", () => {
       .first();
     await deleteBtn.click();
 
-    // If there's a scope dialog (for recurring classes), pick "single"
-    const singleBtn = page.getByRole("button", { name: /only this|this class|single/i });
-    const hasScopeDialog = await singleBtn
-      .first()
-      .isVisible({ timeout: 500 })
-      .catch(() => false);
-    if (hasScopeDialog) {
-      await singleBtn.first().click();
+    // PAD-58: deleting now opens a dialog before the API call — a scope dialog
+    // for recurring classes ("only this…") or a confirm AlertDialog ("Delete")
+    // for non-recurring ones. Click whichever appears so remove_class fires.
+    const dialog = page.getByRole("alertdialog");
+    const scopeBtn = dialog.getByRole("button", { name: /only this|this class|single/i });
+    const confirmBtn = dialog.getByRole("button", { name: /^delete$/i });
+    if (await scopeBtn.first().isVisible({ timeout: 800 }).catch(() => false)) {
+      await scopeBtn.first().click();
+    } else if (await confirmBtn.first().isVisible({ timeout: 800 }).catch(() => false)) {
+      await confirmBtn.first().click();
     }
 
     // CRITICAL CHECK: while the API is in flight, a loading spinner should
