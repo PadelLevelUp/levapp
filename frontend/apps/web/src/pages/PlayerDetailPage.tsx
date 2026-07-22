@@ -195,27 +195,18 @@ export default function PlayerDetailPage() {
         weaknesses: data.weaknesses,
       });
 
-      const newEvaluations = data.scores.map((s) => {
-        const cat = categories.find((c) => c.id === s.categoryId);
-        return {
-          categoryId: Number(s.categoryId),
-          categoryName: cat?.name ?? String(s.categoryId),
-          score: s.value,
-          scaleMin: cat?.scaleMin ?? 0,
-          scaleMax: cat?.scaleMax ?? 10,
-          evaluatedAt: new Date().toISOString(),
-        };
-      });
-
-      setProfile((prev) => ({
-        playerId: player.playerId,
-        evaluations: newEvaluations,
-        strengths: data.strengths,
-        weaknesses: data.weaknesses,
-        ...(prev ? {} : {}),
-      }));
-    } catch {
+      // Refetch the persisted profile so the Evaluation panel reflects the true
+      // server state (and survives a hard reload) rather than a hand-built
+      // optimistic guess.
+      const refreshed = await getPlayerProfile(player.playerId);
+      if (refreshed) {
+        setProfile(refreshed);
+      }
+    } catch (err) {
       toast.error(t("players.saveEvaluationFailed"));
+      // Re-throw so the awaiting sheet knows the save failed and can stay open
+      // instead of flashing a false-success toast and closing.
+      throw err;
     }
   };
 

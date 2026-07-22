@@ -25,7 +25,7 @@ interface AddEvaluationSheetProps {
     scores: { categoryId: string; value: number }[];
     strengths: CoachNote[];
     weaknesses: CoachNote[];
-  }) => void;
+  }) => void | Promise<void>;
   categories: EvaluationCategory[];
   currentEvaluations: PlayerEvaluation[];
   currentStrengths: CoachNote[];
@@ -49,6 +49,7 @@ export function AddEvaluationSheet({
   const [weaknesses, setWeaknesses] = useState<CoachNote[]>([]);
   const [newStrength, setNewStrength] = useState("");
   const [newWeakness, setNewWeakness] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -84,20 +85,43 @@ export function AddEvaluationSheet({
     setNewWeakness("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const scoreEntries = categories.map((cat) => ({
       categoryId: cat.id,
       value: scores[cat.id] ?? cat.scaleMin,
     }));
 
-    onSave({
-      scores: scoreEntries,
-      strengths,
-      weaknesses,
-    });
+    // Locally-added notes carry a negative (client-generated) id; only these
+    // would actually be persisted by the backend (pre-existing notes are skipped).
+    const hasNewNotes =
+      strengths.some((s) => s.id < 0) || weaknesses.some((w) => w.id < 0);
 
-    toast({ title: t("players.evaluationSaved") });
-    onClose();
+    // Empty-categories guard (PAD-58 item 3): with no categories and nothing new
+    // to persist, saving would be a silent no-op that still flashed a success
+    // toast. Block it and tell the coach to define categories first.
+    if (categories.length === 0 && !hasNewNotes) {
+      toast({
+        title: t("players.noCategoriesToSave"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onSave({
+        scores: scoreEntries,
+        strengths,
+        weaknesses,
+      });
+      toast({ title: t("players.evaluationSaved") });
+      onClose();
+    } catch {
+      // The parent surfaces the error toast. Keep the sheet open so the coach
+      // can retry without re-entering everything.
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -111,6 +135,9 @@ export function AddEvaluationSheet({
           {/* CATEGORY SCORES */}
           <div className="space-y-5">
             <p className="text-sm font-medium text-muted-foreground">{t("players.scores")}</p>
+            {categories.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("players.noCategoriesHint")}</p>
+            )}
             {categories.map((cat) => {
               const value = scores[cat.id] ?? cat.scaleMin;
               return (
@@ -209,8 +236,8 @@ export function AddEvaluationSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button onClick={handleSave}>{t("players.saveEvaluation")}</Button>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>{t("common.cancel")}</Button>
+          <Button onClick={handleSave} disabled={isSaving}>{t("players.saveEvaluation")}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

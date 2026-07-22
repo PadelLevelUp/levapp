@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
 import { getMe, updateMe } from "@/api/auth";
@@ -80,6 +81,8 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<SettingsTab>("preferences");
   const [language, setLanguage] = useState<AppLanguage>("pt");
+  // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
+  const { theme, setTheme } = useTheme();
 
   // Load the current user's language preference on mount.
   useEffect(() => {
@@ -186,6 +189,20 @@ export default function SettingsPage() {
                       <SelectContent>
                         <SelectItem value="pt">{t("settings.portuguese")}</SelectItem>
                         <SelectItem value="en">{t("settings.english")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="theme-select">{t("settings.preferences.theme")}</Label>
+                    <Select value={theme} onValueChange={(v) => setTheme(v)}>
+                      <SelectTrigger id="theme-select" aria-label={t("settings.preferences.theme")}>
+                        <SelectValue placeholder={t("settings.preferences.theme")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="system">{t("settings.preferences.themeSystem")}</SelectItem>
+                        <SelectItem value="light">{t("settings.preferences.themeLight")}</SelectItem>
+                        <SelectItem value="dark">{t("settings.preferences.themeDark")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

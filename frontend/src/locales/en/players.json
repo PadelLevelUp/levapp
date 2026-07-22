@@ -104,6 +104,8 @@
     "scoreValue": "{{score}} / {{max}}",
     "addEvaluationTitle": "Add Evaluation",
     "scores": "Scores",
+    "noCategoriesHint": "No evaluation categories yet. Define evaluation categories in Settings first to score this player.",
+    "noCategoriesToSave": "Add an evaluation category in Settings before saving a score.",
     "scoreOutOf": "{{value}}/{{max}}",
     "strengths": "Strengths",
     "weaknesses": "Weaknesses",

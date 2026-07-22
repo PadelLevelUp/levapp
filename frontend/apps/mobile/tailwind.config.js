@@ -11,12 +11,14 @@ module.exports = {
   theme: {
     extend: {
       colors: nativewindTheme("light"),
-      // NativeWind v3 can't evaluate calc()/var() — precompute literals
-      // mirroring apps/web/tailwind.config.ts (var(--radius) = 0.625rem).
+      // NativeWind/react-native-css-interop can't resolve calc() into a
+      // numeric borderRadius on native (it silently no-ops), so these are
+      // precomputed literals mirroring apps/web/tailwind.config.ts's
+      // `calc(var(--radius) - Npx)` — radius is 0.625rem (10px).
       borderRadius: {
-        lg: radius,
-        md: "0.5rem", // var(--radius) - 2px
-        sm: "0.375rem", // var(--radius) - 4px
+        lg: radius, // 0.625rem = 10px
+        md: "0.5rem", // 10px - 2px = 8px
+        sm: "0.375rem", // 10px - 4px = 6px
       },
     },
   },
