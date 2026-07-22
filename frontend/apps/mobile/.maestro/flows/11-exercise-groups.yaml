@@ -9,7 +9,7 @@
 # No stable per-group testID exists for a dynamically-created group (it's
 # keyed by a runtime id this flow never captures), so the edit icon is
 # targeted by its accessibilityLabel text instead.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

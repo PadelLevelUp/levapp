@@ -9,7 +9,7 @@
 # and never touched class-date/class-start-time/class-end-time (the comment
 # a few lines down already notes they "keep defaults"), so the picker swap
 # is a no-op for this flow.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 # Navigates to the seeded Monday and asserts "E2E Academy Class" is there.

@@ -4,7 +4,7 @@
 # NOTE: player id 1 is deterministic — seed.py creates E2E Student's Player
 # row first on a freshly reset database.
 # SIDE EFFECT: flow 14-student-calendar sees this presence as "Present".
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml

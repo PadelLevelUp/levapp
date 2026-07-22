@@ -18,7 +18,7 @@
 # cleanly. Typing is also retry-verified: each attempt clears the field with
 # a BOUNDED eraseText (unbounded eraseText crashes the iOS driver), retypes
 # and asserts the value actually registered before submitting.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - retry:
     maxRetries: 3

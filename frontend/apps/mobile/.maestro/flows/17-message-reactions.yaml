@@ -6,7 +6,7 @@
 # Reactions are NOT optimistic — the SSE `message_reaction` event delivers
 # the authoritative state (same as web), so the pill only renders after a
 # round-trip; hence the generous extendedWaitUntil timeouts below.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

@@ -5,7 +5,7 @@
 # reaches it; the repeat guard makes it robust either way.
 # Postcondition: the seeded Monday is selected and "E2E Academy Class"
 # is visible in the day list.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - tapOn:
     id: "tab-calendar"

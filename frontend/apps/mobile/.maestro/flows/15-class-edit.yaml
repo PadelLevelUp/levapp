@@ -7,7 +7,7 @@
 # so class-edit-save commits directly with no scope-dialog step; the
 # scope-dialog taps below are defensive (`when: visible`) in case that ever
 # changes.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml

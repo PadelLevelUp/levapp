@@ -1,6 +1,6 @@
 # LevelUp Mobile — Maestro E2E Suite
 
-Maestro UI tests for the LevelUp mobile app (`com.levelup.mobile`), mirroring
+Maestro UI tests for the LevelUp mobile app (`com.padellevelup.app`), mirroring
 the critical journeys of the web Playwright suite (`apps/web/e2e/`) for the
 features the mobile app implements.
 
@@ -26,7 +26,7 @@ features the mobile app implements.
    ```
 
 3. **Simulator** — iPhone 17 Pro, UDID `180A9433-4EA7-4F9B-9FD1-79E1250BD9BB`,
-   with the dev build of `com.levelup.mobile` installed and AutoFill password
+   with the dev build of `com.padellevelup.app` installed and AutoFill password
    prompts disabled.
 
 4. **Maestro** — installed at `~/.maestro/bin/maestro`.

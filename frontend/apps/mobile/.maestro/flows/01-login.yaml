@@ -8,7 +8,7 @@
 # The wrong-password and student sections run in the same app session after a
 # UI logout (no relaunch): typing right after a relaunch of an authenticated
 # session gets wiped by a delayed login-screen remount (see subflows/login.yaml).
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 # ── Coach login success ──
 - runFlow: ../subflows/login-coach.yaml

@@ -2,7 +2,7 @@
 # - add "Maestro Player" with a unique username; it appears in the players
 #   list (found via search — with 30 seeded players the new one lands on
 #   page 2 of the alphabetical list).
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

@@ -9,7 +9,7 @@
 # NOTE: settings.tsx has no tab navigation (memory notes about a tabbed
 # SettingsPage describe the WEB app) — it's a single scrollable column, so
 # these sections just need scrolling into view, not a tab switch.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

@@ -3,7 +3,7 @@
 #   accessibility label is "<label>: <value>" (children of the accessible
 #   Pressable are collapsed on iOS, so the value must live in the label)
 # - the upcoming-classes list shows the seeded "E2E Academy Class"
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - extendedWaitUntil:

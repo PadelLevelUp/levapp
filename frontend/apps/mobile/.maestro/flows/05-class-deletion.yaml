@@ -3,7 +3,7 @@
 #   from the calendar afterwards.
 # ORDER DEPENDENCY: requires flow 03-class-management to have created
 # "Maestro Test Class" on the seeded Monday (order pinned in ../config.yaml).
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml

@@ -1,5 +1,5 @@
 # Log in as the seeded E2E coach (e2e-coach) and land on the dashboard.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow:
     file: login.yaml

@@ -6,7 +6,7 @@
 #   search), then cancelled WITHOUT sending: a real send would create
 #   notification rows other flows don't account for, so this stays read-only
 #   per the assignment.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml

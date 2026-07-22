@@ -1,5 +1,5 @@
 # Log out via the More tab and wait for the login screen.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - tapOn:
     id: "tab-more"

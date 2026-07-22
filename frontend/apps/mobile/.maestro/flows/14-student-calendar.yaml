@@ -7,7 +7,7 @@
 # reads "Present" in suite order; on a freshly seeded DB (flow run
 # standalone) the invited-not-confirmed presence reads "Invited" — the
 # assertion accepts either so the flow is order-independent.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml

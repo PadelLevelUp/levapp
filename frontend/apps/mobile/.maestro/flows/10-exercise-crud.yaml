@@ -2,7 +2,7 @@
 # - create "Maestro Drill" (type keeps the default; difficulty set via the
 #   exercise-difficulty-4 toggle buttons) → appears in the list
 # - delete it with confirmation → gone
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

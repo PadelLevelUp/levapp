@@ -4,7 +4,7 @@
 # - add strength "Maestro strength note" → visible
 # - delete it → gone
 # NOTE: player-card-1 is deterministic (see 04-attendance.yaml).
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

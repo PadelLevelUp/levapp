@@ -8,7 +8,7 @@
 # NOTE: conversation id 1 is deterministic on a freshly reset database
 # (seed.py creates exactly one conversation). Opening it marks it read, so
 # the unread-badge assertion happens first.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

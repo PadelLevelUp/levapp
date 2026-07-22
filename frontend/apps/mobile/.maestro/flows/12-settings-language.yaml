@@ -25,7 +25,7 @@
 # forcing a remount so the leftover "Language preference saved." text from
 # the Portuguese step is gone before the second save — otherwise the stale
 # text would make a missed second tap pass silently.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

@@ -7,7 +7,7 @@
 # direction-swipe from an element starts at its center; the pan gesture
 # activates at 20px horizontal and triggers reply past 60px, which a
 # RIGHT swipe comfortably exceeds.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:

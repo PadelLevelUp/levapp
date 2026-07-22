@@ -19,7 +19,7 @@
 #   the backend blocker list has no date/time filtering
 #   (list_student_blockers returns everything for the user, unfiltered), so
 #   "today" is safe regardless of what time of day this suite runs at.
-appId: com.levelup.mobile
+appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
