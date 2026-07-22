@@ -25,6 +25,7 @@ from padel_app.models.Association_PlayerLessonInstance import Association_Player
 from padel_app.models.presences import Presence
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
+from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
 from padel_app.models.notification_config import NotificationConfig
 from padel_app.models.conversations import Conversation
 from padel_app.models.conversation_participants import ConversationParticipant
@@ -313,6 +314,17 @@ with app.app_context():
         lesson_id=recurring_lesson.id,
     )
     db.session.add(coach_recurring)
+
+    # Enrol the student in the recurring lesson (PAD-64). The lesson has no
+    # materialized instance yet; when an occurrence is materialized (e.g. a
+    # coach marks attendance), get_or_materialize_instance copies the lesson's
+    # players_relations into auto-created Presence rows — so attendance for a
+    # recurring occurrence has a participant to record and persist.
+    player_recurring = Association_PlayerLesson(
+        player_id=student.id,
+        lesson_id=recurring_lesson.id,
+    )
+    db.session.add(player_recurring)
 
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
