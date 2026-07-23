@@ -24,11 +24,17 @@ test("US-46: evaluation categories page/section is accessible", async ({ page })
 });
 
 // US-47: Coach can submit an evaluation for a player
+//
+// Uses "E2E Student Two" (not "E2E Student") because this test optionally
+// saves an evaluation as a side effect, and evaluation-persist.spec.ts
+// asserts "E2E Student" starts with zero evaluations. Sharing a player
+// between the two specs made evaluation-persist.spec.ts order-dependent
+// and flaky depending on whether this save actually fired.
 test("US-47: coach submits an evaluation entry", async ({ page }) => {
   await loginAsCoach(page);
   await page.goto("/players");
-  await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await page.getByPlaceholder(/search/i).first().fill("E2E Student Two");
+  await page.getByText("E2E Student Two", { exact: true }).click();
 
   // Click "Add Evaluation"
   await page.getByRole("button", { name: /add evaluation/i }).first().click({ timeout: 5000 });
