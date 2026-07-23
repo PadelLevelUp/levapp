@@ -15,8 +15,17 @@ import { openDashboard } from "../helpers/navigation";
 
 const SEEDED_CLASS = "E2E Academy Class";
 
+type ClassListItem = { id: string; href: string };
+
+type DashboardBlock = {
+  type?: string;
+  data?: { children?: DashboardBlock[]; items?: ClassListItem[] };
+};
+
+type DashboardPayload = { blocks?: DashboardBlock[] };
+
 /** Waits for the dashboard payload and returns it. */
-async function waitForDashboardPayload(page: Page): Promise<any> {
+async function waitForDashboardPayload(page: Page): Promise<DashboardPayload> {
   const response = await page.waitForResponse(
     (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
     { timeout: 15_000 }
@@ -25,8 +34,8 @@ async function waitForDashboardPayload(page: Page): Promise<any> {
 }
 
 /** Flattens nested `grid` blocks so every class_list block is reachable. */
-function collectClassListItems(blocks: any[]): any[] {
-  const items: any[] = [];
+function collectClassListItems(blocks: DashboardBlock[] | undefined): ClassListItem[] {
+  const items: ClassListItem[] = [];
 
   for (const block of blocks ?? []) {
     if (block?.type === "grid") {
