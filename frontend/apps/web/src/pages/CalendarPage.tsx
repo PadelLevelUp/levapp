@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
@@ -15,7 +16,7 @@ import { getCoachPlayers } from "@/api/players";
 import { useCalendar } from "@/hooks/useCalendar";
 import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, format } from "date-fns";
+import { addDays, format, isValid, parseISO } from "date-fns";
 import { LoadingCalendar } from "@/components/ui/loading-skeleton";
 import { removeClass, editClass, addClass } from "@/api/classes";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -23,20 +24,46 @@ import { useAuth } from "@/auth/AuthContext";
 import { RescheduleDialog } from "@/components/calendar/RescheduleDialog";
 import type { ApplyScope } from "@/components/calendar/ClassScopeDialog";
 
+/**
+ * Reads the `/calendar?classId=…&date=YYYY-MM-DD` deep link (dashboard.navigation rule 8).
+ * An unparseable or missing `date` is ignored rather than treated as an error.
+ */
+function readDeepLink(search: string) {
+  const params = new URLSearchParams(search);
+  const rawDate = params.get("date");
+  const parsedDate = rawDate ? parseISO(rawDate) : null;
+
+  return {
+    classId: params.get("classId"),
+    date: parsedDate && isValid(parsedDate) ? parsedDate : null,
+  };
+}
+
 export default function CalendarPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
-  
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Frozen at first render: the calendar must open on the deep-linked week straight
+  // away, so the very first events fetch already targets the right range.
+  const [deepLink] = useState(() => readDeepLink(window.location.search));
+  const [pendingClassId, setPendingClassId] = useState<string | null>(
+    deepLink.classId
+  );
+
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+  const [eventsLoadedOnce, setEventsLoadedOnce] = useState(false);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
-  
+
   const canManageClasses = user?.roles.includes("coach") ?? false;
-  const calendar = useCalendar(allEvents);
+  const calendar = useCalendar(allEvents, {
+    initialDate: deepLink.date ?? undefined,
+  });
 
   useEffect(() => {
     async function loadEvents() {
@@ -51,11 +78,25 @@ export default function CalendarPage() {
         setError(err.message);
       } finally {
         setLoading(false);
+        setEventsLoadedOnce(true);
       }
     }
 
     loadEvents();
   }, [calendar.weekStart]);
+
+  // Consume the deep-link params once, with a history replace, so closing the sheet
+  // (or navigating back) never re-opens it.
+  useEffect(() => {
+    if (!searchParams.has("classId") && !searchParams.has("date")) return;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("classId");
+    next.delete("date");
+    setSearchParams(next, { replace: true });
+    // Runs once — the guard above makes it a no-op afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     async function loadPopupData() {
@@ -106,6 +147,20 @@ export default function CalendarPage() {
       setSelectedClassEvent(event);
     }
   };
+
+  // Deep link: once the (already correct) week's events have loaded, open the detail
+  // sheet for the requested occurrence. A `classId` that matches nothing is a silent
+  // no-op — the coach still lands on the right week. Either way this fires only once.
+  useEffect(() => {
+    if (!pendingClassId || !eventsLoadedOnce) return;
+
+    const match = allEvents.find((e) => e.id === pendingClassId);
+    if (match) handleEventClick(match);
+
+    setPendingClassId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingClassId, eventsLoadedOnce, allEvents]);
+
   const [newClassDate, setNewClassDate] = useState<Date>();
   const [newClassTime, setNewClassTime] = useState<string>();
   const [mobileSelectedDay, setMobileSelectedDay] = useState<Date>();

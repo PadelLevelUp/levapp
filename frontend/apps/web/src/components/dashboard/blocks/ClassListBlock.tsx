@@ -20,10 +20,11 @@ export function ClassListBlock({ block }: { block: DashboardClassListBlock }) {
       <CardContent>
         <div className="space-y-3">
           {block.data.items.map((item) => (
-            <div
+            <button
               key={item.id}
+              type="button"
               onClick={() => navigate(item.href)}
-              className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div
                 className="w-1 h-10 rounded-full"
@@ -45,7 +46,7 @@ export function ClassListBlock({ block }: { block: DashboardClassListBlock }) {
               {item.rightLabel ? (
                 <div className="text-sm text-muted-foreground">{item.rightLabel}</div>
               ) : null}
-            </div>
+            </button>
           ))}
 
           {block.data.items.length === 0 && block.data.emptyText ? (
