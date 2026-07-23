@@ -292,6 +292,8 @@
     "coachLevels": {
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
+      "highestLevel": "Mais alto",
+      "lowestLevel": "Mais baixo",
       "loading": "A carregar níveis…",
       "code": "Código",
       "label": "Etiqueta",

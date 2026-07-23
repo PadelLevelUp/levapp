@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
+import { ChevronDown, GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
@@ -140,10 +140,11 @@ export function CoachLevelsSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
-        <div className="grid grid-cols-[32px_80px_1fr_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
           <span>{t("settings.coachLevels.code")}</span>
           <span>{t("settings.coachLevels.label")}</span>
+          <span />
           <span />
         </div>
 
@@ -156,11 +157,12 @@ export function CoachLevelsSection() {
         {levels.map((level, idx) => (
           <div
             key={level.id}
+            data-testid="coach-level-row"
             draggable
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_80px_1fr_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -185,6 +187,44 @@ export function CoachLevelsSection() {
               placeholder={t("settings.coachLevels.labelPlaceholder")}
               className="h-8 text-sm"
             />
+
+            {/* PAD-84: the list order carries meaning (position 1 => lowest
+                displayOrder => strongest level, per the notification engine's
+                "one level above" matching), but nothing on screen said so. The
+                two end markers name the ends; the rule + chevron running down
+                the same column show the direction between them. The rail is
+                purely decorative (aria-hidden) — the markers carry the meaning
+                for screen readers. Markers only make sense with 2+ levels,
+                otherwise the single level would be both ends at once. */}
+            {levels.length > 1 && idx === 0 ? (
+              <span className="flex flex-col items-center gap-1">
+                <span
+                  data-testid="coach-level-highest-marker"
+                  className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
+                >
+                  {t("settings.coachLevels.highestLevel")}
+                </span>
+                <span aria-hidden="true" className="h-2 w-px bg-border" />
+              </span>
+            ) : levels.length > 1 && idx === levels.length - 1 ? (
+              <span className="flex flex-col items-center">
+                <ChevronDown
+                  data-testid="coach-level-direction-arrow"
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 text-muted-foreground"
+                />
+                <span
+                  data-testid="coach-level-lowest-marker"
+                  className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
+                >
+                  {t("settings.coachLevels.lowestLevel")}
+                </span>
+              </span>
+            ) : levels.length > 1 ? (
+              <span aria-hidden="true" className="mx-auto block h-5 w-px bg-border" />
+            ) : (
+              <span />
+            )}
 
             <Button
               variant="ghost"

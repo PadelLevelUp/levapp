@@ -25,6 +25,7 @@ from padel_app.models.Association_PlayerLessonInstance import Association_Player
 from padel_app.models.presences import Presence
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
+from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
 from padel_app.models.notification_config import NotificationConfig
 from padel_app.models.conversations import Conversation
 from padel_app.models.conversation_participants import ConversationParticipant
@@ -134,9 +135,13 @@ with app.app_context():
     db.session.add(nolevels_coach_club)
 
     # ── Coach levels ──────────────────────────────────────────────────────────
-    level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=1)
-    level_intermediate = CoachLevel(coach_id=coach.id, label="Intermediate", code="I1", display_order=2)
-    db.session.add_all([level_beginner, level_intermediate])
+    # Ordering convention (specs/levels/spec.md rule 3, PAD-70): lower
+    # display_order = STRONGER level, so Intermediate is 1 and Beginner is 2.
+    # The seed used to have these inverted, which would have taught any
+    # level-adjacency test the wrong ladder direction.
+    level_intermediate = CoachLevel(coach_id=coach.id, label="Intermediate", code="I1", display_order=1)
+    level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=2)
+    db.session.add_all([level_intermediate, level_beginner])
     db.session.flush()
 
     # ── Evaluation categories ─────────────────────────────────────────────────
@@ -182,6 +187,7 @@ with app.app_context():
     # ── Bulk filler players (for pagination / search tests) ──────────────────
     # Creates 27 extra players so the coach has 30 total (3 + 27).
     # With PAGE_SIZE=25, the original 3 players end up on page 2 (ordered by id desc).
+    filler_players = []
     for i in range(1, 28):
         filler_user = User(
             name=f"Filler Player {i:02d}",
@@ -195,6 +201,7 @@ with app.app_context():
         filler_player = Player(user_id=filler_user.id)
         db.session.add(filler_player)
         db.session.flush()
+        filler_players.append(filler_player)
         # Intermediate level (NOT beginner): keeps fillers out of the early
         # invite-queue rounds for the beginner "E2E Academy Class", so
         # e2e-student-2 (beginner) is the first eligible replacement in
@@ -280,6 +287,74 @@ with app.app_context():
     )
     db.session.add(student_presence)
 
+    # ── Declined-count class (PAD-71) ─────────────────────────────────────────
+    # Next Thursday 16:00. 3 enrolled players out of 4 spots, of which 2 have
+    # already DECLINED (presence.status == "absent"). The calendar event card and
+    # the class-detail "capacity" field must BOTH show 1/4 — declined students do
+    # not occupy a spot. Uses filler players (only referenced by pagination /
+    # search specs) so no other spec's fixtures shift.
+    days_until_thursday = (3 - today.weekday()) % 7 or 7
+    next_thursday = today + timedelta(days=days_until_thursday)
+    declined_start = next_thursday.replace(hour=16, minute=0)
+    declined_end = next_thursday.replace(hour=17, minute=0)
+
+    declined_lesson = Lesson(
+        title="E2E Declined Count Class",
+        start_datetime=declined_start,
+        end_datetime=declined_end,
+        is_recurring=False,
+        type="academy",
+        max_players=4,
+        club_id=club.id,
+        color="#f59e0b",
+        status="active",
+    )
+    db.session.add(declined_lesson)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLesson(coach_id=coach.id, lesson_id=declined_lesson.id)
+    )
+
+    declined_instance = LessonInstance(
+        lesson_id=declined_lesson.id,
+        start_datetime=declined_start,
+        end_datetime=declined_end,
+        max_players=4,
+        status="scheduled",
+        level_id=level_intermediate.id,
+        notifications_enabled=True,
+        original_lesson_occurence_date=declined_start.date(),
+    )
+    db.session.add(declined_instance)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLessonInstance(
+            coach_id=coach.id,
+            lesson_instance_id=declined_instance.id,
+        )
+    )
+
+    # 3 enrolled: the first stays pending (still counts), the other 2 declined.
+    for idx, declined_member in enumerate(filler_players[:3]):
+        db.session.add(
+            Association_PlayerLessonInstance(
+                player_id=declined_member.id,
+                lesson_instance_id=declined_instance.id,
+            )
+        )
+        db.session.add(
+            Presence(
+                player_id=declined_member.id,
+                lesson_instance_id=declined_instance.id,
+                invited=True,
+                confirmed=idx > 0,
+                status="absent" if idx > 0 else None,
+                justification="justified" if idx > 0 else None,
+            )
+        )
+
     # ── Recurring Lesson (no materialized instance) ────────────────────────────
     # Weekly recurring class on Tuesdays, starting next Tuesday
     days_until_tuesday = (1 - today.weekday()) % 7 or 7
@@ -313,6 +388,17 @@ with app.app_context():
         lesson_id=recurring_lesson.id,
     )
     db.session.add(coach_recurring)
+
+    # Enrol the student in the recurring lesson (PAD-64). The lesson has no
+    # materialized instance yet; when an occurrence is materialized (e.g. a
+    # coach marks attendance), get_or_materialize_instance copies the lesson's
+    # players_relations into auto-created Presence rows — so attendance for a
+    # recurring occurrence has a participant to record and persist.
+    player_recurring = Association_PlayerLesson(
+        player_id=student.id,
+        lesson_id=recurring_lesson.id,
+    )
+    db.session.add(player_recurring)
 
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
@@ -369,4 +455,5 @@ with app.app_context():
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
+    print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")

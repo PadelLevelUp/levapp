@@ -36,6 +36,7 @@ import type {
 } from "@/types";
 
 
+import { effectiveFilledSpots } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
@@ -220,6 +221,11 @@ export function ClassDetailSheet({
   const eventRef = useRef<typeof event>(event);
   eventRef.current = event;
 
+  // Same for the rendered invitation rows — the SSE handler needs to know
+  // whether the answered invite is the row currently shown for that student.
+  const invitationsRef = useRef(localInvitations);
+  invitationsRef.current = localInvitations;
+
   // Real-time invitation updates via SSE
   useEffect(() => {
     if (!open || !canManage || !token) return;
@@ -231,15 +237,32 @@ export function ClassDetailSheet({
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
-          const { notificationEventId, response } = data.payload;
-          setLocalInvitations((prev) =>
-            prev.map((inv) => {
-              if (inv.id !== notificationEventId) return inv;
-              if (response === "yes") return { ...inv, status: "confirmed" as const };
-              if (response === "no" || response === "spot_filled") return { ...inv, status: "expired" as const };
-              return inv;
-            })
+          const { notificationEventId, response, lessonInstanceId } = data.payload;
+          const matched = invitationsRef.current.some(
+            (inv) => inv.id === notificationEventId
           );
+
+          if (matched) {
+            setLocalInvitations((prev) =>
+              prev.map((inv) => {
+                if (inv.id !== notificationEventId) return inv;
+                if (response === "yes") return { ...inv, status: "confirmed" as const };
+                if (response === "no" || response === "spot_filled") return { ...inv, status: "expired" as const };
+                return inv;
+              })
+            );
+          } else if (lessonInstanceId) {
+            // The guest list holds one row per STUDENT (PAD-72), so the invite
+            // that was answered may not be the row we're showing for them.
+            // Re-fetch to pick up the newly-winning record.
+            const ev = eventRef.current;
+            if (ev) {
+              const fetchEvent = { ...ev, model: "LessonInstance", originalId: Number(lessonInstanceId) };
+              getClassInstance(fetchEvent as typeof ev)
+                .then((updated) => setLocalInvitations(updated.invitations ?? []))
+                .catch(() => {});
+            }
+          }
         }
 
         // Notifications were sent (auto or manual) → re-fetch to show new entries
@@ -676,8 +699,12 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   {(() => {
-                    const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
-                    const effectiveFilled = active.participants.length - absentCount;
+                    // PAD-71: shared with the calendar event card's X/Y badge
+                    // (backend `LessonInstance.effective_filled_spots`).
+                    const effectiveFilled = effectiveFilledSpots(
+                      active.participants.length,
+                      active.presences
+                    );
                     const openSpots = active.maxPlayers - effectiveFilled;
                     const pendingInvites = localInvitations.filter(inv => inv.status === "sent" || inv.status === "queued").length;
                     return (

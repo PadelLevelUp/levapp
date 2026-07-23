@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
-import { getMe, updateMe } from "@/api/auth";
+import { getMe, updateMe, type MeResponse, type UpdateMePayload } from "@/api/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -25,6 +26,7 @@ import {
   Palette,
   Save,
   Upload,
+  User,
   UserX,
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
@@ -36,7 +38,21 @@ import { NotificationsEngineSection } from "@/components/settings/NotificationsE
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
 
-type SettingsTab = "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
+type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
+
+/**
+ * PAD-81: the profile fields the coach can edit about themselves. Kept as a
+ * single object so the form can be hydrated wholesale from `GET /auth/me` and
+ * diffed against the loaded values when saving.
+ */
+type ProfileForm = {
+  name: string;
+  abbreviation: string;
+  email: string;
+  phone: string;
+};
+
+const EMPTY_PROFILE: ProfileForm = { name: "", abbreviation: "", email: "", phone: "" };
 
 function SettingsNav({
   active,
@@ -47,6 +63,7 @@ function SettingsNav({
 }) {
   const { t } = useTranslation();
   const items: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: "profile", label: t("settings.nav.profile"), icon: <User className="w-4 h-4" /> },
     { id: "preferences", label: t("settings.nav.preferences"), icon: <Palette className="w-4 h-4" /> },
     { id: "calendar", label: t("settings.nav.calendar"), icon: <Calendar className="w-4 h-4" /> },
     { id: "notifications", label: t("settings.nav.notifications"), icon: <Bell className="w-4 h-4" /> },
@@ -79,12 +96,22 @@ function SettingsNav({
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  // Default tab stays "preferences" (unchanged): Profile is reachable from the
+  // nav, and several existing flows/tests land on Preferences first.
   const [tab, setTab] = useState<SettingsTab>("preferences");
   const [language, setLanguage] = useState<AppLanguage>("pt");
+  // PAD-81: the profile form is hydrated from the API. `savedProfile` keeps the
+  // last server-confirmed values so we only PATCH what actually changed.
+  const [profile, setProfile] = useState<ProfileForm>(EMPTY_PROFILE);
+  const [savedProfile, setSavedProfile] = useState<ProfileForm>(EMPTY_PROFILE);
+  const [isSaving, setIsSaving] = useState(false);
+  // Set as soon as the coach edits a field, so a late `getMe()` response can
+  // refresh the "what's on the server" baseline without wiping what they typed.
+  const profileDirty = useRef(false);
   // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
   const { theme, setTheme } = useTheme();
 
-  // Load the current user's language preference on mount.
+  // Load the current user's profile + language preference on mount.
   useEffect(() => {
     let active = true;
     getMe()
@@ -93,6 +120,14 @@ export default function SettingsPage() {
         const lang = (me.language ?? "pt") as AppLanguage;
         setLanguage(lang);
         i18n.changeLanguage(lang);
+        const loaded: ProfileForm = {
+          name: me.name ?? "",
+          abbreviation: me.abbreviation ?? "",
+          email: me.email ?? "",
+          phone: me.phone ?? "",
+        };
+        setSavedProfile(loaded);
+        if (!profileDirty.current) setProfile(loaded);
       })
       .catch(() => {
         // ignore — keep default language
@@ -102,14 +137,50 @@ export default function SettingsPage() {
     };
   }, []);
 
+  const setProfileField = (field: keyof ProfileForm, value: string) => {
+    profileDirty.current = true;
+    setProfile((p) => ({ ...p, [field]: value }));
+  };
+
   const handleSave = async () => {
+    // PAD-81: send only the fields that actually changed, so saving language
+    // from the Preferences tab doesn't re-submit (and re-validate) the profile.
+    const payload: UpdateMePayload = { language };
+    if (profile.name !== savedProfile.name) payload.name = profile.name;
+    if (profile.abbreviation !== savedProfile.abbreviation)
+      payload.abbreviation = profile.abbreviation;
+    if (profile.email !== savedProfile.email) payload.email = profile.email;
+    if (profile.phone !== savedProfile.phone) payload.phone = profile.phone;
+
+    setIsSaving(true);
+    let updated: MeResponse;
     try {
-      await updateMe({ language });
+      // PAD-81: the success toast fires only once the API confirms the write —
+      // it used to be shown unconditionally while nothing was ever persisted.
+      updated = await updateMe(payload);
       i18n.changeLanguage(language);
     } catch (e) {
-      toast({ title: t("settings.toast.couldNotSaveTitle"), description: t("settings.toast.couldNotSaveDescription") });
+      toast({
+        title: t("settings.toast.couldNotSaveTitle"),
+        description: t("settings.toast.couldNotSaveDescription"),
+        variant: "destructive",
+      });
       return;
+    } finally {
+      setIsSaving(false);
     }
+
+    // Re-hydrate from the server response so the form shows exactly what was
+    // stored (trimmed name, uppercased abbreviation, derived abbreviation…).
+    const confirmed: ProfileForm = {
+      name: updated.name ?? "",
+      abbreviation: updated.abbreviation ?? "",
+      email: updated.email ?? "",
+      phone: updated.phone ?? "",
+    };
+    setProfile(confirmed);
+    setSavedProfile(confirmed);
+    profileDirty.current = false;
 
     toast({
       title: t("settings.toast.settingsSavedTitle"),
@@ -128,7 +199,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <Button onClick={handleSave} className="gap-2">
+          <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
             <Save className="w-4 h-4" />
             {t("settings.saveChanges")}
           </Button>
@@ -155,6 +226,7 @@ export default function SettingsPage() {
                   <SelectValue placeholder={t("settings.selectSection")} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="profile">{t("settings.nav.profile")}</SelectItem>
                   <SelectItem value="preferences">{t("settings.nav.preferences")}</SelectItem>
                   <SelectItem value="calendar">{t("settings.nav.calendar")}</SelectItem>
                   <SelectItem value="notifications">{t("settings.nav.notifications")}</SelectItem>
@@ -164,6 +236,59 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* PROFILE — PAD-81: real, server-backed profile editing. */}
+            {tab === "profile" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("settings.profile.title")}</CardTitle>
+                  <CardDescription>{t("settings.profile.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-name">{t("settings.profile.name")}</Label>
+                    <Input
+                      id="profile-name"
+                      value={profile.name}
+                      onChange={(e) => setProfileField("name", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-abbreviation">
+                      {t("settings.profile.abbreviation")}
+                    </Label>
+                    <Input
+                      id="profile-abbreviation"
+                      maxLength={4}
+                      placeholder={t("settings.profile.abbreviationPlaceholder")}
+                      value={profile.abbreviation}
+                      onChange={(e) => setProfileField("abbreviation", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-email">{t("settings.profile.email")}</Label>
+                    <Input
+                      id="profile-email"
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) => setProfileField("email", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-phone">{t("settings.profile.phone")}</Label>
+                    <Input
+                      id="profile-phone"
+                      type="tel"
+                      value={profile.phone}
+                      onChange={(e) => setProfileField("phone", e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* PREFERENCES */}
             {tab === "preferences" && (

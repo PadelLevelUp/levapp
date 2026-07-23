@@ -340,7 +340,12 @@ export interface DashboardKpiGridBlock {
       value: number | string;
       prefix?: string;
       icon: DashboardIcon;
-      href: string;
+      /**
+       * Optional: only set when a matching frontend route exists. Items without
+       * an href render as non-interactive cards (PAD-76 — a missing page must
+       * not send the user to the 404 route).
+       */
+      href?: string;
     }>;
   };
 }

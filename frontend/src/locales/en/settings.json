@@ -292,6 +292,8 @@
     "coachLevels": {
       "title": "Coach Levels",
       "description": "Define skill levels for your players. Drag to reorder.",
+      "highestLevel": "Highest",
+      "lowestLevel": "Lowest",
       "loading": "Loading levels…",
       "code": "Code",
       "label": "Label",
