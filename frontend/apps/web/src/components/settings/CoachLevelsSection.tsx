@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
+import { GripVertical, Info, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
@@ -139,11 +139,23 @@ export function CoachLevelsSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* PAD-84: the list order carries meaning (position 1 => lowest displayOrder =>
+            strongest level, per the notification engine's "one level above" matching),
+            but nothing on screen said so. Spell the convention out for coaches. */}
+        <div
+          data-testid="coach-levels-ordering-hint"
+          className="flex items-start gap-2 rounded-lg border border-primary/20 bg-muted/50 p-3 text-xs text-muted-foreground"
+        >
+          <Info className="w-4 h-4 shrink-0 mt-px text-primary" aria-hidden="true" />
+          <p>{t("settings.coachLevels.orderingHint")}</p>
+        </div>
+
         {/* Header row */}
-        <div className="grid grid-cols-[32px_80px_1fr_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="grid grid-cols-[32px_80px_1fr_auto_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
           <span>{t("settings.coachLevels.code")}</span>
           <span>{t("settings.coachLevels.label")}</span>
+          <span />
           <span />
         </div>
 
@@ -156,11 +168,12 @@ export function CoachLevelsSection() {
         {levels.map((level, idx) => (
           <div
             key={level.id}
+            data-testid="coach-level-row"
             draggable
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_80px_1fr_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`grid grid-cols-[32px_80px_1fr_auto_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -185,6 +198,26 @@ export function CoachLevelsSection() {
               placeholder={t("settings.coachLevels.labelPlaceholder")}
               className="h-8 text-sm"
             />
+
+            {/* End-of-list markers: only meaningful once there are at least two
+                levels, otherwise the single level would be both ends at once. */}
+            {levels.length > 1 && idx === 0 ? (
+              <span
+                data-testid="coach-level-highest-marker"
+                className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
+              >
+                {t("settings.coachLevels.highestLevel")}
+              </span>
+            ) : levels.length > 1 && idx === levels.length - 1 ? (
+              <span
+                data-testid="coach-level-lowest-marker"
+                className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
+              >
+                {t("settings.coachLevels.lowestLevel")}
+              </span>
+            ) : (
+              <span />
+            )}
 
             <Button
               variant="ghost"

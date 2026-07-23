@@ -4,6 +4,7 @@ import { lightTheme } from "@levelup/config";
 import { queryKeys, useCoachLevels } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ type LevelDraft = {
  */
 export function CoachLevelsSection() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { data, isLoading } = useCoachLevels();
 
   const [drafts, setDrafts] = React.useState<LevelDraft[]>([]);
@@ -128,6 +130,16 @@ export function CoachLevelsSection() {
         <CardDescription>
           Define the levels used to classify your players and exercises.
         </CardDescription>
+        {/* PAD-84: list position is the ranking (first = strongest, matching the
+            notification engine's "one level above" matching), which is invisible
+            otherwise. The rest of this file is still hardcoded English pending the
+            mobile i18n retrofit, but new copy goes through the shared locales. */}
+        <Text
+          testID="settings-levels-ordering-hint"
+          className="text-xs text-muted-foreground"
+        >
+          {t("settings.coachLevels.orderingHint")}
+        </Text>
       </CardHeader>
       <CardContent className="gap-3">
         {isLoading ? (

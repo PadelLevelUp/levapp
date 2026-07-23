@@ -292,6 +292,9 @@
     "coachLevels": {
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
+      "orderingHint": "A ordem importa: o primeiro nível da lista é o teu nível mais alto e o último é o mais baixo.",
+      "highestLevel": "Mais alto",
+      "lowestLevel": "Mais baixo",
       "loading": "A carregar níveis…",
       "code": "Código",
       "label": "Etiqueta",
