@@ -13,14 +13,20 @@ import type { CalendarEvent } from "@levelup/types";
 
 interface UseCalendarOptions {
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  /**
+   * Date the calendar opens on. Only read on the first render — pass it when the
+   * consumer already knows which week to show (e.g. a `?date=` deep link), so the
+   * first events fetch is made for the right week instead of the current one.
+   */
+  initialDate?: Date;
 }
 
 export function useCalendar(
   allEvents: CalendarEvent[],
   options: UseCalendarOptions = {}
 ) {
-  const { weekStartsOn = 1 } = options;
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { weekStartsOn = 1, initialDate } = options;
+  const [currentDate, setCurrentDate] = useState(() => initialDate ?? new Date());
 
   const weekStart = useMemo(
     () => startOfWeek(currentDate, { weekStartsOn }),

@@ -87,7 +87,8 @@ function buildMockDashboard(): DashboardDefinition {
             timeLabel: `${c.startTime} - ${c.endTime}`,
             color: c.color,
             rightLabel: `${c.participants?.length ?? 0}/${c.maxPlayers}`,
-            href: "/calendar",
+            // Deep link into that exact occurrence — see dashboard.navigation rule 8.
+            href: `/calendar?classId=${encodeURIComponent(c.id)}&date=${c.date}`,
           })),
         },
       },
