@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useId } from "react";
 import { ChevronDown, ChevronRight, Search, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import type { CoachPlayer, StudentGroup, StudentGroupPlayer } from "@/types";
+import type { CoachPlayer, StudentGroup } from "@/types";
 import { sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
 import { toast } from "sonner";
 
@@ -17,6 +17,71 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+interface PlayerToggleRowProps {
+  playerId: string;
+  name: string;
+  levelCode?: string | null;
+  selected: boolean;
+  onToggle: (playerId: string) => void;
+  /** Group rows sit inside a bordered card, so they get slightly tighter spacing. */
+  compact?: boolean;
+}
+
+/**
+ * PAD-74: a single click target for the whole row.
+ *
+ * The row is a <label> bound to its checkbox via htmlFor, so clicking the
+ * checkbox, the avatar or the name all produce exactly one toggle. The previous
+ * markup had an onClick on the row AND an onCheckedChange on the checkbox, so
+ * clicking the checkbox fired both handlers and the selection toggled twice —
+ * which looked like the checkbox being completely unresponsive.
+ */
+function PlayerToggleRow({
+  playerId,
+  name,
+  levelCode,
+  selected,
+  onToggle,
+  compact = false,
+}: PlayerToggleRowProps) {
+  // useId (not the player id): the same player can legitimately appear in more
+  // than one group and in the search results, and duplicate DOM ids would break
+  // the label↔checkbox association.
+  const checkboxId = useId();
+  return (
+    <label
+      htmlFor={checkboxId}
+      className={cn(
+        "flex items-center gap-3 rounded-lg cursor-pointer transition-colors",
+        compact ? "p-2" : "p-2.5",
+        selected ? "bg-primary/10" : "hover:bg-muted"
+      )}
+    >
+      <Checkbox id={checkboxId} checked={selected} onCheckedChange={() => onToggle(playerId)} />
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div
+          className={cn(
+            "rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0",
+            compact ? "w-6 h-6" : "w-7 h-7"
+          )}
+        >
+          {getInitials(name)}
+        </div>
+        <span className="text-sm truncate">{name}</span>
+        {levelCode && <span className="text-xs text-muted-foreground shrink-0">{levelCode}</span>}
+      </div>
+    </label>
+  );
+}
 
 interface ManualNotificationModalProps {
   open: boolean;
@@ -131,27 +196,6 @@ export function ManualNotificationModal({
     onClose();
   };
 
-  const GroupPlayerRow = ({ player }: { player: StudentGroupPlayer }) => (
-    <div
-      onClick={() => togglePlayer(player.id)}
-      className={cn(
-        "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-        selected.has(player.id) ? "bg-primary/10" : "hover:bg-muted"
-      )}
-    >
-      <Checkbox checked={selected.has(player.id)} onCheckedChange={() => togglePlayer(player.id)} />
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
-          {player.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-        </div>
-        <span className="text-sm truncate">{player.name}</span>
-        {player.levelCode && (
-          <span className="text-xs text-muted-foreground shrink-0">{player.levelCode}</span>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-sm">
@@ -196,7 +240,15 @@ export function ManualNotificationModal({
                   {isExpanded && (
                     <div className="px-2 py-1 space-y-0.5">
                       {group.players.map((p) => (
-                        <GroupPlayerRow key={p.id} player={p} />
+                        <PlayerToggleRow
+                          key={p.id}
+                          playerId={p.id}
+                          name={p.name}
+                          levelCode={p.levelCode}
+                          selected={selected.has(p.id)}
+                          onToggle={togglePlayer}
+                          compact
+                        />
                       ))}
                     </div>
                   )}
@@ -222,28 +274,14 @@ export function ManualNotificationModal({
                 <p className="text-sm text-muted-foreground text-center py-3">{t("calendar.notify.noResults")}</p>
               ) : (
                 searchResults.map((p) => (
-                  <div
+                  <PlayerToggleRow
                     key={p.playerId}
-                    onClick={() => togglePlayer(p.playerId)}
-                    className={cn(
-                      "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors",
-                      selected.has(p.playerId) ? "bg-primary/10" : "hover:bg-muted"
-                    )}
-                  >
-                    <Checkbox
-                      checked={selected.has(p.playerId)}
-                      onCheckedChange={() => togglePlayer(p.playerId)}
-                    />
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
-                        {p.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                      </div>
-                      <span className="text-sm truncate">{p.name}</span>
-                      {p.level?.code && (
-                        <span className="text-xs text-muted-foreground shrink-0">{p.level.code}</span>
-                      )}
-                    </div>
-                  </div>
+                    playerId={p.playerId}
+                    name={p.name}
+                    levelCode={p.level?.code}
+                    selected={selected.has(p.playerId)}
+                    onToggle={togglePlayer}
+                  />
                 ))
               )}
             </div>
