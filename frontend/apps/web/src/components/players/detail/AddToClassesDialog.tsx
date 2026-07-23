@@ -52,6 +52,14 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         const to = format(weekEnd, "yyyy-MM-dd");
         const data = await getClassInstances(from, to);
         if (!cancelled) setClasses(data);
+      } catch {
+        // PAD-80: a failed fetch used to fall through silently and render the
+        // "no classes this week" empty state, which reads as "you have no
+        // classes" rather than "we couldn't load them".
+        if (!cancelled) {
+          setClasses([]);
+          toast.error(t("common.somethingWentWrong"));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,7 +67,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
 
     load();
     return () => { cancelled = true; };
-  }, [open, weekStart, weekEnd]);
+  }, [open, weekStart, weekEnd, t]);
 
   // Reset selection when dialog opens
   useEffect(() => {
@@ -145,13 +153,23 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
 
         {/* Week navigation */}
         <div className="flex items-center justify-between py-2">
-          <Button variant="outline" size="icon" onClick={() => setWeekStart((w) => subWeeks(w, 1))}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={t("calendar.toolbar.previousWeek")}
+            onClick={() => setWeekStart((w) => subWeeks(w, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium">
             {format(weekStart, "MMM d", { locale: enUS })} – {format(weekEnd, "MMM d, yyyy", { locale: enUS })}
           </span>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart((w) => addWeeks(w, 1))}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={t("calendar.toolbar.nextWeek")}
+            onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
