@@ -89,6 +89,12 @@ export function MessageBubble({
     setResponding(true);
     try {
       const result = await respondToReminder(instanceId, action);
+      // PAD-68: the backend rejects responses to a class that already started.
+      // Don't paint a confirmed/absent badge for an answer it did not record.
+      if (result.action === "expired") {
+        toast.error(t("messages.reminderExpired"));
+        return;
+      }
       setLocalResponse(result.action === "confirmed" ? 'accepted' : 'declined');
     } catch {
       toast.error(t("messages.somethingWentWrong"));
@@ -289,12 +295,16 @@ export function MessageBubble({
           const declined =
             localResponse === 'declined' ||
             (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
-          // PAD-49: a newer reminder for the same class supersedes this one → its
-          // Yes/No buttons stop being actionable and show an "expired" indicator.
-          const superseded = !!message.metadata?.superseded;
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
           const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
+          // PAD-49: a newer reminder for the same class supersedes this one → its
+          // Yes/No buttons stop being actionable and show an "expired" indicator.
+          // PAD-68: a reminder for a class that has already started is expired for
+          // the same reason — answering it can no longer change anything, and the
+          // backend rejects late responses. Deriving this from startsAt also
+          // retires reminders already sitting in history, with no data migration.
+          const superseded = !!message.metadata?.superseded || !classInFuture;
           // PAD-46: past the coach's cancellation deadline (but before start) the
           // cancel is still allowed, but we warn it counts as a late cancellation.
           // The deadline is absent on older reminders → no warning, same as before.
