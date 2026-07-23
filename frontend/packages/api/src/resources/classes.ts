@@ -14,7 +14,11 @@ export async function getClassInstances(
   from: string,
   to: string
 ): Promise<CalendarEvent[]> {
-  const res = await getApi().post(
+  // PAD-80: this route is registered GET-only (`@bp.get("/lesson_instances")`).
+  // It used to be POSTed, which 405'd — the only caller is the player profile's
+  // "Add to classes" picker, so that dialog always rendered its empty state and
+  // no class was ever offered.
+  const res = await getApi().get(
     `/app/lesson_instances?from=${from}&to=${to}`
   );
   return res.data;

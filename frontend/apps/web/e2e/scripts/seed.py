@@ -134,9 +134,13 @@ with app.app_context():
     db.session.add(nolevels_coach_club)
 
     # ── Coach levels ──────────────────────────────────────────────────────────
-    level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=1)
-    level_intermediate = CoachLevel(coach_id=coach.id, label="Intermediate", code="I1", display_order=2)
-    db.session.add_all([level_beginner, level_intermediate])
+    # Ordering convention (specs/levels/spec.md rule 3, PAD-70): lower
+    # display_order = STRONGER level, so Intermediate is 1 and Beginner is 2.
+    # The seed used to have these inverted, which would have taught any
+    # level-adjacency test the wrong ladder direction.
+    level_intermediate = CoachLevel(coach_id=coach.id, label="Intermediate", code="I1", display_order=1)
+    level_beginner = CoachLevel(coach_id=coach.id, label="Beginner", code="B1", display_order=2)
+    db.session.add_all([level_intermediate, level_beginner])
     db.session.flush()
 
     # ── Evaluation categories ─────────────────────────────────────────────────
