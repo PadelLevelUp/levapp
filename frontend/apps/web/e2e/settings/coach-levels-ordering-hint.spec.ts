@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
 
@@ -6,8 +6,12 @@ import { openSettings } from "../helpers/navigation";
 // which direction the list is meant to run. The convention the code actually uses is
 // "lower displayOrder = stronger level" (notification_service._level_ids_one_above
 // treats a smaller display_order as being ABOVE a vacancy), so the FIRST row is the
-// highest skill level and the LAST is the lowest. These tests pin the helper copy
-// that now states that convention.
+// highest skill level and the LAST is the lowest.
+//
+// The cue is deliberately small: a "Highest" marker on the first row, a "Lowest"
+// marker on the last, and a decorative rule + chevron running down between them.
+// No explanatory paragraph and no per-row rank — these tests pin that smaller
+// surface, including the absence of the two things that were tried and dropped.
 test.describe("PAD-84: coach levels ordering convention", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsCoach(page);
@@ -19,45 +23,54 @@ test.describe("PAD-84: coach levels ordering convention", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("PAD-84: helper text explains that the first level is the highest", async ({ page }) => {
-    const hint = page.getByTestId("coach-levels-ordering-hint");
-
-    await expect(hint).toBeVisible({ timeout: 10000 });
-    // States the convention in both directions: first = highest, last = lowest.
-    await expect(hint).toContainText(/highest/i);
-    await expect(hint).toContainText(/lowest/i);
-    await expect(hint).toContainText(/first/i);
-    await expect(hint).toContainText(/last/i);
-  });
+  /** Makes sure at least `n` level rows are on screen, adding drafts if needed. */
+  const ensureRows = async (rows: Locator, addLevel: Locator, n: number) => {
+    while ((await rows.count()) < n) await addLevel.click();
+  };
 
   test("PAD-84: list ends are labelled highest and lowest", async ({ page }) => {
     // With at least two levels defined, the ends of the list carry explicit markers
-    // so the direction is readable at a glance without reading the paragraph.
+    // so the direction is readable at a glance.
     const rows = page.getByTestId("coach-level-row");
-    const count = await rows.count();
+    await ensureRows(rows, page.getByRole("button", { name: /add level/i }), 2);
 
-    if (count < 2) {
-      // Seeded coaches have levels; if not, add two so the markers can render.
-      const addLevel = page.getByRole("button", { name: /add level/i });
-      for (let i = count; i < 2; i++) await addLevel.click();
-    }
+    const highest = page.getByTestId("coach-level-highest-marker");
+    const lowest = page.getByTestId("coach-level-lowest-marker");
 
-    await expect(page.getByTestId("coach-level-highest-marker")).toBeVisible();
-    await expect(page.getByTestId("coach-level-lowest-marker")).toBeVisible();
+    await expect(highest).toBeVisible({ timeout: 10000 });
+    await expect(lowest).toBeVisible();
+    // Exactly one of each, and each sits on the correct end of the list.
+    await expect(highest).toHaveCount(1);
+    await expect(lowest).toHaveCount(1);
+    await expect(
+      rows.first().getByTestId("coach-level-highest-marker")
+    ).toHaveCount(1);
+    await expect(
+      rows.last().getByTestId("coach-level-lowest-marker")
+    ).toHaveCount(1);
   });
 
-  test("PAD-84: every row shows its rank and the ranks follow a live reorder", async ({
+  test("PAD-84: a decorative arrow shows the top-to-bottom direction", async ({
     page,
   }) => {
-    // The endpoint markers only cover rows 1 and N — with 3+ levels the middle
-    // rows had no ordering cue at all. Every row now carries its rank, derived
-    // from the rendered list index (not the saved displayOrder), so it must stay
-    // 1..N while a drag shuffles the rows underneath it.
     const rows = page.getByTestId("coach-level-row");
-    const addLevel = page.getByRole("button", { name: /add level/i });
-    while ((await rows.count()) < 3) await addLevel.click();
+    await ensureRows(rows, page.getByRole("button", { name: /add level/i }), 2);
+
+    const arrow = page.getByTestId("coach-level-direction-arrow");
+    await expect(arrow).toBeVisible({ timeout: 10000 });
+    // The two text markers already carry the meaning, so the arrow is hidden
+    // from assistive tech rather than announced as a second, redundant cue.
+    await expect(arrow).toHaveAttribute("aria-hidden", "true");
+  });
+
+  test("PAD-84: the markers stay on the ends through a live reorder", async ({
+    page,
+  }) => {
+    // The markers are derived from the rendered list index (not the saved
+    // displayOrder), so dragging a row must move them immediately.
+    const rows = page.getByTestId("coach-level-row");
+    await ensureRows(rows, page.getByRole("button", { name: /add level/i }), 3);
     const count = await rows.count();
-    const positions = Array.from({ length: count }, (_, i) => String(i + 1));
 
     // Unique codes so each row can be tracked through the reorder. Nothing is
     // saved in this test, so the seeded levels are left untouched in the DB.
@@ -65,23 +78,35 @@ test.describe("PAD-84: coach levels ordering convention", () => {
       await rows.nth(i).locator("input").first().fill(`R${i + 1}`);
     }
 
-    const ranks = page.getByTestId("coach-level-rank");
-    await expect(ranks).toHaveText(positions);
-    // Endpoint markers still there — rank and markers are complementary.
-    await expect(page.getByTestId("coach-level-highest-marker")).toHaveCount(1);
-    await expect(page.getByTestId("coach-level-lowest-marker")).toHaveCount(1);
-    // Screen readers get the meaning of the bare number.
-    await expect(rows.first()).toContainText(
-      new RegExp(`rank 1 of ${count}`, "i")
-    );
-
     // Drag the top row down one slot.
     await rows.nth(0).dragTo(rows.nth(1));
 
     await expect(rows.nth(0).locator("input").first()).toHaveValue("R2");
     await expect(rows.nth(1).locator("input").first()).toHaveValue("R1");
-    // Ranks are positional: still 1..N, i.e. the moved row now reads "2".
-    await expect(ranks).toHaveText(positions);
-    await expect(rows.nth(1)).toContainText(new RegExp(`rank 2 of ${count}`, "i"));
+    // "Highest" followed the new first row, not the row that used to be first.
+    await expect(
+      rows.first().getByTestId("coach-level-highest-marker")
+    ).toHaveCount(1);
+    await expect(
+      rows.nth(1).getByTestId("coach-level-highest-marker")
+    ).toHaveCount(0);
+    await expect(
+      rows.last().getByTestId("coach-level-lowest-marker")
+    ).toHaveCount(1);
+  });
+
+  test("PAD-84: no explanatory paragraph and no per-row rank", async ({
+    page,
+  }) => {
+    // Two earlier attempts at the same cue were cut back as too heavy. Pin their
+    // absence so they do not creep back in alongside the markers.
+    const rows = page.getByTestId("coach-level-row");
+    await ensureRows(rows, page.getByRole("button", { name: /add level/i }), 3);
+    await expect(page.getByTestId("coach-level-highest-marker")).toBeVisible();
+
+    await expect(page.getByTestId("coach-levels-ordering-hint")).toHaveCount(0);
+    await expect(page.getByText(/order matters/i)).toHaveCount(0);
+    await expect(page.getByTestId("coach-level-rank")).toHaveCount(0);
+    await expect(page.getByText(/rank \d+ of \d+/i)).toHaveCount(0);
   });
 });

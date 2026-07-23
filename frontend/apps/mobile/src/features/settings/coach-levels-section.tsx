@@ -130,16 +130,6 @@ export function CoachLevelsSection() {
         <CardDescription>
           Define the levels used to classify your players and exercises.
         </CardDescription>
-        {/* PAD-84: list position is the ranking (first = strongest, matching the
-            notification engine's "one level above" matching), which is invisible
-            otherwise. The rest of this file is still hardcoded English pending the
-            mobile i18n retrofit, but new copy goes through the shared locales. */}
-        <Text
-          testID="settings-levels-ordering-hint"
-          className="text-xs text-muted-foreground"
-        >
-          {t("settings.coachLevels.orderingHint")}
-        </Text>
       </CardHeader>
       <CardContent className="gap-3">
         {isLoading ? (
@@ -154,23 +144,6 @@ export function CoachLevelsSection() {
               const isLast = index === drafts.length - 1;
               return (
                 <View key={draft.id} className="flex-row items-center gap-2">
-                  {/* PAD-84 follow-up: rank per row, derived from the live list
-                      index so it re-renders as soon as handleMove swaps rows.
-                      Plain Text (not a Pressable) so it never nests inside the
-                      move/remove Pressables next to it. */}
-                  <Text
-                    testID={`level-rank-${index}`}
-                    accessibilityLabel={t("settings.coachLevels.rankHeader")}
-                    accessibilityValue={{
-                      text: t("settings.coachLevels.rankLabel", {
-                        rank: index + 1,
-                        total: drafts.length,
-                      }),
-                    }}
-                    className="w-5 text-center text-xs font-medium text-muted-foreground"
-                  >
-                    {index + 1}
-                  </Text>
                   <Input
                     accessibilityLabel="Level code"
                     placeholder="Code"
@@ -185,6 +158,63 @@ export function CoachLevelsSection() {
                     value={draft.label}
                     onChangeText={(v) => handleChange(draft.id, "label", v)}
                   />
+
+                  {/* PAD-84: list position is the ranking (first = strongest,
+                      matching the notification engine's "one level above"
+                      matching), which is invisible otherwise. Mirrors web: the
+                      two end markers name the ends, the rule + chevron down the
+                      same column show the direction between them. Plain
+                      Views/Text — never a Pressable, so nothing nests inside the
+                      move/remove Pressables next to it. The rail is decorative
+                      and hidden from the a11y tree; the markers carry the
+                      meaning. The rest of this file is still hardcoded English
+                      pending the mobile i18n retrofit, but new copy goes through
+                      the shared locales. */}
+                  {drafts.length > 1 ? (
+                    <View className="w-14 items-center">
+                      {isFirst ? (
+                        <>
+                          <Text
+                            testID="level-highest-marker"
+                            className="text-[10px] font-medium uppercase text-muted-foreground"
+                          >
+                            {t("settings.coachLevels.highestLevel")}
+                          </Text>
+                          <View
+                            accessibilityElementsHidden
+                            importantForAccessibility="no-hide-descendants"
+                            className="mt-1 h-2 w-px bg-border"
+                          />
+                        </>
+                      ) : isLast ? (
+                        <>
+                          <View
+                            accessibilityElementsHidden
+                            importantForAccessibility="no-hide-descendants"
+                          >
+                            <Ionicons
+                              name="chevron-down"
+                              size={12}
+                              color={lightTheme.mutedForeground}
+                            />
+                          </View>
+                          <Text
+                            testID="level-lowest-marker"
+                            className="text-[10px] font-medium uppercase text-muted-foreground"
+                          >
+                            {t("settings.coachLevels.lowestLevel")}
+                          </Text>
+                        </>
+                      ) : (
+                        <View
+                          accessibilityElementsHidden
+                          importantForAccessibility="no-hide-descendants"
+                          className="h-5 w-px bg-border"
+                        />
+                      )}
+                    </View>
+                  ) : null}
+
                   <View className="gap-0.5">
                     <Pressable
                       testID={`level-move-up-${index}`}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Info, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
+import { ChevronDown, GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
@@ -139,26 +139,9 @@ export function CoachLevelsSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* PAD-84: the list order carries meaning (position 1 => lowest displayOrder =>
-            strongest level, per the notification engine's "one level above" matching),
-            but nothing on screen said so. Spell the convention out for coaches. */}
-        <div
-          data-testid="coach-levels-ordering-hint"
-          className="flex items-start gap-2 rounded-lg border border-primary/20 bg-muted/50 p-3 text-xs text-muted-foreground"
-        >
-          <Info className="w-4 h-4 shrink-0 mt-px text-primary" aria-hidden="true" />
-          <p>{t("settings.coachLevels.orderingHint")}</p>
-        </div>
-
         {/* Header row */}
-        <div className="grid grid-cols-[32px_28px_80px_1fr_auto_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
-          {/* "#" keeps the 28px column from overflowing into Code (PT "Ordem" is
-              wider than the column); the word itself is kept for screen readers. */}
-          <span className="text-center">
-            <span className="sr-only">{t("settings.coachLevels.rankHeader")}</span>
-            <span aria-hidden="true">#</span>
-          </span>
           <span>{t("settings.coachLevels.code")}</span>
           <span>{t("settings.coachLevels.label")}</span>
           <span />
@@ -179,7 +162,7 @@ export function CoachLevelsSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_28px_80px_1fr_auto_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -190,22 +173,6 @@ export function CoachLevelsSection() {
             >
               <GripVertical className="w-4 h-4" />
             </button>
-
-            {/* PAD-84 follow-up: the endpoint markers only cover rows 1 and N, so
-                every row also carries its rank. `idx` comes straight from the
-                rendered array, which handleDragOver mutates while dragging — so
-                the number follows the row live, not the saved displayOrder. */}
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-medium tabular-nums text-muted-foreground">
-              <span className="sr-only">
-                {t("settings.coachLevels.rankLabel", {
-                  rank: idx + 1,
-                  total: levels.length,
-                })}
-              </span>
-              <span data-testid="coach-level-rank" aria-hidden="true">
-                {idx + 1}
-              </span>
-            </span>
 
             <Input
               value={level.code}
@@ -221,22 +188,40 @@ export function CoachLevelsSection() {
               className="h-8 text-sm"
             />
 
-            {/* End-of-list markers: only meaningful once there are at least two
-                levels, otherwise the single level would be both ends at once. */}
+            {/* PAD-84: the list order carries meaning (position 1 => lowest
+                displayOrder => strongest level, per the notification engine's
+                "one level above" matching), but nothing on screen said so. The
+                two end markers name the ends; the rule + chevron running down
+                the same column show the direction between them. The rail is
+                purely decorative (aria-hidden) — the markers carry the meaning
+                for screen readers. Markers only make sense with 2+ levels,
+                otherwise the single level would be both ends at once. */}
             {levels.length > 1 && idx === 0 ? (
-              <span
-                data-testid="coach-level-highest-marker"
-                className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
-              >
-                {t("settings.coachLevels.highestLevel")}
+              <span className="flex flex-col items-center gap-1">
+                <span
+                  data-testid="coach-level-highest-marker"
+                  className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
+                >
+                  {t("settings.coachLevels.highestLevel")}
+                </span>
+                <span aria-hidden="true" className="h-2 w-px bg-border" />
               </span>
             ) : levels.length > 1 && idx === levels.length - 1 ? (
-              <span
-                data-testid="coach-level-lowest-marker"
-                className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
-              >
-                {t("settings.coachLevels.lowestLevel")}
+              <span className="flex flex-col items-center">
+                <ChevronDown
+                  data-testid="coach-level-direction-arrow"
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 text-muted-foreground"
+                />
+                <span
+                  data-testid="coach-level-lowest-marker"
+                  className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
+                >
+                  {t("settings.coachLevels.lowestLevel")}
+                </span>
               </span>
+            ) : levels.length > 1 ? (
+              <span aria-hidden="true" className="mx-auto block h-5 w-px bg-border" />
             ) : (
               <span />
             )}
