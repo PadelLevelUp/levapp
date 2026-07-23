@@ -39,6 +39,7 @@ export function CalendarEventCard({ event, style, onClick, onDragStart, onDragEn
   return (
     <div
       style={customStyle}
+      data-testid="calendar-event-card"
       draggable
       onClick={onClick}
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}

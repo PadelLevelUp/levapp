@@ -36,6 +36,7 @@ import type {
 } from "@/types";
 
 
+import { effectiveFilledSpots } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
@@ -676,8 +677,12 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   {(() => {
-                    const absentCount = (active.presences ?? []).filter(p => p.status === "absent").length;
-                    const effectiveFilled = active.participants.length - absentCount;
+                    // PAD-71: shared with the calendar event card's X/Y badge
+                    // (backend `LessonInstance.effective_filled_spots`).
+                    const effectiveFilled = effectiveFilledSpots(
+                      active.participants.length,
+                      active.presences
+                    );
                     const openSpots = active.maxPlayers - effectiveFilled;
                     const pendingInvites = localInvitations.filter(inv => inv.status === "sent" || inv.status === "queued").length;
                     return (

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { effectiveFilledSpots, lightTheme } from "@levelup/config";
 import {
   queryKeys,
   useAutoInviteEnabled,
@@ -224,10 +224,13 @@ export default function ClassDetailScreen() {
   const canApplyScope = event.isRecurring === true;
 
   const participants = instance?.participants ?? [];
-  const absentCount = (instance?.presences ?? []).filter(
-    (presence) => presence.status === "absent"
-  ).length;
-  const filled = participants.length - (isCoach ? absentCount : 0);
+  // PAD-71: same rule as the calendar event card's X/Y badge. Students only ever
+  // receive their OWN presence row, so subtracting declines would under-count
+  // their view — the guard keeps that behaviour unchanged.
+  const filled = effectiveFilledSpots(
+    participants.length,
+    isCoach ? instance?.presences : []
+  );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
 
   const dateLabel =
