@@ -151,8 +151,14 @@ export function CoachLevelsSection() {
         </div>
 
         {/* Header row */}
-        <div className="grid grid-cols-[32px_80px_1fr_auto_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="grid grid-cols-[32px_28px_80px_1fr_auto_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
           <span />
+          {/* "#" keeps the 28px column from overflowing into Code (PT "Ordem" is
+              wider than the column); the word itself is kept for screen readers. */}
+          <span className="text-center">
+            <span className="sr-only">{t("settings.coachLevels.rankHeader")}</span>
+            <span aria-hidden="true">#</span>
+          </span>
           <span>{t("settings.coachLevels.code")}</span>
           <span>{t("settings.coachLevels.label")}</span>
           <span />
@@ -173,7 +179,7 @@ export function CoachLevelsSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_80px_1fr_auto_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`grid grid-cols-[32px_28px_80px_1fr_auto_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -184,6 +190,22 @@ export function CoachLevelsSection() {
             >
               <GripVertical className="w-4 h-4" />
             </button>
+
+            {/* PAD-84 follow-up: the endpoint markers only cover rows 1 and N, so
+                every row also carries its rank. `idx` comes straight from the
+                rendered array, which handleDragOver mutates while dragging — so
+                the number follows the row live, not the saved displayOrder. */}
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-medium tabular-nums text-muted-foreground">
+              <span className="sr-only">
+                {t("settings.coachLevels.rankLabel", {
+                  rank: idx + 1,
+                  total: levels.length,
+                })}
+              </span>
+              <span data-testid="coach-level-rank" aria-hidden="true">
+                {idx + 1}
+              </span>
+            </span>
 
             <Input
               value={level.code}

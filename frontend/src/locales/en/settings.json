@@ -295,6 +295,8 @@
       "orderingHint": "Order matters: the first level in the list is your highest skill level, and the last one is the lowest.",
       "highestLevel": "Highest",
       "lowestLevel": "Lowest",
+      "rankHeader": "Rank",
+      "rankLabel": "Rank {{rank}} of {{total}} — 1 is the highest level",
       "loading": "Loading levels…",
       "code": "Code",
       "label": "Label",

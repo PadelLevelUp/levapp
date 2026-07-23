@@ -154,6 +154,23 @@ export function CoachLevelsSection() {
               const isLast = index === drafts.length - 1;
               return (
                 <View key={draft.id} className="flex-row items-center gap-2">
+                  {/* PAD-84 follow-up: rank per row, derived from the live list
+                      index so it re-renders as soon as handleMove swaps rows.
+                      Plain Text (not a Pressable) so it never nests inside the
+                      move/remove Pressables next to it. */}
+                  <Text
+                    testID={`level-rank-${index}`}
+                    accessibilityLabel={t("settings.coachLevels.rankHeader")}
+                    accessibilityValue={{
+                      text: t("settings.coachLevels.rankLabel", {
+                        rank: index + 1,
+                        total: drafts.length,
+                      }),
+                    }}
+                    className="w-5 text-center text-xs font-medium text-muted-foreground"
+                  >
+                    {index + 1}
+                  </Text>
                   <Input
                     accessibilityLabel="Level code"
                     placeholder="Code"
