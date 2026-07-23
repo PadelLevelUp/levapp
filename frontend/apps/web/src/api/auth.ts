@@ -3,8 +3,8 @@ import * as authApi from "@levelup/api/src/resources/auth";
 import { USE_MOCK_DATA } from "@/config";
 import { MOCK_COACH_ID } from "@/data/mockData";
 
-export type { MeResponse } from "@levelup/api/src/resources/auth";
-import type { MeResponse } from "@levelup/api/src/resources/auth";
+export type { MeResponse, UpdateMePayload } from "@levelup/api/src/resources/auth";
+import type { MeResponse, UpdateMePayload } from "@levelup/api/src/resources/auth";
 
 export async function getMe(): Promise<MeResponse> {
   if (USE_MOCK_DATA) {
@@ -16,13 +16,16 @@ export async function getMe(): Promise<MeResponse> {
       coachId: MOCK_COACH_ID,
       isSuperAdmin: false,
       language: "pt",
+      abbreviation: "BT",
+      email: "bernardo.terroso@example.com",
+      phone: "",
     };
   }
 
   return authApi.getMe();
 }
 
-export async function updateMe(payload: { language?: "pt" | "en" }): Promise<MeResponse> {
+export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
   return authApi.updateMe(payload);
 }
 
