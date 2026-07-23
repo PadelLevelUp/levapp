@@ -37,8 +37,9 @@ export function kpiKey(label: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Web hrefs that have a mobile screen equivalent. */
-function mapHref(href: string): string | null {
+/** Web hrefs that have a mobile screen equivalent. `href` is optional (PAD-76). */
+function mapHref(href: string | undefined): string | null {
+  if (!href) return null;
   if (href.startsWith("/players")) return "/(tabs)/players";
   if (href.startsWith("/calendar")) return "/(tabs)/calendar";
   if (href.startsWith("/messages")) return "/(tabs)/messages";

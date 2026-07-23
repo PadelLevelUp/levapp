@@ -24,6 +24,14 @@ check_circle: CheckCircle2,
   mail: Mail,
 };
 
+/** "Upcoming lessons" → "upcoming-lessons" — stable key for dashboard-kpi-<key>. */
+function kpiKey(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
   const navigate = useNavigate();
 
@@ -31,14 +39,27 @@ export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {block.data.items.map((item) => {
         const Icon = iconMap[item.icon];
+        // PAD-76: the backend omits `href` for KPIs that have no page yet.
+        // Those cards must stay inert rather than navigating to the 404 route.
+        const href = item.href;
 
         return (
           <Card
             key={item.label}
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate(item.href)}
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            data-testid={`dashboard-kpi-${kpiKey(item.label)}`}
+            data-clickable={href ? "true" : "false"}
+            {...(href
+              ? {
+                  role: "button",
+                  tabIndex: 0,
+                  onClick: () => navigate(href),
+                }
+              : {})}
+            className={
+              href
+                ? "cursor-pointer hover:shadow-md transition-shadow"
+                : "transition-shadow"
+            }
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
