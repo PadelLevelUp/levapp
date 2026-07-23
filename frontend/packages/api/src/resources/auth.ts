@@ -8,6 +8,22 @@ export type MeResponse = {
   coachId: string | null;
   isSuperAdmin: boolean;
   language?: "pt" | "en";
+  /** PAD-81: profile fields the Settings profile form is hydrated from. */
+  abbreviation?: string;
+  email?: string | null;
+  phone?: string | null;
+};
+
+/**
+ * PAD-81: partial update of the signed-in user's own profile. Only the keys
+ * present are changed server-side, so callers can save a single field.
+ */
+export type UpdateMePayload = {
+  language?: "pt" | "en";
+  name?: string;
+  abbreviation?: string;
+  email?: string;
+  phone?: string;
 };
 
 export async function getMe(): Promise<MeResponse> {
@@ -15,7 +31,7 @@ export async function getMe(): Promise<MeResponse> {
   return res.data;
 }
 
-export async function updateMe(payload: { language?: "pt" | "en" }): Promise<MeResponse> {
+export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
   const res = await getApi().patch("/auth/me", payload);
   return res.data;
 }
