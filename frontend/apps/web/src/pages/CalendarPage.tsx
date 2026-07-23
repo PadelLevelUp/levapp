@@ -9,6 +9,7 @@ import { MobileCalendarView } from "@/components/calendar/MobileCalendarView";
 import { AddClassSheet } from "@/components/calendar/AddClassSheet";
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
+import { effectiveFilledSpots } from "@levelup/config";
 import { getCalendarEvents, addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getCoachPlayers } from "@/api/players";
@@ -164,9 +165,12 @@ export default function CalendarPage() {
         instance.maxPlayers !== undefined
           ? instance.maxPlayers
           : prev.maxPlayers,
+      // PAD-71: the badge shows EFFECTIVE filled spots (enrolled minus
+      // declined), matching the backend payload and the detail sheet's
+      // capacity field — never the raw enrolment count.
       participantCount:
         instance.participants !== undefined
-          ? instance.participants.length
+          ? effectiveFilledSpots(instance.participants.length, instance.presences)
           : prev.participantCount,
     };
   }
