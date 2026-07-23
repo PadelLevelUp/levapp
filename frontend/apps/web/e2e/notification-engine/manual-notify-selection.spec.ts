@@ -90,17 +90,17 @@ test("PAD-74: checkbox and name behave identically inside a notification group",
 }) => {
   const modal = await openNotifyModal(page);
 
-  // Notification groups are configuration-dependent; skip cleanly when the
-  // seeded coach has none rather than asserting on data we do not control.
-  const groupToggle = modal.getByRole("checkbox", { name: /select all in/i }).first();
-  const hasGroups = await groupToggle.isVisible().catch(() => false);
-  test.skip(!hasGroups, "seeded coach has no notification groups configured");
+  // Groups are fetched after the modal opens, so wait for them rather than
+  // probing immediately. Group labels are coach-configuration driven, so the
+  // card is located structurally instead of by its (configurable) name.
+  const groupCard = modal.locator("div.rounded-lg.border.overflow-hidden").first();
+  await expect(groupCard).toBeVisible({ timeout: 10_000 });
+  await expect(groupCard.getByRole("checkbox", { name: /select all in/i })).toBeVisible();
 
-  // Expand the first group to reveal its player rows.
-  const groupHeader = modal.locator("div.rounded-lg.border").first();
-  await groupHeader.getByRole("button").first().click();
+  // Expand the group to reveal its player rows.
+  await groupCard.getByRole("button").first().click();
 
-  const playerRow = groupHeader.locator("label").first();
+  const playerRow = groupCard.locator("label").first();
   await expect(playerRow).toBeVisible({ timeout: 5_000 });
 
   const checkbox = playerRow.getByRole("checkbox");
