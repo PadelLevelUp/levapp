@@ -100,7 +100,9 @@ export async function respondToApproval(
 export async function respondToReminder(
   lessonInstanceId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" }> {
+  // PAD-68: "expired" when the class has already started — the answer is not
+  // recorded and no replacement invitations are sent.
+): Promise<{ action: "confirmed" | "declined" | "expired" }> {
   const res = await getApi().post("/app/notify/respond_reminder", { lessonInstanceId, action });
   return res.data;
 }
