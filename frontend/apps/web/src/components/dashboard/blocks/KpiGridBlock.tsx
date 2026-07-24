@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardKpiGridBlock, DashboardIcon } from "@/types";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Users,
   Calendar,
@@ -32,8 +33,25 @@ function kpiKey(label: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * PAD-77: the backend emits KPI labels as English literals. Map the stable
+ * slug (derived from that label) to an i18n key so the card title respects the
+ * selected language. Unknown slugs fall back to the raw backend label.
+ */
+const KPI_LABEL_KEYS: Record<string, string> = {
+  players: "dashboard.kpi.players",
+  "upcoming-classes": "dashboard.kpi.upcomingClasses",
+  "pending-validation": "dashboard.kpi.pendingValidation",
+  "revenue-est": "dashboard.kpi.revenue",
+  attended: "dashboard.kpi.attended",
+  missed: "dashboard.kpi.missed",
+  "upcoming-lessons": "dashboard.kpi.upcomingLessons",
+  invites: "dashboard.kpi.invites",
+};
+
 export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -42,6 +60,10 @@ export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
         // PAD-76: the backend omits `href` for KPIs that have no page yet.
         // Those cards must stay inert rather than navigating to the 404 route.
         const href = item.href;
+        // PAD-77: translate the label via its stable slug; fall back to the raw
+        // backend label for any KPI we don't have a mapping for.
+        const labelKey = KPI_LABEL_KEYS[kpiKey(item.label)];
+        const label = labelKey ? t(labelKey) : item.label;
 
         return (
           <Card
@@ -63,7 +85,7 @@ export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.label}
+                {label}
               </CardTitle>
               <Icon className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
