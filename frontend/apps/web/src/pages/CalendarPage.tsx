@@ -7,7 +7,11 @@ import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClassDetailSheet } from "@/components/calendar/ClassDetailSheet";
 import { MobileCalendarView } from "@/components/calendar/MobileCalendarView";
-import { AddClassSheet } from "@/components/calendar/AddClassSheet";
+import {
+  AddClassSheet,
+  AddClassRejected,
+  NO_SEASON_COVERS_DATE,
+} from "@/components/calendar/AddClassSheet";
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
 import { effectiveFilledSpots } from "@levelup/config";
@@ -331,6 +335,16 @@ export default function CalendarPage() {
         description: created.name || t("calendar.page.newClass"),
       });
     } catch (err) {
+      // PAD-90: a rejection the coach can fix in the form itself (currently only
+      // "recurs until season end" with no covering season) is handed back to
+      // AddClassSheet, which stays open and explains it next to the toggle. A
+      // toast would be wrong here: it disappears and the sheet has already gone.
+      const code = (err as { response?: { data?: { code?: string } } })?.response
+        ?.data?.code;
+      if (code === NO_SEASON_COVERS_DATE) {
+        throw new AddClassRejected(code);
+      }
+
       toast({
         variant: "destructive",
         title: t("calendar.page.creationFailed"),

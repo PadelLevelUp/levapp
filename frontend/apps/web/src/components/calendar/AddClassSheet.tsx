@@ -31,12 +31,30 @@ import { LevelLabel } from '@/components/LevelLabel';
 
 const COACH_ID = "1";
 
+/**
+ * PAD-90: backend rejection codes this sheet knows how to explain in place.
+ * Anything else stays with the caller's generic "creation failed" toast.
+ */
+export const NO_SEASON_COVERS_DATE = 'no_season_covers_date';
+
+/**
+ * Thrown by the `onSave` handler when the backend rejected the create for a
+ * reason the coach can fix without losing the form. The sheet stays open and
+ * renders the matching message inline instead of closing.
+ */
+export class AddClassRejected extends Error {
+  constructor(public readonly reason: string) {
+    super(reason);
+    this.name = 'AddClassRejected';
+  }
+}
+
 interface AddClassSheetProps {
   open: boolean;
   onClose: () => void;
   initialDate?: Date;
   initialTime?: string;
-  onSave?: (data: any) => void;
+  onSave?: (data: any) => void | Promise<void>;
   players: CoachPlayer[];
   levels: CoachLevel[];
   loading?: boolean;
@@ -90,6 +108,8 @@ export function AddClassSheet({
   const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  // PAD-90: a server-side rejection the coach can act on, shown inline.
+  const [rejection, setRejection] = useState<string | null>(null);
   const { toast } = useToast();
 
   const togglePlayer = (playerId: string) => {
@@ -129,7 +149,7 @@ export function AddClassSheet({
     }
   }, [startTime]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: Record<string, boolean> = {};
     if (!date) newErrors.date = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
@@ -146,6 +166,7 @@ export function AddClassSheet({
       return;
     }
     setErrors({});
+    setRejection(null);
 
     const computedEndDate = isRecurring
       ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
@@ -171,7 +192,19 @@ export function AddClassSheet({
       endDate: recursUntilSeasonEnd ? null : computedEndDate,
     };
 
-    onSave?.(data);
+    // PAD-90: the save is awaited so a rejection the coach can fix (e.g. "recurs
+    // until season end" with no covering season) keeps the sheet — and every
+    // field they filled in — on screen instead of closing over a silent failure.
+    try {
+      await onSave?.(data);
+    } catch (err) {
+      if (err instanceof AddClassRejected) {
+        setRejection(err.reason);
+        return;
+      }
+      // Anything else was already surfaced by the caller.
+    }
+
     handleClose();
   };
 
@@ -191,6 +224,7 @@ export function AddClassSheet({
     setRecursUntilSeasonEnd(false);
     setNotificationsEnabled(true);
     setErrors({});
+    setRejection(null);
     onClose();
   };
 
@@ -233,7 +267,7 @@ export function AddClassSheet({
                 type="date"
                 value={date}
                 className="h-8 text-sm min-w-0"
-                onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
+                onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); setRejection(null); }}
               />
             </div>
 
@@ -341,9 +375,20 @@ export function AddClassSheet({
                   <Switch
                     aria-label={t("calendar.addClass.recursUntilSeasonEnd")}
                     checked={recursUntilSeasonEnd}
-                    onCheckedChange={setRecursUntilSeasonEnd}
+                    onCheckedChange={(checked) => {
+                      setRecursUntilSeasonEnd(checked);
+                      setRejection(null);
+                    }}
                   />
                 </div>
+                {rejection === NO_SEASON_COVERS_DATE && (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive"
+                  >
+                    {t("calendar.addClass.noSeasonCoversDate")}
+                  </p>
+                )}
                 {recursUntilSeasonEnd ? (
                   <p className="text-xs text-muted-foreground">
                     {t("calendar.addClass.recursUntilSeasonEndHint")}
