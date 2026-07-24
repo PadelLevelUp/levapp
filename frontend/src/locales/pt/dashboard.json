@@ -33,6 +33,16 @@
     "activity": {
       "title": "Atividade de notificações"
     },
+    "pending": {
+      "title": "Presenças por confirmar",
+      "subtitle": "Para as aulas de amanhã",
+      "notifyButton": "Enviar notificação manual",
+      "confirmTitle": "Tem a certeza?",
+      "confirmDescription": "Vai enviar uma notificação extra aos {{count}} aluno(s) que ainda não confirmaram nem recusaram. Quem já respondeu não é afetado.",
+      "confirmAction": "Enviar",
+      "notifySuccess": "Notificação enviada a {{count}} aluno(s).",
+      "notifyError": "Não foi possível enviar as notificações."
+    },
     "status": {
       "sent": "Enviado",
       "confirmed": "Confirmado",

@@ -13,3 +13,15 @@ export async function getDashboard(params?: {
   });
   return res.data;
 }
+
+/**
+ * PAD-78: fire an extra manual notification to every student still pending
+ * confirmation for tomorrow's classes. Returns how many were notified.
+ */
+export async function notifyPendingConfirmations(): Promise<{
+  instances: number;
+  sent: number;
+}> {
+  const res = await getApi().post("/app/dashboard/pending-confirmations/notify");
+  return res.data;
+}
