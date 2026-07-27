@@ -1,5 +1,6 @@
 {
   "dashboard": {
+    "title": "Painel",
     "failedToLoad": "Não foi possível carregar o painel.",
     "unreadMessages": "Mensagens por ler",
     "messagesWaitingForReply": "Mensagens à espera de resposta",
@@ -9,6 +10,34 @@
     "noNotificationActivity": "Ainda não há atividade de notificações.",
     "unknownStudent": "Aluno desconhecido",
     "classFallback": "Aula",
-    "round": "Ronda {{number}}"
+    "round": "Ronda {{number}}",
+    "kpi": {
+      "players": "Jogadores",
+      "upcomingClasses": "Próximas aulas",
+      "pendingValidation": "Validações pendentes",
+      "revenue": "Receita (est.)",
+      "attended": "Presenças",
+      "missed": "Faltas",
+      "upcomingLessons": "Próximas aulas",
+      "invites": "Convites"
+    },
+    "list": {
+      "upcomingClasses": "Próximas aulas",
+      "needsPlayers": "Aulas por preencher",
+      "allClassesFull": "Todas as aulas agendadas estão cheias",
+      "yourUpcomingLessons": "As tuas próximas aulas",
+      "invitesToConfirm": "Convites por confirmar",
+      "noPendingInvites": "Sem convites pendentes",
+      "missingSeats": "Faltam {{count}}"
+    },
+    "activity": {
+      "title": "Atividade de notificações"
+    },
+    "status": {
+      "sent": "Enviado",
+      "confirmed": "Confirmado",
+      "expired": "Expirado",
+      "queued": "Em fila"
+    }
   }
 }

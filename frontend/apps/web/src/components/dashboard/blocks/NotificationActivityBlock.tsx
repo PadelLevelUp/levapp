@@ -19,8 +19,15 @@ export function NotificationActivityBlock({
 }: {
   block: DashboardNotificationActivityBlock;
 }) {
-  const { title, items } = block.data;
+  const { items } = block.data;
   const { t } = useTranslation();
+  // PAD-77: the backend emits the block title ("Notification activity") as an
+  // English literal. The block id is stable, so translate off that; fall back
+  // to the raw backend title for any other notification-activity block.
+  const title =
+    block.id === "notification_activity"
+      ? t("dashboard.activity.title")
+      : block.data.title;
 
   return (
     <Card>
@@ -66,7 +73,7 @@ export function NotificationActivityBlock({
                       STATUS_STYLES[item.status] ?? "bg-muted text-muted-foreground"
                     )}
                   >
-                    {item.status}
+                    {t(`dashboard.status.${item.status}`, { defaultValue: item.status })}
                   </span>
                   {item.createdAt && (
                     <span className="text-xs text-muted-foreground">
