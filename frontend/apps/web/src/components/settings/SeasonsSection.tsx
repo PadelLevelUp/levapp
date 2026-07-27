@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Trash2, CalendarRange } from "lucide-react";
 import type { Season } from "@/types";
-import { getSeasons, addSeasons, deleteSeason } from "@/api/seasons";
+import { getSeasons, addSeasons, deleteSeason, type SeasonUpsert } from "@/api/seasons";
 import { USE_MOCK_DATA } from "@/config";
 
 interface SeasonDraft {
@@ -95,7 +95,11 @@ export function SeasonsSection() {
       return;
     }
 
-    const payload = seasons.map((s) => ({
+    // PAD-89: send `id` for already-persisted rows so the backend updates them
+    // in place. Locally-added rows carry a synthetic `new-<ts>` id and must be
+    // posted without one so the backend creates them.
+    const payload: SeasonUpsert[] = seasons.map((s) => ({
+      ...(s.isNew ? {} : { id: s.id }),
       name: s.name,
       startDate: s.startDate,
       endDate: s.endDate,

@@ -297,7 +297,22 @@ export type DashboardBlock =
   | DashboardKpiGridBlock
   | DashboardClassListBlock
   | DashboardGridBlock
-  | DashboardNotificationActivityBlock;
+  | DashboardNotificationActivityBlock
+  | DashboardPendingConfirmationsBlock;
+
+/**
+ * PAD-78: coach-only card that replaces the old "Revenue" KPI. Shows how many
+ * students are still pending confirmation for tomorrow's classes and drives the
+ * "send manual notification" action.
+ */
+export interface DashboardPendingConfirmationsBlock {
+  id: string;
+  type: "pending_confirmations";
+  data: {
+    count: number;
+    canNotify: boolean;
+  };
+}
 
 export interface DashboardDefinition {
   id: string;

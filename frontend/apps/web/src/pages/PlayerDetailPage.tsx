@@ -317,8 +317,9 @@ export default function PlayerDetailPage() {
               playerId={player.playerId}
               onAddStrength={async (text) => {
                 try {
-                  await addCoachNote(player.playerId, "strength", text);
-                  const note: CoachNote = { id: -Date.now(), text };
+                  // Use the server-returned note (real numeric id) so deleting it
+                  // before a reload targets the persisted row, not a temp id (PAD-101).
+                  const note = await addCoachNote(player.playerId, "strength", text);
                   setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
                 } catch {
                   toast.error(t("players.addStrengthFailed"));
@@ -334,8 +335,7 @@ export default function PlayerDetailPage() {
               }}
               onAddWeakness={async (text) => {
                 try {
-                  await addCoachNote(player.playerId, "weakness", text);
-                  const note: CoachNote = { id: -Date.now(), text };
+                  const note = await addCoachNote(player.playerId, "weakness", text);
                   setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
                 } catch {
                   toast.error(t("players.addWeaknessFailed"));

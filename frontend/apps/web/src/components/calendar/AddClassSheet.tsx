@@ -4,7 +4,7 @@ import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
-import { ClassType, CoachPlayer, CoachLevel } from '@/types';
+import { ClassType, CoachPlayer, CoachLevel, CalendarEvent } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,18 +28,40 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
+import { findOverlappingEvent } from '@/lib/calendarOverlap';
+import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 
 const COACH_ID = "1";
+
+/**
+ * PAD-90: backend rejection codes this sheet knows how to explain in place.
+ * Anything else stays with the caller's generic "creation failed" toast.
+ */
+export const NO_SEASON_COVERS_DATE = 'no_season_covers_date';
+
+/**
+ * Thrown by the `onSave` handler when the backend rejected the create for a
+ * reason the coach can fix without losing the form. The sheet stays open and
+ * renders the matching message inline instead of closing.
+ */
+export class AddClassRejected extends Error {
+  constructor(public readonly reason: string) {
+    super(reason);
+    this.name = 'AddClassRejected';
+  }
+}
 
 interface AddClassSheetProps {
   open: boolean;
   onClose: () => void;
   initialDate?: Date;
   initialTime?: string;
-  onSave?: (data: any) => void;
+  onSave?: (data: any) => void | Promise<void>;
   players: CoachPlayer[];
   levels: CoachLevel[];
   loading?: boolean;
+  /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
+  existingEvents?: CalendarEvent[];
 }
 
 const COLORS = [
@@ -60,6 +82,7 @@ export function AddClassSheet({
   players,
   levels,
   loading = false,
+  existingEvents = [],
 }: AddClassSheetProps) {
   const { t, i18n } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
@@ -90,6 +113,10 @@ export function AddClassSheet({
   const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  // PAD-99: confirm before scheduling over an existing class.
+  const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
+  // PAD-90: a server-side rejection the coach can act on, shown inline.
+  const [rejection, setRejection] = useState<string | null>(null);
   const { toast } = useToast();
 
   const togglePlayer = (playerId: string) => {
@@ -129,7 +156,7 @@ export function AddClassSheet({
     }
   }, [startTime]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors: Record<string, boolean> = {};
     if (!date) newErrors.date = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
@@ -146,6 +173,27 @@ export function AddClassSheet({
       return;
     }
     setErrors({});
+    setRejection(null);
+
+    // PAD-99: non-blocking overlap warning. For a recurring class we only check
+    // the first occurrence's date (the calendar only holds the visible week's
+    // events client-side); the coach can still proceed either way.
+    const conflict = findOverlappingEvent(
+      { date, startTime, endTime },
+      existingEvents
+    );
+    if (conflict) {
+      setOverlapConfirmOpen(true);
+      return;
+    }
+
+    await proceedSave();
+  };
+
+  // Async because PAD-90 awaits onSave to catch AddClassRejected; PAD-99 split
+  // this out of handleSave so the overlap dialog can call it directly.
+  const proceedSave = async () => {
+    setOverlapConfirmOpen(false);
 
     const computedEndDate = isRecurring
       ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
@@ -171,11 +219,24 @@ export function AddClassSheet({
       endDate: recursUntilSeasonEnd ? null : computedEndDate,
     };
 
-    onSave?.(data);
+    // PAD-90: the save is awaited so a rejection the coach can fix (e.g. "recurs
+    // until season end" with no covering season) keeps the sheet — and every
+    // field they filled in — on screen instead of closing over a silent failure.
+    try {
+      await onSave?.(data);
+    } catch (err) {
+      if (err instanceof AddClassRejected) {
+        setRejection(err.reason);
+        return;
+      }
+      // Anything else was already surfaced by the caller.
+    }
+
     handleClose();
   };
 
   const handleClose = () => {
+    setOverlapConfirmOpen(false);
     setClassType('academy');
     setIsRecurring(false);
     setName('');
@@ -191,10 +252,12 @@ export function AddClassSheet({
     setRecursUntilSeasonEnd(false);
     setNotificationsEnabled(true);
     setErrors({});
+    setRejection(null);
     onClose();
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
@@ -233,7 +296,7 @@ export function AddClassSheet({
                 type="date"
                 value={date}
                 className="h-8 text-sm min-w-0"
-                onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); }}
+                onChange={(e) => { setDate(e.target.value); setErrors(er => ({ ...er, date: false })); setRejection(null); }}
               />
             </div>
 
@@ -341,9 +404,20 @@ export function AddClassSheet({
                   <Switch
                     aria-label={t("calendar.addClass.recursUntilSeasonEnd")}
                     checked={recursUntilSeasonEnd}
-                    onCheckedChange={setRecursUntilSeasonEnd}
+                    onCheckedChange={(checked) => {
+                      setRecursUntilSeasonEnd(checked);
+                      setRejection(null);
+                    }}
                   />
                 </div>
+                {rejection === NO_SEASON_COVERS_DATE && (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive"
+                  >
+                    {t("calendar.addClass.noSeasonCoversDate")}
+                  </p>
+                )}
                 {recursUntilSeasonEnd ? (
                   <p className="text-xs text-muted-foreground">
                     {t("calendar.addClass.recursUntilSeasonEndHint")}
@@ -423,5 +497,11 @@ export function AddClassSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+    <OverlapConfirmDialog
+      open={overlapConfirmOpen}
+      onCancel={() => setOverlapConfirmOpen(false)}
+      onConfirm={proceedSave}
+    />
+    </>
   );
 }

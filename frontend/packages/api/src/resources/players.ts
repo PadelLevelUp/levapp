@@ -131,8 +131,11 @@ export async function getPlayerProfile(playerId: string): Promise<PlayerProfile 
   return res.data;
 }
 
-export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<void> {
-  await getApi().post("/app/add_coach_note", { playerId, type, text });
+export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<CoachNote> {
+  const res = await getApi().post("/app/add_coach_note", { playerId, type, text });
+  // The backend returns the persisted note's real numeric id; surface it so the
+  // caller can key the optimistic row with it instead of a temp id (PAD-101).
+  return { id: res.data.id, text: res.data.text ?? text };
 }
 
 export async function deleteCoachNote(note: CoachNote): Promise<void> {

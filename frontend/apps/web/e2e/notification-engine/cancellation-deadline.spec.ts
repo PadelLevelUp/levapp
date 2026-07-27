@@ -73,12 +73,26 @@ test("US-75: cancellation deadline persists via config API across reload", async
 
   // The "+" stepper button increments by 1 hour. Click twice → 26.
   const incrementBtn = row.getByRole("button").last();
+
+  // Armed BEFORE the clicks — waitForResponse only observes traffic that happens
+  // after the call. Waiting for the auto-save POST to actually come back, rather
+  // than sleeping a fixed 600ms, is what makes this deterministic: under full
+  // suite load the write had not always landed before the reload, so the value
+  // read back as the pre-edit default and the test failed intermittently.
+  const saved = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/app/notify/config") &&
+      r.request().method() === "POST" &&
+      r.ok() &&
+      (r.request().postData() ?? "").includes("26"),
+    { timeout: 10000 }
+  );
+
   await incrementBtn.click();
   await incrementBtn.click();
   await expect(row.getByText("26", { exact: true })).toBeVisible({ timeout: 5000 });
 
-  // Give the auto-save POST time to complete, then reload and re-open.
-  await page.waitForTimeout(600);
+  await saved;
   await page.reload();
   await page.getByRole("button", { name: /notifications/i }).click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });

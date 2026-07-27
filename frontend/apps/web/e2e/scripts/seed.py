@@ -27,6 +27,7 @@ from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
 from padel_app.models.notification_config import NotificationConfig
+from padel_app.models.notification_event import NotificationEvent
 from padel_app.models.conversations import Conversation
 from padel_app.models.conversation_participants import ConversationParticipant
 from padel_app.models.messages import Message
@@ -400,6 +401,112 @@ with app.app_context():
     )
     db.session.add(player_recurring)
 
+    # ── Pending confirmations class (PAD-78) ──────────────────────────────────
+    # A class TOMORROW whose invited students have been notified but have not yet
+    # responded. The coach dashboard "pending confirmations" card counts these,
+    # and the "send manual notification" button targets exactly this set.
+    #   - filler[5] + filler[6]: NotificationEvent status="sent"  -> PENDING
+    #   - filler[7]: status="confirmed"                           -> excluded
+    #   - filler[8]: status="expired" (declined/timed out)        -> excluded
+    # => pending count for tomorrow = 2.
+    #
+    # NB: deliberately uses *filler* players (only referenced by pagination /
+    # search specs), NOT e2e-student / e2e-student-2. The manual-notify E2E test
+    # actually fires send_manual_notifications, which posts a system message into
+    # the coach<->student direct conversation — using the real students would
+    # pollute the conversation the messaging specs (US-57..US-64) depend on.
+    pending_students = filler_players[5:7]
+    tomorrow = today + timedelta(days=1)
+    pending_start = tomorrow.replace(hour=18, minute=0)
+    pending_end = tomorrow.replace(hour=19, minute=0)
+
+    pending_lesson = Lesson(
+        title="E2E Pending Confirm Class",
+        start_datetime=pending_start,
+        end_datetime=pending_end,
+        is_recurring=False,
+        type="academy",
+        max_players=6,
+        club_id=club.id,
+        color="#ef4444",
+        status="active",
+    )
+    db.session.add(pending_lesson)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLesson(coach_id=coach.id, lesson_id=pending_lesson.id)
+    )
+
+    pending_instance = LessonInstance(
+        lesson_id=pending_lesson.id,
+        start_datetime=pending_start,
+        end_datetime=pending_end,
+        max_players=6,
+        status="scheduled",
+        level_id=level_beginner.id,
+        notifications_enabled=True,
+        original_lesson_occurence_date=pending_start.date(),
+    )
+    db.session.add(pending_instance)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLessonInstance(
+            coach_id=coach.id,
+            lesson_instance_id=pending_instance.id,
+        )
+    )
+
+    # Two pending students (invited + notified, no response yet).
+    for pending_member in pending_students:
+        db.session.add(
+            Association_PlayerLessonInstance(
+                player_id=pending_member.id,
+                lesson_instance_id=pending_instance.id,
+            )
+        )
+        db.session.add(
+            Presence(
+                player_id=pending_member.id,
+                lesson_instance_id=pending_instance.id,
+                invited=True,
+                confirmed=False,
+            )
+        )
+        db.session.add(
+            NotificationEvent(
+                coach_id=coach.id,
+                lesson_instance_id=pending_instance.id,
+                player_id=pending_member.id,
+                type="auto",
+                round_number=1,
+                status="sent",
+            )
+        )
+
+    # One already-confirmed and one already-declined student — must NOT be counted.
+    db.session.add(
+        NotificationEvent(
+            coach_id=coach.id,
+            lesson_instance_id=pending_instance.id,
+            player_id=filler_players[7].id,
+            type="auto",
+            round_number=1,
+            status="confirmed",
+        )
+    )
+    db.session.add(
+        NotificationEvent(
+            coach_id=coach.id,
+            lesson_instance_id=pending_instance.id,
+            player_id=filler_players[8].id,
+            type="auto",
+            round_number=1,
+            status="expired",
+        )
+    )
+
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
         coach_id=coach.id,
@@ -446,6 +553,38 @@ with app.app_context():
     )
     db.session.add(student_msg)
 
+    # ── Older conversation (coach <-> student 2), last message YESTERDAY ──────
+    # PAD-98: the chat list must show the day (not only the time). This
+    # conversation's last message is dated to yesterday (midday UTC — safe from
+    # midnight/timezone drift) so the list renders a "Yesterday" day label.
+    # It is fully read (last_read_at = now) so it does not affect unread badges.
+    yesterday_noon = (_utcnow_naive() - timedelta(days=1)).replace(
+        hour=12, minute=0, second=0, microsecond=0
+    )
+    conversation2 = Conversation(
+        is_group=False,
+        participant_key=Conversation.build_participant_key([coach_user.id, student2_user.id]),
+    )
+    db.session.add(conversation2)
+    db.session.flush()
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation2.id,
+        user_id=coach_user.id,
+        last_read_at=_utcnow_naive(),
+    ))
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation2.id,
+        user_id=student2_user.id,
+        last_read_at=_utcnow_naive(),
+    ))
+    db.session.flush()
+    db.session.add(Message(
+        conversation_id=conversation2.id,
+        sender_id=student2_user.id,
+        text="See you next week!",
+        sent_at=yesterday_noon,
+    ))
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
@@ -457,3 +596,4 @@ with app.app_context():
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
+    print(f"  Conversation {conversation2.id} (coach<->student2) last message yesterday (read)")

@@ -504,6 +504,9 @@ test("US-REM-08: newer reminder disables older reminder buttons (PAD-49)", async
   // (confirming presence), which would otherwise stop reminders from being sent.
   // secondsUntilReminderFires is large so the scheduled job never fires mid-test.
   const debugRes = await request.post(`${API_BASE}/notify/debug/schedule_reminder_test`, {
+    // PAD-92: the debug endpoint now requires a JWT on top of the
+    // E2E_DEBUG_ENDPOINTS flag.
+    headers: { Authorization: `Bearer ${token}` },
     data: { secondsUntilReminderFires: 3600 },
   });
   expect(debugRes.ok()).toBe(true);

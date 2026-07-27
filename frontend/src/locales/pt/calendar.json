@@ -33,6 +33,7 @@
       "endDate": "Data de fim",
       "recursUntilSeasonEnd": "Recorre até ao fim da época",
       "recursUntilSeasonEndHint": "Termina na data de fim da tua época.",
+      "noSeasonCoversDate": "Nenhuma época abrange esta data. Define uma época em Definições → Calendário, ou desliga esta opção e escolhe uma data de fim.",
       "autoNotifications": "Notificações automáticas",
       "autoNotificationsDescription": "Os alunos serão convidados automaticamente",
       "color": "Cor",
@@ -44,6 +45,12 @@
       "fieldDate": "Data",
       "fieldDays": "Dias da semana",
       "fieldEndDate": "Data de fim"
+    },
+    "overlap": {
+      "title": "Horário sobreposto",
+      "description": "Já tem um evento neste horário. Tem a certeza que pretende avançar com a marcação?",
+      "confirm": "Avançar mesmo assim",
+      "cancel": "Cancelar"
     },
     "addEvent": {
       "title": "Novo evento",

@@ -96,12 +96,12 @@ export async function getPlayerProfile(playerId: string): Promise<PlayerProfile 
   return playersApi.getPlayerProfile(playerId);
 }
 
-export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<void> {
+export async function addCoachNote(playerId: string, type: "strength" | "weakness", text: string): Promise<CoachNote> {
   if (USE_MOCK_DATA) {
     console.log("[mock] addCoachNote", { playerId, type, text });
-    return;
+    return { id: -Date.now(), text };
   }
-  await playersApi.addCoachNote(playerId, type, text);
+  return playersApi.addCoachNote(playerId, type, text);
 }
 
 export async function deleteCoachNote(note: CoachNote): Promise<void> {

@@ -11,12 +11,21 @@ export async function getSeasons(): Promise<Season[]> {
   return res.data;
 }
 
-export async function addSeasons(
-  data: { name: string; startDate: string; endDate: string }[]
-): Promise<Season[]> {
+/**
+ * A season to upsert. `id` addresses an already-persisted season so the backend
+ * updates it in place; omit it to create a new one (PAD-89).
+ */
+export interface SeasonUpsert {
+  id?: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export async function addSeasons(data: SeasonUpsert[]): Promise<Season[]> {
   if (USE_MOCK_DATA) {
     console.log("[mock] addSeasons", data);
-    return data.map((s) => ({ id: crypto.randomUUID(), ...s }));
+    return data.map((s) => ({ ...s, id: s.id ?? crypto.randomUUID() }));
   }
 
   const res = await api.post("/app/add_seasons", data);
