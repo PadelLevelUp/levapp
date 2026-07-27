@@ -4,7 +4,7 @@ import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
-import { ClassType, CoachPlayer, CoachLevel } from '@/types';
+import { ClassType, CoachPlayer, CoachLevel, CalendarEvent } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
+import { findOverlappingEvent } from '@/lib/calendarOverlap';
+import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 
 const COACH_ID = "1";
 
@@ -40,6 +42,8 @@ interface AddClassSheetProps {
   players: CoachPlayer[];
   levels: CoachLevel[];
   loading?: boolean;
+  /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
+  existingEvents?: CalendarEvent[];
 }
 
 const COLORS = [
@@ -60,6 +64,7 @@ export function AddClassSheet({
   players,
   levels,
   loading = false,
+  existingEvents = [],
 }: AddClassSheetProps) {
   const { t, i18n } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
@@ -90,6 +95,7 @@ export function AddClassSheet({
   const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
   const { toast } = useToast();
 
   const togglePlayer = (playerId: string) => {
@@ -147,6 +153,24 @@ export function AddClassSheet({
     }
     setErrors({});
 
+    // PAD-99: non-blocking overlap warning. For a recurring class we only check
+    // the first occurrence's date (the calendar only holds the visible week's
+    // events client-side); the coach can still proceed either way.
+    const conflict = findOverlappingEvent(
+      { date, startTime, endTime },
+      existingEvents
+    );
+    if (conflict) {
+      setOverlapConfirmOpen(true);
+      return;
+    }
+
+    proceedSave();
+  };
+
+  const proceedSave = () => {
+    setOverlapConfirmOpen(false);
+
     const computedEndDate = isRecurring
       ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
       : null;
@@ -176,6 +200,7 @@ export function AddClassSheet({
   };
 
   const handleClose = () => {
+    setOverlapConfirmOpen(false);
     setClassType('academy');
     setIsRecurring(false);
     setName('');
@@ -195,6 +220,7 @@ export function AddClassSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
@@ -423,5 +449,11 @@ export function AddClassSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+    <OverlapConfirmDialog
+      open={overlapConfirmOpen}
+      onCancel={() => setOverlapConfirmOpen(false)}
+      onConfirm={proceedSave}
+    />
+    </>
   );
 }

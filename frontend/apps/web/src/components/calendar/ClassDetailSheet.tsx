@@ -84,6 +84,8 @@ import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
+import { findOverlappingEvent } from "@/lib/calendarOverlap";
+import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 
 const COLORS = [
   "#0ea5e9",
@@ -116,6 +118,8 @@ interface ClassDetailSheetProps {
   ) => void;
   deleting?: boolean;
   saving?: boolean;
+  /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
+  existingEvents?: CalendarEvent[];
 }
 
 export function ClassDetailSheet({
@@ -129,6 +133,7 @@ export function ClassDetailSheet({
   onEdit,
   deleting = false,
   saving = false,
+  existingEvents = [],
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -143,6 +148,7 @@ export function ClassDetailSheet({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
+  const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
 
   const [isValidating, setIsValidating] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
@@ -340,6 +346,33 @@ export function ClassDetailSheet({
   };
 
   const saveEdit = () => {
+    // PAD-99: warn (non-blocking) when the edited date/time overlaps another
+    // event on the same day. Only check when the timing actually changed, so
+    // editing a name/participants on an already-overlapping class doesn't nag.
+    const timingChanged =
+      !!draft &&
+      !!classInstance &&
+      ((draft.date ?? "").slice(0, 10) !== (classInstance.date ?? "").slice(0, 10) ||
+        draft.startTime !== classInstance.startTime ||
+        draft.endTime !== classInstance.endTime);
+
+    if (timingChanged && draft) {
+      const conflict = findOverlappingEvent(
+        { date: draft.date, startTime: draft.startTime, endTime: draft.endTime },
+        existingEvents,
+        event?.id
+      );
+      if (conflict) {
+        setOverlapConfirmOpen(true);
+        return;
+      }
+    }
+
+    proceedSaveEdit();
+  };
+
+  const proceedSaveEdit = () => {
+    setOverlapConfirmOpen(false);
     if (canApplyScope) {
       setEditScopeDialogOpen(true);
     } else {
@@ -1265,6 +1298,14 @@ export function ClassDetailSheet({
           mode="edit"
           onClose={() => setEditScopeDialogOpen(false)}
           onConfirm={commitEdit}
+        />
+      )}
+
+      {canManage && onEdit && (
+        <OverlapConfirmDialog
+          open={overlapConfirmOpen}
+          onCancel={() => setOverlapConfirmOpen(false)}
+          onConfirm={proceedSaveEdit}
         />
       )}
     </Sheet>

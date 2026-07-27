@@ -45,6 +45,12 @@
       "fieldDays": "Days of the week",
       "fieldEndDate": "End date"
     },
+    "overlap": {
+      "title": "Overlapping event",
+      "description": "There's already an event at this time. Are you sure you want to proceed with the booking?",
+      "confirm": "Proceed anyway",
+      "cancel": "Cancel"
+    },
     "addEvent": {
       "title": "New event",
       "type": "Type",
