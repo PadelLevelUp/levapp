@@ -111,6 +111,10 @@ export function AddEvaluationForm({
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </View>
+            ) : (categories ?? []).length === 0 ? (
+              <Text className="py-2 text-sm text-muted-foreground">
+                {t("players.noCategoriesHint")}
+              </Text>
             ) : (
               (categories ?? []).map((cat) => {
                 const value = scores[cat.id] ?? cat.scaleMin;
