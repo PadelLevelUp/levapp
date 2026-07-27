@@ -216,7 +216,12 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
       console.log("\n── Step 2: Creating class with 2 students ──");
       const scheduleRes = await request.post(
         `${API_BASE}/notify/debug/schedule_reminder_test`,
-        { data: { secondsUntilReminderFires: SECONDS_UNTIL_FIRE } },
+        {
+          // PAD-92: the debug endpoint now requires a JWT on top of the
+          // E2E_DEBUG_ENDPOINTS flag.
+          headers: { Authorization: `Bearer ${coachToken}` },
+          data: { secondsUntilReminderFires: SECONDS_UNTIL_FIRE },
+        },
       );
       expect(
         scheduleRes.ok(),
