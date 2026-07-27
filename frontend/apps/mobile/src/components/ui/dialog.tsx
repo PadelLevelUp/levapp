@@ -27,7 +27,26 @@ function DialogOverlay({
       )}
       {...props}
     >
+      {/*
+       * The overlay centers its child on both axes (items-center), which
+       * overrides flexbox's default cross-axis "stretch" and makes this
+       * Animated.View shrink-wrap to its content's intrinsic width. That
+       * leaves DialogContent's `w-full` with nothing to resolve against, so
+       * short content (e.g. a single stepper row, a short hint sentence)
+       * collapses the whole dialog to fit-content sizing.
+       *
+       * Fix: `alignSelf: "stretch"` (plain style, not a NativeWind
+       * className) makes this node fill the overlay's full width via
+       * native flexbox — resolved once by Yoga, independent of content
+       * size. A `className="w-full"` percentage class was tried instead
+       * and fixed the populated case, but NativeWind's measure-based
+       * className interop for percentage widths on an animated
+       * (entering/exiting) component thrashed against the very short
+       * empty-state content and threw "Maximum update depth exceeded".
+       * `alignSelf: "stretch"` sidesteps that interop path entirely.
+       */}
       <Animated.View
+        style={{ alignSelf: "stretch" }}
         entering={FadeIn.duration(150)}
         exiting={FadeOut.duration(150)}
       >

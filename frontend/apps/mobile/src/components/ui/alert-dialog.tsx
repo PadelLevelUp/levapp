@@ -26,7 +26,9 @@ function AlertDialogOverlay({
       )}
       {...props}
     >
+      {/* Same width-collapse fix as dialog.tsx's DialogOverlay — see PAD-102. */}
       <Animated.View
+        style={{ alignSelf: "stretch" }}
         entering={FadeIn.duration(150)}
         exiting={FadeOut.duration(150)}
       >
