@@ -33,6 +33,16 @@
     "activity": {
       "title": "Notification activity"
     },
+    "pending": {
+      "title": "Pending confirmations",
+      "subtitle": "For tomorrow's classes",
+      "notifyButton": "Send manual notification",
+      "confirmTitle": "Are you sure?",
+      "confirmDescription": "This sends an extra notification to the {{count}} student(s) who have not confirmed or declined yet. Anyone who already responded is not affected.",
+      "confirmAction": "Send",
+      "notifySuccess": "Notification sent to {{count}} student(s).",
+      "notifyError": "Could not send the notifications."
+    },
     "status": {
       "sent": "Sent",
       "confirmed": "Confirmed",

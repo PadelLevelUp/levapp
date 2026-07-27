@@ -106,3 +106,14 @@ export async function getDashboard(params?: {
 
   return dashboardApi.getDashboard(params);
 }
+
+/**
+ * PAD-78: send an extra manual notification to students still pending
+ * confirmation for tomorrow's classes.
+ */
+export async function notifyPendingConfirmations(): Promise<{
+  instances: number;
+  sent: number;
+}> {
+  return dashboardApi.notifyPendingConfirmations();
+}
