@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { formatConversationTimestamp } from '@/lib/conversationTime';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -20,7 +21,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -47,13 +48,11 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
       .slice(0, 2);
   };
 
-  const formatTime = (iso: string | null) => {
-    if (!iso) return "";
-    return new Date(iso).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
+  const formatTime = (iso: string | null) =>
+    formatConversationTimestamp(iso, {
+      language: i18n.language,
+      yesterdayLabel: t("messages.yesterday"),
     });
-  };
 
   const existingParticipantIds = conversations.map(c => c.participantId);
 
