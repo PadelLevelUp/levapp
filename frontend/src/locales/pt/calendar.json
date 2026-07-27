@@ -45,6 +45,12 @@
       "fieldDays": "Dias da semana",
       "fieldEndDate": "Data de fim"
     },
+    "overlap": {
+      "title": "Horário sobreposto",
+      "description": "Já tem um evento neste horário. Tem a certeza que pretende avançar com a marcação?",
+      "confirm": "Avançar mesmo assim",
+      "cancel": "Cancelar"
+    },
     "addEvent": {
       "title": "Novo evento",
       "type": "Tipo",

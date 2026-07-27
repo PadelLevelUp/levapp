@@ -399,6 +399,7 @@ export default function CalendarPage() {
         onEdit={canManageClasses ? handleEditClass : undefined}
         deleting={deletingClassId === selectedClassEvent?.id}
         saving={editingClassId === selectedClassEvent?.id}
+        existingEvents={allEvents}
       />
 
       <RescheduleDialog
@@ -435,6 +436,7 @@ export default function CalendarPage() {
           levels={levels}
           players={coachPlayers}
           loading={addingClass}
+          existingEvents={allEvents}
         />
       )}
     </AppLayout>
