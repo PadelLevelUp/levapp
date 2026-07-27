@@ -46,15 +46,17 @@ test("US-68: calendar tab is present in settings", async ({ page }) => {
 
 // US-69: Coach can manage skill levels
 test("US-69: skill levels management is accessible from settings", async ({ page }) => {
+  // CoachLevelsSection lives in the "Preferences" tab (SettingsPage.tsx) — navigate
+  // there first, same as US-68 does for the Calendar tab.
+  const prefTab = page.getByRole("button", { name: /preferences/i }).first();
+  await expect(prefTab).toBeVisible({ timeout: 5000 });
+  await prefTab.click();
+
   // Could be a tab or a sub-section
   const levelsSection = page
     .locator("text=/level|skill/i")
     .first();
-  const visible = await levelsSection.isVisible({ timeout: 5000 }).catch(() => false);
-  if (!visible) {
-    test.skip(true, "Skill levels section not found in settings");
-  }
-  expect(visible).toBe(true);
+  await expect(levelsSection).toBeVisible({ timeout: 5000 });
 });
 
 // US-70: Import Data tab is accessible
