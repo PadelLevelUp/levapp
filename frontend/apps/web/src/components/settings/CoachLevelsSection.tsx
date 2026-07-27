@@ -27,15 +27,17 @@ export function CoachLevelsSection() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
+  // Maps the server's coach levels into local draft rows, keyed by their real
+  // numeric id. Shared by the initial load and the post-save refresh so a saved
+  // row never keeps its temporary `new-…` id (PAD-101).
+  const toDrafts = (data: CoachLevel[]): LevelDraft[] =>
+    data
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((l) => ({ id: l.id, code: l.code, label: l.label }));
+
   useEffect(() => {
     getCoachLevels()
-      .then((data) =>
-        setLevels(
-          data
-            .sort((a, b) => a.displayOrder - b.displayOrder)
-            .map((l) => ({ id: l.id, code: l.code, label: l.label }))
-        )
-      )
+      .then((data) => setLevels(toDrafts(data)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -109,6 +111,11 @@ export function CoachLevelsSection() {
     setSaving(true);
     try {
       await addCoachLevel(payload);
+      // Re-key local rows with the server-returned ids. The save endpoint upserts
+      // and does not echo ids back, so refetch the persisted ladder — otherwise a
+      // just-added row keeps its temp `new-…` id and deleting it before a reload
+      // sends that non-numeric id to the delete endpoint (PAD-101).
+      setLevels(toDrafts(await getCoachLevels()));
       toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.saved", { count: levels.length }) });
     } catch {
       toast({ variant: "destructive", title: t("settings.coachLevels.saveFailed") });
