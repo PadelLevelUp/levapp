@@ -446,6 +446,38 @@ with app.app_context():
     )
     db.session.add(student_msg)
 
+    # ── Older conversation (coach <-> student 2), last message YESTERDAY ──────
+    # PAD-98: the chat list must show the day (not only the time). This
+    # conversation's last message is dated to yesterday (midday UTC — safe from
+    # midnight/timezone drift) so the list renders a "Yesterday" day label.
+    # It is fully read (last_read_at = now) so it does not affect unread badges.
+    yesterday_noon = (_utcnow_naive() - timedelta(days=1)).replace(
+        hour=12, minute=0, second=0, microsecond=0
+    )
+    conversation2 = Conversation(
+        is_group=False,
+        participant_key=Conversation.build_participant_key([coach_user.id, student2_user.id]),
+    )
+    db.session.add(conversation2)
+    db.session.flush()
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation2.id,
+        user_id=coach_user.id,
+        last_read_at=_utcnow_naive(),
+    ))
+    db.session.add(ConversationParticipant(
+        conversation_id=conversation2.id,
+        user_id=student2_user.id,
+        last_read_at=_utcnow_naive(),
+    ))
+    db.session.flush()
+    db.session.add(Message(
+        conversation_id=conversation2.id,
+        sender_id=student2_user.id,
+        text="See you next week!",
+        sent_at=yesterday_noon,
+    ))
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
@@ -457,3 +489,4 @@ with app.app_context():
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
+    print(f"  Conversation {conversation2.id} (coach<->student2) last message yesterday (read)")
