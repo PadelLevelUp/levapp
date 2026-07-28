@@ -17,6 +17,7 @@ import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
+import SupportPage from "./pages/SupportPage";
 import SettingsPage from "./pages/SettingsPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
 import MessagesPage from "./pages/MessagesPage";
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsPage />} />
+              <Route path="/support" element={<SupportPage />} />
 
               <Route
                 path="/"
