@@ -57,12 +57,20 @@ export default function LoginScreen() {
       await login(res.data.accessToken);
       router.replace("/(tabs)/dashboard");
     } catch (err: any) {
+      // No `response` means the request never got a reply from the server —
+      // network failure, timeout, DNS/connection error, wrong API host,
+      // etc. Distinguish that from an actual auth rejection (401) so a
+      // misconfigured/unreachable API doesn't masquerade as bad credentials
+      // (see 2026-07-24 App Store rejection: "Could not sign in" screenshot
+      // was actually a build pointed at an unreachable API URL).
       const message =
         err?.response?.data?.message ??
         err?.response?.data?.error ??
-        (err?.response?.status === 401
-          ? "Invalid username or password."
-          : "Could not sign in. Please try again.");
+        (!err?.response
+          ? "Could not connect to the server. Check your connection."
+          : err.response.status === 401
+            ? "Invalid username or password."
+            : "Could not sign in. Please try again.");
       setFormError(message);
     } finally {
       setLoading(false);
