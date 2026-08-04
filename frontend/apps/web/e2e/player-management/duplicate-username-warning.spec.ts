@@ -2,53 +2,30 @@ import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
 
-test.describe("PAD-7: Real-time unique field validation in player creation", () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsCoach(page);
-    await openPlayers(page);
-  });
+/**
+ * PAD-7 — real-time unique-field validation.
+ *
+ * PAD-105 moved username ownership to the student: the coach's add-player form
+ * no longer has a username field, so the original "username turns red in the
+ * coach's form" case has nowhere left to live. The uniqueness guarantee itself
+ * did NOT go away — it just moved to where the username is now chosen, the
+ * student's own invite-completion form, which rejects a taken username. Both
+ * halves of PAD-7 are still covered here:
+ *
+ *   - email uniqueness, still on the coach's add-player form (unchanged);
+ *   - username uniqueness, now on the student's invite-completion form.
+ */
 
-  test("PAD-7: username field turns red when value is already taken", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: /add player/i }).click();
-
-    // Fill in player name and a taken username
-    await page.getByPlaceholder("e.g. John Doe").fill("Duplicate Username Test");
-    await page.getByPlaceholder("e.g. john@email.com").fill("dup-test@example.com");
-
-    const usernameInput = page.getByPlaceholder("e.g. johndoe");
-    await usernameInput.fill("e2e-student"); // taken username
-
-    // Error should appear automatically (debounced) — no need to click submit
-    const errorMsg = page.getByText("This username is already taken");
-    await expect(errorMsg).toBeVisible({ timeout: 3000 });
-    await expect(usernameInput).toHaveClass(/border-red-500/);
-
-    // Form should still be open with all data preserved
-    await expect(page.getByText("New player")).toBeVisible();
-    await expect(page.getByPlaceholder("e.g. John Doe")).toHaveValue("Duplicate Username Test");
-    await expect(page.getByPlaceholder("e.g. john@email.com")).toHaveValue("dup-test@example.com");
-
-    // Create button should be disabled while there's an error
-    await expect(page.getByRole("button", { name: /create player/i })).toBeDisabled();
-
-    // Fix the username — error should clear
-    await usernameInput.fill("unique-dup-test-player");
-    await expect(errorMsg).not.toBeVisible({ timeout: 3000 });
-
-    // Now submit should work
-    await page.getByRole("button", { name: /create player/i }).click();
-    await expect(page.getByText("Duplicate Username Test")).toBeVisible({ timeout: 5000 });
-  });
-
+test.describe("PAD-7: unique field validation", () => {
   test("PAD-7: email field turns red when value is already taken", async ({
     page,
   }) => {
+    await loginAsCoach(page);
+    await openPlayers(page);
+
     await page.getByRole("button", { name: /add player/i }).click();
 
     await page.getByPlaceholder("e.g. John Doe").fill("Email Dup Test");
-    await page.getByPlaceholder("e.g. johndoe").fill("email-dup-test-player");
 
     const emailInput = page.getByPlaceholder("e.g. john@email.com");
     await emailInput.fill("e2e-coach@test.com"); // taken email
@@ -60,5 +37,53 @@ test.describe("PAD-7: Real-time unique field validation in player creation", () 
 
     // Form data should be preserved
     await expect(page.getByPlaceholder("e.g. John Doe")).toHaveValue("Email Dup Test");
+
+    // Create is blocked while a unique field is in error
+    await expect(
+      page.getByRole("button", { name: /create player/i })
+    ).toBeDisabled();
+  });
+
+  test("PAD-7 / PAD-105: a taken username is rejected in the student's own signup form", async ({
+    page,
+    browser,
+  }) => {
+    // The coach creates an invited player — still without ever typing a username.
+    await loginAsCoach(page);
+    await openPlayers(page);
+
+    await page.getByRole("button", { name: /add player/i }).click();
+    await page
+      .getByPlaceholder("e.g. John Doe")
+      .fill(`Dup Username Invitee ${Date.now()}`);
+    await page
+      .getByRole("button", { name: /create.*invite|invite.*player/i })
+      .click();
+
+    const dialog = page.getByRole("dialog", { name: /invite/i });
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    const link = await dialog.getByRole("textbox").inputValue();
+    const token = link.split("/invite/player/")[1];
+
+    // The student opens their link and tries to claim a username that exists.
+    const context = await browser.newContext();
+    const invitePage = await context.newPage();
+    await invitePage.goto(`/invite/player/${token}`);
+
+    await expect(invitePage.locator("#username")).toBeVisible({ timeout: 10_000 });
+    await invitePage.locator("#username").fill("e2e-student"); // taken
+    await invitePage.locator("#password").fill("DupUser123!");
+    await invitePage.locator("#repeatPassword").fill("DupUser123!");
+    await invitePage.locator('button[type="submit"]').click();
+
+    // Pre-auth pages render in the default locale (pt), so accept either language.
+    await expect(
+      invitePage.getByText(/already taken|já está em uso/i).first()
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Still on the completion page — the account was not created.
+    expect(invitePage.url()).toContain("/invite/player/");
+
+    await context.close();
   });
 });

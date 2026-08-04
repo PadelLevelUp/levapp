@@ -65,12 +65,13 @@ export const playerInviteAcceptSchema = z
 export type PlayerInviteAcceptInput = z.infer<typeof playerInviteAcceptSchema>;
 
 /* ── Player create/edit (AddPlayerSheet / EditPlayerSheet) ───────────────── */
-// Web only hard-requires a non-empty name; username/email uniqueness is
-// validated server-side via /app/check_field_available.
+// Only a non-empty name is hard-required; email uniqueness is validated
+// server-side via /app/check_field_available.
+// PAD-105: there is deliberately no `username` here — a coach never sets a
+// player's username, the player picks it when they activate their account.
 
 export const playerFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  username: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
   levelId: z.string().optional(),

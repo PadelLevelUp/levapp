@@ -127,7 +127,6 @@ export default function PlayerDetailScreen() {
         player,
         updates: {
           name: values.name || undefined,
-          username: values.username || undefined,
           userId: player.userId,
           email: values.email || undefined,
           phone: values.phone || undefined,
@@ -309,7 +308,6 @@ export default function PlayerDetailScreen() {
                 coachId={user?.coachId}
                 initialValues={{
                   name: player.name ?? "",
-                  username: player.username ?? "",
                   email: player.email ?? "",
                   phone: player.phone ?? "",
                   levelId: player.levelId,
@@ -338,14 +336,9 @@ export default function PlayerDetailScreen() {
                   <Text className="text-lg font-semibold" numberOfLines={1}>
                     {player.name}
                   </Text>
-                  {player.username ? (
-                    <Text
-                      className="text-sm text-muted-foreground"
-                      numberOfLines={1}
-                    >
-                      @{player.username}
-                    </Text>
-                  ) : null}
+                  {/* PAD-105: no @username line — the coach never sets it and
+                      the record holds a generated placeholder until the player
+                      activates their own account. */}
                 </View>
               </View>
 

@@ -20,7 +20,6 @@ import { LevelLabel } from "@/components/LevelLabel";
 export interface AddPlayerInput {
   name: string;
   isActive: boolean;
-  username?: string,
   email?: string;
   phone?: string;
   levelId?: string;
@@ -57,7 +56,6 @@ export function AddPlayerSheet({
 }: AddPlayerSheetProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(initialValues?.name ?? "");
-  const [username, setUsername] = useState(initialValues?.username ?? "");
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
   const [levelId, setLevelId] = useState<string>(initialValues?.levelId ?? "");
@@ -66,7 +64,6 @@ export function AddPlayerSheet({
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
 
-  const usernameCheck = useFieldAvailability("user", "username", username);
   const emailCheck = useFieldAvailability("user", "email", email);
   // PAD-17: name is not unique — this is a WARN, not a hard error. It surfaces a
   // non-blocking message and is intentionally excluded from hasFieldError so the
@@ -75,14 +72,15 @@ export function AddPlayerSheet({
   // does not trigger a false warning.
   const nameCheck = useFieldAvailability("user", "name", name, coachId);
 
-  const hasFieldError = !!usernameCheck.error || !!emailCheck.error;
+  // PAD-105: a player's username is their own credential — the coach never
+  // picks it, so this form has no username field to validate.
+  const hasFieldError = !!emailCheck.error;
 
   // Sync form when opening (and when initialValues changes)
   useEffect(() => {
     if (!open) return;
 
     setName(initialValues?.name ?? "");
-    setUsername(initialValues?.username ?? "");
     setEmail(initialValues?.email ?? "");
     setPhone(initialValues?.phone ?? "");
     setLevelId(initialValues?.levelId ?? "");
@@ -92,7 +90,6 @@ export function AddPlayerSheet({
 
   const handleClose = () => {
     setName("");
-    setUsername("");
     setEmail("");
     setPhone("");
     setLevelId("");
@@ -109,7 +106,6 @@ export function AddPlayerSheet({
       await onSave({
         name: name.trim(),
         isActive: true,
-        username: username.trim(),
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
         levelId: levelId || undefined,
@@ -166,25 +162,6 @@ export function AddPlayerSheet({
               <p className="text-sm text-amber-600">
                 {nameCheck.error}. {t("players.nameWarningSuffix")}
               </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="player-username">{t("players.username")}</Label>
-            <div className="relative">
-              <Input
-                id="player-username"
-                placeholder={t("players.usernamePlaceholder")}
-                value={username}
-                className={usernameCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              {usernameCheck.checking && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            {usernameCheck.error && (
-              <p className="text-sm text-red-500">{usernameCheck.error}</p>
             )}
           </div>
 

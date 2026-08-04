@@ -12,13 +12,10 @@ test("US-35: coach adds a new player manually", async ({ page }) => {
   // Open the add-player dialog/sheet
   await page.getByRole("button", { name: /add player/i }).first().click();
 
-  // Use placeholder to avoid ambiguity with the "Username" field (both match /name/i)
   await page.getByPlaceholder("e.g. John Doe").fill("New E2E Player");
-  // Username is required by the backend (users.username is NOT NULL)
-  await page.getByPlaceholder("e.g. johndoe").fill("new-e2e-player");
+  // PAD-105: the coach supplies no username — the backend assigns a placeholder
+  // that the player replaces when they activate their own account.
 
-  // Wait for the async field-availability check to settle, then the Create button
-  // becomes enabled once the username is confirmed available.
   const createBtn = page.getByRole("button", { name: /create player/i });
   await expect(createBtn).toBeEnabled({ timeout: 5000 });
   await createBtn.click();
