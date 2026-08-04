@@ -157,13 +157,27 @@ test.describe("PAD-114 student attendance page", () => {
       await page.goto("/attendance");
     });
 
-    const yearly = await waitForHistory(page, async () => {
-      await page.getByTestId("attendance-range-1y").click();
+    // Deliberately a custom two-year window rather than the 1Y preset: the
+    // window always contains every seeded attended class, so this guard can
+    // never quietly skip itself. Anchored to 1Y it would find an empty current
+    // year on any run in early January and skip — which is the same "green
+    // while checking nothing" failure the test exists to prevent.
+    await page.getByTestId("attendance-range-custom").click();
+    const today = new Date();
+    const to = today.toISOString().slice(0, 10);
+    const from = new Date(today.getTime() - 730 * 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    await page.getByTestId("attendance-custom-from").fill(from);
+    await page.getByTestId("attendance-custom-to").fill(to);
+
+    const payload = await waitForHistory(page, async () => {
+      await page.getByTestId("attendance-custom-apply").click();
     });
-    const nonEmpty = yearly.buckets.filter(
+    const nonEmpty = payload.buckets.filter(
       (b: { count: number }) => b.count > 0
     ).length;
-    test.skip(nonEmpty === 0, "no attendance in the current year");
+    expect(nonEmpty).toBeGreaterThan(0);
 
     await expect(page.getByTestId("attendance-chart")).toHaveAttribute(
       "data-state",
