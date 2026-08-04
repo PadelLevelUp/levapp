@@ -31,7 +31,10 @@ const ACTIVE_PLAYER = "Filler Player 02";
 /** Open Settings > Notifications and expand the standing waiting list section. */
 async function openStandingWaitingList(page: Page) {
   await openSettings(page);
-  await page.getByRole("button", { name: /notifications/i }).click();
+  // PAD-112 added a second sidebar button whose label also matches
+  // /notifications/i ("My notifications"), so the old role+name locator is
+  // ambiguous for a coach. Target the stable testid instead.
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
   await page.getByRole("button", { name: /standing waiting list/i }).first().click();
   await expect(page.locator("[data-testid='standing-wl-entry']").first()).toBeVisible({
