@@ -152,7 +152,8 @@ export function AttendanceChart({
             cursor={false}
             content={
               <ChartTooltipContent
-                labelKey="full"
+                // The bar's own `full` label (e.g. "1 Aug 2026") rather than
+                // the abbreviated axis tick, so a hovered bar is unambiguous.
                 labelFormatter={(_, payload) =>
                   payload?.[0]?.payload?.full ?? ""
                 }

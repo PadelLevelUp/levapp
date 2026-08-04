@@ -91,11 +91,23 @@ test.describe("PAD-114 student attendance page", () => {
     expect(controlsBox).not.toBeNull();
     expect(controlsBox!.y).toBeGreaterThan(chartBox!.y);
 
-    // History list below, one row per attended class in the payload.
+    // History list below. The default range is the current month, which may
+    // legitimately hold no attended classes depending on today's date — assert
+    // the two states explicitly rather than leaving a count that silently
+    // becomes `toHaveCount(0)` and stops proving anything. Row rendering itself
+    // is covered by the custom-period and deep-link specs below.
     await expect(page.getByTestId("attendance-history-list")).toBeVisible();
-    await expect(page.getByTestId("attendance-history-item")).toHaveCount(
-      payload.sessions.length
-    );
+    if (payload.sessions.length === 0) {
+      await expect(page.getByTestId("attendance-history-empty")).toBeVisible();
+      await expect(page.getByTestId("attendance-chart")).toHaveAttribute(
+        "data-state",
+        "empty"
+      );
+    } else {
+      await expect(page.getByTestId("attendance-history-item")).toHaveCount(
+        payload.sessions.length
+      );
+    }
   });
 
   test("range presets re-query with the right span and granularity", async ({
