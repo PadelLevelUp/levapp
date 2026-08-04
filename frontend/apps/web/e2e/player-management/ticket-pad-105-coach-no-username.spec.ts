@@ -89,6 +89,65 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     await expect(page.getByText(/pending-[0-9a-f]{4}/i)).toHaveCount(0);
   });
 
+  test("PAD-105: the student's registration form lets them pick a username, unprefilled", async ({
+    page,
+    browser,
+  }) => {
+    // The coach-created player's only route to an account is the registration
+    // link on their detail page. That form is where the username is chosen, so
+    // it must offer an EMPTY box — prefilling the generated `pending-…`
+    // placeholder would leak an internal detail and nudge the student into
+    // keeping a machine-generated login.
+    const name = `PAD105 Register ${UNIQUE}`;
+
+    await openAddPlayerSheet(page);
+    await page.getByPlaceholder("e.g. John Doe").fill(name);
+    await page.getByRole("button", { name: /create player/i }).click();
+
+    await page.getByPlaceholder(/search/i).first().fill(name);
+    await page.getByText(name).click();
+    await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
+
+    // The detail page surfaces the shareable registration link in a readonly box.
+    const registerLink = await page
+      .locator("input[readonly]")
+      .first()
+      .inputValue();
+    expect(registerLink).toContain("/register/");
+    const userId = registerLink.split("/register/")[1];
+
+    const context = await browser.newContext();
+    const registerPage = await context.newPage();
+    await registerPage.goto(`/register/${userId}`);
+
+    const usernameInput = registerPage.locator("#username");
+    await expect(usernameInput).toBeVisible({ timeout: 10_000 });
+    await expect(usernameInput).toHaveValue("");
+
+    // The name the coach set IS prefilled — that part is the coach's to fill in.
+    await expect(registerPage.locator("#name")).toHaveValue(name);
+
+    // The student picks their own username and activates. The activation form
+    // requires an email of its own (pre-existing rule) — the coach left it blank.
+    const chosen = `pad105-chosen-${UNIQUE}`;
+    await usernameInput.fill(chosen);
+    await registerPage.locator("#email").fill(`${chosen}@example.com`);
+    await registerPage.locator("#password").fill("Pad105Chosen!");
+    await registerPage.locator("#repeatPassword").fill("Pad105Chosen!");
+    await registerPage.locator('button[type="submit"]').click();
+
+    // Activation lands them on the login page; the username they chose works.
+    await registerPage.waitForURL(/\/auth/, { timeout: 15_000 });
+    await registerPage.locator("#username").fill(chosen);
+    await registerPage.locator("#password").fill("Pad105Chosen!");
+    await registerPage.locator('button[type="submit"]').click();
+    await registerPage.waitForURL((url) => !url.pathname.startsWith("/auth"), {
+      timeout: 15_000,
+    });
+
+    await context.close();
+  });
+
   test("PAD-105: the username field still exists in the student's own invite flow", async ({
     page,
     browser,
