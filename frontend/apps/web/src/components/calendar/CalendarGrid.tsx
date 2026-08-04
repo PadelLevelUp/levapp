@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent } from '@/types';
@@ -11,10 +11,27 @@ interface CalendarGridProps {
   endHour?: number;
   onEventClick?: (event: CalendarEvent) => void;
   onSlotClick?: (date: Date, time: string) => void;
+  /**
+   * PAD-106: fired when the coach drags across two or more slots. A drag that
+   * starts and ends on the same slot is a plain click and goes to `onSlotClick`
+   * instead, so single-slot behaviour is literally unchanged.
+   */
+  onSlotRangeSelect?: (date: Date, startTime: string, endTime: string) => void;
   onEventDrop?: (event: CalendarEvent, newDate: string, newStartTime: string) => void;
 }
 
 const HOUR_HEIGHT = 60; // pixels per hour - must match h-[60px] on grid rows
+const SLOT_HEIGHT = HOUR_HEIGHT / 2; // one half-hour slot
+const SLOT_MINUTES = 30;
+
+/** In-progress drag selection, anchored to the column the drag started in. */
+interface SlotSelection {
+  dayStr: string;
+  /** Slot index the mouse went down on. */
+  anchor: number;
+  /** Slot index the mouse is currently over (may be above the anchor). */
+  focus: number;
+}
 
 export function CalendarGrid({
   weekDays,
@@ -23,15 +40,29 @@ export function CalendarGrid({
   endHour = 22,
   onEventClick,
   onSlotClick,
+  onSlotRangeSelect,
   onEventDrop,
 }: CalendarGridProps) {
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);
+  const [selection, setSelection] = useState<SlotSelection | null>(null);
 
   const hours = useMemo(() =>
     Array.from({ length: endHour - startHour }, (_, i) => startHour + i),
     [startHour, endHour]
   );
+
+  const slotCount = (endHour - startHour) * 2;
+
+  /**
+   * Start-of-day time for a half-hour slot index. `index === slotCount` is the
+   * exclusive end of the last slot (i.e. `endHour:00`), which is what a range's
+   * end time uses.
+   */
+  const slotTime = useCallback((index: number) => {
+    const total = startHour * 60 + index * SLOT_MINUTES;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }, [startHour]);
 
   const getEventStyle = (event: CalendarEvent) => {
     const [startH, startM] = event.startTime.split(':').map(Number);
@@ -46,12 +77,111 @@ export function CalendarGrid({
   const getEventsForDay = (day: Date) =>
     events.filter(e => e.date === format(day, 'yyyy-MM-dd'));
 
-  const handleSlotClick = (day: Date, hour: number, half: 'first' | 'second') => {
-    if (onSlotClick) {
-      const minutes = half === 'first' ? '00' : '30';
-      onSlotClick(day, `${hour.toString().padStart(2, '0')}:${minutes}`);
+  /**
+   * PAD-106 — drag-to-select.
+   *
+   * The gesture is a single code path: mousedown anchors, mousemove extends,
+   * mouseup resolves. A plain click is just the zero-length case, which keeps
+   * the pre-existing single-slot behaviour intact by construction rather than
+   * by a second handler that would have to be suppressed during a drag.
+   *
+   * Listeners go on `document` synchronously inside mousedown (not via an
+   * effect keyed on state) so a fast press-release can't outrun a React commit,
+   * and so a release outside the grid is still seen.
+   */
+  const dragRef = useRef<{
+    day: Date;
+    dayStr: string;
+    column: HTMLElement;
+    anchor: number;
+    focus: number;
+    cleanup: () => void;
+  } | null>(null);
+
+  /** Clamp a viewport Y to a half-hour slot index within the origin column. */
+  const slotIndexFromY = useCallback((column: HTMLElement, clientY: number) => {
+    const rect = column.getBoundingClientRect();
+    const raw = Math.floor((clientY - rect.top) / SLOT_HEIGHT);
+    return Math.min(Math.max(raw, 0), slotCount - 1);
+  }, [slotCount]);
+
+  const endDrag = useCallback((resolve: boolean) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    drag.cleanup();
+    setSelection(null);
+
+    if (!resolve) return;
+
+    const from = Math.min(drag.anchor, drag.focus);
+    const to = Math.max(drag.anchor, drag.focus);
+
+    if (from === to) {
+      // Zero-length drag === click. Unchanged single-slot behaviour.
+      onSlotClick?.(drag.day, slotTime(from));
+      return;
     }
+
+    // A range ends at the LAST covered slot's start + 30 min, so 10:00 → 10:30
+    // covers 10:00–11:00.
+    onSlotRangeSelect?.(drag.day, slotTime(from), slotTime(to + 1));
+  }, [onSlotClick, onSlotRangeSelect, slotTime]);
+
+  const beginDrag = (
+    e: React.MouseEvent<HTMLDivElement>,
+    day: Date,
+    dayStr: string,
+    index: number
+  ) => {
+    // Left button only, coaches only (no `onSlotClick` ⇒ read-only calendar),
+    // and never while an event is being dragged to reschedule.
+    if (e.button !== 0 || draggingEvent || !onSlotClick) return;
+    const column = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-day-column]');
+    if (!column) return;
+
+    // Stops the browser turning the drag into a text selection.
+    e.preventDefault();
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      // X is ignored on purpose: the range is locked to the origin column, so a
+      // selection never spans two days (Google Calendar week-view behaviour).
+      const focus = slotIndexFromY(drag.column, ev.clientY);
+      if (focus === drag.focus) return;
+      drag.focus = focus;
+      setSelection({ dayStr: drag.dayStr, anchor: drag.anchor, focus });
+    };
+    const onMouseUp = () => endDrag(true);
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') endDrag(false);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('keydown', onKeyDown);
+
+    dragRef.current = {
+      day,
+      dayStr,
+      column,
+      anchor: index,
+      focus: index,
+      cleanup: () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('keydown', onKeyDown);
+      },
+    };
+    setSelection({ dayStr, anchor: index, focus: index });
   };
+
+  // Unmounting mid-drag (week change, navigation) must not leave listeners behind.
+  useEffect(() => () => {
+    dragRef.current?.cleanup();
+    dragRef.current = null;
+  }, []);
 
   /** Snap mouse Y to nearest 30-min slot time string (HH:MM) */
   const snapTimeFromY = (colEl: HTMLElement, clientY: number): string => {
@@ -105,7 +235,11 @@ export function CalendarGrid({
           return (
             <div
               key={day.toISOString()}
-              className={cn('relative border-l border-border', dayIsToday && 'bg-primary/[0.02]')}
+              data-day-column={dayStr}
+              className={cn(
+                'relative border-l border-border select-none',
+                dayIsToday && 'bg-primary/[0.02]'
+              )}
               onDragOver={(e) => {
                 e.preventDefault();
                 const time = snapTimeFromY(e.currentTarget, e.clientY);
@@ -126,18 +260,36 @@ export function CalendarGrid({
               }}
             >
               {/* Hour Grid Lines */}
-              {hours.map((hour) => (
-                <div key={hour} className="h-[60px] border-b border-border/50">
+              {hours.map((hour, hourIndex) => {
+                const firstHalfIndex = hourIndex * 2;
+                return (
+                  <div key={hour} className="h-[60px] border-b border-border/50">
+                    <div
+                      data-slot={`${dayStr}T${slotTime(firstHalfIndex)}`}
+                      className={cn('h-1/2 transition-colors', onSlotClick && !draggingEvent && 'hover:bg-primary/5 cursor-pointer')}
+                      onMouseDown={(e) => beginDrag(e, day, dayStr, firstHalfIndex)}
+                    />
+                    <div
+                      data-slot={`${dayStr}T${slotTime(firstHalfIndex + 1)}`}
+                      className={cn('h-1/2 border-t border-dashed border-border/30 transition-colors', onSlotClick && !draggingEvent && 'hover:bg-primary/5 cursor-pointer')}
+                      onMouseDown={(e) => beginDrag(e, day, dayStr, firstHalfIndex + 1)}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* PAD-106: live range highlight while dragging */}
+              {selection?.dayStr === dayStr && (() => {
+                const from = Math.min(selection.anchor, selection.focus);
+                const to = Math.max(selection.anchor, selection.focus);
+                return (
                   <div
-                    className={cn('h-1/2 transition-colors', onSlotClick && !draggingEvent && 'hover:bg-primary/5 cursor-pointer')}
-                    onClick={() => !draggingEvent && handleSlotClick(day, hour, 'first')}
+                    data-slot-selection={`${slotTime(from)}-${slotTime(to + 1)}`}
+                    className="absolute left-0 right-0 rounded-md border-2 border-primary bg-primary/20 pointer-events-none z-10"
+                    style={{ top: from * SLOT_HEIGHT, height: (to - from + 1) * SLOT_HEIGHT }}
                   />
-                  <div
-                    className={cn('h-1/2 border-t border-dashed border-border/30 transition-colors', onSlotClick && !draggingEvent && 'hover:bg-primary/5 cursor-pointer')}
-                    onClick={() => !draggingEvent && handleSlotClick(day, hour, 'second')}
-                  />
-                </div>
-              ))}
+                );
+              })()}
 
               {/* Drop ghost */}
               {draggingEvent && ghostTime && (() => {
