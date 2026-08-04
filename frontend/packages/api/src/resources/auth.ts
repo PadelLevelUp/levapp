@@ -12,6 +12,16 @@ export type MeResponse = {
   abbreviation?: string;
   email?: string | null;
   phone?: string | null;
+  /**
+   * PAD-112: the student's standing block preferences for class-slot
+   * solicitations. Three INDEPENDENT levels — `blockAllNotifications` is a
+   * superset in effect, but it does not imply or clear the other two.
+   */
+  blockAutoInvitations?: boolean;
+  blockManualInvitations?: boolean;
+  blockAllNotifications?: boolean;
+  /** Free text the student writes; deliberately visible to their coach. */
+  notificationBlockReason?: string;
 };
 
 /**
@@ -24,6 +34,11 @@ export type UpdateMePayload = {
   abbreviation?: string;
   email?: string;
   phone?: string;
+  /** PAD-112 — see MeResponse. Sending `false` clears the flag. */
+  blockAutoInvitations?: boolean;
+  blockManualInvitations?: boolean;
+  blockAllNotifications?: boolean;
+  notificationBlockReason?: string;
 };
 
 export async function getMe(): Promise<MeResponse> {

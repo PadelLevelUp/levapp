@@ -84,7 +84,13 @@ const navItems: NavItem[] = [
     icon: Settings,
     labelKey: "nav.settings",
     path: "/settings",
-    roles: ["coach"],
+    // PAD-112: students now have something of their own in Settings (their
+    // notification block preferences), so the entry can no longer be
+    // coach-only. `/settings` was already reachable for them — the route is a
+    // bare ProtectedRoute and the avatar dropdown links there for everyone —
+    // it just wasn't discoverable, which would have made the new section
+    // effectively unreachable.
+    roles: ["coach", "player"],
   },
   {
     icon: Database,

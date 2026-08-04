@@ -35,11 +35,24 @@ export async function toggleLessonNotifications(
   return res.data;
 }
 
+/**
+ * PAD-112: a student who blocked notifications is skipped rather than sent to,
+ * so both notify routes now report WHO was skipped alongside how many were
+ * actually reached. `sent` used to be the enrolment count on the reminder
+ * route, which lied as soon as anybody was skipped.
+ */
+export interface BlockedRecipient {
+  playerId: number;
+  name: string;
+  /** The student's own free-text reason; empty when they gave none. */
+  reason?: string;
+}
+
 export async function sendClassReminders(
   model: string,
   originalId: string,
   date: string
-): Promise<{ sent: number }> {
+): Promise<{ sent: number; blocked?: BlockedRecipient[] }> {
   const res = await getApi().post("/app/notify/send_reminders", { model, originalId, date });
   return res.data;
 }
@@ -49,7 +62,7 @@ export async function sendManualNotifications(
   originalId: string,
   date: string,
   playerIds: string[]
-): Promise<{ sent: number }> {
+): Promise<{ sent: number; blocked?: BlockedRecipient[] }> {
   const res = await getApi().post("/app/notify/manual", { model, originalId, date, playerIds });
   return res.data;
 }

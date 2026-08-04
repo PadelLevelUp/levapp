@@ -136,6 +136,13 @@
     "classFull": "Full",
     "addToSelectedClasses_one": "Add to {{count}} class",
     "addToSelectedClasses_other": "Add to {{count}} classes",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "notificationsBlockedBadge": "Notifications off",
+    "notificationsBlockedTitle": "Notifications turned off by the student",
+    "notificationsBlockedAuto": "Automatic invitations blocked",
+    "notificationsBlockedManual": "Manual invitations blocked",
+    "notificationsBlockedAll": "All notifications blocked",
+    "notificationsBlockedReason": "Reason given by the student",
+    "notificationsBlockedNoReason": "The student did not give a reason."
   }
 }

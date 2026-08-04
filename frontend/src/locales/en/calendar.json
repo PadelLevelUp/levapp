@@ -229,7 +229,8 @@
       "sendToCount_other": "Send to {{count}} students",
       "invitationSent_one": "Invitation sent to {{count}} student",
       "invitationSent_other": "Invitation sent to {{count}} students",
-      "failedSendInvitations": "Failed to send invitations"
+      "failedSendInvitations": "Failed to send invitations",
+      "blockedByPreference": "Could not notify: {{names}} (notifications blocked)"
     },
     "playerSelector": {
       "participants": "Participants ({{count}})",

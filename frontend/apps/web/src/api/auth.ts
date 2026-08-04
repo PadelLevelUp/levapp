@@ -19,6 +19,10 @@ export async function getMe(): Promise<MeResponse> {
       abbreviation: "BT",
       email: "bernardo.terroso@example.com",
       phone: "",
+      blockAutoInvitations: false,
+      blockManualInvitations: false,
+      blockAllNotifications: false,
+      notificationBlockReason: "",
     };
   }
 

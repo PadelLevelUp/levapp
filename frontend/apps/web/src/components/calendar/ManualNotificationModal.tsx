@@ -173,13 +173,24 @@ export function ManualNotificationModal({
     if (selected.size === 0) return;
     setSending(true);
     try {
-      const { sent } = await sendManualNotifications(
+      const { sent, blocked } = await sendManualNotifications(
         eventModel,
         eventOriginalId,
         eventDate,
         [...selected]
       );
       toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      // PAD-112: say so out loud when someone was skipped. A silently short
+      // count reads as a bug; naming the student (and their reason) makes it
+      // legible as their own choice.
+      if (blocked?.length) {
+        toast.warning(
+          t("calendar.notify.blockedByPreference", {
+            names: blocked.map((b) => b.name).filter(Boolean).join(", "),
+          }),
+          { description: blocked.map((b) => b.reason).filter(Boolean).join(" · ") || undefined },
+        );
+      }
       setSelected(new Set());
       setSearch("");
       onClose();

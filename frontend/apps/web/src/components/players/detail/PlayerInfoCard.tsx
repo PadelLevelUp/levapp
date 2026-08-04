@@ -2,7 +2,7 @@ import type { CoachPlayer } from "@/types";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mail, Phone, User } from "lucide-react";
+import { BellOff, Mail, Phone, User } from "lucide-react";
 
 interface PlayerInfoCardProps {
   player: CoachPlayer;
@@ -93,6 +93,34 @@ export function PlayerInfoCard({
             ) : (
               <p>{player.notes}</p>
             )}
+          </div>
+        )}
+
+        {/* PAD-112: the student's own explanation for cutting notifications.
+            READ-ONLY for the coach — they may see it (that is the whole point
+            of the field) but it belongs to the student and is edited only from
+            the student's Settings. Note the contrast with a PAD-107
+            availability blocker, whose title/description/hours are the
+            student's private calendar and are never shown here. */}
+        {player.notificationsBlocked && (
+          <div className="pt-2 border-t" data-testid="player-notifications-blocked-detail">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <BellOff className="h-3 w-3" />
+              {t("players.notificationsBlockedTitle")}
+            </p>
+            <ul className="text-sm list-disc list-inside text-muted-foreground">
+              {player.blockAllNotifications && <li>{t("players.notificationsBlockedAll")}</li>}
+              {player.blockAutoInvitations && <li>{t("players.notificationsBlockedAuto")}</li>}
+              {player.blockManualInvitations && <li>{t("players.notificationsBlockedManual")}</li>}
+            </ul>
+            <p className="text-xs text-muted-foreground mt-2 mb-1">
+              {t("players.notificationsBlockedReason")}
+            </p>
+            <p data-testid="player-notifications-blocked-reason">
+              {player.notificationBlockReason?.trim()
+                ? player.notificationBlockReason
+                : t("players.notificationsBlockedNoReason")}
+            </p>
           </div>
         )}
       </CardContent>

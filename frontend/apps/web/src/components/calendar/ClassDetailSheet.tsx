@@ -1102,12 +1102,22 @@ export function ClassDetailSheet({
                           if (!event) return;
                           setSendingReminders(true);
                           try {
-                            const { sent } = await sendClassReminders(
+                            const { sent, blocked } = await sendClassReminders(
                               event.model,
                               String(event.originalId),
                               event.date
                             );
                             toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
+                            // PAD-112: a student who blocked all notifications
+                            // is skipped; name them so the short count reads as
+                            // their choice rather than as a failure.
+                            if (blocked?.length) {
+                              toast({
+                                title: t("calendar.notify.blockedByPreference", {
+                                  names: blocked.map((b) => b.name).filter(Boolean).join(", "),
+                                }),
+                              });
+                            }
                           } catch {
                             toast({ title: t("calendar.detail.failedSendReminders"), variant: "destructive" });
                           } finally {

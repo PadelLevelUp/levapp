@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Bell,
+  BellOff,
   Building2,
   Calendar,
   Palette,
@@ -37,8 +38,24 @@ import { ImportHistorySection } from "@/components/settings/ImportHistorySection
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
+import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 
-type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
+/**
+ * PAD-112 adds `myNotifications` — the STUDENT's own notification block
+ * preferences. Deliberately NOT called `notifications`: that id is the coach's
+ * notification-engine configuration, which PAD-103 hides from students. Two
+ * different audiences, so two different ids — reusing the name would make the
+ * student section inherit the coach section's visibility rules.
+ */
+type SettingsTab =
+  | "profile"
+  | "preferences"
+  | "calendar"
+  | "notifications"
+  | "myNotifications"
+  | "import"
+  | "club"
+  | "account";
 
 /**
  * PAD-81: the profile fields the coach can edit about themselves. Kept as a
@@ -67,6 +84,7 @@ function SettingsNav({
     { id: "preferences", label: t("settings.nav.preferences"), icon: <Palette className="w-4 h-4" /> },
     { id: "calendar", label: t("settings.nav.calendar"), icon: <Calendar className="w-4 h-4" /> },
     { id: "notifications", label: t("settings.nav.notifications"), icon: <Bell className="w-4 h-4" /> },
+    { id: "myNotifications", label: t("settings.nav.myNotifications"), icon: <BellOff className="w-4 h-4" /> },
     { id: "import", label: t("settings.nav.import"), icon: <Upload className="w-4 h-4" /> },
     { id: "club", label: t("settings.nav.club"), icon: <Building2 className="w-4 h-4" /> },
     { id: "account", label: t("settings.nav.account"), icon: <UserX className="w-4 h-4" /> },
@@ -77,6 +95,7 @@ function SettingsNav({
       {items.map((it) => (
         <button
           key={it.id}
+          data-testid={`settings-nav-${it.id}`}
           onClick={() => onChange(it.id)}
           className={cn(
             "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
@@ -230,6 +249,7 @@ export default function SettingsPage() {
                   <SelectItem value="preferences">{t("settings.nav.preferences")}</SelectItem>
                   <SelectItem value="calendar">{t("settings.nav.calendar")}</SelectItem>
                   <SelectItem value="notifications">{t("settings.nav.notifications")}</SelectItem>
+                  <SelectItem value="myNotifications">{t("settings.nav.myNotifications")}</SelectItem>
                   <SelectItem value="import">{t("settings.nav.import")}</SelectItem>
                   <SelectItem value="club">{t("settings.nav.club")}</SelectItem>
                   <SelectItem value="account">{t("settings.nav.account")}</SelectItem>
@@ -346,8 +366,14 @@ export default function SettingsPage() {
             {/* CALENDAR */}
             {tab === "calendar" && <SeasonsSection />}
 
-            {/* NOTIFICATIONS */}
+            {/* NOTIFICATIONS — the coach's notification-engine configuration. */}
             {tab === "notifications" && <NotificationsEngineSection />}
+
+            {/* MY NOTIFICATIONS — PAD-112: the student's own block preferences.
+                Visible to both roles; only a student has any use for it, but
+                nothing here is coach-hostile and the endpoint behind it
+                (`PATCH /auth/me`) is per-user, not coach-scoped. */}
+            {tab === "myNotifications" && <StudentNotificationBlocksSection />}
 
             {/* IMPORT DATA */}
             {tab === "import" && (
