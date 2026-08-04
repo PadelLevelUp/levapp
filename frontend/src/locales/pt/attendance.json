@@ -1,0 +1,39 @@
+{
+  "attendance": {
+    "title": "Presenças",
+    "subtitleOwn": "As aulas em que estiveste presente",
+    "subtitleOther": "Aulas em que {{name}} esteve presente",
+    "backToPlayer": "Voltar ao perfil",
+    "backToDashboard": "Voltar ao painel",
+    "chart": {
+      "title": "Presenças por período",
+      "seriesLabel": "Presenças",
+      "empty": "Sem presenças registadas neste período",
+      "loading": "A carregar presenças…",
+      "error": "Não foi possível carregar as presenças"
+    },
+    "total_one": "{{count}} presença",
+    "total_other": "{{count}} presenças",
+    "ranges": {
+      "week": "1W",
+      "month": "1M",
+      "year": "1Y",
+      "custom": "…",
+      "weekAria": "Semana atual",
+      "monthAria": "Mês atual",
+      "yearAria": "Ano atual",
+      "customAria": "Período personalizado",
+      "from": "Desde",
+      "to": "Até",
+      "apply": "Aplicar",
+      "clear": "Limpar",
+      "invalid": "A data inicial tem de ser anterior à data final"
+    },
+    "history": {
+      "title": "Aulas presenciadas",
+      "empty": "Ainda não há aulas presenciadas neste período",
+      "openClass": "Abrir aula {{title}} de {{date}}"
+    },
+    "playerLink": "Ver presenças"
+  }
+}

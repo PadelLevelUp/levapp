@@ -12,7 +12,7 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -244,6 +244,16 @@ export default function PlayerDetailPage() {
           </Button>
           <PageActions
             actions={[
+              // PAD-114: the coach-side entry point into the shared "Presenças"
+              // page. The student reaches the same page from their dashboard's
+              // "Attended" KPI; both land on one component backed by one
+              // server-authorized endpoint.
+              {
+                label: t("attendance.playerLink"),
+                icon: <CalendarCheck className="mr-2 h-4 w-4" />,
+                onClick: () => navigate(`/players/${playerId}/attendance`),
+                testId: "player-attendance-link",
+              },
               {
                 label: t("players.addToClasses"),
                 icon: <CalendarPlus className="mr-2 h-4 w-4" />,

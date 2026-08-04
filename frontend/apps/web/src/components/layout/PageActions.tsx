@@ -17,6 +17,8 @@ export interface PageAction {
   variant?: "default" | "outline" | "destructive" | "ghost";
   disabled?: boolean;
   className?: string;
+  /** Optional stable hook for E2E (`data-testid` on the rendered control). */
+  testId?: string;
 }
 
 interface PageActionsProps {
@@ -43,6 +45,7 @@ export function PageActions({ actions }: PageActionsProps) {
             onClick={action.onClick}
             disabled={action.disabled}
             className={action.className}
+            data-testid={action.testId}
           >
             {action.icon}
             {action.label}
@@ -69,6 +72,7 @@ export function PageActions({ actions }: PageActionsProps) {
                   action.variant === "destructive" && "text-destructive focus:text-destructive",
                   action.className,
                 )}
+                data-testid={action.testId}
               >
                 {action.icon}
                 {action.label}
