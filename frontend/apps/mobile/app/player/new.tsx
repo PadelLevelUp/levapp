@@ -26,7 +26,6 @@ export default function NewPlayerScreen() {
         coachId: user?.coachId,
         name: values.name,
         isActive: true,
-        username: values.username,
         email: values.email || undefined,
         phone: values.phone || undefined,
         levelId: values.levelId,

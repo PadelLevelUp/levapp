@@ -115,6 +115,11 @@ export interface CoachPlayer {
   isActive: boolean,
   /** PAD-30: true once the player completed self-service registration (password set). */
   validated: boolean,
+  /**
+   * PAD-105: internal only. Coaches neither set nor see this — a coach-created
+   * player carries a generated `pending-…` placeholder until the player picks
+   * their own username at account activation. Do not render it in coach UI.
+   */
   username: string,
   levelId?: string;
   side?: PlayerSide;

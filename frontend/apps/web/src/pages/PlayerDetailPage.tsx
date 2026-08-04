@@ -57,7 +57,6 @@ export default function PlayerDetailPage() {
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
-  const [draftUsername, setDraftUsername] = useState("");
   const [draftEmail, setDraftEmail] = useState("");
   const [draftPhone, setDraftPhone] = useState("");
   const [draftLevelId, setDraftLevelId] = useState("");
@@ -113,7 +112,6 @@ export default function PlayerDetailPage() {
   const handleEditStart = () => {
     if (!player) return;
     setDraftName(player.name ?? "");
-    setDraftUsername(player.username ?? "");
     setDraftEmail(player.email ?? "");
     setDraftPhone(player.phone ?? "");
     setDraftLevelId(player.levelId ?? "");
@@ -132,7 +130,6 @@ export default function PlayerDetailPage() {
 
     const updates = {
       name: draftName.trim() || undefined,
-      username: draftUsername.trim() || undefined,
       userId: player.userId,
       email: draftEmail.trim() || undefined,
       phone: draftPhone.trim() || undefined,
@@ -149,7 +146,6 @@ export default function PlayerDetailPage() {
       const updated: CoachPlayer = {
         ...player,
         name: updates.name ?? player.name,
-        username: updates.username,
         email: updates.email,
         phone: updates.phone,
         levelId: updates.levelId,
@@ -355,11 +351,9 @@ export default function PlayerDetailPage() {
             <PlayerInfoCard
               player={player}
               isEditing={isEditing}
-              draftUsername={draftUsername}
               draftEmail={draftEmail}
               draftPhone={draftPhone}
               draftNotes={draftNotes}
-              onDraftUsernameChange={setDraftUsername}
               onDraftEmailChange={setDraftEmail}
               onDraftPhoneChange={setDraftPhone}
               onDraftNotesChange={setDraftNotes}

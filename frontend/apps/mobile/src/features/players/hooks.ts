@@ -49,12 +49,12 @@ function usePlayersInvalidation() {
   };
 }
 
-/** Payload for POST /app/add_player — mirrors the web AddPlayerSheet. */
+/** Payload for POST /app/add_player — mirrors the web AddPlayerSheet.
+ *  PAD-105: no `username` — the player picks their own at activation. */
 export interface AddPlayerPayload {
   coachId?: string | null;
   name: string;
   isActive: boolean;
-  username?: string;
   email?: string;
   phone?: string;
   levelId?: string;
@@ -73,7 +73,6 @@ export function useAddPlayer() {
 /** Updates for POST /app/edit_player — mirrors the web PlayerDetailPage. */
 export interface EditPlayerUpdates {
   name?: string;
-  username?: string;
   userId?: string;
   email?: string;
   phone?: string;
