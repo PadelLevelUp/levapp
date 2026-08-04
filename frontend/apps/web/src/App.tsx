@@ -11,6 +11,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
 import PlayerDetailPage from "./pages/PlayerDetailPage";
+import AttendancePage from "./pages/AttendancePage";
 import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
@@ -100,6 +101,29 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["coach"]}>
                     <PlayerDetailPage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-114 — "Presenças". One page, two entry points. The role
+                  guards here are UX only: `GET /attendance_history`
+                  re-authorizes the subject server-side (spec
+                  `attendance.history` rule 3), so a coach cannot read a player
+                  off their roster by typing the URL. */}
+              <Route
+                path="/players/:playerId/attendance"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <AttendancePage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
+                path="/attendance"
+                element={
+                  <RoleRoute allowedRoles={["player"]}>
+                    <AttendancePage />
                   </RoleRoute>
                 }
               />

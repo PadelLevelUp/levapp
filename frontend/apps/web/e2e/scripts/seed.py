@@ -507,6 +507,84 @@ with app.app_context():
         )
     )
 
+    # ── Attended history (PAD-114) ───────────────────────────────────────────
+    # The attendance page (specs/attendance/spec.md → attendance.history) counts a
+    # class as attended when `Presence.status == "present"`. Nothing else in the
+    # seed produced such a row, so every chart range and every history list would
+    # have been empty and the spec vacuous.
+    #
+    # Placement rules, so this fixture cannot perturb other specs:
+    #   * every instance is at least 8 days old — 8 days back is always in an
+    #     EARLIER week than today, so none of these ever appear in the calendar's
+    #     default (current) week;
+    #   * they hang off their own lesson, and the student is attached to the
+    #     INSTANCES only (Association_PlayerLessonInstance + Presence), never to
+    #     the parent Lesson, so no "my classes" list gains an entry;
+    #   * `validated=True`, because the coach dashboard's "Pending validation"
+    #     KPI counts `Presence.validated == False` — unvalidated rows would have
+    #     silently moved a KPI other specs read;
+    #   * 11:00 UTC keeps every row far from a midnight day-boundary, which is
+    #     where PAD-33's timezone flakiness lived.
+    attended_lesson = Lesson(
+        title="E2E Attended Class",
+        start_datetime=today - timedelta(days=250),
+        end_datetime=today - timedelta(days=250) + timedelta(hours=1),
+        is_recurring=False,
+        type="academy",
+        max_players=6,
+        club_id=club.id,
+        color="#6366f1",
+        status="active",
+    )
+    db.session.add(attended_lesson)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLesson(coach_id=coach.id, lesson_id=attended_lesson.id)
+    )
+
+    attended_instances = []
+    for days_ago in (8, 15, 45, 120, 250):
+        attended_start = (today - timedelta(days=days_ago)).replace(
+            hour=11, minute=0, second=0, microsecond=0
+        )
+        attended_instance = LessonInstance(
+            lesson_id=attended_lesson.id,
+            start_datetime=attended_start,
+            end_datetime=attended_start + timedelta(hours=1),
+            max_players=6,
+            status="scheduled",
+            level_id=level_beginner.id,
+            notifications_enabled=False,
+            original_lesson_occurence_date=attended_start.date(),
+        )
+        db.session.add(attended_instance)
+        db.session.flush()
+
+        db.session.add(
+            Association_CoachLessonInstance(
+                coach_id=coach.id,
+                lesson_instance_id=attended_instance.id,
+            )
+        )
+        db.session.add(
+            Association_PlayerLessonInstance(
+                player_id=student.id,
+                lesson_instance_id=attended_instance.id,
+            )
+        )
+        db.session.add(
+            Presence(
+                player_id=student.id,
+                lesson_instance_id=attended_instance.id,
+                invited=True,
+                confirmed=True,
+                status="present",
+                validated=True,
+            )
+        )
+        attended_instances.append(attended_instance)
+
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
         coach_id=coach.id,
@@ -597,3 +675,7 @@ with app.app_context():
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
     print(f"  Conversation {conversation2.id} (coach<->student2) last message yesterday (read)")
+    print(
+        f"  Attended history (PAD-114): {len(attended_instances)} past instances of "
+        f"'{attended_lesson.title}' with presence status=present for {student_user.username}"
+    )

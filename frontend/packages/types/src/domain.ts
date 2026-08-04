@@ -608,3 +608,42 @@ export interface ImportTable {
   allSelected: boolean;
   expanded: boolean;
 }
+
+// ── Attendance history (PAD-114) ────────────────────────────────────────────
+// Payload of `GET /app/attendance_history` — the "Presenças" page. The server
+// picks the bucket size when the client does not pin one and always echoes the
+// one it used, so the chart labels its axis from the response rather than
+// re-deriving the rule (spec `attendance.history` rule 4).
+
+export type AttendanceGranularity = "day" | "month" | "year";
+
+export interface AttendanceBucket {
+  /** ISO date of the period start (day, first of month, or first of year). */
+  start: string;
+  count: number;
+}
+
+export interface AttendanceSession {
+  lessonInstanceId: number;
+  /** Calendar event id for this occurrence, always `lessoninstance-<id>`. */
+  calendarEventId: string;
+  title: string;
+  /** ISO datetime (naive UTC) of the class start. */
+  startDatetime: string;
+  /** `YYYY-MM-DD` of the class. */
+  date: string;
+  color?: string | null;
+  /** Calendar deep link — `dashboard.navigation` rule 8. */
+  href: string;
+}
+
+export interface AttendanceHistory {
+  playerId: number;
+  playerName?: string | null;
+  from: string;
+  to: string;
+  granularity: AttendanceGranularity;
+  total: number;
+  buckets: AttendanceBucket[];
+  sessions: AttendanceSession[];
+}
