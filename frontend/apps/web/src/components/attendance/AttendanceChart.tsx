@@ -161,12 +161,23 @@ export function AttendanceChart({
             }
           />
           {/* 4px rounded data-end anchored to the baseline; maxBarSize keeps the
-              marks thin when a week only has 7 of them. */}
+              marks thin when a week only has 7 of them.
+
+              `isAnimationActive={false}` is load-bearing, not a style choice.
+              Recharts grows each bar from zero height via requestAnimationFrame,
+              and a `Rectangle` of zero height renders nothing at all — so
+              whenever rAF is throttled (a background tab, a headless renderer,
+              reduced-motion) the animation never advances and every bar stays an
+              EMPTY <g>: axes, grid and tooltips all present, no marks. The chart
+              silently reads as "no attendance". Drawing the bars synchronously
+              removes that failure mode entirely, and a count-per-period chart
+              gains nothing from the grow-in. */}
           <Bar
             dataKey="count"
             fill="var(--color-count)"
             radius={[4, 4, 0, 0]}
             maxBarSize={40}
+            isAnimationActive={false}
           />
         </BarChart>
       </ChartContainer>

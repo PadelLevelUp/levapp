@@ -35,8 +35,13 @@ export function PageActions({ actions }: PageActionsProps) {
 
   return (
     <>
-      {/* Desktop: inline buttons */}
-      <div className="hidden sm:flex items-center gap-2">
+      {/* Desktop: inline buttons.
+          `flex-wrap` + `justify-end`: the player profile now carries five
+          actions, and a fixed single row pushed the last one (Delete Player)
+          6px past a 1280px viewport where it was silently clipped. Wrapping
+          keeps every action reachable at any width instead of hiding whichever
+          one happens to be last. */}
+      <div className="hidden sm:flex flex-wrap justify-end items-center gap-2">
         {actions.map((action) => (
           <Button
             key={action.label}

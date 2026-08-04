@@ -238,7 +238,7 @@ export default function PlayerDetailPage() {
   return (
     <AppLayout>
       <div className="p-6 space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
           </Button>

@@ -145,6 +145,43 @@ test.describe("PAD-114 student attendance page", () => {
     expect(monthly.buckets.length).toBeLessThanOrEqual(31);
   });
 
+  // Regression guard. The chart used to render its axes, grid, tooltips and a
+  // <g> per bucket while drawing NO bar marks at all: recharts grows each bar
+  // from zero height via requestAnimationFrame, a zero-height Rectangle renders
+  // nothing, and wherever rAF is throttled the animation never advanced. The
+  // page then read as "no attendance" while the payload said otherwise —
+  // invisible to every assertion that only checked the payload or the container.
+  test("bar marks are actually drawn for non-empty periods", async ({ page }) => {
+    await loginAsStudent(page);
+    await waitForHistory(page, async () => {
+      await page.goto("/attendance");
+    });
+
+    const yearly = await waitForHistory(page, async () => {
+      await page.getByTestId("attendance-range-1y").click();
+    });
+    const nonEmpty = yearly.buckets.filter(
+      (b: { count: number }) => b.count > 0
+    ).length;
+    test.skip(nonEmpty === 0, "no attendance in the current year");
+
+    await expect(page.getByTestId("attendance-chart")).toHaveAttribute(
+      "data-state",
+      "ready"
+    );
+    // One <path class="recharts-rectangle"> per bucket that actually has a count.
+    const marks = page.locator(
+      '[data-testid="attendance-chart"] .recharts-rectangle'
+    );
+    await expect(marks).toHaveCount(nonEmpty, { timeout: 10_000 });
+
+    // ...and they have real height, not a collapsed baseline sliver.
+    const heights = await marks.evaluateAll((nodes) =>
+      nodes.map((n) => Number(n.getAttribute("height") ?? 0))
+    );
+    expect(Math.min(...heights)).toBeGreaterThan(1);
+  });
+
   test("custom period widens the range, then Clear restores the preset view", async ({
     page,
   }) => {
