@@ -18,6 +18,7 @@ import {
   Repeat,
   Loader2,
   AlertTriangle,
+  UserX,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -169,6 +170,11 @@ export function ClassDetailSheet({
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
   const [attendanceCancelled, setAttendanceCancelled] = useState(false);
 
+  // PAD-73: student proactively declines a future class from the participants
+  // section, before they would even have been reminded to confirm.
+  const [proactiveDeclineOpen, setProactiveDeclineOpen] = useState(false);
+  const [decliningProactively, setDecliningProactively] = useState(false);
+
   useEffect(() => {
     if (!canManage) {
       setIsEditing(false);
@@ -184,6 +190,13 @@ export function ClassDetailSheet({
     if (!event) return;
 
     let mounted = true;
+
+    // PAD-73: the optimistic "I just declined" flags belong to ONE class. Clear
+    // them whenever the sheet switches classes, otherwise opening another class
+    // right after declining would render it as already declined.
+    setAttendanceCancelled(false);
+    setProactiveDeclineOpen(false);
+    setCancelAttendanceOpen(false);
 
     async function load() {
       const data = await getClassInstance(event);
@@ -327,10 +340,30 @@ export function ClassDetailSheet({
     !!cancellationDeadline &&
     !Number.isNaN(cancellationDeadline.getTime()) &&
     Date.now() >= cancellationDeadline.getTime();
+  // PAD-73: the student's own presence row. The serializer only ever returns the
+  // viewer's own presence for a student, so `presences[0]` IS "my presence".
+  // Deriving the declined state from it (rather than from local component state)
+  // is what makes the "not attending" badge survive a reload — there is no extra
+  // column and no extra request behind it.
+  const ownPresence = !canManage ? classInstance?.presences?.[0] : undefined;
+  const declinedOnServer =
+    ownPresence?.status === "absent" && ownPresence?.justification === "justified";
+  const hasDeclined = attendanceCancelled || declinedOnServer;
+
+  // PAD-73: the proactive-decline window, answered by the SERVER. The client does
+  // not re-derive the reminder instant — it only reads the flag, so the action can
+  // never be offered at a moment `cancel_attendance` would classify differently.
+  const canDeclineProactively =
+    isStudentParticipant &&
+    !classStarted &&
+    !hasDeclined &&
+    cancelInstanceId != null &&
+    active.canDeclineProactively === true;
+
   const canCancelAttendance =
     isStudentParticipant &&
     !classStarted &&
-    !attendanceCancelled &&
+    !hasDeclined &&
     cancelInstanceId != null;
 
   const startEdit = () => {
@@ -591,6 +624,27 @@ export function ClassDetailSheet({
       });
     } finally {
       setCancellingAttendance(false);
+    }
+  };
+
+  // PAD-73: proactive decline. Same endpoint as the plain cancel — the server
+  // classifies which kind of decline it was and reports it back in `proactive`,
+  // so this handler never has to reason about the reminder cutoff itself.
+  const handleProactiveDecline = async () => {
+    if (cancelInstanceId == null || decliningProactively) return;
+    setDecliningProactively(true);
+    try {
+      await cancelAttendance(cancelInstanceId);
+      setAttendanceCancelled(true);
+      setProactiveDeclineOpen(false);
+      toast({ title: t("calendar.detail.proactiveDeclineDone") });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("calendar.detail.proactiveDeclineFailed"),
+      });
+    } finally {
+      setDecliningProactively(false);
     }
   };
 
@@ -965,6 +1019,41 @@ export function ClassDetailSheet({
                     {t("calendar.detail.noParticipants")}
                   </p>
                 )}
+
+                {/* PAD-73: the proactive-decline affordance lives here, on the
+                    student's own row in the participants area, because that is
+                    where a student looks to answer "am I in this class?". It is
+                    shown only while the server says the window is still open;
+                    once the reminder instant passes it disappears and the
+                    regular cancel action below takes over. */}
+                {!canManage && hasDeclined && (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                    <UserX className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium">{t("calendar.detail.notAttending")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("calendar.detail.notAttendingJustified")}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {canDeclineProactively && (
+                  <div className="pt-1 space-y-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setProactiveDeclineOpen(true)}
+                    >
+                      <UserX className="w-4 h-4 mr-2" />
+                      {t("calendar.detail.proactiveDecline")}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {t("calendar.detail.proactiveDeclineHint")}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1135,7 +1224,11 @@ export function ClassDetailSheet({
               {/* PAD-46: student cancels their own attendance from the class view */}
               {!canManage && (
                 <>
-                  {attendanceCancelled ? (
+                  {/* PAD-73: `hasDeclined` (not the local-only
+                      `attendanceCancelled`) so this state survives a reload —
+                      it is re-derived from the student's own serialized
+                      presence, no new column required. */}
+                  {hasDeclined ? (
                     <div className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                       <X className="w-4 h-4" />
                       {t("calendar.detail.attendanceCancelled")}
@@ -1230,6 +1323,41 @@ export function ClassDetailSheet({
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
                 {t("calendar.detail.cancelAttendance")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* PAD-73: confirm a PROACTIVE decline. Distinct copy from the plain
+          cancellation above — there is no deadline warning to show, because by
+          definition this is happening before the student was even reminded. */}
+      {!canManage && (
+        <AlertDialog open={proactiveDeclineOpen} onOpenChange={setProactiveDeclineOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("calendar.detail.proactiveDeclineConfirmTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("calendar.detail.proactiveDeclineConfirmBody")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={decliningProactively}>
+                {t("calendar.detail.keepAttendance")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleProactiveDecline();
+                }}
+                disabled={decliningProactively}
+              >
+                {decliningProactively ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                {t("calendar.detail.proactiveDecline")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
