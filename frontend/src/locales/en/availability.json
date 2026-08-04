@@ -22,7 +22,7 @@
     "everyDays": "Every {{days}} · {{time}}",
     "dateAndTime": "{{date}} · {{time}}",
     "title": "Availability",
-    "intro": "Set blockers for times you're unavailable. You won't receive automatic class invitations during a blocker. Your coach can still add you to a class manually.",
+    "intro": "Set blockers for times you're unavailable. During a blocker you won't receive any class notifications — no automatic invitations, and no invitations or reminders sent by your coach. Your coach can still add you to a class manually, but cannot notify you during that period.",
     "addBlocker": "Add blocker",
     "editBlocker": "Edit blocker",
     "newBlocker": "New blocker",

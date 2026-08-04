@@ -22,7 +22,7 @@
     "everyDays": "Todas as {{days}} · {{time}}",
     "dateAndTime": "{{date}} · {{time}}",
     "title": "Disponibilidade",
-    "intro": "Defina bloqueios para os horários em que está indisponível. Não receberá convites automáticos para aulas durante um bloqueio. O seu treinador pode continuar a adicioná-lo a uma aula manualmente.",
+    "intro": "Defina bloqueios para os horários em que está indisponível. Durante um bloqueio não receberá qualquer notificação de aulas — nem convites automáticos, nem convites ou lembretes enviados pelo treinador. O seu treinador pode continuar a adicioná-lo a uma aula manualmente, mas não lhe poderá enviar notificações nesse período.",
     "addBlocker": "Adicionar bloqueio",
     "editBlocker": "Editar bloqueio",
     "newBlocker": "Novo bloqueio",
