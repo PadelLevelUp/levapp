@@ -35,13 +35,23 @@ export async function toggleLessonNotifications(
   return res.data;
 }
 
+/**
+ * PAD-107: a student who marked themselves unavailable for a class slot.
+ * The backend deliberately returns the name only — never the blocker's title,
+ * description or hours, which are the student's private calendar.
+ */
+export interface BlockedStudent {
+  playerId: number;
+  name: string;
+}
+
 export async function sendClassReminders(
   model: string,
   originalId: string,
   date: string
-): Promise<{ sent: number }> {
+): Promise<{ sent: number; blocked: BlockedStudent[] }> {
   const res = await getApi().post("/app/notify/send_reminders", { model, originalId, date });
-  return res.data;
+  return { blocked: [], ...res.data };
 }
 
 export async function sendManualNotifications(
@@ -49,9 +59,28 @@ export async function sendManualNotifications(
   originalId: string,
   date: string,
   playerIds: string[]
-): Promise<{ sent: number }> {
+): Promise<{ sent: number; blocked: BlockedStudent[] }> {
   const res = await getApi().post("/app/notify/manual", { model, originalId, date, playerIds });
-  return res.data;
+  return { blocked: [], ...res.data };
+}
+
+/**
+ * PAD-107: which of `playerIds` are unavailable for the proposed class window?
+ * Called before a class is created, when no LessonInstance exists yet.
+ */
+export async function checkAvailabilityConflicts(
+  date: string,
+  startTime: string,
+  endTime: string,
+  playerIds: string[]
+): Promise<BlockedStudent[]> {
+  const res = await getApi().post("/app/notify/availability_conflicts", {
+    date,
+    startTime,
+    endTime,
+    playerIds,
+  });
+  return res.data?.blocked ?? [];
 }
 
 export async function getNotificationActivity(): Promise<NotificationEventItem[]> {

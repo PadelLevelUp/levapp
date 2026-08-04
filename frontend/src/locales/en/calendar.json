@@ -264,6 +264,15 @@
       "newClass": "New class",
       "creationFailed": "Creation failed",
       "creationFailedDescription": "The class could not be created."
+    },
+    "unavailable": {
+      "title": "Student unavailable",
+      "description_one": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
+      "description_other": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
+      "confirm": "Proceed anyway",
+      "cancel": "Cancel",
+      "blocked_one": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
+      "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
     }
   }
 }
