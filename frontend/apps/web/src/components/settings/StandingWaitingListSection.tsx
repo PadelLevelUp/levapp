@@ -80,9 +80,24 @@ export function StandingWaitingListSection() {
     }
   };
 
+  /**
+   * `expires_at` is stored as a naive UTC datetime and serialized with `.isoformat()`, so it
+   * arrives without a `Z` or an offset (e.g. "2026-09-03T12:34:56.789012"). `new Date()` reads
+   * that offset-less form as *local* time, which skews it by the host's UTC offset. Normalize to
+   * UTC before parsing so the displayed date and the expiry comparison agree with each other.
+   */
+  const parseExpiry = (iso: string) =>
+    new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`);
+
   const formatExpiry = (iso: string) => {
-    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return parseExpiry(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
+
+  /**
+   * `expires_at` is an instant, not a calendar date, so an entry expiring later today is not yet
+   * expired — "expires today" is not a distinct state.
+   */
+  const isExpired = (iso: string) => parseExpiry(iso).getTime() < Date.now();
 
   if (loading) {
     return (
@@ -128,14 +143,36 @@ export function StandingWaitingListSection() {
         <p className="text-xs text-muted-foreground">{t("settings.standingList.empty")}</p>
       ) : (
         <div className="space-y-2">
-          {entries.map((entry) => (
-            <div key={entry.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{entry.playerName ?? t("settings.standingList.unknown")}</p>
+          {entries.map((entry) => {
+            const expired = isExpired(entry.expiresAt);
+            return (
+            <div
+              key={entry.id}
+              data-testid="standing-wl-entry"
+              data-expired={expired}
+              className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0"
+            >
+              {/* Only the text block is de-emphasised — the remove button below keeps full
+                  emphasis, since an expired entry is exactly the one a coach wants to delete. */}
+              <div className={`flex-1 min-w-0 ${expired ? "opacity-70" : ""}`}>
+                <p
+                  data-testid="standing-wl-name"
+                  className={`text-sm font-medium truncate ${expired ? "text-muted-foreground" : ""}`}
+                >
+                  {entry.playerName ?? t("settings.standingList.unknown")}
+                </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="secondary" className="text-xs">
                     {t("settings.standingList.credits", { used: entry.creditsUsed, total: entry.creditsTotal })}
                   </Badge>
+                  {expired && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-muted text-muted-foreground"
+                    >
+                      {t("settings.standingList.expired")}
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {t("settings.standingList.expires", { date: formatExpiry(entry.expiresAt) })}
                   </span>
@@ -147,6 +184,7 @@ export function StandingWaitingListSection() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={t("settings.standingList.remove")}
                 className="shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => handleRemove(entry.id)}
                 disabled={removingId === entry.id}
@@ -154,7 +192,8 @@ export function StandingWaitingListSection() {
                 {removingId === entry.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               </Button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

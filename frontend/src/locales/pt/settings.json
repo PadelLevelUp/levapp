@@ -467,8 +467,10 @@
       "unknown": "Desconhecido",
       "credits": "{{used}}/{{total}} créditos",
       "expires": "Expira a {{date}}",
+      "expired": "Expirado",
       "classCount_one": "{{count}} aula",
-      "classCount_other": "{{count}} aulas"
+      "classCount_other": "{{count}} aulas",
+      "remove": "Remover"
     },
 
     "templates": {
