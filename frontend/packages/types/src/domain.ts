@@ -126,6 +126,21 @@ export interface CoachPlayer {
   notes?: string;
   level?: CoachLevel;
   phone?: string,
+  /**
+   * PAD-112: the student's own notification block preferences, surfaced to the
+   * coach so a silent student reads as a deliberate choice rather than as
+   * someone ignoring them. `notificationsBlocked` is derived server-side from
+   * the three flags, so it can never disagree with them.
+   *
+   * Optional because a payload from an older backend simply omits them; the UI
+   * treats "absent" as "not blocked".
+   */
+  notificationsBlocked?: boolean;
+  blockAutoInvitations?: boolean;
+  blockManualInvitations?: boolean;
+  blockAllNotifications?: boolean;
+  /** Written by the student, read-only for the coach. */
+  notificationBlockReason?: string;
 }
 
 export interface RecurrenceRule {

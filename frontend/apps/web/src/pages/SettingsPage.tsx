@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Bell,
+  BellOff,
   Building2,
   Calendar,
   Palette,
@@ -38,8 +39,24 @@ import { ImportHistorySection } from "@/components/settings/ImportHistorySection
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
+import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 
-type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
+/**
+ * PAD-112 adds `myNotifications` — the STUDENT's own notification block
+ * preferences. Deliberately NOT called `notifications`: that id is the coach's
+ * notification-engine configuration, which PAD-103 hides from students. Two
+ * different audiences, so two different ids — reusing the name would make the
+ * student section inherit the coach section's visibility rules.
+ */
+type SettingsTab =
+  | "profile"
+  | "preferences"
+  | "calendar"
+  | "notifications"
+  | "myNotifications"
+  | "import"
+  | "club"
+  | "account";
 
 /**
  * PAD-103: Settings is shared by both roles, but most of it is coach
@@ -66,6 +83,11 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "preferences", labelKey: "settings.nav.preferences", icon: <Palette className="w-4 h-4" />, coachOnly: false },
   { id: "calendar", labelKey: "settings.nav.calendar", icon: <Calendar className="w-4 h-4" />, coachOnly: true },
   { id: "notifications", labelKey: "settings.nav.notifications", icon: <Bell className="w-4 h-4" />, coachOnly: true },
+  // PAD-112: the student's OWN notification opt-outs. Deliberately NOT
+  // coachOnly — this is a per-user preference panel, not coach configuration,
+  // and hiding it from students would defeat that ticket entirely. Everyone
+  // sees it, which is exactly what PAD-112 shipped before this batch merge.
+  { id: "myNotifications", labelKey: "settings.nav.myNotifications", icon: <BellOff className="w-4 h-4" />, coachOnly: false },
   { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, coachOnly: true },
   { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, coachOnly: true },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, coachOnly: false },
@@ -390,8 +412,17 @@ export default function SettingsPage() {
             {/* CALENDAR */}
             {activeTab === "calendar" && <SeasonsSection />}
 
-            {/* NOTIFICATIONS */}
+            {/* NOTIFICATIONS — the coach's notification-engine configuration. */}
             {activeTab === "notifications" && <NotificationsEngineSection />}
+
+            {/* MY NOTIFICATIONS — PAD-112: the student's own block preferences.
+                Visible to both roles; only a student has any use for it, but
+                nothing here is coach-hostile and the endpoint behind it
+                (`PATCH /auth/me`) is per-user, not coach-scoped.
+                Gated on PAD-103's `activeTab`, not the raw `tab` state — the
+                rest of this switch does, and `tab` can still hold a section id
+                that isn't in the current role's visible list. */}
+            {activeTab === "myNotifications" && <StudentNotificationBlocksSection />}
 
             {/* IMPORT DATA */}
             {activeTab === "import" && (

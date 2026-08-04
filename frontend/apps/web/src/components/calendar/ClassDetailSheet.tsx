@@ -1196,18 +1196,37 @@ export function ClassDetailSheet({
                               String(event.originalId),
                               event.date
                             );
+                            // Two unrelated reasons a student is skipped, and
+                            // the coach is told a different thing for each, so
+                            // split `blocked` by cause instead of showing one
+                            // undifferentiated list.
+                            const unavailable = blocked.filter((b) => b.cause !== "preference");
+                            const optedOut = blocked.filter((b) => b.cause === "preference");
+
                             // PAD-107: name whoever could not be reached because
                             // they marked themselves unavailable for this slot.
-                            if (blocked.length > 0) {
+                            if (unavailable.length > 0) {
                               toast({
                                 variant: "destructive",
                                 title: t("calendar.unavailable.title"),
                                 description: t("calendar.unavailable.blocked", {
-                                  count: blocked.length,
-                                  names: blocked.map((b) => b.name).filter(Boolean).join(", "),
+                                  count: unavailable.length,
+                                  names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
                                 }),
                               });
                             }
+                            // PAD-112: a student who blocked all notifications
+                            // is skipped; name them so the short count reads as
+                            // their choice rather than as a failure.
+                            if (optedOut.length > 0) {
+                              toast({
+                                title: t("calendar.notify.blockedByPreference", {
+                                  names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+                                }),
+                              });
+                            }
+                            // PAD-107's ordering: no "reminders sent to 0" when
+                            // everyone was skipped — that already got its toast.
                             if (sent > 0 || blocked.length === 0) {
                               toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
                             }

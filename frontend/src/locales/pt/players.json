@@ -132,6 +132,13 @@
     "classFull": "Lotada",
     "addToSelectedClasses_one": "Adicionar a {{count}} aula",
     "addToSelectedClasses_other": "Adicionar a {{count}} aulas",
-    "loading": "A carregar..."
+    "loading": "A carregar...",
+    "notificationsBlockedBadge": "Notificações cortadas",
+    "notificationsBlockedTitle": "Notificações cortadas pelo aluno",
+    "notificationsBlockedAuto": "Convites automáticos bloqueados",
+    "notificationsBlockedManual": "Convites manuais bloqueados",
+    "notificationsBlockedAll": "Todas as notificações bloqueadas",
+    "notificationsBlockedReason": "Motivo dado pelo aluno",
+    "notificationsBlockedNoReason": "O aluno não indicou um motivo."
   }
 }
