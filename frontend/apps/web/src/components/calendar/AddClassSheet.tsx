@@ -56,6 +56,12 @@ interface AddClassSheetProps {
   onClose: () => void;
   initialDate?: Date;
   initialTime?: string;
+  /**
+   * PAD-106: end time pinned by a drag-selected calendar range. When omitted
+   * (single slot click, toolbar "Add class") the sheet keeps its own default
+   * duration of start + 90 min.
+   */
+  initialEndTime?: string;
   onSave?: (data: any) => void | Promise<void>;
   players: CoachPlayer[];
   levels: CoachLevel[];
@@ -73,11 +79,24 @@ const COLORS = [
 // Keep this ORDER stable — only the locale-aware initial label changes per language.
 const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
+/** How long a class lasts when nothing says otherwise. */
+const DEFAULT_DURATION_MIN = 90;
+
+/** `start` + 90 min, clamped to the same day — the sheet's long-standing default. */
+function defaultEndTime(start: string) {
+  const [h, m] = start.split(':').map(Number);
+  const totalMin = h * 60 + m + DEFAULT_DURATION_MIN;
+  const newH = Math.min(Math.floor(totalMin / 60), 23);
+  const newM = totalMin % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
 export function AddClassSheet({
   open,
   onClose,
   initialDate,
   initialTime,
+  initialEndTime,
   onSave,
   players,
   levels,
@@ -103,7 +122,9 @@ export function AddClassSheet({
     initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : ''
   );
   const [startTime, setStartTime] = useState(initialTime || '09:00');
-  const [endTime, setEndTime] = useState('10:30');
+  const [endTime, setEndTime] = useState(
+    initialEndTime || defaultEndTime(initialTime || '09:00')
+  );
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedLevel, setSelectedLevel] = useState<string>('');
@@ -130,8 +151,14 @@ export function AddClassSheet({
   useEffect(() => {
     if (!open) return;
     setDate(initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : '');
-    setStartTime(initialTime || '09:00');
-  }, [open, initialDate, initialTime]);
+    const nextStart = initialTime || '09:00';
+    setStartTime(nextStart);
+    // PAD-106: a dragged range pins the end time; anything else falls back to the
+    // default duration. Always assigning it (rather than only when pinned) keeps
+    // reopening the sheet deterministic — otherwise the end time of a previous
+    // drag would leak into the next single-slot click.
+    setEndTime(initialEndTime || defaultEndTime(nextStart));
+  }, [open, initialDate, initialTime, initialEndTime]);
 
   useEffect(() => {
     if (!isRecurring || !date) return;
@@ -148,11 +175,7 @@ export function AddClassSheet({
   useEffect(() => {
     if (!startTime) return;
     if (endTime <= startTime) {
-      const [h, m] = startTime.split(':').map(Number);
-      const totalMin = h * 60 + m + 90;
-      const newH = Math.min(Math.floor(totalMin / 60), 23);
-      const newM = totalMin % 60;
-      setEndTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+      setEndTime(defaultEndTime(startTime));
     }
   }, [startTime]);
 
