@@ -169,6 +169,14 @@ export interface ClassInstance {
   // the student view can render deadline-aware cancel UX.
   cancellationDeadlineHours?: number;
   cancellationDeadline?: string | null;
+  // PAD-73: the proactive-decline window. `proactiveDeclineDeadline` is the
+  // instant the attendance reminder for this instance would fire (derived
+  // server-side from the coach's reminder timing, never a fixed interval);
+  // `canDeclineProactively` is the server's own answer to "is that window still
+  // open right now?", so the UI never offers the action when the server would
+  // classify the decline differently.
+  proactiveDeclineDeadline?: string | null;
+  canDeclineProactively?: boolean;
 }
 
 export interface Presence {

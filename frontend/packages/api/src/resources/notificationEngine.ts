@@ -138,7 +138,10 @@ export async function respondToReminder(
 
 export async function cancelAttendance(
   lessonInstanceId: number
-): Promise<{ action: "declined" }> {
+  // PAD-73: `proactive` is the SERVER's classification — true when the decline
+  // landed before the instant this student's attendance reminder would have
+  // fired. The client never derives this cutoff itself.
+): Promise<{ action: "declined"; proactive?: boolean }> {
   const res = await getApi().post("/app/notify/cancel_attendance", { lessonInstanceId });
   return res.data;
 }

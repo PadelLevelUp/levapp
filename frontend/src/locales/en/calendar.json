@@ -146,7 +146,15 @@
       "cancelAttendanceLateBadge": "Past deadline",
       "keepAttendance": "Keep my spot",
       "attendanceCancelled": "Attendance cancelled.",
-      "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started."
+      "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started.",
+      "proactiveDecline": "I can't attend",
+      "proactiveDeclineConfirmTitle": "Let your coach know you can't attend?",
+      "proactiveDeclineConfirmBody": "Your spot is freed right away and your coach is notified. The absence is automatically marked as justified.",
+      "proactiveDeclineHint": "Tell your coach early and another student can take your spot.",
+      "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
+      "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
+      "notAttending": "Not attending",
+      "notAttendingJustified": "Justified absence"
     },
     "planning": {
       "title": "Planning ({{count}})",

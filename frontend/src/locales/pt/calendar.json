@@ -146,7 +146,15 @@
       "cancelAttendanceLateBadge": "Prazo ultrapassado",
       "keepAttendance": "Manter a minha vaga",
       "attendanceCancelled": "Presença cancelada.",
-      "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado."
+      "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado.",
+      "proactiveDecline": "Não vou poder ir",
+      "proactiveDeclineConfirmTitle": "Avisar que não vais poder ir?",
+      "proactiveDeclineConfirmBody": "A tua vaga é libertada já, e o teu professor é avisado. A falta fica automaticamente justificada.",
+      "proactiveDeclineHint": "Avisa com antecedência e a tua vaga pode ser ocupada por outro aluno.",
+      "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
+      "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
+      "notAttending": "Não vais comparecer",
+      "notAttendingJustified": "Falta justificada"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
