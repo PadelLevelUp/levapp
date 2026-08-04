@@ -173,13 +173,25 @@ export function ManualNotificationModal({
     if (selected.size === 0) return;
     setSending(true);
     try {
-      const { sent } = await sendManualNotifications(
+      const { sent, blocked } = await sendManualNotifications(
         eventModel,
         eventOriginalId,
         eventDate,
         [...selected]
       );
-      toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      // PAD-107: students who marked themselves unavailable for this slot are
+      // never notified — say so by name instead of silently under-reporting.
+      if (blocked.length > 0) {
+        toast.error(
+          t("calendar.unavailable.blocked", {
+            count: blocked.length,
+            names: blocked.map((b) => b.name).filter(Boolean).join(", "),
+          })
+        );
+      }
+      if (sent > 0 || blocked.length === 0) {
+        toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      }
       setSelected(new Set());
       setSearch("");
       onClose();

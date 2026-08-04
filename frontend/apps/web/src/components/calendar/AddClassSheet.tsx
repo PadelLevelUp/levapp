@@ -30,6 +30,8 @@ import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import { findOverlappingEvent } from '@/lib/calendarOverlap';
 import { OverlapConfirmDialog } from './OverlapConfirmDialog';
+import { UnavailableStudentDialog } from './UnavailableStudentDialog';
+import { checkAvailabilityConflicts, type BlockedStudent } from '@/api/notificationEngine';
 
 const COACH_ID = "1";
 
@@ -115,6 +117,11 @@ export function AddClassSheet({
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   // PAD-99: confirm before scheduling over an existing class.
   const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
+  // PAD-107: confirm before scheduling a student into a window they marked as
+  // unavailable. Non-empty means the warning dialog is open.
+  const [unavailableStudents, setUnavailableStudents] = useState<BlockedStudent[]>([]);
+  // Set once the coach has confirmed, so re-submitting doesn't ask twice.
+  const [unavailableAcknowledged, setUnavailableAcknowledged] = useState(false);
   // PAD-90: a server-side rejection the coach can act on, shown inline.
   const [rejection, setRejection] = useState<string | null>(null);
   const { toast } = useToast();
@@ -138,6 +145,12 @@ export function AddClassSheet({
     const weekday = new Date(date).getDay();
     setSelectedDays(prev => prev.includes(weekday) ? prev : [weekday, ...prev]);
   }, [isRecurring, date]);
+
+  // PAD-107: a confirmation only covers the slot/roster it was given for —
+  // changing the date, time or participants must ask again.
+  useEffect(() => {
+    setUnavailableAcknowledged(false);
+  }, [date, startTime, endTime, selectedPlayers]);
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev =>
@@ -187,6 +200,43 @@ export function AddClassSheet({
       return;
     }
 
+    await checkUnavailableThenSave();
+  };
+
+  /**
+   * PAD-107: warn before booking a student into a window they marked as
+   * unavailable. Like the overlap warning this never hard-blocks — the coach
+   * decides — but they are told that no notification can reach that student for
+   * this slot. For a recurring class only the first occurrence is checked
+   * (same scope as the overlap warning).
+   */
+  const checkUnavailableThenSave = async () => {
+    setOverlapConfirmOpen(false);
+
+    if (
+      !unavailableAcknowledged &&
+      selectedPlayers.length > 0 &&
+      date &&
+      startTime &&
+      endTime
+    ) {
+      try {
+        const blocked = await checkAvailabilityConflicts(
+          date,
+          startTime,
+          endTime,
+          selectedPlayers
+        );
+        if (blocked.length > 0) {
+          setUnavailableStudents(blocked);
+          return;
+        }
+      } catch {
+        // A failed availability lookup must never stop a coach from booking.
+        // The send-time block on the backend is the real guarantee.
+      }
+    }
+
     await proceedSave();
   };
 
@@ -194,6 +244,7 @@ export function AddClassSheet({
   // this out of handleSave so the overlap dialog can call it directly.
   const proceedSave = async () => {
     setOverlapConfirmOpen(false);
+    setUnavailableStudents([]);
 
     const computedEndDate = isRecurring
       ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
@@ -237,6 +288,8 @@ export function AddClassSheet({
 
   const handleClose = () => {
     setOverlapConfirmOpen(false);
+    setUnavailableStudents([]);
+    setUnavailableAcknowledged(false);
     setClassType('academy');
     setIsRecurring(false);
     setName('');
@@ -500,7 +553,16 @@ export function AddClassSheet({
     <OverlapConfirmDialog
       open={overlapConfirmOpen}
       onCancel={() => setOverlapConfirmOpen(false)}
-      onConfirm={proceedSave}
+      onConfirm={checkUnavailableThenSave}
+    />
+    <UnavailableStudentDialog
+      open={unavailableStudents.length > 0}
+      students={unavailableStudents}
+      onCancel={() => setUnavailableStudents([])}
+      onConfirm={() => {
+        setUnavailableAcknowledged(true);
+        proceedSave();
+      }}
     />
     </>
   );

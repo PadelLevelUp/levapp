@@ -1102,12 +1102,26 @@ export function ClassDetailSheet({
                           if (!event) return;
                           setSendingReminders(true);
                           try {
-                            const { sent } = await sendClassReminders(
+                            const { sent, blocked } = await sendClassReminders(
                               event.model,
                               String(event.originalId),
                               event.date
                             );
-                            toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
+                            // PAD-107: name whoever could not be reached because
+                            // they marked themselves unavailable for this slot.
+                            if (blocked.length > 0) {
+                              toast({
+                                variant: "destructive",
+                                title: t("calendar.unavailable.title"),
+                                description: t("calendar.unavailable.blocked", {
+                                  count: blocked.length,
+                                  names: blocked.map((b) => b.name).filter(Boolean).join(", "),
+                                }),
+                              });
+                            }
+                            if (sent > 0 || blocked.length === 0) {
+                              toast({ title: t("calendar.detail.remindersSent", { count: sent }) });
+                            }
                           } catch {
                             toast({ title: t("calendar.detail.failedSendReminders"), variant: "destructive" });
                           } finally {
