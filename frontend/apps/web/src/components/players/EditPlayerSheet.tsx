@@ -36,7 +36,6 @@ import {
 
 export interface EditPlayerInput {
   name?: string;
-  username?: string;
   userId: string;
   email?: string;
   phone?: string;
@@ -69,7 +68,6 @@ export function EditPlayerSheet({
   const [copied, setCopied] = useState(false);
 
   const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -85,7 +83,6 @@ export function EditPlayerSheet({
     setIsEditing(false);
 
     setName(initialValues?.name ?? "");
-    setUsername(initialValues?.username ?? "");
     setUserId(initialValues.userId ?? "");
     setEmail(initialValues?.email ?? "");
     setPhone(initialValues?.phone ?? "");
@@ -112,7 +109,6 @@ export function EditPlayerSheet({
 
     onSave({
       name: name.trim(),
-      username: username.trim(),
       userId: userId || undefined,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
@@ -222,15 +218,9 @@ export function EditPlayerSheet({
 
             <div className="flex items-center gap-2">
             <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 text-muted-foreground font-medium">@</span>
-                {isEditing && isInactive ? (
-                  <Input value={username} onChange={(e) => setUsername(e.target.value)} />
-                ) : (
-                  <span>{username || t("players.noUsername")}</span>
-                )}
-              </div>
-
+              {/* PAD-105: no username row — the player chooses their own
+                  username when they activate their account, and the generated
+                  placeholder is never shown to the coach. */}
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 {isEditing && isInactive ? (

@@ -146,7 +146,15 @@
       "cancelAttendanceLateBadge": "Prazo ultrapassado",
       "keepAttendance": "Manter a minha vaga",
       "attendanceCancelled": "Presença cancelada.",
-      "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado."
+      "cancelAttendanceFailed": "Não foi possível cancelar a presença. A aula pode já ter começado.",
+      "proactiveDecline": "Não vou poder ir",
+      "proactiveDeclineConfirmTitle": "Avisar que não vais poder ir?",
+      "proactiveDeclineConfirmBody": "A tua vaga é libertada já, e o teu professor é avisado. A falta fica automaticamente justificada.",
+      "proactiveDeclineHint": "Avisa com antecedência e a tua vaga pode ser ocupada por outro aluno.",
+      "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
+      "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
+      "notAttending": "Não vais comparecer",
+      "notAttendingJustified": "Falta justificada"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -229,7 +237,8 @@
       "sendToCount_other": "Enviar a {{count}} alunos",
       "invitationSent_one": "Convite enviado a {{count}} aluno",
       "invitationSent_other": "Convite enviado a {{count}} alunos",
-      "failedSendInvitations": "Falha ao enviar os convites"
+      "failedSendInvitations": "Falha ao enviar os convites",
+      "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)"
     },
     "playerSelector": {
       "participants": "Participantes ({{count}})",
@@ -264,6 +273,15 @@
       "newClass": "Nova aula",
       "creationFailed": "Falha ao criar",
       "creationFailedDescription": "Não foi possível criar a aula."
+    },
+    "unavailable": {
+      "title": "Aluno indisponível",
+      "description_one": "O aluno {{names}} marcou-se como indisponível nesta hora. Tem a certeza que pretende avançar com ele na aula? Não poderá enviar-lhe notificações neste período por ele estar marcado como indisponível e não querer ser incomodado.",
+      "description_other": "Os alunos {{names}} marcaram-se como indisponíveis nesta hora. Tem a certeza que pretende avançar com eles na aula? Não poderá enviar-lhes notificações neste período por estarem marcados como indisponíveis e não quererem ser incomodados.",
+      "confirm": "Avançar mesmo assim",
+      "cancel": "Cancelar",
+      "blocked_one": "Não pode enviar notificações ao aluno {{names}} neste horário, pois ele marcou-se como indisponível.",
+      "blocked_other": "Não pode enviar notificações aos alunos {{names}} neste horário, pois marcaram-se como indisponíveis."
     }
   }
 }

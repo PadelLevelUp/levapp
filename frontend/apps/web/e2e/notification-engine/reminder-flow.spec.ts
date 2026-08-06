@@ -289,7 +289,10 @@ test("US-REM-05: coach can add student to standing waiting list", async ({ page 
   await openSettings(page);
 
   // Navigate to Notifications tab
-  await page.getByRole("button", { name: /notifications/i }).click();
+  // PAD-112 added a second sidebar button whose label also matches
+  // /notifications/i ("My notifications"), so the old role+name locator is
+  // ambiguous for a coach. Target the stable testid instead.
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
 
   // Open Standing Waiting List section
@@ -407,7 +410,7 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
 }) => {
   await loginAsCoach(page);
   await openSettings(page);
-  await page.getByRole("button", { name: /notifications/i }).click();
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
 
   // Locate the Auto-Invite Engine toggle specifically (near "Automatic notifications" text)
@@ -448,7 +451,7 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
 
   // Verify the state persisted by reloading the page
   await page.reload();
-  await page.getByRole("button", { name: /notifications/i }).click();
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
 
   const autoInviteSectionAfter = page.getByText(/auto-invite engine/i).first().locator("..").locator("..");

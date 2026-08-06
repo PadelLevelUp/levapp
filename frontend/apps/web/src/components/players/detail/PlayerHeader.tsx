@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Copy, Loader2, Pencil, UserX, X } from "lucide-react";
+import { BellOff, Check, Copy, Loader2, Pencil, UserX, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -144,6 +144,20 @@ export function PlayerHeader({
                 <Badge variant="outline" className="text-muted-foreground">{t("players.noLevel")}</Badge>
               )}
               {!player.isActive && <Badge variant="destructive">{t("players.inactive")}</Badge>}
+              {/* PAD-112: the student switched off class-invitation
+                  notifications themselves. Shown so the coach reads a silent
+                  student as a deliberate choice rather than as someone
+                  ignoring them; the reason they gave is in PlayerInfoCard. */}
+              {player.notificationsBlocked && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500 text-amber-600 dark:text-amber-400 gap-1"
+                  data-testid="player-notifications-blocked-badge"
+                >
+                  <BellOff className="h-3 w-3" />
+                  {t("players.notificationsBlockedBadge")}
+                </Badge>
+              )}
             </div>
           </div>
 

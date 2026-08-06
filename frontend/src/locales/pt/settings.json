@@ -4,14 +4,12 @@
     "languageDescription": "Escolhe o idioma da aplicação e das notificações.",
     "portuguese": "Português",
     "english": "Inglês",
-
     "title": "Definições",
     "subtitle": "Gere o teu perfil, predefinições do calendário, notificações e segurança.",
     "saveChanges": "Guardar alterações",
     "sections": "Secções",
     "quickNavigation": "Navegação rápida",
     "selectSection": "Selecionar secção",
-
     "nav": {
       "profile": "Perfil",
       "preferences": "Preferências",
@@ -21,9 +19,9 @@
       "security": "Segurança",
       "import": "Importar dados",
       "club": "Clube",
-      "account": "Conta"
+      "account": "Conta",
+      "myNotifications": "As minhas notificações"
     },
-
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
       "couldNotSaveDescription": "Tenta novamente.",
@@ -42,7 +40,6 @@
       "loggedOutTitle": "Sessão terminada",
       "loggedOutDescription": "A função de terminar sessão está pronta a ligar."
     },
-
     "profile": {
       "title": "Perfil",
       "description": "Informação básica visível para os teus jogadores.",
@@ -57,7 +54,6 @@
       "bio": "Biografia (opcional)",
       "bioPlaceholder": "Conta um pouco sobre ti aos jogadores..."
     },
-
     "preferences": {
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
@@ -72,7 +68,6 @@
       "enableAnalytics": "Ativar análises",
       "enableAnalyticsDescription": "Ajuda a melhorar o produto com dados de utilização anónimos."
     },
-
     "calendar": {
       "title": "Predefinições do calendário",
       "description": "Predefinições usadas ao criar uma nova aula.",
@@ -86,7 +81,6 @@
       "autoPickColorDescription": "Escolher automaticamente uma cor para a aula ao criar.",
       "tip": "Dica: liga estes valores ao AddClassSheet como props mais tarde."
     },
-
     "notifications": {
       "title": "Notificações",
       "description": "Controla lembretes e alertas.",
@@ -99,7 +93,6 @@
       "sendViaEmail": "Enviar por email",
       "sendViaEmailDescription": "Usa o email além das notificações na aplicação."
     },
-
     "billing": {
       "title": "Faturação",
       "description": "Subscrição e faturas (marcador de posição).",
@@ -108,7 +101,6 @@
       "active": "Ativo",
       "manageBilling": "Gerir faturação"
     },
-
     "security": {
       "changePassword": "Alterar palavra-passe",
       "changePasswordDescription": "Usa uma palavra-passe forte (mín. 8 caracteres). Isto deve chamar o teu backend.",
@@ -122,13 +114,11 @@
       "logout": "Terminar sessão",
       "logoutDescription": "Termina a tua sessão neste dispositivo."
     },
-
     "legal": {
       "title": "Legal",
       "privacyPolicy": "Política de Privacidade",
       "termsOfService": "Termos de Serviço"
     },
-
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",
@@ -140,7 +130,6 @@
       "deleteSuccess": "A tua conta foi eliminada.",
       "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente."
     },
-
     "import": {
       "title": "Importar dados",
       "description": "Carrega um ficheiro e deixa a IA extrair os teus níveis, jogadores, aulas, avaliações e muito mais.",
@@ -211,7 +200,6 @@
         "importFailedTitle": "A importação falhou"
       }
     },
-
     "importHistory": {
       "loading": "A carregar o histórico de importações...",
       "title": "Histórico de importações",
@@ -240,7 +228,6 @@
         "evaluationCategories": "categorias de avaliação"
       }
     },
-
     "club": {
       "title": "Clube",
       "description": "Gere o teu clube e convida outros treinadores a juntarem-se.",
@@ -263,7 +250,6 @@
       "createInvitationFailed": "Não foi possível criar o convite",
       "createInvitationFailedDescription": "Tenta novamente."
     },
-
     "seasons": {
       "loading": "A carregar épocas…",
       "title": "Épocas",
@@ -288,7 +274,6 @@
       "saved_other": "{{count}} épocas atualizadas.",
       "saveFailed": "Não foi possível guardar as épocas"
     },
-
     "coachLevels": {
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
@@ -312,7 +297,6 @@
       "saved": "{{count}} níveis atualizados.",
       "saveFailed": "Não foi possível guardar os níveis"
     },
-
     "evaluationCategories": {
       "title": "Categorias de avaliação",
       "description": "Define as categorias usadas para avaliar os jogadores. Arrasta para reordenar.",
@@ -334,7 +318,6 @@
       "saved": "{{count}} categorias atualizadas.",
       "saveFailed": "Não foi possível guardar as categorias"
     },
-
     "engine": {
       "loading": "A carregar as definições de notificação…",
       "title": "Motor de convites automáticos",
@@ -358,7 +341,6 @@
       "standingWaitingListHint": "Adiciona alunos à lista de espera de todas as próximas aulas. São removidos automaticamente quando preenchem o número de vagas configurado ou quando o período expira.",
       "messageTemplates": "Modelos de mensagem"
     },
-
     "reminders": {
       "hoursBeforeClass": "Horas antes da aula",
       "daysBeforeAtTime": "Dias antes a uma hora específica",
@@ -373,7 +355,6 @@
       "startInvitations": "Iniciar convites",
       "startInvitationsDescription": "Quando começar a convidar substitutos para as vagas abertas."
     },
-
     "invitationGroups": {
       "sequenceHint": "Os grupos são tentados em sequência. Se ninguém no Grupo 1 aceitar, o sistema avança para o Grupo 2, e assim por diante.",
       "group": "Grupo {{number}}",
@@ -410,7 +391,6 @@
       "subscriptionActive": "Ativa",
       "subscriptionInactive": "Inativa"
     },
-
     "tiebreakers": {
       "fewestUnjustified": "Menos faltas injustificadas",
       "mostJustified": "Mais faltas justificadas",
@@ -418,7 +398,6 @@
       "matchingSide": "Lado de jogo correspondente",
       "activeSubscription": "Subscrição ativa"
     },
-
     "restrictions": {
       "maxSimultaneous": "Máximo de notificações simultâneas",
       "maxSimultaneousDescription": "Quantos alunos são notificados ao mesmo tempo",
@@ -445,7 +424,6 @@
       "cancellationDeadline": "Prazo de cancelamento",
       "cancellationDeadlineDescription": "Cancelamentos dentro deste número de horas antes do início da aula são marcados como tardios"
     },
-
     "notificationGroups": {
       "sameLevel": "Alunos com o mesmo nível da aula",
       "recentAbsences": "Alunos que faltaram a uma aula recentemente",
@@ -459,7 +437,6 @@
         "allStudents": "Todos os alunos"
       }
     },
-
     "standingList": {
       "loading": "A carregar…",
       "searchToAdd": "Procurar jogador para adicionar…",
@@ -467,10 +444,11 @@
       "unknown": "Desconhecido",
       "credits": "{{used}}/{{total}} créditos",
       "expires": "Expira a {{date}}",
+      "expired": "Expirado",
       "classCount_one": "{{count}} aula",
-      "classCount_other": "{{count}} aulas"
+      "classCount_other": "{{count}} aulas",
+      "remove": "Remover"
     },
-
     "templates": {
       "saving": "A guardar…",
       "saveTemplates": "Guardar modelos",
@@ -505,6 +483,27 @@
         "waitingListOffer": "Enviada quando uma vaga foi preenchida, oferecendo entrada na lista de espera.",
         "waitingListPlaced": "Enviada quando um aluno da lista de espera consegue uma vaga."
       }
+    },
+    "notificationBlocks": {
+      "title": "Convites para vagas em aulas",
+      "description": "Escolhe se queres receber avisos quando abre uma vaga numa aula. O teu professor vê que desligaste os avisos e o motivo que escreveres.",
+      "autoTitle": "Bloquear convites automáticos",
+      "autoDescription": "O motor de sugestões deixa de te considerar quando abre uma vaga numa aula.",
+      "manualTitle": "Bloquear convites manuais",
+      "manualDescription": "O teu professor deixa de te poder convidar diretamente para vagas em aulas.",
+      "allTitle": "Bloquear todas as notificações",
+      "allDescription": "Inclui os lembretes de presença, além de todos os convites para vagas.",
+      "reasonLabel": "Motivo (opcional)",
+      "reasonPlaceholder": "Ex.: estou lesionado até setembro",
+      "reasonHelp": "O teu professor consegue ler este motivo na tua ficha de aluno.",
+      "save": "Guardar",
+      "saving": "A guardar...",
+      "savedTitle": "Preferências guardadas",
+      "savedDescription": "As tuas preferências de notificações foram atualizadas.",
+      "confirmTitle": "Bloquear todas as notificações?",
+      "confirmBody": "Deixará de receber lembretes e qualquer aula que falte será considerada injustificada caso não confirme a sua indisponibilidade. Tem a certeza que pretende avançar?",
+      "confirmCancel": "Cancelar",
+      "confirmAccept": "Sim, bloquear tudo"
     }
   }
 }

@@ -146,7 +146,15 @@
       "cancelAttendanceLateBadge": "Past deadline",
       "keepAttendance": "Keep my spot",
       "attendanceCancelled": "Attendance cancelled.",
-      "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started."
+      "cancelAttendanceFailed": "Couldn't cancel attendance. The class may have already started.",
+      "proactiveDecline": "I can't attend",
+      "proactiveDeclineConfirmTitle": "Let your coach know you can't attend?",
+      "proactiveDeclineConfirmBody": "Your spot is freed right away and your coach is notified. The absence is automatically marked as justified.",
+      "proactiveDeclineHint": "Tell your coach early and another student can take your spot.",
+      "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
+      "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
+      "notAttending": "Not attending",
+      "notAttendingJustified": "Justified absence"
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -229,7 +237,8 @@
       "sendToCount_other": "Send to {{count}} students",
       "invitationSent_one": "Invitation sent to {{count}} student",
       "invitationSent_other": "Invitation sent to {{count}} students",
-      "failedSendInvitations": "Failed to send invitations"
+      "failedSendInvitations": "Failed to send invitations",
+      "blockedByPreference": "Could not notify: {{names}} (notifications blocked)"
     },
     "playerSelector": {
       "participants": "Participants ({{count}})",
@@ -264,6 +273,15 @@
       "newClass": "New class",
       "creationFailed": "Creation failed",
       "creationFailedDescription": "The class could not be created."
+    },
+    "unavailable": {
+      "title": "Student unavailable",
+      "description_one": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
+      "description_other": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
+      "confirm": "Proceed anyway",
+      "cancel": "Cancel",
+      "blocked_one": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
+      "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
     }
   }
 }

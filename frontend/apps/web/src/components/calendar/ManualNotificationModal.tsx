@@ -173,13 +173,44 @@ export function ManualNotificationModal({
     if (selected.size === 0) return;
     setSending(true);
     try {
-      const { sent } = await sendManualNotifications(
+      const { sent, blocked } = await sendManualNotifications(
         eventModel,
         eventOriginalId,
         eventDate,
         [...selected]
       );
-      toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      // A student can be skipped for two unrelated reasons, and the coach needs
+      // to be told a different thing for each, so `blocked` is split by cause
+      // rather than shown as one undifferentiated list.
+      const unavailable = blocked.filter((b) => b.cause !== "preference");
+      const optedOut = blocked.filter((b) => b.cause === "preference");
+
+      // PAD-107: students who marked themselves unavailable for this slot are
+      // never notified — say so by name instead of silently under-reporting.
+      if (unavailable.length > 0) {
+        toast.error(
+          t("calendar.unavailable.blocked", {
+            count: unavailable.length,
+            names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
+          })
+        );
+      }
+      // PAD-112: same idea for a student who turned invitations off. A silently
+      // short count reads as a bug; naming them (and their own reason) makes it
+      // legible as their choice.
+      if (optedOut.length > 0) {
+        toast.warning(
+          t("calendar.notify.blockedByPreference", {
+            names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+          }),
+          { description: optedOut.map((b) => b.reason).filter(Boolean).join(" · ") || undefined },
+        );
+      }
+      // PAD-107's ordering: don't crow "sent to 0 students" when everyone was
+      // skipped — the error/warning above already told the whole story.
+      if (sent > 0 || blocked.length === 0) {
+        toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      }
       setSelected(new Set());
       setSearch("");
       onClose();

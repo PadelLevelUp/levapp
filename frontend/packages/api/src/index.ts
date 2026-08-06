@@ -4,6 +4,7 @@ export { buildEventsUrl } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as authApi from "./resources/auth";
+export * as attendanceApi from "./resources/attendance";
 export * as availabilityApi from "./resources/availability";
 export * as calendarApi from "./resources/calendar";
 export * as classesApi from "./resources/classes";

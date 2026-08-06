@@ -2,16 +2,16 @@ import type { CoachPlayer } from "@/types";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mail, Phone, User } from "lucide-react";
+// `User` was dropped by PAD-105 along with the coach-facing username line; it
+// is unused here now, so PAD-112 only contributes `BellOff`.
+import { BellOff, Mail, Phone } from "lucide-react";
 
 interface PlayerInfoCardProps {
   player: CoachPlayer;
   isEditing: boolean;
-  draftUsername: string;
   draftEmail: string;
   draftPhone: string;
   draftNotes: string;
-  onDraftUsernameChange: (v: string) => void;
   onDraftEmailChange: (v: string) => void;
   onDraftPhoneChange: (v: string) => void;
   onDraftNotesChange: (v: string) => void;
@@ -20,11 +20,9 @@ interface PlayerInfoCardProps {
 export function PlayerInfoCard({
   player,
   isEditing,
-  draftUsername,
   draftEmail,
   draftPhone,
   draftNotes,
-  onDraftUsernameChange,
   onDraftEmailChange,
   onDraftPhoneChange,
   onDraftNotesChange,
@@ -38,20 +36,9 @@ export function PlayerInfoCard({
         <CardTitle className="text-lg">{t("players.info")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground shrink-0" />
-          {isEditing && isInactive ? (
-            <Input
-              value={draftUsername}
-              onChange={(e) => onDraftUsernameChange(e.target.value)}
-              placeholder={t("players.usernameFieldPlaceholder")}
-              className="h-7 text-sm"
-            />
-          ) : (
-            <span>{player.username || t("players.noUsername")}</span>
-          )}
-        </div>
-
+        {/* PAD-105: the username is the player's own credential, chosen at
+            account activation. Until then the record holds a generated
+            placeholder, so nothing username-shaped is shown to the coach. */}
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
           {isEditing && isInactive ? (
@@ -93,6 +80,34 @@ export function PlayerInfoCard({
             ) : (
               <p>{player.notes}</p>
             )}
+          </div>
+        )}
+
+        {/* PAD-112: the student's own explanation for cutting notifications.
+            READ-ONLY for the coach — they may see it (that is the whole point
+            of the field) but it belongs to the student and is edited only from
+            the student's Settings. Note the contrast with a PAD-107
+            availability blocker, whose title/description/hours are the
+            student's private calendar and are never shown here. */}
+        {player.notificationsBlocked && (
+          <div className="pt-2 border-t" data-testid="player-notifications-blocked-detail">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <BellOff className="h-3 w-3" />
+              {t("players.notificationsBlockedTitle")}
+            </p>
+            <ul className="text-sm list-disc list-inside text-muted-foreground">
+              {player.blockAllNotifications && <li>{t("players.notificationsBlockedAll")}</li>}
+              {player.blockAutoInvitations && <li>{t("players.notificationsBlockedAuto")}</li>}
+              {player.blockManualInvitations && <li>{t("players.notificationsBlockedManual")}</li>}
+            </ul>
+            <p className="text-xs text-muted-foreground mt-2 mb-1">
+              {t("players.notificationsBlockedReason")}
+            </p>
+            <p data-testid="player-notifications-blocked-reason">
+              {player.notificationBlockReason?.trim()
+                ? player.notificationBlockReason
+                : t("players.notificationsBlockedNoReason")}
+            </p>
           </div>
         )}
       </CardContent>

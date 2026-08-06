@@ -22,7 +22,6 @@ import { levelOptionLabel } from "./LevelLabel";
 
 export interface PlayerFormValues {
   name: string;
-  username: string;
   email: string;
   phone: string;
   levelId?: string;
@@ -50,8 +49,12 @@ const SIDE_OPTIONS: { value: PlayerSide; label: string }[] = [
 /**
  * Shared create/edit player form, mirroring the web AddPlayerSheet /
  * PlayerDetailPage inline edit: name (required, duplicate WARN only),
- * username/email (server-side availability checks, blocking), phone,
- * level select and side select.
+ * email (server-side availability check, blocking), phone, level select and
+ * side select.
+ *
+ * PAD-105: there is no username field — a username is the player's own login
+ * credential, chosen by them when they activate their account, never by the
+ * coach.
  */
 export function PlayerForm({
   levels,
@@ -64,9 +67,6 @@ export function PlayerForm({
 }: PlayerFormProps) {
   const { t } = useTranslation();
   const [name, setName] = React.useState(initialValues?.name ?? "");
-  const [username, setUsername] = React.useState(
-    initialValues?.username ?? ""
-  );
   const [email, setEmail] = React.useState(initialValues?.email ?? "");
   const [phone, setPhone] = React.useState(initialValues?.phone ?? "");
   const [notes, setNotes] = React.useState(initialValues?.notes ?? "");
@@ -89,15 +89,10 @@ export function PlayerForm({
   );
 
   // Availability checks run only when the value differs from the initial one,
-  // so editing a player never flags their own current username/email/name.
+  // so editing a player never flags their own current email/name.
   const skipIfUnchanged = (value: string, initial?: string) =>
     value.trim() === (initial ?? "").trim() ? "" : value;
 
-  const usernameCheck = useFieldAvailability(
-    "user",
-    "username",
-    skipIfUnchanged(username, initialValues?.username)
-  );
   const emailCheck = useFieldAvailability(
     "user",
     "email",
@@ -111,12 +106,11 @@ export function PlayerForm({
     coachId
   );
 
-  const hasFieldError = !!usernameCheck.error || !!emailCheck.error;
+  const hasFieldError = !!emailCheck.error;
 
   const handleSave = () => {
     const parsed = playerFormSchema.safeParse({
       name,
-      username: username.trim() || undefined,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       levelId: levelOption?.value || undefined,
@@ -128,13 +122,12 @@ export function PlayerForm({
       return;
     }
     if (hasFieldError) {
-      setFormError(usernameCheck.error ?? emailCheck.error);
+      setFormError(emailCheck.error);
       return;
     }
     setFormError(null);
     onSubmit({
       name: parsed.data.name,
-      username: username.trim(),
       email: email.trim(),
       phone: phone.trim(),
       levelId: levelOption?.value || undefined,
@@ -166,32 +159,6 @@ export function PlayerForm({
           <Text className="text-sm text-warning">
             {nameCheck.error}. You can still save this player if that's
             intentional.
-          </Text>
-        ) : null}
-      </View>
-
-      <View className="gap-2">
-        <Label>Username</Label>
-        <View className="relative">
-          <Input
-            testID="player-username"
-            accessibilityLabel="Player username"
-            placeholder="e.g. johndoe"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={username}
-            onChangeText={setUsername}
-            className={usernameCheck.error ? "border-destructive" : undefined}
-          />
-          {usernameCheck.checking ? (
-            <View className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Spinner size="small" />
-            </View>
-          ) : null}
-        </View>
-        {usernameCheck.error ? (
-          <Text className="text-sm text-destructive">
-            {usernameCheck.error}
           </Text>
         ) : null}
       </View>

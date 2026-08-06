@@ -53,8 +53,6 @@
     "name": "Nome",
     "namePlaceholder": "ex. João Silva",
     "nameWarningSuffix": "Pode criar este jogador mesmo assim, se for intencional.",
-    "username": "Nome de utilizador",
-    "usernamePlaceholder": "ex. joaosilva",
     "emailOptional": "Email (opcional)",
     "emailPlaceholder": "ex. joao@email.com",
     "phoneOptional": "Telefone (opcional)",
@@ -81,7 +79,6 @@
     "noAccountMessage": "Este jogador não tem conta",
     "shareRegisterLink": "Partilhe esta ligação para que se possa registar.",
     "contactInformation": "Informações de contacto",
-    "noUsername": "Sem nome de utilizador",
     "noEmail": "Sem email",
     "noPhone": "Sem telefone",
     "configuration": "Configuração",
@@ -124,7 +121,6 @@
     "side": "Lado",
     "saving": "A guardar",
     "info": "Informação",
-    "usernameFieldPlaceholder": "Nome de utilizador",
     "emailFieldPlaceholder": "Email",
     "phoneFieldPlaceholder": "Telefone",
     "addToClassesTitle": "Adicionar {{name}} a aulas",
@@ -136,6 +132,13 @@
     "classFull": "Lotada",
     "addToSelectedClasses_one": "Adicionar a {{count}} aula",
     "addToSelectedClasses_other": "Adicionar a {{count}} aulas",
-    "loading": "A carregar..."
+    "loading": "A carregar...",
+    "notificationsBlockedBadge": "Notificações cortadas",
+    "notificationsBlockedTitle": "Notificações cortadas pelo aluno",
+    "notificationsBlockedAuto": "Convites automáticos bloqueados",
+    "notificationsBlockedManual": "Convites manuais bloqueados",
+    "notificationsBlockedAll": "Todas as notificações bloqueadas",
+    "notificationsBlockedReason": "Motivo dado pelo aluno",
+    "notificationsBlockedNoReason": "O aluno não indicou um motivo."
   }
 }

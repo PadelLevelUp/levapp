@@ -1,0 +1,62 @@
+/**
+ * PAD-114 — range maths for the attendance page.
+ *
+ * Everything here works in UTC and speaks bare `YYYY-MM-DD` strings, because
+ * that is what the endpoint buckets on (`lesson_instances.start_datetime` is
+ * stored naive-UTC). Going through a local-time `Date` would reintroduce the
+ * off-by-one-day drift PAD-33 chased down in the messaging timestamps.
+ */
+
+export type AttendanceRangePreset = "1w" | "1m" | "1y";
+
+export interface AttendanceRange {
+  from: string;
+  to: string;
+}
+
+/** `YYYY-MM-DD` for a UTC date. */
+export function toIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Parse a bare `YYYY-MM-DD` (or a naive ISO datetime) as a UTC date. */
+export function parseIsoDate(value: string): Date {
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+}
+
+/**
+ * The range for a preset, computed from `now` in UTC.
+ *
+ * - `1w` — the current week, Monday through Sunday (7 daily buckets)
+ * - `1m` — the current calendar month (one bucket per day)
+ * - `1y` — the current calendar year (12 monthly buckets)
+ */
+export function presetRange(
+  preset: AttendanceRangePreset,
+  now: Date = new Date()
+): AttendanceRange {
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+
+  if (preset === "1w") {
+    // getUTCDay(): Sunday = 0. Shift so the week starts on Monday.
+    const dayOfWeek = (now.getUTCDay() + 6) % 7;
+    const monday = new Date(Date.UTC(y, m, d - dayOfWeek));
+    const sunday = new Date(Date.UTC(y, m, d - dayOfWeek + 6));
+    return { from: toIsoDate(monday), to: toIsoDate(sunday) };
+  }
+
+  if (preset === "1m") {
+    const first = new Date(Date.UTC(y, m, 1));
+    // Day 0 of the next month is the last day of this one.
+    const last = new Date(Date.UTC(y, m + 1, 0));
+    return { from: toIsoDate(first), to: toIsoDate(last) };
+  }
+
+  return {
+    from: toIsoDate(new Date(Date.UTC(y, 0, 1))),
+    to: toIsoDate(new Date(Date.UTC(y, 11, 31))),
+  };
+}

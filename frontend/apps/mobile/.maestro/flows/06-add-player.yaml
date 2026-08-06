@@ -1,7 +1,7 @@
 # Mirrors: apps/web/e2e/player-management/add-player.spec.ts
-# - add "Maestro Player" with a unique username; it appears in the players
-#   list (found via search — with 30 seeded players the new one lands on
-#   page 2 of the alphabetical list).
+# - add "Maestro Player" with a name only (PAD-105: the coach never supplies a
+#   username); it appears in the players list (found via search — with 30
+#   seeded players the new one lands on page 2 of the alphabetical list).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -18,13 +18,10 @@ appId: com.padellevelup.app
       id: "player-name"
     timeout: 15000
 
-# ── Fill name + unique username (availability-checked server-side) ──
+# ── Fill name (PAD-105: no username field on the coach's form) ──
 - tapOn:
     id: "player-name"
 - inputText: "Maestro Player"
-- tapOn:
-    id: "player-username"
-- inputText: "maestro-player-1"
 # Dismiss the keyboard (on-drag) so it can't cover the save button.
 - swipe:
     start: "50%, 45%"

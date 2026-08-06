@@ -115,12 +115,32 @@ export interface CoachPlayer {
   isActive: boolean,
   /** PAD-30: true once the player completed self-service registration (password set). */
   validated: boolean,
+  /**
+   * PAD-105: internal only. Coaches neither set nor see this — a coach-created
+   * player carries a generated `pending-…` placeholder until the player picks
+   * their own username at account activation. Do not render it in coach UI.
+   */
   username: string,
   levelId?: string;
   side?: PlayerSide;
   notes?: string;
   level?: CoachLevel;
   phone?: string,
+  /**
+   * PAD-112: the student's own notification block preferences, surfaced to the
+   * coach so a silent student reads as a deliberate choice rather than as
+   * someone ignoring them. `notificationsBlocked` is derived server-side from
+   * the three flags, so it can never disagree with them.
+   *
+   * Optional because a payload from an older backend simply omits them; the UI
+   * treats "absent" as "not blocked".
+   */
+  notificationsBlocked?: boolean;
+  blockAutoInvitations?: boolean;
+  blockManualInvitations?: boolean;
+  blockAllNotifications?: boolean;
+  /** Written by the student, read-only for the coach. */
+  notificationBlockReason?: string;
 }
 
 export interface RecurrenceRule {
@@ -164,6 +184,14 @@ export interface ClassInstance {
   // the student view can render deadline-aware cancel UX.
   cancellationDeadlineHours?: number;
   cancellationDeadline?: string | null;
+  // PAD-73: the proactive-decline window. `proactiveDeclineDeadline` is the
+  // instant the attendance reminder for this instance would fire (derived
+  // server-side from the coach's reminder timing, never a fixed interval);
+  // `canDeclineProactively` is the server's own answer to "is that window still
+  // open right now?", so the UI never offers the action when the server would
+  // classify the decline differently.
+  proactiveDeclineDeadline?: string | null;
+  canDeclineProactively?: boolean;
 }
 
 export interface Presence {
@@ -594,4 +622,43 @@ export interface ImportTable {
   rows: ImportTableRow[];
   allSelected: boolean;
   expanded: boolean;
+}
+
+// ── Attendance history (PAD-114) ────────────────────────────────────────────
+// Payload of `GET /app/attendance_history` — the "Presenças" page. The server
+// picks the bucket size when the client does not pin one and always echoes the
+// one it used, so the chart labels its axis from the response rather than
+// re-deriving the rule (spec `attendance.history` rule 4).
+
+export type AttendanceGranularity = "day" | "month" | "year";
+
+export interface AttendanceBucket {
+  /** ISO date of the period start (day, first of month, or first of year). */
+  start: string;
+  count: number;
+}
+
+export interface AttendanceSession {
+  lessonInstanceId: number;
+  /** Calendar event id for this occurrence, always `lessoninstance-<id>`. */
+  calendarEventId: string;
+  title: string;
+  /** ISO datetime (naive UTC) of the class start. */
+  startDatetime: string;
+  /** `YYYY-MM-DD` of the class. */
+  date: string;
+  color?: string | null;
+  /** Calendar deep link — `dashboard.navigation` rule 8. */
+  href: string;
+}
+
+export interface AttendanceHistory {
+  playerId: number;
+  playerName?: string | null;
+  from: string;
+  to: string;
+  granularity: AttendanceGranularity;
+  total: number;
+  buckets: AttendanceBucket[];
+  sessions: AttendanceSession[];
 }

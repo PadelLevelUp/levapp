@@ -1,0 +1,39 @@
+{
+  "attendance": {
+    "title": "Attendance",
+    "subtitleOwn": "The classes you attended",
+    "subtitleOther": "Classes {{name}} attended",
+    "backToPlayer": "Back to profile",
+    "backToDashboard": "Back to dashboard",
+    "chart": {
+      "title": "Attendance per period",
+      "seriesLabel": "Attended",
+      "empty": "No attendance recorded in this period",
+      "loading": "Loading attendance…",
+      "error": "Could not load attendance"
+    },
+    "total_one": "{{count}} class attended",
+    "total_other": "{{count}} classes attended",
+    "ranges": {
+      "week": "1W",
+      "month": "1M",
+      "year": "1Y",
+      "custom": "…",
+      "weekAria": "Current week",
+      "monthAria": "Current month",
+      "yearAria": "Current year",
+      "customAria": "Custom period",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "clear": "Clear",
+      "invalid": "The start date must be before the end date"
+    },
+    "history": {
+      "title": "Attended classes",
+      "empty": "No attended classes in this period yet",
+      "openClass": "Open class {{title}} on {{date}}"
+    },
+    "playerLink": "View attendance"
+  }
+}

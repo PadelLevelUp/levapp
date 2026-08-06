@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
 import { getMe, updateMe, type MeResponse, type UpdateMePayload } from "@/api/auth";
+import { useAuth } from "@/auth/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Bell,
+  BellOff,
   Building2,
   Calendar,
   Palette,
@@ -37,8 +39,62 @@ import { ImportHistorySection } from "@/components/settings/ImportHistorySection
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
+import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 
-type SettingsTab = "profile" | "preferences" | "calendar" | "notifications" | "import" | "club" | "account";
+/**
+ * PAD-112 adds `myNotifications` — the STUDENT's own notification block
+ * preferences. Deliberately NOT called `notifications`: that id is the coach's
+ * notification-engine configuration, which PAD-103 hides from students. Two
+ * different audiences, so two different ids — reusing the name would make the
+ * student section inherit the coach section's visibility rules.
+ */
+type SettingsTab =
+  | "profile"
+  | "preferences"
+  | "calendar"
+  | "notifications"
+  | "myNotifications"
+  | "import"
+  | "club"
+  | "account";
+
+/**
+ * PAD-103: Settings is shared by both roles, but most of it is coach
+ * configuration. Seasons, skill levels, evaluation categories, the notification
+ * engine, data import and the club panel were all rendered unconditionally, so
+ * a student who opened `/settings` (the avatar dropdown links there for
+ * everyone, and the URL is directly navigable) got the coach's setup screens.
+ *
+ * The list lives here, once, and drives BOTH the desktop sidebar and the mobile
+ * dropdown — previously two hand-maintained copies that could drift apart and
+ * re-open the leak on one of them. Note this is presentation only: the real
+ * boundary is `require_coach()` on the endpoints behind these panels
+ * (backend `frontend_api.py`, pinned by `test_settings_role_authz.py`).
+ */
+type SettingsTabDef = {
+  id: SettingsTab;
+  labelKey: string;
+  icon: React.ReactNode;
+  coachOnly: boolean;
+};
+
+const SETTINGS_TABS: SettingsTabDef[] = [
+  { id: "profile", labelKey: "settings.nav.profile", icon: <User className="w-4 h-4" />, coachOnly: false },
+  { id: "preferences", labelKey: "settings.nav.preferences", icon: <Palette className="w-4 h-4" />, coachOnly: false },
+  { id: "calendar", labelKey: "settings.nav.calendar", icon: <Calendar className="w-4 h-4" />, coachOnly: true },
+  { id: "notifications", labelKey: "settings.nav.notifications", icon: <Bell className="w-4 h-4" />, coachOnly: true },
+  // PAD-112: the student's OWN notification opt-outs. Deliberately NOT
+  // coachOnly — this is a per-user preference panel, not coach configuration,
+  // and hiding it from students would defeat that ticket entirely. Everyone
+  // sees it, which is exactly what PAD-112 shipped before this batch merge.
+  { id: "myNotifications", labelKey: "settings.nav.myNotifications", icon: <BellOff className="w-4 h-4" />, coachOnly: false },
+  { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, coachOnly: true },
+  { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, coachOnly: true },
+  { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, coachOnly: false },
+];
+
+const visibleSettingsTabs = (isCoach: boolean) =>
+  SETTINGS_TABS.filter((tab) => isCoach || !tab.coachOnly);
 
 /**
  * PAD-81: the profile fields the coach can edit about themselves. Kept as a
@@ -57,26 +113,20 @@ const EMPTY_PROFILE: ProfileForm = { name: "", abbreviation: "", email: "", phon
 function SettingsNav({
   active,
   onChange,
+  items,
 }: {
   active: SettingsTab;
   onChange: (tab: SettingsTab) => void;
+  items: SettingsTabDef[];
 }) {
   const { t } = useTranslation();
-  const items: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: "profile", label: t("settings.nav.profile"), icon: <User className="w-4 h-4" /> },
-    { id: "preferences", label: t("settings.nav.preferences"), icon: <Palette className="w-4 h-4" /> },
-    { id: "calendar", label: t("settings.nav.calendar"), icon: <Calendar className="w-4 h-4" /> },
-    { id: "notifications", label: t("settings.nav.notifications"), icon: <Bell className="w-4 h-4" /> },
-    { id: "import", label: t("settings.nav.import"), icon: <Upload className="w-4 h-4" /> },
-    { id: "club", label: t("settings.nav.club"), icon: <Building2 className="w-4 h-4" /> },
-    { id: "account", label: t("settings.nav.account"), icon: <UserX className="w-4 h-4" /> },
-  ];
 
   return (
     <div className="space-y-1">
       {items.map((it) => (
         <button
           key={it.id}
+          data-testid={`settings-nav-${it.id}`}
           onClick={() => onChange(it.id)}
           className={cn(
             "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
@@ -86,7 +136,7 @@ function SettingsNav({
           )}
         >
           {it.icon}
-          <span>{it.label}</span>
+          <span>{t(it.labelKey)}</span>
         </button>
       ))}
     </div>
@@ -96,6 +146,11 @@ function SettingsNav({
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  // PAD-103: backend roles are mutually exclusive (`["coach"] if user.coach else
+  // ["player"]`), so a single flag is enough to decide what this page offers.
+  const { user } = useAuth();
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  const tabs = visibleSettingsTabs(isCoach);
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
   const [tab, setTab] = useState<SettingsTab>("preferences");
@@ -110,6 +165,12 @@ export default function SettingsPage() {
   const profileDirty = useRef(false);
   // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
   const { theme, setTheme } = useTheme();
+
+  // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
+  // restored, so the selected tab can briefly be one this role may not see.
+  // Deriving the rendered tab (rather than resetting state in an effect) means
+  // a coach-only panel is never rendered for a student, not even for one frame.
+  const activeTab: SettingsTab = tabs.some((it) => it.id === tab) ? tab : tabs[0].id;
 
   // Load the current user's profile + language preference on mount.
   useEffect(() => {
@@ -213,7 +274,7 @@ export default function SettingsPage() {
               <CardDescription>{t("settings.quickNavigation")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <SettingsNav active={tab} onChange={setTab} />
+              <SettingsNav active={activeTab} onChange={setTab} items={tabs} />
             </CardContent>
           </Card>
 
@@ -221,24 +282,22 @@ export default function SettingsPage() {
           <div className="lg:col-span-9 space-y-4">
             {/* Mobile: dropdown */}
             <div className="lg:hidden">
-              <Select value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
+              <Select value={activeTab} onValueChange={(v) => setTab(v as SettingsTab)}>
                 <SelectTrigger>
                   <SelectValue placeholder={t("settings.selectSection")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="profile">{t("settings.nav.profile")}</SelectItem>
-                  <SelectItem value="preferences">{t("settings.nav.preferences")}</SelectItem>
-                  <SelectItem value="calendar">{t("settings.nav.calendar")}</SelectItem>
-                  <SelectItem value="notifications">{t("settings.nav.notifications")}</SelectItem>
-                  <SelectItem value="import">{t("settings.nav.import")}</SelectItem>
-                  <SelectItem value="club">{t("settings.nav.club")}</SelectItem>
-                  <SelectItem value="account">{t("settings.nav.account")}</SelectItem>
+                  {tabs.map((it) => (
+                    <SelectItem key={it.id} value={it.id}>
+                      {t(it.labelKey)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             {/* PROFILE — PAD-81: real, server-backed profile editing. */}
-            {tab === "profile" && (
+            {activeTab === "profile" && (
               <Card>
                 <CardHeader>
                   <CardTitle>{t("settings.profile.title")}</CardTitle>
@@ -291,7 +350,7 @@ export default function SettingsPage() {
             )}
 
             {/* PREFERENCES */}
-            {tab === "preferences" && (
+            {activeTab === "preferences" && (
               <Card>
                 <CardHeader>
                   <CardTitle>{t("settings.preferences.title")}</CardTitle>
@@ -332,25 +391,41 @@ export default function SettingsPage() {
                     </Select>
                   </div>
 
-                  <Separator />
+                  {/* PAD-103: language + theme are per-user and stay for both
+                      roles; skill levels and evaluation categories are the
+                      coach's own configuration. */}
+                  {isCoach && (
+                    <>
+                      <Separator />
 
-                  <CoachLevelsSection />
+                      <CoachLevelsSection />
 
-                  <Separator />
+                      <Separator />
 
-                  <EvaluationCategoriesSection />
+                      <EvaluationCategoriesSection />
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             {/* CALENDAR */}
-            {tab === "calendar" && <SeasonsSection />}
+            {activeTab === "calendar" && <SeasonsSection />}
 
-            {/* NOTIFICATIONS */}
-            {tab === "notifications" && <NotificationsEngineSection />}
+            {/* NOTIFICATIONS — the coach's notification-engine configuration. */}
+            {activeTab === "notifications" && <NotificationsEngineSection />}
+
+            {/* MY NOTIFICATIONS — PAD-112: the student's own block preferences.
+                Visible to both roles; only a student has any use for it, but
+                nothing here is coach-hostile and the endpoint behind it
+                (`PATCH /auth/me`) is per-user, not coach-scoped.
+                Gated on PAD-103's `activeTab`, not the raw `tab` state — the
+                rest of this switch does, and `tab` can still hold a section id
+                that isn't in the current role's visible list. */}
+            {activeTab === "myNotifications" && <StudentNotificationBlocksSection />}
 
             {/* IMPORT DATA */}
-            {tab === "import" && (
+            {activeTab === "import" && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -370,7 +445,7 @@ export default function SettingsPage() {
             )}
 
             {/* CLUB */}
-            {tab === "club" && (
+            {activeTab === "club" && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -388,7 +463,7 @@ export default function SettingsPage() {
             )}
 
             {/* ACCOUNT */}
-            {tab === "account" && (
+            {activeTab === "account" && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

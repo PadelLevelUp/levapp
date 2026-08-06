@@ -11,7 +11,10 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
   await loginAsCoach(page);
   await openSettings(page);
   // Custom <button> nav — not role="tab"
-  await page.getByRole("button", { name: /notifications/i }).click();
+  // PAD-112 added a second sidebar button whose label also matches
+  // /notifications/i ("My notifications"), so the old role+name locator is
+  // ambiguous for a coach. Target the stable testid instead.
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
 }
 
@@ -94,7 +97,7 @@ test("US-75: cancellation deadline persists via config API across reload", async
 
   await saved;
   await page.reload();
-  await page.getByRole("button", { name: /notifications/i }).click();
+  await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
   await openRestrictions(page);
 

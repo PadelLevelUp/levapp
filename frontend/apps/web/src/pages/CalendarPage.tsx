@@ -168,11 +168,23 @@ export default function CalendarPage() {
 
   const [newClassDate, setNewClassDate] = useState<Date>();
   const [newClassTime, setNewClassTime] = useState<string>();
+  const [newClassEndTime, setNewClassEndTime] = useState<string>();
   const [mobileSelectedDay, setMobileSelectedDay] = useState<Date>();
 
   const handleSlotClick = (date: Date, time: string) => {
     setNewClassDate(date);
     setNewClassTime(time);
+    // No end time: a single slot keeps the sheet's own default duration.
+    setNewClassEndTime(undefined);
+    setAddClassOpen(true);
+  };
+
+  // PAD-106: a drag across two or more slots opens the same sheet, but also
+  // pins the end time to the dragged range.
+  const handleSlotRangeSelect = (date: Date, startTime: string, endTime: string) => {
+    setNewClassDate(date);
+    setNewClassTime(startTime);
+    setNewClassEndTime(endTime);
     setAddClassOpen(true);
   };
 
@@ -377,6 +389,7 @@ export default function CalendarPage() {
           onAddClass={canManageClasses ? () => {
             setNewClassDate(isMobile && mobileSelectedDay ? mobileSelectedDay : new Date());
             setNewClassTime(undefined);
+            setNewClassEndTime(undefined);
             setAddClassOpen(true);
           } : undefined}
         />
@@ -396,6 +409,7 @@ export default function CalendarPage() {
               events={calendar.events}
               onEventClick={handleEventClick}
               onSlotClick={canManageClasses ? handleSlotClick : undefined}
+              onSlotRangeSelect={canManageClasses ? handleSlotRangeSelect : undefined}
               onEventDrop={handleEventDrop}
             />
           </>
@@ -446,6 +460,7 @@ export default function CalendarPage() {
           onClose={() => setAddClassOpen(false)}
           initialDate={newClassDate}
           initialTime={newClassTime}
+          initialEndTime={newClassEndTime}
           onSave={handleSaveClass}
           levels={levels}
           players={coachPlayers}
