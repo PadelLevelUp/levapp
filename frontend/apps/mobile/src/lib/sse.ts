@@ -1,5 +1,6 @@
 import { buildEventsUrl } from "@levelup/api";
 import * as React from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import EventSource from "react-native-sse";
 import { useAuth } from "@/auth/AuthContext";
 import { secureTokenStorage } from "@/lib/api";
@@ -87,8 +88,37 @@ export function useAppEvents(onEvent: (evt: AppEvent) => void): void {
 
     void connect();
 
+    // iOS suspends the JS runtime while the app is backgrounded. The socket
+    // dies with it, but the "error" listener that would normally schedule a
+    // retry — and the backoff timer itself — are frozen too, so on resume
+    // nothing revives the stream: the app keeps rendering whatever it had
+    // before backgrounding until a cold relaunch remounts this effect.
+    // Reconnecting on every foreground transition closes that gap. Backoff is
+    // reset because a resume is a fresh chance, not a continued failure.
+    // Only a real background→active transition warrants this. iOS also emits
+    // active→inactive→active without ever suspending the app (Control Centre,
+    // a Face ID prompt, the app-switcher peek); reconnecting on those would
+    // churn a perfectly healthy stream. That churn is not free: the server
+    // holds each abandoned connection's thread until its q.get(timeout=15)
+    // expires, on a backend pinned to one gunicorn worker (see the 2026-06-10
+    // SSE outage), so a rapid churn transiently doubles thread usage.
+    let previousState: AppStateStatus = AppState.currentState;
+    const appStateSubscription = AppState.addEventListener("change", (status) => {
+      const resumedFromBackground = previousState === "background";
+      previousState = status;
+      if (status !== "active" || cancelled || !resumedFromBackground) return;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      retryMs = INITIAL_RETRY_MS;
+      teardown();
+      void connect();
+    });
+
     return () => {
       cancelled = true;
+      appStateSubscription.remove();
       if (retryTimer) clearTimeout(retryTimer);
       teardown();
     };

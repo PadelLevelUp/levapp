@@ -10,6 +10,7 @@ import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/auth/AuthContext";
 import { ToastHost } from "@/components/ui/toast";
+import { useAppStateFocus } from "@/hooks/useAppStateFocus";
 import { usePushNotificationRouting } from "@/hooks/usePushNotificationRouting";
 
 // Known-noisy RN Animated warning; its LogBox toast covers the tab bar and
@@ -34,6 +35,9 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   usePushNotificationRouting();
+  // Lets React Query treat a foreground return as a focus event, so data that
+  // went stale while iOS had the app suspended refetches on resume.
+  useAppStateFocus();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
