@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "LevelUp",
-    "slug": "levelup-mobile",
+    "slug": "levapp",
     "scheme": "levelup",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -51,6 +51,13 @@
     ],
     "experiments": {
       "tsconfigPaths": false
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dc8bbf5f-3e08-4c97-a912-00bb9b1b43e0"
+      }
+    },
+    "owner": "levapps-team"
   }
 }
