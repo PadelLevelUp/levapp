@@ -154,7 +154,7 @@ export function EvaluationCategoriesSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_1fr_auto] sm:grid-cols-[32px_1fr_64px_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`flex flex-wrap sm:grid sm:grid-cols-[32px_1fr_64px_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -170,27 +170,42 @@ export function EvaluationCategoriesSection() {
               value={cat.name}
               onChange={(e) => handleChange(cat.id, "name", e.target.value)}
               placeholder={t("settings.evaluationCategories.namePlaceholder")}
-              className="h-8 text-sm"
+              className="h-8 text-sm min-w-[8rem] flex-1"
             />
 
-            <Input
-              type="number"
-              value={cat.scaleMin}
-              onChange={(e) => handleChange(cat.id, "scaleMin", Number(e.target.value))}
-              className="h-8 text-sm"
-            />
+            {/* The column header is hidden on mobile, so these two numbers
+                would be a pair of unlabelled boxes. `sm:contents` drops the
+                wrapper at `sm` so the grid still sees the Input directly. */}
+            <div className="flex items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.evaluationCategories.min")}
+              </span>
+              <Input
+                type="number"
+                aria-label={t("settings.evaluationCategories.min")}
+                value={cat.scaleMin}
+                onChange={(e) => handleChange(cat.id, "scaleMin", Number(e.target.value))}
+                className="h-8 w-16 text-sm sm:w-auto"
+              />
+            </div>
 
-            <Input
-              type="number"
-              value={cat.scaleMax}
-              onChange={(e) => handleChange(cat.id, "scaleMax", Number(e.target.value))}
-              className="h-8 text-sm"
-            />
+            <div className="flex items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.evaluationCategories.max")}
+              </span>
+              <Input
+                type="number"
+                aria-label={t("settings.evaluationCategories.max")}
+                value={cat.scaleMax}
+                onChange={(e) => handleChange(cat.id, "scaleMax", Number(e.target.value))}
+                className="h-8 w-16 text-sm sm:w-auto"
+              />
+            </div>
 
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive sm:ml-0 ml-auto"
               onClick={() => handleRemove(cat.id)}
               disabled={removingId === cat.id}
             >

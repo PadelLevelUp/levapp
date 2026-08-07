@@ -169,7 +169,7 @@ export function CoachLevelsSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_1fr_auto] sm:grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`flex flex-wrap sm:grid sm:grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -181,18 +181,28 @@ export function CoachLevelsSection() {
               <GripVertical className="w-4 h-4" />
             </button>
 
-            <Input
-              value={level.code}
-              onChange={(e) => handleChange(level.id, "code", e.target.value)}
-              placeholder={t("settings.coachLevels.codePlaceholder")}
-              className="h-8 text-sm"
-            />
+            {/* Code is short ("I1") but must not be squeezed to nothing; the
+                label is the flexible one. `sm:contents` keeps the desktop grid
+                seeing the Input directly. */}
+            <div className="flex items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.coachLevels.code")}
+              </span>
+              <Input
+                value={level.code}
+                aria-label={t("settings.coachLevels.code")}
+                onChange={(e) => handleChange(level.id, "code", e.target.value)}
+                placeholder={t("settings.coachLevels.codePlaceholder")}
+                className="h-8 w-16 text-sm sm:w-auto"
+              />
+            </div>
 
             <Input
               value={level.label}
+              aria-label={t("settings.coachLevels.label")}
               onChange={(e) => handleChange(level.id, "label", e.target.value)}
               placeholder={t("settings.coachLevels.labelPlaceholder")}
-              className="h-8 text-sm"
+              className="h-8 text-sm min-w-[8rem] flex-1"
             />
 
             {/* PAD-84: the list order carries meaning (position 1 => lowest
@@ -204,7 +214,7 @@ export function CoachLevelsSection() {
                 for screen readers. Markers only make sense with 2+ levels,
                 otherwise the single level would be both ends at once. */}
             {levels.length > 1 && idx === 0 ? (
-              <span className="flex flex-col items-center gap-1">
+              <span className="flex shrink-0 flex-col items-center gap-1">
                 <span
                   data-testid="coach-level-highest-marker"
                   className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
@@ -236,7 +246,7 @@ export function CoachLevelsSection() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-auto sm:ml-0"
               onClick={() => handleRemove(level.id)}
               disabled={removingId === level.id}
             >
