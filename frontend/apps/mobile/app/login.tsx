@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -88,12 +89,16 @@ export default function LoginScreen() {
         keyboardDismissMode="on-drag"
       >
         <View className="mb-8 items-center">
-          <Text
-            className="text-4xl font-bold text-sidebar-foreground"
-            testID="login-brand"
-          >
-            Level<Text className="text-4xl font-bold text-primary">Up</Text>
-          </Text>
+          {/* The mark, not a hand-typed wordmark. This screen still spelled
+              "LevelUp" in live text with a hardcoded blue split — it predates
+              the rebrand and was the only place the old name survived on a
+              screen a user actually sees. */}
+          <View className="mb-3 flex-row items-center gap-2.5" testID="login-brand">
+            <LevAppMark size={40} />
+            <Text className="font-display text-4xl text-sidebar-foreground">
+              Lev<Text className="font-display text-4xl text-primary">App</Text>
+            </Text>
+          </View>
           <Text className="mt-1 text-sm text-sidebar-foreground opacity-70">
             Padel coaching platform
           </Text>
