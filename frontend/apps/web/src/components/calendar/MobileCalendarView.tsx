@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 import type { CalendarEvent, CoachLevel } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
-import { findNextEventId, hasOpenSpots, resolveEventState } from "@/lib/calendar-status";
+import {
+  contrastTextOn,
+  fadeColor,
+  findNextEventId,
+  hasOpenSpots,
+  resolveEventState,
+} from "@/lib/calendar-status";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MobileCalendarViewProps {
@@ -77,11 +83,14 @@ export function MobileCalendarView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* The strip was flex-1 because it held stacks of title chips. Dots
-          need a fraction of that, and taking half the screen for six dots
-          pushed the day's actual classes below the fold. */}
-      <div className="shrink-0 border-b border-border">
-        <div className="grid grid-cols-7">
+      {/* SPLIT VIEW: the week's classes across the top, the selected day's
+          detail underneath. Each day column shows its classes as small chips
+          in start-time order, tinted with the class's own colour and ringed
+          when it still has seats — so a day that needs work is visible before
+          you tap into it. An earlier cut replaced these with bare dots, which
+          lost the titles PAD-27 deliberately put here. */}
+      <div className="flex-1 min-h-0 border-b border-border overflow-hidden">
+        <div className="grid grid-cols-7 h-full">
           {weekDays.map((day) => {
             const dayEvents = getEventsForDay(day);
             const isSelected = isSameDay(day, selectedDay);
@@ -92,19 +101,19 @@ export function MobileCalendarView({
                 key={day.toISOString()}
                 onClick={() => { setSelectedDay(day); onDaySelect?.(day); }}
                 className={cn(
-                  "flex flex-col p-1 border-r border-border last:border-r-0 transition-colors",
-                  isSelected && "bg-primary/10",
+                  "flex flex-col min-h-0 p-1 border-r border-border last:border-r-0 transition-colors",
+                  isSelected && "bg-secondary",
                   !isSelected && "hover:bg-muted/50"
                 )}
                 type="button"
               >
-                <div className="text-center mb-1">
+                <div className="text-center mb-1 shrink-0">
                   <p className="text-[10px] text-muted-foreground uppercase">
                     {format(day, "EEE", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   <p
                     className={cn(
-                      "text-sm font-medium w-7 h-7 mx-auto flex items-center justify-center rounded-full",
+                      "text-sm font-semibold w-7 h-7 mx-auto flex items-center justify-center rounded-full tabular-nums",
                       dayIsToday && "bg-primary text-primary-foreground",
                       isSelected && !dayIsToday && "bg-primary/20"
                     )}
@@ -113,16 +122,12 @@ export function MobileCalendarView({
                   </p>
                 </div>
 
-                {/* A fill DOT per class, not a stack of chips. Titles at 9px
-                    were unreadable and told you nothing you could act on; a
-                    hollow dot means that class still has holes, so a day that
-                    needs work is visible before you tap into it. */}
-                <div className="flex min-h-[14px] flex-wrap justify-center content-start gap-1 px-0.5 pb-1">
-                  {dayEvents.slice(0, 6).map((event) => {
-                    const isBlock = event.type === "block";
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-0.5">
+                  {dayEvents.slice(0, 4).map((event) => {
+                    const isBlockEvent = event.type === "block";
                     const past = resolveEventState(event) === "past";
                     const holes = !past && hasOpenSpots(event);
-                    const tint = event.color ?? "hsl(var(--primary))";
+                    const tint = event.color;
 
                     return (
                       <span
@@ -132,24 +137,33 @@ export function MobileCalendarView({
                         data-event-title={event.title}
                         data-has-holes={holes ? "true" : "false"}
                         className={cn(
-                          "h-2 w-2 rounded-full",
-                          isBlock && "bg-muted-foreground/40",
-                          past && "opacity-40"
+                          "block w-full truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
+                          isBlockEvent && "bg-muted text-muted-foreground",
+                          past && "opacity-45",
+                          // Amber hairline = seats left, matching the grid.
+                          holes && "ring-1 ring-warning"
                         )}
                         style={
-                          isBlock
+                          isBlockEvent
                             ? undefined
-                            : holes
-                              // Hollow = seats left.
-                              ? { boxShadow: `inset 0 0 0 2px ${tint}` }
-                              : { backgroundColor: tint }
+                            : {
+                                backgroundColor: past ? fadeColor(tint) : (tint ?? "hsl(var(--primary))"),
+                                // Never assume white: the coach picks the hue.
+                                color: past
+                                  ? "hsl(var(--muted-foreground))"
+                                  : tint
+                                    ? contrastTextOn(tint)
+                                    : "hsl(var(--primary-foreground))",
+                              }
                         }
-                      />
+                      >
+                        {event.title}
+                      </span>
                     );
                   })}
-                  {dayEvents.length > 6 && (
+                  {dayEvents.length > 4 && (
                     <span className="text-[9px] leading-none text-muted-foreground">
-                      +{dayEvents.length - 6}
+                      +{dayEvents.length - 4}
                     </span>
                   )}
                 </div>

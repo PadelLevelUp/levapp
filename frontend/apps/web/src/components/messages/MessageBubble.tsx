@@ -198,10 +198,10 @@ export function MessageBubble({
           {replyToMessage && (
             <button
               onClick={() => onScrollToMessage?.(String(replyToMessage.id))}
-              className={`block w-full text-right mb-1.5 pr-2.5 pl-1.5 pt-0.5 border-r-2 rounded-sm text-xs ${
+              className={`block w-full text-right mb-1.5 px-2.5 py-1.5 border-r-[3px] rounded-lg text-xs transition-colors ${
                 isMine
-                  ? 'border-primary-foreground/40 text-primary-foreground/80 bg-primary-foreground/10'
-                  : 'border-primary text-muted-foreground bg-foreground/5'
+                  ? 'border-primary-foreground/50 text-primary-foreground/85 bg-primary-foreground/20 hover:bg-primary-foreground/25'
+                  : 'border-primary text-muted-foreground bg-foreground/[0.07] hover:bg-foreground/10'
               }`}
             >
               <span className="font-semibold block">

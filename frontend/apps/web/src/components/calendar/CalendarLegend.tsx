@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 /**
  * The grid encodes three variables at once — status, fill and level — so the
@@ -9,7 +10,7 @@ import { useTranslation } from "react-i18next";
  * whatever the coach picked, so each sample uses a neutral stand-in and the
  * distinction carried is the border, the fade and the ring.
  */
-export function CalendarLegend() {
+export function CalendarLegend({ className }: { className?: string } = {}) {
   const { t } = useTranslation();
 
   const items = [
@@ -50,7 +51,10 @@ export function CalendarLegend() {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-xs text-muted-foreground"
+      className={cn(
+        "flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground",
+        className
+      )}
       data-testid="calendar-legend"
     >
       {items.map((item) => (

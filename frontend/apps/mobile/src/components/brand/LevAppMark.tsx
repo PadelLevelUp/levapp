@@ -13,8 +13,13 @@ import Svg, { Defs, G, LinearGradient, Path, Stop } from "react-native-svg";
  * on the A never changes: the mark must not be recoloured.
  */
 export function LevAppMark({ size = 28, onDark = true }: { size?: number; onDark?: boolean }) {
+  // The viewBox is cropped to the geometry (plus the L's stroke bleed). The
+  // original 1024 canvas was 28% empty top and bottom, which made the mark
+  // float in whatever box it was given. `size` is now the HEIGHT; width
+  // follows the mark's real 718:506 ratio.
+  const width = (size * 718) / 506;
   return (
-    <Svg width={size} height={size} viewBox="0 0 1024 1024" accessibilityLabel="LevApp">
+    <Svg width={width} height={size} viewBox="162 259 718 506" accessibilityLabel="LevApp">
       <Defs>
         <LinearGradient id="levA" x1="0.05" y1="0.05" x2="0.95" y2="0.95">
           <Stop offset="0" stopColor="#4A9BFF" />

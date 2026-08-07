@@ -86,7 +86,7 @@ export function ClassListBlock({ block }: { block: DashboardClassListBlock }) {
                   {item.dateLabel} · {item.timeLabel}
                 </p>
                 {occupancy ? (
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-1.5 flex items-center gap-2">
                     <OccupancyBar
                       filled={occupancy.filled}
                       total={occupancy.total}

@@ -184,7 +184,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               src="/brand/levapp-mark-on-dark.svg"
               alt=""
               aria-hidden="true"
-              className="w-8 h-8 shrink-0"
+              className="h-7 w-auto shrink-0"
             />
             {!sidebarCollapsed && (
               <img
@@ -328,13 +328,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 src="/brand/levapp-mark-on-light.svg"
                 alt=""
                 aria-hidden="true"
-                className="h-7 w-7 dark:hidden"
+                className="h-6 w-auto dark:hidden"
               />
               <img
                 src="/brand/levapp-mark-on-dark.svg"
                 alt=""
                 aria-hidden="true"
-                className="hidden h-7 w-7 dark:block"
+                className="hidden h-6 w-auto dark:block"
               />
             </Link>
             <h1 className="text-lg font-semibold hidden sm:block">

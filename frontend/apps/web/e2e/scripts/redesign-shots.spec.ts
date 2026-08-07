@@ -78,4 +78,25 @@ test("capture redesign screens", async ({ page }) => {
   await page.goto("/dashboard");
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${SHOTS}/08-dashboard-mobile.png`, fullPage: true });
+
+  await page.goto("/settings");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${SHOTS}/09-settings-mobile-list.png`, fullPage: true });
+  await page.getByTestId("settings-mobile-nav-notifications").click();
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${SHOTS}/09b-settings-mobile-section.png` });
+
+  await page.goto("/messages");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${SHOTS}/10-messages-mobile.png` });
+
+  // Back to desktop for the toolbar legend and the dashboard bar spacing.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/calendar");
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${SHOTS}/11-calendar-desktop.png` });
+
+  await page.goto("/messages");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${SHOTS}/12-messages-desktop.png` });
 });

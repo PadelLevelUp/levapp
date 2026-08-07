@@ -79,7 +79,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-2">
+        <div className="divide-y divide-border">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               {t("messages.noConversationsFound")}
@@ -90,9 +90,9 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                 key={conversation.id}
                 onClick={() => onSelect(conversation.id)}
                 className={cn(
-                  "w-full flex items-start gap-3 p-3 rounded-lg transition-colors text-left",
+                  "w-full flex items-start gap-3 p-3 transition-colors text-left",
                   selectedId === conversation.id
-                    ? "bg-accent"
+                    ? "bg-secondary"
                     : "hover:bg-muted/50"
                 )}
               >
