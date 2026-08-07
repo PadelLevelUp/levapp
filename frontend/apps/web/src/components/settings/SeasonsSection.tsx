@@ -162,7 +162,7 @@ export function SeasonsSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
-        <div className="grid grid-cols-[1fr_150px_150px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="hidden grid-cols-1 sm:grid-cols-[1fr_150px_150px_32px] gap-2 text-xs font-medium text-muted-foreground px-1 sm:grid">
           <span>{t("settings.seasons.name")}</span>
           <span>{t("settings.seasons.start")}</span>
           <span>{t("settings.seasons.end")}</span>
@@ -178,7 +178,7 @@ export function SeasonsSection() {
         {seasons.map((season) => (
           <div
             key={season.id}
-            className="grid grid-cols-[1fr_150px_150px_32px] gap-2 items-center rounded-lg border p-2 bg-background"
+            className="grid grid-cols-1 sm:grid-cols-[1fr_150px_150px_32px] gap-2 items-center rounded-lg border p-2 bg-background"
           >
             <Input
               value={season.name}

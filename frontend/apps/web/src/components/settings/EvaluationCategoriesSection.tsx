@@ -133,7 +133,7 @@ export function EvaluationCategoriesSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
-        <div className="grid grid-cols-[32px_1fr_64px_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="hidden grid-cols-[32px_1fr_auto] sm:grid-cols-[32px_1fr_64px_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1 sm:grid">
           <span />
           <span>{t("settings.evaluationCategories.name")}</span>
           <span>{t("settings.evaluationCategories.min")}</span>
@@ -154,7 +154,7 @@ export function EvaluationCategoriesSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_1fr_64px_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`grid grid-cols-[32px_1fr_auto] sm:grid-cols-[32px_1fr_64px_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
