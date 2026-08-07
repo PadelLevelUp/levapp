@@ -84,6 +84,27 @@ export function fadeColor(hex: string | undefined): string | undefined {
   return `color-mix(in srgb, ${hex} 22%, hsl(var(--card)))`;
 }
 
+/**
+ * The class's own colour, pulled far enough toward the foreground to be read
+ * as text on the card.
+ *
+ * The next class is drawn as a white body with its colour as the border, so
+ * its label and fill bar should carry that colour too — otherwise the block
+ * announces which class it is only at its edge. But the raw hex cannot be used
+ * directly: the yellow swatch on white is 1.9:1.
+ *
+ * Blending toward `--foreground` works in BOTH themes without knowing which is
+ * active, because foreground always contrasts with card — it darkens the hue
+ * on the light theme and lightens it on the dark one.
+ *
+ * 55% is the most colour that can be kept while clearing 4.5:1 across all
+ * eight swatches in both themes; the binding case is yellow at 4.79 on light.
+ */
+export function readableInk(hex: string | undefined): string | undefined {
+  if (!hex || !parseHex(hex)) return undefined;
+  return `color-mix(in srgb, ${hex} 55%, hsl(var(--foreground)))`;
+}
+
 /* ── state resolution ──────────────────────────────────────────────────── */
 
 /** Local Date for an event's start/end, from its `date` + `HH:mm` strings. */

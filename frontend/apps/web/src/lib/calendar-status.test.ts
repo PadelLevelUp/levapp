@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { CalendarEvent } from "@/types";
 import {
   contrastTextOn,
+  readableInk,
   fadeColor,
   findNextEventId,
   hasOpenSpots,
@@ -107,6 +108,49 @@ describe("fadeColor", () => {
   it("returns undefined without a hex, so the caller keeps its token styling", () => {
     expect(fadeColor(undefined)).toBeUndefined();
     expect(fadeColor("nope")).toBeUndefined();
+  });
+});
+
+describe("readableInk", () => {
+  it("keeps the class's hue but blends it toward the foreground", () => {
+    expect(readableInk("#eab308")).toBe(
+      "color-mix(in srgb, #eab308 55%, hsl(var(--foreground)))"
+    );
+  });
+
+  it("clears 4.5:1 on the card in BOTH themes, for every swatch", () => {
+    // The next class is a white body with its colour as the border, so the
+    // label carries that colour too. The raw hex cannot: yellow on white is
+    // 1.9:1. 55% is the most colour that survives the check — the binding
+    // case is yellow on the light theme at 4.79.
+    const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const relLum = (c: number[]) => {
+      const [r, g, b] = c.map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: number[], b: number[]) =>
+      (Math.max(relLum(a), relLum(b)) + 0.05) / (Math.min(relLum(a), relLum(b)) + 0.05);
+    const mix = (a: number[], b: number[], p: number) => a.map((v, i) => v * p + b[i] * (1 - p));
+
+    const THEMES = [
+      { card: rgb("#FFFFFF"), fg: rgb("#101E33") }, // light
+      { card: rgb("#0F1B2E"), fg: rgb("#F2F6FC") }, // dark
+    ];
+    for (const hex of SWATCHES) {
+      const m = /(#[0-9a-f]{6}) (\d+)%/i.exec(readableInk(hex)!)!;
+      const pct = Number(m[2]) / 100;
+      for (const { card, fg } of THEMES) {
+        expect(ratio(mix(rgb(hex), fg, pct), card), `${hex}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("returns undefined without a hex, so the caller keeps its token colour", () => {
+    expect(readableInk(undefined)).toBeUndefined();
+    expect(readableInk("nope")).toBeUndefined();
   });
 });
 

@@ -7,6 +7,7 @@ import {
   contrastTextOn,
   fadeColor,
   hasOpenSpots,
+  readableInk,
   resolveEventState,
   type EventVisualState,
 } from '@/lib/calendar-status';
@@ -71,7 +72,10 @@ export function CalendarEventCard({
       case 'next':
         stateStyle.backgroundColor = 'hsl(var(--card))';
         stateStyle.border = `2px solid ${hex}`;
-        stateStyle.color = 'hsl(var(--foreground))';
+        // Title, time, count and the fill bar all take the class's own colour
+        // — the bar draws in currentColor, so it follows for free. Blended to
+        // stay readable on the card; the raw hex would fail on the pale hues.
+        stateStyle.color = readableInk(hex);
         onColor = false;
         break;
       case 'past':
