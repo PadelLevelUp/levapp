@@ -140,8 +140,13 @@ export function MobileCalendarView({
                           "block w-full truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
                           isBlockEvent && "bg-muted text-muted-foreground",
                           past && "opacity-45",
-                          // Amber hairline = seats left, matching the grid.
-                          holes && "ring-1 ring-warning"
+                          // Matching the grid: dashed, and OFFSET so the amber
+                          // sits clear of the fill. This chip was the only
+                          // place that dropped the offset, which put amber
+                          // directly against the class colour — under 1.5:1
+                          // on every one of the eight swatches.
+                          holes &&
+                            "outline outline-1 outline-dashed outline-warning outline-offset-1"
                         )}
                         style={
                           isBlockEvent

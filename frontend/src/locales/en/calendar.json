@@ -282,6 +282,14 @@
       "cancel": "Cancel",
       "blocked_one": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
       "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
+    },
+    "legend": {
+      "next": "Next class",
+      "openSpots": "Spots to fill",
+      "full": "Full / upcoming",
+      "done": "Finished",
+      "event": "Event / not a class",
+      "fill": "Confirmed / awaiting / free"
     }
   }
 }

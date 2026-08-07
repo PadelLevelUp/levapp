@@ -81,6 +81,10 @@ export function CalendarEventCard({
       case 'past':
         stateStyle.backgroundColor = fadeColor(hex);
         stateStyle.color = 'hsl(var(--muted-foreground))';
+        // 22% of a pale hue over a white card is ~1.06:1 against the grid, so
+        // the block disappeared rather than receding. A border gives it an
+        // edge without making it compete with live classes again.
+        stateStyle.border = '1px solid hsl(var(--border))';
         onColor = false;
         break;
       default:
@@ -113,7 +117,13 @@ export function CalendarEventCard({
         isCanceled && 'opacity-50 line-through',
         !isBlock && !hex && 'text-white',
         state === 'next' && 'shadow-md',
-        needsPlayers && 'ring-2 ring-warning ring-offset-2 ring-offset-background',
+        // DASHED, not a solid amber ring. A solid ring collided with warm class
+        // colours — on a yellow class it measured 1.67:1 against the block and
+        // read as "this class is gold" rather than "this class needs players".
+        // The plan encodes this state as a dashed block precisely because a
+        // style difference survives whatever swatch the coach picks.
+        needsPlayers &&
+          'outline outline-2 outline-dashed outline-warning outline-offset-2',
       )}
     >
       {/* Title + level chip. The chip is the only thing allowed on the right,

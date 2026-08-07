@@ -38,13 +38,17 @@ export function ClassFillBar({
   // that modifier does not apply to `currentColor`, so `bg-current/15` compiles
   // to nothing and the bar silently disappears. Opacity on the elements is not
   // an option either — a parent's opacity would multiply into the children.
+  // Alphas are set for the WORST surface the bar sits on. The original
+  // 18/45 ramp worked on a saturated block, where lower alpha moves toward
+  // the fill colour, but on the white next-class body it just moves toward
+  // white and the split stopped reading.
   const tint = (pctOfColor: number) =>
     `color-mix(in srgb, currentColor ${pctOfColor}%, transparent)`;
 
   return (
     <div
       className={cn("flex h-1.5 w-full overflow-hidden rounded-full", className)}
-      style={{ backgroundColor: tint(18) }}
+      style={{ backgroundColor: tint(30) }}
       role="progressbar"
       aria-valuenow={safeConfirmed}
       aria-valuemin={0}
@@ -60,7 +64,7 @@ export function ClassFillBar({
       />
       <div
         className="h-full transition-[width] duration-300 ease-out motion-reduce:transition-none"
-        style={{ width: pct(safeFilled - safeConfirmed), backgroundColor: tint(45) }}
+        style={{ width: pct(safeFilled - safeConfirmed), backgroundColor: tint(62) }}
       />
     </div>
   );
