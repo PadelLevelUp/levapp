@@ -46,7 +46,14 @@ export function CalendarGrid({
 }: CalendarGridProps) {
   // Which class is "next" is a property of the whole visible set, so it is
   // resolved here and passed down rather than guessed inside each card.
-  const nextEventId = useMemo(() => findNextEventId(events), [events]);
+  //
+  // Gated on the view containing today: without this, paging to any future
+  // week marks that week's first class as "next", so the highlight appears
+  // everywhere and stops meaning anything.
+  const nextEventId = useMemo(
+    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    [events, weekDays]
+  );
 
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);

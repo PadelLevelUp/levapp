@@ -56,8 +56,16 @@ function luminance(rgb: [number, number, number]): number {
 export function contrastTextOn(hex: string | undefined): string {
   const rgb = hex ? parseHex(hex) : null;
   if (!rgb) return "hsl(var(--card))";
-  // 0.5 is the crossover where white and near-black have equal contrast.
-  return luminance(rgb) > 0.5 ? "hsl(var(--foreground))" : "#FFFFFF";
+  // The crossover where ink and white give EQUAL contrast:
+  //   white: 1.05 / (L + 0.05)        ink: (L + 0.05) / (L_ink + 0.05)
+  // solving gives L = sqrt(1.05 * (L_ink + 0.05)) - 0.05.
+  //
+  // The familiar 0.179 assumes pure black. Our ink is #101E33 (L = 0.0128),
+  // which moves the crossover to 0.2067 — and that difference decides the
+  // indigo and violet swatches, where white genuinely wins.
+  //
+  // Checked against all 8 swatches a coach can pick: worst case 4.23:1.
+  return luminance(rgb) > 0.2067 ? "hsl(var(--foreground))" : "#FFFFFF";
 }
 
 /**

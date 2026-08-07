@@ -59,8 +59,13 @@ export function MobileCalendarView({
     return getEventsForDay(selectedDay);
   }, [events, selectedDay]);
 
-  // "Next" is a property of the whole set, not of one card.
-  const nextEventId = useMemo(() => findNextEventId(events), [events]);
+  // "Next" is a property of the whole set, not of one card — and it only means
+  // anything while you are looking at today. Paging to a future day would
+  // otherwise mark that day's first class as "next".
+  const nextEventId = useMemo(
+    () => (isToday(selectedDay) ? findNextEventId(events) : undefined),
+    [events, selectedDay]
+  );
 
   return (
     <div className="flex flex-col h-full">

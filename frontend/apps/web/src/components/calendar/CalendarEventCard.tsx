@@ -84,9 +84,11 @@ export function CalendarEventCard({ event, style, onClick, onDragStart, onDragEn
         !isBlock && !hex && 'text-white',
         // The next class is the one thing on the grid allowed to lift off it.
         state === 'next' && 'shadow-md',
-        // Amber ring = this one wants the coach. Sits OUTSIDE the border so
-        // a next-class-with-holes still shows its own colour.
-        needsPlayers && 'ring-2 ring-warning ring-offset-0',
+        // Amber ring = this one wants the coach. Sits OUTSIDE the border so a
+        // next-class-with-holes still shows its own colour, and carries a
+        // page-coloured offset so it stays visible when the coach has picked a
+        // class colour close to amber — otherwise the ring disappears into it.
+        needsPlayers && 'ring-2 ring-warning ring-offset-2 ring-offset-background',
       )}
     >
       <div className="flex items-start justify-between gap-1">
