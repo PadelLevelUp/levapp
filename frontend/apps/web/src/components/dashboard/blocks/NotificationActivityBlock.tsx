@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
-  sent: "bg-blue-100 text-blue-700",
-  confirmed: "bg-green-100 text-green-700",
-  expired: "bg-gray-100 text-gray-500",
-  queued: "bg-yellow-100 text-yellow-700",
+  sent: "bg-primary/10 text-primary",
+  confirmed: "bg-success/15 text-success",
+  expired: "bg-muted text-muted-foreground",
+  queued: "bg-warning/15 text-warning",
 };
 
 export function NotificationActivityBlock({

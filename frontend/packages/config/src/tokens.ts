@@ -244,7 +244,26 @@ export function nativewindTheme(mode: "light" | "dark" = "light") {
       DEFAULT: t.info,
       foreground: t.infoForeground,
     },
-    online: "#22c55e",
+    // "Online" is a presence state, i.e. a live/confirmed reading — that is the
+    // one job green has. It used to be a hardcoded #22c55e, which survived the
+    // repaint as a stray from the old palette.
+    online: t.success,
     unread: t.primary,
   };
 }
+
+/**
+ * Type stacks, shared so web (tailwind fontFamily) and mobile (expo-font)
+ * name the same families.
+ *
+ * Poppins carries display: screen titles, hero numbers, the wordmark, and the
+ * level chip. Everything else is Plus Jakarta Sans. Anything 20px+ in Poppins
+ * takes `letter-spacing: -0.02em`.
+ */
+export const fontFamily = {
+  display: ["Poppins", "system-ui", "-apple-system", "sans-serif"],
+  body: ["Plus Jakarta Sans", "system-ui", "-apple-system", "sans-serif"],
+} as const;
+
+/** Tracking for display type at 20px and above. */
+export const trackingDisplay = "-0.02em";

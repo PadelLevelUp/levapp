@@ -13,6 +13,12 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        // Plus Jakarta Sans is the default body face; `font-display` opts into
+        // Poppins for screen titles, hero numbers and the level chip.
+        sans: ["Plus Jakarta Sans", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Poppins", "system-ui", "-apple-system", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

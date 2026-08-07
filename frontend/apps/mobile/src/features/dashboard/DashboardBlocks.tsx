@@ -233,10 +233,10 @@ function MessagesOverview({
 /** Mirrors web's STATUS_STYLES (NotificationActivityBlock.tsx) so status
  * pills match across platforms: pale fill + matching text, raw lowercase status. */
 const STATUS_STYLES: Record<string, { badge: string; text: string }> = {
-  sent: { badge: "bg-blue-100", text: "text-blue-700" },
-  confirmed: { badge: "bg-green-100", text: "text-green-700" },
-  expired: { badge: "bg-gray-100", text: "text-gray-500" },
-  queued: { badge: "bg-yellow-100", text: "text-yellow-700" },
+  sent: { badge: "bg-primary/10", text: "text-primary" },
+  confirmed: { badge: "bg-success/15", text: "text-success" },
+  expired: { badge: "bg-muted", text: "text-muted-foreground" },
+  queued: { badge: "bg-warning/15", text: "text-warning" },
 };
 
 function NotificationActivity({

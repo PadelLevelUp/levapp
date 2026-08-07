@@ -247,7 +247,7 @@ export default function PlayerDetailScreen() {
             accessibilityLabel={t("players.onWaitingList")}
             disabled={removeFromWaitingList.isPending}
             onPress={() => void handleRemoveFromWaitingList()}
-            className="border-amber-300"
+            className="border-warning/40"
           >
             {removeFromWaitingList.isPending ? (
               <Spinner size="small" />
@@ -258,7 +258,7 @@ export default function PlayerDetailScreen() {
                 color="#b45309"
               />
             )}
-            <Text className="text-amber-700">
+            <Text className="text-warning">
               {t("players.onWaitingList")}
             </Text>
           </Button>

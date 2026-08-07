@@ -76,8 +76,8 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
       {/* Editing indicator */}
       {editingMessage && (
         <div className="flex items-center gap-2 mb-2">
-          <div className="flex-1 pl-3 border-l-2 border-amber-500">
-            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{t('messages.editingMessage')}</p>
+          <div className="flex-1 pl-3 border-l-2 border-warning/40">
+            <p className="text-xs font-semibold text-warning">{t('messages.editingMessage')}</p>
             <p className="text-xs text-muted-foreground line-clamp-1">{editingMessage.content}</p>
           </div>
           <button onClick={() => { onCancelEdit(); setText(''); }} className="p-1 rounded-full hover:bg-accent" aria-label={t("messages.cancelEdit")}>

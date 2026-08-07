@@ -81,7 +81,7 @@ export function AttendanceRow({
                     <span className={cn(
                       "inline-flex items-center justify-center w-5 h-5 rounded-full",
                       confirmed
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        ? "bg-success/15 text-success"
                         : "bg-warning/15 text-warning"
                     )}>
                       {confirmed ? (

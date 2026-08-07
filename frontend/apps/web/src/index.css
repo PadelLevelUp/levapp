@@ -142,6 +142,21 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Every time, score and count in this system is tabular — a column of
+       proportional figures jitters and is unreadable at a glance. This app is
+       dense with them (10:30, 12/16, Nível 4-), so it is set app-wide rather
+       than hunted down per component, which would silently miss new ones. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Display type takes negative tracking at 20px and up. Poppins is loose by
+     default at large sizes and titles look unset without this. */
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: theme("fontFamily.display");
+    letter-spacing: -0.02em;
   }
 }
 

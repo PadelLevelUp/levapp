@@ -24,7 +24,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
               className={cn(
                 "inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full",
                 action.response === "accepted"
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  ? "bg-success/15 text-success"
                   : "bg-destructive/15 text-destructive"
               )}
             >
@@ -52,7 +52,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+              className="h-8 gap-1.5 border-success/40 text-success hover:bg-success/10 dark:text-success"
               onClick={() => onRespond(action, "accepted")}
             >
               <Check className="w-3.5 h-3.5" />

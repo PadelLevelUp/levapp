@@ -209,12 +209,12 @@ export default function PlayersPage() {
         <Alert
           className={`cursor-pointer transition-colors ${
             missingLevelFilter
-              ? "border-amber-500 bg-amber-50 dark:bg-amber-950"
-              : "hover:border-amber-300"
+              ? "border-warning/40 bg-warning/10 dark:bg-warning/10"
+              : "hover:border-warning/40"
           }`}
           onClick={toggleMissingLevelFilter}
         >
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertDescription className="ml-2">
             {t("players.missingLevelAlert", { count: alertCounts.missingLevel })}
           </AlertDescription>
@@ -224,12 +224,12 @@ export default function PlayersPage() {
         <Alert
           className={`cursor-pointer transition-colors ${
             missingSideFilter
-              ? "border-amber-500 bg-amber-50 dark:bg-amber-950"
-              : "hover:border-amber-300"
+              ? "border-warning/40 bg-warning/10 dark:bg-warning/10"
+              : "hover:border-warning/40"
           }`}
           onClick={toggleMissingSideFilter}
         >
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertDescription className="ml-2">
             {t("players.missingSideAlert", { count: alertCounts.missingSide })}
           </AlertDescription>
@@ -324,7 +324,7 @@ export default function PlayersPage() {
                       <Badge variant="secondary">{sideLabel(cs.side)}</Badge>
                     )}
                     {!cs.validated && (
-                      <Badge variant="outline" className="border-amber-400 text-amber-600 dark:text-amber-400">
+                      <Badge variant="outline" className="border-warning/40 text-warning">
                         {t("players.pendingRegistration")}
                       </Badge>
                     )}

@@ -21,7 +21,7 @@ import type { ContextMenuAnchor } from "./message-context-menu";
 // Mirrors web's hardcoded read-receipt blue (Tailwind's blue-300) — a
 // one-off accent, not part of the @levelup/config design tokens.
 const READ_ICON_COLOR = "#93c5fd";
-// Mirrors web's Tailwind emerald-600 accent for the invite "accepted" badge
+// Accepted = done, which is the one job the success token has.
 // icon (Ionicons needs a color string, not a class) — same one-off pattern.
 const ACCEPTED_ICON_COLOR = "#059669";
 
@@ -355,13 +355,13 @@ export function MessageBubble({
           >
             {alreadyResponded ? (
               response === "yes" ? (
-                <View className="flex-row items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5">
+                <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
                   <Ionicons
                     name="checkmark"
                     size={14}
                     color={ACCEPTED_ICON_COLOR}
                   />
-                  <Text className="text-xs font-medium text-emerald-600">
+                  <Text className="text-xs font-medium text-success">
                     {t("messages.accepted")}
                   </Text>
                 </View>
@@ -377,8 +377,8 @@ export function MessageBubble({
                   </Text>
                 </View>
               ) : (
-                <View className="rounded-full bg-amber-500/15 px-3 py-1.5">
-                  <Text className="text-xs font-medium text-amber-600">
+                <View className="rounded-full bg-warning/15 px-3 py-1.5">
+                  <Text className="text-xs font-medium text-warning">
                     {t("messages.spotFilled")}
                   </Text>
                 </View>

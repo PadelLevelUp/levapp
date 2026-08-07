@@ -218,18 +218,19 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative",
+                  // Selected is a FILLED SHAPE, not a colour swap: the raised
+                  // navy carries the selection and the blue label carries the
+                  // emphasis. A full-width bright-blue bar reads as a button —
+                  // blue is reserved for actions, and the nav is not one.
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent text-sidebar-foreground"
+                    ? "bg-sidebar-accent text-sidebar-primary font-semibold"
+                    : "hover:bg-sidebar-accent/60 text-sidebar-foreground"
                 )}
               >
                 <div className="relative shrink-0">
                   <item.icon className="w-5 h-5 shrink-0" />
                   {showBadge && (
-                    <span className={cn(
-                      "absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1",
-                      isActive && "bg-sidebar-primary-foreground text-sidebar-primary"
-                    )}>
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
                       {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                   )}
@@ -294,15 +295,24 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <div className="relative">
+              {/* The active destination gets a filled wash behind its icon —
+                  a shape, not just a colour swap, so it reads at a glance. */}
+              <div
+                className={cn(
+                  "relative flex items-center justify-center rounded-lg px-3 py-0.5 transition-colors",
+                  isActive && "bg-secondary"
+                )}
+              >
                 <item.icon className="w-5 h-5" />
                 {showBadge && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
+                  <span className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
+              <span className={cn("text-[10px]", isActive ? "font-semibold" : "font-medium")}>
+                {t(item.labelKey)}
+              </span>
             </Link>
           );
         })}

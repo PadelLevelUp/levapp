@@ -195,7 +195,18 @@ describe("nativewindTheme", () => {
 
   it("exposes the messaging extras (online dot, unread = primary)", () => {
     const light = nativewindTheme("light");
-    expect(light.online).toBe("#22c55e");
+    // The online dot is a live/confirmed reading, which is exactly the one job
+    // green has. It used to be a hardcoded #22c55e that survived the repaint as
+    // a stray from the old palette; it now tracks the success token.
+    expect(light.online).toBe(lightTheme.success);
     expect(light.unread).toBe(lightTheme.primary);
+  });
+
+  it("leaks no raw hex — every colour resolves through the theme", () => {
+    for (const mode of ["light", "dark"] as const) {
+      const theme = nativewindTheme(mode) as Record<string, unknown>;
+      const flat = JSON.stringify(theme);
+      expect(flat, `${mode} theme contains a hardcoded hex`).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    }
   });
 });

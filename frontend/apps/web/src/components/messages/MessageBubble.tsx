@@ -232,7 +232,7 @@ export function MessageBubble({
         {isInvite && (
           <div className="flex gap-2 mt-1.5 ml-1">
             {localResponse === 'accepted' ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
                 <Check className="w-3.5 h-3.5" />
                 {t("messages.accepted")}
               </span>
@@ -243,7 +243,7 @@ export function MessageBubble({
               </span>
             ) : alreadyResponded ? (
               message.metadata?.response === "yes" ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
                   <Check className="w-3.5 h-3.5" />
                   {t("messages.accepted")}
                 </span>
@@ -253,7 +253,7 @@ export function MessageBubble({
                   {t("messages.declined")}
                 </span>
               ) : (
-                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600">
+                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-warning/15 text-warning">
                   {t("messages.spotFilled")}
                 </span>
               )
@@ -316,14 +316,14 @@ export function MessageBubble({
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
               {confirmed ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
                     <Check className="w-3.5 h-3.5" />
                     {t("messages.confirmed")}
                   </span>
                   {classInFuture && (
                     isLateCancellation && confirmingLateCancel ? (
                       <div className="flex flex-col gap-1.5 w-full">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                           {t("messages.lateCancellationWarning")}
                         </span>

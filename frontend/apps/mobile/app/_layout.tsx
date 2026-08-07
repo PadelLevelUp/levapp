@@ -3,7 +3,15 @@ import "react-native-gesture-handler";
 import "../global.css";
 
 import { PortalHost } from "@rn-primitives/portal";
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from "@expo-google-fonts/plus-jakarta-sans";
+import { Poppins_600SemiBold, Poppins_700Bold } from "@expo-google-fonts/poppins";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
@@ -38,6 +46,22 @@ export default function RootLayout() {
   // Lets React Query treat a foreground return as a focus event, so data that
   // went stale while iOS had the app suspended refetches on resume.
   useAppStateFocus();
+
+  // Poppins carries display (titles, hero numbers); Plus Jakarta Sans carries
+  // everything else. Only the weights the system uses are bundled.
+  const [fontsLoaded, fontError] = useFonts({
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
+
+  // Render nothing until the faces resolve, so text does not paint in the
+  // system font and reflow. A font ERROR must not block the app, though —
+  // falling back to system type beats a permanently blank screen.
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

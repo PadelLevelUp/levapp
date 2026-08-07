@@ -6,9 +6,9 @@ import { Trash2 } from "lucide-react";
 import type { Exercise } from "@/types/training";
 
 const diffColor = (d: number) => {
-  if (d <= 2) return "bg-emerald-500/15 text-emerald-700 border-emerald-500/30";
-  if (d <= 3) return "bg-amber-500/15 text-amber-700 border-amber-500/30";
-  return "bg-red-500/15 text-red-700 border-red-500/30";
+  if (d <= 2) return "bg-success/15 text-success border-success/30";
+  if (d <= 3) return "bg-warning/15 text-warning border-warning/30";
+  return "bg-destructive/15 text-destructive border-destructive/30";
 };
 
 interface Props {
@@ -28,7 +28,7 @@ export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
     >
       <CardContent className="p-4 space-y-2">
         {ex.diagram && ex.diagram.elements.length > 0 && (
-          <div className="h-24 bg-emerald-900/80 rounded overflow-hidden mb-2">
+          <div className="h-24 bg-success/80 rounded overflow-hidden mb-2">
             <svg viewBox="0 0 280 520" className="w-full h-full">
               <rect x="20" y="20" width="240" height="480" fill="#1a6b35" stroke="white" strokeWidth="2" rx="2" />
               <line x1="20" y1="260" x2="260" y2="260" stroke="white" strokeWidth="2" />
