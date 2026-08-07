@@ -21,7 +21,8 @@
           "NSAllowsLocalNetworking": true
         }
       },
-      "appleTeamId": "9K2J8D2ARR"
+      "appleTeamId": "9K2J8D2ARR",
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.padellevelup.app",
@@ -59,6 +60,12 @@
         "projectId": "dc8bbf5f-3e08-4c97-a912-00bb9b1b43e0"
       }
     },
-    "owner": "levapps-team"
+    "owner": "levapps-team",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dc8bbf5f-3e08-4c97-a912-00bb9b1b43e0"
+    }
   }
 }
