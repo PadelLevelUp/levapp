@@ -153,7 +153,7 @@ export function CalendarEventCard({
 
       {/* Fill: the bar reads before the number does. */}
       {showFill && (!compact || isRow) && (
-        <div className="mt-auto flex items-center gap-1.5 pt-1">
+        <div className="mt-auto flex items-center gap-1.5">
           <ClassFillBar
             confirmed={confirmed}
             filled={filled}

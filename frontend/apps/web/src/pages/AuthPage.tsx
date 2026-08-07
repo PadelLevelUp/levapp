@@ -78,6 +78,37 @@ const AuthPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      {/* The first screen a user sees carried no branding at all, while every
+          in-app screen shows the mark. Mark + wordmark: this is the one place
+          with room for the full lockup. A static SVG cannot follow the theme,
+          so both variants ship and CSS picks. */}
+      <div className="mb-8 flex items-center gap-3" aria-label="LevApp">
+        <img
+          src="/brand/levapp-mark-on-light.svg"
+          alt=""
+          aria-hidden="true"
+          className="h-10 w-auto dark:hidden"
+        />
+        <img
+          src="/brand/levapp-mark-on-dark.svg"
+          alt=""
+          aria-hidden="true"
+          className="hidden h-10 w-auto dark:block"
+        />
+        <img
+          src="/brand/levapp-wordmark-on-light.svg"
+          alt=""
+          aria-hidden="true"
+          className="h-6 w-auto dark:hidden"
+        />
+        <img
+          src="/brand/levapp-wordmark-on-dark.svg"
+          alt=""
+          aria-hidden="true"
+          className="hidden h-6 w-auto dark:block"
+        />
+      </div>
+
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">

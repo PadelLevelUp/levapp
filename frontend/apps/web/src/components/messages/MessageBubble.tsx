@@ -206,8 +206,8 @@ export function MessageBubble({
                   // better it reads. /20 measured 4.18:1; /12 gives 4.9 light
                   // and 5.54 dark. A dark scrim would invert on the dark theme,
                   // where the bubble is light blue and the text is dark.
-                  ? 'border-primary-foreground/60 text-primary-foreground bg-primary-foreground/[0.12] hover:bg-primary-foreground/20'
-                  : 'border-primary text-foreground/80 bg-foreground/[0.07] hover:bg-foreground/10'
+                  ? 'border-primary-foreground/60 text-primary-foreground bg-primary-foreground/20 hover:bg-primary-foreground/25'
+                  : 'border-primary text-foreground/80 bg-foreground/10 hover:bg-foreground/[0.14]'
               }`}
             >
               <span className="font-semibold block">
