@@ -76,9 +76,12 @@ export function MobileCalendarView({
     [levels]
   );
 
+  // Same gate as the desktop grid: the next class shows whenever the visible
+  // WEEK contains today. Requiring the SELECTED DAY to be today meant tapping
+  // the day the next class actually falls on showed nothing.
   const nextEventId = useMemo(
-    () => (isToday(selectedDay) ? findNextEventId(events) : undefined),
-    [events, selectedDay]
+    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    [events, weekDays]
   );
 
   return (
@@ -137,7 +140,10 @@ export function MobileCalendarView({
                         data-event-title={event.title}
                         data-has-holes={holes ? "true" : "false"}
                         className={cn(
-                          "block w-full truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
+                          // Matches the block the previous version used:
+                          // room for three wrapped lines and a 32px floor, so
+                          // a title reads instead of truncating to "E2E R…".
+                          "block w-full rounded px-1.5 py-1.5 text-[9px] font-medium leading-tight line-clamp-3 min-h-[32px]",
                           isBlockEvent && "bg-muted text-muted-foreground",
                           past && "opacity-45",
                         )}
