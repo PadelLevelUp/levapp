@@ -69,4 +69,16 @@ i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
+// Keep <html lang> in step with the UI language. It was hardcoded "en" in
+// index.html while the app defaults to pt, so screen readers announced
+// Portuguese content with English pronunciation rules, and browser
+// translation offered to translate pt into pt.
+function syncDocumentLang(lng: string) {
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = lng;
+  }
+}
+syncDocumentLang(i18n.language);
+i18n.on("languageChanged", syncDocumentLang);
+
 export default i18n;

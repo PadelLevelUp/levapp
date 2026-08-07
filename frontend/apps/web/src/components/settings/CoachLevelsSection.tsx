@@ -197,13 +197,18 @@ export function CoachLevelsSection() {
               />
             </div>
 
-            <Input
-              value={level.label}
-              aria-label={t("settings.coachLevels.label")}
-              onChange={(e) => handleChange(level.id, "label", e.target.value)}
-              placeholder={t("settings.coachLevels.labelPlaceholder")}
-              className="h-8 text-sm min-w-[8rem] flex-1"
-            />
+            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.coachLevels.label")}
+              </span>
+              <Input
+                value={level.label}
+                aria-label={t("settings.coachLevels.label")}
+                onChange={(e) => handleChange(level.id, "label", e.target.value)}
+                placeholder={t("settings.coachLevels.labelPlaceholder")}
+                className="h-8 text-sm min-w-[6rem] flex-1"
+              />
+            </div>
 
             {/* PAD-84: the list order carries meaning (position 1 => lowest
                 displayOrder => strongest level, per the notification engine's
@@ -257,7 +262,7 @@ export function CoachLevelsSection() {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             {t("settings.coachLevels.addLevel")}

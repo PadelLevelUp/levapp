@@ -166,12 +166,18 @@ export function EvaluationCategoriesSection() {
               <GripVertical className="w-4 h-4" />
             </button>
 
-            <Input
-              value={cat.name}
-              onChange={(e) => handleChange(cat.id, "name", e.target.value)}
-              placeholder={t("settings.evaluationCategories.namePlaceholder")}
-              className="h-8 text-sm min-w-[8rem] flex-1"
-            />
+            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.evaluationCategories.name")}
+              </span>
+              <Input
+                value={cat.name}
+                aria-label={t("settings.evaluationCategories.name")}
+                onChange={(e) => handleChange(cat.id, "name", e.target.value)}
+                placeholder={t("settings.evaluationCategories.namePlaceholder")}
+                className="h-8 text-sm min-w-[6rem] flex-1"
+              />
+            </div>
 
             {/* The column header is hidden on mobile, so these two numbers
                 would be a pair of unlabelled boxes. `sm:contents` drops the
@@ -216,7 +222,7 @@ export function EvaluationCategoriesSection() {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             {t("settings.evaluationCategories.addCategory")}

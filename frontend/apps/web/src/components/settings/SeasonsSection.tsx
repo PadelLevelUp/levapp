@@ -178,30 +178,47 @@ export function SeasonsSection() {
         {seasons.map((season) => (
           <div
             key={season.id}
-            className="grid grid-cols-1 sm:grid-cols-[1fr_150px_150px_32px] gap-2 items-center rounded-lg border p-2 bg-background"
+            data-testid="season-row"
+            className="flex flex-wrap sm:grid sm:grid-cols-[1fr_150px_150px_32px] gap-2 items-center rounded-lg border p-2 bg-background"
           >
-            <Input
-              value={season.name}
-              onChange={(e) => handleChange(season.id, "name", e.target.value)}
-              placeholder={t("settings.seasons.namePlaceholder")}
-              className="h-8 text-sm"
-            />
+            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.seasons.name")}
+              </span>
+              <Input
+                value={season.name}
+                aria-label={t("settings.seasons.name")}
+                onChange={(e) => handleChange(season.id, "name", e.target.value)}
+                placeholder={t("settings.seasons.namePlaceholder")}
+                className="h-8 flex-1 text-sm"
+              />
+            </div>
 
-            <Input
-              type="date"
-              aria-label={t("settings.seasons.startAriaLabel")}
-              value={season.startDate}
-              onChange={(e) => handleChange(season.id, "startDate", e.target.value)}
-              className="h-8 text-sm"
-            />
+            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.seasons.start")}
+              </span>
+              <Input
+                type="date"
+                aria-label={t("settings.seasons.startAriaLabel")}
+                value={season.startDate}
+                onChange={(e) => handleChange(season.id, "startDate", e.target.value)}
+                className="h-8 flex-1 text-sm"
+              />
+            </div>
 
-            <Input
-              type="date"
-              aria-label={t("settings.seasons.endAriaLabel")}
-              value={season.endDate}
-              onChange={(e) => handleChange(season.id, "endDate", e.target.value)}
-              className="h-8 text-sm"
-            />
+            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.seasons.end")}
+              </span>
+              <Input
+                type="date"
+                aria-label={t("settings.seasons.endAriaLabel")}
+                value={season.endDate}
+                onChange={(e) => handleChange(season.id, "endDate", e.target.value)}
+                className="h-8 flex-1 text-sm"
+              />
+            </div>
 
             <Button
               variant="ghost"
@@ -221,7 +238,7 @@ export function SeasonsSection() {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             {t("settings.seasons.addSeason")}
