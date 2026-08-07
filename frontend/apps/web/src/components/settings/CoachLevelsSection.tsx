@@ -197,7 +197,7 @@ export function CoachLevelsSection() {
               />
             </div>
 
-            <div className="flex flex-1 items-center gap-1.5 sm:contents">
+            <div className="order-4 flex flex-1 items-center gap-1.5 sm:order-none sm:contents">
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
                 {t("settings.coachLevels.label")}
               </span>
@@ -219,7 +219,7 @@ export function CoachLevelsSection() {
                 for screen readers. Markers only make sense with 2+ levels,
                 otherwise the single level would be both ends at once. */}
             {levels.length > 1 && idx === 0 ? (
-              <span className="flex shrink-0 flex-col items-center gap-1">
+              <span className="order-3 flex shrink-0 flex-col items-center gap-1 sm:order-none">
                 <span
                   data-testid="coach-level-highest-marker"
                   className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
@@ -229,7 +229,7 @@ export function CoachLevelsSection() {
                 <span aria-hidden="true" className="h-2 w-px bg-border" />
               </span>
             ) : levels.length > 1 && idx === levels.length - 1 ? (
-              <span className="flex flex-col items-center">
+              <span className="order-3 flex shrink-0 flex-col items-center sm:order-none">
                 <ChevronDown
                   data-testid="coach-level-direction-arrow"
                   aria-hidden="true"
@@ -251,7 +251,7 @@ export function CoachLevelsSection() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-auto sm:ml-0"
+              className="order-5 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-auto sm:order-none sm:ml-0"
               onClick={() => handleRemove(level.id)}
               disabled={removingId === level.id}
             >
