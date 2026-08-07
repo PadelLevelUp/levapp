@@ -1,123 +1,136 @@
 @tailwind base;
-
-/* Custom warning color for invitation prompts */
-:root {
-  --warning: 38 92% 50%;
-  --warning-foreground: 0 0% 100%;
-}
-
-.dark {
-  --warning: 38 92% 50%;
-  --warning-foreground: 0 0% 100%;
-}
 @tailwind components;
 @tailwind utilities;
+
+/* There used to be an UNLAYERED :root/.dark --warning block here. Unlayered
+   declarations beat layered ones, so it silently overrode the value defined in
+   @layer base below — the token you read in the file was not the token that
+   rendered. Every token now lives in @layer base, defined exactly once. Do not
+   add token declarations outside the layer. */
 
 .message-action-menu {
   @apply bg-card border border-border rounded-2xl shadow-xl overflow-hidden;
 }
 
-/* LevelUp Design System - Padel Coaching Platform */
+/* LevApp Design System — navy and blue, lifted from the app icon.
+   MIRROR OF packages/config/src/tokens.ts. That file feeds apps/mobile via
+   nativewindTheme(); this file feeds the web. They must agree — change both. */
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    --background: 216 29% 93%;
+    --foreground: 216 52% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 216 52% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 216 52% 13%;
 
-    /* Primary: Vibrant padel court green */
-    --primary: 152 60% 42%;
+    /* Blue carries identity AND every primary action. */
+    --primary: 220 84% 47%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Warm accent */
-    --secondary: 35 90% 55%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary button: blue wash, blue label. */
+    --secondary: 217 100% 95%;
+    --secondary-foreground: 220 84% 47%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 213 39% 95%;
+    --muted-foreground: 219 18% 41%;
 
-    --accent: 210 30% 92%;
-    --accent-foreground: 220 20% 10%;
+    /* `accent` is the menu/dropdown hover — deliberately neutral. */
+    --accent: 217 32% 92%;
+    --accent-foreground: 216 52% 13%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 4 63% 53%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 88%;
-    --ring: 152 60% 42%;
+    --border: 215 28% 86%;
+    --input: 215 28% 86%;
+    --ring: 220 84% 47%;
 
     --radius: 0.625rem;
 
-    /* Custom colors for class types */
-    --academy: 200 80% 50%;
+    /* Class types. */
+    --academy: 214 100% 59%;
     --academy-foreground: 0 0% 100%;
-    --private: 280 60% 55%;
+    --private: 249 55% 59%;
     --private-foreground: 0 0% 100%;
 
-    /* Status colors */
-    --success: 152 60% 42%;
+    /* Status — one job each. Green is DONE and nothing else. */
+    --success: 161 78% 33%;
     --success-foreground: 0 0% 100%;
-    --warning: 35 90% 55%;
-    --warning-foreground: 0 0% 100%;
-    --info: 200 80% 50%;
+    --warning: 31 72% 50%;
+    --warning-foreground: 216 52% 13%;
+    --info: 214 100% 59%;
     --info-foreground: 0 0% 100%;
 
-    /* Sidebar */
-    --sidebar-background: 220 20% 10%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 152 60% 42%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 152 60% 42%;
+    /* The navy chrome. */
+    --sidebar-background: 217 58% 12%;
+    --sidebar-foreground: 216 63% 97%;
+    --sidebar-primary: 213 100% 65%;
+    --sidebar-primary-foreground: 211 68% 7%;
+    --sidebar-accent: 218 54% 19%;
+    --sidebar-accent-foreground: 216 63% 97%;
+    --sidebar-border: 213 37% 23%;
+    --sidebar-ring: 213 100% 65%;
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 210 20% 95%;
+    --background: 218 58% 6%;
+    --foreground: 216 63% 97%;
 
-    --card: 220 18% 12%;
-    --card-foreground: 210 20% 95%;
+    --card: 217 51% 12%;
+    --card-foreground: 216 63% 97%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 216 47% 17%;
+    --popover-foreground: 216 63% 97%;
 
-    --primary: 152 55% 48%;
-    --primary-foreground: 0 0% 100%;
+    /* Blue carries identity AND every primary action. */
+    --primary: 213 100% 65%;
+    --primary-foreground: 211 68% 7%;
 
-    --secondary: 35 85% 50%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary button: blue wash, blue label. */
+    --secondary: 215 47% 22%;
+    --secondary-foreground: 215 100% 81%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 210 15% 55%;
+    --muted: 216 47% 17%;
+    --muted-foreground: 215 29% 71%;
 
-    --accent: 220 15% 18%;
-    --accent-foreground: 210 20% 95%;
+    /* `accent` is the menu/dropdown hover — deliberately neutral. */
+    --accent: 216 47% 17%;
+    --accent-foreground: 216 63% 97%;
 
-    --destructive: 0 65% 45%;
+    --destructive: 4 66% 59%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 152 55% 48%;
+    --border: 213 37% 23%;
+    --input: 213 37% 23%;
+    --ring: 213 100% 65%;
 
-    --academy: 200 75% 45%;
-    --private: 280 55% 50%;
+    /* Class types. */
+    --academy: 213 100% 65%;
+    --academy-foreground: 211 68% 7%;
+    --private: 250 80% 81%;
+    --private-foreground: 211 68% 7%;
 
-    --sidebar-background: 220 25% 6%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 152 55% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 12%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 15% 15%;
-    --sidebar-ring: 152 55% 48%;
+    /* Status — one job each. Green is DONE and nothing else. */
+    --success: 160 57% 60%;
+    --success-foreground: 211 68% 7%;
+    --warning: 34 81% 69%;
+    --warning-foreground: 211 68% 7%;
+    --info: 213 100% 65%;
+    --info-foreground: 211 68% 7%;
+
+    /* The navy chrome. */
+    --sidebar-background: 216 53% 9%;
+    --sidebar-foreground: 216 63% 97%;
+    --sidebar-primary: 213 100% 65%;
+    --sidebar-primary-foreground: 211 68% 7%;
+    --sidebar-accent: 216 47% 17%;
+    --sidebar-accent-foreground: 216 63% 97%;
+    --sidebar-border: 215 43% 19%;
+    --sidebar-ring: 213 100% 65%;
   }
 }
 
