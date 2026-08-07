@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 import type { CalendarEvent } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
+import { findNextEventId } from "@/lib/calendar-status";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MobileCalendarViewProps {
@@ -57,6 +58,9 @@ export function MobileCalendarView({
   const selectedDayEvents = useMemo(() => {
     return getEventsForDay(selectedDay);
   }, [events, selectedDay]);
+
+  // "Next" is a property of the whole set, not of one card.
+  const nextEventId = useMemo(() => findNextEventId(events), [events]);
 
   return (
     <div className="flex flex-col h-full">
@@ -163,7 +167,7 @@ export function MobileCalendarView({
                     }
                   }}
                 >
-                  <CalendarEventCard event={event} />
+                  <CalendarEventCard event={event} isNext={event.id === nextEventId} />
                 </div>
               ))
             )}

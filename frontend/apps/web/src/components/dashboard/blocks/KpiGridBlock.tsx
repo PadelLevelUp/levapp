@@ -78,19 +78,23 @@ export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
                 }
               : {})}
             className={
+              // Cards take borders, not shadows — hover darkens instead of
+              // lifting, so a grid of tiles stays flat and calm.
               href
-                ? "cursor-pointer hover:shadow-md transition-shadow"
-                : "transition-shadow"
+                ? "cursor-pointer hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                : ""
             }
           >
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="flex flex-row items-start justify-between pb-1 p-4">
+              {/* Eyebrow: it opens the tile and never competes with the number. */}
+              <CardTitle className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 {label}
               </CardTitle>
-              <Icon className="w-4 h-4 text-muted-foreground" />
+              <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-4 pt-0">
+              {/* The number is the content, so it gets the display face. */}
+              <div className="font-display text-[34px] leading-none font-bold tabular-nums">
                 {item.prefix ?? ""}
                 {item.value}
               </div>

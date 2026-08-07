@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { findNextEventId } from '@/lib/calendar-status';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent } from '@/types';
@@ -43,6 +44,10 @@ export function CalendarGrid({
   onSlotRangeSelect,
   onEventDrop,
 }: CalendarGridProps) {
+  // Which class is "next" is a property of the whole visible set, so it is
+  // resolved here and passed down rather than guessed inside each card.
+  const nextEventId = useMemo(() => findNextEventId(events), [events]);
+
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
@@ -316,6 +321,7 @@ export function CalendarGrid({
                     <CalendarEventCard
                       key={event.id}
                       event={event}
+                      isNext={event.id === nextEventId}
                       style={{
                         position: 'absolute',
                         top: style.top,
