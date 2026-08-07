@@ -175,16 +175,28 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
           sidebarCollapsed ? "w-16" : "w-64"
         )}
       >
-        {/* Logo */}
+        {/* Brand. The sidebar is navy chrome, so both marks are the on-dark
+            variants. The wordmark is outlined type, not live text — it carries
+            its own "Lev"/"App" two-tone and must never be recoloured. */}
         <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">
-                LU
-              </span>
-            </div>
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2.5"
+            aria-label="LevApp"
+          >
+            <img
+              src="/brand/levapp-mark-on-dark.svg"
+              alt=""
+              aria-hidden="true"
+              className="w-8 h-8 shrink-0"
+            />
             {!sidebarCollapsed && (
-              <span className="font-semibold text-lg">LevelUp</span>
+              <img
+                src="/brand/levapp-wordmark-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-[18px] w-auto"
+              />
             )}
           </Link>
         </div>
