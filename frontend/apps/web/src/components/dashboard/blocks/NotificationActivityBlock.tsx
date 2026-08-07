@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
   sent: "bg-primary/10 text-primary",
-  confirmed: "bg-success/15 text-success",
+  confirmed: "bg-success/15 text-success-strong",
   expired: "bg-muted text-muted-foreground",
-  queued: "bg-warning/15 text-warning",
+  queued: "bg-warning/15 text-warning-strong",
 };
 
 export function NotificationActivityBlock({

@@ -30,7 +30,7 @@ interface Props {
 
 function StatusIcon({ status }: { status: MessageStatus }) {
   switch (status) {
-    case 'sending':   return <Clock       className="h-3 w-3 text-primary-foreground/50" />;
+    case 'sending':   return <Clock       className="h-3 w-3 text-primary-foreground/80" />;
     case 'sent':      return <Check       className="h-3 w-3 text-primary-foreground/60" />;
     case 'delivered': return <CheckCheck  className="h-3 w-3 text-primary-foreground/60" />;
     case 'read':      return <CheckCheck  className="h-3 w-3 text-blue-300" />;
@@ -148,7 +148,7 @@ export function MessageBubble({
   if (message.isDeleted) {
     return (
       <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
-        <div className={`rounded-2xl px-3.5 py-2 italic text-sm text-muted-foreground bg-muted ${
+        <div className={`rounded-2xl px-3.5 py-2 italic text-sm text-muted-foreground bg-muted border border-border shadow-sm ${
           isMine ? (showTail ? 'rounded-br-md' : '') : (showTail ? 'rounded-bl-md' : '')
         }`}>
           {t("messages.messageDeleted")}
@@ -198,10 +198,16 @@ export function MessageBubble({
           {replyToMessage && (
             <button
               onClick={() => onScrollToMessage?.(String(replyToMessage.id))}
-              className={`block w-full text-right mb-1.5 px-2.5 py-1.5 border-r-[3px] rounded-lg text-xs transition-colors ${
+              className={`block w-full text-left mb-1.5 px-2.5 py-1.5 border-l-[3px] rounded-lg text-xs transition-colors ${
                 isMine
-                  ? 'border-primary-foreground/50 text-primary-foreground/85 bg-primary-foreground/20 hover:bg-primary-foreground/25'
-                  : 'border-primary text-muted-foreground bg-foreground/[0.07] hover:bg-foreground/10'
+                  // A LIGHTER wash, not a heavier one: the quote text is
+                  // primary-foreground, which is designed to contrast with
+                  // primary — so the closer the wash stays to the bubble, the
+                  // better it reads. /20 measured 4.18:1; /12 gives 4.9 light
+                  // and 5.54 dark. A dark scrim would invert on the dark theme,
+                  // where the bubble is light blue and the text is dark.
+                  ? 'border-primary-foreground/60 text-primary-foreground bg-primary-foreground/[0.12] hover:bg-primary-foreground/20'
+                  : 'border-primary text-foreground/80 bg-foreground/[0.07] hover:bg-foreground/10'
               }`}
             >
               <span className="font-semibold block">
@@ -217,11 +223,11 @@ export function MessageBubble({
 
           <div className={`flex items-center gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
             {message.edited && (
-              <span className={`text-[10px] ${isMine ? 'text-primary-foreground/50' : 'text-muted-foreground'}`}>
+              <span className={`text-[10px] ${isMine ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                 {t('messages.edited')}
               </span>
             )}
-            <span className={`text-[10px] ${isMine ? 'text-primary-foreground/50' : 'text-muted-foreground'}`}>
+            <span className={`text-[10px] ${isMine ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
               {formatTime(message.timestamp)}
             </span>
             {isMine && message.status && <StatusIcon status={message.status} />}

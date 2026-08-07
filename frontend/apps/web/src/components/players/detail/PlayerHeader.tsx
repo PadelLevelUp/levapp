@@ -74,7 +74,7 @@ export function PlayerHeader({
         <div className="space-y-3">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 shrink-0">
-              <AvatarFallback className="bg-primary text-white text-xl font-bold">
+              <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -124,7 +124,7 @@ export function PlayerHeader({
       ) : (
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 shrink-0">
-            <AvatarFallback className="bg-primary text-white text-xl font-bold">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>

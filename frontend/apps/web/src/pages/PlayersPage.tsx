@@ -303,7 +303,7 @@ export default function PlayersPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-primary text-white font-bold">
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">
                         {getInitials(cs.name || "")}
                       </AvatarFallback>
                     </Avatar>

@@ -60,8 +60,10 @@
     /* Status — one job each. Green is DONE and nothing else. */
     --success: 161 78% 33%;
     --success-foreground: 0 0% 100%;
+    --success-strong: 162 80% 24%;
     --warning: 31 72% 50%;
     --warning-foreground: 216 52% 13%;
+    --warning-strong: 33 81% 33%;
     --info: 214 100% 59%;
     --info-foreground: 0 0% 100%;
 
@@ -117,8 +119,10 @@
     /* Status — one job each. Green is DONE and nothing else. */
     --success: 160 57% 60%;
     --success-foreground: 211 68% 7%;
+    --success-strong: 160 57% 60%;
     --warning: 34 81% 69%;
     --warning-foreground: 211 68% 7%;
+    --warning-strong: 34 81% 69%;
     --info: 213 100% 65%;
     --info-foreground: 211 68% 7%;
 

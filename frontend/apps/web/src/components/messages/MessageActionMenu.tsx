@@ -39,15 +39,22 @@ export function MessageActionMenu({ position, onClose, onReply, onEdit, onDelete
     requestAnimationFrame(() => {
       const el = ref.current;
       if (!el) return;
-      const rect = el.getBoundingClientRect();
+      // offsetWidth/Height, NOT getBoundingClientRect(): the rect reflects the
+      // CURRENT transform, and framer-motion is still holding `scale: 0.9` at
+      // this point. The clamp therefore measured 201.6px for a 224px menu and
+      // placed the menu 14px past the right edge — the last quick-reaction was
+      // off-screen and untappable. offsetWidth is the layout size and ignores
+      // transforms, so the clamp is correct regardless of animation state.
+      const width = el.offsetWidth;
+      const height = el.offsetHeight;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      let x = position.x - rect.width / 2;
-      let y = position.y - rect.height - 8;
+      let x = position.x - width / 2;
+      let y = position.y - height - 8;
       if (x < 8) x = 8;
-      if (x + rect.width > vw - 8) x = vw - rect.width - 8;
+      if (x + width > vw - 8) x = vw - width - 8;
       if (y < 8) y = position.y + 8;
-      if (y + rect.height > vh - 8) y = vh - rect.height - 8;
+      if (y + height > vh - 8) y = vh - height - 8;
       setMenuStyle({ left: x, top: y });
     });
   }, [position]);

@@ -116,7 +116,7 @@ export function LoadingCalendar() {
 
 export function LoadingConversationList() {
   return (
-    <div className="w-80 border-r border-border bg-card flex flex-col">
+    <div className="w-full md:w-80 border-r border-border bg-card flex flex-col">
       <div className="p-4 border-b border-border">
         <LoadingSkeleton className="h-10 w-full rounded-md" />
       </div>
@@ -179,9 +179,15 @@ export function LoadingChatThread() {
 
 export function LoadingMessages() {
   return (
+    // The real page shows ONE pane on mobile and two side by side on desktop.
+    // The skeleton rendered both unconditionally, so the fixed-width list plus
+    // the thread pane overflowed a 390px viewport by 159px — clipped by an
+    // ancestor, which is why it never showed up as document overflow.
     <div className="flex h-full animate-fade-in">
       <LoadingConversationList />
-      <LoadingChatThread />
+      <div className="hidden md:flex flex-1">
+        <LoadingChatThread />
+      </div>
     </div>
   );
 }

@@ -47,8 +47,12 @@ export interface ThemeHsl {
   privateForeground: string;
   success: string;
   successForeground: string;
+  /** Readable ON a success tint — NOT the colour used on a solid success. */
+  successStrong: string;
   warning: string;
   warningForeground: string;
+  /** Readable ON a warning tint — NOT the colour used on a solid warning. */
+  warningStrong: string;
   info: string;
   infoForeground: string;
   sidebarBackground: string;
@@ -99,9 +103,11 @@ export const lightThemeHsl: ThemeHsl = {
   // Status — each colour has exactly one job.
   success: "161 78% 33%", // green-600: DONE/CONFIRMED ONLY
   successForeground: "0 0% 100%",
+  successStrong: "162 80% 24%", // green-700, for text on a success tint
   warning: "31 72% 50%", // amber-600: needs the coach
   // Ink, not white: white on amber-600 is ~2.4:1 and fails contrast.
   warningForeground: "216 52% 13%",
+  warningStrong: "33 81% 33%", // amber-700, for text on a warning tint
   info: "214 100% 59%", // blue-500
   infoForeground: "0 0% 100%",
   // Sidebar wears the navy chrome even in the light theme.
@@ -148,8 +154,10 @@ export const darkThemeHsl: ThemeHsl = {
   privateForeground: "211 68% 7%",
   success: "160 57% 60%", // #5FD3AC
   successForeground: "211 68% 7%",
+  successStrong: "160 57% 60%", // on dark the tint is dark, so the lift IS the text
   warning: "34 81% 69%", // #F0B970
   warningForeground: "211 68% 7%",
+  warningStrong: "34 81% 69%",
   info: "213 100% 65%",
   infoForeground: "211 68% 7%",
   sidebarBackground: "216 53% 9%", // ink-900, deeper than the page
@@ -235,10 +243,12 @@ export function nativewindTheme(mode: "light" | "dark" = "light") {
     success: {
       DEFAULT: t.success,
       foreground: t.successForeground,
+      strong: t.successStrong,
     },
     warning: {
       DEFAULT: t.warning,
       foreground: t.warningForeground,
+      strong: t.warningStrong,
     },
     info: {
       DEFAULT: t.info,

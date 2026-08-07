@@ -116,7 +116,7 @@ export default function StudentsPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <Avatar className="w-12 h-12">
-              <AvatarFallback className="bg-primary text-white font-bold">{getInitials(coachStudent.name || '')}</AvatarFallback>
+              <AvatarFallback className="bg-primary text-primary-foreground font-bold">{getInitials(coachStudent.name || '')}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{coachStudent.name}</p>

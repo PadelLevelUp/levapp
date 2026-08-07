@@ -24,7 +24,7 @@ export function ActionButtons({ actions, isOwnMessage, onRespond }: ActionButton
               className={cn(
                 "inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full",
                 action.response === "accepted"
-                  ? "bg-success/15 text-success"
+                  ? "bg-success/15 text-success-strong"
                   : "bg-destructive/15 text-destructive"
               )}
             >

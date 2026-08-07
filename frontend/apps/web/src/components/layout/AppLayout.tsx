@@ -355,7 +355,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               <Button variant="ghost" className="flex items-center gap-2">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-white text-xs font-bold">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>

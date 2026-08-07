@@ -6,8 +6,8 @@ import { Trash2 } from "lucide-react";
 import type { Exercise } from "@/types/training";
 
 const diffColor = (d: number) => {
-  if (d <= 2) return "bg-success/15 text-success border-success/30";
-  if (d <= 3) return "bg-warning/15 text-warning border-warning/30";
+  if (d <= 2) return "bg-success/15 text-success-strong border-success/30";
+  if (d <= 3) return "bg-warning/15 text-warning-strong border-warning/30";
   return "bg-destructive/15 text-destructive border-destructive/30";
 };
 

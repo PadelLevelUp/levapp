@@ -77,7 +77,7 @@ export function ClassListBlock({ block }: { block: DashboardClassListBlock }) {
                   {item.badge ? (
                     // "Missing 4" is the coach's problem to solve — amber's one
                     // job — not neutral information.
-                    <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-md bg-warning/15 text-warning tabular-nums">
+                    <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-md bg-warning/15 text-warning-strong tabular-nums">
                       {badgeLabel(item.badge)}
                     </span>
                   ) : null}

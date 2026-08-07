@@ -66,7 +66,7 @@ export function AttendanceRow({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
-            <AvatarFallback className="text-xs bg-primary text-white font-bold">
+            <AvatarFallback className="text-xs bg-primary text-primary-foreground font-bold">
               {getInitials(name)}
             </AvatarFallback>
           </Avatar>
@@ -81,7 +81,7 @@ export function AttendanceRow({
                     <span className={cn(
                       "inline-flex items-center justify-center w-5 h-5 rounded-full",
                       confirmed
-                        ? "bg-success/15 text-success"
+                        ? "bg-success/15 text-success-strong"
                         : "bg-warning/15 text-warning"
                     )}>
                       {confirmed ? (

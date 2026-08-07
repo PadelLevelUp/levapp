@@ -138,7 +138,7 @@ export function EditPlayerSheet({
           {/* PLAYER HEADER */}
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14">
-              <AvatarFallback className="bg-primary text-white font-bold">
+              <AvatarFallback className="bg-primary text-primary-foreground font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>

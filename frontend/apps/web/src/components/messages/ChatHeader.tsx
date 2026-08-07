@@ -79,7 +79,7 @@ export function ChatHeader({ conversation, onBack, showBack, isBlocked, onConfir
 
       <Avatar className="w-9 h-9 flex-shrink-0">
         <AvatarImage src={conversation.participantAvatar} />
-        <AvatarFallback className="bg-primary text-white text-xs font-bold">
+        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
           {getInitials(conversation.participantName)}
         </AvatarFallback>
       </Avatar>

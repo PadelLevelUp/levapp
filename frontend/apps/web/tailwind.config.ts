@@ -74,10 +74,15 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          // For text ON a success tint. The solid colour on its own 15% tint
+          // measures 3.14:1; this is the design system's green-700 pairing.
+          strong: "hsl(var(--success-strong))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          // For text ON a warning tint — solid-on-tint measures 2.5:1.
+          strong: "hsl(var(--warning-strong))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
