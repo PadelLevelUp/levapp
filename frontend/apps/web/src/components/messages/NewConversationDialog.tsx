@@ -126,7 +126,7 @@ export function NewConversationDialog({
                   >
                     <Avatar className="w-10 h-10 shrink-0">
                       <AvatarImage src={user.avatarUrl} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      <AvatarFallback className="bg-primary text-white text-sm font-bold">
                         {getInitials(user.name)}
                       </AvatarFallback>
                     </Avatar>

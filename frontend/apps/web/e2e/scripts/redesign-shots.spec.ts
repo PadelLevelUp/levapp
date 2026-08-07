@@ -53,4 +53,29 @@ test("capture redesign screens", async ({ page }) => {
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/06-calendar-dark.png` });
+
+  // ── Phone. The layout swaps to MobileCalendarView below the md breakpoint,
+  //    which is a different component tree, not just a narrower grid.
+  await page.evaluate(() => {
+    localStorage.setItem("theme", "light");
+    document.documentElement.classList.remove("dark");
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto("/calendar");
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${SHOTS}/07-calendar-mobile.png` });
+
+  // Pick a day that actually has classes, so the day-list row variant is
+  // visible and not just the empty state.
+  const dayWithClasses = page.locator('[data-testid="day-fill-dot"]').first();
+  if (await dayWithClasses.count()) {
+    await dayWithClasses.click();
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${SHOTS}/07b-calendar-mobile-day.png` });
+  }
+
+  await page.goto("/dashboard");
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${SHOTS}/08-dashboard-mobile.png`, fullPage: true });
 });

@@ -73,26 +73,15 @@ export function contrastTextOn(hex: string | undefined): string {
  * lightness lifts, so blue becomes blue-grey. Recognisable, clearly spent.
  */
 export function fadeColor(hex: string | undefined): string | undefined {
-  const rgb = hex ? parseHex(hex) : null;
-  if (!rgb) return undefined;
-  const [r, g, b] = rgb.map((v) => v / 255);
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  if (max !== min) {
-    const d = max - min;
-    h =
-      max === r
-        ? ((g - b) / d + (g < b ? 6 : 0))
-        : max === g
-          ? (b - r) / d + 2
-          : (r - g) / d + 4;
-    h *= 60;
-  }
-  // Keep the hue, drop most of the chroma, pull lightness up toward the page.
-  const fadedL = Math.round((l * 0.25 + 0.72) * 100);
-  return `hsl(${Math.round(h)} 14% ${fadedL}%)`;
+  if (!hex || !parseHex(hex)) return undefined;
+  // Blend the class colour into the CARD colour rather than toward white.
+  // The card is light in the light theme and navy in the dark one, so a
+  // finished class recedes in both — an earlier version always lightened, and
+  // on dark that made spent classes the brightest thing on the grid.
+  //
+  // Keeping ~22% of the original means the hue survives (blue still reads as
+  // blue-grey) while the chroma drops away.
+  return `color-mix(in srgb, ${hex} 22%, hsl(var(--card)))`;
 }
 
 /* ── state resolution ──────────────────────────────────────────────────── */

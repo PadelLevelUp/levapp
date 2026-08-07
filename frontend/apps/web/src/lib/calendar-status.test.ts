@@ -84,22 +84,29 @@ describe("contrastTextOn", () => {
 });
 
 describe("fadeColor", () => {
-  it("keeps the hue but drains the chroma, so blue reads as blue-grey", () => {
-    const faded = fadeColor("#1355DC");
-    expect(faded).toMatch(/^hsl\(2\d\d 14% \d+%\)$/); // blue hue retained
+  it("blends toward the card surface, not toward white", () => {
+    // Theme-aware by construction: --card is white in the light theme and
+    // navy in the dark one, so a finished class recedes in both. An earlier
+    // version always lightened and made spent classes the brightest blocks
+    // on a dark grid.
+    const faded = fadeColor("#1355DC")!;
+    expect(faded).toBe("color-mix(in srgb, #1355DC 22%, hsl(var(--card)))");
   });
 
-  it("lifts every swatch to a light, low-chroma tint", () => {
+  it("keeps most of the surface, so the hue survives but the chroma does not", () => {
     for (const hex of SWATCHES) {
-      const m = /^hsl\((\d+) (\d+)% (\d+)%\)$/.exec(fadeColor(hex)!);
+      const m = /^color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, hsl\(var\(--card\)\)\)$/i.exec(
+        fadeColor(hex)!
+      );
       expect(m, hex).not.toBeNull();
-      expect(Number(m![2]), `${hex} saturation`).toBeLessThanOrEqual(20);
-      expect(Number(m![3]), `${hex} lightness`).toBeGreaterThan(70);
+      expect(m![1].toLowerCase()).toBe(hex.toLowerCase());
+      expect(Number(m![2]), `${hex} retained chroma`).toBeLessThanOrEqual(30);
     }
   });
 
   it("returns undefined without a hex, so the caller keeps its token styling", () => {
     expect(fadeColor(undefined)).toBeUndefined();
+    expect(fadeColor("nope")).toBeUndefined();
   });
 });
 

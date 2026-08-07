@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
+import { CalendarLegend } from "@/components/calendar/CalendarLegend";
 import { ClassDetailSheet } from "@/components/calendar/ClassDetailSheet";
 import { MobileCalendarView } from "@/components/calendar/MobileCalendarView";
 import {
@@ -396,6 +397,7 @@ export default function CalendarPage() {
 
         {isMobile ? (
           <MobileCalendarView
+            levels={levels}
             weekDays={calendar.weekDays}
             events={calendar.events}
             onEventClick={handleEventClick}
@@ -404,9 +406,11 @@ export default function CalendarPage() {
         ) : (
           <>
             <CalendarHeader weekDays={calendar.weekDays} />
+            <CalendarLegend />
             <CalendarGrid
               weekDays={calendar.weekDays}
               events={calendar.events}
+              levels={levels}
               onEventClick={handleEventClick}
               onSlotClick={canManageClasses ? handleSlotClick : undefined}
               onSlotRangeSelect={canManageClasses ? handleSlotRangeSelect : undefined}

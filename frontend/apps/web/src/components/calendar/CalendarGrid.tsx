@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findNextEventId } from '@/lib/calendar-status';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CalendarEvent } from '@/types';
+import { CalendarEvent, CoachLevel } from '@/types';
 import { CalendarEventCard } from './CalendarEventCard';
 
 interface CalendarGridProps {
   weekDays: Date[];
   events: CalendarEvent[];
+  /** Coach levels, for the block's level chip. */
+  levels?: CoachLevel[];
   startHour?: number;
   endHour?: number;
   onEventClick?: (event: CalendarEvent) => void;
@@ -37,6 +39,7 @@ interface SlotSelection {
 export function CalendarGrid({
   weekDays,
   events,
+  levels = [],
   startHour = 7,
   endHour = 22,
   onEventClick,
@@ -50,6 +53,11 @@ export function CalendarGrid({
   // Gated on the view containing today: without this, paging to any future
   // week marks that week's first class as "next", so the highlight appears
   // everywhere and stops meaning anything.
+  const levelCodeById = useMemo(
+    () => new Map(levels.map((l) => [String(l.id), l.code])),
+    [levels]
+  );
+
   const nextEventId = useMemo(
     () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
     [events, weekDays]
@@ -329,6 +337,14 @@ export function CalendarGrid({
                       key={event.id}
                       event={event}
                       isNext={event.id === nextEventId}
+                      levelCode={
+                        event.levelId !== undefined
+                          ? levelCodeById.get(String(event.levelId))
+                          : undefined
+                      }
+                      // Too short OR too narrow: three overlapping classes leave ~1/3
+                      // of a column, where a bar and a count are illegible.
+                      compact={parseFloat(String(style.height)) < 56 || group.length > 2}
                       style={{
                         position: 'absolute',
                         top: style.top,

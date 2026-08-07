@@ -54,7 +54,14 @@ export function KpiGridBlock({ block }: { block: DashboardKpiGridBlock }) {
   const { t } = useTranslation();
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    // Desktop column count follows the ITEM count, so a row always fills its
+    // width. Hardcoding lg:grid-cols-4 left a quarter of the row empty
+    // whenever the backend sent 3 KPIs, and the tiles bunched to the left.
+    // Mobile stays at 2 regardless — 3+ tiles across a phone is unreadable.
+    <div
+      className="grid gap-4 grid-cols-2 lg:[grid-template-columns:repeat(var(--kpi-cols),minmax(0,1fr))]"
+      style={{ "--kpi-cols": Math.min(block.data.items.length, 6) } as React.CSSProperties}
+    >
       {block.data.items.map((item) => {
         const Icon = iconMap[item.icon];
         // PAD-76: the backend omits `href` for KPIs that have no page yet.

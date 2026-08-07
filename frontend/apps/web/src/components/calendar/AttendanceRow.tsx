@@ -66,7 +66,7 @@ export function AttendanceRow({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
-            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+            <AvatarFallback className="text-xs bg-primary text-white font-bold">
               {getInitials(name)}
             </AvatarFallback>
           </Avatar>

@@ -98,7 +98,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
               >
                 <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={conversation.participantAvatar} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  <AvatarFallback className="bg-primary text-white text-sm font-bold">
                     {getInitials(conversation.participantName)}
                   </AvatarFallback>
                 </Avatar>

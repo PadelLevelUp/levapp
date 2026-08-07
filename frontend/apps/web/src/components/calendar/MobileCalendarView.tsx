@@ -3,12 +3,14 @@ import { format, isSameDay, isToday, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
-import type { CalendarEvent } from "@/types";
+import type { CalendarEvent, CoachLevel } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
-import { findNextEventId } from "@/lib/calendar-status";
+import { findNextEventId, hasOpenSpots, resolveEventState } from "@/lib/calendar-status";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MobileCalendarViewProps {
+  /** Coach levels, for the block's level chip. */
+  levels?: CoachLevel[];
   weekDays: Date[];
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
@@ -18,6 +20,7 @@ interface MobileCalendarViewProps {
 export function MobileCalendarView({
   weekDays,
   events,
+  levels = [],
   onEventClick,
   onDaySelect,
 }: MobileCalendarViewProps) {
@@ -62,6 +65,11 @@ export function MobileCalendarView({
   // "Next" is a property of the whole set, not of one card — and it only means
   // anything while you are looking at today. Paging to a future day would
   // otherwise mark that day's first class as "next".
+  const levelCodeById = useMemo(
+    () => new Map(levels.map((l) => [String(l.id), l.code])),
+    [levels]
+  );
+
   const nextEventId = useMemo(
     () => (isToday(selectedDay) ? findNextEventId(events) : undefined),
     [events, selectedDay]
@@ -69,8 +77,11 @@ export function MobileCalendarView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 border-b border-border overflow-hidden">
-        <div className="grid grid-cols-7 h-full">
+      {/* The strip was flex-1 because it held stacks of title chips. Dots
+          need a fraction of that, and taking half the screen for six dots
+          pushed the day's actual classes below the fold. */}
+      <div className="shrink-0 border-b border-border">
+        <div className="grid grid-cols-7">
           {weekDays.map((day) => {
             const dayEvents = getEventsForDay(day);
             const isSelected = isSameDay(day, selectedDay);
@@ -102,40 +113,46 @@ export function MobileCalendarView({
                   </p>
                 </div>
 
-                <ScrollArea className="flex-1">
-                  <div className="flex flex-col gap-1 px-0.5">
-                    {dayEvents.slice(0, 4).map((event) => {
-                      const isBlock =
-                        (event as any).type === "block" ||
-                        (event as any).isBlock === true;
+                {/* A fill DOT per class, not a stack of chips. Titles at 9px
+                    were unreadable and told you nothing you could act on; a
+                    hollow dot means that class still has holes, so a day that
+                    needs work is visible before you tap into it. */}
+                <div className="flex min-h-[14px] flex-wrap justify-center content-start gap-1 px-0.5 pb-1">
+                  {dayEvents.slice(0, 6).map((event) => {
+                    const isBlock = event.type === "block";
+                    const past = resolveEventState(event) === "past";
+                    const holes = !past && hasOpenSpots(event);
+                    const tint = event.color ?? "hsl(var(--primary))";
 
-                      return (
-                        <div
-                          key={String(event.id)}
-                          className="px-1.5 py-1.5 rounded text-[9px] leading-tight line-clamp-3 min-h-[32px]"
-                          style={{
-                            backgroundColor:
-                              event.color ||
-                              (isBlock
-                                ? "hsl(var(--muted))"
-                                : "hsl(var(--primary))"),
-                            color: isBlock
-                              ? "hsl(var(--muted-foreground))"
-                              : "white",
-                          }}
-                          title={event.title}
-                        >
-                          {event.title}
-                        </div>
-                      );
-                    })}
-                    {dayEvents.length > 4 && (
-                      <p className="text-[9px] text-muted-foreground text-center">
-                        +{dayEvents.length - 4}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
+                    return (
+                      <span
+                        key={String(event.id)}
+                        title={event.title}
+                        data-testid="day-fill-dot"
+                        data-event-title={event.title}
+                        data-has-holes={holes ? "true" : "false"}
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          isBlock && "bg-muted-foreground/40",
+                          past && "opacity-40"
+                        )}
+                        style={
+                          isBlock
+                            ? undefined
+                            : holes
+                              // Hollow = seats left.
+                              ? { boxShadow: `inset 0 0 0 2px ${tint}` }
+                              : { backgroundColor: tint }
+                        }
+                      />
+                    );
+                  })}
+                  {dayEvents.length > 6 && (
+                    <span className="text-[9px] leading-none text-muted-foreground">
+                      +{dayEvents.length - 6}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -172,7 +189,16 @@ export function MobileCalendarView({
                     }
                   }}
                 >
-                  <CalendarEventCard event={event} isNext={event.id === nextEventId} />
+                  <CalendarEventCard
+                    event={event}
+                    isNext={event.id === nextEventId}
+                    levelCode={
+                      event.levelId !== undefined
+                        ? levelCodeById.get(String(event.levelId))
+                        : undefined
+                    }
+                    variant="row"
+                  />
                 </div>
               ))
             )}

@@ -240,8 +240,13 @@ export interface CalendarEvent {
   classType?: ClassType;
   blockType?: CalendarBlockType;
   status?: ClassInstanceStatus;
+  /** Spots taken: enrolled minus declined. Includes players who have not answered. */
   participantCount?: number;
+  /** Of those taken spots, how many actively confirmed. Always <= participantCount. */
+  confirmedCount?: number;
   maxPlayers?: number;
+  /** Coach level for this class, used for the block's level chip. */
+  levelId?: string | number;
   isTemporary?: boolean;
 }
 

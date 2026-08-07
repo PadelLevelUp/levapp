@@ -6,6 +6,7 @@ import { Redirect, Tabs } from "expo-router";
 import * as React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { LevAppMark } from "@/components/brand/LevAppMark";
 import { useAppEvents } from "@/lib/sse";
 
 export default function TabsLayout() {
@@ -55,6 +56,14 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: lightTheme.sidebarBackground },
         headerTintColor: lightTheme.sidebarForeground,
         headerTitleStyle: { fontWeight: "700" },
+        // The mark rides in the header on every tab, so the navy chrome is
+        // recognisably LevApp rather than an unbranded dark bar. The wordmark
+        // deliberately stays out — the system forbids it at this size.
+        headerLeft: () => (
+          <View style={{ paddingLeft: 16, justifyContent: "center" }}>
+            <LevAppMark size={26} />
+          </View>
+        ),
         tabBarActiveTintColor: lightTheme.primary,
         tabBarInactiveTintColor: lightTheme.mutedForeground,
         tabBarStyle: { backgroundColor: lightTheme.card },

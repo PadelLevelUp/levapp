@@ -92,13 +92,9 @@ const navItems: NavItem[] = [
     // effectively unreachable.
     roles: ["coach", "player"],
   },
-  {
-    icon: Database,
-    labelKey: "nav.editor",
-    path: "/editor",
-    roles: ["coach", "player"],
-    superAdminOnly: true,
-  },
+  // The /editor route still exists and is reachable directly — it is just not
+  // a nav destination. It is a superadmin data browser, not one of the coach's
+  // tools, and it was sitting in the same list as Calendar and Players.
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -323,6 +319,24 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
         {/* Header */}
         <header className="md:flex md:h-16 h-12 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
+            {/* Below `sm` the page title is hidden and the header was empty, so
+                the phone had no branding at all. The mark is a static SVG and
+                cannot adapt to the theme, so both variants ship and CSS picks:
+                the header is a white card in light and navy in dark. */}
+            <Link to="/dashboard" className="sm:hidden" aria-label="LevApp">
+              <img
+                src="/brand/levapp-mark-on-light.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-7 w-7 dark:hidden"
+              />
+              <img
+                src="/brand/levapp-mark-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="hidden h-7 w-7 dark:block"
+              />
+            </Link>
             <h1 className="text-lg font-semibold hidden sm:block">
               {(() => {
                 const active = visibleNavItems.find(
@@ -341,7 +355,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               <Button variant="ghost" className="flex items-center gap-2">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  <AvatarFallback className="bg-primary text-white text-xs font-bold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
