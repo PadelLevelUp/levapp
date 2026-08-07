@@ -180,18 +180,21 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             className="flex items-center gap-2.5"
             aria-label="LevApp"
           >
-            <img
-              src="/brand/levapp-mark-on-dark.svg"
-              alt=""
-              aria-hidden="true"
-              className="h-7 w-auto shrink-0"
-            />
-            {!sidebarCollapsed && (
+            {sidebarCollapsed ? (
               <img
-                src="/brand/levapp-wordmark-on-dark.svg"
+                src="/brand/levapp-mark-on-dark.svg"
                 alt=""
                 aria-hidden="true"
-                className="h-[18px] w-auto"
+                className="h-7 w-auto shrink-0"
+              />
+            ) : (
+              // The lockup, not two images side by side — it carries the
+              // mark/wordmark alignment the design system intends.
+              <img
+                src="/brand/levapp-lockup-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-auto"
               />
             )}
           </Link>
