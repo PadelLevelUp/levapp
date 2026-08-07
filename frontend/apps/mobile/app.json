@@ -21,7 +21,8 @@
           "NSAllowsLocalNetworking": true
         }
       },
-      "appleTeamId": "9K2J8D2ARR"
+      "appleTeamId": "9K2J8D2ARR",
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.padellevelup.app",
