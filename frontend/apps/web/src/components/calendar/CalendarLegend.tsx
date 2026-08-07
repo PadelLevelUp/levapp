@@ -23,13 +23,6 @@ export function CalendarLegend({ className }: { className?: string } = {}) {
       ),
     },
     {
-      key: "openSpots",
-      label: t("calendar.legend.openSpots", { defaultValue: "Spots to fill" }),
-      swatch: (
-        <span className="h-3 w-5 rounded-sm bg-muted-foreground/40 ring-2 ring-warning ring-offset-1 ring-offset-background" />
-      ),
-    },
-    {
       key: "full",
       label: t("calendar.legend.full", { defaultValue: "Full / upcoming" }),
       swatch: <span className="h-3 w-5 rounded-sm bg-muted-foreground/70" />,

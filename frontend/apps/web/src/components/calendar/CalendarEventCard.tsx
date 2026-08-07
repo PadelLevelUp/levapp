@@ -71,7 +71,7 @@ export function CalendarEventCard({
     switch (state) {
       case 'next':
         stateStyle.backgroundColor = 'hsl(var(--card))';
-        stateStyle.border = `2px solid ${hex}`;
+        stateStyle.border = `1px solid ${hex}`;
         // Title, time, count and the fill bar all take the class's own colour
         // — the bar draws in currentColor, so it follows for free. Blended to
         // stay readable on the card; the raw hex would fail on the pale hues.
@@ -117,13 +117,6 @@ export function CalendarEventCard({
         isCanceled && 'opacity-50 line-through',
         !isBlock && !hex && 'text-white',
         state === 'next' && 'shadow-md',
-        // DASHED, not a solid amber ring. A solid ring collided with warm class
-        // colours — on a yellow class it measured 1.67:1 against the block and
-        // read as "this class is gold" rather than "this class needs players".
-        // The plan encodes this state as a dashed block precisely because a
-        // style difference survives whatever swatch the coach picks.
-        needsPlayers &&
-          'outline outline-2 outline-dashed outline-warning outline-offset-2',
       )}
     >
       {/* Title + level chip. The chip is the only thing allowed on the right,
