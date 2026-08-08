@@ -75,7 +75,7 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
   const queryClient = useQueryClient();
 
@@ -224,6 +224,21 @@ export default function SettingsScreen() {
         </Card>
 
         {/* All roles: App Store 5.1.1(v) in-app account deletion */}
+        {/* Log out lived in the More tab, which the six-destination tab bar
+            replaced. Settings is where the web keeps it too. */}
+        <Pressable
+          testID="settings-logout"
+          accessibilityLabel="Log out"
+          role="button"
+          onPress={() => void logout()}
+          className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3.5 active:opacity-70"
+        >
+          <Ionicons name="log-out-outline" size={18} color={lightTheme.destructive} />
+          <Text className="font-semibold" style={{ color: lightTheme.destructive }}>
+            Log out
+          </Text>
+        </Pressable>
+
         <DeleteAccountSection />
       </ScrollView>
     </View>

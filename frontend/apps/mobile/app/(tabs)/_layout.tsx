@@ -76,7 +76,10 @@ export default function TabsLayout() {
           paddingBottom: 24,
           height: 84,
         },
-        tabBarLabelStyle: { fontSize: 11, paddingBottom: 2 },
+        // Six destinations across a 390pt bar: the labels need to be a touch
+        // smaller and the items narrower than the four-tab default.
+        tabBarLabelStyle: { fontSize: 10, paddingBottom: 2 },
+        tabBarItemStyle: { paddingHorizontal: 0 },
       }}
     >
       <Tabs.Screen
@@ -136,12 +139,23 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="more"
+        name="training"
         options={{
-          title: "More",
-          tabBarButtonTestID: "tab-more",
+          title: "Training",
+          href: isCoach ? undefined : null,
+          tabBarButtonTestID: "tab-training",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="menu-outline" color={color} size={size} />
+            <Ionicons name="barbell-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarButtonTestID: "tab-settings",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" color={color} size={size} />
           ),
         }}
       />
