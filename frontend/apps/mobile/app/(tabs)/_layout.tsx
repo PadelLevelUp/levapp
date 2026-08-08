@@ -8,7 +8,38 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
+import { Text } from "@/components/ui/text";
+import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
 import { useAppEvents } from "@/lib/sse";
+
+/** Greeting over date, stacked, in the navy app bar. */
+function DashboardGreeting({ name }: { name: string }) {
+  const firstName = name.trim().split(" ")[0] ?? "";
+  const { greeting, date } = useHeaderGreeting(firstName);
+  return (
+    <View style={{ gap: 2 }}>
+      <Text className="text-xs text-sidebar-foreground/70">{date}</Text>
+      <Text className="font-display text-xl text-sidebar-foreground">{greeting}</Text>
+    </View>
+  );
+}
+
+/** Account initials. The sidebar/app bar owns identity, so the page header
+ * never repeats it. */
+function AccountAvatar({ name }: { name: string }) {
+  const parts = name.trim().split(" ").filter(Boolean);
+  const initials = parts.length
+    ? ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase()
+    : "?";
+  return (
+    <View
+      style={{ marginRight: 16 }}
+      className="h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent"
+    >
+      <Text className="text-xs font-sans-bold text-sidebar-accent-foreground">{initials}</Text>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { t } = useTranslation();
@@ -89,6 +120,13 @@ export default function TabsLayout() {
         options={{
           title: t("nav.dashboard"),
           tabBarButtonTestID: "tab-dashboard",
+          // The navy bar spends its height on the greeting and date — the only
+          // orientation a coach needs — instead of repeating "Dashboard", which
+          // the tab underneath already says. The mark stays (headerLeft, above),
+          // the wordmark does not, and the account avatar takes the right.
+          headerTitle: () => <DashboardGreeting name={user?.name ?? ""} />,
+          headerTitleAlign: "left",
+          headerRight: () => <AccountAvatar name={user?.name ?? ""} />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),

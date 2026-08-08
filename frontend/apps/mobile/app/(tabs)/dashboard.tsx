@@ -6,6 +6,10 @@ import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import {
+  CoachDashboard,
+  isCoachDashboard,
+} from "@/features/dashboard/CoachDashboard";
 import { DashboardBlocks } from "@/features/dashboard/DashboardBlocks";
 
 export default function DashboardScreen() {
@@ -32,18 +36,9 @@ export default function DashboardScreen() {
           />
         }
       >
-        <Text
-          role="heading"
-          aria-level={1}
-          className="text-2xl font-bold"
-          testID="dashboard-title"
-        >
-          {/* NOT data.title: the backend emits it in English, so preferring it
-              left this heading reading "Dashboard" under a "Painel" header.
-              Web ignores the server title here too. */}
-          {t("dashboard.title")}
-        </Text>
-
+        {/* No in-screen title. "Dashboard" belongs to the navigation alone, and
+            the navy app bar carries the greeting + date as the orientation
+            instead — see app/(tabs)/_layout.tsx. */}
         {isError ? (
           <ErrorState
             message={t("dashboard.failedToLoad")}
@@ -63,7 +58,10 @@ export default function DashboardScreen() {
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-40 w-full" />
           </View>
+        ) : isCoachDashboard(data?.blocks ?? []) ? (
+          <CoachDashboard blocks={data?.blocks ?? []} />
         ) : (
+          // The player dashboard still ships the older block types.
           <DashboardBlocks blocks={data?.blocks ?? []} />
         )}
       </ScrollView>

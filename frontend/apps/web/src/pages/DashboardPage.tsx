@@ -3,7 +3,9 @@ import { LoadingDashboard } from "@/components/ui/loading-skeleton";
 import { useEffect, useState } from "react";
 import type { DashboardDefinition } from "@/types";
 import { DashboardRenderer } from "@/components/dashboard/DashboardRenderer";
+import { CoachDashboard } from "@/components/dashboard/CoachDashboard";
 import { getDashboard } from "@/api/dashboard";
+import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { useTranslation } from "react-i18next";
 
@@ -11,6 +13,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<DashboardDefinition | null>(null);
   const { setUnreadCount, setLatestMessage } = useLayout();
+  const { user } = useAuth();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -51,6 +54,25 @@ export default function DashboardPage() {
     return (
       <AppLayout>
         <div className="p-6">{t("dashboard.failedToLoad")}</div>
+      </AppLayout>
+    );
+  }
+
+  // The coach payload carries the rebuilt blocks; the player dashboard still
+  // ships the older ones and keeps the generic renderer.
+  const isCoachDashboard = dashboard.blocks.some(
+    (b) => b.type === "needs_you" || b.type === "next_class" || b.type === "week_pulse",
+  );
+
+  if (isCoachDashboard) {
+    return (
+      <AppLayout>
+        {/* No in-page "Dashboard" heading — the word belongs to the navigation
+            alone. The greeting is the page's orientation instead. */}
+        <CoachDashboard
+          blocks={dashboard.blocks}
+          firstName={(user?.name ?? "").trim().split(" ")[0] ?? ""}
+        />
       </AppLayout>
     );
   }

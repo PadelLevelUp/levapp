@@ -54,6 +54,62 @@
     "addParticipants": "Add participants",
     "messagesOverviewAria": "Messages overview",
     "conversationsToReplyCount_one": "{{count}} conversation to reply",
-    "conversationsToReplyCount_other": "{{count}} conversations to reply"
+    "conversationsToReplyCount_other": "{{count}} conversations to reply",
+    "greeting": {
+      "morning": "Morning, {{name}}",
+      "afternoon": "Afternoon, {{name}}",
+      "evening": "Evening, {{name}}"
+    },
+    "thingsNeedYou_one": "{{count}} thing needs you",
+    "thingsNeedYou_other": "{{count}} things need you",
+    "today": "Today",
+    "newClass": "New class",
+    "hero": {
+      "upNext": "UP NEXT · {{time}}",
+      "nextClass": "NEXT CLASS · {{weekday}}",
+      "startsIn": "in {{minutes}} min",
+      "open": "Open"
+    },
+    "needsYou": {
+      "eyebrow": "NEEDS YOU · {{count}}",
+      "empty": "Nothing needs you right now.",
+      "later": "Later",
+      "emptySeats": {
+        "title_one": "{{class}} has {{count}} empty seat",
+        "title_other": "{{class}} has {{count}} empty seats",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
+        "invite_one": "Invite {{count}} player",
+        "invite_other": "Invite {{count}} players"
+      },
+      "reply": {
+        "title": "{{name}} replied",
+        "open": "Open"
+      },
+      "validation": {
+        "title_one": "{{count}} attendance to validate",
+        "title_other": "{{count}} attendances to validate",
+        "detail_one": "From {{count}} class last week",
+        "detail_other": "From {{count}} classes last week",
+        "review": "Review"
+      }
+    },
+    "schedule": {
+      "eyebrow_one": "NEXT 7 DAYS · {{count}} CLASS",
+      "eyebrow_other": "NEXT 7 DAYS · {{count}} CLASSES",
+      "calendar": "Calendar",
+      "none": "No classes in the next 7 days.",
+      "full": "Full",
+      "empty": "Empty",
+      "seats_one": "{{count}} seat",
+      "seats_other": "{{count}} seats",
+      "invite": "Invite"
+    },
+    "pulse": {
+      "eyebrow": "THIS WEEK",
+      "seatsFilled": "Seats filled",
+      "seatsFilledSub": "{{filled}} of {{total}}",
+      "activePlayers": "Active players",
+      "activePlayersSub": "of {{total}} · {{idle}} idle"
+    }
   }
 }
