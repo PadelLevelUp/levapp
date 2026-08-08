@@ -56,9 +56,12 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const [language, setLanguage] = React.useState<Language>(
     user?.language ?? "pt"
   );
-  const [languageStatus, setLanguageStatus] = React.useState<string | null>(
-    null
-  );
+  // Holds the KEY, not the resolved string. `changeLanguage` is async, so
+  // resolving here would freeze the message in the language being replaced —
+  // switching to pt reported success in English.
+  const [languageStatusKey, setLanguageStatusKey] = React.useState<
+    string | null
+  >(null);
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.
@@ -73,15 +76,15 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const handleLanguageChange = async (value: Language) => {
     const previous = language;
     setLanguage(value);
-    setLanguageStatus(null);
+    setLanguageStatusKey(null);
     try {
       const updated = await authApi.updateMe({ language: value });
       queryClient.setQueryData(["auth-me"], updated);
       void i18n.changeLanguage(value);
-      setLanguageStatus(t("settings.mobile.languageSaved"));
+      setLanguageStatusKey("settings.mobile.languageSaved");
     } catch {
       setLanguage(previous);
-      setLanguageStatus(t("settings.mobile.languageSaveFailed"));
+      setLanguageStatusKey("settings.mobile.languageSaveFailed");
     }
   };
 
@@ -125,12 +128,12 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               />
             </SelectContent>
           </Select>
-          {languageStatus ? (
+          {languageStatusKey ? (
             <Text
               testID="settings-language-status"
               className="text-sm text-muted-foreground"
             >
-              {languageStatus}
+              {t(languageStatusKey)}
             </Text>
           ) : null}
         </CardContent>

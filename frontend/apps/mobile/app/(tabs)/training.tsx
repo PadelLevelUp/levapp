@@ -23,7 +23,10 @@ export default function TrainingScreen() {
         options={{
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          title: t("training.title"),
+          // headerTitle, not title — `title` also feeds tabBarLabel. Harmless
+          // today only because training.title and nav.training happen to match
+          // in both languages; rewording either would rename the tab.
+          headerTitle: t("training.title"),
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
           headerTitleStyle: { fontWeight: "700" },

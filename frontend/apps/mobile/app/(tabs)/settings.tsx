@@ -125,7 +125,10 @@ export default function SettingsScreen() {
         options={{
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          title: activeSection
+          // headerTitle, NOT title: `title` also feeds tabBarLabel, so drilling
+          // into a section renamed the Settings TAB after it — the bar read
+          // "Preferenc…" truncated, and "Calendar" twice.
+          headerTitle: activeSection
             ? t(activeSection.labelKey)
             : t("settings.title"),
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },

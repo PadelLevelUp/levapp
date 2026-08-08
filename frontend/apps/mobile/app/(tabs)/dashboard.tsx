@@ -38,7 +38,10 @@ export default function DashboardScreen() {
           className="text-2xl font-bold"
           testID="dashboard-title"
         >
-          {data?.title ?? t("dashboard.title")}
+          {/* NOT data.title: the backend emits it in English, so preferring it
+              left this heading reading "Dashboard" under a "Painel" header.
+              Web ignores the server title here too. */}
+          {t("dashboard.title")}
         </Text>
 
         {isError ? (
