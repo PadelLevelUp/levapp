@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, Users } from "lucide-react";
+import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
 import { getNotificationConfig, updateNotificationConfig } from "@/api/notificationEngine";
@@ -14,13 +14,14 @@ import { Label } from "@/components/ui/label";
 
 import { RemindersSection } from "./RemindersSection";
 import { InvitationGroupsSection, DEFAULT_INVITATION_GROUPS } from "./InvitationGroupsSection";
+import { EligibilitySection } from "./EligibilitySection";
 import { TiebreakersSection, DEFAULT_TIEBREAKERS } from "./TiebreakersSection";
 import { RestrictionsPanel } from "./RestrictionsPanel";
 import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
 
-type SectionKey = "reminders" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
+type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
 export function NotificationsEngineSection() {
   const { t } = useTranslation();
@@ -185,6 +186,28 @@ export function NotificationsEngineSection() {
                 ...config.reminderTiming,
               }}
               onChange={(reminderTiming) => save({ reminderTiming })}
+              disabled={disabled}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Separator />
+
+        {/* Eligibility — PAD-128. The minimum bar to join a class at all.
+            Sits above invitation groups because the groups are an ORDERING on
+            top of this floor, not a permission system of their own. */}
+        <Collapsible
+          open={openSection === "eligibility"}
+          onOpenChange={() => toggleSection("eligibility")}
+        >
+          <SectionHeader sectionKey="eligibility" icon={ShieldCheck} label={t("settings.engine.eligibility")} />
+          <CollapsibleContent className="pt-1 pb-1">
+            <p className="text-xs text-muted-foreground mb-3">
+              {t("settings.engine.eligibilityHint")}
+            </p>
+            <EligibilitySection
+              rules={config.eligibilityRules}
+              onChange={(eligibilityRules) => save({ eligibilityRules })}
               disabled={disabled}
             />
           </CollapsibleContent>
