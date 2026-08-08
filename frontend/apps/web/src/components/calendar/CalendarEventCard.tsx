@@ -10,7 +10,7 @@ import {
   readableInk,
   resolveEventState,
   type EventVisualState,
-} from '@/lib/calendar-status';
+} from '@levelup/config';
 import { ClassFillBar } from './ClassFillBar';
 
 interface CalendarEventCardProps {

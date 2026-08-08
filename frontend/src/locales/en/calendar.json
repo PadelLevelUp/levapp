@@ -9,12 +9,16 @@
     },
     "eventCard": {
       "canceled": "Canceled",
-      "completed": "Completed"
+      "completed": "Completed",
+      "fallbackTitle": "Class",
+      "fallbackEvent": "Event"
     },
     "mobile": {
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
-      "noClassesScheduled": "No classes scheduled"
+      "noClassesScheduled": "No classes scheduled",
+      "noClasses": "No classes",
+      "loadFailed": "Could not load the calendar."
     },
     "addClass": {
       "title": "New class",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { findNextEventId } from '@/lib/calendar-status';
+import { findNextEventId } from '@levelup/config';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent, CoachLevel } from '@/types';

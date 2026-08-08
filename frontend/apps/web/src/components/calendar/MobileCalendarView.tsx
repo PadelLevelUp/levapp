@@ -11,7 +11,7 @@ import {
   findNextEventId,
   hasOpenSpots,
   resolveEventState,
-} from "@/lib/calendar-status";
+} from "@levelup/config";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MobileCalendarViewProps {

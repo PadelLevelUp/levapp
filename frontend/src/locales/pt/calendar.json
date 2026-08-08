@@ -9,12 +9,16 @@
     },
     "eventCard": {
       "canceled": "Cancelada",
-      "completed": "Concluída"
+      "completed": "Concluída",
+      "fallbackTitle": "Aula",
+      "fallbackEvent": "Evento"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
-      "noClassesScheduled": "Sem aulas agendadas"
+      "noClassesScheduled": "Sem aulas agendadas",
+      "noClasses": "Sem aulas",
+      "loadFailed": "Não foi possível carregar o calendário."
     },
     "addClass": {
       "title": "Nova aula",

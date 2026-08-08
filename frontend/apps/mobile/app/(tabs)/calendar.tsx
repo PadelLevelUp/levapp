@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
-import { useCalendar, useCalendarEvents } from "@levelup/hooks";
+import { findNextEventId, lightTheme } from "@levelup/config";
+import { useCalendar, useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
 import { addDays, format, isSameDay, isToday } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
@@ -25,6 +26,7 @@ function eventDayKey(event: CalendarEvent): string {
 
 export default function CalendarScreen() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
 
   // Week navigation first (pure), then fetch the visible week's events.
@@ -37,6 +39,7 @@ export default function CalendarScreen() {
     isError,
     refetch,
   } = useCalendarEvents(from, to);
+  const { data: levels } = useCoachLevels();
 
   // Selected day: today when visible, otherwise the first day of the week.
   const [selectedDay, setSelectedDay] = React.useState<Date>(
@@ -51,22 +54,40 @@ export default function CalendarScreen() {
     }
   }, [calendar.weekDays, selectedDay]);
 
-  const eventCountByDay = React.useMemo(() => {
-    const counts: Record<string, number> = {};
+  // One pass over the week: the strip needs every day's classes in start-time
+  // order, and the detail list is just one of those buckets.
+  const eventsByDay = React.useMemo(() => {
+    const byDay: Record<string, CalendarEvent[]> = {};
     for (const event of events ?? []) {
       const key = eventDayKey(event);
-      if (key) counts[key] = (counts[key] ?? 0) + 1;
+      if (!key) continue;
+      (byDay[key] ??= []).push(event);
     }
-    return counts;
+    for (const list of Object.values(byDay)) {
+      list.sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+    }
+    return byDay;
   }, [events]);
 
   const selectedDayKey = format(selectedDay, "yyyy-MM-dd");
-  const dayEvents = React.useMemo(
+  const dayEvents = eventsByDay[selectedDayKey] ?? [];
+
+  const levelCodeById = React.useMemo(
+    () => new Map((levels ?? []).map((l) => [String(l.id), l.code])),
+    [levels]
+  );
+
+  // "Next" is a property of the whole visible set, not of one card. The gate is
+  // the WEEK containing today — the same rule the web grid uses. Requiring the
+  // SELECTED DAY to be today (which is what this screen used to imply by having
+  // no highlight at all) meant tapping the day the next class actually falls on
+  // showed nothing.
+  const nextEventId = React.useMemo(
     () =>
-      (events ?? [])
-        .filter((event) => eventDayKey(event) === selectedDayKey)
-        .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")),
-    [events, selectedDayKey]
+      calendar.weekDays.some((d) => isToday(d))
+        ? findNextEventId(events ?? [])
+        : undefined,
+    [events, calendar.weekDays]
   );
 
   const openEvent = (event: CalendarEvent) => {
@@ -75,6 +96,8 @@ export default function CalendarScreen() {
 
   return (
     <Screen testID="screen-calendar">
+      {/* SPLIT VIEW: the week's classes across the top, the selected day's
+          detail underneath — mirroring apps/web's MobileCalendarView. */}
       <WeekStrip
         weekDays={calendar.weekDays}
         weekLabel={calendar.weekLabel}
@@ -83,12 +106,12 @@ export default function CalendarScreen() {
         onPrevWeek={() => calendar.navigateWeek("prev")}
         onNextWeek={() => calendar.navigateWeek("next")}
         onToday={calendar.goToToday}
-        eventCountByDay={eventCountByDay}
+        eventsByDay={eventsByDay}
       />
 
       {isError ? (
         <ErrorState
-          message="Could not load the calendar."
+          message={t("calendar.mobile.loadFailed")}
           onRetry={() => refetch()}
         />
       ) : isPending ? (
@@ -102,19 +125,34 @@ export default function CalendarScreen() {
           className="flex-1"
           contentContainerClassName="gap-2 p-4 pb-24"
         >
-          <Text className="text-sm font-semibold text-muted-foreground">
-            {format(selectedDay, "EEEE, MMMM d")}
-          </Text>
+          <View>
+            <Text className="font-semibold">
+              {format(selectedDay, "EEEE, d MMMM")}
+            </Text>
+            <Text className="text-sm text-muted-foreground">
+              {t("calendar.mobile.classCount", { count: dayEvents.length })}
+            </Text>
+          </View>
           {dayEvents.length === 0 ? (
             <EmptyState
               icon="calendar-outline"
-              title="No classes"
-              message="Nothing scheduled for this day."
+              title={t("calendar.mobile.noClasses")}
+              message={t("calendar.mobile.noClassesScheduled")}
               className="py-12"
             />
           ) : (
             dayEvents.map((event) => (
-              <EventCard key={event.id} event={event} onPress={openEvent} />
+              <EventCard
+                key={event.id}
+                event={event}
+                onPress={openEvent}
+                isNext={event.id === nextEventId}
+                levelCode={
+                  event.levelId !== undefined
+                    ? levelCodeById.get(String(event.levelId))
+                    : undefined
+                }
+              />
             ))
           )}
         </ScrollView>
@@ -124,7 +162,7 @@ export default function CalendarScreen() {
           (coach and student alike), unlike "Add class" which is coach-only. */}
       <Pressable
         testID="calendar-add-event"
-        accessibilityLabel="Add event"
+        accessibilityLabel={t("calendar.toolbar.addEvent")}
         role="button"
         onPress={() =>
           router.push({
@@ -147,7 +185,7 @@ export default function CalendarScreen() {
       {isCoach ? (
         <Pressable
           testID="calendar-add-class"
-          accessibilityLabel="Add class"
+          accessibilityLabel={t("calendar.toolbar.addClass")}
           role="button"
           onPress={() =>
             router.push({

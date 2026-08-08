@@ -1,13 +1,25 @@
 import { describe, it, expect } from "vitest";
-import type { CalendarEvent } from "@/types";
+import type { CalendarEvent } from "@levelup/types";
 import {
   contrastTextOn,
-  readableInk,
+  contrastTextOnNative,
   fadeColor,
+  fadeColorNative,
   findNextEventId,
   hasOpenSpots,
+  mixColors,
+  nativeCalendarSurfaces,
+  parseColor,
+  readableInk,
+  readableInkNative,
+  relativeLuminance,
   resolveEventState,
+  withAlpha,
+  FADE_MIX_PERCENT,
+  FILL_AWAITING_ALPHA,
+  READABLE_INK_MIX_PERCENT,
 } from "./calendar-status";
+import { darkTheme, lightTheme } from "./tokens";
 
 /** The 8 hexes a coach can actually pick in AddClassSheet / ClassDetailSheet. */
 const SWATCHES = [
@@ -218,5 +230,167 @@ describe("findNextEventId", () => {
   it("returns undefined when nothing is upcoming", () => {
     expect(findNextEventId([event({ startTime: "08:00", endTime: "09:00" })], now)).toBeUndefined();
     expect(findNextEventId([], now)).toBeUndefined();
+  });
+});
+
+/* ── the native half ───────────────────────────────────────────────────────
+ *
+ * Everything above proves the WEB NOTATION. React Native cannot parse
+ * `color-mix()` or `hsl(var(--token))`, so the native emitters do the same
+ * arithmetic against resolved token colours. These tests exist to prove the
+ * two paths agree — the whole reason the module was lifted out of apps/web.
+ */
+
+const LIGHT = nativeCalendarSurfaces("light");
+const DARK = nativeCalendarSurfaces("dark");
+
+/** Contrast ratio between two colours in any notation `parseColor` accepts. */
+function ratioOf(a: string, b: string): number {
+  const ra = parseColor(a)!;
+  const rb = parseColor(b)!;
+  return contrast(relativeLuminance(ra), relativeLuminance(rb));
+}
+
+describe("parseColor", () => {
+  it("reads the hsl(...) strings tokens.ts emits, not just hexes", () => {
+    // `lightTheme.card` is "hsl(0 0% 100%)". If this regressed to null, every
+    // native blend below would silently return undefined — which React Native
+    // renders as transparent, with no error.
+    expect(lightTheme.card).toMatch(/^hsl\(/);
+    expect(parseColor(lightTheme.card)).toEqual([255, 255, 255]);
+    expect(parseColor(darkTheme.card)).not.toBeNull();
+
+    // The ink token is stored as HSL ("216 52% 13%") and documented as
+    // #101E33, but 13% lightness rounds to a blue channel of 50, not 51. The
+    // token is the source of truth and the 1/255 gap is invisible; asserting
+    // exact equality here would only encode the doc comment's rounding.
+    const fg = parseColor(lightTheme.foreground)!;
+    const documented = parseColor("#101E33")!;
+    for (let i = 0; i < 3; i++) {
+      expect(Math.abs(fg[i] - documented[i]), `channel ${i}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("accepts the comma form and rejects CSS variables outright", () => {
+    expect(parseColor("hsl(0, 0%, 100%)")).toEqual([255, 255, 255]);
+    // A var() reference has no value outside a browser. Returning null is what
+    // makes the native emitters fail loudly in tests rather than at runtime.
+    expect(parseColor("hsl(var(--card))")).toBeNull();
+    expect(parseColor(undefined)).toBeNull();
+  });
+});
+
+describe("mixColors matches CSS color-mix arithmetic", () => {
+  it("reproduces the percentage the web string declares", () => {
+    // CSS `color-mix(in srgb, A p%, B)` interpolates gamma-encoded sRGB —
+    // channel-wise `a*p + b*(1-p)`, which is exactly what mixColors does. This
+    // pins the equivalence instead of assuming it.
+    for (const hex of SWATCHES) {
+      const declared = /(#[0-9a-f]{6}) (\d+)%/i.exec(fadeColor(hex)!)!;
+      const pct = Number(declared[2]);
+      expect(pct).toBe(FADE_MIX_PERCENT);
+
+      const a = parseColor(hex)!;
+      const b = parseColor(lightTheme.card)!;
+      const expected = a.map((v, i) => Math.round(v * (pct / 100) + b[i] * (1 - pct / 100)));
+      expect(parseColor(mixColors(hex, lightTheme.card, pct)!), hex).toEqual(expected);
+    }
+  });
+
+  it("returns undefined when either side is unparseable", () => {
+    expect(mixColors("nope", lightTheme.card, 50)).toBeUndefined();
+    expect(mixColors("#eab308", "hsl(var(--card))", 50)).toBeUndefined();
+  });
+});
+
+describe("contrastTextOnNative", () => {
+  it("agrees with the web emitter on ink-vs-white for every swatch", () => {
+    // The drift this module exists to prevent: if these two ever disagreed, a
+    // class would be legible on one platform and not the other.
+    for (const hex of SWATCHES) {
+      const webIsWhite = contrastTextOn(hex) === "#FFFFFF";
+      const nativeIsWhite = contrastTextOnNative(hex, LIGHT) === "#FFFFFF";
+      expect(nativeIsWhite, hex).toBe(webIsWhite);
+    }
+  });
+
+  it("returns a colour React Native can actually parse", () => {
+    for (const hex of [...SWATCHES, undefined, "nope"]) {
+      const picked = contrastTextOnNative(hex, LIGHT);
+      expect(parseColor(picked), String(hex)).not.toBeNull();
+    }
+  });
+
+  it("clears 4:1 against the block it sits on, for every swatch", () => {
+    for (const hex of SWATCHES) {
+      expect(ratioOf(contrastTextOnNative(hex, LIGHT), hex), hex).toBeGreaterThan(4);
+    }
+  });
+});
+
+describe("readableInkNative", () => {
+  it("clears 4.5:1 on the real card token, in both themes", () => {
+    // Measured against `lightTheme.card` / `darkTheme.card` rather than a
+    // hardcoded #FFFFFF — a hardcoded surface is how the two would drift back
+    // apart the next time a token moves.
+    for (const hex of SWATCHES) {
+      for (const [name, s] of [["light", LIGHT], ["dark", DARK]] as const) {
+        const ink = readableInkNative(hex, s);
+        expect(ink, `${hex} ${name}`).toBeDefined();
+        expect(ratioOf(ink!, s.card), `${hex} on ${name}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("uses the same mix percentage the web emitter declares", () => {
+    for (const hex of SWATCHES) {
+      const pct = Number(/(#[0-9a-f]{6}) (\d+)%/i.exec(readableInk(hex)!)![2]);
+      expect(pct).toBe(READABLE_INK_MIX_PERCENT);
+      expect(readableInkNative(hex, LIGHT)).toBe(
+        mixColors(hex, LIGHT.foreground, pct)
+      );
+    }
+  });
+
+  it("returns undefined without a usable hex, so the caller keeps its token colour", () => {
+    expect(readableInkNative(undefined, LIGHT)).toBeUndefined();
+    expect(readableInkNative("nope", LIGHT)).toBeUndefined();
+  });
+});
+
+describe("fadeColorNative", () => {
+  it("recedes toward the card in both themes rather than always lightening", () => {
+    // On light, a faded block must be LIGHTER than the raw swatch; on dark it
+    // must be DARKER. The old always-lighten version made spent classes the
+    // brightest thing on a dark grid.
+    for (const hex of SWATCHES) {
+      const raw = relativeLuminance(parseColor(hex)!);
+      const onLight = relativeLuminance(parseColor(fadeColorNative(hex, LIGHT)!)!);
+      const onDark = relativeLuminance(parseColor(fadeColorNative(hex, DARK)!)!);
+      expect(onLight, `${hex} light`).toBeGreaterThan(raw);
+      expect(onDark, `${hex} dark`).toBeLessThan(raw);
+    }
+  });
+
+  it("returns undefined without a usable hex", () => {
+    expect(fadeColorNative(undefined, LIGHT)).toBeUndefined();
+    expect(fadeColorNative("nope", LIGHT)).toBeUndefined();
+  });
+});
+
+describe("withAlpha", () => {
+  it("produces an rgba() the fill bar can use in place of currentColor", () => {
+    // React Native has no colour inheritance for backgroundColor and no
+    // color-mix(..., transparent), so the three fill segments are built from
+    // explicit alphas of the already-legible ink.
+    expect(withAlpha("#1355DC", FILL_AWAITING_ALPHA)).toBe("rgba(19, 85, 220, 0.62)");
+    expect(withAlpha(lightTheme.card, 0.3)).toBe("rgba(255, 255, 255, 0.3)");
+  });
+
+  it("returns undefined rather than an unparseable string", () => {
+    // An undefined backgroundColor renders transparent in RN with no error, so
+    // callers must default; this asserts the failure is at least detectable.
+    expect(withAlpha("hsl(var(--foreground))", 0.5)).toBeUndefined();
+    expect(withAlpha(undefined, 0.5)).toBeUndefined();
   });
 });
