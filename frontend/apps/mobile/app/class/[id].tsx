@@ -994,7 +994,7 @@ export default function ClassDetailScreen() {
                       color={lightTheme.destructive}
                     />
                   )}
-                  <Text className="text-destructive">Delete class</Text>
+                  <Text className="text-destructive">Delete</Text>
                 </Button>
               </View>
             </>

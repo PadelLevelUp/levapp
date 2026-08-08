@@ -4,7 +4,7 @@ import { lightTheme } from "@levelup/config";
 import { queryKeys, useConversation } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -485,9 +485,72 @@ export default function ConversationScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      {/* Custom header: navy chrome, our colours, and the name and role chip
+          aligned on one baseline rather than centred as two boxes. */}
+      <View
+        style={{ paddingTop: insets.top, backgroundColor: lightTheme.sidebarBackground }}
+      >
+        <View className="h-14 flex-row items-center gap-2 px-2">
+          <Pressable
+            accessibilityLabel="Back"
+            role="button"
+            hitSlop={10}
+            onPress={() => router.back()}
+            className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
+          >
+            <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
+          </Pressable>
+
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text
+              numberOfLines={1}
+              className="shrink text-base font-bold"
+              style={{ color: lightTheme.sidebarForeground }}
+            >
+              {conversation?.participantName ?? "Conversation"}
+            </Text>
+            {conversation?.participantRole ? (
+              <View
+                testID="chat-header-role"
+                className="shrink-0 rounded-md px-2 py-0.5"
+                style={{ backgroundColor: lightTheme.sidebarAccent }}
+              >
+                <Text
+                  className="text-[11px] font-semibold capitalize"
+                  style={{ color: lightTheme.sidebarPrimary }}
+                >
+                  {conversation.participantRole}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {conversation ? (
+            <Pressable
+              testID="chat-more-options"
+              accessibilityLabel={t("messages.moreOptions")}
+              role="button"
+              hitSlop={10}
+              onPress={() => setMoreMenuOpen(true)}
+              className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={22}
+                color={lightTheme.sidebarForeground}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       <Stack.Screen
         options={{
-          headerShown: true,
+          // headerShown:false — iOS 26 renders UIBarButtonItems inside a
+          // translucent glass capsule, which is the grey pill behind the back
+          // and options controls. A custom header keeps the navy chrome and
+          // the design's colours instead of the platform's.
+          headerShown: false,
           headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
@@ -617,7 +680,7 @@ export default function ConversationScreen() {
         {editing ? (
           <View
             style={{ paddingBottom: composerPaddingBottom }}
-            className="flex-row items-center gap-2 border-t border-border bg-card p-3"
+            className="flex-row items-center gap-2 border-t border-border bg-card px-3 pt-3"
           >
             <Pressable
               accessibilityLabel="Cancel editing"

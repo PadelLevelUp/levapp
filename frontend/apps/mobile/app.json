@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "LevelUp",
+    "name": "LevApp",
     "slug": "levapp",
     "scheme": "levelup",
     "version": "0.1.0",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0B1524"
     },
     "ios": {
       "supportsTablet": false,
@@ -22,7 +22,8 @@
         }
       },
       "appleTeamId": "9K2J8D2ARR",
-      "buildNumber": "4"
+      "buildNumber": "4",
+      "backgroundColor": "#0B1524"
     },
     "android": {
       "package": "com.padellevelup.app",

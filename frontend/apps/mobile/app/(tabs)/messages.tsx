@@ -98,7 +98,7 @@ export default function MessagesScreen() {
   return (
     <View className="flex-1 bg-background" testID="screen-messages">
       {!isLoading && !isError && conversations.length > 0 ? (
-        <View className="px-4 pt-3">
+        <View className="px-4 pb-3 pt-3">
           <Input
             testID="conversations-search"
             accessibilityLabel="Search conversation"

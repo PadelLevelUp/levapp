@@ -66,7 +66,17 @@ export default function TabsLayout() {
         ),
         tabBarActiveTintColor: lightTheme.primary,
         tabBarInactiveTintColor: lightTheme.mutedForeground,
-        tabBarStyle: { backgroundColor: lightTheme.card },
+        // The bar carried no bottom inset, so its labels sat flush against
+        // the home indicator. paddingBottom + height give it the safe area
+        // back; paddingTop keeps the icon off the top edge.
+        tabBarStyle: {
+          backgroundColor: lightTheme.card,
+          borderTopColor: lightTheme.border,
+          paddingTop: 6,
+          paddingBottom: 24,
+          height: 84,
+        },
+        tabBarLabelStyle: { fontSize: 11, paddingBottom: 2 },
       }}
     >
       <Tabs.Screen

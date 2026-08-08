@@ -93,10 +93,22 @@ export default function LoginScreen() {
               "LevelUp" in live text with a hardcoded blue split — it predates
               the rebrand and was the only place the old name survived on a
               screen a user actually sees. */}
-          <View className="mb-3 flex-row items-center gap-2.5" testID="login-brand">
-            <LevAppMark size={40} />
-            <Text className="font-display text-4xl text-sidebar-foreground">
-              Lev<Text className="font-display text-4xl text-primary">App</Text>
+          <View className="mb-3 flex-row items-center gap-3" testID="login-brand">
+            {/* The mark is sized to the wordmark's CAP HEIGHT, not to its line
+                box: Poppins caps are ~0.70em, so a 36px type size gives ~25px
+                of cap. Matching the mark to that, with a 1px optical nudge for
+                the A's pointed apex, seats the two on the same visual line —
+                `items-center` alone only centres their bounding boxes, which
+                is what made it look off. */}
+            <LevAppMark size={30} />
+            <Text
+              className="font-display text-sidebar-foreground"
+              style={{ fontSize: 36, lineHeight: 40 }}
+            >
+              Lev
+              <Text className="font-display text-primary" style={{ fontSize: 36, lineHeight: 40 }}>
+                App
+              </Text>
             </Text>
           </View>
           <Text className="mt-1 text-sm text-sidebar-foreground opacity-70">
