@@ -1,53 +1,52 @@
 import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { Stack, useFocusEffect } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Linking, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
-import i18n from "@/lib/i18n";
-import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
+import { AccountSection } from "@/features/settings/account-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { ClubSection } from "@/features/settings/club-section";
-import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
-import { DeleteAccountSection } from "@/features/settings/delete-account-section";
+import { ImportSection } from "@/features/settings/import-section";
+import { PreferencesSection } from "@/features/settings/preferences-section";
+import { ProfileSection } from "@/features/settings/profile-section";
+import { SeasonsSection } from "@/features/settings/seasons-section";
+import {
+  visibleSections,
+  type SettingsSectionDef,
+  type SettingsSectionId,
+} from "@/features/settings/settings-sections";
 
-function LegalLinkRow({
-  label,
-  url,
-  testID,
+function SectionRow({
+  section,
+  onPress,
 }: {
-  label: string;
-  url: string;
-  testID: string;
+  section: SettingsSectionDef;
+  onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Pressable
-      testID={testID}
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      onPress={() => void Linking.openURL(url)}
-      className="flex-row items-center justify-between rounded-lg border border-border p-3 active:bg-accent"
+      testID={`settings-nav-${section.id}`}
+      accessibilityLabel={t(section.labelKey)}
+      role="button"
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-lg p-3 active:bg-accent"
     >
-      <Text className="text-base">{label}</Text>
+      <Ionicons name={section.icon} size={20} color={lightTheme.primary} />
+      {/* min-w-0 lets the label column shrink instead of pushing the chevron
+          off a 390pt screen when a translated label runs long. */}
+      <View className="min-w-0 flex-1">
+        <Text className="text-base font-medium">{t(section.labelKey)}</Text>
+        <Text className="text-xs text-muted-foreground" numberOfLines={2}>
+          {t(section.descriptionKey)}
+        </Text>
+      </View>
       <Ionicons
         name="chevron-forward"
         size={18}
@@ -57,58 +56,66 @@ function LegalLinkRow({
   );
 }
 
-type Language = "pt" | "en";
-
-const LANGUAGE_LABELS: Record<Language, string> = {
-  pt: "Português",
-  en: "English",
-};
-
-function ProfileRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row items-center justify-between py-1">
-      <Text className="text-sm text-muted-foreground">{label}</Text>
-      <Text className="text-base font-medium">{value}</Text>
-    </View>
-  );
-}
-
+/**
+ * Settings — a DRILL-IN, matching the web app's phone layout: the list of
+ * sections first, one section at a time with a back control.
+ *
+ * Role gating happens ONCE, in `visibleSections(isCoach)`: the same list
+ * builds the nav and resolves `activeSection`, so a player can never reach a
+ * coach pane — not by a stale `openId`, and not in the window before
+ * `/auth/me` resolves and flips `isCoach`. Web shipped the opposite bug: a
+ * player was offered Club, Import and Seasons and got a blank Notifications
+ * pane with three uncaught 403s.
+ *
+ * Log out stays on the section list rather than moving inside Account: it is
+ * the one action people come to Settings to perform, and the More tab that
+ * used to hold it is gone.
+ */
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const isCoach = user?.roles?.includes("coach") ?? false;
-  const queryClient = useQueryClient();
 
-  // Fresh profile (name/username/language) straight from /auth/me.
+  // Fresh profile straight from /auth/me; `user` is the cached fallback so the
+  // first frame isn't empty.
   const { data: me } = useQuery({
     queryKey: ["auth-me"],
     queryFn: authApi.getMe,
   });
-  const profile = me ?? user;
+  const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
 
-  const [language, setLanguage] = React.useState<Language>(
-    user?.language ?? "pt"
+  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(null);
+
+  // Web's drill-in resets because navigating away unmounts SettingsPage.
+  // expo-router keeps tab screens mounted, so without this, leaving for the
+  // Calendar tab and coming back drops you inside whatever section was open,
+  // with the list nowhere in sight. Reset on blur to match web.
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => setOpenId(null);
+    }, [])
   );
-  const [languageStatus, setLanguageStatus] = React.useState<string | null>(
-    null
-  );
 
-  React.useEffect(() => {
-    if (me?.language) setLanguage(me.language);
-  }, [me?.language]);
+  const sections = visibleSections(isCoach);
+  // Re-derived every render from the role-filtered list, so it collapses back
+  // to the list the moment a section stops being allowed.
+  const activeSection = sections.find((s) => s.id === openId) ?? null;
 
-  const handleLanguageChange = async (value: Language) => {
-    const previous = language;
-    setLanguage(value);
-    setLanguageStatus(null);
-    try {
-      const updated = await authApi.updateMe({ language: value });
-      queryClient.setQueryData(["auth-me"], updated);
-      void i18n.changeLanguage(value);
-      setLanguageStatus("Language preference saved.");
-    } catch {
-      setLanguage(previous);
-      setLanguageStatus("Failed to save language preference.");
+  const renderSection = (id: SettingsSectionId) => {
+    switch (id) {
+      case "profile":
+        return <ProfileSection />;
+      case "preferences":
+        return <PreferencesSection isCoach={isCoach} />;
+      case "calendar":
+        return <SeasonsSection />;
+      case "notifications":
+        return <AutoInviteSection />;
+      case "import":
+        return <ImportSection />;
+      case "club":
+        return <ClubSection />;
+      case "account":
+        return <AccountSection />;
     }
   };
 
@@ -118,128 +125,72 @@ export default function SettingsScreen() {
         options={{
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          title: "Settings",
+          title: activeSection
+            ? t(activeSection.labelKey)
+            : t("settings.title"),
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
           headerTitleStyle: { fontWeight: "700" },
         }}
       />
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-4 p-4 pb-10"
-      >
-        {/* Profile (read-only; /auth/me does not expose email on mobile) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>Your account information.</CardDescription>
-          </CardHeader>
-          <CardContent className="gap-1">
-            <ProfileRow label="Name" value={profile?.name ?? "—"} />
-            <ProfileRow
-              label="Username"
-              value={profile?.username ? `@${profile.username}` : "—"}
-            />
-            <ProfileRow
-              label="Role"
-              value={isCoach ? "Coach" : "Player"}
-            />
-          </CardContent>
-        </Card>
+      <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-10">
+        {activeSection === null ? (
+          <>
+            <Card testID="settings-section-list">
+              <CardContent className="gap-1 p-2">
+                {sections.map((section) => (
+                  <SectionRow
+                    key={section.id}
+                    section={section}
+                    onPress={() => setOpenId(section.id)}
+                  />
+                ))}
+              </CardContent>
+            </Card>
 
-        {/* Language preference (persists via PATCH /auth/me, mirrors web) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Language</CardTitle>
-            <CardDescription>
-              Language used for notifications and messages.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="gap-2">
-            <Label>Preferred language</Label>
-            <Select
-              value={{ value: language, label: LANGUAGE_LABELS[language] }}
-              onValueChange={(option) => {
-                if (option && option.value !== language) {
-                  void handleLanguageChange(option.value as Language);
-                }
-              }}
+            <Pressable
+              testID="settings-logout"
+              accessibilityLabel={t("settings.mobile.logout")}
+              role="button"
+              onPress={() => void logout()}
+              className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3.5 active:opacity-70"
             >
-              <SelectTrigger
-                testID="settings-language-select"
-                accessibilityLabel="Preferred language"
+              <Ionicons
+                name="log-out-outline"
+                size={18}
+                color={lightTheme.destructive}
+              />
+              <Text
+                className="font-semibold"
+                style={{ color: lightTheme.destructive }}
               >
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  value="pt"
-                  label={LANGUAGE_LABELS.pt}
-                  testID="settings-language-pt"
-                  accessibilityLabel="Portuguese"
-                />
-                <SelectItem
-                  value="en"
-                  label={LANGUAGE_LABELS.en}
-                  testID="settings-language-en"
-                  accessibilityLabel="English"
-                />
-              </SelectContent>
-            </Select>
-            {languageStatus ? (
-              <Text className="text-sm text-muted-foreground">
-                {languageStatus}
+                {t("settings.mobile.logout")}
               </Text>
-            ) : null}
-          </CardContent>
-        </Card>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              testID="settings-back"
+              accessibilityLabel={t("settings.sections")}
+              role="button"
+              onPress={() => setOpenId(null)}
+              className="flex-row items-center gap-1.5 self-start py-1 active:opacity-70"
+            >
+              <Ionicons
+                name="chevron-back"
+                size={18}
+                color={lightTheme.mutedForeground}
+              />
+              <Text className="text-sm font-medium text-muted-foreground">
+                {t("settings.sections")}
+              </Text>
+            </Pressable>
 
-        {/* Coach-only: skill levels editor */}
-        {isCoach ? <CoachLevelsSection /> : null}
-
-        {/* Coach-only: club (invite/list/revoke co-coaches) */}
-        {isCoach ? <ClubSection /> : null}
-
-        {/* Coach-only: auto-invite engine basic controls */}
-        {isCoach ? <AutoInviteSection /> : null}
-
-        {/* All roles: hosted legal pages (App Store 5.1.1) */}
-        <Card testID="settings-legal">
-          <CardHeader>
-            <CardTitle>{t("settings.legal.title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="gap-2">
-            <LegalLinkRow
-              testID="settings-privacy-policy"
-              label={t("settings.legal.privacyPolicy")}
-              url={PRIVACY_POLICY_URL}
-            />
-            <LegalLinkRow
-              testID="settings-terms"
-              label={t("settings.legal.termsOfService")}
-              url={TERMS_URL}
-            />
-          </CardContent>
-        </Card>
-
-        {/* All roles: App Store 5.1.1(v) in-app account deletion */}
-        {/* Log out lived in the More tab, which the six-destination tab bar
-            replaced. Settings is where the web keeps it too. */}
-        <Pressable
-          testID="settings-logout"
-          accessibilityLabel="Log out"
-          role="button"
-          onPress={() => void logout()}
-          className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3.5 active:opacity-70"
-        >
-          <Ionicons name="log-out-outline" size={18} color={lightTheme.destructive} />
-          <Text className="font-semibold" style={{ color: lightTheme.destructive }}>
-            Log out
-          </Text>
-        </Pressable>
-
-        <DeleteAccountSection />
+            {renderSection(activeSection.id)}
+          </>
+        )}
       </ScrollView>
     </View>
   );

@@ -119,6 +119,29 @@
       "privacyPolicy": "Política de Privacidade",
       "termsOfService": "Termos de Serviço"
     },
+
+    "mobile": {
+      "logout": "Terminar sessão",
+      "username": "Nome de utilizador",
+      "role": "Função",
+      "roleCoach": "Treinador",
+      "rolePlayer": "Jogador",
+      "saving": "A guardar…",
+      "profileSaved": "Perfil guardado.",
+      "profileSaveFailed": "Não foi possível guardar o teu perfil. Tenta novamente.",
+      "languageSaved": "Preferência de idioma guardada.",
+      "languageSaveFailed": "Não foi possível guardar a preferência de idioma.",
+      "removeSeason": "Remover época {{name}}",
+      "removeCategory": "Remover categoria {{name}}",
+      "removeLevel": "Remover nível {{name}}",
+      "moveLevelUp": "Mover nível para cima",
+      "moveLevelDown": "Mover nível para baixo",
+      "coachLevelsDescription": "Define os níveis usados para classificar os teus jogadores e exercícios. Usa as setas para reordenar.",
+      "importNavDescription": "Rever e reverter importações anteriores.",
+      "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
+      "importHistoryEmpty": "Ainda não há importações."
+    },
+
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",
