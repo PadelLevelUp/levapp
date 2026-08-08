@@ -238,7 +238,7 @@ export function AddToClassesDialog({
                           <Pressable
                             key={cls.id}
                             testID={`add-to-classes-class-${cls.id}`}
-                            accessibilityLabel={cls.title || "Unnamed class"}
+                            accessibilityLabel={cls.title || t("players.unnamedClass")}
                             role="button"
                             disabled={isFull}
                             onPress={() => toggleClass(cls.id)}
@@ -309,7 +309,7 @@ export function AddToClassesDialog({
           <Button
             variant="outline"
             className="flex-1"
-            accessibilityLabel="Cancel add to classes"
+            accessibilityLabel={t("players.cancelAddToClassesAria")}
             onPress={handleClose}
             disabled={saving}
           >
@@ -317,7 +317,7 @@ export function AddToClassesDialog({
           </Button>
           <Button
             testID="add-to-classes-save"
-            accessibilityLabel="Add to selected classes"
+            accessibilityLabel={t("players.addToSelectedClassesAria")}
             className="flex-1"
             disabled={selectedIds.size === 0 || saving}
             onPress={() => void handleSave()}

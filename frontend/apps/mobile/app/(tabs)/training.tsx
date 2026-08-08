@@ -1,6 +1,7 @@
 import { lightTheme } from "@levelup/config";
 import { Stack } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
@@ -13,6 +14,7 @@ import { GroupsTab } from "@/features/training/groups-tab";
  * /training/groups pages.
  */
 export default function TrainingScreen() {
+  const { t } = useTranslation();
   const [tab, setTab] = React.useState("exercises");
 
   return (
@@ -21,7 +23,7 @@ export default function TrainingScreen() {
         options={{
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          title: "Training",
+          title: t("training.title"),
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
           headerTitleStyle: { fontWeight: "700" },
@@ -33,16 +35,16 @@ export default function TrainingScreen() {
           <TabsTrigger
             value="exercises"
             testID="training-exercises-tab"
-            accessibilityLabel="Exercises tab"
+            accessibilityLabel={t("training.exercisesTabAria")}
           >
-            <Text>Exercises</Text>
+            <Text>{t("training.exercises.title")}</Text>
           </TabsTrigger>
           <TabsTrigger
             value="groups"
             testID="training-groups-tab"
-            accessibilityLabel="Groups tab"
+            accessibilityLabel={t("training.groupsTabAria")}
           >
-            <Text>Groups</Text>
+            <Text>{t("training.groups.title")}</Text>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="exercises" className="flex-1">

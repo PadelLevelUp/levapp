@@ -34,6 +34,7 @@ import { initReactI18next } from "react-i18next";
 import authEn from "../../../../src/locales/en/auth.json";
 import availabilityEn from "../../../../src/locales/en/availability.json";
 import calendarEn from "../../../../src/locales/en/calendar.json";
+import classDetailEn from "../../../../src/locales/en/classDetail.json";
 import commonEn from "../../../../src/locales/en/common.json";
 import dashboardEn from "../../../../src/locales/en/dashboard.json";
 import messagesEn from "../../../../src/locales/en/messages.json";
@@ -44,10 +45,12 @@ import playersEn from "../../../../src/locales/en/players.json";
 import settingsEn from "../../../../src/locales/en/settings.json";
 import studentsEn from "../../../../src/locales/en/students.json";
 import trainingEn from "../../../../src/locales/en/training.json";
+import uiEn from "../../../../src/locales/en/ui.json";
 
 import authPt from "../../../../src/locales/pt/auth.json";
 import availabilityPt from "../../../../src/locales/pt/availability.json";
 import calendarPt from "../../../../src/locales/pt/calendar.json";
+import classDetailPt from "../../../../src/locales/pt/classDetail.json";
 import commonPt from "../../../../src/locales/pt/common.json";
 import dashboardPt from "../../../../src/locales/pt/dashboard.json";
 import messagesPt from "../../../../src/locales/pt/messages.json";
@@ -58,6 +61,7 @@ import playersPt from "../../../../src/locales/pt/players.json";
 import settingsPt from "../../../../src/locales/pt/settings.json";
 import studentsPt from "../../../../src/locales/pt/students.json";
 import trainingPt from "../../../../src/locales/pt/training.json";
+import uiPt from "../../../../src/locales/pt/ui.json";
 
 type Dict = Record<string, unknown>;
 
@@ -86,6 +90,7 @@ const enNamespaces: Dict[] = [
   authEn,
   availabilityEn,
   calendarEn,
+  classDetailEn,
   commonEn,
   dashboardEn,
   messagesEn,
@@ -96,12 +101,14 @@ const enNamespaces: Dict[] = [
   settingsEn,
   studentsEn,
   trainingEn,
+  uiEn,
 ];
 
 const ptNamespaces: Dict[] = [
   authPt,
   availabilityPt,
   calendarPt,
+  classDetailPt,
   commonPt,
   dashboardPt,
   messagesPt,
@@ -112,6 +119,7 @@ const ptNamespaces: Dict[] = [
   settingsPt,
   studentsPt,
   trainingPt,
+  uiPt,
 ];
 
 export const SUPPORTED_LANGUAGES = ["pt", "en"] as const;

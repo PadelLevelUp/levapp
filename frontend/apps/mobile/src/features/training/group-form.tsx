@@ -4,6 +4,7 @@ import type {
   ExerciseGroupPayload,
 } from "@levelup/types";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,6 +33,7 @@ export function GroupForm({
   onCancel,
   onDelete,
 }: GroupFormProps) {
+  const { t } = useTranslation();
   const [name, setName] = React.useState(group?.name ?? "");
   const [description, setDescription] = React.useState(
     group?.description ?? ""
@@ -61,35 +63,39 @@ export function GroupForm({
       testID="group-form"
     >
       <Text className="text-lg font-bold">
-        {group ? "Edit group" : "New group"}
+        {group ? t("training.groupForm.editGroup") : t("training.groupForm.newGroup")}
       </Text>
 
       <View className="gap-1.5">
-        <Label>Name</Label>
+        <Label>{t("training.groupForm.nameLabel")}</Label>
         <Input
           testID="group-name"
-          accessibilityLabel="Group name"
-          placeholder="e.g. Monday warm-up"
+          accessibilityLabel={t("training.groupForm.groupNameAria")}
+          placeholder={t("training.groupForm.namePlaceholder")}
           value={name}
           onChangeText={setName}
         />
       </View>
 
       <View className="gap-1.5">
-        <Label>Description</Label>
+        <Label>{t("training.groupForm.description")}</Label>
         <Textarea
-          accessibilityLabel="Group description"
-          placeholder="What is this group for?"
+          accessibilityLabel={t("training.groupForm.groupDescriptionAria")}
+          placeholder={t("training.groupForm.descriptionPlaceholder")}
           value={description}
           onChangeText={setDescription}
         />
       </View>
 
       <View className="gap-1.5">
-        <Label>Exercises ({exerciseIds.length} selected)</Label>
+        <Label>
+          {t("training.groupForm.exercisesWithCount", {
+            count: exerciseIds.length,
+          })}
+        </Label>
         {exercises.length === 0 ? (
           <Text className="text-sm text-muted-foreground">
-            No exercises yet — create exercises first.
+            {t("training.groupForm.noExercisesYet")}
           </Text>
         ) : (
           <View className="gap-1 rounded-md border border-border p-3">
@@ -97,7 +103,9 @@ export function GroupForm({
               <Pressable
                 key={exercise.id}
                 testID={`group-exercise-${exercise.id}`}
-                accessibilityLabel={`Include exercise ${exercise.name}`}
+                accessibilityLabel={t("training.groupForm.includeExerciseAria", {
+                  name: exercise.name,
+                })}
                 role="checkbox"
                 onPress={() => toggleExercise(exercise.id)}
                 className="flex-row items-center gap-2 py-1.5"
@@ -118,29 +126,33 @@ export function GroupForm({
       <View className="gap-2 pt-2">
         <Button
           testID="group-save"
-          accessibilityLabel="Save group"
+          accessibilityLabel={t("training.groupForm.saveGroup")}
           disabled={saving || !name.trim()}
           onPress={handleSave}
         >
-          <Text>{saving ? "Saving…" : "Save group"}</Text>
+          <Text>
+            {saving
+              ? t("training.groupForm.saving")
+              : t("training.groupForm.saveGroup")}
+          </Text>
         </Button>
         {group && onDelete ? (
           <Button
             variant="destructive"
             testID="group-delete"
-            accessibilityLabel="Delete group"
+            accessibilityLabel={t("training.groupForm.deleteGroup")}
             disabled={saving}
             onPress={onDelete}
           >
-            <Text>Delete group</Text>
+            <Text>{t("training.groupForm.deleteGroup")}</Text>
           </Button>
         ) : null}
         <Button
           variant="ghost"
-          accessibilityLabel="Cancel group form"
+          accessibilityLabel={t("training.groupForm.cancelAria")}
           onPress={onCancel}
         >
-          <Text>Cancel</Text>
+          <Text>{t("common.cancel")}</Text>
         </Button>
       </View>
     </ScrollView>

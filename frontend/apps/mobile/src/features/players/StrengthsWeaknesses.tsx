@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
@@ -18,6 +19,9 @@ interface NoteSectionProps {
   addTestID: string;
   addLabel: string;
   placeholder: string;
+  emptyText: string;
+  addFailedKey: string;
+  removeFailedKey: string;
 }
 
 function NoteSection({
@@ -29,7 +33,11 @@ function NoteSection({
   addTestID,
   addLabel,
   placeholder,
+  emptyText,
+  addFailedKey,
+  removeFailedKey,
 }: NoteSectionProps) {
+  const { t } = useTranslation();
   const [text, setText] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const addNote = useAddCoachNote();
@@ -43,7 +51,7 @@ function NoteSection({
       await addNote.mutateAsync({ playerId, type, text: trimmed });
       setText("");
     } catch {
-      setError(`Failed to add ${type}.`);
+      setError(t(addFailedKey));
     }
   };
 
@@ -52,7 +60,7 @@ function NoteSection({
     try {
       await deleteNote.mutateAsync({ playerId, note });
     } catch {
-      setError(`Failed to remove ${type}.`);
+      setError(t(removeFailedKey));
     }
   };
 
@@ -62,9 +70,7 @@ function NoteSection({
         {title}
       </Text>
       {notes.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">
-          No {type === "strength" ? "strengths" : "weaknesses"} noted yet.
-        </Text>
+        <Text className="text-sm text-muted-foreground">{emptyText}</Text>
       ) : (
         notes.map((note) => (
           <View
@@ -75,7 +81,7 @@ function NoteSection({
             <Text className="flex-1 text-sm">{note.text}</Text>
             <Pressable
               testID={`sw-note-delete-${note.id}`}
-              accessibilityLabel={`Delete note ${note.text}`}
+              accessibilityLabel={t("players.deleteNoteAria", { text: note.text })}
               role="button"
               hitSlop={8}
               onPress={() => handleDelete(note)}
@@ -107,7 +113,7 @@ function NoteSection({
           disabled={!text.trim() || addNote.isPending}
           onPress={handleAdd}
         >
-          <Text>Add</Text>
+          <Text>{t("common.add")}</Text>
         </Button>
       </View>
       {error ? <Text className="text-sm text-destructive">{error}</Text> : null}
@@ -132,31 +138,38 @@ export function StrengthsWeaknesses({
   strengths,
   weaknesses,
 }: StrengthsWeaknessesProps) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Strengths & Weaknesses</CardTitle>
+        <CardTitle>{t("players.strengthsAndWeaknesses")}</CardTitle>
       </CardHeader>
       <CardContent className="gap-5">
         <NoteSection
           playerId={playerId}
           type="strength"
-          title="Strengths"
+          title={t("players.strengths")}
           notes={strengths}
           inputTestID="sw-add-strength-input"
           addTestID="sw-add-strength"
-          addLabel="Add strength"
-          placeholder="Add a strength..."
+          addLabel={t("players.addStrengthAriaLabel")}
+          placeholder={t("players.addStrengthPlaceholder")}
+          emptyText={t("players.noStrengthsYet")}
+          addFailedKey="players.addStrengthFailed"
+          removeFailedKey="players.removeStrengthFailed"
         />
         <NoteSection
           playerId={playerId}
           type="weakness"
-          title="Weaknesses"
+          title={t("players.weaknesses")}
           notes={weaknesses}
           inputTestID="sw-add-weakness-input"
           addTestID="sw-add-weakness"
-          addLabel="Add weakness"
-          placeholder="Add a weakness..."
+          addLabel={t("players.addWeaknessAriaLabel")}
+          placeholder={t("players.addWeaknessPlaceholder")}
+          emptyText={t("players.noWeaknessesYet")}
+          addFailedKey="players.addWeaknessFailed"
+          removeFailedKey="players.removeWeaknessFailed"
         />
       </CardContent>
     </Card>

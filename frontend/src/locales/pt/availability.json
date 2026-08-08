@@ -57,6 +57,27 @@
     "couldNotSaveDescription": "Por favor, tente novamente.",
     "removedToast": "Bloqueio removido",
     "couldNotRemoveTitle": "Não foi possível remover o bloqueio",
-    "couldNotRemoveDescription": "Por favor, tente novamente."
+    "couldNotRemoveDescription": "Por favor, tente novamente.",
+    "noBlockersTitle": "Ainda não tens bloqueios",
+    "noBlockersMessage": "Adiciona um para deixares de receber convites automáticos quando não estás disponível.",
+    "couldNotLoadMessage": "Não foi possível carregar os teus bloqueios.",
+    "couldNotSaveMessage": "Não foi possível guardar o bloqueio. Tenta novamente.",
+    "couldNotRemoveMessage": "Não foi possível remover o bloqueio. Tenta novamente.",
+    "deleteRecurringDescription": "Isto remove o bloqueio e todas as suas repetições. Voltas a receber convites automáticos nesses horários.",
+    "deleteSingleDescription": "Voltas a receber convites automáticos neste horário.",
+    "cancelDeleteAria": "Cancelar eliminação do bloqueio",
+    "confirmDeleteAria": "Confirmar eliminação do bloqueio",
+    "deleting": "A eliminar...",
+    "blockerTitleAria": "Título do bloqueio",
+    "saveBlockerAria": "Guardar bloqueio",
+    "cancelFormAria": "Cancelar formulário de bloqueio",
+    "toggleDayAria": "Alternar {{day}}",
+    "validation": {
+      "dateFormat": "A data tem de estar no formato AAAA-MM-DD",
+      "startTimeFormat": "A hora de início tem de estar no formato HH:MM",
+      "endTimeFormat": "A hora de fim tem de estar no formato HH:MM",
+      "repeatUntilFormat": "A data de fim tem de estar no formato AAAA-MM-DD",
+      "invalidForm": "Formulário inválido"
+    }
   }
 }

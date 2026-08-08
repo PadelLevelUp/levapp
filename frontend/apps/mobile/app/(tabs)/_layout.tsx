@@ -4,12 +4,14 @@ import { queryKeys, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { useAppEvents } from "@/lib/sse";
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const { user, loading, isAuthenticated } = useAuth();
 
   // Unread messages badge on the Messages tab, refreshed live over SSE.
@@ -85,7 +87,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Dashboard",
+          title: t("nav.dashboard"),
           tabBarButtonTestID: "tab-dashboard",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
@@ -95,7 +97,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: "Calendar",
+          title: t("nav.calendar"),
           tabBarButtonTestID: "tab-calendar",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" color={color} size={size} />
@@ -107,7 +109,7 @@ export default function TabsLayout() {
         options={{
           // Players is coach-only; href: null removes the tab for students.
           href: isCoach ? undefined : null,
-          title: "Players",
+          title: t("nav.players"),
           tabBarButtonTestID: "tab-players",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" color={color} size={size} />
@@ -117,7 +119,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: "Messages",
+          title: t("nav.messages"),
           tabBarButtonTestID: "tab-messages",
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color, size }) => (
@@ -131,7 +133,7 @@ export default function TabsLayout() {
           // Availability is student-only (inverse of the players tab, which
           // is coach-only); href: null removes the tab for coaches.
           href: isCoach ? null : undefined,
-          title: "Availability",
+          title: t("nav.availability"),
           tabBarButtonTestID: "tab-availability",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" color={color} size={size} />
@@ -141,7 +143,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="training"
         options={{
-          title: "Training",
+          title: t("nav.training"),
           href: isCoach ? undefined : null,
           tabBarButtonTestID: "tab-training",
           tabBarIcon: ({ color, size }) => (
@@ -152,7 +154,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
+          title: t("nav.settings"),
           tabBarButtonTestID: "tab-settings",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" color={color} size={size} />

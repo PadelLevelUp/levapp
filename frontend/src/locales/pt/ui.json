@@ -19,6 +19,20 @@
     "carousel": {
       "previousSlide": "Slide anterior",
       "nextSlide": "Slide seguinte"
+    },
+    "datePicker": {
+      "placeholder": "Seleciona uma data",
+      "fieldLabel": "Data",
+      "dialogTitle": "Selecionar data"
+    },
+    "timePicker": {
+      "placeholder": "Seleciona uma hora",
+      "fieldLabel": "Hora",
+      "dialogTitle": "Selecionar hora"
+    },
+    "validation": {
+      "useTimeFormat": "Usa HH:MM",
+      "useDateFormat": "Usa AAAA-MM-DD"
     }
   }
 }

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
@@ -12,6 +13,7 @@ import { useAddPlayer } from "@/features/players/hooks";
 import { PlayerForm, type PlayerFormValues } from "@/features/players/PlayerForm";
 
 export default function NewPlayerScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   const { data: levels } = useCoachLevels();
@@ -34,7 +36,7 @@ export default function NewPlayerScreen() {
       });
       router.back();
     } catch {
-      setError("Failed to create player. Please try again.");
+      setError(t("players.createFailed"));
     }
   };
 
@@ -44,7 +46,7 @@ export default function NewPlayerScreen() {
         <Button
           variant="ghost"
           size="icon"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t("common.goBack")}
           onPress={() => router.back()}
         >
           <Ionicons
@@ -54,7 +56,7 @@ export default function NewPlayerScreen() {
           />
         </Button>
         <Text role="heading" aria-level={1} className="text-xl font-bold">
-          New player
+          {t("players.newPlayer")}
         </Text>
       </View>
       <ScrollView
@@ -65,7 +67,7 @@ export default function NewPlayerScreen() {
         <PlayerForm
           levels={levels ?? []}
           coachId={user?.coachId}
-          submitLabel="Create player"
+          submitLabel={t("players.createPlayer")}
           saving={addPlayer.isPending}
           onSubmit={handleSubmit}
           onCancel={() => router.back()}

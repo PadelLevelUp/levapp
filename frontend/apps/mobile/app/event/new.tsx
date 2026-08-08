@@ -117,10 +117,12 @@ export default function NewEventScreen() {
     const next: FieldErrors = {};
 
     if (!DATE_RE.test(date)) next.date = t("calendar.addEvent.fieldDate");
-    if (!TIME_RE.test(startTime)) next.startTime = "Use HH:MM";
-    if (!TIME_RE.test(endTime)) next.endTime = "Use HH:MM";
+    if (!TIME_RE.test(startTime))
+      next.startTime = t("ui.validation.useTimeFormat");
+    if (!TIME_RE.test(endTime))
+      next.endTime = t("ui.validation.useTimeFormat");
     if (isRecurring && endDate && !DATE_RE.test(endDate)) {
-      next.endDate = "Use YYYY-MM-DD";
+      next.endDate = t("ui.validation.useDateFormat");
     }
 
     // Shared schema: date required; recurring needs days + end date (same
@@ -182,7 +184,7 @@ export default function NewEventScreen() {
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="event-new-back"
-          accessibilityLabel="Back"
+          accessibilityLabel={t("common.back")}
           role="button"
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
@@ -208,7 +210,10 @@ export default function NewEventScreen() {
           <View className="gap-1.5">
             <Label>{t("calendar.addEvent.type")}</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger testID="event-type" accessibilityLabel="Event type">
+              <SelectTrigger
+                testID="event-type"
+                accessibilityLabel={t("calendar.addEvent.type")}
+              >
                 <SelectValue placeholder={t("calendar.addEvent.type")} />
               </SelectTrigger>
               <SelectContent>
@@ -228,7 +233,7 @@ export default function NewEventScreen() {
             <Label>{t("calendar.addEvent.titleLabel")}</Label>
             <Input
               testID="event-name"
-              accessibilityLabel="Event title"
+              accessibilityLabel={t("calendar.addEvent.titleLabel")}
               placeholder={t("calendar.addEvent.titlePlaceholder")}
               value={title}
               onChangeText={setTitle}
@@ -240,7 +245,7 @@ export default function NewEventScreen() {
             <Label>{t("calendar.addEvent.descriptionLabel")}</Label>
             <Input
               testID="event-description"
-              accessibilityLabel="Event description"
+              accessibilityLabel={t("calendar.addEvent.descriptionLabel")}
               placeholder={t("calendar.addEvent.descriptionPlaceholder")}
               value={description}
               onChangeText={setDescription}
@@ -314,7 +319,7 @@ export default function NewEventScreen() {
               </View>
               <Switch
                 testID="event-recurring-switch"
-                accessibilityLabel="Recurring event"
+                accessibilityLabel={t("calendar.addEvent.recurring")}
                 checked={isRecurring}
                 onCheckedChange={(checked) => {
                   setIsRecurring(checked);
@@ -389,7 +394,7 @@ export default function NewEventScreen() {
 
           <Button
             testID="event-save"
-            accessibilityLabel="Create event"
+            accessibilityLabel={t("calendar.addEvent.createEvent")}
             onPress={handleSave}
             disabled={addEvent.isPending}
           >

@@ -28,7 +28,9 @@
       "yourUpcomingLessons": "As tuas próximas aulas",
       "invitesToConfirm": "Convites por confirmar",
       "noPendingInvites": "Sem convites pendentes",
-      "missingSeats": "Faltam {{count}}"
+      "missingSeats": "Faltam {{count}}",
+      "seatsFilled": "{{filled}} de {{total}} confirmados",
+      "nothingHereYet": "Ainda não há nada aqui."
     },
     "activity": {
       "title": "Atividade de notificações"
@@ -48,6 +50,10 @@
       "confirmed": "Confirmado",
       "expired": "Expirado",
       "queued": "Em fila"
-    }
+    },
+    "addParticipants": "Adicionar participantes",
+    "messagesOverviewAria": "Resumo de mensagens",
+    "conversationsToReplyCount_one": "{{count}} conversa por responder",
+    "conversationsToReplyCount_other": "{{count}} conversas por responder"
   }
 }

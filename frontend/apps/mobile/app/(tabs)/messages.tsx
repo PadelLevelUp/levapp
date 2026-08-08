@@ -101,7 +101,7 @@ export default function MessagesScreen() {
         <View className="px-4 pb-3 pt-3">
           <Input
             testID="conversations-search"
-            accessibilityLabel="Search conversation"
+            accessibilityLabel={t("messages.searchConversationAria")}
             placeholder={t("messages.searchConversationPlaceholder")}
             value={search}
             onChangeText={setSearch}
@@ -113,14 +113,14 @@ export default function MessagesScreen() {
         <ConversationListSkeleton />
       ) : isError ? (
         <ErrorState
-          message="Could not load conversations."
+          message={t("messages.couldNotLoadConversations")}
           onRetry={() => void refetch()}
         />
       ) : conversations.length === 0 ? (
         <EmptyState
           icon="chatbubbles-outline"
-          title="No conversations yet"
-          message="Start a conversation with the + button."
+          title={t("messages.noConversationsYet")}
+          message={t("messages.startWithPlusButton")}
         />
       ) : filteredConversations.length === 0 ? (
         <EmptyState
@@ -152,7 +152,7 @@ export default function MessagesScreen() {
 
       <Pressable
         testID="messages-new"
-        accessibilityLabel="New conversation"
+        accessibilityLabel={t("messages.newConversation")}
         role="button"
         onPress={() => router.push("/conversation/new")}
         className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-black/30 active:opacity-90"

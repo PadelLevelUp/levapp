@@ -1,5 +1,6 @@
 import { useDashboard } from "@levelup/hooks";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
@@ -8,6 +9,7 @@ import { Text } from "@/components/ui/text";
 import { DashboardBlocks } from "@/features/dashboard/DashboardBlocks";
 
 export default function DashboardScreen() {
+  const { t } = useTranslation();
   // Same window the web dashboard uses: now → +30 days. Computed once so the
   // query key stays stable across renders.
   const [range] = React.useState(() => ({
@@ -36,12 +38,12 @@ export default function DashboardScreen() {
           className="text-2xl font-bold"
           testID="dashboard-title"
         >
-          {data?.title ?? "Dashboard"}
+          {data?.title ?? t("dashboard.title")}
         </Text>
 
         {isError ? (
           <ErrorState
-            message="Could not load the dashboard."
+            message={t("dashboard.failedToLoad")}
             onRetry={() => refetch()}
             className="py-16"
           />

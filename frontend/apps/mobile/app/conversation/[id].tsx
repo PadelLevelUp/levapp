@@ -492,7 +492,7 @@ export default function ConversationScreen() {
       >
         <View className="h-14 flex-row items-center gap-2 px-2">
           <Pressable
-            accessibilityLabel="Back"
+            accessibilityLabel={t("common.back")}
             role="button"
             hitSlop={10}
             onPress={() => router.back()}
@@ -507,7 +507,7 @@ export default function ConversationScreen() {
               className="shrink text-base font-bold"
               style={{ color: lightTheme.sidebarForeground }}
             >
-              {conversation?.participantName ?? "Conversation"}
+              {conversation?.participantName ?? t("messages.conversationFallback")}
             </Text>
             {conversation?.participantRole ? (
               <View
@@ -561,7 +561,7 @@ export default function ConversationScreen() {
                 className="text-base font-bold"
                 style={{ color: lightTheme.sidebarForeground }}
               >
-                {conversation?.participantName ?? "Conversation"}
+                {conversation?.participantName ?? t("messages.conversationFallback")}
               </Text>
               {conversation?.participantRole ? (
                 <Badge
@@ -606,7 +606,7 @@ export default function ConversationScreen() {
           <ChatSkeleton />
         ) : isError || !conversation ? (
           <ErrorState
-            message="Could not load this conversation."
+            message={t("messages.couldNotLoadConversation")}
             onRetry={() => void refetch()}
           />
         ) : (
@@ -669,7 +669,7 @@ export default function ConversationScreen() {
             ListEmptyComponent={
               <View className="flex-1 items-center py-8">
                 <Text className="text-muted-foreground">
-                  No messages yet. Say hi!
+                  {t("messages.noMessagesSayHi")}
                 </Text>
               </View>
             }
@@ -683,7 +683,7 @@ export default function ConversationScreen() {
             className="flex-row items-center gap-2 border-t border-border bg-card px-3 pt-3"
           >
             <Pressable
-              accessibilityLabel="Cancel editing"
+              accessibilityLabel={t("messages.cancelEditingAria")}
               role="button"
               onPress={() => {
                 setEditing(null);
@@ -699,7 +699,7 @@ export default function ConversationScreen() {
             </Pressable>
             <Input
               testID="message-edit-input"
-              accessibilityLabel="Edit message text"
+              accessibilityLabel={t("messages.editMessageTextAria")}
               className="flex-1"
               value={editText}
               onChangeText={setEditText}
@@ -708,11 +708,11 @@ export default function ConversationScreen() {
             <Button
               size="sm"
               testID="message-edit-save"
-              accessibilityLabel="Save edited message"
+              accessibilityLabel={t("messages.saveEditedMessageAria")}
               disabled={!editText.trim() || savingEdit}
               onPress={() => void handleSaveEdit()}
             >
-              <Text>Save</Text>
+              <Text>{t("common.save")}</Text>
             </Button>
           </View>
         ) : (
@@ -766,8 +766,8 @@ export default function ConversationScreen() {
             <View className="flex-row items-end gap-2 p-3">
               <Input
                 testID="message-input"
-                accessibilityLabel="Message text"
-                placeholder="Type a message…"
+                accessibilityLabel={t("messages.messageTextAria")}
+                placeholder={t("messages.typePlaceholder")}
                 className="max-h-28 flex-1"
                 value={draft}
                 onChangeText={setDraft}
@@ -776,7 +776,7 @@ export default function ConversationScreen() {
               />
               <Pressable
                 testID="message-send"
-                accessibilityLabel="Send message"
+                accessibilityLabel={t("messages.sendMessageAria")}
                 role="button"
                 disabled={!draft.trim() || sending || !conversation || isBlocked}
                 onPress={() => void handleSend()}
@@ -834,7 +834,7 @@ export default function ConversationScreen() {
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={togglingBlock}
-              accessibilityLabel="Cancel"
+              accessibilityLabel={t("common.cancel")}
             >
               <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
@@ -899,22 +899,21 @@ export default function ConversationScreen() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogTitle>{t("messages.deleteMessageTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              The message will be replaced by a “deleted” placeholder for both
-              participants.
+              {t("messages.deleteMessageDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel accessibilityLabel="Cancel delete">
-              <Text>Cancel</Text>
+            <AlertDialogCancel accessibilityLabel={t("messages.cancelDeleteAria")}>
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="message-delete-confirm"
-              accessibilityLabel="Confirm delete message"
+              accessibilityLabel={t("messages.confirmDeleteMessageAria")}
               onPress={() => void handleConfirmDelete()}
             >
-              <Text>Delete</Text>
+              <Text>{t("common.delete")}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
