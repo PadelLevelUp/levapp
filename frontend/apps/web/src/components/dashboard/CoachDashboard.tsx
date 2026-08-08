@@ -57,6 +57,17 @@ export function CoachDashboard({
   if (!isDesktop) {
     return (
       <div className="flex flex-col gap-5 p-4" data-testid="coach-dashboard">
+        {/* On iOS this lives in the navy app bar. The web app bar is a shared
+            white card used by every page, so the greeting sits at the top of
+            the content instead — same orientation, same two lines, without
+            special-casing AppLayout for one route. */}
+        <div className="flex flex-col gap-0.5">
+          <h1 className="font-display text-2xl font-bold tracking-tight">{greeting}</h1>
+          <span className="text-[13px] text-muted-foreground tabular-nums">
+            {today}
+            {needsCount > 0 && ` · ${t("dashboard.thingsNeedYou", { count: needsCount })}`}
+          </span>
+        </div>
         {hero}
         {needsYou}
         {schedule}
