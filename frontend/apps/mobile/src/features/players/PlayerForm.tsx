@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { lightTheme } from "@levelup/config";
 import { useFieldAvailability } from "@levelup/hooks";
 import type { CoachLevel, PlayerSide } from "@levelup/types";
 import { playerFormSchema } from "@levelup/validation";
@@ -38,6 +39,15 @@ interface PlayerFormProps {
   submitLabel: string;
   onSubmit: (values: PlayerFormValues) => void;
   onCancel?: () => void;
+  /**
+   * PAD-135: when provided, a secondary "Create & invite" action is rendered
+   * below the primary submit, mirroring web's AddPlayerSheet (which also
+   * renders it conditionally on `onInvite`). Omitted on the edit screen —
+   * an existing player has no creation-time invitation to issue.
+   */
+  onInvite?: (values: PlayerFormValues) => void;
+  /** Spinner state for the invite action, kept separate from `saving`. */
+  inviting?: boolean;
 }
 
 const SIDE_OPTIONS: { value: PlayerSide; label: string }[] = [
@@ -64,6 +74,8 @@ export function PlayerForm({
   submitLabel,
   onSubmit,
   onCancel,
+  onInvite,
+  inviting = false,
 }: PlayerFormProps) {
   const { t } = useTranslation();
   const [name, setName] = React.useState(initialValues?.name ?? "");
@@ -108,7 +120,12 @@ export function PlayerForm({
 
   const hasFieldError = !!emailCheck.error;
 
-  const handleSave = () => {
+  /**
+   * Validate the form and return the normalized values, or null when the
+   * form is not submittable (the error is written to `formError` first).
+   * Shared by the save and invite actions so both enforce the same rules.
+   */
+  const validate = (): PlayerFormValues | null => {
     const parsed = playerFormSchema.safeParse({
       name,
       email: email.trim() || undefined,
@@ -119,21 +136,32 @@ export function PlayerForm({
     });
     if (!parsed.success) {
       setFormError(parsed.error.issues[0]?.message ?? "Invalid form");
-      return;
+      return null;
     }
     if (hasFieldError) {
       setFormError(emailCheck.error);
-      return;
+      return null;
     }
     setFormError(null);
-    onSubmit({
+    return {
       name: parsed.data.name,
       email: email.trim(),
       phone: phone.trim(),
       levelId: levelOption?.value || undefined,
       side: (sideOption?.value as PlayerSide) || undefined,
       notes: notes.trim() || undefined,
-    });
+    };
+  };
+
+  const handleSave = () => {
+    const values = validate();
+    if (values) onSubmit(values);
+  };
+
+  const handleInvite = () => {
+    if (!onInvite) return;
+    const values = validate();
+    if (values) onInvite(values);
   };
 
   return (
@@ -262,12 +290,26 @@ export function PlayerForm({
         <Button
           testID="player-save"
           accessibilityLabel={submitLabel}
-          disabled={!name.trim() || hasFieldError || saving}
+          disabled={!name.trim() || hasFieldError || saving || inviting}
           onPress={handleSave}
         >
           {saving ? <Spinner size="small" color="white" /> : null}
           <Text>{submitLabel}</Text>
         </Button>
+        {onInvite ? (
+          <Button
+            variant="outline"
+            testID="player-create-and-invite"
+            accessibilityLabel={t("players.createAndInvite")}
+            disabled={!name.trim() || hasFieldError || saving || inviting}
+            onPress={handleInvite}
+          >
+            {inviting ? (
+              <Spinner size="small" color={lightTheme.foreground} />
+            ) : null}
+            <Text>{t("players.createAndInvite")}</Text>
+          </Button>
+        ) : null}
         {onCancel ? (
           <Button
             variant="outline"
