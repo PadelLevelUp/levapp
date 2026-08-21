@@ -79,7 +79,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-2">
+        <div className="divide-y divide-border">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               {t("messages.noConversationsFound")}
@@ -90,15 +90,19 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                 key={conversation.id}
                 onClick={() => onSelect(conversation.id)}
                 className={cn(
-                  "w-full flex items-start gap-3 p-3 rounded-lg transition-colors text-left",
+                  "w-full flex items-start gap-3 p-3 transition-colors text-left",
+                  // bg-secondary alone measured 1.03:1 against the list panel
+                  // — a hue shift with no luminance step, so selection barely
+                  // read. The 3px rule gives it an edge that does not depend
+                  // on the fill being distinguishable.
                   selectedId === conversation.id
-                    ? "bg-accent"
-                    : "hover:bg-muted/50"
+                    ? "bg-secondary border-l-[3px] border-primary pl-[9px]"
+                    : "hover:bg-muted/50 border-l-[3px] border-transparent pl-[9px]"
                 )}
               >
                 <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={conversation.participantAvatar} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
                     {getInitials(conversation.participantName)}
                   </AvatarFallback>
                 </Avatar>
@@ -118,7 +122,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden break-all [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                       {conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (

@@ -1,0 +1,53 @@
+# PAD-135 — the coach gets a shareable invite link when creating a player.
+#
+# Mirrors the web path in apps/web/e2e/player-management/player-invite-completion.spec.ts:
+# web's AddPlayerSheet has a "Create & invite" button next to "Create player",
+# which POSTs /app/incomplete_player and shows the returned link in a dialog.
+# Mobile only ever called the tokenless /app/add_player, so no link existed to
+# show — this flow is the regression guard for that gap.
+#
+# Companion to 06-add-player.yaml, which covers the plain (non-invite) create.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+
+# ── Fill name only — an invited player supplies their own details ──
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Invited"
+# Dismiss the keyboard (on-drag) so it can't cover the buttons.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-create-and-invite"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-create-and-invite"
+
+# ── The invite dialog shows the link ──
+# Asserting the token-bearing path (not just that a box appeared) is what
+# distinguishes this from the tokenless "/register/<userId>" scheme the player
+# detail screen uses.
+- extendedWaitUntil:
+    visible:
+      id: "player-invite-link"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*/invite/player/.*"
+    timeout: 20000

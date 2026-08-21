@@ -119,6 +119,29 @@
       "privacyPolicy": "Política de Privacidade",
       "termsOfService": "Termos de Serviço"
     },
+
+    "mobile": {
+      "logout": "Terminar sessão",
+      "username": "Nome de utilizador",
+      "role": "Função",
+      "roleCoach": "Treinador",
+      "rolePlayer": "Jogador",
+      "saving": "A guardar…",
+      "profileSaved": "Perfil guardado.",
+      "profileSaveFailed": "Não foi possível guardar o teu perfil. Tenta novamente.",
+      "languageSaved": "Preferência de idioma guardada.",
+      "languageSaveFailed": "Não foi possível guardar a preferência de idioma.",
+      "removeSeason": "Remover época {{name}}",
+      "removeCategory": "Remover categoria {{name}}",
+      "removeLevel": "Remover nível {{name}}",
+      "moveLevelUp": "Mover nível para cima",
+      "moveLevelDown": "Mover nível para baixo",
+      "coachLevelsDescription": "Define os níveis usados para classificar os teus jogadores e exercícios. Usa as setas para reordenar.",
+      "importNavDescription": "Rever e reverter importações anteriores.",
+      "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
+      "importHistoryEmpty": "Ainda não há importações."
+    },
+
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",
@@ -339,7 +362,9 @@
       "notifyGroups": "Grupos a notificar",
       "standingWaitingList": "Lista de espera permanente",
       "standingWaitingListHint": "Adiciona alunos à lista de espera de todas as próximas aulas. São removidos automaticamente quando preenchem o número de vagas configurado ou quando o período expira.",
-      "messageTemplates": "Modelos de mensagem"
+      "messageTemplates": "Modelos de mensagem",
+      "eligibility": "Elegibilidade",
+      "eligibilityHint": "O requisito mínimo para um aluno poder entrar numa aula. Os grupos de convite definem quem é convidado primeiro; a elegibilidade define quem pode entrar de todo. Sem regras definidas, todos os teus alunos são elegíveis."
     },
     "reminders": {
       "hoursBeforeClass": "Horas antes da aula",
@@ -504,6 +529,34 @@
       "confirmBody": "Deixará de receber lembretes e qualquer aula que falte será considerada injustificada caso não confirme a sua indisponibilidade. Tem a certeza que pretende avançar?",
       "confirmCancel": "Cancelar",
       "confirmAccept": "Sim, bloquear tudo"
+    },
+    "eligibility": {
+      "hint": "Um aluno tem de cumprir todas as regras abaixo para poder entrar numa aula.",
+      "noBar": "Sem regras definidas — todos os teus alunos são elegíveis para todas as aulas.",
+      "allRulesApply": "Todas as regras têm de se verificar.",
+      "addRule": "Adicionar regra",
+      "removeRule": "Remover regra",
+      "attribute": "Atributo",
+      "operation": "Condição",
+      "value": "Valor",
+      "attributes": {
+        "level": "Nível",
+        "unjustifiedAbsences": "Faltas injustificadas",
+        "justifiedAbsences": "Faltas justificadas",
+        "attendanceRate": "Taxa de presença"
+      },
+      "operations": {
+        "sameAsClass": "igual ao da aula",
+        "equalOrAboveClass": "igual ou acima do da aula",
+        "equalOrBelowClass": "igual ou abaixo do da aula",
+        "oneBelowOrAboveClass": "a um nível de distância",
+        "withinNOfClass": "até N níveis de distância",
+        "lessThan": "menos de",
+        "equals": "igual a",
+        "atMost": "no máximo",
+        "greaterThan": "mais de",
+        "atLeast": "pelo menos"
+      }
     }
   }
 }

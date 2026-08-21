@@ -33,7 +33,7 @@ test.describe("PAD-7: unique field validation", () => {
     // Error should appear automatically
     const errorMsg = page.getByText("This email is already taken");
     await expect(errorMsg).toBeVisible({ timeout: 3000 });
-    await expect(emailInput).toHaveClass(/border-red-500/);
+    await expect(emailInput).toHaveClass(/border-destructive/);
 
     // Form data should be preserved
     await expect(page.getByPlaceholder("e.g. John Doe")).toHaveValue("Email Dup Test");

@@ -75,6 +75,30 @@
       "submitting": "A enviar…",
       "success": "Denúncia enviada",
       "failed": "Não foi possível enviar a denúncia. Tenta novamente."
-    }
+    },
+    "conversationWithAria": "Conversa com {{name}}",
+    "startConversationWithAria": "Iniciar conversa com {{name}}",
+    "searchPeopleAria": "Pesquisar pessoas",
+    "searchPeoplePlaceholder": "Pesquisar pessoas…",
+    "couldNotLoadPeople": "Não foi possível carregar as pessoas.",
+    "noPeopleFound": "Nenhuma pessoa encontrada",
+    "tryDifferentSearch": "Tenta uma pesquisa diferente.",
+    "searchConversationAria": "Pesquisar conversa",
+    "couldNotLoadConversations": "Não foi possível carregar as conversas.",
+    "noConversationsYet": "Ainda não tens conversas",
+    "startWithPlusButton": "Inicia uma conversa com o botão +.",
+    "couldNotLoadConversation": "Não foi possível carregar esta conversa.",
+    "messageTextAria": "Texto da mensagem",
+    "sendMessageAria": "Enviar mensagem",
+    "editMessageTextAria": "Editar texto da mensagem",
+    "saveEditedMessageAria": "Guardar mensagem editada",
+    "cancelEditingAria": "Cancelar edição",
+    "deleteMessageTitle": "Eliminar mensagem?",
+    "deleteMessageDescription": "A mensagem será substituída por um marcador de “eliminada” para ambos os participantes.",
+    "cancelDeleteAria": "Cancelar eliminação",
+    "confirmDeleteMessageAria": "Confirmar eliminação da mensagem",
+    "delete": "Eliminar",
+    "conversationFallback": "Conversa",
+    "noMessagesSayHi": "Ainda não há mensagens. Diz olá!"
   }
 }

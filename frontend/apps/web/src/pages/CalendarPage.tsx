@@ -396,6 +396,7 @@ export default function CalendarPage() {
 
         {isMobile ? (
           <MobileCalendarView
+            levels={levels}
             weekDays={calendar.weekDays}
             events={calendar.events}
             onEventClick={handleEventClick}
@@ -407,6 +408,7 @@ export default function CalendarPage() {
             <CalendarGrid
               weekDays={calendar.weekDays}
               events={calendar.events}
+              levels={levels}
               onEventClick={handleEventClick}
               onSlotClick={canManageClasses ? handleSlotClick : undefined}
               onSlotRangeSelect={canManageClasses ? handleSlotRangeSelect : undefined}

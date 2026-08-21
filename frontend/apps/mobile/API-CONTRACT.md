@@ -96,7 +96,7 @@ Invitations:
 | GET | `/api/app/coach-invitations/<token>` | None | — | `{clubName, status}` |
 | POST | `/api/app/coach-invitations/<token>/accept` | JWT optional | `{name?, password?, ...}` | `{success}` or `{accessToken}` |
 | POST | `/api/app/coach-invitations/<token>/revoke` | JWT | — | `{success}` |
-| POST | `/api/app/incomplete_player` | None | `{coach_id, name, email, phone}` | `{token, inviteLink, expiresAt}` 201 |
+| POST | `/api/app/incomplete_player` | JWT | `{coachId?, name, levelId?, side?, notes?, email?}` | `{token, inviteLink, expiresAt}` 201 |
 | GET | `/api/app/player-invitations/<token>` | None | — | `{playerName, status}` |
 | POST | `/api/app/player-invitations/<token>/accept` | None | `{password*, username*}` | `{accessToken}` |
 

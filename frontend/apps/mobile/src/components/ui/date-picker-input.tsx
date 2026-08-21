@@ -6,6 +6,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { format, parseISO } from "date-fns";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Platform, Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,11 +50,16 @@ export function DatePickerInput({
   value,
   onChange,
   label,
-  placeholder = "Select a date",
+  placeholder,
   error,
   disabled,
   testID,
 }: DatePickerInputProps) {
+  const { t } = useTranslation();
+  // Resolved in the body, not the parameter list, so it follows the active
+  // language; callers that pass a placeholder still win.
+  const resolvedPlaceholder =
+    placeholder ?? t("ui.datePicker.placeholder");
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Date>(() => toDate(value));
 
@@ -88,8 +94,8 @@ export function DatePickerInput({
       {label ? <Label>{label}</Label> : null}
       <Pressable
         testID={testID}
-        accessibilityLabel={label ?? "Date"}
-        accessibilityValue={{ text: value || placeholder }}
+        accessibilityLabel={label ?? t("ui.datePicker.fieldLabel")}
+        accessibilityValue={{ text: value || resolvedPlaceholder }}
         role="button"
         disabled={disabled}
         onPress={openPicker}
@@ -109,7 +115,7 @@ export function DatePickerInput({
             value ? "text-foreground" : "text-muted-foreground"
           )}
         >
-          {value || placeholder}
+          {value || resolvedPlaceholder}
         </Text>
       </Pressable>
       {error ? <Text className="text-sm text-destructive">{error}</Text> : null}
@@ -119,7 +125,7 @@ export function DatePickerInput({
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent testID={`${testID}-dialog`}>
             <DialogHeader>
-              <DialogTitle>{label ?? "Select date"}</DialogTitle>
+              <DialogTitle>{label ?? t("ui.datePicker.dialogTitle")}</DialogTitle>
             </DialogHeader>
             <DateTimePicker
               value={draft}
@@ -135,10 +141,10 @@ export function DatePickerInput({
                 variant="outline"
                 onPress={() => setOpen(false)}
               >
-                <Text>Cancel</Text>
+                <Text>{t("common.cancel")}</Text>
               </Button>
               <Button testID={`${testID}-confirm`} onPress={confirm}>
-                <Text>Done</Text>
+                <Text>{t("common.done")}</Text>
               </Button>
             </DialogFooter>
           </DialogContent>

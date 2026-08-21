@@ -13,7 +13,7 @@ appId: com.padellevelup.app
 # ── Coach login success ──
 - runFlow: ../subflows/login-coach.yaml
 - assertVisible:
-    id: "dashboard-title"
+    id: "screen-dashboard"
 - assertVisible:
     id: "tab-players"
 
@@ -62,6 +62,6 @@ appId: com.padellevelup.app
       id: "screen-dashboard"
     timeout: 25000
 - assertVisible:
-    id: "dashboard-title"
+    id: "screen-dashboard"
 - assertNotVisible:
     id: "tab-players"

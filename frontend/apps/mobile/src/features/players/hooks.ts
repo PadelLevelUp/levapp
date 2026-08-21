@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
+import * as playerInvitationsApi from "@levelup/api/src/resources/playerInvitations";
 import * as evaluationApi from "@levelup/api/src/resources/evaluation";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import * as classesApi from "@levelup/api/src/resources/classes";
@@ -66,6 +67,28 @@ export function useAddPlayer() {
   const invalidate = usePlayersInvalidation();
   return useMutation({
     mutationFn: (payload: AddPlayerPayload) => playersApi.addPlayer(payload),
+    onSuccess: () => invalidate(),
+  });
+}
+
+/**
+ * PAD-135: the "create & invite" counterpart of useAddPlayer.
+ *
+ * POST /app/incomplete_player creates the player *and* a single-use
+ * PlayerInvitation, returning the shareable link. `addPlayer` (POST
+ * /app/add_player) never returns a token, which is why the mobile create
+ * screen had no link to show — it was calling the wrong endpoint.
+ *
+ * Note the payload has no `phone`: the invited player supplies their own
+ * contact details when they complete the profile, so the backend's
+ * incomplete-player payload deliberately omits it (see
+ * CreateIncompletePlayerPayload).
+ */
+export function useCreateIncompletePlayer() {
+  const invalidate = usePlayersInvalidation();
+  return useMutation({
+    mutationFn: (payload: playerInvitationsApi.CreateIncompletePlayerPayload) =>
+      playerInvitationsApi.createIncompletePlayer(payload),
     onSuccess: () => invalidate(),
   });
 }

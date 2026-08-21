@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as DialogPrimitive from "@rn-primitives/dialog";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { cn } from "@/lib/utils";
@@ -67,6 +68,7 @@ function DialogContent({
   portalHost,
   ...props
 }: DialogContentProps) {
+  const { t } = useTranslation();
   return (
     <DialogPortal hostName={portalHost}>
       <DialogOverlay>
@@ -81,7 +83,7 @@ function DialogContent({
           <DialogPrimitive.Close
             className="absolute right-4 top-4 rounded-sm p-0.5 opacity-70 active:opacity-100"
             hitSlop={12}
-            aria-label="Close"
+            aria-label={t("ui.dialog.close")}
           >
             <Ionicons
               name="close"

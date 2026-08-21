@@ -134,7 +134,9 @@ export function AddEvaluationForm({
                     </Text>
                     <View className="flex-row items-center gap-3">
                       <Pressable
-                        accessibilityLabel={`Decrease ${cat.name}`}
+                        accessibilityLabel={t("players.decreaseScoreAria", {
+                          name: cat.name,
+                        })}
                         role="button"
                         hitSlop={8}
                         disabled={atMin}
@@ -156,7 +158,9 @@ export function AddEvaluationForm({
                         {value}/{cat.scaleMax}
                       </Text>
                       <Pressable
-                        accessibilityLabel={`Increase ${cat.name}`}
+                        accessibilityLabel={t("players.increaseScoreAria", {
+                          name: cat.name,
+                        })}
                         role="button"
                         hitSlop={8}
                         disabled={atMax}
@@ -186,7 +190,7 @@ export function AddEvaluationForm({
           <Button
             variant="outline"
             className="flex-1"
-            accessibilityLabel="Cancel evaluation"
+            accessibilityLabel={t("players.cancelEvaluationAria")}
             onPress={handleClose}
             disabled={postEntry.isPending}
           >
@@ -194,7 +198,7 @@ export function AddEvaluationForm({
           </Button>
           <Button
             testID="evaluation-save"
-            accessibilityLabel="Save evaluation"
+            accessibilityLabel={t("players.saveEvaluation")}
             className="flex-1"
             disabled={
               postEntry.isPending || !categories || categories.length === 0

@@ -3,6 +3,7 @@ import type { DashboardClassListBlock, DashboardIcon } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { UserPlus } from "lucide-react";
+import { OccupancyBar, parseOccupancy } from "@/components/ui/occupancy-bar";
 
 const listIconMap: Partial<Record<DashboardIcon, React.ComponentType<{ className?: string }>>> = {
   user_plus: UserPlus,
@@ -54,35 +55,61 @@ export function ClassListBlock({ block }: { block: DashboardClassListBlock }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {block.data.items.map((item) => (
+          {block.data.items.map((item) => {
+            // "2/6" is what the backend already sends as rightLabel — the bar
+            // needs no new endpoint.
+            const occupancy = parseOccupancy(item.rightLabel);
+            return (
             <button
               key={item.id}
               type="button"
               onClick={() => navigate(item.href)}
-              className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full text-left flex items-stretch gap-3 p-3 rounded-xl border bg-card cursor-pointer hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
             >
+              {/* The class's own colour, as identity — a 4px spine, not a fill. */}
               <div
-                className="w-1 h-10 rounded-full"
-                style={{ backgroundColor: item.color }}
+                className="w-1 rounded-full shrink-0 self-stretch"
+                style={{ backgroundColor: item.color ?? "hsl(var(--border))" }}
               />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium">{item.title}</p>
+                  <p className="font-semibold truncate">{item.title}</p>
                   {item.badge ? (
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    // "Missing 4" is the coach's problem to solve — amber's one
+                    // job — not neutral information.
+                    <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-md bg-warning/15 text-warning-strong tabular-nums">
                       {badgeLabel(item.badge)}
                     </span>
                   ) : null}
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground tabular-nums">
                   {item.dateLabel} · {item.timeLabel}
                 </p>
+                {occupancy ? (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <OccupancyBar
+                      filled={occupancy.filled}
+                      total={occupancy.total}
+                      className="flex-1"
+                      label={t("dashboard.list.seatsFilled", {
+                        filled: occupancy.filled,
+                        total: occupancy.total,
+                        defaultValue: `${occupancy.filled} of ${occupancy.total} confirmed`,
+                      })}
+                    />
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                      {item.rightLabel}
+                    </span>
+                  </div>
+                ) : item.rightLabel ? (
+                  <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                    {item.rightLabel}
+                  </p>
+                ) : null}
               </div>
-              {item.rightLabel ? (
-                <div className="text-sm text-muted-foreground">{item.rightLabel}</div>
-              ) : null}
             </button>
-          ))}
+            );
+          })}
 
           {block.data.items.length === 0 && emptyText ? (
             <p className="text-sm text-muted-foreground">{emptyText}</p>

@@ -67,9 +67,13 @@ async function cleanUp(page: Page) {
     const names = await seasonNames(page);
     const index = names.findIndex((n) => n.startsWith("PAD-89"));
     if (index === -1) break;
-    await nameInputs(page)
+    // Target the row by its testid rather than by ancestor depth. The old
+    // `ancestor::div[1]` broke the moment the name input gained a wrapper for
+    // its mobile label — and it broke SILENTLY, leaving seasons behind for the
+    // next test instead of failing here.
+    await page
+      .getByTestId("season-row")
       .nth(index)
-      .locator("xpath=ancestor::div[1]")
       .getByRole("button")
       .click();
     await expect(nameInputs(page)).toHaveCount(names.length - 1, {

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "LevelUp",
+    "name": "LevApp",
     "slug": "levapp",
     "scheme": "levelup",
     "version": "0.1.0",
@@ -10,8 +10,8 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "resizeMode": "cover",
+      "backgroundColor": "#0d1a30"
     },
     "ios": {
       "supportsTablet": false,
@@ -22,7 +22,8 @@
         }
       },
       "appleTeamId": "9K2J8D2ARR",
-      "buildNumber": "4"
+      "buildNumber": "4",
+      "backgroundColor": "#0B1524"
     },
     "android": {
       "package": "com.padellevelup.app",
@@ -46,7 +47,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#ffffff",
+          "color": "#1355DC",
           "defaultChannel": "default"
         }
       ]

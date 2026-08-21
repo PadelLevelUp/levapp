@@ -59,7 +59,7 @@ export function StudentDetailSheet({ student, levels, open, onOpenChange }: Stud
           {/* Profile Section */}
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16">
-              <AvatarFallback className="bg-primary/10 text-primary text-lg">
+              <AvatarFallback className="bg-primary text-primary-foreground text-lg font-bold">
                 {getInitials(studentData.name)}
               </AvatarFallback>
             </Avatar>

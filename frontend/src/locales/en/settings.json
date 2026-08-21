@@ -119,6 +119,29 @@
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service"
     },
+
+    "mobile": {
+      "logout": "Log out",
+      "username": "Username",
+      "role": "Role",
+      "roleCoach": "Coach",
+      "rolePlayer": "Player",
+      "saving": "Saving…",
+      "profileSaved": "Profile saved.",
+      "profileSaveFailed": "Could not save your profile. Please try again.",
+      "languageSaved": "Language preference saved.",
+      "languageSaveFailed": "Failed to save language preference.",
+      "removeSeason": "Remove season {{name}}",
+      "removeCategory": "Remove category {{name}}",
+      "removeLevel": "Remove level {{name}}",
+      "moveLevelUp": "Move level up",
+      "moveLevelDown": "Move level down",
+      "coachLevelsDescription": "Define the levels used to classify your players and exercises. Use the arrows to reorder.",
+      "importNavDescription": "Review and revert past imports.",
+      "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
+      "importHistoryEmpty": "No imports yet."
+    },
+
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",
@@ -339,7 +362,9 @@
       "notifyGroups": "Notify groups",
       "standingWaitingList": "Standing waiting list",
       "standingWaitingListHint": "Add students to the waiting list for all upcoming classes. They are automatically removed once they fill the configured number of spots or the period expires.",
-      "messageTemplates": "Message templates"
+      "messageTemplates": "Message templates",
+      "eligibility": "Eligibility",
+      "eligibilityHint": "The minimum a student must meet to join a class at all. Invitation groups decide who is asked first; eligibility decides who is allowed in. With no rules defined, every one of your students is eligible."
     },
     "reminders": {
       "hoursBeforeClass": "Hours before class",
@@ -504,6 +529,34 @@
       "confirmBody": "You will stop receiving reminders, and any class you miss will be counted as unjustified unless you confirm your unavailability. Are you sure you want to go ahead?",
       "confirmCancel": "Cancel",
       "confirmAccept": "Yes, block everything"
+    },
+    "eligibility": {
+      "hint": "A student must meet every rule below to be allowed into a class.",
+      "noBar": "No rules defined — every one of your students is eligible for every class.",
+      "allRulesApply": "All rules must hold.",
+      "addRule": "Add rule",
+      "removeRule": "Remove rule",
+      "attribute": "Attribute",
+      "operation": "Condition",
+      "value": "Value",
+      "attributes": {
+        "level": "Level",
+        "unjustifiedAbsences": "Unjustified absences",
+        "justifiedAbsences": "Justified absences",
+        "attendanceRate": "Attendance rate"
+      },
+      "operations": {
+        "sameAsClass": "same as the class",
+        "equalOrAboveClass": "same as the class or stronger",
+        "equalOrBelowClass": "same as the class or weaker",
+        "oneBelowOrAboveClass": "within one level of the class",
+        "withinNOfClass": "within N levels of the class",
+        "lessThan": "fewer than",
+        "equals": "equal to",
+        "atMost": "at most",
+        "greaterThan": "more than",
+        "atLeast": "at least"
+      }
     }
   }
 }

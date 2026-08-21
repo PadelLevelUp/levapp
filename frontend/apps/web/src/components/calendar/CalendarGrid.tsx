@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { findNextEventId } from '@levelup/config';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CalendarEvent } from '@/types';
+import { CalendarEvent, CoachLevel } from '@/types';
 import { CalendarEventCard } from './CalendarEventCard';
 
 interface CalendarGridProps {
   weekDays: Date[];
   events: CalendarEvent[];
+  /** Coach levels, for the block's level chip. */
+  levels?: CoachLevel[];
   startHour?: number;
   endHour?: number;
   onEventClick?: (event: CalendarEvent) => void;
@@ -36,6 +39,7 @@ interface SlotSelection {
 export function CalendarGrid({
   weekDays,
   events,
+  levels = [],
   startHour = 7,
   endHour = 22,
   onEventClick,
@@ -43,6 +47,22 @@ export function CalendarGrid({
   onSlotRangeSelect,
   onEventDrop,
 }: CalendarGridProps) {
+  // Which class is "next" is a property of the whole visible set, so it is
+  // resolved here and passed down rather than guessed inside each card.
+  //
+  // Gated on the view containing today: without this, paging to any future
+  // week marks that week's first class as "next", so the highlight appears
+  // everywhere and stops meaning anything.
+  const levelCodeById = useMemo(
+    () => new Map(levels.map((l) => [String(l.id), l.code])),
+    [levels]
+  );
+
+  const nextEventId = useMemo(
+    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    [events, weekDays]
+  );
+
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
@@ -316,6 +336,15 @@ export function CalendarGrid({
                     <CalendarEventCard
                       key={event.id}
                       event={event}
+                      isNext={event.id === nextEventId}
+                      levelCode={
+                        event.levelId !== undefined
+                          ? levelCodeById.get(String(event.levelId))
+                          : undefined
+                      }
+                      // Too short OR too narrow: three overlapping classes leave ~1/3
+                      // of a column, where a bar and a count are illegible.
+                      compact={parseFloat(String(style.height)) < 56 || group.length > 2}
                       style={{
                         position: 'absolute',
                         top: style.top,

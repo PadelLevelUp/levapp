@@ -31,8 +31,9 @@ test("US-62: dashboard shows KPI cards", async ({ page }) => {
 
 // US-63: Dashboard shows upcoming classes widget
 test("US-63: upcoming classes widget is visible", async ({ page }) => {
-  // The backend always emits the "Upcoming classes" block (even when empty).
-  await expect(page.getByText("Upcoming classes").first()).toBeVisible({ timeout: 5000 });
+  // The rebuilt coach dashboard shows the week ahead as the "schedule_7d"
+  // section (it renders even when there are no classes, with an empty state).
+  await expect(page.getByTestId("dashboard-schedule")).toBeVisible({ timeout: 5000 });
 });
 
 // US-64: Dashboard shows unread messages widget
@@ -49,7 +50,7 @@ test("US-64: unread messages widget or indicator is visible", async ({ page }) =
 
 // US-65: Dashboard shows notification activity feed
 test("US-65: notification activity or recent activity section is visible", async ({ page }) => {
-  // The backend always emits the "Notification activity" block (with empty
-  // text when there's no activity yet).
-  await expect(page.getByText("Notification activity").first()).toBeVisible({ timeout: 5000 });
+  // The rebuilt coach dashboard replaces the notification-activity feed with
+  // the "needs you" queue (always rendered, with an empty state).
+  await expect(page.getByTestId("dashboard-needs-you")).toBeVisible({ timeout: 5000 });
 });

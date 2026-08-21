@@ -95,6 +95,7 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
 | notification-engine/reminder-flow.spec.ts | not applicable — notification engine not in mobile scope |
 | notification-engine/semi-auto-approval.spec.ts | not applicable — notification engine not in mobile scope |
 | player-management/add-player.spec.ts | `06-add-player.yaml` |
+| player-management/player-invite-completion.spec.ts | `20-add-player-invite.yaml` (coach-side half only — creating the player and reading back the `/invite/player/<token>` link; the player's own profile-completion form is a public web route, not a mobile screen) |
 | player-management/create-player-level-dropdown.spec.ts | skipped: level picker is a Select portal (invisible to the a11y tree, see below) |
 | player-management/delete-player.spec.ts | not covered — mobile supports remove; excluded to keep the seeded roster intact for later flows |
 | player-management/duplicate-name-warning.spec.ts | not covered — warning exists on mobile; outside the critical-journey set |

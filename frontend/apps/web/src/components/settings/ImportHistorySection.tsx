@@ -126,7 +126,7 @@ export function ImportHistorySection() {
       </div>
 
       {revertedMessage && (
-        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-success bg-success/10 rounded-lg px-3 py-2">
           <CheckCircle2 className="w-4 h-4" />
           {revertedMessage}
         </div>

@@ -26,7 +26,7 @@ import {
   Building2,
   Calendar,
   Palette,
-  Save,
+  ChevronLeft, Save,
   Upload,
   User,
   UserX,
@@ -114,10 +114,15 @@ function SettingsNav({
   active,
   onChange,
   items,
+  // This nav renders TWICE — the desktop sidebar and the mobile section list —
+  // so the test hooks must be namespaced. Two elements sharing a testid is a
+  // strict-mode violation even when one of them is display:none.
+  testIdPrefix = "settings-nav",
 }: {
   active: SettingsTab;
   onChange: (tab: SettingsTab) => void;
   items: SettingsTabDef[];
+  testIdPrefix?: string;
 }) {
   const { t } = useTranslation();
 
@@ -126,7 +131,7 @@ function SettingsNav({
       {items.map((it) => (
         <button
           key={it.id}
-          data-testid={`settings-nav-${it.id}`}
+          data-testid={`${testIdPrefix}-${it.id}`}
           onClick={() => onChange(it.id)}
           className={cn(
             "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
@@ -154,6 +159,11 @@ export default function SettingsPage() {
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
   const [tab, setTab] = useState<SettingsTab>("preferences");
+  // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
+  // first and opens one on tap. Landing straight inside Preferences with a
+  // section picker above it hid what else existed and made the page read as a
+  // pile of unrelated controls.
+  const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
   const [language, setLanguage] = useState<AppLanguage>("pt");
   // PAD-81: the profile form is hydrated from the API. `savedProfile` keeps the
   // last server-confirmed values so we only PATCH what actually changed.
@@ -260,7 +270,12 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
+          {/* Nothing to save while the phone is showing the section list. */}
+          <Button
+            onClick={handleSave}
+            className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
+            disabled={isSaving}
+          >
             <Save className="w-4 h-4" />
             {t("settings.saveChanges")}
           </Button>
@@ -280,22 +295,43 @@ export default function SettingsPage() {
 
           {/* Main panel */}
           <div className="lg:col-span-9 space-y-4">
-            {/* Mobile: dropdown */}
-            <div className="lg:hidden">
-              <Select value={activeTab} onValueChange={(v) => setTab(v as SettingsTab)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("settings.selectSection")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {tabs.map((it) => (
-                    <SelectItem key={it.id} value={it.id}>
-                      {t(it.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Mobile: the section list. Shown until one is opened. */}
+            <div className={cn("lg:hidden", mobileSectionOpen && "hidden")}>
+              <Card>
+                <CardContent className="p-2">
+                  <SettingsNav
+                    active={activeTab}
+                    items={tabs}
+                    testIdPrefix="settings-mobile-nav"
+                    onChange={(id) => {
+                      setTab(id);
+                      setMobileSectionOpen(true);
+                    }}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
+            {/* Mobile: back out of a section. */}
+            {mobileSectionOpen && (
+              <button
+                type="button"
+                onClick={() => setMobileSectionOpen(false)}
+                data-testid="settings-mobile-back"
+                className="lg:hidden flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                {t("settings.sections")}
+              </button>
+            )}
+
+            {/* Sections. On mobile these stay closed until one is picked. */}
+            <div
+              className={cn(
+                "space-y-4",
+                !mobileSectionOpen && "hidden lg:block"
+              )}
+            >
             {/* PROFILE — PAD-81: real, server-backed profile editing. */}
             {activeTab === "profile" && (
               <Card>
@@ -489,6 +525,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
+            </div>
           </div>
         </div>
       </div>

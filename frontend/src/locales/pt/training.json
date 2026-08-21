@@ -50,7 +50,14 @@
         "updateFailed": "Não foi possível atualizar o exercício",
         "deleted": "Exercício eliminado",
         "deleteFailed": "Não foi possível eliminar o exercício"
-      }
+      },
+      "filterByTypeAria": "Filtrar por tipo",
+      "filterByDifficultyAria": "Filtrar por dificuldade",
+      "couldNotLoad": "Não foi possível carregar os exercícios.",
+      "emptyMessage": "Cria o teu primeiro exercício para começar.",
+      "searchAria": "Pesquisar exercícios",
+      "cancelDeleteAria": "Cancelar eliminação do exercício",
+      "confirmDeleteAria": "Confirmar eliminação do exercício"
     },
     "groups": {
       "title": "Grupos",
@@ -70,7 +77,12 @@
         "updateFailed": "Não foi possível atualizar o grupo",
         "deleted": "Grupo eliminado",
         "deleteFailed": "Não foi possível eliminar o grupo"
-      }
+      },
+      "couldNotLoad": "Não foi possível carregar os grupos.",
+      "emptyMessage": "Cria o teu primeiro grupo para organizares os exercícios.",
+      "searchAria": "Pesquisar grupos",
+      "cancelDeleteGroupAria": "Cancelar eliminação do grupo",
+      "confirmDeleteGroupAria": "Confirmar eliminação do grupo"
     },
     "card": {
       "deleteExercise": "Eliminar exercício"
@@ -91,7 +103,22 @@
       "notesPlaceholder": "Variações, pontos-chave...",
       "saving": "A guardar...",
       "saveChanges": "Guardar Alterações",
-      "createExercise": "Criar Exercício"
+      "createExercise": "Criar Exercício",
+      "nameLabel": "Nome",
+      "typeLabel": "Tipo",
+      "difficultyLabel": "Dificuldade",
+      "notesLabel": "Notas",
+      "saveExercise": "Guardar exercício",
+      "invalidExercise": "Exercício inválido",
+      "exerciseNameAria": "Nome do exercício",
+      "exerciseTypeAria": "Tipo de exercício",
+      "customTypeAria": "Tipo de exercício personalizado",
+      "exerciseDescriptionAria": "Descrição do exercício",
+      "exerciseNotesAria": "Notas do exercício",
+      "difficultyOptionAria": "Dificuldade {{value}} ({{label}})",
+      "levelAria": "Nível {{label}}",
+      "toggleDiagramAria": "Alternar diagrama do campo",
+      "cancelAria": "Cancelar formulário de exercício"
     },
     "groupForm": {
       "editGroup": "Editar Grupo",
@@ -105,12 +132,27 @@
       "selectedCount": "{{count}} exercício(s) selecionado(s)",
       "saving": "A guardar...",
       "saveChanges": "Guardar Alterações",
-      "createGroup": "Criar Grupo"
+      "createGroup": "Criar Grupo",
+      "nameLabel": "Nome",
+      "exercisesWithCount": "Exercícios ({{count}} selecionados)",
+      "noExercisesYet": "Ainda não há exercícios — cria exercícios primeiro.",
+      "saveGroup": "Guardar grupo",
+      "deleteGroup": "Eliminar grupo",
+      "groupNameAria": "Nome do grupo",
+      "groupDescriptionAria": "Descrição do grupo",
+      "includeExerciseAria": "Incluir exercício {{name}}",
+      "cancelAria": "Cancelar formulário de grupo"
     },
     "folder": {
       "exerciseCount_one": "{{count}} exercício",
       "exerciseCount_other": "{{count}} exercícios",
-      "emptyGroup": "Ainda não há exercícios neste grupo."
+      "emptyGroup": "Ainda não há exercícios neste grupo.",
+      "collapseGroupAria": "Fechar grupo {{name}}",
+      "expandGroupAria": "Abrir grupo {{name}}",
+      "editGroupAria": "Editar grupo {{name}}",
+      "deleteGroupAria": "Eliminar grupo {{name}}",
+      "editExerciseAria": "Editar exercício {{name}}",
+      "deleteExerciseAria": "Eliminar exercício {{name}}"
     },
     "diagram": {
       "label": "Diagrama de Campo",
@@ -137,6 +179,8 @@
       "curveHint": "Arraste a pega ● na seta para a curvar",
       "instructions": "Selecione uma ferramenta e clique no campo. Desenhe setas e depois selecione-as para adicionar uma etiqueta e curva. Prima Delete para remover. Máximo 4 jogadores.",
       "instructionsTouch": "Toque numa ferramenta e depois toque no campo para a colocar. Toque num elemento para o selecionar — arraste para o mover, ou use o botão eliminar para o remover. Desenhe setas e linhas de movimento arrastando pelo campo e depois selecione-as para adicionar uma etiqueta ou curva. Máximo 4 jogadores."
-    }
+    },
+    "exercisesTabAria": "Separador de exercícios",
+    "groupsTabAria": "Separador de grupos"
   }
 }

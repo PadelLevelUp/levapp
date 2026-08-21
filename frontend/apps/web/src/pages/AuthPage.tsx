@@ -78,6 +78,20 @@ const AuthPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      {/* The design system ships a LOCKUP with the mark pre-scaled and set
+          against the wordmark's baseline, clear space included. Composing the
+          two images by hand and eyeballing a gap got the alignment wrong. */}
+      <img
+        src="/brand/levapp-lockup-on-light.svg"
+        alt="LevApp"
+        className="mb-8 h-12 w-auto dark:hidden"
+      />
+      <img
+        src="/brand/levapp-lockup-on-dark.svg"
+        alt="LevApp"
+        className="mb-8 hidden h-12 w-auto dark:block"
+      />
+
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">

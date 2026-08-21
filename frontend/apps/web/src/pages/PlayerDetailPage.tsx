@@ -274,7 +274,7 @@ export default function PlayerDetailPage() {
                       }
                     },
                     disabled: removingWaitingList,
-                    className: "text-amber-600 border-amber-300 hover:bg-amber-50",
+                    className: "text-warning border-warning/40 hover:bg-warning/10",
                   }
                 : {
                     label: t("players.waitingList"),

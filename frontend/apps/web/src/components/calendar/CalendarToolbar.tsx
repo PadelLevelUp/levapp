@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Plus, CalendarPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { CalendarLegend } from './CalendarLegend';
 
 interface CalendarToolbarProps {
   weekLabel: string;
@@ -21,7 +22,7 @@ export function CalendarToolbar({
 }: CalendarToolbarProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center justify-between gap-2 p-4 border-b border-border bg-card">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4 border-b border-border bg-card">
       <div className="flex items-center gap-1 sm:gap-2 min-w-0">
         <Button variant="outline" size="sm" onClick={onToday}>
           {t("calendar.toolbar.today")}
@@ -38,6 +39,11 @@ export function CalendarToolbar({
           {weekLabel}
         </h2>
       </div>
+
+      {/* Between the dates and the actions, so the key to the grid sits with
+          the controls rather than floating above the columns. `order` puts it
+          on its own line on narrow screens instead of squeezing the buttons. */}
+      <CalendarLegend className="order-last w-full lg:order-none lg:w-auto lg:flex-1 lg:justify-center" />
 
       <div className="flex items-center gap-2 shrink-0">
         {onAddEvent && (

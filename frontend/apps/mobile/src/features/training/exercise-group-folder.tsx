@@ -52,7 +52,11 @@ export function ExerciseGroupFolder({
       <View className="flex-row items-center gap-3 px-4 py-3">
         <Pressable
           testID={`group-folder-toggle-${group.id}`}
-          accessibilityLabel={`${expanded ? "Collapse" : "Expand"} group ${group.name}`}
+          accessibilityLabel={
+            expanded
+              ? t("training.folder.collapseGroupAria", { name: group.name })
+              : t("training.folder.expandGroupAria", { name: group.name })
+          }
           role="button"
           onPress={() => setExpanded((prev) => !prev)}
           className="flex-1 flex-row items-center gap-3 active:opacity-70"
@@ -93,7 +97,9 @@ export function ExerciseGroupFolder({
         </Pressable>
         <View className="flex-row items-center gap-1">
           <Pressable
-            accessibilityLabel={`Edit group ${group.name}`}
+            accessibilityLabel={t("training.folder.editGroupAria", {
+              name: group.name,
+            })}
             role="button"
             hitSlop={8}
             onPress={onEditGroup}
@@ -106,7 +112,9 @@ export function ExerciseGroupFolder({
             />
           </Pressable>
           <Pressable
-            accessibilityLabel={`Delete group ${group.name}`}
+            accessibilityLabel={t("training.folder.deleteGroupAria", {
+              name: group.name,
+            })}
             role="button"
             hitSlop={8}
             onPress={onDeleteGroup}
@@ -140,7 +148,9 @@ export function ExerciseGroupFolder({
                 </Text>
                 <Pressable
                   testID={`group-exercise-edit-${ex.id}`}
-                  accessibilityLabel={`Edit exercise ${ex.name}`}
+                  accessibilityLabel={t("training.folder.editExerciseAria", {
+                    name: ex.name,
+                  })}
                   role="button"
                   hitSlop={8}
                   onPress={() => onEditExercise(ex)}
@@ -154,7 +164,9 @@ export function ExerciseGroupFolder({
                 </Pressable>
                 <Pressable
                   testID={`group-exercise-delete-${ex.id}`}
-                  accessibilityLabel={`Delete exercise ${ex.name}`}
+                  accessibilityLabel={t("training.folder.deleteExerciseAria", {
+                    name: ex.name,
+                  })}
                   role="button"
                   hitSlop={8}
                   onPress={() => onDeleteExercise(ex.id)}

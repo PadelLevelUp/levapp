@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { addMonths, format, parseISO } from "date-fns";
 import type { AvailabilityBlocker, BlockerInput } from "@levelup/api/src/resources/availability";
@@ -27,19 +28,16 @@ export type BlockerPayload = BlockerInput;
 
 /** All student blockers are backend-forced to "unavailable"; mirrors web's
  * static badge text (AvailabilityPage.tsx). */
-export function blockerTypeLabel(_type: string | null | undefined): string {
-  return "Unavailable";
+export function blockerTypeLabel(
+  _type: string | null | undefined,
+  t: (key: string) => string
+): string {
+  return t("availability.unavailable");
 }
 
-const DAYS_OF_WEEK = [
-  { value: 1, label: "M" },
-  { value: 2, label: "T" },
-  { value: 3, label: "W" },
-  { value: 4, label: "T" },
-  { value: 5, label: "F" },
-  { value: 6, label: "S" },
-  { value: 0, label: "S" },
-];
+// Monday-first order; the label/name come from availability.dayInitials.<n>
+// and availability.days.<n>, both keyed by JS getDay().
+const DAYS_OF_WEEK = [1, 2, 3, 4, 5, 6, 0];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -47,12 +45,12 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 // Maestro constraint: plain text inputs for date/time, validated with zod on
 // top of the shared availabilityBlockerSchema (which only requires a date).
 const blockerFormSchema = availabilityBlockerSchema.extend({
-  date: z.string().regex(DATE_RE, "Date must be in YYYY-MM-DD format"),
-  startTime: z.string().regex(TIME_RE, "Start time must be in HH:MM format"),
-  endTime: z.string().regex(TIME_RE, "End time must be in HH:MM format"),
+  date: z.string().regex(DATE_RE, "availability.validation.dateFormat"),
+  startTime: z.string().regex(TIME_RE, "availability.validation.startTimeFormat"),
+  endTime: z.string().regex(TIME_RE, "availability.validation.endTimeFormat"),
   endDate: z
     .string()
-    .regex(DATE_RE, "Repeat until must be in YYYY-MM-DD format")
+    .regex(DATE_RE, "availability.validation.repeatUntilFormat")
     .optional()
     .or(z.literal("")),
 });
@@ -71,6 +69,7 @@ export function BlockerForm({
   onSubmit,
   onCancel,
 }: BlockerFormProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = React.useState(initial?.title ?? "");
   const [date, setDate] = React.useState(initial?.date ?? "");
   const [startTime, setStartTime] = React.useState(
@@ -102,7 +101,11 @@ export function BlockerForm({
       endDate: isRecurring ? endDate : "",
     });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Invalid form");
+      // Messages are i18n keys (see blockerFormSchema); anything coming from
+      // the shared schema is not a key and falls back to its own English text.
+      const raw =
+        parsed.error.issues[0]?.message ?? "availability.validation.invalidForm";
+      setFormError(t(raw, { defaultValue: raw }));
       return;
     }
     setFormError(null);
@@ -131,28 +134,28 @@ export function BlockerForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{initial ? "Edit blocker" : "New blocker"}</CardTitle>
-        <CardDescription>
-          Choose a one-time date or a recurring weekly pattern.
-        </CardDescription>
+        <CardTitle>
+          {initial ? t("availability.editBlocker") : t("availability.newBlocker")}
+        </CardTitle>
+        <CardDescription>{t("availability.formDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="gap-5">
         <View className="gap-2">
-          <Label>Title (optional)</Label>
+          <Label>{t("availability.titleLabel")}</Label>
           <Input
             testID="blocker-title"
-            accessibilityLabel="Blocker title"
-            placeholder="e.g. Away for work"
+            accessibilityLabel={t("availability.blockerTitleAria")}
+            placeholder={t("availability.titlePlaceholder")}
             value={title}
             onChangeText={setTitle}
           />
         </View>
 
         <View className="flex-row items-center justify-between">
-          <Label>Recurring weekly</Label>
+          <Label>{t("availability.recurringWeekly")}</Label>
           <Switch
             testID="blocker-recurring-switch"
-            accessibilityLabel="Recurring weekly"
+            accessibilityLabel={t("availability.recurringWeekly")}
             checked={isRecurring}
             onCheckedChange={setIsRecurring}
           />
@@ -160,13 +163,15 @@ export function BlockerForm({
 
         {isRecurring ? (
           <View className="gap-2">
-            <Label>Days of the week</Label>
+            <Label>{t("availability.daysOfWeek")}</Label>
             <View className="flex-row gap-1.5">
-              {DAYS_OF_WEEK.map(({ value, label }, index) => (
+              {DAYS_OF_WEEK.map((value, index) => (
                 <Pressable
                   key={`${value}-${index}`}
                   role="button"
-                  accessibilityLabel={`Toggle day ${index + 1}`}
+                  accessibilityLabel={t("availability.toggleDayAria", {
+                    day: t(`availability.days.${value}`),
+                  })}
                   onPress={() => toggleDay(value)}
                   className={cn(
                     "h-9 w-9 items-center justify-center rounded-full",
@@ -181,7 +186,7 @@ export function BlockerForm({
                         : "text-foreground"
                     )}
                   >
-                    {label}
+                    {t(`availability.dayInitials.${value}`)}
                   </Text>
                 </Pressable>
               ))}
@@ -191,7 +196,7 @@ export function BlockerForm({
 
         <DatePickerInput
           testID="blocker-date"
-          label="Date"
+          label={t("availability.date")}
           value={date}
           onChange={setDate}
         />
@@ -200,7 +205,7 @@ export function BlockerForm({
           <View className="flex-1">
             <TimePickerInput
               testID="blocker-start-time"
-              label="Start time"
+              label={t("availability.startTime")}
               value={startTime}
               onChange={setStartTime}
             />
@@ -208,7 +213,7 @@ export function BlockerForm({
           <View className="flex-1">
             <TimePickerInput
               testID="blocker-end-time"
-              label="End time"
+              label={t("availability.endTime")}
               value={endTime}
               onChange={setEndTime}
             />
@@ -218,7 +223,7 @@ export function BlockerForm({
         {isRecurring ? (
           <DatePickerInput
             testID="blocker-end-date"
-            label="Repeat until (optional)"
+            label={t("availability.repeatUntil")}
             value={endDate}
             onChange={setEndDate}
           />
@@ -231,20 +236,20 @@ export function BlockerForm({
         <View className="gap-2">
           <Button
             testID="blocker-save"
-            accessibilityLabel="Save blocker"
+            accessibilityLabel={t("availability.saveBlockerAria")}
             disabled={saving}
             onPress={handleSave}
           >
             {saving ? <Spinner size="small" color="white" /> : null}
-            <Text>{saving ? "Saving..." : "Save"}</Text>
+            <Text>{saving ? t("availability.saving") : t("common.save")}</Text>
           </Button>
           <Button
             variant="outline"
-            accessibilityLabel="Cancel blocker form"
+            accessibilityLabel={t("availability.cancelFormAria")}
             disabled={saving}
             onPress={onCancel}
           >
-            <Text>Cancel</Text>
+            <Text>{t("common.cancel")}</Text>
           </Button>
         </View>
       </CardContent>

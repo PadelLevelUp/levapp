@@ -137,7 +137,7 @@ export default function PlayerDetailScreen() {
       });
       setIsEditing(false);
     } catch {
-      setError("Failed to save changes. Please try again.");
+      setError(t("players.saveChangesFailedRetry"));
     }
   };
 
@@ -153,7 +153,7 @@ export default function PlayerDetailScreen() {
       router.back();
     } catch {
       setIsDeleteOpen(false);
-      setError("Failed to remove player. Please try again.");
+      setError(t("players.removeFailedRetry"));
     }
   };
 
@@ -162,7 +162,7 @@ export default function PlayerDetailScreen() {
       <Button
         variant="ghost"
         size="icon"
-        accessibilityLabel="Back to players"
+        accessibilityLabel={t("players.backToPlayers")}
         onPress={() => router.back()}
       >
         <Ionicons name="chevron-back" size={24} color={lightTheme.foreground} />
@@ -173,7 +173,7 @@ export default function PlayerDetailScreen() {
         className="flex-1 text-xl font-bold"
         numberOfLines={1}
       >
-        {player?.name ?? "Player"}
+        {player?.name ?? t("players.defaultPlayerName")}
       </Text>
     </View>
   );
@@ -196,7 +196,7 @@ export default function PlayerDetailScreen() {
       <Screen edges={["top"]} testID="player-detail">
         {header}
         <ErrorState
-          message="Could not load this player."
+          message={t("players.couldNotLoadPlayer")}
           onRetry={() => refetchPlayers()}
         />
       </Screen>
@@ -209,8 +209,8 @@ export default function PlayerDetailScreen() {
         {header}
         <EmptyState
           icon="person-outline"
-          title="Player not found"
-          message="This player is not in your roster."
+          title={t("players.notFoundTitle")}
+          message={t("players.notInRoster")}
         />
       </Screen>
     );
@@ -247,7 +247,7 @@ export default function PlayerDetailScreen() {
             accessibilityLabel={t("players.onWaitingList")}
             disabled={removeFromWaitingList.isPending}
             onPress={() => void handleRemoveFromWaitingList()}
-            className="border-amber-300"
+            className="border-warning/40"
           >
             {removeFromWaitingList.isPending ? (
               <Spinner size="small" />
@@ -258,7 +258,7 @@ export default function PlayerDetailScreen() {
                 color="#b45309"
               />
             )}
-            <Text className="text-amber-700">
+            <Text className="text-warning">
               {t("players.onWaitingList")}
             </Text>
           </Button>
@@ -300,7 +300,7 @@ export default function PlayerDetailScreen() {
         {isEditing ? (
           <Card>
             <CardHeader>
-              <CardTitle>Edit player</CardTitle>
+              <CardTitle>{t("players.editPlayer")}</CardTitle>
             </CardHeader>
             <CardContent>
               <PlayerForm
@@ -315,7 +315,7 @@ export default function PlayerDetailScreen() {
                   notes: player.notes ?? "",
                 }}
                 saving={editPlayer.isPending}
-                submitLabel="Save changes"
+                submitLabel={t("common.saveChanges")}
                 onSubmit={handleEditSave}
                 onCancel={() => setIsEditing(false)}
               />
@@ -325,7 +325,10 @@ export default function PlayerDetailScreen() {
           <Card>
             <CardContent className="gap-4 pt-6">
               <View className="flex-row items-center gap-3">
-                <Avatar alt={player.name || "Player"} className="h-14 w-14">
+                <Avatar
+                  alt={player.name || t("players.defaultPlayerName")}
+                  className="h-14 w-14"
+                >
                   <AvatarFallback>
                     <Text className="text-lg text-primary">
                       {getInitials(player.name || "")}
@@ -361,7 +364,7 @@ export default function PlayerDetailScreen() {
                   </Badge>
                 ) : (
                   <Badge variant="warning">
-                    <Text>No level</Text>
+                    <Text>{t("players.noLevel")}</Text>
                   </Badge>
                 )}
                 {player.side ? (
@@ -377,20 +380,20 @@ export default function PlayerDetailScreen() {
                   size="sm"
                   className="flex-1"
                   testID="player-edit"
-                  accessibilityLabel="Edit player"
+                  accessibilityLabel={t("players.editPlayer")}
                   onPress={() => setIsEditing(true)}
                 >
-                  <Text>Edit</Text>
+                  <Text>{t("common.edit")}</Text>
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
                   className="flex-1"
                   testID="player-remove"
-                  accessibilityLabel="Remove player"
+                  accessibilityLabel={t("players.removePlayer")}
                   onPress={() => setIsDeleteOpen(true)}
                 >
-                  <Text>Remove</Text>
+                  <Text>{t("common.remove")}</Text>
                 </Button>
               </View>
             </CardContent>
@@ -403,12 +406,12 @@ export default function PlayerDetailScreen() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Evaluations</CardTitle>
+            <CardTitle>{t("players.evaluations")}</CardTitle>
           </CardHeader>
           <CardContent className="gap-3">
             {(profile?.evaluations ?? []).length === 0 ? (
               <Text className="text-sm text-muted-foreground">
-                No evaluations yet.
+                {t("players.noEvaluations")}
               </Text>
             ) : (
               (profile?.evaluations ?? []).map((ev) => (
@@ -445,22 +448,23 @@ export default function PlayerDetailScreen() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove {player.name || "this player"} from your
-              roster. This action cannot be undone.
+              {t("players.removeConfirmDescription", {
+                name: player.name || t("players.deleteConfirmDefaultName"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              accessibilityLabel="Cancel removing player"
+              accessibilityLabel={t("players.cancelRemoveAria")}
               disabled={removePlayer.isPending}
             >
-              <Text>Cancel</Text>
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="player-remove-confirm"
-              accessibilityLabel="Confirm remove player"
+              accessibilityLabel={t("players.confirmRemoveAria")}
               className="bg-destructive"
               disabled={removePlayer.isPending}
               onPress={handleRemove}
@@ -469,7 +473,7 @@ export default function PlayerDetailScreen() {
                 <Spinner size="small" color="white" />
               ) : null}
               <Text className="text-destructive-foreground">
-                {removePlayer.isPending ? "Removing..." : "Remove"}
+                {removePlayer.isPending ? t("players.removing") : t("common.remove")}
               </Text>
             </AlertDialogAction>
           </AlertDialogFooter>

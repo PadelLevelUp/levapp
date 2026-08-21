@@ -4,7 +4,7 @@ import { lightTheme } from "@levelup/config";
 import { queryKeys, useConversation } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -485,9 +485,72 @@ export default function ConversationScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      {/* Custom header: navy chrome, our colours, and the name and role chip
+          aligned on one baseline rather than centred as two boxes. */}
+      <View
+        style={{ paddingTop: insets.top, backgroundColor: lightTheme.sidebarBackground }}
+      >
+        <View className="h-14 flex-row items-center gap-2 px-2">
+          <Pressable
+            accessibilityLabel={t("common.back")}
+            role="button"
+            hitSlop={10}
+            onPress={() => router.back()}
+            className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
+          >
+            <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
+          </Pressable>
+
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text
+              numberOfLines={1}
+              className="shrink text-base font-bold"
+              style={{ color: lightTheme.sidebarForeground }}
+            >
+              {conversation?.participantName ?? t("messages.conversationFallback")}
+            </Text>
+            {conversation?.participantRole ? (
+              <View
+                testID="chat-header-role"
+                className="shrink-0 rounded-md px-2 py-0.5"
+                style={{ backgroundColor: lightTheme.sidebarAccent }}
+              >
+                <Text
+                  className="text-[11px] font-semibold capitalize"
+                  style={{ color: lightTheme.sidebarPrimary }}
+                >
+                  {conversation.participantRole}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {conversation ? (
+            <Pressable
+              testID="chat-more-options"
+              accessibilityLabel={t("messages.moreOptions")}
+              role="button"
+              hitSlop={10}
+              onPress={() => setMoreMenuOpen(true)}
+              className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={22}
+                color={lightTheme.sidebarForeground}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       <Stack.Screen
         options={{
-          headerShown: true,
+          // headerShown:false — iOS 26 renders UIBarButtonItems inside a
+          // translucent glass capsule, which is the grey pill behind the back
+          // and options controls. A custom header keeps the navy chrome and
+          // the design's colours instead of the platform's.
+          headerShown: false,
           headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
@@ -498,7 +561,7 @@ export default function ConversationScreen() {
                 className="text-base font-bold"
                 style={{ color: lightTheme.sidebarForeground }}
               >
-                {conversation?.participantName ?? "Conversation"}
+                {conversation?.participantName ?? t("messages.conversationFallback")}
               </Text>
               {conversation?.participantRole ? (
                 <Badge
@@ -543,7 +606,7 @@ export default function ConversationScreen() {
           <ChatSkeleton />
         ) : isError || !conversation ? (
           <ErrorState
-            message="Could not load this conversation."
+            message={t("messages.couldNotLoadConversation")}
             onRetry={() => void refetch()}
           />
         ) : (
@@ -606,7 +669,7 @@ export default function ConversationScreen() {
             ListEmptyComponent={
               <View className="flex-1 items-center py-8">
                 <Text className="text-muted-foreground">
-                  No messages yet. Say hi!
+                  {t("messages.noMessagesSayHi")}
                 </Text>
               </View>
             }
@@ -617,10 +680,10 @@ export default function ConversationScreen() {
         {editing ? (
           <View
             style={{ paddingBottom: composerPaddingBottom }}
-            className="flex-row items-center gap-2 border-t border-border bg-card p-3"
+            className="flex-row items-center gap-2 border-t border-border bg-card px-3 pt-3"
           >
             <Pressable
-              accessibilityLabel="Cancel editing"
+              accessibilityLabel={t("messages.cancelEditingAria")}
               role="button"
               onPress={() => {
                 setEditing(null);
@@ -636,7 +699,7 @@ export default function ConversationScreen() {
             </Pressable>
             <Input
               testID="message-edit-input"
-              accessibilityLabel="Edit message text"
+              accessibilityLabel={t("messages.editMessageTextAria")}
               className="flex-1"
               value={editText}
               onChangeText={setEditText}
@@ -645,11 +708,11 @@ export default function ConversationScreen() {
             <Button
               size="sm"
               testID="message-edit-save"
-              accessibilityLabel="Save edited message"
+              accessibilityLabel={t("messages.saveEditedMessageAria")}
               disabled={!editText.trim() || savingEdit}
               onPress={() => void handleSaveEdit()}
             >
-              <Text>Save</Text>
+              <Text>{t("common.save")}</Text>
             </Button>
           </View>
         ) : (
@@ -703,8 +766,8 @@ export default function ConversationScreen() {
             <View className="flex-row items-end gap-2 p-3">
               <Input
                 testID="message-input"
-                accessibilityLabel="Message text"
-                placeholder="Type a message…"
+                accessibilityLabel={t("messages.messageTextAria")}
+                placeholder={t("messages.typePlaceholder")}
                 className="max-h-28 flex-1"
                 value={draft}
                 onChangeText={setDraft}
@@ -713,7 +776,7 @@ export default function ConversationScreen() {
               />
               <Pressable
                 testID="message-send"
-                accessibilityLabel="Send message"
+                accessibilityLabel={t("messages.sendMessageAria")}
                 role="button"
                 disabled={!draft.trim() || sending || !conversation || isBlocked}
                 onPress={() => void handleSend()}
@@ -771,7 +834,7 @@ export default function ConversationScreen() {
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={togglingBlock}
-              accessibilityLabel="Cancel"
+              accessibilityLabel={t("common.cancel")}
             >
               <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
@@ -836,22 +899,21 @@ export default function ConversationScreen() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogTitle>{t("messages.deleteMessageTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              The message will be replaced by a “deleted” placeholder for both
-              participants.
+              {t("messages.deleteMessageDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel accessibilityLabel="Cancel delete">
-              <Text>Cancel</Text>
+            <AlertDialogCancel accessibilityLabel={t("messages.cancelDeleteAria")}>
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="message-delete-confirm"
-              accessibilityLabel="Confirm delete message"
+              accessibilityLabel={t("messages.confirmDeleteMessageAria")}
               onPress={() => void handleConfirmDelete()}
             >
-              <Text>Delete</Text>
+              <Text>{t("common.delete")}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

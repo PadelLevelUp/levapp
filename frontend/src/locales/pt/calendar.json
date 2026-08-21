@@ -9,12 +9,16 @@
     },
     "eventCard": {
       "canceled": "Cancelada",
-      "completed": "Concluída"
+      "completed": "Concluída",
+      "fallbackTitle": "Aula",
+      "fallbackEvent": "Evento"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
-      "noClassesScheduled": "Sem aulas agendadas"
+      "noClassesScheduled": "Sem aulas agendadas",
+      "noClasses": "Sem aulas",
+      "loadFailed": "Não foi possível carregar o calendário."
     },
     "addClass": {
       "title": "Nova aula",
@@ -282,6 +286,14 @@
       "cancel": "Cancelar",
       "blocked_one": "Não pode enviar notificações ao aluno {{names}} neste horário, pois ele marcou-se como indisponível.",
       "blocked_other": "Não pode enviar notificações aos alunos {{names}} neste horário, pois marcaram-se como indisponíveis."
+    },
+    "legend": {
+      "next": "Próxima aula",
+      "openSpots": "Vagas por preencher",
+      "full": "Cheia / a decorrer",
+      "done": "Concluída",
+      "event": "Evento / não é aula",
+      "fill": "Confirmados / à espera / livres"
     }
   }
 }
