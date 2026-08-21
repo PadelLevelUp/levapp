@@ -164,8 +164,6 @@ export default function SettingsPage() {
   // section picker above it hid what else existed and made the page read as a
   // pile of unrelated controls.
   const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
-  const { user } = useAuth();
-  const isCoach = user?.roles?.includes("coach") ?? false;
   const [language, setLanguage] = useState<AppLanguage>("pt");
   // PAD-81: the profile form is hydrated from the API. `savedProfile` keeps the
   // last server-confirmed values so we only PATCH what actually changed.
