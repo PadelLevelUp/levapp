@@ -3,7 +3,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+  <div
+    ref={ref}
+    // Cards carry a 1px border and NO shadow. A list of shadowed cards is
+    // the single most common way to make this system look wrong; the one
+    // shadow family is reserved for things that genuinely float (sheets,
+    // popovers, the device frame). 16px radius — radii rise with size.
+    className={cn("rounded-2xl border bg-card text-card-foreground", className)}
+    {...props}
+  />
 ));
 Card.displayName = "Card";
 

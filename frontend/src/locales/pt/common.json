@@ -25,6 +25,10 @@
     "none": "Nenhum",
     "required": "Obrigatório",
     "optional": "Opcional",
-    "somethingWentWrong": "Ocorreu um erro. Por favor tenta novamente."
+    "somethingWentWrong": "Ocorreu um erro. Por favor tenta novamente.",
+    "somethingWentWrongTitle": "Algo correu mal",
+    "tryAgain": "Tentar novamente",
+    "goBack": "Voltar atrás",
+    "done": "Concluído"
   }
 }

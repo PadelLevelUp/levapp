@@ -172,7 +172,7 @@ export function PlayerSelector({
                   className={cn(
                     "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
                     selected && !isOutOfLevel && "bg-primary/10",
-                    selected && isOutOfLevel && "bg-amber-500/15",
+                    selected && isOutOfLevel && "bg-warning/15",
                     !selected && "hover:bg-muted",
                     isOutOfLevel && !selected && "opacity-75"
                   )}
@@ -186,7 +186,7 @@ export function PlayerSelector({
                     {isOutOfLevel && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] border-amber-500/50 text-amber-600 bg-amber-500/10 shrink-0"
+                        className="text-[10px] border-warning/50 text-warning bg-warning/10 shrink-0"
                       >
                         {playerLevel?.code ?? t("calendar.playerSelector.noLevel")}
                       </Badge>

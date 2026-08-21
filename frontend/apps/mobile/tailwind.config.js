@@ -11,6 +11,22 @@ module.exports = {
   theme: {
     extend: {
       colors: nativewindTheme("light"),
+      // Mirrors apps/web/tailwind.config.ts. The faces are loaded in
+      // app/_layout.tsx via expo-font; these names must match the
+      // PostScript names those modules register.
+      // React Native does not synthesize weights for a custom family, so each
+      // weight is its own registered face and needs its own utility. The keys
+      // must NOT be `medium`/`semibold`/`bold`: Tailwind would emit
+      // `.font-semibold` as a FAMILY utility and collide with the built-in
+      // font-WEIGHT utility of the same name.
+      fontFamily: {
+        sans: ["PlusJakartaSans_400Regular"],
+        "sans-medium": ["PlusJakartaSans_500Medium"],
+        "sans-semibold": ["PlusJakartaSans_600SemiBold"],
+        "sans-bold": ["PlusJakartaSans_700Bold"],
+        display: ["Poppins_700Bold"],
+        "display-semibold": ["Poppins_600SemiBold"],
+      },
       // NativeWind/react-native-css-interop can't resolve calc() into a
       // numeric borderRadius on native (it silently no-ops), so these are
       // precomputed literals mirroring apps/web/tailwind.config.ts's

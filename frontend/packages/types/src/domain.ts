@@ -240,8 +240,13 @@ export interface CalendarEvent {
   classType?: ClassType;
   blockType?: CalendarBlockType;
   status?: ClassInstanceStatus;
+  /** Spots taken: enrolled minus declined. Includes players who have not answered. */
   participantCount?: number;
+  /** Of those taken spots, how many actively confirmed. Always <= participantCount. */
+  confirmedCount?: number;
   maxPlayers?: number;
+  /** Coach level for this class, used for the block's level chip. */
+  levelId?: string | number;
   isTemporary?: boolean;
 }
 
@@ -326,7 +331,145 @@ export type DashboardBlock =
   | DashboardClassListBlock
   | DashboardGridBlock
   | DashboardNotificationActivityBlock
-  | DashboardPendingConfirmationsBlock;
+  | DashboardPendingConfirmationsBlock
+  // Coach home. The player dashboard still emits the blocks above.
+  | DashboardNextClassBlock
+  | DashboardNeedsYouBlock
+  | DashboardSchedule7dBlock
+  | DashboardWeekPulseBlock;
+
+/**
+ * Hero: the class about to start.
+ *
+ * The backend omits this block entirely when nothing is scheduled — there is no
+ * empty state, because the largest card on the screen saying "nothing" is the
+ * flaw this redesign removes. Render nothing when it is absent.
+ */
+export interface DashboardNextClassBlock {
+  id: string;
+  type: "next_class";
+  data: {
+    classId: string;
+    title: string;
+    /** ISO date, `YYYY-MM-DD`. */
+    date: string;
+    /** `HH:mm`. */
+    startTime: string;
+    endTime: string;
+    isToday: boolean;
+    /** English weekday from the server; clients localise from `date`. */
+    weekday: string;
+    /**
+     * Minutes until it starts, but only when the relative chip should show —
+     * today and within two hours. `null` otherwise, so the client never has to
+     * re-derive the rule.
+     */
+    minutesUntil: number | null;
+    filled: number;
+    capacity: number;
+    /** Signed-up players for the avatar stack, already capped by the server. */
+    players: Array<{ id: number; name: string; initials: string }>;
+    href: string;
+  };
+}
+
+/** A class in the next 7 days that still has room. */
+export interface DashboardNeedsYouEmptySeats {
+  kind: "empty_seats";
+  id: string;
+  classTitle: string;
+  seatsMissing: number;
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
+  href: string;
+}
+
+/** An unread inbound message — one per conversation, most recent first. */
+export interface DashboardNeedsYouReply {
+  kind: "reply";
+  id: string;
+  personName: string;
+  initials: string;
+  preview: string;
+  href: string;
+}
+
+/** Attendances awaiting validation, scoped to classes that ended last week. */
+export interface DashboardNeedsYouValidation {
+  kind: "validation";
+  id: string;
+  count: number;
+  classCount: number;
+  href: string;
+}
+
+export type DashboardNeedsYouItem =
+  | DashboardNeedsYouEmptySeats
+  | DashboardNeedsYouReply
+  | DashboardNeedsYouValidation;
+
+/**
+ * The queue. Every item carries its own resolution, so the list can reach zero —
+ * which is the point of a queue, and what a bare counter could never do. Server
+ * order is fixed: empty seats (soonest first), then replies, then validation.
+ */
+export interface DashboardNeedsYouBlock {
+  id: string;
+  type: "needs_you";
+  data: {
+    count: number;
+    items: DashboardNeedsYouItem[];
+  };
+}
+
+export interface DashboardSchedule7dBlock {
+  id: string;
+  type: "schedule_7d";
+  data: {
+    /** Every class in the window, not just the rows shipped below. */
+    totalCount: number;
+    items: Array<{
+      id: string;
+      title: string;
+      date: string;
+      /** English weekday from the server; clients localise from `date`. */
+      weekday: string;
+      dayOfMonth: number;
+      timeLabel: string;
+      filled: number;
+      capacity: number;
+      href: string;
+    }>;
+    calendarHref: string;
+  };
+}
+
+/**
+ * Two metrics, each with a denominator. Never add a third — this block informs
+ * without prompting, which is exactly why it sits last.
+ */
+export interface DashboardWeekPulseBlock {
+  id: string;
+  type: "week_pulse";
+  data: {
+    seatsFilled: {
+      pct: number;
+      filled: number;
+      total: number;
+      /** `null` when there is no prior week to compare — omit, never "+0%". */
+      deltaPct: number | null;
+      /** Seven daily fill percentages, oldest first. Desktop only. */
+      trend: number[];
+    };
+    players: {
+      active: number;
+      total: number;
+      idle: number;
+    };
+  };
+}
 
 /**
  * PAD-78: coach-only card that replaces the old "Revenue" KPI. Shows how many

@@ -11,6 +11,7 @@ import type {
 import { DIFFICULTY_OPTIONS, EXERCISE_TYPE_OPTIONS } from "@levelup/types";
 import { exerciseFormSchema } from "@levelup/validation";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +53,7 @@ export function ExerciseForm({
   onCancel,
   onDelete,
 }: ExerciseFormProps) {
+  const { t } = useTranslation();
   const [name, setName] = React.useState(exercise?.name ?? "");
   const [description, setDescription] = React.useState(
     exercise?.description ?? ""
@@ -75,10 +77,10 @@ export function ExerciseForm({
   const [diagramOpen, setDiagramOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const typeLabel =
-    EXERCISE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
-  const difficultyLabel =
-    DIFFICULTY_OPTIONS.find((o) => o.value === difficulty)?.label ?? "";
+  // EXERCISE_TYPE_OPTIONS / DIFFICULTY_OPTIONS ship English labels from the
+  // shared @levelup/types package, so translate off the stable `value`.
+  const typeLabel = t(`training.exerciseType.${type}`);
+  const difficultyLabel = t(`training.difficulty.${difficulty}`);
 
   const toggleLevel = (id: string) => {
     setLevelIds((prev) =>
@@ -97,7 +99,9 @@ export function ExerciseForm({
       notes,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Invalid exercise");
+      const raw =
+        parsed.error.issues[0]?.message ?? "training.form.invalidExercise";
+      setError(t(raw, { defaultValue: raw }));
       return;
     }
     setError(null);
@@ -113,15 +117,15 @@ export function ExerciseForm({
       testID="exercise-form"
     >
       <Text className="text-lg font-bold">
-        {exercise ? "Edit exercise" : "New exercise"}
+        {exercise ? t("training.form.editExercise") : t("training.form.newExercise")}
       </Text>
 
       <View className="gap-1.5">
-        <Label>Name</Label>
+        <Label>{t("training.form.nameLabel")}</Label>
         <Input
           testID="exercise-name"
-          accessibilityLabel="Exercise name"
-          placeholder="e.g. Cross-court volleys"
+          accessibilityLabel={t("training.form.exerciseNameAria")}
+          placeholder={t("training.form.namePlaceholder")}
           value={name}
           onChangeText={setName}
         />
@@ -131,7 +135,7 @@ export function ExerciseForm({
       </View>
 
       <View className="gap-1.5">
-        <Label>Type</Label>
+        <Label>{t("training.form.typeLabel")}</Label>
         <Select
           value={{ value: type, label: typeLabel }}
           onValueChange={(option) => {
@@ -140,16 +144,16 @@ export function ExerciseForm({
         >
           <SelectTrigger
             testID="exercise-type-select"
-            accessibilityLabel="Exercise type"
+            accessibilityLabel={t("training.form.exerciseTypeAria")}
           >
-            <SelectValue placeholder="Type" />
+            <SelectValue placeholder={t("training.form.typeLabel")} />
           </SelectTrigger>
           <SelectContent>
             {EXERCISE_TYPE_OPTIONS.map((option) => (
               <SelectItem
                 key={option.value}
                 value={option.value}
-                label={option.label}
+                label={t(`training.exerciseType.${option.value}`)}
                 testID={`exercise-type-${option.value}`}
               />
             ))}
@@ -159,11 +163,11 @@ export function ExerciseForm({
 
       {type === "custom" ? (
         <View className="gap-1.5">
-          <Label>Custom type</Label>
+          <Label>{t("training.form.customType")}</Label>
           <Input
             testID="exercise-custom-type"
-            accessibilityLabel="Custom exercise type"
-            placeholder="e.g. Bandeja"
+            accessibilityLabel={t("training.form.customTypeAria")}
+            placeholder={t("training.form.customTypePlaceholder")}
             value={customType}
             onChangeText={setCustomType}
           />
@@ -171,7 +175,7 @@ export function ExerciseForm({
       ) : null}
 
       <View className="gap-1.5">
-        <Label>Difficulty</Label>
+        <Label>{t("training.form.difficultyLabel")}</Label>
         <View className="flex-row gap-2">
           {DIFFICULTY_OPTIONS.map((option) => {
             const active = difficulty === option.value;
@@ -179,7 +183,10 @@ export function ExerciseForm({
               <Pressable
                 key={option.value}
                 testID={`exercise-difficulty-${option.value}`}
-                accessibilityLabel={`Difficulty ${option.value} (${option.label})`}
+                accessibilityLabel={t("training.form.difficultyOptionAria", {
+                  value: option.value,
+                  label: t(`training.difficulty.${option.value}`),
+                })}
                 role="button"
                 onPress={() => setDifficulty(option.value)}
                 className={cn(
@@ -207,10 +214,10 @@ export function ExerciseForm({
       </View>
 
       <View className="gap-1.5">
-        <Label>Description</Label>
+        <Label>{t("training.form.description")}</Label>
         <Textarea
-          accessibilityLabel="Exercise description"
-          placeholder="Describe the drill…"
+          accessibilityLabel={t("training.form.exerciseDescriptionAria")}
+          placeholder={t("training.form.descriptionPlaceholder")}
           value={description}
           onChangeText={setDescription}
         />
@@ -218,12 +225,12 @@ export function ExerciseForm({
 
       {levels.length > 0 ? (
         <View className="gap-1.5">
-          <Label>Levels</Label>
+          <Label>{t("training.form.levels")}</Label>
           <View className="gap-1 rounded-md border border-border p-3">
             {levels.map((level) => (
               <Pressable
                 key={level.id}
-                accessibilityLabel={`Level ${level.label}`}
+                accessibilityLabel={t("training.form.levelAria", { label: level.label })}
                 role="checkbox"
                 onPress={() => toggleLevel(level.id)}
                 className="flex-row items-center gap-2 py-1.5"
@@ -244,12 +251,12 @@ export function ExerciseForm({
       <View className="gap-1.5">
         <Pressable
           testID="exercise-diagram-toggle"
-          accessibilityLabel="Toggle court diagram"
+          accessibilityLabel={t("training.form.toggleDiagramAria")}
           role="button"
           onPress={() => setDiagramOpen((v) => !v)}
           className="flex-row items-center justify-between rounded-md border border-input bg-background px-3 py-3"
         >
-          <Label className="mb-0">Court diagram</Label>
+          <Label className="mb-0">{t("training.diagram.label")}</Label>
           <Ionicons
             name={diagramOpen ? "chevron-up" : "chevron-down"}
             size={18}
@@ -262,10 +269,10 @@ export function ExerciseForm({
       </View>
 
       <View className="gap-1.5">
-        <Label>Notes</Label>
+        <Label>{t("training.form.notesLabel")}</Label>
         <Textarea
-          accessibilityLabel="Exercise notes"
-          placeholder="Coaching notes…"
+          accessibilityLabel={t("training.form.exerciseNotesAria")}
+          placeholder={t("training.form.notesPlaceholder")}
           value={notes}
           onChangeText={setNotes}
         />
@@ -274,29 +281,31 @@ export function ExerciseForm({
       <View className="gap-2 pt-2">
         <Button
           testID="exercise-save"
-          accessibilityLabel="Save exercise"
+          accessibilityLabel={t("training.form.saveExercise")}
           disabled={saving || !name.trim()}
           onPress={handleSave}
         >
-          <Text>{saving ? "Saving…" : "Save exercise"}</Text>
+          <Text>
+            {saving ? t("training.form.saving") : t("training.form.saveExercise")}
+          </Text>
         </Button>
         {exercise && onDelete ? (
           <Button
             variant="destructive"
             testID="exercise-delete"
-            accessibilityLabel="Delete exercise"
+            accessibilityLabel={t("training.card.deleteExercise")}
             disabled={saving}
             onPress={onDelete}
           >
-            <Text>Delete exercise</Text>
+            <Text>{t("training.card.deleteExercise")}</Text>
           </Button>
         ) : null}
         <Button
           variant="ghost"
-          accessibilityLabel="Cancel exercise form"
+          accessibilityLabel={t("training.form.cancelAria")}
           onPress={onCancel}
         >
-          <Text>Cancel</Text>
+          <Text>{t("common.cancel")}</Text>
         </Button>
       </View>
     </ScrollView>

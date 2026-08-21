@@ -1,14 +1,22 @@
 /**
- * LevelUp design tokens, extracted from apps/web/src/index.css and
- * apps/web/tailwind.config.ts. Values are raw HSL triplet strings
- * ("<hue> <saturation>% <lightness>%") exactly as the web CSS custom
- * properties define them; `lightTheme`/`darkTheme` expose ready-to-use
- * `hsl(...)` strings.
+ * LevApp design tokens — the single source of truth for BOTH apps/web (via
+ * apps/web/src/index.css, which must mirror these) and apps/mobile (via
+ * `nativewindTheme()`). Change a value here and both platforms move.
  *
- * Note on `warning`: index.css defines the design-system warning as
- * `35 90% 55%` (light) inside `@layer base`, but an UNLAYERED `:root`/`.dark`
- * rule overrides it to `38 92% 50%` in both themes (unlayered declarations
- * beat layered ones). The tokens below use the EFFECTIVE rendered value.
+ * Values are raw HSL triplet strings ("<hue> <saturation>% <lightness>%");
+ * `lightTheme`/`darkTheme` expose ready-to-use `hsl(...)` strings.
+ *
+ * The palette is the navy-and-blue brand lifted from the app icon, replacing
+ * the original "padel court green". The one rule worth restating here, because
+ * it is the point of the whole scheme: blue carries identity and every primary
+ * action, which frees green to mean ONLY "done/confirmed". A green badge is
+ * now informative. Never pick a status colour for visual variety.
+ *
+ * Historical note on `warning`: index.css used to define it inside
+ * `@layer base` while an UNLAYERED `:root`/`.dark` rule silently overrode it
+ * (unlayered declarations beat layered ones). That override has been removed —
+ * `warning` is now defined exactly once, inside the layer. Do not reintroduce
+ * unlayered token declarations or the same silent-override bug comes back.
  */
 
 export const radius = "0.625rem";
@@ -39,8 +47,12 @@ export interface ThemeHsl {
   privateForeground: string;
   success: string;
   successForeground: string;
+  /** Readable ON a success tint — NOT the colour used on a solid success. */
+  successStrong: string;
   warning: string;
   warningForeground: string;
+  /** Readable ON a warning tint — NOT the colour used on a solid warning. */
+  warningStrong: string;
   info: string;
   infoForeground: string;
   sidebarBackground: string;
@@ -54,90 +66,108 @@ export interface ThemeHsl {
 }
 
 export const lightThemeHsl: ThemeHsl = {
-  background: "210 20% 98%",
-  foreground: "220 20% 10%",
+  // Page grey and white cards — the system allows exactly two background colours.
+  background: "216 29% 93%", // grey-150 #E9EDF3
+  foreground: "216 52% 13%", // grey-800 #101E33
   card: "0 0% 100%",
-  cardForeground: "220 20% 10%",
+  cardForeground: "216 52% 13%",
   popover: "0 0% 100%",
-  popoverForeground: "220 20% 10%",
-  // Primary: Vibrant padel court green
-  primary: "152 60% 42%",
+  popoverForeground: "216 52% 13%",
+  // Primary: brand blue, lifted from the app icon. Blue carries identity AND
+  // every primary action — that is why green could be demoted to "done".
+  primary: "220 84% 47%", // blue-600 #1355DC
   primaryForeground: "0 0% 100%",
-  // Secondary: Warm accent
-  secondary: "35 90% 55%",
-  secondaryForeground: "0 0% 100%",
-  muted: "210 20% 94%",
-  mutedForeground: "220 10% 45%",
-  accent: "210 30% 92%",
-  accentForeground: "220 20% 10%",
-  destructive: "0 72% 51%",
+  // Secondary: the blue wash, not the old warm amber. This is the secondary
+  // button treatment (wash background, blue label).
+  secondary: "217 100% 95%", // blue-100 #E8F1FF
+  secondaryForeground: "220 84% 47%",
+  muted: "213 39% 95%", // grey-100
+  mutedForeground: "219 18% 41%", // grey-600
+  // `accent` is shadcn's menu/dropdown hover, not a brand accent. It stays
+  // NEUTRAL: the hover rule is "one step darker", and blue is for actions.
+  accent: "217 32% 92%", // grey-200
+  accentForeground: "216 52% 13%",
+  destructive: "4 63% 53%", // red-600 #D3453B
   destructiveForeground: "0 0% 100%",
-  border: "210 20% 88%",
-  input: "210 20% 88%",
-  ring: "152 60% 42%",
-  // Custom colors for class types
-  academy: "200 80% 50%",
+  // shadcn has one `border`; the system has subtle/default/strong. This is
+  // `default` (grey-300) — `subtle` is right for cards but too faint for the
+  // inputs and dividers that share this token.
+  border: "215 28% 86%",
+  input: "215 28% 86%",
+  ring: "220 84% 47%",
+  // Class types
+  academy: "214 100% 59%", // blue-500
   academyForeground: "0 0% 100%",
-  private: "280 60% 55%",
+  private: "249 55% 59%", // violet-600 — player-side / non-class
   privateForeground: "0 0% 100%",
-  // Status colors
-  success: "152 60% 42%",
+  // Status — each colour has exactly one job.
+  success: "161 78% 33%", // green-600: DONE/CONFIRMED ONLY
   successForeground: "0 0% 100%",
-  warning: "38 92% 50%", // effective value (unlayered :root override)
-  warningForeground: "0 0% 100%",
-  info: "200 80% 50%",
+  successStrong: "162 80% 24%", // green-700, for text on a success tint
+  warning: "31 72% 50%", // amber-600: needs the coach
+  // Ink, not white: white on amber-600 is ~2.4:1 and fails contrast.
+  warningForeground: "216 52% 13%",
+  warningStrong: "33 81% 33%", // amber-700, for text on a warning tint
+  info: "214 100% 59%", // blue-500
   infoForeground: "0 0% 100%",
-  // Sidebar
-  sidebarBackground: "220 20% 10%",
-  sidebarForeground: "210 20% 90%",
-  sidebarPrimary: "152 60% 42%",
-  sidebarPrimaryForeground: "0 0% 100%",
-  sidebarAccent: "220 15% 18%",
-  sidebarAccentForeground: "210 20% 90%",
-  sidebarBorder: "220 15% 20%",
-  sidebarRing: "152 60% 42%",
+  // Sidebar wears the navy chrome even in the light theme.
+  sidebarBackground: "217 58% 12%", // navy-800 #0D1B31
+  sidebarForeground: "216 63% 97%", // near-white, never pure
+  sidebarPrimary: "213 100% 65%", // blue-400 — primary shifts up on dark
+  sidebarPrimaryForeground: "211 68% 7%", // dark text on it
+  sidebarAccent: "218 54% 19%", // navy-700
+  sidebarAccentForeground: "216 63% 97%",
+  sidebarBorder: "213 37% 23%",
+  sidebarRing: "213 100% 65%",
 };
 
 // Values not redefined by `.dark` in index.css inherit the light values;
 // those effective values are spelled out here so the theme is complete.
 export const darkThemeHsl: ThemeHsl = {
-  background: "220 20% 8%",
-  foreground: "210 20% 95%",
-  card: "220 18% 12%",
-  cardForeground: "210 20% 95%",
-  popover: "220 18% 12%",
-  popoverForeground: "210 20% 95%",
-  primary: "152 55% 48%",
-  primaryForeground: "0 0% 100%",
-  secondary: "35 85% 50%",
-  secondaryForeground: "0 0% 100%",
-  muted: "220 15% 18%",
-  mutedForeground: "210 15% 55%",
-  accent: "220 15% 18%",
-  accentForeground: "210 20% 95%",
-  destructive: "0 65% 45%",
+  // Dark is the brand, not an inversion — the icon's navy is already the
+  // darkest surface, so this is where the product looks most like itself.
+  // Surfaces step UP in lightness (bg → card → raised) instead of relying on
+  // borders. No pure black, and no pure white text.
+  background: "218 58% 6%", // #070E1A
+  foreground: "216 63% 97%", // #F2F6FC
+  card: "217 51% 12%", // #0F1B2E surface
+  cardForeground: "216 63% 97%",
+  popover: "216 47% 17%", // #17273F raised
+  popoverForeground: "216 63% 97%",
+  primary: "213 100% 65%", // blue-400 #4A9BFF
+  primaryForeground: "211 68% 7%", // DARK text on it, for contrast
+  secondary: "215 47% 22%", // #1E3453
+  secondaryForeground: "215 100% 81%", // #9CC6FF
+  muted: "216 47% 17%",
+  mutedForeground: "215 29% 71%", // #9FB1CA
+  accent: "216 47% 17%",
+  accentForeground: "216 63% 97%",
+  destructive: "4 66% 59%", // red lifted for the dark surface
   destructiveForeground: "0 0% 100%",
-  border: "220 15% 20%",
-  input: "220 15% 20%",
-  ring: "152 55% 48%",
-  academy: "200 75% 45%",
-  academyForeground: "0 0% 100%", // inherited from light
-  private: "280 55% 50%",
-  privateForeground: "0 0% 100%", // inherited from light
-  success: "152 60% 42%", // inherited from light
-  successForeground: "0 0% 100%",
-  warning: "38 92% 50%", // effective value (unlayered .dark override)
-  warningForeground: "0 0% 100%",
-  info: "200 80% 50%", // inherited from light
-  infoForeground: "0 0% 100%",
-  sidebarBackground: "220 25% 6%",
-  sidebarForeground: "210 20% 90%",
-  sidebarPrimary: "152 55% 48%",
-  sidebarPrimaryForeground: "0 0% 100%",
-  sidebarAccent: "220 20% 12%",
-  sidebarAccentForeground: "210 20% 90%",
-  sidebarBorder: "220 15% 15%",
-  sidebarRing: "152 55% 48%",
+  border: "213 37% 23%", // #24374F
+  input: "213 37% 23%",
+  ring: "213 100% 65%",
+  // Status keeps its hue but lifts in lightness; each pairs with dark text.
+  academy: "213 100% 65%",
+  academyForeground: "211 68% 7%",
+  private: "250 80% 81%", // #B3A6F5
+  privateForeground: "211 68% 7%",
+  success: "160 57% 60%", // #5FD3AC
+  successForeground: "211 68% 7%",
+  successStrong: "160 57% 60%", // on dark the tint is dark, so the lift IS the text
+  warning: "34 81% 69%", // #F0B970
+  warningForeground: "211 68% 7%",
+  warningStrong: "34 81% 69%",
+  info: "213 100% 65%",
+  infoForeground: "211 68% 7%",
+  sidebarBackground: "216 53% 9%", // ink-900, deeper than the page
+  sidebarForeground: "216 63% 97%",
+  sidebarPrimary: "213 100% 65%",
+  sidebarPrimaryForeground: "211 68% 7%",
+  sidebarAccent: "216 47% 17%",
+  sidebarAccentForeground: "216 63% 97%",
+  sidebarBorder: "215 43% 19%", // #1C2E47
+  sidebarRing: "213 100% 65%",
 };
 
 function toHslStrings(theme: ThemeHsl): ThemeHsl {
@@ -213,16 +243,37 @@ export function nativewindTheme(mode: "light" | "dark" = "light") {
     success: {
       DEFAULT: t.success,
       foreground: t.successForeground,
+      strong: t.successStrong,
     },
     warning: {
       DEFAULT: t.warning,
       foreground: t.warningForeground,
+      strong: t.warningStrong,
     },
     info: {
       DEFAULT: t.info,
       foreground: t.infoForeground,
     },
-    online: "#22c55e",
+    // "Online" is a presence state, i.e. a live/confirmed reading — that is the
+    // one job green has. It used to be a hardcoded #22c55e, which survived the
+    // repaint as a stray from the old palette.
+    online: t.success,
     unread: t.primary,
   };
 }
+
+/**
+ * Type stacks, shared so web (tailwind fontFamily) and mobile (expo-font)
+ * name the same families.
+ *
+ * Poppins carries display: screen titles, hero numbers, the wordmark, and the
+ * level chip. Everything else is Plus Jakarta Sans. Anything 20px+ in Poppins
+ * takes `letter-spacing: -0.02em`.
+ */
+export const fontFamily = {
+  display: ["Poppins", "system-ui", "-apple-system", "sans-serif"],
+  body: ["Plus Jakarta Sans", "system-ui", "-apple-system", "sans-serif"],
+} as const;
+
+/** Tracking for display type at 20px and above. */
+export const trackingDisplay = "-0.02em";

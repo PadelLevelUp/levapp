@@ -212,13 +212,14 @@ export default function ClassDetailScreen() {
 
   if (!event) {
     return (
-      <Screen title="Class" testID="class-detail">
-        <ErrorState message="This class could not be found." />
+      <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+        <ErrorState message={t("classDetail.notFound")} />
       </Screen>
     );
   }
 
-  const title = active?.name || event.title || "Class";
+  const title =
+    active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
   const isRecurring = event.isRecurring || instance?.isRecurring === true;
   const canApplyScope = event.isRecurring === true;
@@ -364,9 +365,9 @@ export default function ClassDetailScreen() {
         classInstance: instance,
         presences: payload,
       });
-      setFeedback("Attendance saved");
+      setFeedback(t("calendar.detail.attendanceSavedTitle"));
     } catch {
-      setFeedback("Failed to save attendance");
+      setFeedback(t("calendar.detail.failedSaveAttendance"));
     }
   };
 
@@ -376,7 +377,7 @@ export default function ClassDetailScreen() {
       await removeClass.mutateAsync({ event, scope });
       router.back();
     } catch {
-      setFeedback("The class could not be deleted");
+      setFeedback(t("classDetail.deleteFailed"));
     }
   };
 
@@ -394,9 +395,9 @@ export default function ClassDetailScreen() {
     setFeedback(null);
     try {
       await cancelAttendance.mutateAsync(Number(myPresence.lessonInstanceId));
-      setFeedback("Your spot was released");
+      setFeedback(t("classDetail.spotReleased"));
     } catch {
-      setFeedback("Could not cancel attendance");
+      setFeedback(t("classDetail.couldNotCancelAttendance"));
     }
   };
 
@@ -406,7 +407,7 @@ export default function ClassDetailScreen() {
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="class-detail-back"
-          accessibilityLabel="Back"
+          accessibilityLabel={t("common.back")}
           role="button"
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
@@ -416,7 +417,7 @@ export default function ClassDetailScreen() {
         {isEditing && draft ? (
           <Input
             testID="class-edit-name"
-            accessibilityLabel="Class name"
+            accessibilityLabel={t("classDetail.classNameAria")}
             className="h-10 flex-1"
             value={draft.name ?? ""}
             onChangeText={(value) =>
@@ -435,14 +436,14 @@ export default function ClassDetailScreen() {
         )}
         {isCanceled ? (
           <Badge variant="destructive">
-            <Text>Canceled</Text>
+            <Text>{t("classDetail.canceled")}</Text>
           </Badge>
         ) : null}
       </View>
 
       {isError ? (
         <ErrorState
-          message="Could not load this class."
+          message={t("classDetail.couldNotLoad")}
           onRetry={() => refetch()}
         />
       ) : isPending ? (
@@ -559,7 +560,7 @@ export default function ClassDetailScreen() {
                   <View className="flex-row items-center gap-2">
                     <Pressable
                       testID="class-edit-max-players-decrement"
-                      accessibilityLabel="Decrease capacity"
+                      accessibilityLabel={t("classDetail.decreaseCapacityAria")}
                       role="button"
                       onPress={() =>
                         setDraft((d) =>
@@ -577,7 +578,7 @@ export default function ClassDetailScreen() {
                     </Text>
                     <Pressable
                       testID="class-edit-max-players-increment"
-                      accessibilityLabel="Increase capacity"
+                      accessibilityLabel={t("classDetail.increaseCapacityAria")}
                       role="button"
                       onPress={() =>
                         setDraft((d) =>
@@ -615,7 +616,7 @@ export default function ClassDetailScreen() {
                   >
                     <SelectTrigger
                       testID="class-edit-level-select"
-                      accessibilityLabel="Class level"
+                      accessibilityLabel={t("classDetail.classLevelAria")}
                       className="h-9"
                     >
                       <SelectValue
@@ -677,7 +678,7 @@ export default function ClassDetailScreen() {
                 </View>
                 <Switch
                   testID="class-auto-notify-toggle"
-                  accessibilityLabel="Auto notifications"
+                  accessibilityLabel={t("calendar.detail.autoNotifications")}
                   checked={active?.notificationsEnabled ?? false}
                   onCheckedChange={(checked) =>
                     setDraft((d) =>
@@ -726,7 +727,7 @@ export default function ClassDetailScreen() {
             </Text>
             {participants.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
-                No participants
+                {t("calendar.detail.noParticipants")}
               </Text>
             ) : (
               participants.map((participant) => (
@@ -754,7 +755,7 @@ export default function ClassDetailScreen() {
             {isCoach && participants.length > 0 && !isCanceled && !isEditing ? (
               <Button
                 testID="attendance-confirm"
-                accessibilityLabel="Confirm attendance"
+                accessibilityLabel={t("classDetail.confirmAttendance")}
                 onPress={handleConfirmAttendance}
                 disabled={!hasMarkedAttendance || confirmPresences.isPending}
                 className="mt-1"
@@ -762,7 +763,7 @@ export default function ClassDetailScreen() {
                 {confirmPresences.isPending ? (
                   <Spinner color={lightTheme.primaryForeground} />
                 ) : null}
-                <Text>Confirm attendance</Text>
+                <Text>{t("classDetail.confirmAttendance")}</Text>
               </Button>
             ) : null}
           </View>
@@ -830,7 +831,9 @@ export default function ClassDetailScreen() {
             <>
               <Separator />
               <View className="gap-2">
-                <Text className="text-sm font-semibold">Your attendance</Text>
+                <Text className="text-sm font-semibold">
+                  {t("classDetail.yourAttendance")}
+                </Text>
                 <View className="flex-row items-center gap-2">
                   <Badge
                     variant={
@@ -843,26 +846,28 @@ export default function ClassDetailScreen() {
                   >
                     <Text>
                       {myPresence.status === "present"
-                        ? "Present"
+                        ? t("calendar.attendance.present")
                         : myPresence.status === "absent"
-                          ? "Absent"
+                          ? t("calendar.attendance.absent")
                           : myPresence.confirmed
-                            ? "Confirmed"
+                            ? t("classDetail.statusConfirmed")
                             : myPresence.invited
-                              ? "Invited"
-                              : "Registered"}
+                              ? t("classDetail.statusInvited")
+                              : t("classDetail.statusRegistered")}
                     </Text>
                   </Badge>
                 </View>
                 {canCancelAttendance ? (
                   <Button
                     testID="class-cancel-attendance"
-                    accessibilityLabel="Cancel attendance"
+                    accessibilityLabel={t("calendar.detail.cancelAttendance")}
                     variant="outline"
                     onPress={() => setCancelOpen(true)}
                     disabled={cancelAttendance.isPending}
                   >
-                    <Text className="text-destructive">Cancel attendance</Text>
+                    <Text className="text-destructive">
+                      {t("calendar.detail.cancelAttendance")}
+                    </Text>
                   </Button>
                 ) : null}
               </View>
@@ -898,7 +903,7 @@ export default function ClassDetailScreen() {
                   </Button>
                   <Button
                     testID="class-planning-save"
-                    accessibilityLabel="Save training plan"
+                    accessibilityLabel={t("classDetail.saveTrainingPlanAria")}
                     className="flex-1"
                     onPress={() => void handleSaveTraining()}
                     disabled={confirmTraining.isPending}
@@ -926,7 +931,7 @@ export default function ClassDetailScreen() {
                   variant="outline"
                   className="flex-1"
                   testID="class-edit"
-                  accessibilityLabel="Edit class"
+                  accessibilityLabel={t("classDetail.editClassAria")}
                   onPress={startEdit}
                 >
                   <Ionicons
@@ -942,7 +947,7 @@ export default function ClassDetailScreen() {
                       variant="outline"
                       className="flex-1"
                       testID="class-notify"
-                      accessibilityLabel="Notify students"
+                      accessibilityLabel={t("classDetail.notifyStudentsAria")}
                       onPress={() => setShowNotify(true)}
                     >
                       <Ionicons
@@ -956,7 +961,7 @@ export default function ClassDetailScreen() {
                       variant="outline"
                       className="flex-1"
                       testID="class-remind"
-                      accessibilityLabel="Send reminders"
+                      accessibilityLabel={t("classDetail.sendRemindersAria")}
                       disabled={sendReminders.isPending}
                       onPress={() => void handleRemind()}
                     >
@@ -981,7 +986,7 @@ export default function ClassDetailScreen() {
                   variant="outline"
                   className="flex-1"
                   testID="class-delete"
-                  accessibilityLabel="Delete class"
+                  accessibilityLabel={t("calendar.detail.deleteClass")}
                   onPress={() => setDeleteOpen(true)}
                   disabled={removeClass.isPending}
                 >
@@ -994,7 +999,9 @@ export default function ClassDetailScreen() {
                       color={lightTheme.destructive}
                     />
                   )}
-                  <Text className="text-destructive">Delete class</Text>
+                  <Text className="text-destructive">
+                    {t("calendar.detail.delete")}
+                  </Text>
                 </Button>
               </View>
             </>
@@ -1006,7 +1013,7 @@ export default function ClassDetailScreen() {
                 variant="outline"
                 className="flex-1"
                 testID="class-edit-cancel"
-                accessibilityLabel="Cancel editing class"
+                accessibilityLabel={t("classDetail.cancelEditingAria")}
                 onPress={cancelEdit}
                 disabled={editClass.isPending}
               >
@@ -1015,7 +1022,7 @@ export default function ClassDetailScreen() {
               <Button
                 className="flex-1"
                 testID="class-edit-save"
-                accessibilityLabel="Save class changes"
+                accessibilityLabel={t("classDetail.saveChangesAria")}
                 onPress={saveEdit}
                 disabled={editClass.isPending}
               >
@@ -1056,11 +1063,11 @@ export default function ClassDetailScreen() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete class</AlertDialogTitle>
+            <AlertDialogTitle>{t("calendar.deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {isRecurring
-                ? "This is a recurring class. Which classes would you like to delete?"
-                : `This will delete "${title}". This action cannot be undone.`}
+                ? t("classDetail.deleteRecurringDescription")
+                : t("classDetail.deleteSingleDescription", { title })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1068,33 +1075,33 @@ export default function ClassDetailScreen() {
               <>
                 <Button
                   testID="class-delete-confirm"
-                  accessibilityLabel="Delete only this class"
+                  accessibilityLabel={t("classDetail.deleteOnlyThisAria")}
                   variant="destructive"
                   onPress={() => handleDelete("single")}
                 >
-                  <Text>Only this class</Text>
+                  <Text>{t("calendar.deleteDialog.singleTitle")}</Text>
                 </Button>
                 <Button
                   testID="class-delete-confirm-future"
-                  accessibilityLabel="Delete this and future classes"
+                  accessibilityLabel={t("classDetail.deleteFutureAria")}
                   variant="destructive"
                   onPress={() => handleDelete("future")}
                 >
-                  <Text>This and future classes</Text>
+                  <Text>{t("calendar.deleteDialog.futureTitle")}</Text>
                 </Button>
               </>
             ) : (
               <Button
                 testID="class-delete-confirm"
-                accessibilityLabel="Confirm delete class"
+                accessibilityLabel={t("classDetail.confirmDeleteAria")}
                 variant="destructive"
                 onPress={() => handleDelete("single")}
               >
-                <Text>Delete</Text>
+                <Text>{t("calendar.detail.delete")}</Text>
               </Button>
             )}
             <AlertDialogCancel testID="class-delete-cancel">
-              <Text>Cancel</Text>
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1104,22 +1111,24 @@ export default function ClassDetailScreen() {
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel attendance</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("calendar.detail.cancelAttendance")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Your spot will be released and may be offered to another player.
+              {t("classDetail.cancelAttendanceDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <Button
               testID="class-cancel-attendance-confirm"
-              accessibilityLabel="Confirm cancel attendance"
+              accessibilityLabel={t("classDetail.confirmCancelAttendanceAria")}
               variant="destructive"
               onPress={handleCancelAttendance}
             >
-              <Text>Cancel my spot</Text>
+              <Text>{t("classDetail.cancelMySpot")}</Text>
             </Button>
             <AlertDialogCancel>
-              <Text>Keep my spot</Text>
+              <Text>{t("calendar.detail.keepAttendance")}</Text>
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>

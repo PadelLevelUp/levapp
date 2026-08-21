@@ -181,13 +181,13 @@ export function GroupsTab() {
             <Button
               size="sm"
               testID="group-add"
-              accessibilityLabel="New group"
+              accessibilityLabel={t("training.groups.newGroup")}
               onPress={() => {
                 setEditing(null);
                 setFormOpen(true);
               }}
             >
-              <Text>New group</Text>
+              <Text>{t("training.groups.newGroup")}</Text>
             </Button>
           </View>
 
@@ -195,7 +195,7 @@ export function GroupsTab() {
             <View className="pb-3">
               <Input
                 testID="groups-search"
-                accessibilityLabel="Search groups"
+                accessibilityLabel={t("training.groups.searchAria")}
                 placeholder={t("training.groups.searchPlaceholder")}
                 value={search}
                 onChangeText={setSearch}
@@ -207,14 +207,14 @@ export function GroupsTab() {
             <ListSkeleton />
           ) : isError ? (
             <ErrorState
-              message="Could not load groups."
+              message={t("training.groups.couldNotLoad")}
               onRetry={() => void refetch()}
             />
           ) : !groups || groups.length === 0 ? (
             <EmptyState
               icon="folder-open-outline"
-              title="No groups yet"
-              message="Create your first group to organize exercises."
+              title={t("training.groups.emptyTitle")}
+              message={t("training.groups.emptyMessage")}
             />
           ) : filtered.length === 0 ? (
             <EmptyState
@@ -273,12 +273,14 @@ export function GroupsTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel accessibilityLabel="Cancel delete group">
-              <Text>Cancel</Text>
+            <AlertDialogCancel
+              accessibilityLabel={t("training.groups.cancelDeleteGroupAria")}
+            >
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="group-delete-confirm"
-              accessibilityLabel="Confirm delete group"
+              accessibilityLabel={t("training.groups.confirmDeleteGroupAria")}
               onPress={() =>
                 editing &&
                 deleteMut.mutate(editing.id, {
@@ -287,7 +289,7 @@ export function GroupsTab() {
                 })
               }
             >
-              <Text>Delete</Text>
+              <Text>{t("common.delete")}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -311,12 +313,14 @@ export function GroupsTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel accessibilityLabel="Cancel delete exercise">
-              <Text>Cancel</Text>
+            <AlertDialogCancel
+              accessibilityLabel={t("training.exercises.cancelDeleteAria")}
+            >
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="group-exercise-delete-confirm"
-              accessibilityLabel="Confirm delete exercise"
+              accessibilityLabel={t("training.exercises.confirmDeleteAria")}
               onPress={() =>
                 editingExercise &&
                 deleteExerciseMut.mutate(editingExercise.id, {
@@ -325,7 +329,7 @@ export function GroupsTab() {
                 })
               }
             >
-              <Text>Delete</Text>
+              <Text>{t("common.delete")}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -119,6 +119,29 @@
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service"
     },
+
+    "mobile": {
+      "logout": "Log out",
+      "username": "Username",
+      "role": "Role",
+      "roleCoach": "Coach",
+      "rolePlayer": "Player",
+      "saving": "Saving…",
+      "profileSaved": "Profile saved.",
+      "profileSaveFailed": "Could not save your profile. Please try again.",
+      "languageSaved": "Language preference saved.",
+      "languageSaveFailed": "Failed to save language preference.",
+      "removeSeason": "Remove season {{name}}",
+      "removeCategory": "Remove category {{name}}",
+      "removeLevel": "Remove level {{name}}",
+      "moveLevelUp": "Move level up",
+      "moveLevelDown": "Move level down",
+      "coachLevelsDescription": "Define the levels used to classify your players and exercises. Use the arrows to reorder.",
+      "importNavDescription": "Review and revert past imports.",
+      "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
+      "importHistoryEmpty": "No imports yet."
+    },
+
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",

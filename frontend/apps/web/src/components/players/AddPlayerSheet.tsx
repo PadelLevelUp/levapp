@@ -151,7 +151,7 @@ export function AddPlayerSheet({
                 id="player-name"
                 placeholder={t("players.namePlaceholder")}
                 value={name}
-                className={nameCheck.error ? "border-amber-500 focus-visible:ring-amber-500" : ""}
+                className={nameCheck.error ? "border-warning/40 focus-visible:ring-warning" : ""}
                 onChange={(e) => setName(e.target.value)}
               />
               {nameCheck.checking && (
@@ -159,7 +159,7 @@ export function AddPlayerSheet({
               )}
             </div>
             {nameCheck.error && (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-warning">
                 {nameCheck.error}. {t("players.nameWarningSuffix")}
               </p>
             )}
@@ -172,7 +172,7 @@ export function AddPlayerSheet({
                 id="player-email"
                 placeholder={t("players.emailPlaceholder")}
                 value={email}
-                className={emailCheck.error ? "border-red-500 focus-visible:ring-red-500" : ""}
+                className={emailCheck.error ? "border-destructive focus-visible:ring-destructive" : ""}
                 onChange={(e) => setEmail(e.target.value)}
               />
               {emailCheck.checking && (
@@ -180,7 +180,7 @@ export function AddPlayerSheet({
               )}
             </div>
             {emailCheck.error && (
-              <p className="text-sm text-red-500">{emailCheck.error}</p>
+              <p className="text-sm text-destructive">{emailCheck.error}</p>
             )}
           </div>
 

@@ -28,7 +28,9 @@
       "yourUpcomingLessons": "As tuas próximas aulas",
       "invitesToConfirm": "Convites por confirmar",
       "noPendingInvites": "Sem convites pendentes",
-      "missingSeats": "Faltam {{count}}"
+      "missingSeats": "Faltam {{count}}",
+      "seatsFilled": "{{filled}} de {{total}} confirmados",
+      "nothingHereYet": "Ainda não há nada aqui."
     },
     "activity": {
       "title": "Atividade de notificações"
@@ -48,6 +50,66 @@
       "confirmed": "Confirmado",
       "expired": "Expirado",
       "queued": "Em fila"
+    },
+    "addParticipants": "Adicionar participantes",
+    "messagesOverviewAria": "Resumo de mensagens",
+    "conversationsToReplyCount_one": "{{count}} conversa por responder",
+    "conversationsToReplyCount_other": "{{count}} conversas por responder",
+    "greeting": {
+      "morning": "Bom dia, {{name}}",
+      "afternoon": "Boa tarde, {{name}}",
+      "evening": "Boa noite, {{name}}"
+    },
+    "thingsNeedYou_one": "{{count}} coisa precisa de ti",
+    "thingsNeedYou_other": "{{count}} coisas precisam de ti",
+    "today": "Hoje",
+    "newClass": "Nova aula",
+    "hero": {
+      "upNext": "A SEGUIR · {{time}}",
+      "nextClass": "PRÓXIMA AULA · {{weekday}}",
+      "startsIn": "daqui a {{minutes}} min",
+      "open": "Abrir"
+    },
+    "needsYou": {
+      "eyebrow": "PRECISA DE TI · {{count}}",
+      "empty": "Não tens nada pendente.",
+      "later": "Mais tarde",
+      "emptySeats": {
+        "title_one": "{{class}} tem {{count}} vaga livre",
+        "title_other": "{{class}} tem {{count}} vagas livres",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
+        "invite_one": "Convidar {{count}} jogador",
+        "invite_other": "Convidar {{count}} jogadores"
+      },
+      "reply": {
+        "title": "{{name}} respondeu",
+        "open": "Abrir"
+      },
+      "validation": {
+        "title_one": "{{count}} presença para validar",
+        "title_other": "{{count}} presenças para validar",
+        "detail_one": "De {{count}} aula na semana passada",
+        "detail_other": "De {{count}} aulas na semana passada",
+        "review": "Rever"
+      }
+    },
+    "schedule": {
+      "eyebrow_one": "PRÓXIMOS 7 DIAS · {{count}} AULA",
+      "eyebrow_other": "PRÓXIMOS 7 DIAS · {{count}} AULAS",
+      "calendar": "Calendário",
+      "none": "Sem aulas nos próximos 7 dias.",
+      "full": "Cheia",
+      "empty": "Vazia",
+      "seats_one": "{{count}} vaga",
+      "seats_other": "{{count}} vagas",
+      "invite": "Convidar"
+    },
+    "pulse": {
+      "eyebrow": "ESTA SEMANA",
+      "seatsFilled": "Vagas preenchidas",
+      "seatsFilledSub": "{{filled}} de {{total}}",
+      "activePlayers": "Jogadores ativos",
+      "activePlayersSub": "de {{total}} · {{idle}} inativos"
     }
   }
 }

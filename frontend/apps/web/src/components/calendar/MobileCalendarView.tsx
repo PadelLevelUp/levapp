@@ -3,11 +3,20 @@ import { format, isSameDay, isToday, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
-import type { CalendarEvent } from "@/types";
+import type { CalendarEvent, CoachLevel } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
+import {
+  contrastTextOn,
+  fadeColor,
+  findNextEventId,
+  hasOpenSpots,
+  resolveEventState,
+} from "@levelup/config";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MobileCalendarViewProps {
+  /** Coach levels, for the block's level chip. */
+  levels?: CoachLevel[];
   weekDays: Date[];
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
@@ -17,6 +26,7 @@ interface MobileCalendarViewProps {
 export function MobileCalendarView({
   weekDays,
   events,
+  levels = [],
   onEventClick,
   onDaySelect,
 }: MobileCalendarViewProps) {
@@ -58,9 +68,31 @@ export function MobileCalendarView({
     return getEventsForDay(selectedDay);
   }, [events, selectedDay]);
 
+  // "Next" is a property of the whole set, not of one card — and it only means
+  // anything while you are looking at today. Paging to a future day would
+  // otherwise mark that day's first class as "next".
+  const levelCodeById = useMemo(
+    () => new Map(levels.map((l) => [String(l.id), l.code])),
+    [levels]
+  );
+
+  // Same gate as the desktop grid: the next class shows whenever the visible
+  // WEEK contains today. Requiring the SELECTED DAY to be today meant tapping
+  // the day the next class actually falls on showed nothing.
+  const nextEventId = useMemo(
+    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    [events, weekDays]
+  );
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 border-b border-border overflow-hidden">
+      {/* SPLIT VIEW: the week's classes across the top, the selected day's
+          detail underneath. Each day column shows its classes as small chips
+          in start-time order, tinted with the class's own colour and ringed
+          when it still has seats — so a day that needs work is visible before
+          you tap into it. An earlier cut replaced these with bare dots, which
+          lost the titles PAD-27 deliberately put here. */}
+      <div className="flex-1 min-h-0 border-b border-border overflow-hidden">
         <div className="grid grid-cols-7 h-full">
           {weekDays.map((day) => {
             const dayEvents = getEventsForDay(day);
@@ -72,19 +104,19 @@ export function MobileCalendarView({
                 key={day.toISOString()}
                 onClick={() => { setSelectedDay(day); onDaySelect?.(day); }}
                 className={cn(
-                  "flex flex-col p-1 border-r border-border last:border-r-0 transition-colors",
-                  isSelected && "bg-primary/10",
+                  "flex flex-col min-h-0 p-1 border-r border-border last:border-r-0 transition-colors",
+                  isSelected && "bg-secondary",
                   !isSelected && "hover:bg-muted/50"
                 )}
                 type="button"
               >
-                <div className="text-center mb-1">
+                <div className="text-center mb-1 shrink-0">
                   <p className="text-[10px] text-muted-foreground uppercase">
                     {format(day, "EEE", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   <p
                     className={cn(
-                      "text-sm font-medium w-7 h-7 mx-auto flex items-center justify-center rounded-full",
+                      "text-sm font-semibold w-7 h-7 mx-auto flex items-center justify-center rounded-full tabular-nums",
                       dayIsToday && "bg-primary text-primary-foreground",
                       isSelected && !dayIsToday && "bg-primary/20"
                     )}
@@ -93,40 +125,52 @@ export function MobileCalendarView({
                   </p>
                 </div>
 
-                <ScrollArea className="flex-1">
-                  <div className="flex flex-col gap-1 px-0.5">
-                    {dayEvents.slice(0, 4).map((event) => {
-                      const isBlock =
-                        (event as any).type === "block" ||
-                        (event as any).isBlock === true;
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-0.5">
+                  {dayEvents.slice(0, 4).map((event) => {
+                    const isBlockEvent = event.type === "block";
+                    const past = resolveEventState(event) === "past";
+                    const holes = !past && hasOpenSpots(event);
+                    const tint = event.color;
 
-                      return (
-                        <div
-                          key={String(event.id)}
-                          className="px-1.5 py-1.5 rounded text-[9px] leading-tight line-clamp-3 min-h-[32px]"
-                          style={{
-                            backgroundColor:
-                              event.color ||
-                              (isBlock
-                                ? "hsl(var(--muted))"
-                                : "hsl(var(--primary))"),
-                            color: isBlock
-                              ? "hsl(var(--muted-foreground))"
-                              : "white",
-                          }}
-                          title={event.title}
-                        >
-                          {event.title}
-                        </div>
-                      );
-                    })}
-                    {dayEvents.length > 4 && (
-                      <p className="text-[9px] text-muted-foreground text-center">
-                        +{dayEvents.length - 4}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
+                    return (
+                      <span
+                        key={String(event.id)}
+                        title={event.title}
+                        data-testid="day-fill-dot"
+                        data-event-title={event.title}
+                        data-has-holes={holes ? "true" : "false"}
+                        className={cn(
+                          // Matches the block the previous version used:
+                          // room for three wrapped lines and a 32px floor, so
+                          // a title reads instead of truncating to "E2E R…".
+                          "block w-full rounded px-1.5 py-1.5 text-[9px] font-medium leading-tight line-clamp-3 min-h-[32px]",
+                          isBlockEvent && "bg-muted text-muted-foreground",
+                          past && "opacity-45",
+                        )}
+                        style={
+                          isBlockEvent
+                            ? undefined
+                            : {
+                                backgroundColor: past ? fadeColor(tint) : (tint ?? "hsl(var(--primary))"),
+                                // Never assume white: the coach picks the hue.
+                                color: past
+                                  ? "hsl(var(--muted-foreground))"
+                                  : tint
+                                    ? contrastTextOn(tint)
+                                    : "hsl(var(--primary-foreground))",
+                              }
+                        }
+                      >
+                        {event.title}
+                      </span>
+                    );
+                  })}
+                  {dayEvents.length > 4 && (
+                    <span className="text-[9px] leading-none text-muted-foreground">
+                      +{dayEvents.length - 4}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -163,7 +207,16 @@ export function MobileCalendarView({
                     }
                   }}
                 >
-                  <CalendarEventCard event={event} />
+                  <CalendarEventCard
+                    event={event}
+                    isNext={event.id === nextEventId}
+                    levelCode={
+                      event.levelId !== undefined
+                        ? levelCodeById.get(String(event.levelId))
+                        : undefined
+                    }
+                    variant="row"
+                  />
                 </div>
               ))
             )}

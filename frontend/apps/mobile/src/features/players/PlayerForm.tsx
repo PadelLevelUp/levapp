@@ -50,10 +50,10 @@ interface PlayerFormProps {
   inviting?: boolean;
 }
 
-const SIDE_OPTIONS: { value: PlayerSide; label: string }[] = [
-  { value: "left", label: "Left" },
-  { value: "right", label: "Right" },
-  { value: "both", label: "Both" },
+const SIDE_OPTIONS: { value: PlayerSide; labelKey: string }[] = [
+  { value: "left", labelKey: "players.sideLeft" },
+  { value: "right", labelKey: "players.sideRight" },
+  { value: "both", labelKey: "players.sideBoth" },
 ];
 
 /**
@@ -96,9 +96,16 @@ export function PlayerForm({
   const initialSide = SIDE_OPTIONS.find(
     (o) => o.value === initialValues?.side
   );
-  const [sideOption, setSideOption] = React.useState<Option>(
-    initialSide ? { ...initialSide } : undefined
+  const [side, setSide] = React.useState<PlayerSide | undefined>(
+    initialSide?.value
   );
+  // Derived, not stored: keeping the stable side value in state means the
+  // visible label re-translates on a language switch.
+  const sideOptions = React.useMemo(
+    () => SIDE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t]
+  );
+  const sideOption: Option = sideOptions.find((o) => o.value === side);
 
   // Availability checks run only when the value differs from the initial one,
   // so editing a player never flags their own current email/name.
@@ -131,11 +138,12 @@ export function PlayerForm({
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       levelId: levelOption?.value || undefined,
-      side: (sideOption?.value as PlayerSide) || undefined,
+      side: side || undefined,
       notes: notes.trim() || undefined,
     });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Invalid form");
+      const raw = parsed.error.issues[0]?.message ?? "players.invalidForm";
+      setFormError(t(raw, { defaultValue: raw }));
       return null;
     }
     if (hasFieldError) {
@@ -148,7 +156,7 @@ export function PlayerForm({
       email: email.trim(),
       phone: phone.trim(),
       levelId: levelOption?.value || undefined,
-      side: (sideOption?.value as PlayerSide) || undefined,
+      side: side || undefined,
       notes: notes.trim() || undefined,
     };
   };
@@ -167,12 +175,12 @@ export function PlayerForm({
   return (
     <View className="gap-5">
       <View className="gap-2">
-        <Label>Name</Label>
+        <Label>{t("players.name")}</Label>
         <View className="relative">
           <Input
             testID="player-name"
-            accessibilityLabel="Player name"
-            placeholder="e.g. John Doe"
+            accessibilityLabel={t("players.playerNamePlaceholder")}
+            placeholder={t("players.namePlaceholder")}
             value={name}
             onChangeText={setName}
             className={nameCheck.error ? "border-warning" : undefined}
@@ -192,12 +200,12 @@ export function PlayerForm({
       </View>
 
       <View className="gap-2">
-        <Label>Email (optional)</Label>
+        <Label>{t("players.emailOptional")}</Label>
         <View className="relative">
           <Input
             testID="player-email"
-            accessibilityLabel="Player email"
-            placeholder="e.g. john@email.com"
+            accessibilityLabel={t("players.playerEmailAria")}
+            placeholder={t("players.emailPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -217,11 +225,11 @@ export function PlayerForm({
       </View>
 
       <View className="gap-2">
-        <Label>Phone (optional)</Label>
+        <Label>{t("players.phoneOptional")}</Label>
         <Input
           testID="player-phone"
-          accessibilityLabel="Player phone"
-          placeholder="e.g. +351 9xx xxx xxx"
+          accessibilityLabel={t("players.playerPhoneAria")}
+          placeholder={t("players.phonePlaceholder")}
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
@@ -229,13 +237,13 @@ export function PlayerForm({
       </View>
 
       <View className="gap-2">
-        <Label>Level (optional)</Label>
+        <Label>{t("players.levelOptional")}</Label>
         <Select value={levelOption} onValueChange={setLevelOption}>
           <SelectTrigger
             testID="player-level-select"
-            accessibilityLabel="Select level"
+            accessibilityLabel={t("players.selectLevel")}
           >
-            <SelectValue placeholder="Select level" />
+            <SelectValue placeholder={t("players.selectLevel")} />
           </SelectTrigger>
           <SelectContent>
             {levels.map((lvl) => (
@@ -249,22 +257,25 @@ export function PlayerForm({
         </Select>
         {levels.length === 0 ? (
           <Text className="text-sm text-muted-foreground">
-            No levels defined yet — create levels in Settings to assign one.
+            {t("players.noLevelsSelectHint")}
           </Text>
         ) : null}
       </View>
 
       <View className="gap-2">
-        <Label>Side (optional)</Label>
-        <Select value={sideOption} onValueChange={setSideOption}>
+        <Label>{t("players.sideOptional")}</Label>
+        <Select
+          value={sideOption}
+          onValueChange={(opt) => setSide(opt?.value as PlayerSide | undefined)}
+        >
           <SelectTrigger
             testID="player-side-select"
-            accessibilityLabel="Select side"
+            accessibilityLabel={t("players.selectSide")}
           >
-            <SelectValue placeholder="Select side" />
+            <SelectValue placeholder={t("players.selectSide")} />
           </SelectTrigger>
           <SelectContent>
-            {SIDE_OPTIONS.map((opt) => (
+            {sideOptions.map((opt) => (
               <SelectItem key={opt.value} value={opt.value} label={opt.label} />
             ))}
           </SelectContent>
@@ -275,7 +286,7 @@ export function PlayerForm({
         <Label>{t("players.notesOptional")}</Label>
         <Textarea
           testID="player-notes"
-          accessibilityLabel="Player notes"
+          accessibilityLabel={t("players.playerNotesAria")}
           placeholder={t("players.notesPlaceholder")}
           value={notes}
           onChangeText={setNotes}
@@ -313,11 +324,11 @@ export function PlayerForm({
         {onCancel ? (
           <Button
             variant="outline"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t("common.cancel")}
             disabled={saving}
             onPress={onCancel}
           >
-            <Text>Cancel</Text>
+            <Text>{t("common.cancel")}</Text>
           </Button>
         ) : null}
       </View>

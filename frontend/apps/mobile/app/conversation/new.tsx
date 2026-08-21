@@ -5,6 +5,7 @@ import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
@@ -19,13 +20,13 @@ import { initialsOf, normalizeId } from "@/features/messages/utils";
 const HEADER_OPTIONS = {
   headerShown: true,
   headerBackButtonDisplayMode: "minimal" as const,
-  title: "New conversation",
   headerStyle: { backgroundColor: lightTheme.sidebarBackground },
   headerTintColor: lightTheme.sidebarForeground,
   headerTitleStyle: { fontWeight: "700" as const },
 };
 
 export default function NewConversationScreen() {
+  const { t } = useTranslation();
   const { user: me } = useAuth();
   const queryClient = useQueryClient();
   const { data: users, isLoading, isError, refetch } = useMessageableUsers();
@@ -67,12 +68,14 @@ export default function NewConversationScreen() {
 
   return (
     <View className="flex-1 bg-background" testID="screen-new-conversation">
-      <Stack.Screen options={HEADER_OPTIONS} />
+      <Stack.Screen
+        options={{ ...HEADER_OPTIONS, title: t("messages.newConversation") }}
+      />
 
       <View className="border-b border-border p-3">
         <Input
-          accessibilityLabel="Search people"
-          placeholder="Search people…"
+          accessibilityLabel={t("messages.searchPeopleAria")}
+          placeholder={t("messages.searchPeoplePlaceholder")}
           value={search}
           onChangeText={setSearch}
         />
@@ -92,14 +95,14 @@ export default function NewConversationScreen() {
         </View>
       ) : isError ? (
         <ErrorState
-          message="Could not load people."
+          message={t("messages.couldNotLoadPeople")}
           onRetry={() => void refetch()}
         />
       ) : candidates.length === 0 ? (
         <EmptyState
           icon="people-outline"
-          title="No people found"
-          message={search ? "Try a different search." : undefined}
+          title={t("messages.noPeopleFound")}
+          message={search ? t("messages.tryDifferentSearch") : undefined}
         />
       ) : (
         <FlatList
@@ -108,7 +111,9 @@ export default function NewConversationScreen() {
           renderItem={({ item }) => (
             <Pressable
               testID={`user-item-${item.id}`}
-              accessibilityLabel={`Start conversation with ${item.name}`}
+              accessibilityLabel={t("messages.startConversationWithAria", {
+                name: item.name,
+              })}
               role="button"
               disabled={!!creatingId}
               onPress={() => void handlePick(item)}

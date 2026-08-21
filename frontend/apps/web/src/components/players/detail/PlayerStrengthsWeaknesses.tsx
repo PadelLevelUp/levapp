@@ -69,7 +69,7 @@ export function PlayerStrengthsWeaknesses({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <ThumbsUp className="h-4 w-4 text-green-600" />
+              <ThumbsUp className="h-4 w-4 text-muted-foreground" />
               {t("players.strengths")}
             </CardTitle>
           </CardHeader>
@@ -80,7 +80,7 @@ export function PlayerStrengthsWeaknesses({
               <ul className="space-y-2">
                 {strengths.map((s, i) => (
                   <li key={i} className="text-sm flex items-start gap-2 group">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
                     <span className="flex-1">{s.text}</span>
                     {editing && (
                       <button
@@ -116,7 +116,7 @@ export function PlayerStrengthsWeaknesses({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <ThumbsDown className="h-4 w-4 text-orange-500" />
+              <ThumbsDown className="h-4 w-4 text-muted-foreground" />
               {t("players.weaknesses")}
             </CardTitle>
           </CardHeader>
@@ -127,7 +127,7 @@ export function PlayerStrengthsWeaknesses({
               <ul className="space-y-2">
                 {weaknesses.map((w, i) => (
                   <li key={i} className="text-sm flex items-start gap-2 group">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
                     <span className="flex-1">{w.text}</span>
                     {editing && (
                       <button

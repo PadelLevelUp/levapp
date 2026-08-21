@@ -2,6 +2,7 @@ import { getApi } from "@levelup/api";
 import { loginSchema } from "@levelup/validation";
 import { router } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,6 +27,7 @@ import { Text } from "@/components/ui/text";
 type FieldErrors = { username?: string; password?: string };
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -67,10 +70,10 @@ export default function LoginScreen() {
         err?.response?.data?.message ??
         err?.response?.data?.error ??
         (!err?.response
-          ? "Could not connect to the server. Check your connection."
+          ? t("auth.login.networkError")
           : err.response.status === 401
-            ? "Invalid username or password."
-            : "Could not sign in. Please try again.");
+            ? t("auth.login.failedDescription")
+            : t("auth.login.genericError"));
       setFormError(message);
     } finally {
       setLoading(false);
@@ -88,32 +91,48 @@ export default function LoginScreen() {
         keyboardDismissMode="on-drag"
       >
         <View className="mb-8 items-center">
-          <Text
-            className="text-4xl font-bold text-sidebar-foreground"
-            testID="login-brand"
-          >
-            Level<Text className="text-4xl font-bold text-primary">Up</Text>
-          </Text>
+          {/* The mark, not a hand-typed wordmark. This screen still spelled
+              "LevelUp" in live text with a hardcoded blue split — it predates
+              the rebrand and was the only place the old name survived on a
+              screen a user actually sees. */}
+          <View className="mb-3 flex-row items-center gap-3" testID="login-brand">
+            {/* The mark is sized to the wordmark's CAP HEIGHT, not to its line
+                box: Poppins caps are ~0.70em, so a 36px type size gives ~25px
+                of cap. Matching the mark to that, with a 1px optical nudge for
+                the A's pointed apex, seats the two on the same visual line —
+                `items-center` alone only centres their bounding boxes, which
+                is what made it look off. */}
+            <LevAppMark size={30} />
+            <Text
+              className="font-display text-sidebar-foreground"
+              style={{ fontSize: 36, lineHeight: 40 }}
+            >
+              Lev
+              <Text className="font-display text-primary" style={{ fontSize: 36, lineHeight: 40 }}>
+                App
+              </Text>
+            </Text>
+          </View>
           <Text className="mt-1 text-sm text-sidebar-foreground opacity-70">
-            Padel coaching platform
+            {t("auth.login.tagline")}
           </Text>
         </View>
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-center">Sign In</CardTitle>
+            <CardTitle className="text-center">{t("auth.login.title")}</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access the platform
+              {t("auth.login.description")}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="gap-4">
             <View className="gap-1.5">
-              <Label testID="login-username-label">Username</Label>
+              <Label testID="login-username-label">{t("auth.login.username")}</Label>
               <Input
                 testID="login-username"
-                accessibilityLabel="Username"
-                placeholder="Enter your username"
+                accessibilityLabel={t("auth.login.username")}
+                placeholder={t("auth.login.usernameInputPlaceholder")}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="username"
@@ -132,11 +151,11 @@ export default function LoginScreen() {
             </View>
 
             <View className="gap-1.5">
-              <Label testID="login-password-label">Password</Label>
+              <Label testID="login-password-label">{t("auth.login.password")}</Label>
               <Input
                 testID="login-password"
-                accessibilityLabel="Password"
-                placeholder="Enter your password"
+                accessibilityLabel={t("auth.login.password")}
+                placeholder={t("auth.login.passwordInputPlaceholder")}
                 secureTextEntry
                 autoCapitalize="none"
                 autoComplete="password"
@@ -165,14 +184,14 @@ export default function LoginScreen() {
 
             <Button
               testID="login-submit"
-              accessibilityLabel="Sign in"
+              accessibilityLabel={t("auth.login.signIn")}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text>Sign In</Text>
+                <Text>{t("auth.login.signIn")}</Text>
               )}
             </Button>
           </CardContent>

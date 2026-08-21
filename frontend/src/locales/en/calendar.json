@@ -9,12 +9,16 @@
     },
     "eventCard": {
       "canceled": "Canceled",
-      "completed": "Completed"
+      "completed": "Completed",
+      "fallbackTitle": "Class",
+      "fallbackEvent": "Event"
     },
     "mobile": {
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
-      "noClassesScheduled": "No classes scheduled"
+      "noClassesScheduled": "No classes scheduled",
+      "noClasses": "No classes",
+      "loadFailed": "Could not load the calendar."
     },
     "addClass": {
       "title": "New class",
@@ -282,6 +286,14 @@
       "cancel": "Cancel",
       "blocked_one": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
       "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
+    },
+    "legend": {
+      "next": "Next class",
+      "openSpots": "Spots to fill",
+      "full": "Full / upcoming",
+      "done": "Finished",
+      "event": "Event / not a class",
+      "fill": "Confirmed / awaiting / free"
     }
   }
 }

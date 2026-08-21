@@ -93,7 +93,7 @@ export function CoachLevelsSection() {
       setDrafts((prev) => prev.filter((l) => l.id !== draft.id));
       void queryClient.invalidateQueries({ queryKey: queryKeys.coachLevels });
     } catch {
-      setStatus("Failed to delete level.");
+      setStatus(t("settings.coachLevels.deleteFailed"));
     } finally {
       setRemovingId(null);
     }
@@ -101,7 +101,7 @@ export function CoachLevelsSection() {
 
   const handleSave = async () => {
     if (drafts.some((l) => !l.code.trim() || !l.label.trim())) {
-      setStatus("All levels need a code and a label.");
+      setStatus(t("settings.coachLevels.validationErrorDescription"));
       return;
     }
     setSaving(true);
@@ -115,9 +115,9 @@ export function CoachLevelsSection() {
         }))
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.coachLevels });
-      setStatus("Levels saved.");
+      setStatus(t("settings.coachLevels.saved", { count: drafts.length }));
     } catch {
-      setStatus("Failed to save levels.");
+      setStatus(t("settings.coachLevels.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -126,9 +126,9 @@ export function CoachLevelsSection() {
   return (
     <Card testID="settings-levels">
       <CardHeader>
-        <CardTitle>Skill levels</CardTitle>
+        <CardTitle>{t("settings.coachLevels.title")}</CardTitle>
         <CardDescription>
-          Define the levels used to classify your players and exercises.
+          {t("settings.mobile.coachLevelsDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent className="gap-3">
@@ -145,15 +145,15 @@ export function CoachLevelsSection() {
               return (
                 <View key={draft.id} className="flex-row items-center gap-2">
                   <Input
-                    accessibilityLabel="Level code"
-                    placeholder="Code"
+                    accessibilityLabel={t("settings.coachLevels.code")}
+                    placeholder={t("settings.coachLevels.codePlaceholder")}
                     className="w-20"
                     value={draft.code}
                     onChangeText={(v) => handleChange(draft.id, "code", v)}
                   />
                   <Input
-                    accessibilityLabel="Level label"
-                    placeholder="Label"
+                    accessibilityLabel={t("settings.coachLevels.label")}
+                    placeholder={t("settings.coachLevels.labelPlaceholder")}
                     className="flex-1"
                     value={draft.label}
                     onChangeText={(v) => handleChange(draft.id, "label", v)}
@@ -218,7 +218,7 @@ export function CoachLevelsSection() {
                   <View className="gap-0.5">
                     <Pressable
                       testID={`level-move-up-${index}`}
-                      accessibilityLabel="Move level up"
+                      accessibilityLabel={t("settings.mobile.moveLevelUp")}
                       role="button"
                       disabled={isFirst}
                       onPress={() => handleMove(index, -1)}
@@ -239,7 +239,7 @@ export function CoachLevelsSection() {
                     </Pressable>
                     <Pressable
                       testID={`level-move-down-${index}`}
-                      accessibilityLabel="Move level down"
+                      accessibilityLabel={t("settings.mobile.moveLevelDown")}
                       role="button"
                       disabled={isLast}
                       onPress={() => handleMove(index, 1)}
@@ -260,7 +260,9 @@ export function CoachLevelsSection() {
                     </Pressable>
                   </View>
                   <Pressable
-                    accessibilityLabel={`Remove level ${draft.label || draft.code || "new"}`}
+                    accessibilityLabel={t("settings.mobile.removeLevel", {
+                      name: draft.label || draft.code || "",
+                    })}
                     role="button"
                     disabled={removingId === draft.id}
                     onPress={() => void handleRemove(draft)}
@@ -285,19 +287,23 @@ export function CoachLevelsSection() {
                 variant="outline"
                 size="sm"
                 testID="settings-levels-add"
-                accessibilityLabel="Add level"
+                accessibilityLabel={t("settings.coachLevels.addLevel")}
                 onPress={handleAdd}
               >
-                <Text>Add level</Text>
+                <Text>{t("settings.coachLevels.addLevel")}</Text>
               </Button>
               <Button
                 size="sm"
                 testID="settings-levels-save"
-                accessibilityLabel="Save levels"
+                accessibilityLabel={t("settings.coachLevels.saveLevels")}
                 disabled={saving || drafts.length === 0}
                 onPress={() => void handleSave()}
               >
-                <Text>{saving ? "Saving…" : "Save levels"}</Text>
+                <Text>
+                  {saving
+                    ? t("settings.coachLevels.saving")
+                    : t("settings.coachLevels.saveLevels")}
+                </Text>
               </Button>
             </View>
           </>

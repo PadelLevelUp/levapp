@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
@@ -26,10 +27,10 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 25;
 
 const SORT_OPTIONS = [
-  { value: "name-asc", label: "Name A–Z" },
-  { value: "name-desc", label: "Name Z–A" },
-  { value: "level-asc", label: "Level (asc)" },
-  { value: "level-desc", label: "Level (desc)" },
+  { value: "name-asc", labelKey: "players.sortNameAsc" },
+  { value: "name-desc", labelKey: "players.sortNameDesc" },
+  { value: "level-asc", labelKey: "players.sortLevelAsc" },
+  { value: "level-desc", labelKey: "players.sortLevelDesc" },
 ] as const;
 
 type SortValue = (typeof SORT_OPTIONS)[number]["value"];
@@ -53,14 +54,20 @@ function getInitials(name: string) {
 }
 
 export default function PlayersScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
-  const [sortOption, setSortOption] = React.useState<Option>({
-    value: "name-asc",
-    label: "Name A–Z",
-  });
+  const [sortValue, setSortValue] = React.useState<SortValue>("name-asc");
+  // Derived, not stored: state holds the stable value so the visible label
+  // re-translates on a language switch instead of freezing in the old one.
+  const sortOptions = React.useMemo(
+    () => SORT_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t]
+  );
+  const sortOption: Option =
+    sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
   const [missingLevelFilter, setMissingLevelFilter] = React.useState(false);
   const [missingSideFilter, setMissingSideFilter] = React.useState(false);
 
@@ -73,9 +80,7 @@ export default function PlayersScreen() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { sortBy, sortDir } = parseSort(
-    (sortOption?.value as SortValue) ?? "name-asc"
-  );
+  const { sortBy, sortDir } = parseSort(sortValue);
 
   const { data, isPending, isError, refetch } = useCoachPlayersPaginated({
     page,
@@ -94,7 +99,7 @@ export default function PlayersScreen() {
   const hasActiveFilter = missingLevelFilter || missingSideFilter;
 
   const handleSortChange = (option: Option) => {
-    setSortOption(option);
+    if (option?.value) setSortValue(option.value as SortValue);
     setPage(1);
   };
 
@@ -119,13 +124,13 @@ export default function PlayersScreen() {
   const renderPlayer = ({ item }: { item: CoachPlayer }) => (
     <Pressable
       testID={`player-card-${item.playerId}`}
-      accessibilityLabel={`Open player ${item.name}`}
+      accessibilityLabel={t("players.openPlayerAria", { name: item.name })}
       role="button"
       onPress={() => router.push(`/player/${item.playerId}`)}
       className="mb-3 rounded-lg border border-border bg-card p-4 active:bg-accent"
     >
       <View className="flex-row items-center gap-3">
-        <Avatar alt={item.name || "Player"} className="h-12 w-12">
+        <Avatar alt={item.name || t("players.defaultPlayerName")} className="h-12 w-12">
           <AvatarFallback>
             <Text className="text-primary">
               {getInitials(item.name || "")}
@@ -169,7 +174,7 @@ export default function PlayersScreen() {
     if (isError) {
       return (
         <ErrorState
-          message="Could not load your players."
+          message={t("players.couldNotLoad")}
           onRetry={() => refetch()}
         />
       );
@@ -178,11 +183,11 @@ export default function PlayersScreen() {
       return (
         <EmptyState
           icon="people-outline"
-          title="No players found"
+          title={t("players.noPlayersFound")}
           message={
             debouncedSearch || hasActiveFilter
-              ? "Try adjusting your search or filters."
-              : "Add your first player to get started."
+              ? t("players.tryAdjustingFilters")
+              : t("players.addFirstPlayer")
           }
         />
       );
@@ -205,8 +210,8 @@ export default function PlayersScreen() {
         <View className="flex-row items-center gap-2">
           <Input
             testID="players-search"
-            accessibilityLabel="Search players"
-            placeholder="Search players..."
+            accessibilityLabel={t("players.searchAriaLabel")}
+            placeholder={t("players.searchPlaceholder")}
             value={search}
             onChangeText={setSearch}
             autoCapitalize="none"
@@ -217,7 +222,7 @@ export default function PlayersScreen() {
           <Button
             size="icon"
             testID="players-add"
-            accessibilityLabel="Add player"
+            accessibilityLabel={t("players.addPlayer")}
             onPress={() => router.push("/player/new")}
           >
             <Ionicons
@@ -231,12 +236,12 @@ export default function PlayersScreen() {
         <Select value={sortOption} onValueChange={handleSortChange}>
           <SelectTrigger
             testID="players-sort"
-            accessibilityLabel="Sort players"
+            accessibilityLabel={t("players.sortAriaLabel")}
           >
-            <SelectValue placeholder="Sort" />
+            <SelectValue placeholder={t("players.sortShortPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            {SORT_OPTIONS.map((opt) => (
+            {sortOptions.map((opt) => (
               <SelectItem key={opt.value} value={opt.value} label={opt.label} />
             ))}
           </SelectContent>
@@ -246,7 +251,7 @@ export default function PlayersScreen() {
           <View className="gap-2">
             {alerts.missingLevel > 0 ? (
               <Pressable
-                accessibilityLabel="Filter players without level"
+                accessibilityLabel={t("players.filterMissingLevelAria")}
                 role="button"
                 onPress={toggleMissingLevel}
                 className={cn(
@@ -262,14 +267,13 @@ export default function PlayersScreen() {
                   color={lightTheme.warning}
                 />
                 <Text className="flex-1 text-sm">
-                  {alerts.missingLevel} player
-                  {alerts.missingLevel !== 1 ? "s" : ""} without level defined
+                  {t("players.missingLevelAlert", { count: alerts.missingLevel })}
                 </Text>
               </Pressable>
             ) : null}
             {alerts.missingSide > 0 ? (
               <Pressable
-                accessibilityLabel="Filter players without playing side"
+                accessibilityLabel={t("players.filterMissingSideAria")}
                 role="button"
                 onPress={toggleMissingSide}
                 className={cn(
@@ -285,9 +289,7 @@ export default function PlayersScreen() {
                   color={lightTheme.warning}
                 />
                 <Text className="flex-1 text-sm">
-                  {alerts.missingSide} player
-                  {alerts.missingSide !== 1 ? "s" : ""} without Playing Side
-                  defined
+                  {t("players.missingSideAlert", { count: alerts.missingSide })}
                 </Text>
               </Pressable>
             ) : null}
@@ -298,17 +300,18 @@ export default function PlayersScreen() {
           <View className="flex-row items-center gap-2">
             <Badge variant="secondary">
               <Text>
-                {missingLevelFilter ? "Missing level" : "Missing side"} filter
-                active
+                {missingLevelFilter
+                  ? t("players.missingLevelFilterActive")
+                  : t("players.missingSideFilterActive")}
               </Text>
             </Badge>
             <Button
               variant="ghost"
               size="sm"
-              accessibilityLabel="Clear filter"
+              accessibilityLabel={t("players.clearFilterAriaLabel")}
               onPress={clearFilters}
             >
-              <Text>Clear filter</Text>
+              <Text>{t("players.clearFilter")}</Text>
             </Button>
           </View>
         ) : null}
@@ -318,28 +321,32 @@ export default function PlayersScreen() {
 
       <View className="flex-row items-center justify-between border-t border-border px-4 py-3">
         <Text className="text-sm text-muted-foreground">
-          Page {page} of {totalPages} • {totalItems} players
+          {t("players.pagination", {
+            current: page,
+            total: totalPages,
+            players: totalItems,
+          })}
         </Text>
         <View className="flex-row gap-2">
           <Button
             variant="outline"
             size="sm"
             testID="players-prev-page"
-            accessibilityLabel="Previous page"
+            accessibilityLabel={t("ui.pagination.goToPrevious")}
             disabled={page <= 1}
             onPress={() => setPage((p) => Math.max(1, p - 1))}
           >
-            <Text>Previous</Text>
+            <Text>{t("common.previous")}</Text>
           </Button>
           <Button
             variant="outline"
             size="sm"
             testID="players-next-page"
-            accessibilityLabel="Next page"
+            accessibilityLabel={t("ui.pagination.goToNext")}
             disabled={page >= totalPages}
             onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
-            <Text>Next</Text>
+            <Text>{t("common.next")}</Text>
           </Button>
         </View>
       </View>

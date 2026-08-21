@@ -62,6 +62,11 @@ type Tool =
   | "movement"
   | "eraser";
 
+// These hues are DIAGRAM CONTENT, not UI status, and are deliberately left
+// outside the semantic palette: telling player 2 from player 3 on a court plan
+// needs four distinguishable colours, and the court is green because courts are
+// green. Mapping them onto success/warning/destructive would make a tactical
+// drawing look like it were reporting errors.
 const TOOLS: { tool: Tool; icon: any; labelKey: string; colorClass?: string }[] = [
   { tool: "select", icon: MousePointer2, labelKey: "training.diagram.tools.select" },
   { tool: "player_1", icon: User, labelKey: "training.diagram.tools.player1", colorClass: "text-blue-500" },

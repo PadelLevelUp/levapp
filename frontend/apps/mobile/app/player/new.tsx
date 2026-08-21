@@ -21,6 +21,7 @@ import { useAddPlayer, useCreateIncompletePlayer } from "@/features/players/hook
 import { PlayerForm, type PlayerFormValues } from "@/features/players/PlayerForm";
 
 export default function NewPlayerScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -47,7 +48,7 @@ export default function NewPlayerScreen() {
       });
       router.back();
     } catch {
-      setError("Failed to create player. Please try again.");
+      setError(t("players.createFailed"));
     }
   };
 
@@ -96,7 +97,7 @@ export default function NewPlayerScreen() {
         <Button
           variant="ghost"
           size="icon"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t("common.goBack")}
           onPress={() => router.back()}
         >
           <Ionicons

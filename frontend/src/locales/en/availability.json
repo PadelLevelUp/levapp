@@ -57,6 +57,27 @@
     "couldNotSaveDescription": "Please try again.",
     "removedToast": "Blocker removed",
     "couldNotRemoveTitle": "Could not remove blocker",
-    "couldNotRemoveDescription": "Please try again."
+    "couldNotRemoveDescription": "Please try again.",
+    "noBlockersTitle": "No blockers yet",
+    "noBlockersMessage": "Add one to stop auto-invitations when you're unavailable.",
+    "couldNotLoadMessage": "Could not load your blockers.",
+    "couldNotSaveMessage": "Could not save blocker. Please try again.",
+    "couldNotRemoveMessage": "Could not remove blocker. Please try again.",
+    "deleteRecurringDescription": "This removes the blocker and all its recurrences. You'll start receiving auto-invitations again during these times.",
+    "deleteSingleDescription": "You'll start receiving auto-invitations again during this time.",
+    "cancelDeleteAria": "Cancel deleting blocker",
+    "confirmDeleteAria": "Confirm delete blocker",
+    "deleting": "Deleting...",
+    "blockerTitleAria": "Blocker title",
+    "saveBlockerAria": "Save blocker",
+    "cancelFormAria": "Cancel blocker form",
+    "toggleDayAria": "Toggle {{day}}",
+    "validation": {
+      "dateFormat": "Date must be in YYYY-MM-DD format",
+      "startTimeFormat": "Start time must be in HH:MM format",
+      "endTimeFormat": "End time must be in HH:MM format",
+      "repeatUntilFormat": "Repeat until must be in YYYY-MM-DD format",
+      "invalidForm": "Invalid form"
+    }
   }
 }

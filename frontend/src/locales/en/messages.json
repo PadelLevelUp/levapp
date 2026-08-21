@@ -75,6 +75,30 @@
       "submitting": "Submitting…",
       "success": "Reported",
       "failed": "Couldn't submit the report. Please try again."
-    }
+    },
+    "conversationWithAria": "Conversation with {{name}}",
+    "startConversationWithAria": "Start conversation with {{name}}",
+    "searchPeopleAria": "Search people",
+    "searchPeoplePlaceholder": "Search people…",
+    "couldNotLoadPeople": "Could not load people.",
+    "noPeopleFound": "No people found",
+    "tryDifferentSearch": "Try a different search.",
+    "searchConversationAria": "Search conversation",
+    "couldNotLoadConversations": "Could not load conversations.",
+    "noConversationsYet": "No conversations yet",
+    "startWithPlusButton": "Start a conversation with the + button.",
+    "couldNotLoadConversation": "Could not load this conversation.",
+    "messageTextAria": "Message text",
+    "sendMessageAria": "Send message",
+    "editMessageTextAria": "Edit message text",
+    "saveEditedMessageAria": "Save edited message",
+    "cancelEditingAria": "Cancel editing",
+    "deleteMessageTitle": "Delete message?",
+    "deleteMessageDescription": "The message will be replaced by a “deleted” placeholder for both participants.",
+    "cancelDeleteAria": "Cancel delete",
+    "confirmDeleteMessageAria": "Confirm delete message",
+    "delete": "Delete",
+    "conversationFallback": "Conversation",
+    "noMessagesSayHi": "No messages yet. Say hi!"
   }
 }

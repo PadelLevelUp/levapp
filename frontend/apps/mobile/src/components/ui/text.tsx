@@ -14,7 +14,10 @@ function Text({ className, asChild = false, ...props }: TextProps) {
   const Component = asChild ? Slot.Text : RNText;
   return (
     <Component
-      className={cn("text-base text-foreground", textClass, className)}
+      // RN Text does not inherit a family, and React 19 removed
+      // Text.defaultProps, so the base face is applied here — this wrapper is
+      // what almost the whole app renders text through.
+      className={cn("font-sans text-base text-foreground", textClass, className)}
       {...props}
     />
   );

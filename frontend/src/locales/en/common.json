@@ -25,6 +25,10 @@
     "none": "None",
     "required": "Required",
     "optional": "Optional",
-    "somethingWentWrong": "Something went wrong. Please try again."
+    "somethingWentWrong": "Something went wrong. Please try again.",
+    "somethingWentWrongTitle": "Something went wrong",
+    "tryAgain": "Try again",
+    "goBack": "Go back",
+    "done": "Done"
   }
 }

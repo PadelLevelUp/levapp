@@ -177,12 +177,14 @@ export function ExercisesTab() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel accessibilityLabel="Cancel delete exercise">
-                <Text>Cancel</Text>
+              <AlertDialogCancel
+                accessibilityLabel={t("training.exercises.cancelDeleteAria")}
+              >
+                <Text>{t("common.cancel")}</Text>
               </AlertDialogCancel>
               <AlertDialogAction
                 testID="exercise-delete-confirm"
-                accessibilityLabel="Confirm delete exercise"
+                accessibilityLabel={t("training.exercises.confirmDeleteAria")}
                 onPress={() =>
                   editing &&
                   deleteMut.mutate(editing.id, {
@@ -191,7 +193,7 @@ export function ExercisesTab() {
                   })
                 }
               >
-                <Text>Delete</Text>
+                <Text>{t("common.delete")}</Text>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -209,13 +211,13 @@ export function ExercisesTab() {
         <Button
           size="sm"
           testID="exercise-add"
-          accessibilityLabel="New exercise"
+          accessibilityLabel={t("training.exercises.newExercise")}
           onPress={() => {
             setEditing(null);
             setFormOpen(true);
           }}
         >
-          <Text>New exercise</Text>
+          <Text>{t("training.exercises.newExercise")}</Text>
         </Button>
       </View>
 
@@ -223,7 +225,7 @@ export function ExercisesTab() {
         <View className="gap-2 pb-3">
           <Input
             testID="exercises-search"
-            accessibilityLabel="Search exercises"
+            accessibilityLabel={t("training.exercises.searchAria")}
             placeholder={t("training.exercises.searchPlaceholder")}
             value={search}
             onChangeText={setSearch}
@@ -236,7 +238,7 @@ export function ExercisesTab() {
             >
               <SelectTrigger
                 testID="exercises-filter-type"
-                accessibilityLabel="Filter by type"
+                accessibilityLabel={t("training.exercises.filterByTypeAria")}
               >
                 <SelectValue placeholder={t("training.exercises.typePlaceholder")} />
               </SelectTrigger>
@@ -246,7 +248,11 @@ export function ExercisesTab() {
                   label={t("training.exercises.allTypes")}
                 />
                 {EXERCISE_TYPE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value} label={o.label} />
+                  <SelectItem
+                    key={o.value}
+                    value={o.value}
+                    label={t(`training.exerciseType.${o.value}`)}
+                  />
                 ))}
               </SelectContent>
             </Select>
@@ -257,7 +263,7 @@ export function ExercisesTab() {
             >
               <SelectTrigger
                 testID="exercises-filter-difficulty"
-                accessibilityLabel="Filter by difficulty"
+                accessibilityLabel={t("training.exercises.filterByDifficultyAria")}
               >
                 <SelectValue
                   placeholder={t("training.exercises.difficultyPlaceholder")}
@@ -272,7 +278,7 @@ export function ExercisesTab() {
                   <SelectItem
                     key={o.value}
                     value={String(o.value)}
-                    label={o.label}
+                    label={t(`training.difficulty.${o.value}`)}
                   />
                 ))}
               </SelectContent>
@@ -285,14 +291,14 @@ export function ExercisesTab() {
         <ListSkeleton />
       ) : isError ? (
         <ErrorState
-          message="Could not load exercises."
+          message={t("training.exercises.couldNotLoad")}
           onRetry={() => void refetch()}
         />
       ) : !exercises || exercises.length === 0 ? (
         <EmptyState
           icon="barbell-outline"
-          title="No exercises yet"
-          message="Create your first exercise to get started."
+          title={t("training.exercises.emptyTitle")}
+          message={t("training.exercises.emptyMessage")}
         />
       ) : filtered.length === 0 ? (
         <EmptyState

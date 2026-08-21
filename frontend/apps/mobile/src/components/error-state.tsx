@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -17,14 +18,19 @@ type ErrorStateProps = React.ComponentProps<typeof View> & {
 
 function ErrorState({
   icon = "alert-circle-outline",
-  title = "Something went wrong",
+  title,
   message,
   onRetry,
-  retryLabel = "Try again",
+  retryLabel,
   className,
   testID = "error-state",
   ...props
 }: ErrorStateProps) {
+  const { t } = useTranslation();
+  // Defaults resolved here rather than in the parameter list so they follow
+  // the active language; every caller passes neither prop today.
+  const resolvedTitle = title ?? t("common.somethingWentWrongTitle");
+  const resolvedRetryLabel = retryLabel ?? t("common.tryAgain");
   return (
     <View
       className={cn("flex-1 items-center justify-center gap-2 p-8", className)}
@@ -32,7 +38,7 @@ function ErrorState({
       {...props}
     >
       <Ionicons name={icon} size={40} color={lightTheme.destructive} />
-      <Text className="text-center text-lg font-semibold">{title}</Text>
+      <Text className="text-center text-lg font-semibold">{resolvedTitle}</Text>
       {message ? (
         <Text className="text-center text-sm text-muted-foreground">
           {message}
@@ -46,7 +52,7 @@ function ErrorState({
           onPress={onRetry}
           testID="error-state-retry"
         >
-          <Text>{retryLabel}</Text>
+          <Text>{resolvedRetryLabel}</Text>
         </Button>
       ) : null}
     </View>

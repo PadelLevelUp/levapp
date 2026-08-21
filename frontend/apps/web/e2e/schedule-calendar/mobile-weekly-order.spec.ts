@@ -104,21 +104,20 @@ test.describe("PAD-27: Mobile weekly view class ordering", () => {
       await page.waitForTimeout(400);
     }
 
-    // Find the day column for April 20 (Monday) — it contains our 3 class titles
-    // The week column preview shows class titles in small divs
-    const mondayColumn = page.locator("button").filter({ hasText: "Early Morning" }).first();
+    // The week strip now renders a FILL DOT per class rather than a stack of
+    // title chips — titles at 9px were unreadable and said nothing actionable,
+    // where a hollow dot says "this class still has holes". The ordering
+    // guarantee PAD-27 exists for is unchanged, so it is asserted on the dots,
+    // which carry their class title for exactly this purpose.
+    const mondayColumn = page
+      .locator("button")
+      .filter({ has: page.locator('[data-event-title="Early Morning"]') })
+      .first();
     await expect(mondayColumn).toBeVisible({ timeout: 5000 });
 
-    // Get the text content of all class cards within this column
-    // Classes should appear in order: "Early Morning" (08:00), "Mid Morning" (10:00), "Afternoon Session" (14:00)
-    const classTexts = await mondayColumn
-      .locator("div[style]")
-      .allTextContents();
-
-    // Filter to just our known class titles (in the order they appear in DOM)
-    const orderedTitles = classTexts.filter((t) =>
-      ["Early Morning", "Mid Morning", "Afternoon Session"].includes(t.trim())
-    );
+    const orderedTitles = await mondayColumn
+      .locator("[data-testid='day-fill-dot']")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-event-title")));
 
     expect(orderedTitles).toEqual([
       "Early Morning",

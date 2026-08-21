@@ -147,7 +147,7 @@ export function CoachLevelsSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header row */}
-        <div className="grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1">
+        <div className="hidden grid-cols-[32px_1fr_auto] sm:grid-cols-[32px_80px_1fr_64px_32px] gap-2 text-xs font-medium text-muted-foreground px-1 sm:grid">
           <span />
           <span>{t("settings.coachLevels.code")}</span>
           <span>{t("settings.coachLevels.label")}</span>
@@ -169,7 +169,7 @@ export function CoachLevelsSection() {
             onDragStart={() => handleDragStart(idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`grid grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
+            className={`flex flex-wrap sm:grid sm:grid-cols-[32px_80px_1fr_64px_32px] gap-2 items-center rounded-lg border p-2 transition-colors ${
               dragIdx === idx ? "bg-muted/50 border-primary/30" : "bg-background"
             }`}
           >
@@ -181,19 +181,34 @@ export function CoachLevelsSection() {
               <GripVertical className="w-4 h-4" />
             </button>
 
-            <Input
-              value={level.code}
-              onChange={(e) => handleChange(level.id, "code", e.target.value)}
-              placeholder={t("settings.coachLevels.codePlaceholder")}
-              className="h-8 text-sm"
-            />
+            {/* Code is short ("I1") but must not be squeezed to nothing; the
+                label is the flexible one. `sm:contents` keeps the desktop grid
+                seeing the Input directly. */}
+            <div className="flex items-center gap-1.5 sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.coachLevels.code")}
+              </span>
+              <Input
+                value={level.code}
+                aria-label={t("settings.coachLevels.code")}
+                onChange={(e) => handleChange(level.id, "code", e.target.value)}
+                placeholder={t("settings.coachLevels.codePlaceholder")}
+                className="h-8 w-16 text-sm sm:w-auto"
+              />
+            </div>
 
-            <Input
-              value={level.label}
-              onChange={(e) => handleChange(level.id, "label", e.target.value)}
-              placeholder={t("settings.coachLevels.labelPlaceholder")}
-              className="h-8 text-sm"
-            />
+            <div className="order-4 flex flex-1 items-center gap-1.5 sm:order-none sm:contents">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                {t("settings.coachLevels.label")}
+              </span>
+              <Input
+                value={level.label}
+                aria-label={t("settings.coachLevels.label")}
+                onChange={(e) => handleChange(level.id, "label", e.target.value)}
+                placeholder={t("settings.coachLevels.labelPlaceholder")}
+                className="h-8 text-sm min-w-[6rem] flex-1"
+              />
+            </div>
 
             {/* PAD-84: the list order carries meaning (position 1 => lowest
                 displayOrder => strongest level, per the notification engine's
@@ -204,7 +219,7 @@ export function CoachLevelsSection() {
                 for screen readers. Markers only make sense with 2+ levels,
                 otherwise the single level would be both ends at once. */}
             {levels.length > 1 && idx === 0 ? (
-              <span className="flex flex-col items-center gap-1">
+              <span className="order-3 flex shrink-0 flex-col items-center gap-1 sm:order-none">
                 <span
                   data-testid="coach-level-highest-marker"
                   className="text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground"
@@ -214,7 +229,7 @@ export function CoachLevelsSection() {
                 <span aria-hidden="true" className="h-2 w-px bg-border" />
               </span>
             ) : levels.length > 1 && idx === levels.length - 1 ? (
-              <span className="flex flex-col items-center">
+              <span className="order-3 flex shrink-0 flex-col items-center sm:order-none">
                 <ChevronDown
                   data-testid="coach-level-direction-arrow"
                   aria-hidden="true"
@@ -236,7 +251,7 @@ export function CoachLevelsSection() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="order-5 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-auto sm:order-none sm:ml-0"
               onClick={() => handleRemove(level.id)}
               disabled={removingId === level.id}
             >
@@ -247,7 +262,7 @@ export function CoachLevelsSection() {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             {t("settings.coachLevels.addLevel")}

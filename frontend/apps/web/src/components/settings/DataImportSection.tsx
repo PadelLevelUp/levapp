@@ -455,7 +455,7 @@ function ImportTableView({
           {duplicateCount > 0 && (
             <Badge
               variant="outline"
-              className="text-xs border-amber-500 text-amber-600"
+              className="text-xs border-warning/40 text-warning"
             >
               {t("settings.import.possibleDuplicate", { count: duplicateCount })}
             </Badge>
@@ -555,7 +555,7 @@ function ImportTableView({
                         {col === "name" && isDuplicateName(row.cells["name"]) && (
                           <Badge
                             variant="outline"
-                            className="text-[10px] whitespace-nowrap border-amber-500 text-amber-600"
+                            className="text-[10px] whitespace-nowrap border-warning/40 text-warning"
                             title={t("settings.import.duplicateTooltip")}
                           >
                             {t("settings.import.possibleDuplicate")}
@@ -616,10 +616,10 @@ function ImportResultsView({
     <div className="space-y-4">
       <Separator />
 
-      <div className="rounded-lg px-4 py-3 flex items-center justify-between bg-green-50 border border-green-200">
+      <div className="rounded-lg px-4 py-3 flex items-center justify-between bg-success/10 border border-success/30">
         <div className="flex items-center gap-2">
-          <Check className="w-4 h-4 text-green-600" />
-          <span className="text-sm font-medium text-green-800">
+          <Check className="w-4 h-4 text-success" />
+          <span className="text-sm font-medium text-success">
             {totalErrors === 0
               ? t("settings.import.allImported", { count: totalImported })
               : t("settings.import.someFailed", { imported: totalImported, failed: totalErrors })}
@@ -648,7 +648,7 @@ function ImportResultsView({
                 </div>
                 <div className="flex items-center gap-2">
                   {result.imported > 0 && (
-                    <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+                    <Badge className="gap-1 text-xs bg-success/10 text-success border-success/30 hover:bg-success/10">
                       <Check className="w-3 h-3" />
                       {t("settings.import.imported", { count: result.imported })}
                     </Badge>
@@ -700,7 +700,7 @@ function ImportResultsView({
                         const row = sentRows[rowIdx];
                         if (!row) return null;
                         return (
-                          <TableRow key={rowIdx} className="bg-red-50/40">
+                          <TableRow key={rowIdx} className="bg-destructive/10">
                             {table.columns.map((col) => (
                               <TableCell key={col} className="text-xs py-1.5">
                                 {row.cells[col] || "—"}

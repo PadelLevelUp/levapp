@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
@@ -32,29 +33,28 @@ import {
   useUpdateBlocker,
 } from "@/features/availability/hooks";
 
-const DAY_LABELS: Record<number, string> = {
-  0: "Sun",
-  1: "Mon",
-  2: "Tue",
-  3: "Wed",
-  4: "Thu",
-  5: "Fri",
-  6: "Sat",
-};
-
-function describeBlocker(b: AvailabilityBlocker): string {
+/** Module-level, so the translator is threaded in rather than hooked. Day
+ * names come from availability.days.<n>, keyed by JS getDay(). */
+function describeBlocker(
+  b: AvailabilityBlocker,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
   const time = `${b.startTime ?? ""}–${b.endTime ?? ""}`;
   if (b.isRecurring && b.recurrenceRule) {
     const days = (b.recurrenceRule.daysOfWeek ?? [])
-      .map((d) => DAY_LABELS[d])
+      .map((d) => t(`availability.days.${d}`))
       .filter(Boolean)
       .join(", ");
-    return `Every ${days || "week"} · ${time}`;
+    return t("availability.everyDays", {
+      days: days || t("availability.everyWeek"),
+      time,
+    });
   }
-  return `${b.date ?? ""} · ${time}`;
+  return t("availability.dateAndTime", { date: b.date ?? "", time });
 }
 
 export default function AvailabilityScreen() {
+  const { t } = useTranslation();
   const { data: blockers, isPending, isError, refetch } =
     useAvailabilityBlockers();
   const createBlocker = useCreateBlocker();
@@ -94,7 +94,7 @@ export default function AvailabilityScreen() {
       setShowForm(false);
       setEditing(null);
     } catch {
-      setError("Could not save blocker. Please try again.");
+      setError(t("availability.couldNotSaveMessage"));
     }
   };
 
@@ -106,7 +106,7 @@ export default function AvailabilityScreen() {
       setPendingDelete(null);
     } catch {
       setPendingDelete(null);
-      setError("Could not remove blocker. Please try again.");
+      setError(t("availability.couldNotRemoveMessage"));
     }
   };
 
@@ -123,7 +123,7 @@ export default function AvailabilityScreen() {
     if (isError) {
       return (
         <ErrorState
-          message="Could not load your blockers."
+          message={t("availability.couldNotLoadMessage")}
           onRetry={() => refetch()}
         />
       );
@@ -133,8 +133,8 @@ export default function AvailabilityScreen() {
       return (
         <EmptyState
           icon="calendar-outline"
-          title="No blockers yet"
-          message="Add one to stop auto-invitations when you're unavailable."
+          title={t("availability.noBlockersTitle")}
+          message={t("availability.noBlockersMessage")}
         />
       );
     }
@@ -149,27 +149,27 @@ export default function AvailabilityScreen() {
             <View className="min-w-0 flex-1 gap-1">
               <View className="flex-row flex-wrap items-center gap-2">
                 <Text className="font-medium" numberOfLines={1}>
-                  {b.title || "Unavailable"}
+                  {b.title || t("availability.unavailable")}
                 </Text>
                 {b.isRecurring ? (
                   <Badge variant="secondary">
-                    <Text>Recurring</Text>
+                    <Text>{t("availability.recurring")}</Text>
                   </Badge>
                 ) : null}
                 <Badge variant="outline">
-                  <Text>{blockerTypeLabel(b.type)}</Text>
+                  <Text>{blockerTypeLabel(b.type, t)}</Text>
                 </Badge>
               </View>
               <Text className="text-sm text-muted-foreground">
-                {describeBlocker(b)}
+                {describeBlocker(b, t)}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                Won't receive auto-invitations during this time.
+                {t("availability.wontReceive")}
               </Text>
             </View>
             <View className="flex-row items-center gap-1">
               <Pressable
-                accessibilityLabel="Edit blocker"
+                accessibilityLabel={t("availability.editBlockerAria")}
                 role="button"
                 hitSlop={8}
                 onPress={() => openEdit(b)}
@@ -183,7 +183,7 @@ export default function AvailabilityScreen() {
               </Pressable>
               <Pressable
                 testID={`blocker-delete-${b.id}`}
-                accessibilityLabel="Delete blocker"
+                accessibilityLabel={t("availability.deleteBlockerAria")}
                 role="button"
                 hitSlop={8}
                 onPress={() => setPendingDelete(b)}
@@ -210,9 +210,7 @@ export default function AvailabilityScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }}
       >
         <Text className="text-sm text-muted-foreground">
-          Set blockers for times you're unavailable. You won't receive
-          automatic class invitations during a blocker. Your coach can still
-          add you to a class manually.
+          {t("availability.intro")}
         </Text>
 
         {showForm ? (
@@ -238,7 +236,7 @@ export default function AvailabilityScreen() {
       {!showForm ? (
         <Pressable
           testID="availability-add"
-          accessibilityLabel="Add blocker"
+          accessibilityLabel={t("availability.addBlocker")}
           role="button"
           onPress={openCreate}
           className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
@@ -255,23 +253,25 @@ export default function AvailabilityScreen() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this blocker?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("availability.deleteBlockerTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDelete?.isRecurring
-                ? "This removes the blocker and all its recurrences. You'll start receiving auto-invitations again during these times."
-                : "You'll start receiving auto-invitations again during this time."}
+                ? t("availability.deleteRecurringDescription")
+                : t("availability.deleteSingleDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              accessibilityLabel="Cancel deleting blocker"
+              accessibilityLabel={t("availability.cancelDeleteAria")}
               disabled={deleteBlocker.isPending}
             >
-              <Text>Cancel</Text>
+              <Text>{t("common.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="blocker-delete-confirm"
-              accessibilityLabel="Confirm delete blocker"
+              accessibilityLabel={t("availability.confirmDeleteAria")}
               className="bg-destructive"
               disabled={deleteBlocker.isPending}
               onPress={handleDelete}
@@ -280,7 +280,9 @@ export default function AvailabilityScreen() {
                 <Spinner size="small" color="white" />
               ) : null}
               <Text className="text-destructive-foreground">
-                {deleteBlocker.isPending ? "Deleting..." : "Delete"}
+                {deleteBlocker.isPending
+                  ? t("availability.deleting")
+                  : t("common.delete")}
               </Text>
             </AlertDialogAction>
           </AlertDialogFooter>

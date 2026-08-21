@@ -92,13 +92,9 @@ const navItems: NavItem[] = [
     // effectively unreachable.
     roles: ["coach", "player"],
   },
-  {
-    icon: Database,
-    labelKey: "nav.editor",
-    path: "/editor",
-    roles: ["coach", "player"],
-    superAdminOnly: true,
-  },
+  // The /editor route still exists and is reachable directly — it is just not
+  // a nav destination. It is a superadmin data browser, not one of the coach's
+  // tools, and it was sitting in the same list as Calendar and Players.
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -175,16 +171,31 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
           sidebarCollapsed ? "w-16" : "w-64"
         )}
       >
-        {/* Logo */}
+        {/* Brand. The sidebar is navy chrome, so both marks are the on-dark
+            variants. The wordmark is outlined type, not live text — it carries
+            its own "Lev"/"App" two-tone and must never be recoloured. */}
         <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">
-                LU
-              </span>
-            </div>
-            {!sidebarCollapsed && (
-              <span className="font-semibold text-lg">LevelUp</span>
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2.5"
+            aria-label="LevApp"
+          >
+            {sidebarCollapsed ? (
+              <img
+                src="/brand/levapp-mark-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-7 w-auto shrink-0"
+              />
+            ) : (
+              // The lockup, not two images side by side — it carries the
+              // mark/wordmark alignment the design system intends.
+              <img
+                src="/brand/levapp-lockup-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-auto"
+              />
             )}
           </Link>
         </div>
@@ -206,18 +217,19 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative",
+                  // Selected is a FILLED SHAPE, not a colour swap: the raised
+                  // navy carries the selection and the blue label carries the
+                  // emphasis. A full-width bright-blue bar reads as a button —
+                  // blue is reserved for actions, and the nav is not one.
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent text-sidebar-foreground"
+                    ? "bg-sidebar-accent text-sidebar-primary font-semibold"
+                    : "hover:bg-sidebar-accent/60 text-sidebar-foreground"
                 )}
               >
                 <div className="relative shrink-0">
                   <item.icon className="w-5 h-5 shrink-0" />
                   {showBadge && (
-                    <span className={cn(
-                      "absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1",
-                      isActive && "bg-sidebar-primary-foreground text-sidebar-primary"
-                    )}>
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
                       {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                   )}
@@ -282,15 +294,24 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <div className="relative">
+              {/* The active destination gets a filled wash behind its icon —
+                  a shape, not just a colour swap, so it reads at a glance. */}
+              <div
+                className={cn(
+                  "relative flex items-center justify-center rounded-lg px-3 py-0.5 transition-colors",
+                  isActive && "bg-secondary"
+                )}
+              >
                 <item.icon className="w-5 h-5" />
                 {showBadge && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
+                  <span className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
+              <span className={cn("text-[10px]", isActive ? "font-semibold" : "font-medium")}>
+                {t(item.labelKey)}
+              </span>
             </Link>
           );
         })}
@@ -301,6 +322,24 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
         {/* Header */}
         <header className="md:flex md:h-16 h-12 border-b border-border bg-card flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
+            {/* Below `sm` the page title is hidden and the header was empty, so
+                the phone had no branding at all. The mark is a static SVG and
+                cannot adapt to the theme, so both variants ship and CSS picks:
+                the header is a white card in light and navy in dark. */}
+            <Link to="/dashboard" className="sm:hidden" aria-label="LevApp">
+              <img
+                src="/brand/levapp-mark-on-light.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-6 w-auto dark:hidden"
+              />
+              <img
+                src="/brand/levapp-mark-on-dark.svg"
+                alt=""
+                aria-hidden="true"
+                className="hidden h-6 w-auto dark:block"
+              />
+            </Link>
             <h1 className="text-lg font-semibold hidden sm:block">
               {(() => {
                 const active = visibleNavItems.find(
@@ -319,7 +358,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               <Button variant="ghost" className="flex items-center gap-2">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>

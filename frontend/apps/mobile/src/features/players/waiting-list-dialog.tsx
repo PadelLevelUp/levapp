@@ -109,7 +109,7 @@ export function WaitingListDialog({
             <Select value={durationOption} onValueChange={setDurationOption}>
               <SelectTrigger
                 testID="waiting-list-duration"
-                accessibilityLabel="Waiting list duration"
+                accessibilityLabel={t("players.waitingListDurationAria")}
               >
                 <SelectValue placeholder={t("players.duration")} />
               </SelectTrigger>
@@ -137,7 +137,7 @@ export function WaitingListDialog({
               className="flex-row items-center gap-3"
             >
               <Pressable
-                accessibilityLabel="Decrease max classes to fill"
+                accessibilityLabel={t("players.decreaseMaxClassesAria")}
                 role="button"
                 hitSlop={8}
                 disabled={credits <= MIN_CREDITS}
@@ -156,7 +156,7 @@ export function WaitingListDialog({
                 {credits}
               </Text>
               <Pressable
-                accessibilityLabel="Increase max classes to fill"
+                accessibilityLabel={t("players.increaseMaxClassesAria")}
                 role="button"
                 hitSlop={8}
                 disabled={credits >= MAX_CREDITS}
@@ -175,7 +175,7 @@ export function WaitingListDialog({
           <Button
             variant="outline"
             className="flex-1"
-            accessibilityLabel="Cancel waiting list"
+            accessibilityLabel={t("players.cancelWaitingListAria")}
             onPress={handleClose}
             disabled={addToWaitingList.isPending}
           >
@@ -183,7 +183,7 @@ export function WaitingListDialog({
           </Button>
           <Button
             testID="waiting-list-save"
-            accessibilityLabel="Confirm add to waiting list"
+            accessibilityLabel={t("players.confirmWaitingListAria")}
             className="flex-1"
             disabled={addToWaitingList.isPending}
             onPress={() => void handleConfirm()}

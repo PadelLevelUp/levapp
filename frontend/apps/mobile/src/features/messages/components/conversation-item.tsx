@@ -1,5 +1,6 @@
 import type { Conversation } from "@levelup/types";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ export function ConversationItem({
   conversation,
   onPress,
 }: ConversationItemProps) {
+  const { t } = useTranslation();
   const {
     participantName,
     participantAvatar,
@@ -28,7 +30,9 @@ export function ConversationItem({
   return (
     <Pressable
       testID={`conversation-item-${conversation.id}`}
-      accessibilityLabel={`Conversation with ${participantName}`}
+      accessibilityLabel={t("messages.conversationWithAria", {
+        name: participantName,
+      })}
       role="button"
       onPress={onPress}
       className="flex-row items-center gap-3 border-b border-border bg-card px-4 py-3 active:bg-accent"
@@ -65,7 +69,7 @@ export function ConversationItem({
             numberOfLines={1}
             className="flex-1 text-sm text-muted-foreground"
           >
-            {lastMessage ?? "No messages yet"}
+            {lastMessage ?? t("messages.noMessagesYet")}
           </Text>
           {unreadCount > 0 ? (
             <Badge testID={`conversation-unread-${conversation.id}`}>

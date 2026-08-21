@@ -92,7 +92,7 @@ export function ReplacementApprovalCard({
   const responseBadge = () => {
     if (allStale) {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-600">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-warning/15 text-warning-strong">
           {t("notificationsUi.replacementApproval.noLongerNeeded")}
         </span>
       );
@@ -100,14 +100,14 @@ export function ReplacementApprovalCard({
     switch (localResponse) {
       case "yes_now":
         return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success-strong">
             <Check className="w-3.5 h-3.5" />
             {t("notificationsUi.replacementApproval.approved")}
           </span>
         );
       case "yes_at_window":
         return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success-strong">
             <Clock className="w-3.5 h-3.5" />
             {t("notificationsUi.replacementApproval.scheduledFor", {
               window: windowLabel ?? t("notificationsUi.replacementApproval.windowOpen"),
@@ -173,7 +173,7 @@ export function ReplacementApprovalCard({
             )}
 
             {isStale && !allStale && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning-strong">
                 {t("notificationsUi.replacementApproval.noLongerNeeded")}
               </span>
             )}

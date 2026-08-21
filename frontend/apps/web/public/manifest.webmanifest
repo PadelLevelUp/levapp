@@ -1,12 +1,12 @@
 {
-  "name": "LevelUp",
-  "short_name": "LevelUp",
-  "description": "LevelUp Padel App",
+  "name": "LevApp",
+  "short_name": "LevApp",
+  "description": "LevApp — gestão de aulas para treinadores de padel",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f7fa",
-  "theme_color": "#2bab6f",
+  "background_color": "#E9EDF3",
+  "theme_color": "#0B1524",
   "icons": [
     {
       "src": "/icons/192.png",

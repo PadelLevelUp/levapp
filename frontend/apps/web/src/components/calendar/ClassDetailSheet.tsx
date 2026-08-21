@@ -1088,7 +1088,7 @@ export function ClassDetailSheet({
                       <div key={inv.id} className="flex items-center justify-between py-1.5">
                         <span className="text-sm">{inv.playerName}</span>
                         {inv.status === "confirmed" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-success/15 text-success">
                             <Check className="w-3 h-3" />
                             {t("calendar.detail.accepted")}
                           </span>
@@ -1104,7 +1104,7 @@ export function ClassDetailSheet({
                         ) : (
                           <div className="flex gap-1.5">
                             <Button size="sm" variant="outline" disabled
-                              className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 opacity-50 cursor-not-allowed"
+                              className="h-7 gap-1 text-xs border-success/40 text-success opacity-50 cursor-not-allowed"
                             >
                               <Check className="w-3 h-3" />
                               {t("calendar.detail.yes")}
@@ -1335,7 +1335,7 @@ export function ClassDetailSheet({
               </AlertDialogDescription>
             </AlertDialogHeader>
             {isLateCancellation && (
-              <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-2 rounded-md bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {t("calendar.detail.cancelAttendanceLateBadge")}
               </div>

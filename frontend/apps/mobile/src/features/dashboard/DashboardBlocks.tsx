@@ -11,6 +11,7 @@ import type {
 import { formatDistanceToNow } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,11 +47,44 @@ function mapHref(href: string | undefined): string | null {
   return null;
 }
 
+/**
+ * PAD-77 (mirrored from apps/web KpiGridBlock / ClassListBlock): the backend
+ * emits KPI labels and class-list titles as English literals. Map the stable
+ * slug / block id to an i18n key so they respect the selected language;
+ * unknown ones fall back to the raw backend string. Kept identical to web on
+ * purpose — the two platforms drifted once already.
+ */
+const KPI_LABEL_KEYS: Record<string, string> = {
+  players: "dashboard.kpi.players",
+  "upcoming-classes": "dashboard.kpi.upcomingClasses",
+  "pending-validation": "dashboard.kpi.pendingValidation",
+  "revenue-est": "dashboard.kpi.revenue",
+  attended: "dashboard.kpi.attended",
+  missed: "dashboard.kpi.missed",
+  "upcoming-lessons": "dashboard.kpi.upcomingLessons",
+  invites: "dashboard.kpi.invites",
+};
+
+const LIST_TITLE_KEYS: Record<string, string> = {
+  upcoming_classes: "dashboard.list.upcomingClasses",
+  needs_players: "dashboard.list.needsPlayers",
+  player_upcoming: "dashboard.list.yourUpcomingLessons",
+  player_invites: "dashboard.list.invitesToConfirm",
+};
+
+const LIST_EMPTY_KEYS: Record<string, string> = {
+  needs_players: "dashboard.list.allClassesFull",
+  player_invites: "dashboard.list.noPendingInvites",
+};
+
 function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
+  const { t } = useTranslation();
   return (
     <View className="flex-row flex-wrap" style={{ margin: -6 }}>
       {block.data.items.map((item) => {
         const target = mapHref(item.href);
+        const labelKey = KPI_LABEL_KEYS[kpiKey(item.label)];
+        const label = labelKey ? t(labelKey) : item.label;
         const tileContent = (
           <>
             <View className="flex-row items-center justify-between">
@@ -58,7 +92,7 @@ function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
                 className="flex-1 text-xs font-medium text-muted-foreground"
                 numberOfLines={1}
               >
-                {item.label}
+                {label}
               </Text>
               <Ionicons
                 name={ICON_MAP[item.icon] ?? "help-circle-outline"}
@@ -79,7 +113,7 @@ function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
                 testID={`dashboard-kpi-${kpiKey(item.label)}`}
                 // Label carries the value too: the accessible container hides
                 // its child Text nodes from VoiceOver/UI tests otherwise.
-                accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
+                accessibilityLabel={`${label}: ${item.prefix ?? ""}${item.value}`}
                 role="button"
                 onPress={() => router.navigate(target as never)}
                 className="rounded-xl border border-border bg-card p-4 active:bg-accent"
@@ -89,7 +123,7 @@ function KpiGrid({ block }: { block: DashboardKpiGridBlock }) {
             ) : (
               <View
                 testID={`dashboard-kpi-${kpiKey(item.label)}`}
-                accessibilityLabel={`${item.label}: ${item.prefix ?? ""}${item.value}`}
+                accessibilityLabel={`${label}: ${item.prefix ?? ""}${item.value}`}
                 className="rounded-xl border border-border bg-card p-4"
               >
                 {tileContent}
@@ -124,23 +158,40 @@ function openClassListItem(item: DashboardClassListBlock["data"]["items"][number
 }
 
 function ClassList({ block }: { block: DashboardClassListBlock }) {
+  const { t } = useTranslation();
   const isUpcoming =
     block.id === "upcoming_classes" || block.id === "player_upcoming";
   const itemTestID = isUpcoming
     ? "dashboard-upcoming-class"
     : `dashboard-class-item-${block.id}`;
 
+  const titleKey = LIST_TITLE_KEYS[block.id];
+  const title = titleKey ? t(titleKey) : block.data.title;
+
+  const emptyKey = LIST_EMPTY_KEYS[block.id];
+  const emptyText = emptyKey ? t(emptyKey) : block.data.emptyText;
+
+  // The "needs players" badge arrives as the English literal "Missing <n>".
+  // Translate it through the count so it localizes; anything else renders raw.
+  const badgeLabel = (badge?: string): string | undefined => {
+    if (!badge) return undefined;
+    const m = /^Missing (\d+)$/.exec(badge);
+    return m ? t("dashboard.list.missingSeats", { count: Number(m[1]) }) : badge;
+  };
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle className="text-base">{block.data.title}</CardTitle>
+        <CardTitle className="text-base">{title}</CardTitle>
         {block.data.icon ? (
           <Ionicons
             name={ICON_MAP[block.data.icon] ?? "help-circle-outline"}
             size={16}
             color={lightTheme.mutedForeground}
             accessibilityLabel={
-              block.data.icon === "user_plus" ? "Add participants" : undefined
+              block.data.icon === "user_plus"
+                ? t("dashboard.addParticipants")
+                : undefined
             }
           />
         ) : null}
@@ -166,7 +217,7 @@ function ClassList({ block }: { block: DashboardClassListBlock }) {
                 </Text>
                 {item.badge ? (
                   <Badge variant="secondary">
-                    <Text>{item.badge}</Text>
+                    <Text>{badgeLabel(item.badge)}</Text>
                   </Badge>
                 ) : null}
               </View>
@@ -183,7 +234,7 @@ function ClassList({ block }: { block: DashboardClassListBlock }) {
         ))}
         {block.data.items.length === 0 ? (
           <Text className="text-sm text-muted-foreground">
-            {block.data.emptyText ?? "Nothing here yet."}
+            {emptyText ?? t("dashboard.list.nothingHereYet")}
           </Text>
         ) : null}
       </CardContent>
@@ -196,17 +247,18 @@ function MessagesOverview({
 }: {
   block: DashboardMessagesOverviewBlock;
 }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       testID="dashboard-messages-overview"
-      accessibilityLabel="Messages overview"
+      accessibilityLabel={t("dashboard.messagesOverviewAria")}
       role="button"
       onPress={() => router.navigate("/(tabs)/messages" as never)}
     >
       <Card className="active:bg-accent">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Unread messages
+            {t("dashboard.unreadMessages")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -215,8 +267,9 @@ function MessagesOverview({
               {block.data.unreadMessages}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {block.data.conversationsToReply} conversation
-              {block.data.conversationsToReply === 1 ? "" : "s"} to reply
+              {t("dashboard.conversationsToReplyCount", {
+                count: block.data.conversationsToReply,
+              })}
             </Text>
           </View>
           {block.data.latest ? (
@@ -233,10 +286,10 @@ function MessagesOverview({
 /** Mirrors web's STATUS_STYLES (NotificationActivityBlock.tsx) so status
  * pills match across platforms: pale fill + matching text, raw lowercase status. */
 const STATUS_STYLES: Record<string, { badge: string; text: string }> = {
-  sent: { badge: "bg-blue-100", text: "text-blue-700" },
-  confirmed: { badge: "bg-green-100", text: "text-green-700" },
-  expired: { badge: "bg-gray-100", text: "text-gray-500" },
-  queued: { badge: "bg-yellow-100", text: "text-yellow-700" },
+  sent: { badge: "bg-primary/10", text: "text-primary" },
+  confirmed: { badge: "bg-success/15", text: "text-success" },
+  expired: { badge: "bg-muted", text: "text-muted-foreground" },
+  queued: { badge: "bg-warning/15", text: "text-warning" },
 };
 
 function NotificationActivity({
@@ -244,6 +297,13 @@ function NotificationActivity({
 }: {
   block: DashboardNotificationActivityBlock;
 }) {
+  const { t } = useTranslation();
+  // Same treatment as web: the backend emits the block title in English, and
+  // the block id is stable, so translate off that.
+  const title =
+    block.id === "notification_activity"
+      ? t("dashboard.activity.title")
+      : block.data.title;
   return (
     <Card testID="dashboard-notification-activity">
       <CardHeader className="flex-row items-center gap-2">
@@ -252,12 +312,12 @@ function NotificationActivity({
           size={16}
           color={lightTheme.mutedForeground}
         />
-        <CardTitle className="text-base">{block.data.title}</CardTitle>
+        <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent className="gap-2">
         {block.data.items.length === 0 ? (
           <Text className="text-sm text-muted-foreground">
-            No notification activity yet.
+            {t("dashboard.noNotificationActivity")}
           </Text>
         ) : (
           block.data.items.map((item) => (
@@ -273,10 +333,10 @@ function NotificationActivity({
               />
               <View className="flex-1">
                 <Text className="text-sm font-medium" numberOfLines={1}>
-                  {item.player.name ?? "Unknown student"}
+                  {item.player.name ?? t("dashboard.unknownStudent")}
                 </Text>
                 <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                  {item.lessonInstance.title ?? "Class"}
+                  {item.lessonInstance.title ?? t("dashboard.classFallback")}
                   {item.createdAt
                     ? ` · ${formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}`
                     : ""}
@@ -290,7 +350,9 @@ function NotificationActivity({
                 )}
               >
                 <Text className={STATUS_STYLES[item.status]?.text ?? "text-muted-foreground"}>
-                  {item.status}
+                  {t(`dashboard.status.${item.status}`, {
+                    defaultValue: item.status,
+                  })}
                 </Text>
               </Badge>
             </View>

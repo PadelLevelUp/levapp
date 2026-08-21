@@ -50,7 +50,14 @@
         "updateFailed": "Failed to update exercise",
         "deleted": "Exercise deleted",
         "deleteFailed": "Failed to delete exercise"
-      }
+      },
+      "filterByTypeAria": "Filter by type",
+      "filterByDifficultyAria": "Filter by difficulty",
+      "couldNotLoad": "Could not load exercises.",
+      "emptyMessage": "Create your first exercise to get started.",
+      "searchAria": "Search exercises",
+      "cancelDeleteAria": "Cancel delete exercise",
+      "confirmDeleteAria": "Confirm delete exercise"
     },
     "groups": {
       "title": "Groups",
@@ -70,7 +77,12 @@
         "updateFailed": "Failed to update group",
         "deleted": "Group deleted",
         "deleteFailed": "Failed to delete group"
-      }
+      },
+      "couldNotLoad": "Could not load groups.",
+      "emptyMessage": "Create your first group to organize exercises.",
+      "searchAria": "Search groups",
+      "cancelDeleteGroupAria": "Cancel delete group",
+      "confirmDeleteGroupAria": "Confirm delete group"
     },
     "card": {
       "deleteExercise": "Delete exercise"
@@ -91,7 +103,22 @@
       "notesPlaceholder": "Variations, key points...",
       "saving": "Saving...",
       "saveChanges": "Save Changes",
-      "createExercise": "Create Exercise"
+      "createExercise": "Create Exercise",
+      "nameLabel": "Name",
+      "typeLabel": "Type",
+      "difficultyLabel": "Difficulty",
+      "notesLabel": "Notes",
+      "saveExercise": "Save exercise",
+      "invalidExercise": "Invalid exercise",
+      "exerciseNameAria": "Exercise name",
+      "exerciseTypeAria": "Exercise type",
+      "customTypeAria": "Custom exercise type",
+      "exerciseDescriptionAria": "Exercise description",
+      "exerciseNotesAria": "Exercise notes",
+      "difficultyOptionAria": "Difficulty {{value}} ({{label}})",
+      "levelAria": "Level {{label}}",
+      "toggleDiagramAria": "Toggle court diagram",
+      "cancelAria": "Cancel exercise form"
     },
     "groupForm": {
       "editGroup": "Edit Group",
@@ -105,12 +132,27 @@
       "selectedCount": "{{count}} exercise(s) selected",
       "saving": "Saving...",
       "saveChanges": "Save Changes",
-      "createGroup": "Create Group"
+      "createGroup": "Create Group",
+      "nameLabel": "Name",
+      "exercisesWithCount": "Exercises ({{count}} selected)",
+      "noExercisesYet": "No exercises yet — create exercises first.",
+      "saveGroup": "Save group",
+      "deleteGroup": "Delete group",
+      "groupNameAria": "Group name",
+      "groupDescriptionAria": "Group description",
+      "includeExerciseAria": "Include exercise {{name}}",
+      "cancelAria": "Cancel group form"
     },
     "folder": {
       "exerciseCount_one": "{{count}} exercise",
       "exerciseCount_other": "{{count}} exercises",
-      "emptyGroup": "No exercises in this group yet."
+      "emptyGroup": "No exercises in this group yet.",
+      "collapseGroupAria": "Collapse group {{name}}",
+      "expandGroupAria": "Expand group {{name}}",
+      "editGroupAria": "Edit group {{name}}",
+      "deleteGroupAria": "Delete group {{name}}",
+      "editExerciseAria": "Edit exercise {{name}}",
+      "deleteExerciseAria": "Delete exercise {{name}}"
     },
     "diagram": {
       "label": "Court Diagram",
@@ -137,6 +179,8 @@
       "curveHint": "Drag the ● handle on the arrow to curve it",
       "instructions": "Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players.",
       "instructionsTouch": "Tap a tool, then tap the court to place it. Tap an element to select it — drag to move it, or use the delete button to remove it. Draw arrows and movement lines by dragging across the court, then select them to add a label or curve. Max 4 players."
-    }
+    },
+    "exercisesTabAria": "Exercises tab",
+    "groupsTabAria": "Groups tab"
   }
 }
