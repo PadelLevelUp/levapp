@@ -667,6 +667,20 @@ export interface NotificationConfig {
   restrictions: NotificationRestrictions;
   notificationGroups: NotificationGroup[];
   messageTemplates: MessageTemplates;
+  /**
+   * PAD-128 — the coach's standard eligibility bar (the minimum a student must
+   * meet to join a class at all), or `null` when no bar is defined.
+   *
+   * `null` and `[]` both mean "everyone is eligible"; they are NOT the same as
+   * a defined-but-unsatisfiable bar, which admits nobody. Never default this to
+   * a rule set on the client either — the backend deliberately sends `null`
+   * through so the two states stay distinguishable.
+   *
+   * Reuses `GroupRule`, but with a narrower vocabulary: level operations are
+   * anchored to the class (`same_as_class`, `within_n_of_class`, …) rather than
+   * to a vacancy, and only level and absence attributes are valid.
+   */
+  eligibilityRules?: GroupRule[] | null;
 }
 
 // ── Replacement approval (semi-automatic mode) ─────────────────────────────
