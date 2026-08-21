@@ -62,22 +62,27 @@ test.describe("PAD-77: dashboard i18n consistency", () => {
     try {
       await waitForDashboard(page);
 
-      // In-page title must match the sidebar ("Painel"), not the English "Dashboard".
+      // The rebuilt coach dashboard has no in-page "Dashboard"/"Painel"
+      // heading — the greeting is the page's orientation, and it must be PT.
+      await expect(page.getByTestId("coach-dashboard")).toBeVisible({
+        timeout: 10_000,
+      });
       await expect(
-        page.getByRole("heading", { name: "Painel" })
+        page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite),/ })
       ).toBeVisible({ timeout: 10_000 });
 
-      // The notification-activity block title is always emitted; it must be PT.
-      await expect(
-        page.getByText("Atividade de notificações").first()
-      ).toBeVisible();
+      // Section eyebrows are always emitted; they must be PT.
+      await expect(page.getByText(/PRÓXIMOS 7 DIAS/).first()).toBeVisible();
+      await expect(page.getByText(/PRECISA DE TI/).first()).toBeVisible();
+      await expect(page.getByText("ESTA SEMANA").first()).toBeVisible();
 
       // No English leftovers anywhere on the dashboard.
-      await expect(page.getByText("Dashboard", { exact: true })).toHaveCount(0);
-      await expect(page.getByText("Notification activity")).toHaveCount(0);
-      await expect(page.getByText("Pending validation")).toHaveCount(0);
-      await expect(page.getByText("Upcoming classes")).toHaveCount(0);
-      await expect(page.getByText("Players", { exact: true })).toHaveCount(0);
+      await expect(page.getByText(/NEXT 7 DAYS/)).toHaveCount(0);
+      await expect(page.getByText(/NEEDS YOU/)).toHaveCount(0);
+      await expect(page.getByText("THIS WEEK")).toHaveCount(0);
+      await expect(
+        page.getByRole("heading", { name: /^(Morning|Afternoon|Evening),/ })
+      ).toHaveCount(0);
     } finally {
       await openPreferences(page);
       await selectLanguage(page, /english|inglês/i);

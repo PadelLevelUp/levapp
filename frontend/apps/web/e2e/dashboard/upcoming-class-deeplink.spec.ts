@@ -33,14 +33,16 @@ async function waitForDashboardPayload(page: Page): Promise<DashboardPayload> {
   return response.json();
 }
 
-/** Flattens nested `grid` blocks so every class_list block is reachable. */
+/** Flattens nested `grid` blocks so every class-carrying block is reachable.
+ * The coach payload now ships upcoming classes as `schedule_7d`; the student
+ * payload still uses `class_list`. Both item shapes carry `id` + `href`. */
 function collectClassListItems(blocks: DashboardBlock[] | undefined): ClassListItem[] {
   const items: ClassListItem[] = [];
 
   for (const block of blocks ?? []) {
     if (block?.type === "grid") {
       items.push(...collectClassListItems(block.data?.children ?? []));
-    } else if (block?.type === "class_list") {
+    } else if (block?.type === "class_list" || block?.type === "schedule_7d") {
       items.push(...(block.data?.items ?? []));
     }
   }
