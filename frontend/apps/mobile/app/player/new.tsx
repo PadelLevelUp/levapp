@@ -23,7 +23,6 @@ import { PlayerForm, type PlayerFormValues } from "@/features/players/PlayerForm
 export default function NewPlayerScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { t } = useTranslation();
   const { user } = useAuth();
   const { data: levels } = useCoachLevels();
   const addPlayer = useAddPlayer();
