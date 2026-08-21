@@ -11,13 +11,7 @@
  * The greeting and date live in the navy app bar (see app/(tabs)/_layout.tsx),
  * which is why there is no in-screen title here.
  */
-import {
-  greetingKey,
-  longDate,
-  shortDate,
-  weekdayLong,
-  weekdayShort,
-} from "@levelup/config";
+import { greetingKey, longDate, shortDate, todayISO, weekdayLong, weekdayShort } from "@levelup/config";
 import type {
   DashboardBlock,
   DashboardNeedsYouBlock,
@@ -476,6 +470,6 @@ export function useHeaderGreeting(firstName: string) {
   const { t, i18n } = useTranslation();
   return {
     greeting: t(`dashboard.greeting.${greetingKey()}`, { name: firstName }),
-    date: longDate(new Date().toISOString().slice(0, 10), i18n.language),
+    date: longDate(todayISO(), i18n.language),
   };
 }

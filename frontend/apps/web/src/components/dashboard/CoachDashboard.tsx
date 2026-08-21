@@ -20,7 +20,7 @@ import { NeedsYouQueue } from "./coach/NeedsYouQueue";
 import { NextClassHero } from "./coach/NextClassHero";
 import { Schedule7Days } from "./coach/Schedule7Days";
 import { WeekPulse } from "./coach/WeekPulse";
-import { greetingKey, longDate } from "@levelup/config";
+import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 
 /** Narrows the union by `type`, so each block keeps its own data shape. */
@@ -51,7 +51,7 @@ export function CoachDashboard({
   const pulse = pulseBlock ? <WeekPulse block={pulseBlock} /> : null;
 
   const greeting = t(`dashboard.greeting.${greetingKey()}`, { name: firstName });
-  const today = longDate(new Date().toISOString().slice(0, 10), i18n.language);
+  const today = longDate(todayISO(), i18n.language);
   const needsCount = needsYouBlock?.data.count ?? 0;
 
   if (!isDesktop) {

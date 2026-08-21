@@ -25,6 +25,20 @@ export function parseISODate(iso: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
+/**
+ * Today as `YYYY-MM-DD` in LOCAL time.
+ *
+ * `new Date().toISOString().slice(0, 10)` is the obvious way to write this and
+ * is wrong: it yields the UTC date, which `parseISODate` then reads back as
+ * local. The round trip reintroduces exactly the off-by-one this module exists
+ * to prevent — in Lisbon in summer, between 00:00 and 01:00 the header shows
+ * yesterday.
+ */
+export function todayISO(now: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+}
+
 /** "Tuesday, 4 August" / "terça-feira, 4 de agosto". */
 export function longDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
