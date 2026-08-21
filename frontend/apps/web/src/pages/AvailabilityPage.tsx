@@ -205,11 +205,14 @@ export default function AvailabilityPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 space-y-6 max-w-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+      <div className="p-4 md:p-6 space-y-6 max-w-3xl">
+        {/* PAD-119: below `sm` the title and the action button don't fit on one
+            row (the pt strings are the widest), so they stack instead of
+            pushing the button off-screen. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CalendarOff className="w-6 h-6" />
+              <CalendarOff className="w-6 h-6 shrink-0" />
               {t("availability.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -217,7 +220,10 @@ export default function AvailabilityPage() {
             </p>
           </div>
           {!showForm && (
-            <Button onClick={openCreate} className="gap-2">
+            <Button
+              onClick={openCreate}
+              className="gap-2 w-full sm:w-auto sm:shrink-0"
+            >
               <Plus className="w-4 h-4" />
               {t("availability.addBlocker")}
             </Button>
@@ -266,7 +272,7 @@ export default function AvailabilityPage() {
               {form.isRecurring && (
                 <div className="space-y-2">
                   <Label>{t("availability.daysOfWeek")}</Label>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {DAY_VALUES.map((value) => (
                       <button
                         key={value}
@@ -380,10 +386,12 @@ export default function AvailabilityPage() {
               blockers.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    {/* PAD-119: the badges can't shrink, so without wrapping
+                        they get clipped by the min-w-0 column on mobile. */}
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium truncate">
                         {b.title || t("availability.unavailable")}
                       </p>
