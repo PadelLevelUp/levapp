@@ -100,9 +100,18 @@ export function ValidateClassesDialog({
   const [activeId, setActiveId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  /** Roster additions are merged in so a walk-in behaves like any other row. */
+  /**
+   * Roster additions are merged in so a walk-in behaves like any other row.
+   *
+   * Deduped by `playerId`, not just at add time: once the class is validated
+   * the refetch returns the walk-in as a real presence row, and a local `extras`
+   * entry for the same person would render them twice (with a duplicate React
+   * key). The server's row always wins.
+   */
   const withExtras = (klass: PendingValidationClass): PendingValidationClass => {
-    const added = extras[klass.lessonInstanceId] ?? [];
+    const added = (extras[klass.lessonInstanceId] ?? []).filter(
+      (extra) => !klass.players.some((p) => p.playerId === extra.playerId)
+    );
     if (!added.length) return klass;
     return { ...klass, players: [...klass.players, ...added] };
   };
@@ -202,15 +211,19 @@ export function ValidateClassesDialog({
   }
 
   const weekLabel = useMemo(() => {
-    const base = new Date();
-    const dow = (base.getDay() + 6) % 7; // Monday-first
-    const monday = new Date(base);
-    monday.setDate(base.getDate() - dow + weekOffset * 7);
+    // UTC throughout, and formatted in UTC, so the label always names the same
+    // week the page actually queried (see `weekBounds` in PresencesPage).
+    const now = new Date();
+    const dow = (now.getUTCDay() + 6) % 7; // Monday-first
+    const monday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow + weekOffset * 7)
+    );
     const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
     const fmt = new Intl.DateTimeFormat(i18n.language, {
       day: "numeric",
       month: "short",
+      timeZone: "UTC",
     });
     const name =
       weekOffset === 0
@@ -479,6 +492,7 @@ function ClassList({
     weekday: "long",
     day: "numeric",
     month: "short",
+    timeZone: "UTC",
   });
 
   return (
@@ -497,7 +511,7 @@ function ClassList({
               .map((day) => (
                 <div key={day} className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    {dayFmt.format(new Date(`${day}T00:00:00`))}
+                    {dayFmt.format(new Date(`${day}T00:00:00Z`))}
                   </p>
                   {group.items
                     .filter((c) => c.date === day)
@@ -560,9 +574,12 @@ function ClassCard({
   const { t, i18n } = useTranslation();
   const [adding, setAdding] = useState(false);
 
+  // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
+  // time is the class's actual clock time (same rule as AttendanceHistoryList).
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "UTC",
   });
 
   const available = roster.filter(
@@ -583,7 +600,7 @@ function ClassCard({
         />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">
-            {timeFmt.format(new Date(klass.startDatetime))} · {klass.title}
+            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
           </span>
           <span className="block text-xs text-muted-foreground">
             {klass.type ? t(`presences.type.${klass.type}`) : null}
@@ -691,9 +708,12 @@ function ClassDetail({
   onUnvalidate: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
+  // time is the class's actual clock time (same rule as AttendanceHistoryList).
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "UTC",
   });
   const available = roster.filter(
     (r) => !klass.players.some((p) => p.playerId === r.id)
@@ -712,7 +732,7 @@ function ClassDetail({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="truncate">
-            {timeFmt.format(new Date(klass.startDatetime))} · {klass.title}
+            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
           </span>
         </DialogTitle>
         <DialogDescription>

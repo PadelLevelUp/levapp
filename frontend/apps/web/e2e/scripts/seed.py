@@ -585,6 +585,91 @@ with app.app_context():
         )
         attended_instances.append(attended_instance)
 
+    # ── Classes awaiting validation (PAD-140) ────────────────────────────────
+    # The Presences tab (specs/attendance/spec.md → attendance.validation) lists
+    # classes that have ENDED but whose presences are not yet validated. The
+    # PAD-114 fixture above deliberately sets validated=True, so without this
+    # block the queue is always empty and any spec over it is vacuous.
+    #
+    # Placement rules, so this cannot perturb other specs:
+    #   * both instances are in the CURRENT week but already past — the tab
+    #     defaults to this week, and `end_datetime <= now` is what makes a class
+    #     validatable;
+    #   * they hang off their own lesson, with the students attached to that
+    #     lesson so they read as enrolled (not guests);
+    #   * one class has every student answered ("ready to confirm"), the other
+    #     leaves a student silent ("needs your input") — the two states the tab
+    #     is built around;
+    #   * 11:00 UTC, away from the midnight boundary (PAD-33).
+    #
+    # These DO add to the coach dashboard's "Pending validation" KPI, which is
+    # correct — they are genuinely pending. No spec asserts an exact value for it.
+    validation_lesson = Lesson(
+        title="E2E Validation Class",
+        start_datetime=today - timedelta(days=1),
+        end_datetime=today - timedelta(days=1) + timedelta(hours=1),
+        is_recurring=False,
+        type="academy",
+        max_players=6,
+        club_id=club.id,
+        color="#f59e0b",
+        status="active",
+    )
+    db.session.add(validation_lesson)
+    db.session.flush()
+    db.session.add(
+        Association_CoachLesson(coach_id=coach.id, lesson_id=validation_lesson.id)
+    )
+    for enrolled in (student, student2):
+        db.session.add(
+            Association_PlayerLesson(
+                player_id=enrolled.id, lesson_id=validation_lesson.id
+            )
+        )
+
+    # Anchored a few hours back rather than to a fixed hour: that is always in
+    # the past (so the class is validatable) AND always inside the current
+    # Monday-Sunday week, except in the first hours of Monday UTC. A fixed
+    # 11:00 would be in the future when the suite runs before 11:00.
+    now_naive = _utcnow_naive()
+    for hours_ago, everyone_answered in ((3, True), (2, False)):
+        v_start = (now_naive - timedelta(hours=hours_ago)).replace(
+            minute=0, second=0, microsecond=0
+        )
+        v_instance = LessonInstance(
+            lesson_id=validation_lesson.id,
+            start_datetime=v_start,
+            end_datetime=v_start + timedelta(hours=1),
+            max_players=6,
+            status="scheduled",
+            level_id=level_beginner.id,
+            notifications_enabled=False,
+            original_lesson_occurence_date=v_start.date(),
+        )
+        db.session.add(v_instance)
+        db.session.flush()
+        db.session.add(
+            Association_CoachLessonInstance(
+                coach_id=coach.id, lesson_instance_id=v_instance.id
+            )
+        )
+        for enrolled, answered in ((student, True), (student2, everyone_answered)):
+            db.session.add(
+                Association_PlayerLessonInstance(
+                    player_id=enrolled.id, lesson_instance_id=v_instance.id
+                )
+            )
+            db.session.add(
+                Presence(
+                    player_id=enrolled.id,
+                    lesson_instance_id=v_instance.id,
+                    invited=True,
+                    confirmed=answered,
+                    status=None,
+                    validated=False,
+                )
+            )
+
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
         coach_id=coach.id,

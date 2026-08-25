@@ -19,28 +19,27 @@ import {
   validateClassPresences,
 } from "@/api/presences";
 import { getCoachPlayers } from "@/api/players";
+import { toIsoDate } from "@/components/attendance/dateRanges";
 import type { PendingValidation, PresenceStats, PresenceTrend } from "@/types";
 
-/** Monday-anchored ISO bounds for a week `offset` weeks from today. */
+/**
+ * Monday–Sunday bounds for a week `offset` weeks from today, in UTC.
+ *
+ * UTC and bare `YYYY-MM-DD`, matching `dateRanges.ts` — `start_datetime` is
+ * stored naive-UTC, so building these from a local-time `Date` would shift the
+ * week boundary by the UTC offset and drop a late-evening Sunday class into the
+ * wrong week. Same drift PAD-33 and PAD-114 both had to chase down.
+ */
 function weekBounds(offset: number): { from: string; to: string } {
-  const base = new Date();
-  const dow = (base.getDay() + 6) % 7;
-  const monday = new Date(base);
-  monday.setDate(base.getDate() - dow + offset * 7);
-  monday.setHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 0);
-  return { from: toIso(monday), to: toIso(sunday) };
-}
-
-/** Local wall-clock as an ISO string without a zone, matching the API's naive-UTC. */
-function toIso(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  const now = new Date();
+  const dayOfWeek = (now.getUTCDay() + 6) % 7; // Monday-first
+  const monday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek + offset * 7)
   );
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  // Bare dates: the endpoint expands `to` to end-of-day itself.
+  return { from: toIsoDate(monday), to: toIsoDate(sunday) };
 }
 
 /**
