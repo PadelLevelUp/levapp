@@ -79,8 +79,8 @@
       "academy": "Academy classes",
       "justified": "Justified absences",
       "unjustified": "Unjustified absences",
-      "invitesReceived": "Invites received",
-      "invitesJoined": "Joined as guest"
+      "invitesReceived": "Guest appearances",
+      "invitesJoined": "Attended as guest"
     },
     "table": {
       "title": "Players",

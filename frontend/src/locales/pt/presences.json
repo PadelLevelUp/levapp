@@ -79,8 +79,8 @@
       "academy": "Aulas de academia",
       "justified": "Faltas justificadas",
       "unjustified": "Faltas injustificadas",
-      "invitesReceived": "Convites recebidos",
-      "invitesJoined": "Entrou como convidado"
+      "invitesReceived": "Aulas como convidado",
+      "invitesJoined": "Presenças como convidado"
     },
     "table": {
       "title": "Jogadores",
