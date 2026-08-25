@@ -592,9 +592,12 @@ with app.app_context():
     # block the queue is always empty and any spec over it is vacuous.
     #
     # Placement rules, so this cannot perturb other specs:
-    #   * both instances are in the CURRENT week but already past — the tab
-    #     defaults to this week, and `end_datetime <= now` is what makes a class
-    #     validatable;
+    #   * both instances sit in the PREVIOUS Monday-Sunday week. They must be
+    #     past (`end_datetime <= now`) to be validatable, but putting them in
+    #     the current week crowds the calendar's default view and flipped
+    #     `participant-count-effective.spec.ts` into a compact card layout that
+    #     drops the "1/4" count. Same containment rule the PAD-114 fixture uses.
+    #     The Presences spec navigates back one week to reach them;
     #   * they hang off their own lesson, with the students attached to that
     #     lesson so they read as enrolled (not guests);
     #   * one class has every student answered ("ready to confirm"), the other
@@ -606,8 +609,8 @@ with app.app_context():
     # correct — they are genuinely pending. No spec asserts an exact value for it.
     validation_lesson = Lesson(
         title="E2E Validation Class",
-        start_datetime=today - timedelta(days=1),
-        end_datetime=today - timedelta(days=1) + timedelta(hours=1),
+        start_datetime=today - timedelta(days=today.weekday() + 5),
+        end_datetime=today - timedelta(days=today.weekday() + 5) + timedelta(hours=1),
         is_recurring=False,
         type="academy",
         max_players=6,
@@ -627,14 +630,13 @@ with app.app_context():
             )
         )
 
-    # Anchored a few hours back rather than to a fixed hour: that is always in
-    # the past (so the class is validatable) AND always inside the current
-    # Monday-Sunday week, except in the first hours of Monday UTC. A fixed
-    # 11:00 would be in the future when the suite runs before 11:00.
-    now_naive = _utcnow_naive()
-    for hours_ago, everyone_answered in ((3, True), (2, False)):
-        v_start = (now_naive - timedelta(hours=hours_ago)).replace(
-            minute=0, second=0, microsecond=0
+    # Previous week's Wednesday and Thursday at 11:00 UTC: always in the past,
+    # always in an earlier week than today whatever weekday the suite runs on,
+    # and away from the midnight boundary (PAD-33).
+    prev_monday = today - timedelta(days=today.weekday() + 7)
+    for day_offset, everyone_answered in ((2, True), (3, False)):
+        v_start = (prev_monday + timedelta(days=day_offset)).replace(
+            hour=11, minute=0, second=0, microsecond=0
         )
         v_instance = LessonInstance(
             lesson_id=validation_lesson.id,

@@ -8,8 +8,10 @@
  * player answered is "ready to confirm"; one where somebody stayed silent
  * "needs your input" and cannot be validated until the coach decides.
  *
- * Fixture: `E2E Validation Class` in `e2e/scripts/seed.py` — two instances a few
- * hours old, one with both students answered, one with a silent student.
+ * Fixture: `E2E Validation Class` in `e2e/scripts/seed.py` — two instances in the
+ * PREVIOUS week, one with both students answered, one with a silent student.
+ * Previous week, not this one: a past class in the current week crowds the
+ * calendar's default view and broke `participant-count-effective.spec.ts`.
  *
  * Authorization is asserted at the HTTP layer, not on the frontend route:
  * these endpoints expose every roster player's attendance, so a student
@@ -41,6 +43,20 @@ async function getToken(
   return (json.accessToken ?? json.access_token) as string;
 }
 
+async function openQueueAtFixtureWeek(page: import("@playwright/test").Page) {
+  await page.getByTestId("presences-validate-trigger").click();
+  // The fixture lives in the PREVIOUS week on purpose: a past class in the
+  // current week crowds the calendar's default view and perturbs
+  // `participant-count-effective.spec.ts`. Navigating back also exercises the
+  // week control.
+  await page
+    .getByRole("button", { name: /previous week|semana anterior/i })
+    .click();
+  await expect(
+    page.locator('[data-testid="presences-class-card"]').first()
+  ).toBeVisible({ timeout: 15000 });
+}
+
 test.describe("PAD-140: Presences tab", () => {
   test("coach sees the tab, its KPIs and the players table", async ({ page }) => {
     await loginAsCoach(page);
@@ -66,7 +82,7 @@ test.describe("PAD-140: Presences tab", () => {
     await loginAsCoach(page);
     await page.goto("/presences");
 
-    await page.getByTestId("presences-validate-trigger").click();
+    await openQueueAtFixtureWeek(page);
 
     // The "needs your input" class: its Validate button is disabled while a
     // player has no determination (spec rule 5).
@@ -95,7 +111,7 @@ test.describe("PAD-140: Presences tab", () => {
   }) => {
     await loginAsCoach(page);
     await page.goto("/presences");
-    await page.getByTestId("presences-validate-trigger").click();
+    await openQueueAtFixtureWeek(page);
 
     const ready = page
       .locator('[data-testid="presences-class-card"][data-ready="true"]')
@@ -104,13 +120,20 @@ test.describe("PAD-140: Presences tab", () => {
 
     await ready.getByTestId("presences-validate-class").click();
 
-    // The class leaves the pending queue.
-    await expect(page.getByTestId("presences-validate-empty")).toBeVisible({
-      timeout: 15000,
-    });
+    // The class leaves the pending queue. Deliberately NOT an empty-queue
+    // assertion: the fixture's other class still has a silent student and
+    // SHOULD stay pending — only the ready one was confirmed.
+    await expect(
+      page.locator('[data-testid="presences-class-card"][data-ready="true"]')
+    ).toHaveCount(0, { timeout: 15000 });
+    await expect(
+      page.locator('[data-testid="presences-class-card"][data-ready="false"]')
+    ).toHaveCount(1);
 
     // And the rows are actually finalized server-side, not just hidden.
     const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
+    // Default window is the trailing 90 days, which comfortably covers the
+    // previous-week fixture.
     const res = await request.get(
       `${API_BASE}/class_instances/pending_validation`,
       { headers: { Authorization: `Bearer ${token}` } }
