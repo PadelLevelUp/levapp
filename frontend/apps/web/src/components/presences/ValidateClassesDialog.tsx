@@ -238,7 +238,12 @@ export function ValidateClassesDialog({
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold">
-            {t("presences.validate.trigger", { count: pending.length })}
+            {/* Not a plural form: pt's CLDR "one" category covers 0, so the
+                counted string renders "0 aula por validar". An empty queue
+                deserves its own sentence anyway. */}
+            {pending.length === 0
+              ? t("presences.validate.triggerEmpty")
+              : t("presences.validate.trigger", { count: pending.length })}
           </span>
           <span className="block text-xs text-muted-foreground">
             {t("presences.validate.triggerHint")}

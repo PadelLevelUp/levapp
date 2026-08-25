@@ -69,7 +69,8 @@
       "group": {
         "needsInput": "Needs your input ({{count}})",
         "ready": "Ready to confirm ({{count}})"
-      }
+      },
+      "triggerEmpty": "Nothing to validate"
     },
     "column": {
       "name": "Player",

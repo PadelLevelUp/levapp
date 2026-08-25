@@ -69,7 +69,8 @@
       "group": {
         "needsInput": "Precisa da sua decisão ({{count}})",
         "ready": "Prontas a confirmar ({{count}})"
-      }
+      },
+      "triggerEmpty": "Nada por validar"
     },
     "column": {
       "name": "Jogador",
