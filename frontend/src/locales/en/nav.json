@@ -9,6 +9,7 @@
     "messages": "Messages",
     "settings": "Settings",
     "editor": "Editor",
-    "logout": "Log out"
+    "logout": "Log out",
+    "presences": "Presences"
   }
 }

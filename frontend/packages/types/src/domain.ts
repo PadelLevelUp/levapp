@@ -819,3 +819,91 @@ export interface AttendanceHistory {
   buckets: AttendanceBucket[];
   sessions: AttendanceSession[];
 }
+
+/* ------------------------------------------------------------------ */
+/* PAD-140 — the coach-facing Presences tab                            */
+/* ------------------------------------------------------------------ */
+
+/** One roster player's aggregates over the selected window. */
+export interface PresencePlayerStats {
+  playerId: number;
+  name: string;
+  /** Classes attended (`status === "present"`). Equals private + academy. */
+  total: number;
+  private: number;
+  academy: number;
+  justified: number;
+  unjustified: number;
+  /**
+   * Guest appearances — classes the player was invited into without being
+   * enrolled in the parent lesson. NOT derived from `Presence.invited`, which
+   * is true for every enrolled player and so identifies nobody.
+   */
+  invitesReceived: number;
+  /** Of those, the ones they actually turned up to. */
+  invitesJoined: number;
+}
+
+export interface PresenceStatsTotals {
+  presences: number;
+  activePlayers: number;
+  private: number;
+  academy: number;
+  /** Whole percent, already guarded against an empty window server-side. */
+  academyShare: number;
+  guestAttendances: number;
+  justified: number;
+  unjustified: number;
+}
+
+export interface PresenceStats {
+  from: string;
+  to: string;
+  players: PresencePlayerStats[];
+  totals: PresenceStatsTotals;
+}
+
+export interface PresenceTrend {
+  from: string;
+  to: string;
+  granularity: AttendanceGranularity;
+  total: number;
+  buckets: AttendanceBucket[];
+}
+
+/** How a player answered before the class ran. */
+export type PresenceResponse = 'confirmed' | 'declined' | 'none';
+
+export interface PendingValidationPlayer {
+  presenceId: number;
+  playerId: number;
+  name: string;
+  response: PresenceResponse;
+  status: PresenceStatus | null;
+  justification: AbsenceJustification | null;
+  validated: boolean;
+  lateCancellation: boolean;
+  guest: boolean;
+}
+
+export interface PendingValidationClass {
+  lessonInstanceId: number;
+  calendarEventId: string;
+  title: string;
+  type: 'academy' | 'private' | null;
+  color?: string | null;
+  startDatetime: string;
+  date: string;
+  players: PendingValidationPlayer[];
+  /** How many players never answered — the only thing that blocks validating. */
+  unanswered: number;
+  ready: boolean;
+}
+
+export interface PendingValidation {
+  from: string;
+  to: string;
+  pending: PendingValidationClass[];
+  validated: PendingValidationClass[];
+  pendingCount: number;
+}

@@ -1,0 +1,301 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { CalendarCheck, TrendingUp, UserCheck, Users } from "lucide-react";
+
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { PresenceCharts } from "@/components/presences/PresenceCharts";
+import { PresencePlayersTable } from "@/components/presences/PresencePlayersTable";
+import {
+  ValidateClassesDialog,
+  type RosterOption,
+} from "@/components/presences/ValidateClassesDialog";
+import {
+  getPendingValidation,
+  getPresenceStats,
+  getPresenceTrend,
+  unvalidateClass,
+  validateClassPresences,
+} from "@/api/presences";
+import { getCoachPlayers } from "@/api/players";
+import type { PendingValidation, PresenceStats, PresenceTrend } from "@/types";
+
+/** Monday-anchored ISO bounds for a week `offset` weeks from today. */
+function weekBounds(offset: number): { from: string; to: string } {
+  const base = new Date();
+  const dow = (base.getDay() + 6) % 7;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() - dow + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 0);
+  return { from: toIso(monday), to: toIso(sunday) };
+}
+
+/** Local wall-clock as an ISO string without a zone, matching the API's naive-UTC. */
+function toIso(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
+
+/**
+ * PAD-140 — "Presenças", the coach's attendance overview.
+ *
+ * Coach-only. Composes four blocks over three endpoints:
+ *   * the validation inbox (week-scoped, its own query)
+ *   * KPI tiles and the players table (roster stats, window-scoped)
+ *   * three charts (roster stats + the trend series)
+ *
+ * The stats window and the validation week are deliberately independent: a
+ * coach validating last week's classes should not have the whole page's
+ * statistics jump around underneath them.
+ */
+export default function PresencesPage() {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+
+  const [stats, setStats] = useState<PresenceStats | null>(null);
+  const [trend, setTrend] = useState<PresenceTrend | null>(null);
+  const [queue, setQueue] = useState<PendingValidation | null>(null);
+  const [roster, setRoster] = useState<RosterOption[]>([]);
+
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingQueue, setLoadingQueue] = useState(true);
+  const [busyClassId, setBusyClassId] = useState<number | null>(null);
+
+  const week = useMemo(() => weekBounds(weekOffset), [weekOffset]);
+
+  const loadStats = useCallback(async () => {
+    setLoadingStats(true);
+    try {
+      const [statsData, trendData] = await Promise.all([
+        getPresenceStats(),
+        getPresenceTrend(),
+      ]);
+      setStats(statsData);
+      setTrend(trendData);
+    } catch {
+      toast({
+        title: t("presences.error.statsTitle"),
+        description: t("presences.error.statsBody"),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [t, toast]);
+
+  const loadQueue = useCallback(async () => {
+    setLoadingQueue(true);
+    try {
+      setQueue(await getPendingValidation(week));
+    } catch {
+      toast({
+        title: t("presences.error.queueTitle"),
+        description: t("presences.error.queueBody"),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingQueue(false);
+    }
+  }, [week, t, toast]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    void loadQueue();
+  }, [loadQueue]);
+
+  useEffect(() => {
+    getCoachPlayers()
+      .then((players) =>
+        setRoster(
+          // `playerId`, not `id` — the latter is the coach↔player association's
+          // own id, which no presence endpoint accepts.
+          players.map((p) => ({
+            id: Number(p.playerId),
+            name: p.name || t("presences.unknownPlayer"),
+          }))
+        )
+      )
+      // A failed roster load only costs the walk-in picker; the rest of the
+      // page is still useful, so this stays silent rather than alarming.
+      .catch(() => setRoster([]));
+  }, [t]);
+
+  const handleValidate = useCallback(
+    async (
+      classes: Array<{
+        lessonInstanceId: number;
+        presences: Array<{
+          playerId: number;
+          status: "present" | "absent";
+          justification?: "justified" | "unjustified";
+        }>;
+      }>
+    ) => {
+      setBusyClassId(classes[0]?.lessonInstanceId ?? null);
+      try {
+        // Sequential rather than parallel: each call can materialize rows and
+        // touch the same instance, and a coach validating a handful of classes
+        // is not a throughput problem.
+        for (const item of classes) {
+          await validateClassPresences(item.lessonInstanceId, item.presences);
+        }
+        toast({
+          title: t("presences.toast.validated", { count: classes.length }),
+        });
+        await Promise.all([loadQueue(), loadStats()]);
+      } catch {
+        toast({
+          title: t("presences.error.validateTitle"),
+          description: t("presences.error.validateBody"),
+          variant: "destructive",
+        });
+      } finally {
+        setBusyClassId(null);
+      }
+    },
+    [loadQueue, loadStats, t, toast]
+  );
+
+  const handleUnvalidate = useCallback(
+    async (lessonInstanceId: number) => {
+      setBusyClassId(lessonInstanceId);
+      try {
+        await unvalidateClass(lessonInstanceId);
+        await Promise.all([loadQueue(), loadStats()]);
+      } catch {
+        toast({
+          title: t("presences.error.undoTitle"),
+          description: t("presences.error.undoBody"),
+          variant: "destructive",
+        });
+      } finally {
+        setBusyClassId(null);
+      }
+    },
+    [loadQueue, loadStats, t, toast]
+  );
+
+  const totals = stats?.totals;
+
+  return (
+    <AppLayout>
+      <div className="space-y-6 p-6">
+        <header className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {t("presences.eyebrow")}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("presences.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t("presences.subtitle")}
+          </p>
+        </header>
+
+        <div className="sm:max-w-sm">
+          <ValidateClassesDialog
+            pending={queue?.pending ?? []}
+            validated={queue?.validated ?? []}
+            weekOffset={weekOffset}
+            onWeekChange={setWeekOffset}
+            loading={loadingQueue}
+            roster={roster}
+            onValidate={handleValidate}
+            onUnvalidate={handleUnvalidate}
+            busyClassId={busyClassId}
+          />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile
+            icon={CalendarCheck}
+            label={t("presences.kpi.totalPresences")}
+            value={totals?.presences}
+            loading={loadingStats}
+            testId="presences-kpi-total"
+          />
+          <StatTile
+            icon={Users}
+            label={t("presences.kpi.activePlayers")}
+            value={totals?.activePlayers}
+            loading={loadingStats}
+            testId="presences-kpi-players"
+          />
+          <StatTile
+            icon={TrendingUp}
+            label={t("presences.kpi.academyShare")}
+            value={totals ? `${totals.academyShare}%` : undefined}
+            loading={loadingStats}
+            testId="presences-kpi-academy"
+          />
+          <StatTile
+            icon={UserCheck}
+            label={t("presences.kpi.guestAttendances")}
+            value={totals?.guestAttendances}
+            loading={loadingStats}
+            testId="presences-kpi-guests"
+          />
+        </div>
+
+        <PresenceCharts
+          players={stats?.players ?? []}
+          totals={totals}
+          trend={trend?.buckets ?? []}
+          granularity={trend?.granularity ?? "day"}
+          loading={loadingStats}
+        />
+
+        <PresencePlayersTable
+          players={stats?.players ?? []}
+          loading={loadingStats}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  loading,
+  testId,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value?: number | string;
+  loading?: boolean;
+  testId: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        {loading ? (
+          <Skeleton className="mb-1 h-5 w-12" />
+        ) : (
+          <span
+            data-testid={testId}
+            className="block text-lg font-semibold tabular-nums"
+          >
+            {value ?? 0}
+          </span>
+        )}
+        <span className="block text-xs text-muted-foreground">{label}</span>
+      </span>
+    </div>
+  );
+}

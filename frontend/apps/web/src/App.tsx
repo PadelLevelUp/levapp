@@ -12,6 +12,7 @@ import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
 import PlayerDetailPage from "./pages/PlayerDetailPage";
 import AttendancePage from "./pages/AttendancePage";
+import PresencesPage from "./pages/PresencesPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
@@ -124,6 +125,20 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["player"]}>
                     <AttendancePage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-140 — the coach's attendance overview. Coach-only: the
+                  three endpoints behind it expose every roster player's
+                  presence data, which `classes.detail-visibility` keeps away
+                  from students. The guard here is UX; each endpoint re-checks
+                  with `require_coach()` server-side. */}
+              <Route
+                path="/presences"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <PresencesPage />
                   </RoleRoute>
                 }
               />
