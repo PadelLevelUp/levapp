@@ -1,4 +1,8 @@
-import type { AttendanceGranularity, AttendanceHistory } from "@levelup/types";
+import type {
+  AbsenceHistory,
+  AttendanceGranularity,
+  AttendanceHistory,
+} from "@levelup/types";
 import { getApi } from "../client";
 
 export interface AttendanceHistoryParams {
@@ -23,6 +27,28 @@ export async function getAttendanceHistory(
   params: AttendanceHistoryParams = {}
 ): Promise<AttendanceHistory> {
   const res = await getApi().get("/app/attendance_history", {
+    params: {
+      playerId: params.playerId,
+      from: params.from,
+      to: params.to,
+      granularity: params.granularity,
+    },
+  });
+  return res.data;
+}
+
+/**
+ * PAD-141 — missed-class history for one player ("Faltas").
+ *
+ * Same params, same payload shape and the SAME authorization as
+ * `getAttendanceHistory` — the two endpoints share one resolver server-side, so
+ * the caveat above applies here unchanged: a `playerId` taken from the URL is
+ * never pre-authorized.
+ */
+export async function getAbsenceHistory(
+  params: AttendanceHistoryParams = {}
+): Promise<AbsenceHistory> {
+  const res = await getApi().get("/app/absence_history", {
     params: {
       playerId: params.playerId,
       from: params.from,

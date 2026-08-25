@@ -14,11 +14,28 @@ import { parseIsoDate } from "./dateRanges";
  * `dashboard.navigation` rule 8), so the calendar opens on that class's week
  * with its detail sheet already open. Rows are exposed as buttons and activate
  * with Enter/Space, matching the dashboard class lists (rule 10).
+ *
+ * PAD-141 reuses this list for the "Faltas" page. The parameters below all
+ * default to the attendance behaviour, so that page's markup and test ids are
+ * byte-for-byte what they were. `testIdPrefix` follows the same idiom as
+ * `SettingsNav`: the absences page gets its own ids so neither page's
+ * assertions can silently pass against the other.
  */
 export function AttendanceHistoryList({
   sessions,
+  testIdPrefix = "attendance",
+  titleKey = "attendance.history.title",
+  emptyKey = "attendance.history.empty",
+  icon,
+  renderBadge,
 }: {
   sessions: AttendanceSession[];
+  testIdPrefix?: string;
+  titleKey?: string;
+  emptyKey?: string;
+  icon?: React.ReactNode;
+  /** Optional trailing label per row (PAD-141 uses it for justification). */
+  renderBadge?: (session: AttendanceSession) => React.ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -38,19 +55,17 @@ export function AttendanceHistoryList({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">
-          {t("attendance.history.title")}
-        </CardTitle>
+        <CardTitle className="text-base">{t(titleKey)}</CardTitle>
       </CardHeader>
       {/* The container is always present — an empty period is a state of the
           list, not the absence of one. */}
-      <CardContent data-testid="attendance-history-list">
+      <CardContent data-testid={`${testIdPrefix}-history-list`}>
         {sessions.length === 0 ? (
           <p
-            data-testid="attendance-history-empty"
+            data-testid={`${testIdPrefix}-history-empty`}
             className="py-6 text-center text-sm text-muted-foreground"
           >
-            {t("attendance.history.empty")}
+            {t(emptyKey)}
           </p>
         ) : (
           <ul className="divide-y divide-border">
@@ -67,7 +82,7 @@ export function AttendanceHistoryList({
               return (
                 <li key={session.lessonInstanceId}>
                   <div
-                    data-testid="attendance-history-item"
+                    data-testid={`${testIdPrefix}-history-item`}
                     role="button"
                     tabIndex={0}
                     aria-label={t("attendance.history.openClass", {
@@ -92,10 +107,12 @@ export function AttendanceHistoryList({
                           : undefined,
                       }}
                     >
-                      <CalendarCheck
-                        className="h-4 w-4"
-                        style={{ color: session.color ?? undefined }}
-                      />
+                      {icon ?? (
+                        <CalendarCheck
+                          className="h-4 w-4"
+                          style={{ color: session.color ?? undefined }}
+                        />
+                      )}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
@@ -105,6 +122,7 @@ export function AttendanceHistoryList({
                         {dayLabel} · {timeLabel}
                       </span>
                     </span>
+                    {renderBadge?.(session)}
                     <ChevronRight
                       aria-hidden="true"
                       className="h-4 w-4 shrink-0 text-muted-foreground"
