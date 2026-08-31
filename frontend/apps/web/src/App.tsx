@@ -12,6 +12,7 @@ import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
 import PlayerDetailPage from "./pages/PlayerDetailPage";
 import AttendancePage from "./pages/AttendancePage";
+import AbsencesPage from "./pages/AbsencesPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
@@ -124,6 +125,28 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["player"]}>
                     <AttendancePage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-141 — "Faltas", the counterpart of the two routes above.
+                  Same guard rationale: `GET /absence_history` re-authorizes the
+                  subject server-side (spec `attendance.absences` rule 4), so
+                  these guards are UX only. */}
+              <Route
+                path="/players/:playerId/absences"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <AbsencesPage />
+                  </RoleRoute>
+                }
+              />
+
+              <Route
+                path="/absences"
+                element={
+                  <RoleRoute allowedRoles={["player"]}>
+                    <AbsencesPage />
                   </RoleRoute>
                 }
               />

@@ -1,0 +1,25 @@
+{
+  "absences": {
+    "title": "Absences",
+    "subtitleOwn": "The classes you missed",
+    "subtitleOther": "Classes {{name}} missed",
+    "backToPlayer": "Back to profile",
+    "backToDashboard": "Back to dashboard",
+    "chart": {
+      "title": "Absences per period",
+      "seriesLabel": "Absences",
+      "empty": "No absences recorded in this period",
+      "loading": "Loading absences…",
+      "error": "Could not load absences"
+    },
+    "total_one": "{{count}} absence",
+    "total_other": "{{count}} absences",
+    "history": {
+      "title": "Missed classes",
+      "empty": "No missed classes in this period yet"
+    },
+    "justified": "Justified",
+    "unjustified": "Unjustified",
+    "playerLink": "View absences"
+  }
+}
