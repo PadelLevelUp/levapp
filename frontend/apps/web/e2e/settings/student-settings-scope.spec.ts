@@ -139,6 +139,54 @@ test.describe("PAD-103: coach settings surface is unchanged", () => {
 });
 
 // ---------------------------------------------------------------------------
+// PAD-142 — the reverse direction: a STUDENT-only section hidden from the coach
+// ---------------------------------------------------------------------------
+
+/**
+ * PAD-103 (above) only ever hid coach sections from students. PAD-142 is the
+ * mirror image: "As minhas notificações" is the student's own invitation
+ * opt-out panel (PAD-112) and was offered to everyone, so a coach saw a tab
+ * full of student preferences that mean nothing for their account — a coach
+ * never receives class-vacancy invitations.
+ *
+ * Asserted with `toHaveCount(0)` rather than `not.toBeVisible()` on purpose:
+ * the nav renders TWICE (desktop sidebar + mobile drill-in) and one copy is
+ * `display:none`, so a visibility assertion would pass against the unfixed
+ * page by matching the hidden copy.
+ */
+test.describe("PAD-142: 'My notifications' is student-only", () => {
+  test("PAD-142: coach is not offered the my-notifications section", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    await openSettings(page);
+
+    // Anchor on a tab the coach definitely has, so a failure to render the nav
+    // at all cannot masquerade as "the tab is correctly gone".
+    await expect(page.getByTestId("settings-nav-notifications")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("settings-nav-myNotifications")).toHaveCount(0);
+  });
+
+  test("PAD-142: student still gets the my-notifications section", async ({
+    page,
+  }) => {
+    await loginAsStudent(page);
+    await openSettings(page);
+
+    await expect(page.getByTestId("settings-nav-myNotifications")).toBeVisible({
+      timeout: 10_000,
+    });
+    // And it still opens — gating the tab must not strip the panel itself.
+    await page.getByTestId("settings-nav-myNotifications").click();
+    await expect(page.getByTestId("student-notification-blocks")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // HTTP — the actual authorization boundary
 // ---------------------------------------------------------------------------
 

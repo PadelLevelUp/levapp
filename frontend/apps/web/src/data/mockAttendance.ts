@@ -1,4 +1,6 @@
 import type {
+  AbsenceHistory,
+  AbsenceSession,
   AttendanceBucket,
   AttendanceGranularity,
   AttendanceHistory,
@@ -132,4 +134,43 @@ export function buildMockAttendanceHistory(params: {
     buckets,
     sessions,
   };
+}
+
+/**
+ * PAD-141 — demo-mode payload for the "Faltas" page.
+ *
+ * Built from the attendance mock rather than duplicating the bucket/granularity
+ * logic, for the same reason the two real endpoints share a service: a second
+ * copy is how the two pages drift. Fewer sessions than the attendance mock so
+ * demo mode does not imply a student misses as many classes as they attend, and
+ * justifications alternate so the row labelling is visible without a backend.
+ */
+export function buildMockAbsenceHistory(params: {
+  playerId?: number | string;
+  from?: string;
+  to?: string;
+}): AbsenceHistory {
+  const base = buildMockAttendanceHistory(params);
+
+  const sessions: AbsenceSession[] = base.sessions
+    .slice(0, 3)
+    .map((session, i) => ({
+      ...session,
+      // Offset the ids so a mock absence can never collide with a mock
+      // attendance for the same class.
+      lessonInstanceId: session.lessonInstanceId + 100,
+      calendarEventId: `lessoninstance-${session.lessonInstanceId + 100}`,
+      href: `/calendar?classId=lessoninstance-${
+        session.lessonInstanceId + 100
+      }&date=${session.date}`,
+      justification: i % 2 === 0 ? "justified" : "unjustified",
+    }));
+
+  const kept = new Set(sessions.map((s) => s.date));
+  const buckets = base.buckets.map((bucket) => ({
+    ...bucket,
+    count: kept.has(bucket.start) ? 1 : 0,
+  }));
+
+  return { ...base, total: sessions.length, buckets, sessions };
 }
