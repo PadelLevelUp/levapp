@@ -216,6 +216,32 @@ test.describe("login loader reveal", () => {
     await expect(page).not.toHaveURL(/\/auth/);
   });
 
+  test("the welcome toast clears the mark's landing spot on mobile", async ({
+    page,
+  }) => {
+    // The toast viewport used to be top-anchored below `sm`, which put the
+    // "Bem-vindo!" toast exactly where the mark lands (the header logo).
+    await page.setViewportSize({ width: 390, height: 844 });
+    const loader = await submitLogin(page);
+    await loader.waitFor();
+    await expect(loader).toHaveCount(0, { timeout: 15_000 });
+
+    const toast = page
+      .locator("li")
+      .filter({ hasText: /bem-vindo|welcome/i })
+      .first();
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    const toastBox = (await toast.boundingBox())!;
+    const logoBox = (await page
+      .locator("[data-launch-logo]:visible")
+      .first()
+      .boundingBox())!;
+
+    expect(toastBox.y).toBeGreaterThan(logoBox.y + logoBox.height);
+    // ...and it must not sit under the 64px mobile nav either.
+    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(844 - 64);
+  });
+
   test("reduced motion does not fly the mark across the screen", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 1440, height: 900 });

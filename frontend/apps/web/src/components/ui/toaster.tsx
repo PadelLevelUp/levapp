@@ -4,8 +4,11 @@ import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastVi
 export function Toaster() {
   const { toasts } = useToast();
 
+  // Swipe down, not up: the viewport is bottom-anchored, so the dismiss
+  // gesture has to push the toast off the near edge rather than up into the
+  // page it is sitting in front of.
   return (
-    <ToastProvider swipeDirection="up">
+    <ToastProvider swipeDirection="down">
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
