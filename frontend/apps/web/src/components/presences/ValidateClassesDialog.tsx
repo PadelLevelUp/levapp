@@ -37,7 +37,7 @@ import {
   fromMark,
   undecidedCount,
   type PresenceMark,
-} from "./presenceStatus";
+} from "@levelup/config";
 
 type Edits = Record<number, Record<number, PresenceMark>>;
 type Extras = Record<number, PendingValidationPlayer[]>;
@@ -58,7 +58,7 @@ export interface RosterOption {
  *
  * Nothing is persisted until Validate: the per-player marks live in local
  * `edits` state, layered over the stored values and the response-based prefill
- * (see `presenceStatus.ts`). Validating POSTs the resolved marks, which both
+ * (see `@levelup/config`). Validating POSTs the resolved marks, which both
  * records attendance and stamps `validated=true` in one call.
  */
 export function ValidateClassesDialog({
@@ -364,7 +364,7 @@ export function ValidateClassesDialog({
               {notice && (
                 <p
                   role="status"
-                  className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200"
+                  className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-strong"
                 >
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   {notice}
@@ -409,7 +409,7 @@ export function ValidateClassesDialog({
                       className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
                     >
                       <span className="flex min-w-0 items-center gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
                         <span className="truncate">{klass.title}</span>
                       </span>
                       <span className="flex shrink-0 gap-1">
@@ -744,8 +744,8 @@ function ClassDetail({
         className={cn(
           "rounded-lg px-3 py-2 text-sm",
           remaining > 0
-            ? "bg-amber-500/10 text-amber-800 dark:text-amber-200"
-            : "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+            ? "bg-warning/10 text-warning-strong"
+            : "bg-success/10 text-success-strong"
         )}
       >
         {remaining > 0

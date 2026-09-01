@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { PendingValidationPlayer } from "@/types";
+import type { PendingValidationPlayer } from "@levelup/types";
 import {
   effectiveMark,
   fromMark,
   prefillMark,
   toMark,
   undecidedCount,
-} from "./presenceStatus";
+} from "./presence-status";
 
 function player(
   overrides: Partial<PendingValidationPlayer> = {}

@@ -3,10 +3,15 @@ import type {
   PendingValidationPlayer,
   PresenceResponse,
   PresenceStatus,
-} from "@/types";
+} from "@levelup/types";
 
 /**
  * PAD-140 — the three states a coach can record, flattened.
+ *
+ * Lives in `packages/config` because BOTH shells record attendance: the web
+ * Presences tab and class-detail sheet, and the mobile equivalents. Keeping the
+ * mapping here is what stops the two platforms drifting on what "justified"
+ * means — they may differ in presentation, never in this.
  *
  * The backend stores this as two columns (`status` + `justification`); the UI
  * reads better as one three-way choice. This module owns the mapping in both

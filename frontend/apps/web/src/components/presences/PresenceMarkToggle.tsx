@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
-import type { PresenceMark } from "./presenceStatus";
+import type { PresenceMark } from "@levelup/config";
 
 const OPTIONS: PresenceMark[] = ["present", "justified", "unjustified"];
 
@@ -10,7 +10,7 @@ const OPTIONS: PresenceMark[] = ["present", "justified", "unjustified"];
  *
  * Semantically identical to `AttendanceRow`'s controls in the class-detail
  * sheet — both write the same `status` + `justification` pair, through the
- * shared mapping in `presenceStatus.ts`. The presentation differs on purpose:
+ * shared mapping in `@levelup/config`. The presentation differs on purpose:
  * `AttendanceRow` is one player in a roomy sheet (avatar, invite badges,
  * tooltips), while this renders dozens of players across many classes in a
  * scrolling dialog, where that chrome would drown the task.
@@ -56,9 +56,12 @@ export function PresenceMarkToggle({
               size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
               !active && "border-border bg-background text-muted-foreground hover:bg-muted",
               // Semantic colour, not the brand accent: these encode an outcome.
+              // Design tokens, not raw palette colours: `success-strong` exists
+              // precisely because the solid success green is unreadable on its
+              // own 15% tint.
               active &&
                 option === "present" &&
-                "border-emerald-600/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                "border-success/40 bg-success/15 text-success-strong",
               active &&
                 option === "justified" &&
                 "border-border bg-muted text-foreground",
