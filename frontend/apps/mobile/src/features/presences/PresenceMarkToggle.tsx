@@ -46,7 +46,9 @@ export function PresenceMarkToggle({
             accessibilityState={{ selected: active, disabled: !!disabled }}
             accessibilityLabel={`${t(`presences.mark.short.${option}`)} — ${playerName}`}
             className={cn(
-              "rounded-md border px-2.5 py-1.5",
+              // flex-1: the three options split the row evenly now that the
+              // name sits above them, so labels never clip.
+              "flex-1 items-center rounded-md border px-2 py-1.5",
               !active && "border-border bg-background",
               // Semantic colour, not the brand accent: these encode an outcome.
               active && option === "present" && "border-success/40 bg-success/15",

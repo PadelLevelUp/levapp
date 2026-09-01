@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import {
@@ -69,6 +69,7 @@ export function ValidateClassesSheet({
   busy?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const { height } = useWindowDimensions();
   const [edits, setEdits] = React.useState<Edits>({});
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
 
@@ -129,7 +130,7 @@ export function ValidateClassesSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88%] w-[92%]">
+      <DialogContent style={{ maxHeight: height * 0.85 }}>
         <DialogHeader>
           <DialogTitle>{t("presences.validate.title")}</DialogTitle>
         </DialogHeader>
@@ -158,7 +159,7 @@ export function ValidateClassesSheet({
           </Pressable>
         </View>
 
-        <ScrollView className="max-h-[70%]">
+        <ScrollView style={{ maxHeight: height * 0.55 }} showsVerticalScrollIndicator>
           {loading ? (
             <View className="gap-2">
               <Skeleton className="h-20 w-full" />
@@ -313,12 +314,13 @@ function ClassCard({
       {expanded && (
         <View className="mt-3 gap-2">
           {sortPlayers(klass.players, edits).map((player) => (
-            <View
-              key={player.playerId}
-              className="flex-row items-center justify-between gap-2"
-            >
-              <View className="flex-1 pr-1">
-                <Text className="text-sm" numberOfLines={1}>
+            // Name ABOVE the toggles, not beside them. Side by side, three
+            // buttons leave ~90pt for the name on a 390pt screen, which
+            // truncated real names to "Bernar…" — unusable with two players
+            // who share a first name.
+            <View key={player.playerId} className="gap-1.5">
+              <View className="flex-row items-center gap-1.5">
+                <Text className="flex-1 text-sm" numberOfLines={1}>
                   {player.name}
                 </Text>
                 {player.guest && (
