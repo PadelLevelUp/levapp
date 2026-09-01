@@ -30,6 +30,37 @@ npm run test:e2e:headless         # web Playwright E2E (headless)
 bash apps/mobile/scripts/e2e.sh   # mobile Maestro E2E (see apps/mobile/README.md for setup)
 ```
 
+## Hard rule: web and iOS ship together
+
+**Anything added to `apps/web` must also be added to `apps/mobile`, in the same
+ticket, unless there is a very strong reason not to.** Feature parity is the
+default; web-only is the exception that has to be argued for.
+
+"Very strong reason" means something structural — the feature depends on a
+capability iOS does not have, or it is an admin/authoring surface no coach would
+ever use on a phone. It does **not** mean "the web version was quicker", "mobile
+needs a different layout", or "we can follow up later". A follow-up ticket is not
+a reason; it is how parity gets lost.
+
+If you do ship web-only, say so explicitly in the PR body **and** in the spec,
+with the reason. Silent divergence is the failure mode this rule exists to stop —
+`attendance.history` (PAD-114) and the Presences tab (PAD-140) both shipped web-
+only, and neither PR recorded a decision to do that.
+
+Practical notes when porting:
+
+- Mobile is Expo Router: a screen is a file in `apps/mobile/app/(tabs)/`, with
+  its implementation under `apps/mobile/src/features/<feature>/`.
+- **i18n does not come for free.** Web loads locales via a glob; mobile uses
+  *static imports* in `apps/mobile/src/lib/i18n.ts`. A new namespace works on web
+  and renders raw key paths on mobile until it is hand-added there, in both `pt`
+  and `en`.
+- There is no shadcn/Recharts on mobile. Reach for
+  `react-native-reusables` + `react-native-svg`, and keep the shared logic in
+  `packages/*` or a plain `.ts` module both shells import.
+- Role gating, API calls and query keys should come from `packages/*` so the two
+  shells cannot drift on behaviour — only on presentation.
+
 ## Hard rule: packages/* stay platform-agnostic
 
 Nothing in `packages/*` may import React DOM, React Native, Expo, or browser/native globals. Platform concerns are **injected by the shells**:
