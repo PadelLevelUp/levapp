@@ -18,14 +18,15 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 import { loginAsCoach, loginAsStudent, loginAsStudent2 } from "../helpers/auth";
 import { openCalendar, openSettings, openMessages } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { API_APP, API_AUTH } from "../helpers/api";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
 const CLASS_TITLE = "E2E Academy Class";
-const API_BASE = "http://localhost:5001/api/app";
-const AUTH_BASE = "http://localhost:5001/api/auth";
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /** Navigate the calendar until the seeded class is visible, then click it. */
 async function openClassDetail(page: Page) {

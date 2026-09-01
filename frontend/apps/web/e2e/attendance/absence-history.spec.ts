@@ -36,8 +36,8 @@ import {
   loginAsCoach,
   loginAsStudent,
 } from "../helpers/auth";
+import { API_ROOT } from "../helpers/api";
 
-const API_ROOT = "http://localhost:5001/api";
 const API_BASE = `${API_ROOT}/app`;
 
 /** A window wide enough to contain every seeded absence (oldest is 200d back). */
