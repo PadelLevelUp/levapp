@@ -17,10 +17,9 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 import { loginAsStudent } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { API_BASE, AUTH_BASE } from "../helpers/api";
 
 const CLASS_TITLE = "E2E Academy Class";
-const API_BASE = "http://localhost:5001/api/app";
-const AUTH_BASE = "http://localhost:5001/api/auth";
 const INSTANCE_ID = 1;
 
 async function token(request: APIRequestContext, username: string, password: string): Promise<string> {

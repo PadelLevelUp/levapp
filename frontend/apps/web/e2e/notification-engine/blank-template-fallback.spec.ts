@@ -23,9 +23,8 @@
  */
 
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { API_BASE, AUTH_BASE } from "../helpers/api";
 
-const API_BASE = "http://localhost:5001/api/app";
-const AUTH_BASE = "http://localhost:5001/api/auth";
 
 /** Seconds from now until the reminder job fires (>= 30 so APScheduler picks it up). */
 const SECONDS_UNTIL_FIRE = 45;

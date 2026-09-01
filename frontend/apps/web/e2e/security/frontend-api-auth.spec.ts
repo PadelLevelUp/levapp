@@ -24,15 +24,15 @@ import {
   COACH_NOLEVELS_USERNAME,
   COACH_NOLEVELS_PASSWORD,
 } from "../helpers/auth";
+import { API_BASE, AUTH_BASE } from "../helpers/api";
 
-const API_BASE = "http://localhost:5001/api/app";
 
 async function getToken(
   request: APIRequestContext,
   username: string,
   password: string,
 ): Promise<string> {
-  const res = await request.post("http://localhost:5001/api/auth/login", {
+  const res = await request.post(`${AUTH_BASE}/login`, {
     data: { username, password },
   });
   expect(res.ok(), `login failed for ${username}: ${res.status()}`).toBeTruthy();
@@ -304,7 +304,7 @@ test.describe("PAD-92: /api/app authentication & ownership", () => {
     request,
   }) => {
     const res = await request.post(
-      `http://localhost:5001/api/app/notify/debug/schedule_reminder_test`,
+      `${API_BASE}/notify/debug/schedule_reminder_test`,
       { data: { secondsUntilReminderFires: 3600 } },
     );
     // E2E_DEBUG_ENDPOINTS is on in this environment, so the env gate lets the

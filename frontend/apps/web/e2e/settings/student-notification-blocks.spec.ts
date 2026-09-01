@@ -29,8 +29,8 @@ import {
   STUDENT_PASSWORD,
 } from "../helpers/auth";
 import { openSettings, openPlayers } from "../helpers/navigation";
+import { API_ROOT } from "../helpers/api";
 
-const API_ROOT = "http://localhost:5001/api";
 const API_BASE = `${API_ROOT}/app`;
 
 async function getToken(

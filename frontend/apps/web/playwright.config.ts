@@ -5,6 +5,17 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Test-backend port. Overridable so a LevelUp E2E run can step around another
+ * project squatting on 5001 — several unrelated Flask apps default to it, and a
+ * collision otherwise blocks the whole suite (`reuseExistingServer: false`
+ * means Playwright fails to bind rather than silently talking to the wrong
+ * app's database, which is the safe failure but still a hard stop).
+ *
+ * Defaults to 5001, so CI and everyone else are unaffected.
+ */
+const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "5001";
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -39,9 +50,9 @@ export default defineConfig({
   /* Start Flask backend with test DB */
   webServer: [
     {
-      command: "bash -c 'source .venv/bin/activate && flask run --host 127.0.0.1 --port 5001 --no-reload'",
+      command: `bash -c 'source .venv/bin/activate && flask run --host 127.0.0.1 --port ${BACKEND_PORT} --no-reload'`,
       cwd: path.resolve(__dirname, "../../../levelup_backend"),
-      url: "http://127.0.0.1:5001/api/app/healthz",
+      url: `http://127.0.0.1:${BACKEND_PORT}/api/app/healthz`,
       reuseExistingServer: false,
       timeout: 30000,
       env: {
@@ -64,7 +75,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
       env: {
-        VITE_BACKEND_PORT: "5001",
+        VITE_BACKEND_PORT: BACKEND_PORT,
       },
     },
   ],
