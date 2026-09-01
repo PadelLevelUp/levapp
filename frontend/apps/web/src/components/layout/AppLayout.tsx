@@ -173,7 +173,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       >
         {/* Brand. The sidebar is navy chrome, so both marks are the on-dark
             variants. The wordmark is outlined type, not live text — it carries
-            its own "Lev"/"App" two-tone and must never be recoloured. */}
+            its own "Lev"/"App" two-tone and must never be recoloured.
+
+            `data-launch-logo` marks this as a landing site for the login
+            animation, which flies its mark onto whichever of these is visible
+            (see components/brand/launch-loader.tsx). The value names the asset
+            so the loader knows where the mark sits inside it: a lockup is
+            mostly wordmark, a bare mark carries a keyline. */}
         <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
           <Link
             to="/dashboard"
@@ -185,6 +191,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 src="/brand/levapp-mark-on-dark.svg"
                 alt=""
                 aria-hidden="true"
+                data-launch-logo="mark"
                 className="h-7 w-auto shrink-0"
               />
             ) : (
@@ -194,6 +201,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 src="/brand/levapp-lockup-on-dark.svg"
                 alt=""
                 aria-hidden="true"
+                data-launch-logo="lockup"
                 className="h-8 w-auto"
               />
             )}
@@ -331,12 +339,14 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 src="/brand/levapp-mark-on-light.svg"
                 alt=""
                 aria-hidden="true"
+                data-launch-logo="mark"
                 className="h-6 w-auto dark:hidden"
               />
               <img
                 src="/brand/levapp-mark-on-dark.svg"
                 alt=""
                 aria-hidden="true"
+                data-launch-logo="mark"
                 className="hidden h-6 w-auto dark:block"
               />
             </Link>

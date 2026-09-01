@@ -7,6 +7,7 @@ import {
   COACH_NOLEVELS_PASSWORD,
 } from "../helpers/auth";
 import { openDashboard } from "../helpers/navigation";
+import { API_ROOT } from "../helpers/api";
 
 /**
  * PAD-78 introduced pending-confirmation tracking — how many students
@@ -24,7 +25,6 @@ import { openDashboard } from "../helpers/navigation";
  * The no-levels coach has no classes -> nobody to notify.
  */
 
-const API_ROOT = "http://localhost:5001/api";
 const API_BASE = `${API_ROOT}/app`;
 
 async function getToken(

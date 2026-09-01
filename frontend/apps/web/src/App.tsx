@@ -17,6 +17,7 @@ import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
+import LandingPage from "./pages/LandingPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import SupportPage from "./pages/SupportPage";
@@ -34,6 +35,8 @@ import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { RoleRoute } from "@/auth/RoleRoute";
 import { SuperAdminRoute } from "@/auth/SuperAdminRoute";
 import { LayoutProvider } from "@/components/layout/LayoutContext";
+import { LaunchOverlayProvider } from "@/components/brand/launch-overlay";
+import { HomeRoute } from "@/auth/HomeRoute";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +55,7 @@ const App = () => (
         <Sonner />
         <LayoutProvider>
           <BrowserRouter>
+            <LaunchOverlayProvider>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
@@ -61,14 +65,9 @@ const App = () => (
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/support" element={<SupportPage />} />
 
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* `/` is the public page when there is no session and the
+                  dashboard when there is — see HomeRoute. */}
+              <Route path="/" element={<HomeRoute />} />
 
               <Route
                 path="/dashboard"
@@ -233,6 +232,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </LaunchOverlayProvider>
           </BrowserRouter>
         </LayoutProvider>
       </TooltipProvider>

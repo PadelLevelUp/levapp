@@ -18,9 +18,10 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { API_APP, API_AUTH } from "../helpers/api";
 
-const API_BASE = "http://localhost:5001/api/app";
-const AUTH_BASE = "http://localhost:5001/api/auth";
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /** Dedicated class so the assertions don't race with other specs' invites. */
 const DEDUPE_CLASS_TITLE = "E2E Guest Dedupe Class";

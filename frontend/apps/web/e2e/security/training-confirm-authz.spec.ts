@@ -31,8 +31,9 @@ import {
   STUDENT_USERNAME,
   STUDENT_PASSWORD,
 } from "../helpers/auth";
+import { API_APP, API_AUTH } from "../helpers/api";
 
-const API_BASE = "http://localhost:5001/api/app";
+const API_BASE = API_APP;
 const CONFIRM = `${API_BASE}/class_instance/training/confirm`;
 
 async function getToken(
@@ -40,7 +41,7 @@ async function getToken(
   username: string,
   password: string,
 ): Promise<string> {
-  const res = await request.post("http://localhost:5001/api/auth/login", {
+  const res = await request.post(`${API_AUTH}/login`, {
     data: { username, password },
   });
   expect(res.ok(), `login failed for ${username}: ${res.status()}`).toBeTruthy();

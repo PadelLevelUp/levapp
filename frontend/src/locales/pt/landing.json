@@ -1,0 +1,71 @@
+{
+  "landing": {
+    "nav": {
+      "how": "Como funciona",
+      "academies": "Para academias",
+      "players": "Para jogadores",
+      "login": "Entrar",
+      "demo": "Pedir demonstração",
+      "openMenu": "Abrir menu",
+      "closeMenu": "Fechar menu"
+    },
+    "hero": {
+      "eyebrow": "Para academias de padel e ténis",
+      "titleLine1": "Enche as aulas.",
+      "titleLine2": "Fala com os jogadores.",
+      "subtitle": "O LevApp trata dos convites, dos reenvios e dos lembretes. Tu tratas do treino.",
+      "primary": "Pedir demonstração",
+      "secondary": "Ver como funciona"
+    },
+    "preview": {
+      "date": "terça, 4 agosto",
+      "title": "Por resolver",
+      "initials": "BT",
+      "nextEyebrow": "A SEGUIR · 10:30",
+      "nextIn": "em 45 min",
+      "nextClass": "Aula 5",
+      "nextMeta": "Nível 3 · Campo 2",
+      "nextCount": "12/16",
+      "gapTitle": "Aula 12 tem 9 vagas",
+      "gapMeta": "quinta · 10:30 · Nível 4- · 7/16",
+      "gapPrimary": "Convidar 12 jogadores",
+      "gapSecondary": "Depois",
+      "replyInitials": "IN",
+      "replyTitle": "Inês Neuparth respondeu",
+      "replyBody": "“Sim, consigo ir na quarta”"
+    },
+    "values": {
+      "eyebrow": "O QUE MUDA",
+      "title": "Três coisas que deixam de te ocupar o dia",
+      "full": {
+        "title": "Aulas cheias",
+        "body": "Vês as vagas antes de serem um problema. O LevApp sugere quem tem o nível certo e está livre."
+      },
+      "invites": {
+        "title": "Convites automáticos",
+        "body": "Convite, reenvio e lembrete saem sozinhos. Só entras quando alguém responde alguma coisa que precisa de ti.",
+        "accepted": "22 aceites",
+        "pending": "9 por responder"
+      },
+      "progress": {
+        "title": "Progresso a sério",
+        "body": "Nível, presenças e avaliações de cada jogador num sítio só — e visíveis para ele."
+      }
+    },
+    "players": {
+      "eyebrow": "ÉS JOGADOR?",
+      "title": "A tua academia já usa o LevApp?",
+      "body": "Entra para veres as tuas aulas, confirmares presença e acompanhares o teu nível.",
+      "primary": "Entrar",
+      "secondary": "Recebi um convite"
+    },
+    "footer": {
+      "contact": "Contacto",
+      "privacy": "Privacidade",
+      "terms": "Termos"
+    },
+    "loader": {
+      "label": "A entrar…"
+    }
+  }
+}

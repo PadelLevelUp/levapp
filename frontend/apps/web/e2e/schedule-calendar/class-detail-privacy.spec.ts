@@ -15,9 +15,10 @@
  *   npx playwright test e2e/schedule-calendar/class-detail-privacy.spec.ts
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { API_APP, API_AUTH } from "../helpers/api";
 
-const API_BASE = "http://localhost:5001/api/app";
-const AUTH_BASE = "http://localhost:5001/api/auth";
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 // The seeded "E2E Academy Class" materialized instance has id 1 and enrolls
 // e2e-student (student 1). e2e-student-2 is a separate coach player used as the
