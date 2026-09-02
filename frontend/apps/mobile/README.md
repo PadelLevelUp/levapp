@@ -114,3 +114,26 @@ Scaffolded but stubbed. `src/lib/push/` contains an `ExpoPushRegistrar` (expo-no
 ## API contract
 
 [`API-CONTRACT.md`](API-CONTRACT.md) documents the full backend surface (auth scheme, rolling `X-New-Token` refresh, every endpoint with request/response shapes), derived from the Flask source. The typed client in `packages/api` targets it — do not invent endpoints.
+
+## Releasing: regenerate the native project first
+
+`apps/mobile/ios/` is **gitignored and only regenerated when `expo prebuild` is
+explicitly run.** It is not rebuilt by `expo run:ios` against an existing
+directory, so a stale native project can survive for months and get archived.
+
+That is not hypothetical: LevApp 1.1.0 shipped with Expo's default splash
+placeholder (a grey grid with concentric circles) as its native launch screen,
+because the archive was built from an `ios/` directory generated before the real
+splash asset landed. Users saw the placeholder flash on cold start before the JS
+launch animation began — [PAD-146].
+
+Before archiving any release:
+
+```bash
+npm run prebuild:ios     # expo prebuild -p ios --clean
+npm run verify:splash    # guard: fails if the launch screen is stale/placeholder
+```
+
+`verify:splash` is a guard, not a fix — it fails the build rather than letting a
+stale launch screen ship. Note that prebuild overwrites version and build numbers
+from `app.json`, so set them there rather than in Xcode.
