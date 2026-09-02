@@ -1,0 +1,38 @@
+<!-- @dsCard group="Components" viewport="700x340" subtitle="ClassBlock, ActionCard, PlayerRow, MessageRow, TabBar" name="App" -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>body{margin:0;padding:20px;background:var(--surface-page);font-family:var(--font-body)}
+.g{display:flex;flex-direction:column;gap:14px}
+.cap{font:600 11px/1.2 var(--font-body);letter-spacing:.1em;color:var(--text-tertiary)}
+.blk{border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;width:150px}
+.t{font:700 13px/1.3 var(--font-body)}.m{font:400 11px/1.3 var(--font-body)}
+.lv{font:600 11px/1 var(--font-display)}.hd{display:flex;justify-content:space-between;align-items:center}
+.bar{height:5px;border-radius:999px;overflow:hidden;flex:1}.ct{font:600 11px/1 var(--font-body);font-variant-numeric:tabular-nums}</style>
+<div class="g">
+  <div class="cap">CLASSBLOCK — status drives the whole treatment</div>
+  <div style="display:flex;gap:10px">
+    <div class="blk" style="background:var(--action-primary)"><div class="hd"><span class="t" style="color:#fff">Aula 8</span><span class="lv" style="color:#9CC6FF">N3</span></div><span class="m" style="color:var(--lv-blue-200)">09:00 · Campo 1</span><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="background:rgba(255,255,255,.28)"><div style="width:100%;height:5px;background:#fff"></div></div><span class="ct" style="color:#fff">16/16</span></div></div>
+    <div class="blk" style="background:var(--lv-amber-50);border:1.5px dashed var(--status-attention-solid)"><div class="hd"><span class="t" style="color:var(--lv-amber-800)">Aula 12</span><span class="lv" style="color:#B98A4A">N4-</span></div><span class="m" style="color:var(--lv-amber-700)">10:30 · faltam 9</span><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="background:#F3E4CE"><div style="width:44%;height:5px;background:var(--status-attention-solid)"></div></div><span class="ct" style="color:var(--lv-amber-700)">7/16</span></div></div>
+    <div class="blk" style="background:var(--surface-card);border:1.5px solid var(--action-primary);box-shadow:var(--shadow-accent)"><div class="hd"><span class="t" style="color:var(--action-primary)">Aula 5 · agora</span><span class="lv" style="color:var(--text-tertiary)">N3</span></div><span class="m" style="color:var(--text-secondary)">10:30 · Campo 2</span><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="background:var(--lv-grey-150)"><div style="width:75%;height:5px;background:var(--action-primary)"></div></div><span class="ct" style="color:var(--action-primary)">12/16</span></div></div>
+    <div class="blk" style="background:var(--lv-grey-100);border:1px solid var(--border-default)"><div class="hd"><span class="t" style="color:var(--text-secondary)">Aula 1</span><span class="lv" style="color:var(--text-tertiary)">N3</span></div><span class="m" style="color:var(--text-tertiary)">09:00 – 10:30</span><div style="display:flex;gap:6px;align-items:center"><span style="width:18px;height:18px;border-radius:999px;background:var(--status-done-solid);color:#fff;font:11px/18px var(--font-body);text-align:center">✓</span><span class="ct" style="color:var(--text-secondary)">15/16</span></div></div>
+  </div>
+  <div class="cap">ACTIONCARD · PLAYERROW · MESSAGEROW</div>
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <div style="flex:1;background:var(--surface-card);border:1px solid var(--border-subtle);border-left:4px solid var(--status-attention-solid);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px">
+      <div><div style="font:var(--text-title)">Aula 12 tem 9 vagas</div><div style="font:var(--text-caption);color:var(--text-secondary)">quinta 6 ago · 10:30 · Nível 4- · 7/16</div></div>
+      <div style="display:flex;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 20px;border-radius:12px;font:600 14px/1 var(--font-body);background:var(--action-primary);color:var(--text-on-accent);border:1px solid transparent;flex:1">Convidar 12</span><span style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 20px;border-radius:12px;font:600 14px/1 var(--font-body);background:transparent;color:var(--text-secondary);border:1px solid var(--border-default);">Depois</span></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:1px;background:var(--border-subtle);border:1px solid var(--border-subtle);border-radius:18px;overflow:hidden">
+      <div style="background:var(--surface-card);padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <span style="width:36px;height:36px;border-radius:999px;background:var(--lv-grey-100);color:var(--text-secondary);display:grid;place-items:center;font:600 12px/1 var(--font-body)">AS</span>
+        <div style="flex:1"><div style="font:var(--text-title)">Abel Salgado</div><div style="display:flex;gap:6px;margin-top:4px"><span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font:600 11px/1 var(--font-body);background:var(--status-progress-bg);color:var(--status-progress-fg)">Nível 3-</span><span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font:600 11px/1 var(--font-body);background:var(--status-attention-bg);color:var(--status-attention-fg)">Sem conta</span></div></div>
+        <span style="display:flex;gap:3px"><span style="width:5px;height:16px;border-radius:2px;background:var(--status-done-solid)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--status-done-solid)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--lv-grey-150)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--status-done-solid)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--lv-grey-150)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--lv-grey-150)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--status-done-solid)"></span><span style="width:5px;height:16px;border-radius:2px;background:var(--status-done-solid)"></span></span>
+      </div>
+      <div style="background:var(--surface-accent-soft);border-left:3px solid var(--action-primary);padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <span style="width:36px;height:36px;border-radius:999px;background:var(--surface-accent);color:var(--action-secondary-fg);display:grid;place-items:center;font:600 12px/1 var(--font-body)">IN</span>
+        <div style="flex:1"><div style="font:var(--text-title)">Inês Neuparth</div><div style="font:var(--text-caption);color:var(--text-primary)">Sim, consigo ir na quarta às 12:00</div></div>
+        <span style="font:400 12px/1 var(--font-body);color:var(--text-tertiary)">17:05</span>
+      </div>
+    </div>
+  </div>
+</div>

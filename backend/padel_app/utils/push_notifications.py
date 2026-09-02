@@ -3,7 +3,7 @@
 # - SSE presence tracking is global-only (padel_app/realtime.py), without user-level connectivity state.
 # - ORM stack is Flask-SQLAlchemy models + Alembic migrations.
 # - API auth pattern is flask-jwt-extended.
-# - Env loading is configured in levelup_backend/app.py for local dev (.env.local.dev).
+# - Env loading is configured in backend/app.py for local dev (.env.local.dev).
 import json
 import logging
 import os

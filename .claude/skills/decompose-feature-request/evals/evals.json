@@ -1,0 +1,21 @@
+{
+  "skill_name": "decompose-feature-request",
+  "evals": [
+    {
+      "id": 0,
+      "eval_name": "bot-style-feature-request-decomposition",
+      "prompt": "Decompose the following feature request.\n\n## Ticket: PAD-42\n**Title:** [TEST] Feature request: student self-service class cancellation\n**Type:** feature_request\n**Priority:** Medium\n**URL:** https://linear.app/padellevelup/issue/PAD-42/test-feature-request-student-self-service-class-cancellation\n\n## Feature Request Context\nStudents want to cancel their attendance to a class themselves from the app. Coaches configure a cancellation deadline (default 24h, configurable in settings). Cancelling before the deadline frees the spot and triggers the existing smart-notification invitations. Late cancellations are allowed but flagged to the coach, not blocked. Coach gets a notification on every cancellation. No penalties/credits in this iteration.\n\n## Reporter\n- Discord username: pedrompacheco95\n- Discord user ID: 1488850773956624445\n\n## Instructions\nDo NOT implement this feature directly — it is too large for a single task. Explore the codebase, produce an implementation plan, and decompose this feature request into child Linear tickets under this ticket, each independently implementable with its own Claude Code prompt.",
+      "expected_output": "An implementation plan posted as a comment on PAD-42, and 2-6 child Linear tickets under PAD-42, each with acceptance criteria and an embedded '## Claude Code Prompt' block starting with 'Implement the following ticket.' containing the child's real ID (no PLACEHOLDER left). Parent moved to Todo. No project source files modified.",
+      "assertions": [
+        "A plan comment was posted on PAD-42 containing a summary, gap analysis or implementation order, and the list of created children",
+        "Between 2 and 6 child tickets exist with PAD-42 as parent",
+        "Every child ticket description contains a '## Claude Code Prompt' fenced block starting with 'Implement the following ticket.'",
+        "No child ticket description contains 'PLACEHOLDER_ID' or 'PLACEHOLDER_URL' (two-pass update completed)",
+        "Child tickets are ordered foundation-first (data model/backend before frontend UI) with blockedBy relations for hard dependencies",
+        "Parent ticket PAD-42 state is 'Todo' after the run",
+        "No source files in levelup_backend or levelup_frontend were created or modified"
+      ],
+      "files": []
+    }
+  ]
+}

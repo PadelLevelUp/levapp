@@ -1,0 +1,42 @@
+/* Dark is the brand, not an inversion: the icon's navy is already the darkest
+   surface. Surfaces step up in lightness instead of relying on borders. */
+[data-theme="dark"] {
+  --surface-page: #070E1A;
+  --surface-card: #0F1B2E;
+  --surface-sunken: #122034;
+  --surface-raised: #17273F;
+  --surface-inverse: #F2F6FC;
+  --surface-accent: #1E3453;
+  --surface-accent-soft: #122034;
+
+  --border-subtle: #1C2E47;
+  --border-default: #24374F;
+  --border-strong: #2E4460;
+  --border-accent: var(--lv-blue-400);
+
+  --text-primary: #F2F6FC;
+  --text-secondary: #9FB1CA;
+  --text-tertiary: #7E90AB;
+  --text-accent: #9CC6FF;
+  --text-on-accent: #06121F;
+  --text-on-inverse: var(--lv-navy-800);
+  --text-on-inverse-muted: #55627A;
+
+  --action-primary: var(--lv-blue-400);
+  --action-primary-hover: var(--lv-blue-500);
+  --action-secondary-bg: #1E3453;
+  --action-secondary-fg: #9CC6FF;
+
+  --status-done-bg: rgba(18, 148, 107, 0.18);
+  --status-done-fg: #5FD3AC;
+  --status-attention-bg: rgba(217, 131, 36, 0.18);
+  --status-attention-fg: #F0B970;
+  --status-problem-bg: rgba(211, 69, 59, 0.18);
+  --status-problem-fg: #F09A93;
+  --status-progress-bg: rgba(109, 91, 208, 0.20);
+  --status-progress-fg: #B3A6F5;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 6px 16px -8px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+}

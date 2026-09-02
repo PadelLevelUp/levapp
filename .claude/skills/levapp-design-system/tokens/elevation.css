@@ -1,0 +1,9 @@
+:root {
+  /* One shadow family. Elevation is for things that float above the page —
+     modals, popovers, the phone frame. Cards in a list use a border, not a shadow. */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 3px rgba(13, 27, 49, 0.12);
+  --shadow-md: 0 6px 16px -8px rgba(13, 27, 49, 0.28);
+  --shadow-lg: 0 24px 48px -24px rgba(13, 27, 49, 0.35);
+  --shadow-accent: 0 6px 16px -8px rgba(19, 85, 220, 0.5);
+}

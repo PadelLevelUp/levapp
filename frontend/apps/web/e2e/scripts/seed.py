@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """
 Seeds the levelup_test database with E2E test fixtures.
-Run from the levelup_backend directory with test DB env vars set.
+Run from the backend directory with test DB env vars set.
 """
 import sys
 import os
 
 # Ensure the backend package is importable
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../../../../../levelup_backend")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../../../../../backend")
 
 from padel_app import create_app
 from padel_app.sql_db import db

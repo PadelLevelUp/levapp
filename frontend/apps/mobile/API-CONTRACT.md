@@ -1,6 +1,6 @@
 # API Contract — LevelUp Backend (Flask)
 
-Derived from backend source (`levelup_backend/padel_app/`): route blueprints, SQLAlchemy models, and serializers. This is the contract the typed client in `packages/api` targets. Do not invent endpoints — anything not listed here does not exist.
+Derived from backend source (`backend/padel_app/`): route blueprints, SQLAlchemy models, and serializers. This is the contract the typed client in `packages/api` targets. Do not invent endpoints — anything not listed here does not exist.
 
 ## 1. Auth Scheme
 
@@ -161,7 +161,7 @@ NOTE: backend push is **Web Push (VAPID)** only. There is no native APNs/FCM dev
 ## 6. Local test backend
 
 ```bash
-cd levelup_backend && source .venv/bin/activate
+cd backend && source .venv/bin/activate
 FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost POSTGRES_PORT=5432 \
 POSTGRES_USER=padel_app_user POSTGRES_PW=$POSTGRES_PW POSTGRES_DB=levelup_test \
 JWT_SECRET_KEY=e2e-test-secret E2E_DEBUG_ENDPOINTS=true TEST_MODE=true \

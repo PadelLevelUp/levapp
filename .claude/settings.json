@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(drop table:*)",
+      "Bash(DROP TABLE:*)",
+      "Read(.env)",
+      "Read(./secrets/**)"
+    ]
+  }
+}

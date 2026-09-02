@@ -1,0 +1,6 @@
+/* LevApp webfonts.
+   SUBSTITUTION NOTE: no font binaries were supplied with the source material.
+   Poppins and Plus Jakarta Sans are loaded from Google Fonts. If the brand owns
+   licensed files, drop them in assets/fonts/ and replace the @import below with
+   local @font-face rules — the token names do not change. */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");

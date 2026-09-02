@@ -1,0 +1,841 @@
+<title>Presences Port Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground:      #FAFBFA;
+    --surface:     #FFFFFF;
+    --surface-2:   #F1F4F2;
+    --line:        #DCE3DE;
+    --line-strong: #C2CDC6;
+    --ink:         #16241F;
+    --ink-2:       #3D4F47;
+    --ink-3:       #6B7A74;
+    --accent:      #2F6F52;
+    --accent-soft: #E4EFE8;
+    --amber:       #9A6612;
+    --amber-soft:  #F6EBD6;
+    --rose:        #9E3542;
+    --rose-soft:   #F7E3E4;
+    --slate:       #2C5A73;
+    --slate-soft:  #DFEAF0;
+    --shadow:      0 1px 2px rgba(22,36,31,.05), 0 8px 24px -12px rgba(22,36,31,.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0F1614;
+      --surface:     #161F1B;
+      --surface-2:   #1D2823;
+      --line:        #2A3833;
+      --line-strong: #3B4C45;
+      --ink:         #E6EDE9;
+      --ink-2:       #B4C2BB;
+      --ink-3:       #84968D;
+      --accent:      #74C296;
+      --accent-soft: #1B3327;
+      --amber:       #DCA84E;
+      --amber-soft:  #33280F;
+      --rose:        #E08691;
+      --rose-soft:   #37191D;
+      --slate:       #86B9D4;
+      --slate-soft:  #14262F;
+      --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0F1614;
+    --surface:     #161F1B;
+    --surface-2:   #1D2823;
+    --line:        #2A3833;
+    --line-strong: #3B4C45;
+    --ink:         #E6EDE9;
+    --ink-2:       #B4C2BB;
+    --ink-3:       #84968D;
+    --accent:      #74C296;
+    --accent-soft: #1B3327;
+    --amber:       #DCA84E;
+    --amber-soft:  #33280F;
+    --rose:        #E08691;
+    --rose-soft:   #37191D;
+    --slate:       #86B9D4;
+    --slate-soft:  #14262F;
+    --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 96px; }
+  .prose { max-width: 68ch; }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    padding: 56px 0 36px;
+    margin-bottom: 48px;
+  }
+  header.masthead .wrap { padding-bottom: 0; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.2rem, 5vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0 0 28px;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-3);
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- headings ---------- */
+  h2 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 600;
+    font-size: 1.85rem;
+    letter-spacing: -.015em;
+    margin: 64px 0 6px;
+    text-wrap: balance;
+  }
+  h2:first-of-type { margin-top: 0; }
+  .sec-note { color: var(--ink-3); font-size: .94rem; margin: 0 0 26px; max-width: 62ch; }
+  h3 {
+    font-size: 1.02rem; font-weight: 600; margin: 34px 0 10px;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px;
+  }
+  code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .87em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .08em .34em;
+    color: var(--ink-2);
+    word-break: break-word;
+  }
+
+  /* ---------- headline callout ---------- */
+  .headline {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 26px 30px;
+    box-shadow: var(--shadow);
+    margin-bottom: 8px;
+  }
+  .headline p { margin: 0; font-size: 1.06rem; color: var(--ink-2); }
+  .headline p + p { margin-top: 12px; }
+  .headline strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- stat strip ---------- */
+  .stats {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    margin: 32px 0 8px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .stat .n {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 2rem; font-weight: 600; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    display: block; margin-bottom: 7px;
+  }
+  .stat .k {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .stat.port    .n { color: var(--accent); }
+  .stat.api     .n { color: var(--slate); }
+  .stat.have    .n { color: var(--ink-2); }
+  .stat.decide  .n { color: var(--amber); }
+  .stat.skip    .n { color: var(--rose); }
+
+  /* ---------- verdict chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .c-port   { background: var(--accent-soft); color: var(--accent);  border-color: var(--accent); }
+  .c-api    { background: var(--slate-soft);  color: var(--slate);   border-color: var(--slate); }
+  .c-have   { background: var(--surface-2);   color: var(--ink-2);   border-color: var(--line-strong); }
+  .c-decide { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber); }
+  .c-skip   { background: var(--rose-soft);   color: var(--rose);    border-color: var(--rose); }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 26px 0 30px;
+    box-shadow: var(--shadow);
+  }
+  .legend div { display: flex; gap: 10px; align-items: baseline; font-size: .88rem; color: var(--ink-2); }
+  .legend .chip { flex: none; }
+
+  /* ---------- tables ---------- */
+  .scroller {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--surface-2);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px; font-weight: 500;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-3);
+    text-align: left;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line-strong);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--surface-2); }
+  td.feat { color: var(--ink); font-weight: 500; width: 24%; min-width: 190px; }
+  td.verd { width: 1%; white-space: nowrap; }
+  td.note { width: 40%; min-width: 260px; }
+
+  tr.group td {
+    background: var(--surface-2);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink); font-weight: 500;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line-strong);
+    border-top: 1px solid var(--line-strong);
+  }
+  tbody tr.group:hover td { background: var(--surface-2); }
+
+  /* map table */
+  table.map td:first-child, table.map td:nth-child(2) {
+    font-family: "IBM Plex Mono", monospace; font-size: .8rem;
+  }
+  table.map td:nth-child(2) { color: var(--accent); }
+
+  /* ---------- phases ---------- */
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 26px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 4px 20px;
+    align-items: start;
+  }
+  .phase .num {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.6rem; font-weight: 600; color: var(--accent);
+    line-height: 1.1; font-variant-numeric: tabular-nums;
+    grid-row: span 2;
+  }
+  .phase h3 { margin: 0 0 3px; font-size: 1.06rem; }
+  .phase .body { grid-column: 2; }
+  .phase p { margin: 0 0 10px; font-size: .93rem; }
+  .phase p:last-child { margin-bottom: 0; }
+  .phase ul { margin: 0 0 10px; padding-left: 18px; font-size: .93rem; }
+  .phase li { margin-bottom: 5px; }
+  .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ---------- decisions ---------- */
+  .decision {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .decision h3 { margin: 0 0 8px; }
+  .decision p { font-size: .93rem; margin-bottom: 10px; }
+  .decision p:last-child { margin-bottom: 0; }
+  .rec {
+    font-size: .88rem;
+    color: var(--ink);
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 9px 13px;
+    display: block;
+  }
+  .rec b {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); display: block; margin-bottom: 3px;
+  }
+
+  ul.plain { padding-left: 18px; }
+  ul.plain li { margin-bottom: 8px; }
+
+  footer {
+    margin-top: 72px; padding-top: 22px;
+    border-top: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; color: var(--ink-3);
+  }
+
+  @media (max-width: 620px) {
+    .phase { grid-template-columns: 1fr; }
+    .phase .num { grid-row: auto; }
+    .phase .body { grid-column: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Reference teardown &middot; Port assessment</p>
+    <h1>Porting the Presences Tab</h1>
+    <p class="standfirst">A full teardown of the Lovable <em>Presence Overview</em> prototype, matched feature by feature against what LevelUp already has &mdash; and what it would actually take to land it.</p>
+    <div class="meta">
+      <span><b>Reference</b> reference/Presence&nbsp;Overview &middot; ~2,060 LOC</span>
+      <span><b>Investigated</b> 6 parallel agents</span>
+      <span><b>Date</b> 25 Aug 2026</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="headline">
+    <p><strong>The prototype is a UI shell over static mock data &mdash; but our schema already models almost everything it displays.</strong> The reference has no backend at all: no <code>fetch</code>, no persistence, every coach edit lost on reload. What makes this port cheap is the other side: our <code>Presence</code> table already carries <code>status</code>, <code>justification</code>, <code>invited</code>, <code>confirmed</code>, <code>validated</code> and <code>late_cancellation</code>, and <code>lessons.type</code> is already <code>Enum("academy", "private")</code> &mdash; the exact split the prototype charts.</p>
+    <p>Every metric in its players table is derivable from tables we already have. <strong>Zero schema migrations are required</strong>, and marking a class validated already works &mdash; <code>confirm_presences</code> stamps <code>validated=true</code> on every row it writes. The real work is three read endpoints, one small write endpoint for <em>un</em>-validating, and a handful of product decisions.</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat port"><span class="n">21</span><span class="k">Port as-is</span></div>
+    <div class="stat api"><span class="n">13</span><span class="k">Port + endpoint</span></div>
+    <div class="stat have"><span class="n">3</span><span class="k">Already have</span></div>
+    <div class="stat decide"><span class="n">4</span><span class="k">Needs a decision</span></div>
+    <div class="stat skip"><span class="n">5</span><span class="k">Don't import</span></div>
+  </div>
+  <p class="sec-note" style="margin-top:14px">46 distinct features catalogued. 37 of them come across; 5 are prototype scaffolding we should leave behind.</p>
+
+  <h2>What the prototype actually is</h2>
+  <p class="sec-note">Three components and a page, sitting on two mock-data modules.</p>
+
+  <div class="prose">
+    <p>The Presences tab composes four blocks: a <strong>Validate Classes</strong> widget (a dialog-based inbox for finalising attendance, and by far the most substantial piece at 723 lines), a <strong>Players table</strong> with filtering, column toggles and CSV export, <strong>three Recharts visualisations</strong>, and <strong>four KPI tiles</strong>.</p>
+    <p>Its stack diverges from ours in ways that matter for porting: it runs <strong>TanStack Start</strong> (SSR meta-framework) rather than React Router, <strong>Tailwind v4</strong> with CSS-first <code>@theme</code> and oklch tokens rather than our v3 config, and a Vite&nbsp;8 / Rolldown / Nitro toolchain. None of that comes across. What does come across is the component logic and JSX &mdash; and helpfully, both codebases are on <strong>Recharts <code>^2.15.4</code></strong>, the identical version.</p>
+    <p>Note that the prototype's own domain model was clearly written with knowledge of ours. Its per-player metrics line up almost one-to-one with columns we already store.</p>
+  </div>
+
+  <h2>Feature-by-feature verdict</h2>
+  <p class="sec-note">Every button, modal, filter and chart in the reference, and whether it can come across.</p>
+
+  <div class="legend">
+    <div><span class="chip c-port">Port</span><span>UI copies over; the data already reaches the frontend.</span></div>
+    <div><span class="chip c-api">Port&nbsp;+&nbsp;API</span><span>UI copies over unchanged, but needs a new endpoint. No schema change.</span></div>
+    <div><span class="chip c-have">Have it</span><span>Already shipped here. Reuse ours; don't import a second version.</span></div>
+    <div><span class="chip c-decide">Decide</span><span>Blocked on a product or spec decision, not on code.</span></div>
+    <div><span class="chip c-skip">Skip</span><span>Deliberately not imported. Reason given.</span></div>
+  </div>
+
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>What it does</th><th>Verdict</th><th>Notes &amp; what's needed</th></tr>
+      </thead>
+      <tbody>
+
+        <tr class="group"><td colspan="4">Block 1 &mdash; Validate Classes (the attendance inbox)</td></tr>
+
+        <tr>
+          <td class="feat">Pending-count trigger</td>
+          <td>Button reading "N classes to validate", opens the dialog.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Our coach dashboard already computes a <code>pending_validations</code> count, but only a count with a link. Needs a listing endpoint. Note the reference's own count is global across weeks while the dialog is week-scoped &mdash; a real inconsistency worth fixing on the way in.</td>
+        </tr>
+        <tr>
+          <td class="feat">Week navigation</td>
+          <td>Prev/next chevrons, Monday&ndash;Sunday label ("This week &middot; 18&ndash;24 Aug").</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Pure date maths (<code>weekLabel()</code>). Our calendar already works in week ranges. Unbounded in the reference &mdash; add sane limits.</td>
+        </tr>
+        <tr>
+          <td class="feat">Readiness bucketing</td>
+          <td>Splits classes into "Needs your input" vs "Ready to confirm".</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Reference rule: ready when no student left the RSVP blank. Materialization already sets <code>invited=true</code> for every enrolled player (<code>lesson_service.py:146</code>), so use the predicate the codebase already uses for "awaiting an answer" &mdash; <code>invited=true AND confirmed=false AND status IS NULL</code> (<code>events.py:78</code>, <code>kpis.py:64</code>) &mdash; rather than inventing a second one.</td>
+        </tr>
+        <tr>
+          <td class="feat">Day grouping &amp; time sort</td>
+          <td>Classes grouped under day headers, sorted by start time.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Presentation only.</td>
+        </tr>
+        <tr>
+          <td class="feat">Multi-select checkboxes</td>
+          <td>Per-class checkbox for batch actions.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Local state only.</td>
+        </tr>
+        <tr>
+          <td class="feat">"Select all ready"</td>
+          <td>Selects every class that needs no manual input.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Disabled when nothing qualifies.</td>
+        </tr>
+        <tr>
+          <td class="feat">Bulk "Validate selected"</td>
+          <td>Finalises every selected ready class at once.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Works today with no new backend: <code>confirm_presences</code> already forces <code>validated=true</code> on every submitted row (<code>lesson_service.py:351</code>). Bulk is N sequential calls; a single batched endpoint is an optional optimisation, not a prerequisite.</td>
+        </tr>
+        <tr>
+          <td class="feat">Skipped-class notice</td>
+          <td>Bulk-validate refuses incomplete classes and explains why, re-selecting them.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Good behaviour &mdash; never silently force-approves. Worth keeping verbatim.</td>
+        </tr>
+        <tr>
+          <td class="feat">Per-class Validate button</td>
+          <td>Finalises one class; hard-disabled while any student is undecided.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Exactly what <code>confirm_presences</code> already does &mdash; writes status/justification and stamps <code>validated=true</code>. No new endpoint.</td>
+        </tr>
+        <tr>
+          <td class="feat">Open &rarr; class detail</td>
+          <td>Switches the dialog to a single-class editing view with full-length status labels.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Note the reference's two editing surfaces disagree: different label lengths <em>and</em> different student sort orders. Unify on the way in.</td>
+        </tr>
+        <tr>
+          <td class="feat">Present / Justified / Unjustified toggle</td>
+          <td>Three-way per-student status control.</td>
+          <td class="verd"><span class="chip c-have">Have it</span></td>
+          <td class="note">Our <code>AttendanceRow.tsx</code> already implements this exact interaction against <code>confirm_presences</code>. Reuse the component rather than porting a second one.</td>
+        </tr>
+        <tr>
+          <td class="feat">RSVP status prefill</td>
+          <td>confirmed&rarr;present, absent&rarr;<em>justified</em>, walk-in&rarr;present.</td>
+          <td class="verd"><span class="chip c-decide">Decide</span></td>
+          <td class="note">Defaulting every self-declared absence to <em>justified</em> is a real product call: <code>unjustified_absences</code> feeds the eligibility bar in <code>specs/eligibility/spec.md:37</code>. A generous default quietly widens who stays eligible.</td>
+        </tr>
+        <tr>
+          <td class="feat">Add walk-in player</td>
+          <td>Inline picker to add someone who wasn't on the roster; auto-marked present.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note"><strong>Already works.</strong> <code>add_presences()</code> creates a <code>Presence</code> row when none exists, so the existing endpoint covers it. Only needs a picker scoped to the coach's roster (the reference picks from a flat mock name pool).</td>
+        </tr>
+        <tr>
+          <td class="feat">"Validated this week" list</td>
+          <td>Separate section listing finalised classes.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Same listing endpoint, filtered the other way.</td>
+        </tr>
+        <tr>
+          <td class="feat">Undo validation</td>
+          <td>Returns a validated class to the pending pool.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note"><strong>The one genuine write gap.</strong> Every existing path drives <code>validated</code> one way only &mdash; false at materialization, true on confirm. Nothing sets it back to false. Needs a small endpoint.</td>
+        </tr>
+        <tr>
+          <td class="feat">Edit a validated class</td>
+          <td>Reopens a finalised class for correction.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Re-submitting through <code>confirm_presences</code> overwrites and re-stamps. Works today &mdash; subject to the locking decision below.</td>
+        </tr>
+        <tr>
+          <td class="feat">Empty state</td>
+          <td>"Nothing left to validate this week. Nice work."</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Reference collapses two different situations into one message (all done vs. no classes at all). Split them.</td>
+        </tr>
+        <tr>
+          <td class="feat">Undecided-first sorting</td>
+          <td>Students needing attention float to the top.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Nice touch, keep.</td>
+        </tr>
+        <tr>
+          <td class="feat">Class-level "validated"</td>
+          <td>Reference tracks validation as a list of class IDs.</td>
+          <td class="verd"><span class="chip c-decide">Decide</span></td>
+          <td class="note">We store <code>validated</code> per <em>Presence</em>, not per class. Derive from <code>all(p.validated)</code>, or add a class-level flag? See decisions.</td>
+        </tr>
+        <tr>
+          <td class="feat">"Reset all"</td>
+          <td>Wipes all validations behind a native <code>window.confirm</code>.</td>
+          <td class="verd"><span class="chip c-skip">Skip</span></td>
+          <td class="note">Prototype scaffolding. It's destructive, uses a blocking browser dialog, and its scope is buggy &mdash; sits under a per-week header but clears every week globally.</td>
+        </tr>
+        <tr>
+          <td class="feat"><code>StudentChip</code> component</td>
+          <td>A styled chip component, fully written.</td>
+          <td class="verd"><span class="chip c-skip">Skip</span></td>
+          <td class="note">Dead code &mdash; defined but never rendered or imported anywhere.</td>
+        </tr>
+
+        <tr class="group"><td colspan="4">Block 2 &mdash; Players table</td></tr>
+
+        <tr>
+          <td class="feat">Name search</td>
+          <td>Case-insensitive substring filter.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Client-side.</td>
+        </tr>
+        <tr>
+          <td class="feat">Min-total / max-unjustified filters</td>
+          <td>Two numeric bounds on the roster.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Client-side.</td>
+        </tr>
+        <tr>
+          <td class="feat">Column visibility dropdown</td>
+          <td>Toggle any of 8 columns; Player is locked on.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Uses shadcn <code>DropdownMenu</code> + <code>Checkbox</code>, both already in our UI kit.</td>
+        </tr>
+        <tr>
+          <td class="feat">Sortable columns</td>
+          <td>Click any header; numeric columns open descending.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Hand-rolled <code>&lt;table&gt;</code>, not TanStack Table &mdash; so no new dependency. Matches our one existing table precedent.</td>
+        </tr>
+        <tr>
+          <td class="feat">Export CSV</td>
+          <td>Downloads visible columns &times; filtered rows as <code>presences.csv</code>.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Pure client-side Blob. Add a date stamp to the filename and quote all cells, not just names.</td>
+        </tr>
+        <tr>
+          <td class="feat">"X of Y players" count</td>
+          <td>Live filtered-vs-total count.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Needs a pt/en plural key pair.</td>
+        </tr>
+        <tr>
+          <td class="feat">Metric: total presences</td>
+          <td>Per-player attendance count.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note"><code>count(status = 'present')</code>. Must reuse the existing <code>compute_player_kpis()</code> predicate &mdash; the specs forbid parallel recomputation.</td>
+        </tr>
+        <tr>
+          <td class="feat">Metric: private / academy split</td>
+          <td>Attendance broken down by class type.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Join <code>lessons.type</code>, already <code>Enum("academy","private")</code>. An exact match &mdash; no mapping needed.</td>
+        </tr>
+        <tr>
+          <td class="feat">Metric: justified / unjustified absences</td>
+          <td>Two absence counts per player.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Directly from <code>Presence.justification</code>. Stored today but surfaced nowhere &mdash; this would be its first read.</td>
+        </tr>
+        <tr>
+          <td class="feat">Metric: invites received / joined</td>
+          <td>Guest-invitation funnel per player.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note"><code>invited = true</code>, and <code>invited = true AND status = 'present'</code> respectively.</td>
+        </tr>
+        <tr>
+          <td class="feat">Row &rarr; player drill-down</td>
+          <td>Not in the reference &mdash; its rows are inert.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">Cheap win we should add: link each row to our existing <code>/players/:id/attendance</code> page rather than leaving rows dead.</td>
+        </tr>
+
+        <tr class="group"><td colspan="4">Block 3 &mdash; Charts</td></tr>
+
+        <tr>
+          <td class="feat">Bar: presences per player</td>
+          <td>Top 8 players by attendance, names abbreviated.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Same Recharts version. <strong>Must set <code>isAnimationActive={false}</code></strong> &mdash; bars otherwise render as empty <code>&lt;g&gt;</code> under throttled rAF, a bug we've already hit once.</td>
+        </tr>
+        <tr>
+          <td class="feat">Donut: private vs academy</td>
+          <td>Share of all presences by class type.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Two aggregate numbers. Re-token the <code>--chart-1</code>/<code>--chart-2</code> colours to ours.</td>
+        </tr>
+        <tr>
+          <td class="feat">Line: presences over time</td>
+          <td>Aggregate trend across the last 8 weeks.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Our <code>attendance_history_service</code> already buckets by day/month/year with automatic granularity &mdash; but only for one player, and only <code>status='present'</code>. Generalising it to the roster is the single largest backend task.</td>
+        </tr>
+        <tr>
+          <td class="feat">Charts ignore table filters</td>
+          <td>Table search/filters don't affect the charts.</td>
+          <td class="verd"><span class="chip c-decide">Decide</span></td>
+          <td class="note">Almost certainly a prototype shortcut rather than intent. Decide whether filters drive the whole page.</td>
+        </tr>
+
+        <tr class="group"><td colspan="4">Block 4 &mdash; Page shell</td></tr>
+
+        <tr>
+          <td class="feat">KPI: total presences</td>
+          <td>Sum across the roster.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Falls out of the same aggregate endpoint.</td>
+        </tr>
+        <tr>
+          <td class="feat">KPI: active players</td>
+          <td>Roster size.</td>
+          <td class="verd"><span class="chip c-have">Have it</span></td>
+          <td class="note">Already on the coach dashboard.</td>
+        </tr>
+        <tr>
+          <td class="feat">KPI: academy share</td>
+          <td>Academy presences as a percentage.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Derived from the donut's two numbers.</td>
+        </tr>
+        <tr>
+          <td class="feat">KPI: guest attendances</td>
+          <td>Total invite-driven attendances.</td>
+          <td class="verd"><span class="chip c-api">Port + API</span></td>
+          <td class="note">Sum of invites-joined.</td>
+        </tr>
+        <tr>
+          <td class="feat">"Presences" nav entry</td>
+          <td>Sidebar item for the tab.</td>
+          <td class="verd"><span class="chip c-port">Port</span></td>
+          <td class="note">One entry in <code>navItems</code> (<code>AppLayout.tsx:44</code>), coach-only. The reference's own sidebar is a non-functional mockup.</td>
+        </tr>
+        <tr>
+          <td class="feat">Per-player attendance history</td>
+          <td>Chart + session list for one player.</td>
+          <td class="verd"><span class="chip c-have">Have it</span></td>
+          <td class="note">PAD-114 shipped this at <code>/attendance</code> and <code>/players/:id/attendance</code>. The new tab should link into it, not rebuild it.</td>
+        </tr>
+        <tr>
+          <td class="feat">App shell &amp; routing</td>
+          <td>TanStack Start SSR, file-based routes, mock sidebar.</td>
+          <td class="verd"><span class="chip c-skip">Skip</span></td>
+          <td class="note">Framework mismatch &mdash; we're React Router in an npm-workspaces monorepo. Nothing to gain.</td>
+        </tr>
+        <tr>
+          <td class="feat">Design tokens</td>
+          <td>Tailwind v4 <code>@theme</code>, oklch palette, <code>calc()</code> radius scale.</td>
+          <td class="verd"><span class="chip c-skip">Skip</span></td>
+          <td class="note">Re-skin to LevApp tokens. Also: <code>calc()</code> in radius silently drops on NativeWind, so don't carry that pattern toward mobile.</td>
+        </tr>
+        <tr>
+          <td class="feat">Mock data modules</td>
+          <td>Seeded pseudo-random players and 24 hardcoded classes.</td>
+          <td class="verd"><span class="chip c-skip">Skip</span></td>
+          <td class="note">Replaced wholesale by real endpoints. Useful only as a fixture shape reference.</td>
+        </tr>
+        <tr>
+          <td class="feat">Mobile surface</td>
+          <td>None &mdash; reference is web-only.</td>
+          <td class="verd"><span class="chip c-decide">Decide</span></td>
+          <td class="note">Assumed out of scope for v1. Mobile would be net-new work plus the locale static-import wiring, which is easy to forget.</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Why nothing needs a migration</h2>
+  <p class="sec-note">The prototype's data model against ours, field by field.</p>
+
+  <div class="scroller">
+    <table class="map">
+      <thead>
+        <tr><th>Reference concept</th><th>Our equivalent</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Status <code>present</code></td><td>Presence.status = 'present'</td><td>Exact match</td></tr>
+        <tr><td>Status <code>justified</code></td><td>status='absent' + justification='justified'</td><td>Same data, two columns instead of one flattened enum</td></tr>
+        <tr><td>Status <code>unjustified</code></td><td>status='absent' + justification='unjustified'</td><td>Same, two columns</td></tr>
+        <tr><td>Response <code>confirmed</code></td><td>Presence.confirmed = true</td><td>Exact match</td></tr>
+        <tr><td>Response <code>absent</code></td><td>status='absent' set by the reminder decline flow</td><td>Exact match</td></tr>
+        <tr><td>Response <code>none</code></td><td>confirmed=false AND status IS NULL</td><td>Derivable</td></tr>
+        <tr><td>Response <code>added</code> (walk-in)</td><td>Presence row created on demand by add_presences()</td><td>Already supported</td></tr>
+        <tr><td>Class type Private / Academy</td><td>lessons.type Enum('academy','private')</td><td>Exact match</td></tr>
+        <tr><td>Class validated</td><td>Presence.validated (per row, not per class)</td><td>Needs a decision, not a migration</td></tr>
+        <tr><td>invitesReceived</td><td>count(invited = true)</td><td>Derivable</td></tr>
+        <tr><td>invitesJoined</td><td>count(invited = true AND status = 'present')</td><td>Derivable</td></tr>
+        <tr><td>&mdash;</td><td>Presence.late_cancellation</td><td>We have <em>more</em> than the reference models</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Decisions needed before building</h2>
+  <p class="sec-note">These are product calls, not engineering unknowns. Each one changes the spec. Four map to rows in the table above; naming is a fifth that sits across the whole feature.</p>
+
+  <div class="decision">
+    <h3>1. What does "validated" mean at class level?</h3>
+    <p>The reference validates a whole class. We store <code>validated</code> per player row. There's also a tempting third option: <code>LessonInstance.status = 'completed'</code>, whose service function already exists but is unreachable dead code with no route.</p>
+    <p>That third option is a trap. <code>specs/calendar/spec.md</code> rule 11 guarantees an event's <code>completed</code> status is derived purely from the clock &mdash; letting a coach set it directly would violate an existing rule.</p>
+    <span class="rec"><b>Recommendation</b>Derive class validation from <code>all(p.validated)</code> over its presences. No new column, no rule violated.</span>
+  </div>
+
+  <div class="decision">
+    <h3>2. Does validating lock the record?</h3>
+    <p>"Validate" implies finality, but nothing in our tree enforces it &mdash; <code>confirm_presences</code> can be called repeatedly on a past class today. Meanwhile the reminder-decline path and the eligibility reader both touch these rows, and eligibility is specced to evaluate <em>fresh, never snapshotted</em>.</p>
+    <p>A lock introduced here could silently break those paths.</p>
+    <span class="rec"><b>Recommendation</b>Don't lock in v1. Keep the reference's own behaviour &mdash; Undo and Edit stay available &mdash; and state explicitly in the spec that validation is a finality marker, not a write barrier.</span>
+  </div>
+
+  <div class="decision">
+    <h3>3. Should a self-declared absence default to justified?</h3>
+    <p>The reference assumes yes. But <code>unjustified_absences</code> is a live input to the eligibility bar, so this default directly decides who stays eligible to join classes.</p>
+    <span class="rec"><b>Recommendation</b>Your call &mdash; it's a coaching-policy question, not a technical one. Whichever way it goes, the spec should say so out loud, because the eligibility spec silently depends on it.</span>
+  </div>
+
+  <div class="decision">
+    <h3>4. Naming: "Presences" or "Attendance"?</h3>
+    <p>Both terms are already live here. <code>Presence</code> is the canonical entity; <code>attendance</code> is the domain directory and the existing page name. The Portuguese product name for the shipped page is already <em>Presenças</em>.</p>
+    <span class="rec"><b>Recommendation</b>Keep <code>Presence</code> as the entity and <code>attendance</code> as the domain, and let "Presenças / Presences" be the user-facing tab name. Don't create a second <code>specs/presences/</code> domain beside <code>specs/attendance/</code>.</span>
+  </div>
+
+  <div class="decision">
+    <h3>5. Do table filters drive the charts?</h3>
+    <p>In the reference they don't &mdash; the charts always show fixed aggregates regardless of what the table is filtered to. Two decoupled views of the same data on one screen tends to read as a bug.</p>
+    <span class="rec"><b>Recommendation</b>Wire filters through to the charts, or visually separate the two zones so it's clear they're independent.</span>
+  </div>
+
+  <h2>The plan</h2>
+  <p class="sec-note">Four phases. Backend first here, because the frontend is additive and can't break anything that ships today.</p>
+
+  <div class="phase">
+    <span class="num">1</span>
+    <div class="body">
+      <h3>Spec the feature</h3>
+      <p class="tag">specs/attendance/spec.md &middot; no code</p>
+      <p>Route through <code>specflow-change-router</code> first, as the project requires. This classifies as a New Feature with a spec-gap flavour &mdash; it fills in the <code>validated</code> field the schema already reserved but never specified.</p>
+      <p>Add a leaf &mdash; <code>attendance.validation</code> &mdash; to the existing attendance domain rather than a new one. Follow the tree's <em>actual</em> convention (one <code>spec.md</code> per domain, <code>##</code> leaf headers, <code>---</code> frontmatter), not the generic one-file-per-leaf template in the specflow skill docs &mdash; the real tree doesn't use it.</p>
+      <p>Record decisions 1&ndash;5 as rules. Avoid the word "retroactive": <code>eligibility.enforcement</code> rule 8 already uses it for an unrelated concept, and the collision will confuse anyone grepping the tree. Note that <code>specs/</code> isn't under git, so the rules need reproducing in the PR body.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <span class="num">2</span>
+    <div class="body">
+      <h3>Backend: three reads and one write</h3>
+      <p class="tag">levelup_backend &middot; no migration</p>
+      <p>Paths follow the existing resource-first convention (<code>/class_instance/presences/confirm</code>, <code>/attendance_history</code>) rather than inventing a <code>/presences/*</code> prefix:</p>
+      <ul>
+        <li><code>GET /class_instances/pending_validation</code> &mdash; classes awaiting validation for a week, with rosters and per-player RSVP state. Promotes the dashboard's existing count into a real listing.</li>
+        <li><code>GET /presence_stats</code> &mdash; the 8 per-player metrics. Must reuse <code>compute_player_kpis()</code>' predicate rather than recomputing, per the repo's single-source-of-truth rule.</li>
+        <li><code>GET /presence_trend</code> &mdash; roster-wide time series. Generalise <code>attendance_history_service</code> to accept a coach and drop its hard <code>status='present'</code> filter.</li>
+        <li><code>POST /class_instance/&lt;id&gt;/presences/unvalidate</code> &mdash; the only new write. Validating already works via <code>confirm_presences</code>; nothing anywhere sets <code>validated</code> back to false, which is what Undo needs.</li>
+      </ul>
+      <p>All four sit in <code>frontend_api.py</code> behind <code>require_coach()</code>, but the guards differ by shape: the two class-scoped routes use <code>require_owned_class()</code>, while the two roster-wide ones have no <code>class_id</code> to check and instead scope the query to the coach's roster (<code>require_own_roster_relation</code> when a single player is requested). Coach-only throughout &mdash; the specs forbid exposing other players' presence data to a student.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <span class="num">3</span>
+    <div class="body">
+      <h3>Frontend: the tab</h3>
+      <p class="tag">levelup_frontend/apps/web</p>
+      <ul>
+        <li>Route + <code>navItems</code> entry, coach-gated.</li>
+        <li>Port the three blocks, re-skinned to LevApp tokens. Reuse <code>AttendanceRow</code> for the status toggle instead of porting a second implementation.</li>
+        <li>Build on TanStack Query hooks &mdash; the attendance area currently has none, so this also brings it in line with Players and Calendar.</li>
+        <li>Charts: <code>isAnimationActive={false}</code> on all three.</li>
+        <li>i18n: new <code>src/locales/{pt,en}/presences.json</code>. Verify layout in <strong>pt</strong>, not just en &mdash; Portuguese strings are wider and that's where overflow bugs actually show up. Watch for translated labels frozen in state; store the value, derive the label.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <span class="num">4</span>
+    <div class="body">
+      <h3>Verify</h3>
+      <p class="tag">E2E + manual walk</p>
+      <p>Playwright spec covering the validate flow end to end, plus roster stats rendering. Seed data needs past classes with a mix of confirmed / declined / unanswered presences &mdash; worth checking whether the current seed has any completed classes at all.</p>
+      <p>Then a real browser walk of every changed flow before the PR. Automated green isn't the gate here.</p>
+    </div>
+  </div>
+
+  <h2>Risks worth naming</h2>
+  <div class="prose">
+    <ul class="plain">
+      <li><strong>The trend endpoint is the only real unknown.</strong> Everything else is mechanical; generalising a single-player service to roster-wide aggregation is where the estimate could move.</li>
+      <li><strong>Two ways to mark attendance.</strong> After this ships, a coach can mark attendance from the class detail sheet <em>or</em> from the Presences tab. That's fine, but the spec has to say they're the same operation, or the tree ends up with two undifferentiated flows.</li>
+      <li><strong>Batching backend migrations.</strong> Not applicable here &mdash; no migration &mdash; which conveniently sidesteps the multiple-heads failure mode that has taken prod down before.</li>
+      <li><strong>Eligibility coupling.</strong> This tab makes absence counts visible for the first time. Expect the numbers to be questioned, and possibly to surface existing data-quality problems that were invisible while nothing read <code>justification</code>.</li>
+    </ul>
+  </div>
+
+  <footer>
+    Sources: full teardown of reference/Presence&nbsp;Overview (ValidateClasses, PlayersTable, PresencesCharts, data layer, shell) against levelup_backend, levelup_frontend and specs/. Six parallel investigation agents; business-rule quotes spot-verified against source.
+  </footer>
+
+</div>

@@ -1,0 +1,26 @@
+{
+  "skill_name": "batch-merge-prs",
+  "evals": [
+    {
+      "id": 0,
+      "name": "full-batch-plan",
+      "prompt": "I've got a load of PRs piled up on both levelup repos and I don't want 20 separate deploys. Don't merge or push anything yet — I want to see the plan first. What would a batch merge actually land, in what order, and what's most likely to bite us?",
+      "expected_output": "A plan that enumerates open PRs across BOTH repos, groups them by Linear ticket, flags cross-repo tickets as atomic, orders migration work last, names the Alembic multiple-heads risk and the lockfile risk, states that staging has no CI so the gate is local tests, and stops without pushing.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "subset-cross-repo",
+      "prompt": "can you merge PAD-89 and PAD-90 together? plan it out first, I want to see what you'd do before you touch anything",
+      "expected_output": "Identifies that PAD-89 = backend #57 + frontend #79 and PAD-90 = backend #58 + frontend #80, treats each ticket as atomic across repos, plans staging reset from main, joint E2E test gate, backend-before-frontend merge order, and stops for approval.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "backend-only-trap",
+      "prompt": "plan a batch merge of just the open backend PRs — frontend can wait. I'm mainly worried about the migrations breaking the deploy like they did before. don't push anything.",
+      "expected_output": "Catches that a backend-only batch would land half of several cross-repo tickets (PAD-75, 78, 89, 90, 92, 101) and warns/recommends against it or proposes excluding them. Runs the Alembic head check, explains the multiple-heads outage and the merge-revision fix, and notes a green deploy workflow does not prove prod is healthy.",
+      "files": []
+    }
+  ]
+}

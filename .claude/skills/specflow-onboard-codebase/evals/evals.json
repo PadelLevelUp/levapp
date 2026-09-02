@@ -1,0 +1,23 @@
+{
+  "skill_name": "specflow-onboard-codebase",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Onboard this codebase under spec management. The project is at /Users/pedropacheco1/Documents/Projetos/padel_app/levelup/ — it has a Flask backend in levelup_backend/ and a React frontend in levelup_frontend/. Run Phases 1-2 (code scan + proposed spec generation) and Phase 5 (tooling generation). Skip Phase 3 (human correction) — treat all proposed specs as approved. Skip Phase 6 (test generation). Generate the full spec tree, proposed-notes.md, CLAUDE.md, RULES.md, build-order.md, skills, and agents.",
+      "expected_output": "Should produce specs covering the major domains visible in the codebase: auth, players, classes/scheduling, evaluations, messaging, exercises, notifications, dashboard, settings. Should extract Flask+SQLAlchemy patterns for backend skills, React+shadcn patterns for frontend skills. Should identify existing conventions (conventional commits, Playwright E2E, etc.). proposed-notes.md should flag any inconsistencies or dead code found.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I have a small Express.js + MongoDB todo app at /Users/pedropacheco1/Documents/Projetos/padel_app/levelup/.claude/skills/specflow-onboard-codebase-workspace/sample-apps/express-todo/. Onboard it under spec management. Run Phases 1-2 and Phase 5. Skip Phase 3 (treat all specs as approved) and Phase 6.",
+      "expected_output": "Should produce simple specs: auth (if present), todos CRUD, maybe categories. Should recognize Express+MongoDB stack. Skills should reflect Express patterns. Should be proportional — a small app should get a small spec tree, not over-engineered.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I have a Django + React project at /Users/pedropacheco1/Documents/Projetos/padel_app/levelup/.claude/skills/specflow-onboard-codebase-workspace/sample-apps/django-react/. Onboard it under spec management. Run Phases 1-2 and Phase 5. Skip Phase 3 and Phase 6.",
+      "expected_output": "Should detect both Django backend and React frontend. Skills should cover Django patterns (models, views, serializers) AND React patterns separately. Should identify the API contract between them. proposed-notes.md should flag any inconsistencies between frontend expectations and backend responses.",
+      "files": []
+    }
+  ]
+}

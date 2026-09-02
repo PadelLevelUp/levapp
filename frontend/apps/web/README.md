@@ -79,7 +79,7 @@ End-to-end tests use [Playwright](https://playwright.dev/) and run against the r
 ### Prerequisites
 
 - PostgreSQL running on port `5433` with a `padel_app_user` role
-- The backend virtualenv at `../levelup_backend/.venv`
+- The backend virtualenv at `../backend/.venv`
 - `PGPASSWORD` exported in your shell (or trust auth configured for `padel_app_user`)
 
 ### First-time setup

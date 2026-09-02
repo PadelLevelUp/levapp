@@ -415,7 +415,7 @@ The `MODELS` key is used by the admin editor for URL routing. Convention: lowerc
 After defining the model, generate and apply a migration:
 
 ```bash
-# From levelup_backend/
+# From backend/
 flask db migrate -m "add YourModel"
 flask db upgrade
 ```

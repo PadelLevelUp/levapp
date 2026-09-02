@@ -1,0 +1,375 @@
+# ==============================================================================
+# LevelUp — Weekly QA Journeys (versioned, tunable)
+# ==============================================================================
+#
+# WHAT THIS FILE IS
+#   The canonical list of exploratory user journeys the weekly-qa skill walks
+#   against the REAL running app every week. It is the "what to test" knob.
+#   Editing this file changes what the QA agent exercises — no code change needed.
+#
+# HOW THE weekly-qa SKILL CONSUMES IT
+#   1. Loads this file and filters journeys by the run's scope
+#      (e.g. platform == web|ios|both, priority <= P1 for a smoke run,
+#       all priorities for a full run).
+#   2. For each selected journey it drives the live app:
+#        - web  -> Chrome MCP (mcp__claude-in-chrome__*) against http://localhost:8080
+#        - ios  -> iOS simulator + computer-use MCP (mcp__computer-use__*)
+#      following `steps` in order, asserting `expected`, and recording `capture`.
+#   3. Screenshots of every key screen are scored against qa/design-rubric.md.
+#   4. Findings at severity P0/P1 are auto-filed as Linear tickets; P2/P3 are
+#      collected into the weekly QA report only.
+#   5. `regression_coverage` tells the agent whether an automated test already
+#      guards this flow. Journeys marked `exploratory` are where humans/vision
+#      catch what the deterministic Maestro/Playwright suites cannot.
+#
+# VERSIONING
+#   Treat this like code: commit changes, review diffs. When a new feature ships,
+#   add a journey here so it enters the weekly rotation. Keep ids stable so
+#   week-over-week reports stay comparable.
+#
+# FIELD REFERENCE (per journey)
+#   id                  stable slug, referenced in reports/tickets (do not rename)
+#   title               human summary
+#   platform            web | ios | both
+#   role                coach | student | public
+#   priority            P0 (critical revenue/auth path) | P1 (core flow) | P2 (nice-to-have)
+#   regression_coverage maestro:<flow> | playwright:<spec> | exploratory | partial:<ref>
+#   steps               ordered, human-readable actions the agent performs
+#   expected            what "working" looks like (assertions)
+#   capture             what to record: screenshots / console / network
+#
+# TEST DATA (seeded, see e2e/scripts/seed.py)
+#   coach:    e2e-coach     / E2eCoach123!
+#   student:  e2e-student   / E2eStudent123!   (+ e2e-student-2)
+#   inactive: Ghost Player
+#   class:    "E2E Academy Class"  next Monday 10:00
+#
+# ENVIRONMENT
+#   web login route: /auth   (NOT /login)   |   web app: http://localhost:8080
+#   roles & access are enforced; do not assume a player can reach coach routes.
+# ==============================================================================
+
+meta:
+  version: 1
+  updated: 2026-07-10
+  routes_ref: "see .claude/CLAUDE.md route table"
+  priorities:
+    P0: "Critical — auth, data loss, crash-on-open. Broken = block the week."
+    P1: "Core flow — the coach/student cannot do their main job."
+    P2: "Secondary — polish, convenience, edge flows."
+
+# ------------------------------------------------------------------------------
+# WEB JOURNEYS (React, http://localhost:8080, login at /auth)
+# ------------------------------------------------------------------------------
+web_journeys:
+
+  - id: web-auth-happy-path
+    title: "Login, session persistence, logout"
+    platform: web
+    role: public
+    priority: P0
+    regression_coverage: playwright:auth.spec.ts
+    steps:
+      - "Navigate to /auth."
+      - "Log in as coach e2e-coach / E2eCoach123! (use #username / #password / submit — pre-auth UI may render in pt)."
+      - "Confirm redirect to /dashboard."
+      - "Reload the page (Cmd+R) and confirm session persists (still on dashboard, not bounced to /auth)."
+      - "Open a new tab to /calendar and confirm still authenticated."
+      - "Open the account/profile menu and click Logout."
+      - "Confirm redirect back to /auth and that visiting /dashboard now redirects to /auth."
+    expected:
+      - "Valid credentials land on dashboard within a few seconds."
+      - "Reload keeps the session (token/refresh persisted)."
+      - "Logout clears the session and protects authenticated routes."
+    capture: [screenshots(auth, dashboard), console_errors, network_failures]
+
+  - id: web-auth-wrong-password
+    title: "Wrong password shows a clear error, no crash"
+    platform: web
+    role: public
+    priority: P0
+    regression_coverage: exploratory
+    steps:
+      - "Navigate to /auth."
+      - "Enter e2e-coach with an incorrect password and submit."
+      - "Observe the error surface."
+      - "Correct the password and submit again."
+    expected:
+      - "A visible, human-readable auth error appears (not a raw 401/stack trace)."
+      - "The form stays usable; no white-screen crash; no uncaught console error."
+      - "Retry with correct password succeeds."
+    capture: [screenshot(auth-error), console_errors, network(401 payload)]
+
+  - id: web-coach-player-lifecycle
+    title: "Create player, open profile, add strengths & weaknesses, set level/side"
+    platform: web
+    role: coach
+    priority: P1
+    regression_coverage: partial:playwright(add-player) + exploratory(S&W, levels)
+    steps:
+      - "Login as coach; open /players."
+      - "Create a new player (name via placeholder 'e.g. John Doe' to avoid Username ambiguity)."
+      - "Save and confirm the new player card appears in the list."
+      - "Click the player card -> navigate to /players/{playerId}."
+      - "In the Strengths & Weaknesses section click the last 'Edit' button, add a strength (aria-label 'Add strength') and a weakness (aria-label 'Add weakness')."
+      - "Set the player's level and preferred side."
+      - "Reload the detail page and confirm all edits persisted."
+    expected:
+      - "New player is created and reachable at /players/{playerId}."
+      - "Strengths/weaknesses save and re-render after reload."
+      - "Level and side persist."
+    capture: [screenshots(players-list, player-detail, S&W-edit), console_errors, network_failures]
+
+  - id: web-calendar-class-lifecycle
+    title: "Create, edit, take attendance, delete a class"
+    platform: web
+    role: coach
+    priority: P1
+    regression_coverage: partial:playwright(class create/attendance/delete) + exploratory(edit)
+    steps:
+      - "Login as coach; open /calendar."
+      - "Create a new class on an empty slot (title, time, participants)."
+      - "Open the class detail sheet; confirm 'Participants (X/Y)', 'Mark attendance', 'Edit', 'Notify' controls are present."
+      - "Edit the class (change time or title) and save."
+      - "Click 'Mark attendance' and toggle attendance for at least one participant; save."
+      - "Delete the class via the Trash button (aria-label 'Delete class') and confirm it disappears from the week."
+      - "Use Previous/Next week nav (aria-label 'Previous week' / 'Next week') and confirm the grid re-renders correctly."
+    expected:
+      - "Class create/edit/delete all reflect immediately in the calendar grid."
+      - "Attendance saves and reopening the class shows the recorded state."
+      - "Week navigation does not lose or duplicate classes."
+    capture: [screenshots(calendar, class-detail, attendance), console_errors, network_failures]
+
+  - id: web-evaluation-notes
+    title: "Coach evaluation / session notes flow"
+    platform: web
+    role: coach
+    priority: P1
+    regression_coverage: exploratory
+    steps:
+      - "Login as coach; open a player at /players/{playerId} (use the seeded e2e-student)."
+      - "Add or edit an evaluation / session note for the player."
+      - "Save and confirm the note appears in the player's history/timeline."
+      - "Reload and confirm the note persists with correct author/timestamp."
+    expected:
+      - "Notes save, render in the correct order, and survive reload."
+      - "No overflow/clipping on long note text."
+    capture: [screenshots(player-notes), console_errors, network_failures]
+
+  - id: web-messaging-sse-unread
+    title: "Real-time messaging with live unread counts (SSE)"
+    platform: web
+    role: coach
+    priority: P0
+    regression_coverage: partial:playwright(direct message send) + exploratory(SSE live count)
+    steps:
+      - "Login as coach in one browser context; open /messages."
+      - "In a second context (or incognito) login as e2e-student and open /messages."
+      - "As the student, send a message to the coach."
+      - "On the coach side WITHOUT reloading, confirm the message arrives live via SSE and the unread badge increments."
+      - "Open the conversation as coach; confirm the unread count clears."
+      - "Reply as coach; confirm the student receives it live."
+    expected:
+      - "Messages appear without a manual reload (SSE stream healthy)."
+      - "Unread badge increments on receive and clears on read."
+      - "No EventSource errors / reconnect storms in the console."
+    capture: [screenshots(messages, unread-badge), console_errors, network(SSE stream, /messages requests)]
+
+  - id: web-settings-language-theme
+    title: "Settings: language pt/en switch and theme toggle"
+    platform: web
+    role: coach
+    priority: P1
+    regression_coverage: partial:playwright(settings language) + exploratory(theme)
+    steps:
+      - "Login as coach; open /settings (default tab is 'profile')."
+      - "Switch language English -> Português; confirm UI strings translate app-wide."
+      - "Switch back Português -> English (IMPORTANT: restore English before finishing so shared DB locale does not leak into later runs)."
+      - "Toggle theme light -> dark -> light; confirm tokens apply across the app (nav, cards, inputs)."
+      - "Review notification-engine and season/recurrence settings render without errors."
+    expected:
+      - "Language switch translates all visible strings, not just the settings page."
+      - "Theme toggle updates color tokens everywhere with no unstyled/contrast-broken elements."
+      - "Language is restored to English at the end."
+    capture: [screenshots(settings-en, settings-pt, dark-mode), console_errors]
+
+  - id: web-empty-state-new-account
+    title: "Brand-new account: empty states across the app"
+    platform: web
+    role: coach
+    priority: P2
+    regression_coverage: exploratory
+    steps:
+      - "Register a fresh coach account via /auth (or a fresh invite flow) with no data."
+      - "Visit /dashboard, /players, /calendar, /messages, /training/exercises in turn."
+      - "Observe each screen's empty state."
+    expected:
+      - "Every screen shows a purposeful empty state (illustration/message/CTA), never a blank or a crash."
+      - "Primary CTAs ('Add player', 'Create class', etc.) are visible and actionable."
+      - "No spinners that never resolve."
+    capture: [screenshots(dashboard-empty, players-empty, calendar-empty, messages-empty), console_errors]
+
+  - id: web-notifications-reminders
+    title: "Class notify / reminder from the coach side"
+    platform: web
+    role: coach
+    priority: P2
+    regression_coverage: exploratory
+    steps:
+      - "Login as coach; open /calendar and open the E2E Academy Class detail sheet."
+      - "Click 'Notify' (aria-label / name matches /notify/i) and trigger a class notification/reminder."
+      - "Confirm a success confirmation appears."
+      - "Cross-check the student side (/messages or in-app notifications) that a reminder/notification was produced."
+    expected:
+      - "Notify action confirms success without error."
+      - "The notification/reminder is visible to the targeted student."
+    capture: [screenshots(class-notify, notify-confirmation), console_errors, network(notify request)]
+
+# ------------------------------------------------------------------------------
+# iOS JOURNEYS (Expo + Expo Router + NativeWind, iOS simulator)
+# Driven via simulator + computer-use. Known gotchas:
+#   - Select/dropdown portals are NOT drivable -> set-player-level is skipped.
+#   - NativeWind calc() border-radius bug -> square corners; verify visually.
+# ------------------------------------------------------------------------------
+ios_journeys:
+
+  - id: ios-auth-happy-path
+    title: "Login, session persistence, logout"
+    platform: ios
+    role: public
+    priority: P0
+    regression_coverage: maestro:login
+    steps:
+      - "Launch the app on the simulator (cold start)."
+      - "Log in as e2e-coach / E2eCoach123!."
+      - "Confirm landing on the coach dashboard."
+      - "Background the app and re-foreground it; confirm session persists (no re-login)."
+      - "Open settings and log out; confirm return to the login screen."
+    expected:
+      - "Cold start reaches login without crash; valid creds reach dashboard."
+      - "Backgrounding preserves the session."
+      - "Logout returns to login and protects authed screens."
+    capture: [screenshots(login, dashboard), simulator_logs(errors)]
+
+  - id: ios-auth-wrong-password
+    title: "Wrong password shows a clear error"
+    platform: ios
+    role: public
+    priority: P0
+    regression_coverage: exploratory
+    steps:
+      - "On the login screen enter e2e-coach with a wrong password and submit."
+      - "Observe the error message."
+      - "Correct the password and log in successfully."
+    expected:
+      - "A readable inline error appears; app does not crash or hang."
+      - "Retry with correct password succeeds."
+    capture: [screenshot(login-error), simulator_logs(errors)]
+
+  - id: ios-coach-add-player-notes
+    title: "Add player and add player notes (level skipped — portal gotcha)"
+    platform: ios
+    role: coach
+    priority: P1
+    regression_coverage: partial:maestro(add-player, player-notes) + exploratory(set-player-level SKIPPED)
+    steps:
+      - "Login as coach; open the players tab."
+      - "Add a new player and save; confirm it appears in the list."
+      - "Open the player and add a note; save and confirm it renders."
+      - "Attempt to set the player's level — EXPECT the Select portal to be non-drivable; record as a KNOWN LIMITATION, not a new bug."
+    expected:
+      - "Player create + notes work end to end."
+      - "Level dropdown non-drivability is confirmed as the known Select-portal gotcha (do not file as new)."
+    capture: [screenshots(players, player-detail, add-note), simulator_logs(errors)]
+
+  - id: ios-class-lifecycle
+    title: "Create, edit, take attendance, delete a class"
+    platform: ios
+    role: coach
+    priority: P1
+    regression_coverage: maestro:class-management, class-edit, attendance, class-deletion
+    steps:
+      - "Login as coach; open the calendar/classes view."
+      - "Create a class; confirm it appears."
+      - "Edit the class (title/time) and save."
+      - "Open the class, mark attendance for a participant, save."
+      - "Delete the class and confirm removal."
+    expected:
+      - "Full class CRUD + attendance succeeds on device."
+      - "Lists refresh correctly after each mutation."
+    capture: [screenshots(calendar, class-detail, attendance), simulator_logs(errors)]
+
+  - id: ios-messaging-reactions
+    title: "Direct messages and message reactions"
+    platform: ios
+    role: coach
+    priority: P1
+    regression_coverage: maestro:direct-messages, message-reactions
+    steps:
+      - "Login as coach; open messages and a conversation with e2e-student."
+      - "Send a message; confirm it appears in the thread."
+      - "Long-press a message and add a reaction; confirm it renders."
+      - "Confirm inbound messages arrive and unread state updates (live if SSE, else on refresh)."
+    expected:
+      - "Send + reaction work; thread stays ordered."
+      - "Unread/live behavior matches the web SSE expectation as closely as the mobile transport allows."
+    capture: [screenshots(messages, thread, reaction), simulator_logs(errors)]
+
+  - id: ios-settings-language-sections
+    title: "Settings sections and language pt/en switch"
+    platform: ios
+    role: coach
+    priority: P1
+    regression_coverage: maestro:settings-sections, settings-language
+    steps:
+      - "Login as coach; open settings."
+      - "Walk each settings section and confirm it renders."
+      - "Switch language en -> pt, confirm strings translate, then switch back to en (restore English before finishing)."
+    expected:
+      - "All settings sections render without clipping/overflow."
+      - "Language toggles both directions; ends in English."
+    capture: [screenshots(settings, settings-pt), simulator_logs(errors)]
+
+  - id: ios-student-availability-calendar
+    title: "Student: availability blockers and calendar view"
+    platform: ios
+    role: student
+    priority: P1
+    regression_coverage: maestro:student-availability, student-calendar
+    steps:
+      - "Login as e2e-student."
+      - "Open availability and add an availability blocker; save and confirm it persists."
+      - "Open the student calendar and confirm upcoming classes (incl. E2E Academy Class) render correctly."
+    expected:
+      - "Availability blocker saves and shows on reopen."
+      - "Student calendar shows the correct classes with correct times."
+    capture: [screenshots(availability, student-calendar), simulator_logs(errors)]
+
+  - id: ios-empty-state-new-account
+    title: "Brand-new account: empty states on device"
+    platform: ios
+    role: coach
+    priority: P2
+    regression_coverage: exploratory
+    steps:
+      - "Login (or register) a fresh account with no data."
+      - "Visit dashboard, players, calendar, messages, exercises tabs."
+      - "Observe each empty state on the device viewport (mind safe areas / notch)."
+    expected:
+      - "Each tab shows a proper empty state with a CTA; no blank screens or infinite spinners."
+      - "Empty-state content respects safe areas (not under the notch / home indicator)."
+    capture: [screenshots(each empty tab), simulator_logs(errors)]
+
+  - id: ios-notify-remind
+    title: "Class notify / remind participants"
+    platform: ios
+    role: coach
+    priority: P2
+    regression_coverage: maestro:class-notify-remind
+    steps:
+      - "Login as coach; open the E2E Academy Class."
+      - "Trigger Notify / Remind participants."
+      - "Confirm a success confirmation and that the student receives the notification."
+    expected:
+      - "Notify/remind confirms success and reaches the student."
+    capture: [screenshots(class, notify-confirmation), simulator_logs(errors)]

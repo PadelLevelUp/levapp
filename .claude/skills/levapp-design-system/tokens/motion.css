@@ -1,0 +1,15 @@
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+  /* Restrained. Fades and small translations only — nothing bounces. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-control: background-color var(--duration-fast) var(--ease-standard),
+                        color var(--duration-fast) var(--ease-standard),
+                        border-color var(--duration-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-base: 0ms; --duration-slow: 0ms; }
+}

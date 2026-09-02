@@ -39,7 +39,7 @@ ERROR: Flask test backend is not responding on :5001.
 
 Start it with (POSTGRES_HOST must NOT come from secrets.env — it points at prod):
 
-  cd <repo-root>/levelup && source .claude/secrets.env && cd levelup_backend && \
+  cd <repo-root>/levapp && source .claude/secrets.env && cd backend && \
   source .venv/bin/activate && \
   FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost \
   POSTGRES_PORT=5432 POSTGRES_USER=padel_app_user POSTGRES_DB=levelup_test \

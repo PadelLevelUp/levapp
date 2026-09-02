@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E9EDF3; }
+  a { color: #1355DC; text-decoration: none; }
+  a:hover { color: #2F8AFF; }
+</style>
+</helmet>
+
+<div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #101E33; padding: 72px; display: flex; flex-direction: column; gap: 88px; width: 2040px; text-wrap: pretty">
+
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="levA2" x1="0.05" y1="0.05" x2="0.95" y2="0.95">
+        <stop offset="0" stop-color="#4A9BFF"></stop>
+        <stop offset="0.46" stop-color="#1355DC"></stop>
+        <stop offset="1" stop-color="#2F8AFF"></stop>
+      </linearGradient>
+      <symbol id="lev" viewBox="0 0 1024 1024">
+        <rect width="1024" height="1024" fill="#0D1B31"></rect>
+        <g transform="translate(-99, 38)">
+          <path d="M730 248 L952 700 L856 700 L730 442 L604 700 L508 700 Z" fill="url(#levA2)"></path>
+          <path d="M470 248 L596 248 L438 618 L706 618 L676 700 L288 700 Z" fill="none" stroke="#0D1B31" stroke-width="38" stroke-linejoin="round"></path>
+          <path d="M470 248 L596 248 L438 618 L706 618 L676 700 L288 700 Z" fill="#FFFFFF"></path>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <div style="display: flex; gap: 28px; align-items: flex-start">
+    <div style="width: 72px; height: 72px; border-radius: 23%; overflow: hidden; flex: none; box-shadow: 0 10px 24px -10px rgba(13,27,49,0.45)">
+      <svg width="72" height="72" viewBox="0 0 1024 1024"><use href="#lev"></use></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 900px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 42px; letter-spacing: -0.02em; line-height: 1.1">Redesign plan — LevelUp</div>
+      <div style="font-size: 17px; line-height: 1.6; color: #55627A">A navy-and-blue rebrand carried from the app icon into the product, with communication with players as the organising job. Below: the new palette and type, then three directions each for the dashboard and messaging, a re-encoded calendar, the shared component language, and a sequence to build it in.</div>
+    </div>
+  </div>
+
+  <!-- ── Diagnosis ──────────────────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">01 — DIAGNOSIS</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px">
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 17px">Counters without meaning</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">The dashboard shows 1, 166, 49, 3230 with equal weight. Six tiles, no hierarchy, nothing actionable. 3230 pending validations reads as a bug, not a task.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 17px">One blue block for everything</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">In the calendar a full class, an empty class and a finished class look identical. The information that matters — who is missing — is invisible until you open each one.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 17px">Automation disguised as chat</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">Eight identical chase messages in a row. The real object is a rule ("chase unanswered invites"), but it is presented as a person-by-person inbox you have to work through.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 17px">Flat, unbranded surface</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">Green, blue, amber and red all appear at full saturation with no assigned roles, on default type. Nothing connects the product to the LevApp mark.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Foundations ────────────────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">02 — FOUNDATIONS</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 28px; align-items: start">
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 26px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 20px">Palette</div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">BRAND — from the icon</div>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 68px; border-radius: 12px; background: #0B1524"></div><div style="font-size: 12px; font-weight: 600">Ink 900</div><div style="font-size: 11px; color: #8592A8">#0B1524</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 68px; border-radius: 12px; background: #0D1B31"></div><div style="font-size: 12px; font-weight: 600">Navy 800</div><div style="font-size: 11px; color: #8592A8">#0D1B31</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 68px; border-radius: 12px; background: #1355DC"></div><div style="font-size: 12px; font-weight: 600">Blue 600 · primary</div><div style="font-size: 11px; color: #8592A8">#1355DC</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 68px; border-radius: 12px; background: #2F8AFF"></div><div style="font-size: 12px; font-weight: 600">Blue 500 · accent</div><div style="font-size: 11px; color: #8592A8">#2F8AFF</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 68px; border-radius: 12px; background: #E8F1FF"></div><div style="font-size: 12px; font-weight: 600">Blue 50 · wash</div><div style="font-size: 11px; color: #8592A8">#E8F1FF</div></div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">NEUTRALS — cool, tuned to the navy</div>
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #F6F8FB; border: 1px solid #E4E9F1"></div><div style="font-size: 11px; color: #8592A8">#F6F8FB</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #E9EDF3"></div><div style="font-size: 11px; color: #8592A8">#E9EDF3</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #D3DBE6"></div><div style="font-size: 11px; color: #8592A8">#D3DBE6</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #8592A8"></div><div style="font-size: 11px; color: #8592A8">#8592A8</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #55627A"></div><div style="font-size: 11px; color: #8592A8">#55627A</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #2A3547"></div><div style="font-size: 11px; color: #8592A8">#2A3547</div></div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">STATUS — each colour gets exactly one job</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #12946B"></div><div style="font-size: 12px; font-weight: 600">Done / confirmed</div><div style="font-size: 11px; color: #8592A8">#12946B</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #D98324"></div><div style="font-size: 12px; font-weight: 600">Needs action</div><div style="font-size: 11px; color: #8592A8">#D98324</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #D3453B"></div><div style="font-size: 12px; font-weight: 600">Problem / destructive</div><div style="font-size: 11px; color: #8592A8">#D3453B</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #6D5BD0"></div><div style="font-size: 12px; font-weight: 600">Player-side / progress</div><div style="font-size: 11px; color: #8592A8">#6D5BD0</div></div>
+          </div>
+          <div style="font-size: 13px; line-height: 1.6; color: #55627A; margin-top: 4px">The old green stops being the brand colour and becomes only "done". Blue carries identity and every primary action, so a green badge now means something.</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">DARK — same hues, inverted surfaces</div>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #070E1A"></div><div style="font-size: 11px; color: #8592A8">bg #070E1A</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #0F1B2E"></div><div style="font-size: 11px; color: #8592A8">surface #0F1B2E</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #17273F"></div><div style="font-size: 11px; color: #8592A8">raised #17273F</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #24374F"></div><div style="font-size: 11px; color: #8592A8">border #24374F</div></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 52px; border-radius: 12px; background: #4A9BFF"></div><div style="font-size: 11px; color: #8592A8">primary #4A9BFF</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 28px">
+        <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 20px">Type</div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 18px; border-bottom: 1px solid #E9EDF3">
+            <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 34px; letter-spacing: -0.02em">Poppins 700</div>
+            <div style="font-size: 13px; color: #55627A">Screen titles, numbers in hero position, the wordmark. Same family as the icon lockup.</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 18px; border-bottom: 1px solid #E9EDF3">
+            <div style="font-weight: 600; font-size: 22px">Plus Jakarta Sans 600</div>
+            <div style="font-size: 13px; color: #55627A">Card titles, player names, buttons, tabs.</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="font-weight: 400; font-size: 16px; line-height: 1.55">Plus Jakarta Sans 400 — body, secondary lines, message text. Times and scores use tabular figures: 10:30 · 12/16.</div>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 18px">
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 20px">Shape &amp; spacing</div>
+          <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.6; color: #55627A">
+            <div>4&nbsp;pt spine: 8 / 12 / 16 / 24 / 32 / 48. Cards 16&nbsp;px radius, controls 12, pills full. One shadow only, for things that float above the page.</div>
+            <div>Cards lose their outline where a background tint already separates them, so lists stop looking like a stack of boxes.</div>
+            <div>Mobile hit targets 44&nbsp;px minimum; the tab bar keeps its six destinations but gains a filled-shape active state instead of a colour change.</div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; padding-top: 6px">
+            <div style="padding: 12px 20px; border-radius: 12px; background: #1355DC; color: #FFFFFF; font-weight: 600; font-size: 14px">Primary</div>
+            <div style="padding: 12px 20px; border-radius: 12px; background: #E8F1FF; color: #1355DC; font-weight: 600; font-size: 14px">Secondary</div>
+            <div style="padding: 12px 20px; border-radius: 12px; border: 1px solid #D3DBE6; color: #2A3547; font-weight: 600; font-size: 14px">Ghost</div>
+            <div style="padding: 8px 14px; border-radius: 999px; background: #E7F5EF; color: #0C6E50; font-weight: 600; font-size: 13px">Concluída</div>
+            <div style="padding: 8px 14px; border-radius: 999px; background: #FDF1E1; color: #9A5B10; font-weight: 600; font-size: 13px">Faltam 9</div>
+            <div style="padding: 8px 14px; border-radius: 999px; background: #F1EEFC; color: #4B3BA8; font-weight: 600; font-size: 13px">Nível 3-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dashboard directions ───────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">03 — DASHBOARD, THREE DIRECTIONS</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="font-size: 15px; line-height: 1.6; color: #55627A; max-width: 820px">Same data, three answers to "what is the first thing a coach sees". Mobile shown; each scales to the desktop two-column layout.</div>
+
+    <div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start">
+
+      <!-- 1a -->
+      <div id="1a" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #0D1B31; color: #FFFFFF; font-weight: 700; font-size: 13px">1a</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Agenda do dia</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">The day comes first: next class, court time, who is in it. Counters are demoted to a single "needs you" strip. Best if the app is opened courtside, minutes before a class.</div>
+        <div style="width: 392px; border-radius: 36px; background: #F6F8FB; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 22px 20px 16px; display: flex; align-items: center; justify-content: space-between">
+            <div style="display: flex; flex-direction: column; gap: 2px">
+              <div style="font-size: 13px; color: #8592A8">terça, 4 agosto</div>
+              <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 22px">Olá, Bernardo</div>
+            </div>
+            <div style="width: 40px; height: 40px; border-radius: 999px; background: #0D1B31; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 600">BT</div>
+          </div>
+          <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 14px">
+            <div style="border-radius: 20px; background: linear-gradient(150deg, #16294A 0%, #0B1524 100%); padding: 22px; display: flex; flex-direction: column; gap: 18px">
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8FA8CC">A SEGUIR · 10:30</div>
+                <div style="padding: 5px 10px; border-radius: 999px; background: rgba(74,155,255,0.18); color: #9CC6FF; font-size: 12px; font-weight: 600">em 45 min</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px; color: #FFFFFF">Aula 5</div>
+                <div style="font-size: 14px; color: #A9BCD6">10:30 – 12:00 · Nível 3 · Campo 2</div>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <div style="display: flex">
+                  <div style="width: 30px; height: 30px; border-radius: 999px; background: #2F8AFF; border: 2px solid #16294A; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #FFFFFF">IN</div>
+                  <div style="width: 30px; height: 30px; border-radius: 999px; background: #1355DC; border: 2px solid #16294A; margin-left: -10px; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #FFFFFF">BM</div>
+                  <div style="width: 30px; height: 30px; border-radius: 999px; background: #6D5BD0; border: 2px solid #16294A; margin-left: -10px; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #FFFFFF">FC</div>
+                  <div style="width: 30px; height: 30px; border-radius: 999px; background: #24374F; border: 2px solid #16294A; margin-left: -10px; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #A9BCD6">+9</div>
+                </div>
+                <div style="font-size: 13px; color: #A9BCD6; margin-left: 4px">12/16</div>
+                <div style="flex: 1"></div>
+                <div style="padding: 10px 16px; border-radius: 12px; background: #2F8AFF; color: #FFFFFF; font-weight: 600; font-size: 14px">Abrir</div>
+              </div>
+            </div>
+
+            <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E4E9F1; overflow: hidden">
+              <div style="padding: 14px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #EEF1F6">
+                <div style="width: 8px; height: 8px; border-radius: 999px; background: #D98324"></div>
+                <div style="font-size: 14px; font-weight: 600; flex: 1">9 lugares por preencher</div>
+                <div style="font-size: 13px; color: #1355DC; font-weight: 600">Convidar</div>
+              </div>
+              <div style="padding: 14px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #EEF1F6">
+                <div style="width: 8px; height: 8px; border-radius: 999px; background: #1355DC"></div>
+                <div style="font-size: 14px; font-weight: 600; flex: 1">1 mensagem por responder</div>
+                <div style="font-size: 13px; color: #1355DC; font-weight: 600">Ver</div>
+              </div>
+              <div style="padding: 14px 18px; display: flex; align-items: center; gap: 12px">
+                <div style="width: 8px; height: 8px; border-radius: 999px; background: #8592A8"></div>
+                <div style="font-size: 14px; font-weight: 600; flex: 1">3230 validações pendentes</div>
+                <div style="font-size: 13px; color: #1355DC; font-weight: 600">Validar</div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8; padding-left: 4px">RESTO DO DIA</div>
+              <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 14px 18px; display: flex; align-items: center; gap: 14px">
+                <div style="font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: #55627A; width: 42px">12:00</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+                  <div style="font-size: 15px; font-weight: 600">Aula 6</div>
+                  <div style="font-size: 13px; color: #8592A8">Nível 4 · Campo 1</div>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: #0C6E50; font-variant-numeric: tabular-nums">15/16</div>
+              </div>
+              <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 14px 18px; display: flex; align-items: center; gap: 14px">
+                <div style="font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: #55627A; width: 42px">13:30</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+                  <div style="font-size: 15px; font-weight: 600">Aula 7</div>
+                  <div style="font-size: 13px; color: #8592A8">Nível 3 · Campo 2</div>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: #0C6E50; font-variant-numeric: tabular-nums">15/16</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #E4E9F1; background: #FFFFFF; padding: 12px 8px 18px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; border-radius: 9px; background: #E8F1FF; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #1355DC"></div></div><div style="font-size: 10px; font-weight: 600; color: #1355DC">Painel</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Calendário</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Jogadores</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Treino</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="position: absolute; top: -2px; right: 12px; width: 16px; height: 16px; border-radius: 999px; background: #D3453B; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; place-items: center">1</div><div style="font-size: 10px; color: #8592A8">Mensagens</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Definições</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1b -->
+      <div id="1b" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #1355DC; color: #FFFFFF; font-weight: 700; font-size: 13px">1b</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Fila de ação</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">Only things needing a decision, each with the decision attached. The list can reach zero, which is the point. Fits the "communication with players" job most directly.</div>
+        <div style="width: 392px; border-radius: 36px; background: #F6F8FB; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 22px 20px 18px; display: flex; align-items: flex-end; justify-content: space-between">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px">Por resolver</div>
+              <div style="font-size: 13px; color: #8592A8">4 itens · terça, 4 agosto</div>
+            </div>
+            <div style="width: 40px; height: 40px; border-radius: 999px; background: #0D1B31; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 600">BT</div>
+          </div>
+          <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px">
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; border-left: 4px solid #D98324; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <div style="font-size: 15px; font-weight: 700">Aula 12 tem 9 vagas</div>
+                <div style="font-size: 13px; color: #55627A">quinta 6 ago · 10:30 · Nível 4- · 7/16 inscritos</div>
+              </div>
+              <div style="display: flex; gap: 8px">
+                <div style="flex: 1; padding: 11px; border-radius: 12px; background: #1355DC; color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: center">Convidar 12 jogadores</div>
+                <div style="padding: 11px 14px; border-radius: 12px; border: 1px solid #D3DBE6; color: #55627A; font-weight: 600; font-size: 14px">Depois</div>
+              </div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; border-left: 4px solid #1355DC; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; gap: 12px; align-items: center">
+                <div style="width: 36px; height: 36px; border-radius: 999px; background: #E8F1FF; color: #1355DC; display: grid; place-items: center; font-size: 12px; font-weight: 700">IN</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+                  <div style="font-size: 15px; font-weight: 700">Inês Neuparth respondeu</div>
+                  <div style="font-size: 13px; color: #55627A">"Sim, consigo ir na quarta às 12:00"</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px">
+                <div style="flex: 1; padding: 11px; border-radius: 12px; background: #1355DC; color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: center">Inscrever na Aula 10</div>
+                <div style="padding: 11px 14px; border-radius: 12px; border: 1px solid #D3DBE6; color: #55627A; font-weight: 600; font-size: 14px">Abrir</div>
+              </div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; align-items: center; gap: 14px">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+                <div style="font-size: 15px; font-weight: 700">Presenças de amanhã</div>
+                <div style="font-size: 13px; color: #55627A">0 de 31 confirmadas</div>
+              </div>
+              <div style="padding: 11px 16px; border-radius: 12px; background: #E8F1FF; color: #1355DC; font-weight: 600; font-size: 14px">Notificar</div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; align-items: center; gap: 14px">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+                <div style="font-size: 15px; font-weight: 700">3230 validações</div>
+                <div style="font-size: 13px; color: #55627A">Acumuladas desde março</div>
+              </div>
+              <div style="padding: 11px 16px; border-radius: 12px; background: #E8F1FF; color: #1355DC; font-weight: 600; font-size: 14px">Rever</div>
+            </div>
+            <div style="border-radius: 18px; background: #EFF3F8; padding: 16px 18px; display: flex; align-items: center; gap: 12px">
+              <div style="width: 22px; height: 22px; border-radius: 999px; background: #12946B; color: #FFFFFF; display: grid; place-items: center; font-size: 12px; font-weight: 700">✓</div>
+              <div style="font-size: 14px; color: #55627A">Hoje: 3 aulas, todas com equipa completa</div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #E4E9F1; background: #FFFFFF; padding: 12px 8px 18px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; border-radius: 9px; background: #E8F1FF; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #1355DC"></div></div><div style="font-size: 10px; font-weight: 600; color: #1355DC">Painel</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Calendário</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Jogadores</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Treino</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="position: absolute; top: -2px; right: 12px; width: 16px; height: 16px; border-radius: 999px; background: #D3453B; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; place-items: center">1</div><div style="font-size: 10px; color: #8592A8">Mensagens</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Definições</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1c -->
+      <div id="1c" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #2F8AFF; color: #FFFFFF; font-weight: 700; font-size: 13px">1c</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Três métricas, com tendência</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">Keeps the metric dashboard but cuts six tiles to three, each with a direction over time and a filled/empty reading. Useful if you also run the academy as a business.</div>
+        <div style="width: 392px; border-radius: 36px; background: #F6F8FB; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 22px 20px 18px; display: flex; align-items: flex-end; justify-content: space-between">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px">Painel</div>
+              <div style="font-size: 13px; color: #8592A8">Semana 3–9 agosto</div>
+            </div>
+            <div style="width: 40px; height: 40px; border-radius: 999px; background: #0D1B31; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 600">BT</div>
+          </div>
+          <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px">
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+              <div style="display: flex; justify-content: space-between; align-items: baseline">
+                <div style="font-size: 14px; font-weight: 600; color: #55627A">Taxa de ocupação</div>
+                <div style="font-size: 13px; font-weight: 600; color: #0C6E50">+6%</div>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 8px">
+                <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 40px; letter-spacing: -0.02em">88%</div>
+                <div style="font-size: 13px; color: #8592A8">211 de 240 lugares</div>
+              </div>
+              <div style="display: flex; gap: 5px; align-items: flex-end; height: 46px">
+                <div style="flex: 1; height: 58%; border-radius: 4px; background: #E8F1FF"></div>
+                <div style="flex: 1; height: 72%; border-radius: 4px; background: #E8F1FF"></div>
+                <div style="flex: 1; height: 64%; border-radius: 4px; background: #E8F1FF"></div>
+                <div style="flex: 1; height: 80%; border-radius: 4px; background: #BBD8FF"></div>
+                <div style="flex: 1; height: 76%; border-radius: 4px; background: #BBD8FF"></div>
+                <div style="flex: 1; height: 92%; border-radius: 4px; background: #2F8AFF"></div>
+                <div style="flex: 1; height: 100%; border-radius: 4px; background: #1355DC"></div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+              <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 13px; font-weight: 600; color: #55627A">Jogadores ativos</div>
+                <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 30px">142</div>
+                <div style="font-size: 12px; color: #8592A8">de 166 · 24 inativos</div>
+              </div>
+              <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 13px; font-weight: 600; color: #55627A">Sem resposta</div>
+                <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 30px; color: #9A5B10">9</div>
+                <div style="font-size: 12px; color: #8592A8">convites há +48h</div>
+              </div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; overflow: hidden">
+              <div style="padding: 16px 18px 10px; font-size: 12px; font-weight: 600; letterSpacing: 0.1em; color: #8592A8; letter-spacing: 0.1em">AULAS POR PREENCHER</div>
+              <div style="padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="flex: 1; font-size: 14px; font-weight: 600">Aula 12 · qui 10:30</div>
+                <div style="width: 62px; height: 6px; border-radius: 999px; background: #EEF1F6; overflow: hidden"><div style="width: 44%; height: 6px; background: #D98324"></div></div>
+                <div style="font-size: 13px; color: #55627A; font-variant-numeric: tabular-nums">7/16</div>
+              </div>
+              <div style="padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="flex: 1; font-size: 14px; font-weight: 600">Aula 10 · qua 12:00</div>
+                <div style="width: 62px; height: 6px; border-radius: 999px; background: #EEF1F6; overflow: hidden"><div style="width: 87%; height: 6px; background: #12946B"></div></div>
+                <div style="font-size: 13px; color: #55627A; font-variant-numeric: tabular-nums">14/16</div>
+              </div>
+              <div style="padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="flex: 1; font-size: 14px; font-weight: 600">Aula 15 · sáb 09:00</div>
+                <div style="width: 62px; height: 6px; border-radius: 999px; background: #EEF1F6; overflow: hidden"><div style="width: 100%; height: 6px; background: #12946B"></div></div>
+                <div style="font-size: 13px; color: #55627A; font-variant-numeric: tabular-nums">17/17</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #E4E9F1; background: #FFFFFF; padding: 12px 8px 18px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; border-radius: 9px; background: #E8F1FF; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #1355DC"></div></div><div style="font-size: 10px; font-weight: 600; color: #1355DC">Painel</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Calendário</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Jogadores</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Treino</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 3px; background: #8592A8"></div></div><div style="position: absolute; top: -2px; right: 12px; width: 16px; height: 16px; border-radius: 999px; background: #D3453B; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; place-items: center">1</div><div style="font-size: 10px; color: #8592A8">Mensagens</div></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px"><div style="width: 34px; height: 26px; display: grid; place-items: center"><div style="width: 12px; height: 12px; border-radius: 999px; background: #8592A8"></div></div><div style="font-size: 10px; color: #8592A8">Definições</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size: 15px; line-height: 1.7; color: #55627A; max-width: 900px; background: #FFFFFF; border-left: 3px solid #1355DC; padding: 18px 22px; border-radius: 0 12px 12px 0">My recommendation: <a href="#1b">1b</a> as the default Painel, with <a href="#1a">1a</a>'s "next class" card pinned at the top of it. <a href="#1c">1c</a> becomes a separate weekly report, not the home screen.</div>
+  </div>
+
+  <!-- ── Messaging directions ───────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">04 — MESSAGING, THREE DIRECTIONS</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="font-size: 15px; line-height: 1.6; color: #55627A; max-width: 820px">This is the job you said matters most. Today it is a person-by-person inbox filled with identical automated chases.</div>
+
+    <div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start">
+
+      <!-- 2a -->
+      <div id="2a" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #0D1B31; color: #FFFFFF; font-weight: 700; font-size: 13px">2a</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Inbox com estados</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">Keeps the chat list, but every thread carries its state: waiting on the player, answered, resolved. Automated chases collapse into one line per thread. Smallest change.</div>
+        <div style="width: 392px; border-radius: 36px; background: #FFFFFF; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 22px 20px 14px; display: flex; flex-direction: column; gap: 14px">
+            <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px">Mensagens</div>
+            <div style="display: flex; gap: 8px">
+              <div style="padding: 8px 14px; border-radius: 999px; background: #0D1B31; color: #FFFFFF; font-size: 13px; font-weight: 600">Por responder 1</div>
+              <div style="padding: 8px 14px; border-radius: 999px; background: #F1F4F9; color: #55627A; font-size: 13px; font-weight: 600">À espera 8</div>
+              <div style="padding: 8px 14px; border-radius: 999px; background: #F1F4F9; color: #55627A; font-size: 13px; font-weight: 600">Todas</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column">
+            <div style="padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; background: #F5F9FF; border-left: 3px solid #1355DC">
+              <div style="width: 40px; height: 40px; border-radius: 999px; background: #E8F1FF; color: #1355DC; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none">IN</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; font-weight: 700">Inês Neuparth</div><div style="font-size: 12px; color: #8592A8">17:05</div></div>
+                <div style="font-size: 13px; color: #2A3547; line-height: 1.5">Sim, consigo ir na quarta às 12:00</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px"><div style="padding: 4px 10px; border-radius: 999px; background: #E8F1FF; color: #1355DC; font-size: 11px; font-weight: 600">Responder</div><div style="padding: 4px 10px; border-radius: 999px; background: #E7F5EF; color: #0C6E50; font-size: 11px; font-weight: 600">Inscrever na Aula 10</div></div>
+              </div>
+            </div>
+            <div style="padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; border-top: 1px solid #EEF1F6">
+              <div style="width: 40px; height: 40px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none">BM</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; font-weight: 600">Barbara Malafaya</div><div style="font-size: 12px; color: #8592A8">17:00</div></div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Convite para Aula 12 · sem resposta</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px"><div style="padding: 4px 10px; border-radius: 999px; background: #FDF1E1; color: #9A5B10; font-size: 11px; font-weight: 600">2 chamadas · há 3 dias</div></div>
+              </div>
+            </div>
+            <div style="padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; border-top: 1px solid #EEF1F6">
+              <div style="width: 40px; height: 40px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none">FC</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; font-weight: 600">Filipa Cruz</div><div style="font-size: 12px; color: #8592A8">17:00</div></div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Convite para Aula 12 · sem resposta</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px"><div style="padding: 4px 10px; border-radius: 999px; background: #FDF1E1; color: #9A5B10; font-size: 11px; font-weight: 600">2 chamadas · há 3 dias</div></div>
+              </div>
+            </div>
+            <div style="padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; border-top: 1px solid #EEF1F6">
+              <div style="width: 40px; height: 40px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none">JM</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; font-weight: 600">João Miguel Maia</div><div style="font-size: 12px; color: #8592A8">ter</div></div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Inscrito na Aula 7</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px"><div style="padding: 4px 10px; border-radius: 999px; background: #E7F5EF; color: #0C6E50; font-size: 11px; font-weight: 600">Resolvido</div></div>
+              </div>
+            </div>
+            <div style="padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; border-top: 1px solid #EEF1F6; opacity: 0.55">
+              <div style="width: 40px; height: 40px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none">TP</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline"><div style="font-size: 15px; font-weight: 600">Tiago Pipe</div><div style="font-size: 12px; color: #8592A8">seg</div></div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Convite recusado</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2b -->
+      <div id="2b" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #1355DC; color: #FFFFFF; font-weight: 700; font-size: 13px">2b</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Automações primeiro</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">The rules become the screen: what gets sent, when, to whom, and what it produced. Chat drops to a second tab you only open when a player replies something unexpected.</div>
+        <div style="width: 392px; border-radius: 36px; background: #F6F8FB; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 22px 20px 14px; display: flex; flex-direction: column; gap: 14px; background: #FFFFFF">
+            <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px">Comunicação</div>
+            <div style="display: flex; gap: 4px; background: #F1F4F9; padding: 4px; border-radius: 12px">
+              <div style="flex: 1; padding: 9px; border-radius: 9px; background: #FFFFFF; color: #0D1B31; font-size: 13px; font-weight: 600; text-align: center; box-shadow: 0 1px 3px rgba(13,27,49,0.12)">Automações</div>
+              <div style="flex: 1; padding: 9px; border-radius: 9px; color: #55627A; font-size: 13px; font-weight: 600; text-align: center">Conversas · 1</div>
+            </div>
+          </div>
+          <div style="padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px">
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; align-items: flex-start; gap: 12px">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                  <div style="font-size: 15px; font-weight: 700">Convite de vaga livre</div>
+                  <div style="font-size: 13px; color: #55627A; line-height: 1.5">48h antes da aula, para jogadores do nível certo em lista de espera</div>
+                </div>
+                <div style="width: 46px; height: 27px; border-radius: 999px; background: #1355DC; padding: 3px; flex: none; display: flex; justify-content: flex-end"><div style="width: 21px; height: 21px; border-radius: 999px; background: #FFFFFF"></div></div>
+              </div>
+              <div style="display: flex; gap: 16px; padding-top: 12px; border-top: 1px solid #EEF1F6">
+                <div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 18px; font-weight: 700; font-family: 'Poppins', sans-serif">31</div><div style="font-size: 11px; color: #8592A8">enviados</div></div>
+                <div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 18px; font-weight: 700; font-family: 'Poppins', sans-serif; color: #0C6E50">22</div><div style="font-size: 11px; color: #8592A8">aceites</div></div>
+                <div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 18px; font-weight: 700; font-family: 'Poppins', sans-serif; color: #9A5B10">9</div><div style="font-size: 11px; color: #8592A8">sem resposta</div></div>
+              </div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; align-items: flex-start; gap: 12px">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                  <div style="font-size: 15px; font-weight: 700">Reenviar sem resposta</div>
+                  <div style="font-size: 13px; color: #55627A; line-height: 1.5">Uma vez, 24h depois do convite. Depois disso passa a ti.</div>
+                </div>
+                <div style="width: 46px; height: 27px; border-radius: 999px; background: #1355DC; padding: 3px; flex: none; display: flex; justify-content: flex-end"><div style="width: 21px; height: 21px; border-radius: 999px; background: #FFFFFF"></div></div>
+              </div>
+              <div style="border-radius: 12px; background: #F5F9FF; padding: 12px 14px; font-size: 13px; color: #2A3547; line-height: 1.5">"Olá {nome}, ainda não tive resposta — tens vaga para a aula de {nível} {dia} às {hora}?"</div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; align-items: flex-start; gap: 12px">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="font-size: 15px; font-weight: 700">Lembrete de aula</div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Manhã do dia anterior, a quem está inscrito</div>
+              </div>
+              <div style="width: 46px; height: 27px; border-radius: 999px; background: #1355DC; padding: 3px; flex: none; display: flex; justify-content: flex-end"><div style="width: 21px; height: 21px; border-radius: 999px; background: #FFFFFF"></div></div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 18px; display: flex; align-items: flex-start; gap: 12px; opacity: 0.7">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+                <div style="font-size: 15px; font-weight: 700">Resumo semanal ao jogador</div>
+                <div style="font-size: 13px; color: #55627A; line-height: 1.5">Domingo · aulas da semana e avaliação</div>
+              </div>
+              <div style="width: 46px; height: 27px; border-radius: 999px; background: #D3DBE6; padding: 3px; flex: none; display: flex"><div style="width: 21px; height: 21px; border-radius: 999px; background: #FFFFFF"></div></div>
+            </div>
+            <div style="padding: 14px; border-radius: 14px; border: 1px dashed #B9C6D8; color: #1355DC; font-weight: 600; font-size: 14px; text-align: center">+ Nova automação</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2c -->
+      <div id="2c" style="display: flex; flex-direction: column; gap: 14px; width: 392px">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="padding: 6px 12px; border-radius: 8px; background: #2F8AFF; color: #FFFFFF; font-weight: 700; font-size: 13px">2c</div>
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">A partir da aula</div>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A; min-height: 66px">Messaging is never a destination — you fill a class. Open the class, see who fits the level, send to all of them at once, watch the seats fill. Chats are a by-product.</div>
+        <div style="width: 392px; border-radius: 36px; background: #F6F8FB; border: 1px solid #DDE3EC; overflow: hidden; box-shadow: 0 24px 48px -24px rgba(13,27,49,0.35)">
+          <div style="padding: 20px 20px 16px; background: linear-gradient(150deg, #16294A 0%, #0B1524 100%); display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <div style="color: #9CC6FF; font-size: 18px">←</div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+                <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 20px; color: #FFFFFF">Aula 12</div>
+                <div style="font-size: 13px; color: #A9BCD6">qui 6 ago · 10:30 · Nível 4-</div>
+              </div>
+              <div style="padding: 6px 12px; border-radius: 999px; background: rgba(217,131,36,0.22); color: #F0B970; font-size: 12px; font-weight: 700">7/16</div>
+            </div>
+            <div style="height: 8px; border-radius: 999px; background: rgba(255,255,255,0.14); overflow: hidden"><div style="width: 44%; height: 8px; background: #2F8AFF"></div></div>
+          </div>
+          <div style="padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">SUGERIDOS · NÍVEL 4- E 4</div>
+              <div style="font-size: 13px; font-weight: 600; color: #1355DC">Selecionar todos</div>
+            </div>
+            <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E9F1; overflow: hidden">
+              <div style="padding: 14px 16px; display: flex; align-items: center; gap: 12px">
+                <div style="width: 22px; height: 22px; border-radius: 7px; background: #1355DC; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 700">✓</div>
+                <div style="width: 34px; height: 34px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 12px; font-weight: 700">BM</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><div style="font-size: 14px; font-weight: 600">Barbara Malafaya</div><div style="font-size: 12px; color: #8592A8">Nível 4- · em espera</div></div>
+              </div>
+              <div style="padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="width: 22px; height: 22px; border-radius: 7px; background: #1355DC; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 700">✓</div>
+                <div style="width: 34px; height: 34px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 12px; font-weight: 700">AD</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><div style="font-size: 14px; font-weight: 600">Afonso Diegues</div><div style="font-size: 12px; color: #8592A8">Nível 4- · faltou 2×</div></div>
+              </div>
+              <div style="padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="width: 22px; height: 22px; border-radius: 7px; background: #1355DC; color: #FFFFFF; display: grid; place-items: center; font-size: 13px; font-weight: 700">✓</div>
+                <div style="width: 34px; height: 34px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 12px; font-weight: 700">AL</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><div style="font-size: 14px; font-weight: 600">Adriano Lopes</div><div style="font-size: 12px; color: #8592A8">Nível 4 · sem aula esta semana</div></div>
+              </div>
+              <div style="padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEF1F6">
+                <div style="width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid #C7D1E0"></div>
+                <div style="width: 34px; height: 34px; border-radius: 999px; background: #F1F4F9; color: #55627A; display: grid; place-items: center; font-size: 12px; font-weight: 700">TP</div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><div style="font-size: 14px; font-weight: 600; color: #55627A">Tiago Pipe</div><div style="font-size: 12px; color: #9A5B10">recusou o último convite</div></div>
+              </div>
+            </div>
+            <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E4E9F1; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+              <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #8592A8">MENSAGEM</div>
+              <div style="font-size: 13px; color: #2A3547; line-height: 1.55">Olá {nome}, tens vaga para a aula de 4- esta quinta às 10:30. Queres entrar?</div>
+              <div style="display: flex; gap: 8px; padding-top: 4px">
+                <div style="padding: 7px 12px; border-radius: 999px; background: #E8F1FF; color: #1355DC; font-size: 12px; font-weight: 600">Convite</div>
+                <div style="padding: 7px 12px; border-radius: 999px; background: #F1F4F9; color: #55627A; font-size: 12px; font-weight: 600">Lembrete</div>
+                <div style="padding: 7px 12px; border-radius: 999px; background: #F1F4F9; color: #55627A; font-size: 12px; font-weight: 600">Editar</div>
+              </div>
+            </div>
+            <div style="padding: 15px; border-radius: 14px; background: #1355DC; color: #FFFFFF; font-weight: 700; font-size: 15px; text-align: center">Enviar a 3 jogadores</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size: 15px; line-height: 1.7; color: #55627A; max-width: 900px; background: #FFFFFF; border-left: 3px solid #1355DC; padding: 18px 22px; border-radius: 0 12px 12px 0">My recommendation: <a href="#2c">2c</a> is the flow to build, <a href="#2b">2b</a> is where it gets configured, and <a href="#2a">2a</a> is what the inbox becomes once both exist — the three are layers of one system rather than alternatives.</div>
+  </div>
+
+  <!-- ── Calendar ───────────────────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">05 — CALENDAR, RE-ENCODED</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="font-size: 15px; line-height: 1.6; color: #55627A; max-width: 900px">Three variables on one block without turning it into a rainbow: <strong>status</strong> sets the block's treatment, <strong>fill</strong> is a bar plus a tabular count, <strong>level</strong> is a small mono chip. Colour is only ever blue, amber or muted.</div>
+
+    <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 22px">
+      <div style="display: flex; gap: 28px; flex-wrap: wrap; align-items: center">
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 22px; height: 22px; border-radius: 6px; background: #1355DC"></div><div style="font-size: 13px; color: #55627A">Cheia / a decorrer</div></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 22px; height: 22px; border-radius: 6px; background: #FFFFFF; border: 1.5px dashed #D98324"></div><div style="font-size: 13px; color: #55627A">Vagas por preencher</div></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 22px; height: 22px; border-radius: 6px; background: #EDF1F7; border: 1px solid #D3DBE6"></div><div style="font-size: 13px; color: #55627A">Concluída</div></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 22px; height: 22px; border-radius: 6px; background: #F1EEFC; border-left: 3px solid #6D5BD0"></div><div style="font-size: 13px; color: #55627A">Evento / não é aula</div></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 56px repeat(5, 1fr); border-top: 1px solid #E9EDF3; border-left: 1px solid #E9EDF3; border-radius: 12px; overflow: hidden">
+        <div style="background: #F6F8FB; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px"></div>
+        <div style="background: #F6F8FB; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #55627A">SEG <span style="color: #101E33">3</span></div>
+        <div style="background: #F5F9FF; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1355DC">TER <span style="width: 24px; height: 24px; border-radius: 999px; background: #1355DC; color: #FFFFFF; display: grid; place-items: center; font-size: 12px">4</span></div>
+        <div style="background: #F6F8FB; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #55627A">QUA <span style="color: #101E33">5</span></div>
+        <div style="background: #F6F8FB; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #55627A">QUI <span style="color: #101E33">6</span></div>
+        <div style="background: #F6F8FB; border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #55627A">SEX <span style="color: #101E33">7</span></div>
+
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 8px; font-size: 12px; color: #8592A8; font-variant-numeric: tabular-nums">09:00</div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px; display: flex; gap: 6px">
+          <div style="flex: 1; border-radius: 10px; background: #EDF1F7; border: 1px solid #D3DBE6; padding: 9px 10px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #55627A">Aula 1</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #8592A8">N3</div></div>
+            <div style="font-size: 11px; color: #8592A8">09:00 – 10:30</div>
+            <div style="display: flex; align-items: center; gap: 6px"><div style="width: 18px; height: 18px; border-radius: 999px; background: #12946B; color: #FFFFFF; font-size: 11px; display: grid; place-items: center">✓</div><div style="font-size: 11px; color: #55627A; font-variant-numeric: tabular-nums">15/16</div></div>
+          </div>
+          <div style="flex: 1; border-radius: 10px; background: #EDF1F7; border: 1px solid #D3DBE6; padding: 9px 10px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #55627A">Aula t…</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #8592A8">N2</div></div>
+            <div style="font-size: 11px; color: #8592A8">09:00 – 10:30</div>
+            <div style="display: flex; align-items: center; gap: 6px"><div style="width: 18px; height: 18px; border-radius: 999px; background: #12946B; color: #FFFFFF; font-size: 11px; display: grid; place-items: center">✓</div><div style="font-size: 11px; color: #55627A; font-variant-numeric: tabular-nums">1/6</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; background: #FBFCFE; padding: 6px"></div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #1355DC; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #FFFFFF">Aula 8</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #9CC6FF">N3</div></div>
+            <div style="font-size: 11px; color: #BBD8FF">09:00 – 10:30 · Campo 1</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden"><div style="width: 100%; height: 5px; background: #FFFFFF"></div></div><div style="font-size: 11px; color: #FFFFFF; font-weight: 600; font-variant-numeric: tabular-nums">16/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #F1EEFC; border-left: 3px solid #6D5BD0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 13px; font-weight: 700; color: #3B2E86">Torneio interno</div>
+            <div style="font-size: 11px; color: #6D5BD0">09:00 – 13:00 · evento</div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #1355DC; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #FFFFFF">Aula 15</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #9CC6FF">N5</div></div>
+            <div style="font-size: 11px; color: #BBD8FF">09:00 – 10:30 · Campo 3</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden"><div style="width: 100%; height: 5px; background: #FFFFFF"></div></div><div style="font-size: 11px; color: #FFFFFF; font-weight: 600; font-variant-numeric: tabular-nums">17/17</div></div>
+          </div>
+        </div>
+
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 8px; font-size: 12px; color: #8592A8; font-variant-numeric: tabular-nums">10:30</div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #EDF1F7; border: 1px solid #D3DBE6; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #55627A">Aula 2</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #8592A8">N3</div></div>
+            <div style="font-size: 11px; color: #8592A8">10:30 – 12:00</div>
+            <div style="display: flex; align-items: center; gap: 6px"><div style="width: 18px; height: 18px; border-radius: 999px; background: #12946B; color: #FFFFFF; font-size: 11px; display: grid; place-items: center">✓</div><div style="font-size: 11px; color: #55627A; font-variant-numeric: tabular-nums">15/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; background: #F5F9FF; padding: 6px">
+          <div style="border-radius: 10px; background: #FFFFFF; border: 1.5px solid #1355DC; box-shadow: 0 6px 16px -8px rgba(19,85,220,0.5); padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #1355DC">Aula 5 · agora</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #8592A8">N3</div></div>
+            <div style="font-size: 11px; color: #55627A">10:30 – 12:00 · Campo 2</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: #E9EDF3; overflow: hidden"><div style="width: 75%; height: 5px; background: #1355DC"></div></div><div style="font-size: 11px; color: #1355DC; font-weight: 600; font-variant-numeric: tabular-nums">12/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; background: #FBFCFE; padding: 6px"></div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #FFFDF9; border: 1.5px dashed #D98324; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #7A4A0F">Aula 12</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #B98A4A">N4-</div></div>
+            <div style="font-size: 11px; color: #9A5B10">10:30 – 12:00 · faltam 9</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: #F3E4CE; overflow: hidden"><div style="width: 44%; height: 5px; background: #D98324"></div></div><div style="font-size: 11px; color: #9A5B10; font-weight: 700; font-variant-numeric: tabular-nums">7/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px"></div>
+
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 8px; font-size: 12px; color: #8592A8; font-variant-numeric: tabular-nums">12:00</div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #EDF1F7; border: 1px solid #D3DBE6; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #55627A">Aula 3</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #8592A8">N4</div></div>
+            <div style="font-size: 11px; color: #8592A8">12:00 – 13:30</div>
+            <div style="display: flex; align-items: center; gap: 6px"><div style="width: 18px; height: 18px; border-radius: 999px; background: #12946B; color: #FFFFFF; font-size: 11px; display: grid; place-items: center">✓</div><div style="font-size: 11px; color: #55627A; font-variant-numeric: tabular-nums">16/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; background: #F5F9FF; padding: 6px">
+          <div style="border-radius: 10px; background: #1355DC; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #FFFFFF">Aula 6</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #9CC6FF">N4</div></div>
+            <div style="font-size: 11px; color: #BBD8FF">12:00 – 13:30 · Campo 1</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden"><div style="width: 94%; height: 5px; background: #FFFFFF"></div></div><div style="font-size: 11px; color: #FFFFFF; font-weight: 600; font-variant-numeric: tabular-nums">15/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #1355DC; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #FFFFFF">Aula 10</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #9CC6FF">N3</div></div>
+            <div style="font-size: 11px; color: #BBD8FF">12:00 – 13:30 · Campo 2</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden"><div style="width: 87%; height: 5px; background: #FFFFFF"></div></div><div style="font-size: 11px; color: #FFFFFF; font-weight: 600; font-variant-numeric: tabular-nums">14/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px">
+          <div style="border-radius: 10px; background: #1355DC; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; justify-content: space-between; align-items: center"><div style="font-size: 13px; font-weight: 700; color: #FFFFFF">Aula 13</div><div style="font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; color: #9CC6FF">N4</div></div>
+            <div style="font-size: 11px; color: #BBD8FF">12:00 – 13:30 · Campo 3</div>
+            <div style="display: flex; align-items: center; gap: 8px"><div style="flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.28); overflow: hidden"><div style="width: 100%; height: 5px; background: #FFFFFF"></div></div><div style="font-size: 11px; color: #FFFFFF; font-weight: 600; font-variant-numeric: tabular-nums">16/16</div></div>
+          </div>
+        </div>
+        <div style="border-right: 1px solid #E9EDF3; border-bottom: 1px solid #E9EDF3; padding: 6px"></div>
+      </div>
+      <div style="font-size: 14px; line-height: 1.6; color: #55627A">Mobile keeps the week strip but the strip shows a fill dot per class instead of a stack of identical chips, so a day with holes is visible before you tap into it.</div>
+    </div>
+  </div>
+
+  <!-- ── Dark mode ──────────────────────────────────────── -->
+  <sc-if value="{{ showDark }}" hint-placeholder-val="{{ true }}">
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">06 — DARK MODE</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="background: #070E1A; border-radius: 24px; padding: 40px; display: flex; gap: 40px; align-items: flex-start">
+      <div style="width: 392px; border-radius: 36px; background: #0F1B2E; border: 1px solid #24374F; overflow: hidden; flex: none">
+        <div style="padding: 22px 20px 18px; display: flex; align-items: flex-end; justify-content: space-between">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 26px; color: #F2F6FC">Por resolver</div>
+            <div style="font-size: 13px; color: #7E90AB">4 itens · terça, 4 agosto</div>
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 999px; background: #17273F; color: #9CC6FF; display: grid; place-items: center; font-size: 13px; font-weight: 600">BT</div>
+        </div>
+        <div style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="border-radius: 18px; background: #17273F; border-left: 4px solid #D98324; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="font-size: 15px; font-weight: 700; color: #F2F6FC">Aula 12 tem 9 vagas</div>
+              <div style="font-size: 13px; color: #9FB1CA">quinta 6 ago · 10:30 · Nível 4- · 7/16</div>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <div style="flex: 1; padding: 11px; border-radius: 12px; background: #4A9BFF; color: #06121F; font-weight: 700; font-size: 14px; text-align: center">Convidar 12 jogadores</div>
+              <div style="padding: 11px 14px; border-radius: 12px; border: 1px solid #2E4460; color: #9FB1CA; font-weight: 600; font-size: 14px">Depois</div>
+            </div>
+          </div>
+          <div style="border-radius: 18px; background: #17273F; border-left: 4px solid #4A9BFF; padding: 18px; display: flex; gap: 12px; align-items: center">
+            <div style="width: 36px; height: 36px; border-radius: 999px; background: #1E3453; color: #9CC6FF; display: grid; place-items: center; font-size: 12px; font-weight: 700">IN</div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+              <div style="font-size: 15px; font-weight: 700; color: #F2F6FC">Inês Neuparth respondeu</div>
+              <div style="font-size: 13px; color: #9FB1CA">"Sim, consigo ir na quarta às 12:00"</div>
+            </div>
+          </div>
+          <div style="border-radius: 18px; background: #17273F; padding: 18px; display: flex; align-items: center; gap: 14px">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+              <div style="font-size: 15px; font-weight: 700; color: #F2F6FC">Presenças de amanhã</div>
+              <div style="font-size: 13px; color: #9FB1CA">0 de 31 confirmadas</div>
+            </div>
+            <div style="padding: 11px 16px; border-radius: 12px; background: #1E3453; color: #9CC6FF; font-weight: 600; font-size: 14px">Notificar</div>
+          </div>
+          <div style="border-radius: 18px; background: #122034; padding: 16px 18px; display: flex; align-items: center; gap: 12px">
+            <div style="width: 22px; height: 22px; border-radius: 999px; background: #12946B; color: #FFFFFF; display: grid; place-items: center; font-size: 12px; font-weight: 700">✓</div>
+            <div style="font-size: 14px; color: #9FB1CA">Hoje: 3 aulas, todas completas</div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 18px; padding-top: 8px; max-width: 620px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 22px; color: #F2F6FC">The dark theme is the brand, not an inversion</div>
+        <div style="font-size: 15px; line-height: 1.7; color: #9FB1CA">The icon's navy is already the darkest surface, so dark mode is where the product looks most like itself. Rules: surfaces step up in lightness (bg → surface → raised) instead of using borders; primary shifts to #4A9BFF with dark text on it for contrast; status colours keep their hue but sit on 12% tints; no pure black and no pure white text.</div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <div style="padding: 12px 20px; border-radius: 12px; background: #4A9BFF; color: #06121F; font-weight: 700; font-size: 14px">Primary</div>
+          <div style="padding: 12px 20px; border-radius: 12px; background: #1E3453; color: #9CC6FF; font-weight: 600; font-size: 14px">Secondary</div>
+          <div style="padding: 12px 20px; border-radius: 12px; border: 1px solid #2E4460; color: #9FB1CA; font-weight: 600; font-size: 14px">Ghost</div>
+          <div style="padding: 8px 14px; border-radius: 999px; background: rgba(18,148,107,0.18); color: #5FD3AC; font-weight: 600; font-size: 13px">Concluída</div>
+          <div style="padding: 8px 14px; border-radius: 999px; background: rgba(217,131,36,0.18); color: #F0B970; font-weight: 600; font-size: 13px">Faltam 9</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ── Remaining screens ──────────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">07 — THE OTHER SCREENS</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px">
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 14px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Jogadores</div>
+        <div style="font-size: 14px; line-height: 1.65; color: #55627A">The card grid currently shows name, email and two chips — email is the least useful field on it. Replace with: level, hand, attendance over the last 8 classes, and whether they still have no account. Sorting gains "sem conta", "faltas recentes" and "sem aula esta semana", which is how you actually pick who to invite.</div>
+        <div style="border-radius: 14px; background: #F6F8FB; border: 1px solid #E4E9F1; padding: 16px; display: flex; align-items: center; gap: 14px">
+          <div style="width: 42px; height: 42px; border-radius: 999px; background: #E8F1FF; color: #1355DC; display: grid; place-items: center; font-weight: 700; font-size: 13px">AS</div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+            <div style="font-size: 15px; font-weight: 700">Abel Salgado</div>
+            <div style="display: flex; gap: 6px; align-items: center">
+              <div style="padding: 3px 9px; border-radius: 999px; background: #F1EEFC; color: #4B3BA8; font-size: 11px; font-weight: 600">Nível 3-</div>
+              <div style="padding: 3px 9px; border-radius: 999px; background: #F1F4F9; color: #55627A; font-size: 11px; font-weight: 600">Esquerda</div>
+              <div style="padding: 3px 9px; border-radius: 999px; background: #FDF1E1; color: #9A5B10; font-size: 11px; font-weight: 600">Sem conta</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 3px; align-items: flex-end">
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #12946B"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #12946B"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #E9EDF3"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #12946B"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #E9EDF3"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #E9EDF3"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #12946B"></div>
+            <div style="width: 5px; height: 16px; border-radius: 2px; background: #12946B"></div>
+          </div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 14px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Perfil do jogador</div>
+        <div style="font-size: 14px; line-height: 1.65; color: #55627A">Today it is five near-empty cards and a red "Eliminar jogador" button given the same weight as "Adicionar avaliação". Restructure to one header (name, level, hand, status), then two tabs: <strong>Progresso</strong> (evaluations over time, strengths and weaknesses) and <strong>Histórico</strong> (classes, attendance, messages). Destructive actions move into a menu. The "no account yet" invite becomes a single share button, not a dashed amber panel.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 14px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Treino</div>
+        <div style="font-size: 14px; line-height: 1.65; color: #55627A">Currently a nav item with no evident home. Proposal: a library of exercises and session plans, tagged by level, that attaches to a class in one tap and appears in the players' weekly summary. This is where the player-facing side earns its keep.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 14px">
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Definições &amp; player app</div>
+        <div style="font-size: 14px; line-height: 1.65; color: #55627A">Settings become a two-pane list on desktop and a plain grouped list on mobile — no dropdown section picker, no floating "Guardar alterações" (save on change). The player side reuses the same system with a three-tab shell: as minhas aulas, o meu progresso, mensagens. Coaches get the full navy chrome; players get the light theme with blue accents.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sequence ───────────────────────────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: baseline; gap: 16px">
+      <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: #8592A8">08 — SEQUENCE</div>
+      <div style="height: 1px; background: #D3DBE6; flex: 1"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px">
+      <div style="background: #0D1B31; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 12px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #7FA6DC">FASE 1</div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px; color: #FFFFFF">Repaint</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #A9BCD6">Palette, type, buttons, chips, cards, tab bar and sidebar. No layout changes, no new features. The app stops looking green and starts looking like the icon.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 12px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #8592A8">FASE 2</div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Painel + calendário</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">Ship the chosen dashboard direction and the re-encoded calendar blocks. Highest visible payoff per unit of work.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 12px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #8592A8">FASE 3</div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Comunicação</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">Invite-from-class, templates, automation rules with their results. The chat inbox is rebuilt last, as the log of all of it.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 18px; padding: 26px; display: flex; flex-direction: column; gap: 12px">
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #8592A8">FASE 4</div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px">Jogador &amp; escuro</div>
+        <div style="font-size: 14px; line-height: 1.6; color: #55627A">Player-facing shell, progress and training, then dark mode across both — cheap once the surface tokens exist.</div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showNextStep }}" hint-placeholder-val="{{ true }}">
+  <div style="background: #FFFFFF; border: 1px solid #DDE3EC; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; gap: 12px; max-width: 900px">
+    <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 20px">What I need from you next</div>
+    <div style="font-size: 15px; line-height: 1.7; color: #55627A">Pick one dashboard direction (<a href="#1a">1a</a>, <a href="#1b">1b</a>, <a href="#1c">1c</a>) and one messaging direction (<a href="#2a">2a</a>, <a href="#2b">2b</a>, <a href="#2c">2c</a>) and I will build them out as full screens in both light and dark, desktop and mobile — and then as a clickable prototype of the fill-a-class flow if you want to feel it.</div>
+  </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showDark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;},&quot;showNextStep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showDark: this.props.showDark ?? true,
+      showNextStep: this.props.showNextStep ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>

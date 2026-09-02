@@ -11,7 +11,7 @@ features the mobile app implements.
    points at prod):
 
    ```bash
-   cd <repo-root>/levelup && source .claude/secrets.env && cd levelup_backend && \
+   cd <repo-root>/levapp && source .claude/secrets.env && cd backend && \
    source .venv/bin/activate && \
    FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost \
    POSTGRES_PORT=5432 POSTGRES_USER=padel_app_user POSTGRES_DB=levelup_test \

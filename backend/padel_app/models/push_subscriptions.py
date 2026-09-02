@@ -4,7 +4,7 @@
 #   without user-scoped connection tracking.
 # - ORM/DB stack is Flask-SQLAlchemy + SQLAlchemy models with Alembic migrations.
 # - API auth uses flask-jwt-extended (@jwt_required + get_jwt_identity).
-# - Env loading in development happens in levelup_backend/app.py via load_dotenv(".env.local.dev").
+# - Env loading in development happens in backend/app.py via load_dotenv(".env.local.dev").
 from sqlalchemy import Column, Integer, Text, ForeignKey
 from sqlalchemy.orm import relationship
 

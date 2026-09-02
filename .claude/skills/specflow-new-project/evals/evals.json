@@ -1,0 +1,23 @@
+{
+  "skill_name": "specflow-new-project",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to build a padel court booking app called CourtTime. It's a React + FastAPI app with PostgreSQL. Here's what it does:\n\n- Coaches manage courts and time slots\n- Players browse available slots and book courts\n- The system handles payments via Stripe\n- Players can invite other players to fill a court (padel is 4 players)\n- Notifications via email and push when bookings are confirmed, canceled, or a spot opens up\n- There's a rating system where players rate each other after matches\n\nDomains I see: Auth, Courts & Scheduling, Booking, Payments, Notifications, Player Profiles & Ratings.\n\nConstraints: Must be a PWA for mobile use. Must use Stripe for payments. Must support Portuguese and English.\n\nI've already decided on the stack: React + TypeScript + Vite frontend, FastAPI + SQLAlchemy backend, PostgreSQL, Redis for caching.\n\nGo ahead and generate the full spec tree, tooling, and build order. I approve this as the project brief — no more discovery needed.",
+      "expected_output": "Complete spec tree with auth, courts/scheduling, booking, payments, notifications, and ratings domains. Each domain should have capability and leaf specs. Should include agents (at least a test-writer), skills (at least a fastapi-backend skill and react-frontend skill), RULES.md, CLAUDE.md, and a dependency-sorted build order. Should recognize PWA constraint and i18n requirement.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Build me a personal finance tracker. I want to track my income and expenses, categorize transactions, set monthly budgets per category, and see reports showing where my money goes. I'm thinking a simple web app — maybe Next.js? I don't have strong opinions on the backend, you decide. Just me using it, no multi-user needed. I want to be able to import transactions from CSV files from my bank. Go ahead and spec it out fully — generate all the files.",
+      "expected_output": "Should produce domains like Accounts, Transactions, Categories, Budgets, Reports, and Import. Since it's single-user, auth should be minimal (maybe just a password or skip it). Should recommend a backend (e.g., Next.js API routes or a simple Express server). CSV import should be its own domain or capability. Reports domain should have specs for charts/visualizations. Build order should start with data models.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need a CLI tool called csvkit-pro that processes CSV files and generates reports. Written in Python, uses Click for the CLI framework. Features:\n\n- Read CSV files (single or directory of CSVs)\n- Filter rows by column values (supports =, !=, >, <, contains, regex)\n- Aggregate: group by columns, compute sum/avg/count/min/max\n- Join: merge two CSVs on a shared column\n- Output: formatted table to terminal, CSV file, JSON file, or HTML report\n- Profile: analyze a CSV and report column types, null counts, unique values, distributions\n\nNo web frontend, no database, no auth. Just a CLI tool. Go ahead and generate the full spec tree.",
+      "expected_output": "Should NOT produce web-app domains (no auth, no frontend, no database). Should have domains like Input (parsing, validation), Processing (filter, aggregate, join), Output (formatting, file writing), and Profile (analysis). Should recognize Click as the CLI framework. Agents and skills should be CLI-appropriate (no react-frontend skill). Build order should start with input parsing, then processing, then output.",
+      "files": []
+    }
+  ]
+}

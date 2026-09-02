@@ -1,0 +1,26 @@
+# secrets — never commit
+.claude/secrets.env
+.env
+.env.local
+.env.local.*
+# tracked, secret-free env templates are allowed explicitly
+!backend/.env.prod
+!backend/.env.staging
+!backend/.env.dev
+!backend/.env.local.dev
+
+# local-only knowledge and tooling state
+.loop_knowledge/
+.claude/last-test-video.txt
+**/*-workspace/
+.claude/scratch/
+.claude/worktrees/
+
+# OS / editor / caches
+.DS_Store
+.pytest_cache/
+.vscode/
+
+# local-only Claude Code state (settings.local.json holds machine permissions incl. secret-bearing patterns)
+.claude/settings.local.json
+.claude/learnings/

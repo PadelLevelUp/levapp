@@ -1,0 +1,86 @@
+:root {
+  /* ── Brand · lifted from the app icon ─────────────────── */
+  --lv-ink-900: #0B1524;
+  --lv-navy-800: #0D1B31;
+  --lv-navy-700: #16294A;
+  --lv-blue-700: #0E43B0;
+  --lv-blue-600: #1355DC;
+  --lv-blue-500: #2F8AFF;
+  --lv-blue-400: #4A9BFF;
+  --lv-blue-200: #BBD8FF;
+  --lv-blue-100: #E8F1FF;
+  --lv-blue-50:  #F5F9FF;
+
+  /* ── Neutrals · cool, tuned to the navy ───────────────── */
+  --lv-white:    #FFFFFF;
+  --lv-grey-50:  #F6F8FB;
+  --lv-grey-100: #EFF3F8;
+  --lv-grey-150: #E9EDF3;
+  --lv-grey-200: #E4E9F1;
+  --lv-grey-300: #D3DBE6;
+  --lv-grey-400: #B9C6D8;
+  --lv-grey-500: #8592A8;
+  --lv-grey-600: #55627A;
+  --lv-grey-700: #2A3547;
+  --lv-grey-800: #101E33;
+
+  /* ── Status · one job each ────────────────────────────── */
+  --lv-green-600: #12946B;   /* done / confirmed */
+  --lv-green-700: #0C6E50;
+  --lv-green-100: #E7F5EF;
+  --lv-amber-600: #D98324;   /* needs action */
+  --lv-amber-700: #9A5B10;
+  --lv-amber-800: #7A4A0F;
+  --lv-amber-100: #FDF1E1;
+  --lv-amber-50:  #FFFDF9;
+  --lv-red-600:   #D3453B;   /* problem / destructive */
+  --lv-red-700:   #A8322A;
+  --lv-red-100:   #FBE9E7;
+  --lv-violet-600:#6D5BD0;   /* player-side / progress / non-class events */
+  --lv-violet-700:#4B3BA8;
+  --lv-violet-800:#3B2E86;
+  --lv-violet-100:#F1EEFC;
+
+  /* ── Semantic aliases · use these in product code ─────── */
+  --surface-page: var(--lv-grey-150);
+  --surface-card: var(--lv-white);
+  --surface-sunken: var(--lv-grey-50);
+  --surface-raised: var(--lv-white);
+  --surface-inverse: var(--lv-navy-800);
+  --surface-accent: var(--lv-blue-100);
+  --surface-accent-soft: var(--lv-blue-50);
+
+  --border-subtle: var(--lv-grey-200);
+  --border-default: var(--lv-grey-300);
+  --border-strong: var(--lv-grey-400);
+  --border-accent: var(--lv-blue-600);
+
+  --text-primary: var(--lv-grey-800);
+  --text-secondary: var(--lv-grey-600);
+  --text-tertiary: var(--lv-grey-500);
+  --text-accent: var(--lv-blue-600);
+  --text-on-accent: var(--lv-white);
+  --text-on-inverse: var(--lv-white);
+  --text-on-inverse-muted: #A9BCD6;
+
+  --action-primary: var(--lv-blue-600);
+  --action-primary-hover: var(--lv-blue-700);
+  --action-secondary-bg: var(--lv-blue-100);
+  --action-secondary-fg: var(--lv-blue-600);
+  --action-danger: var(--lv-red-600);
+
+  --status-done-bg: var(--lv-green-100);
+  --status-done-fg: var(--lv-green-700);
+  --status-done-solid: var(--lv-green-600);
+  --status-attention-bg: var(--lv-amber-100);
+  --status-attention-fg: var(--lv-amber-700);
+  --status-attention-solid: var(--lv-amber-600);
+  --status-problem-bg: var(--lv-red-100);
+  --status-problem-fg: var(--lv-red-700);
+  --status-problem-solid: var(--lv-red-600);
+  --status-progress-bg: var(--lv-violet-100);
+  --status-progress-fg: var(--lv-violet-700);
+  --status-progress-solid: var(--lv-violet-600);
+
+  --focus-ring: 0 0 0 3px rgba(19, 85, 220, 0.32);
+}

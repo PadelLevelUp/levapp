@@ -28,7 +28,7 @@ scripts/e2e.sh          # E2E runner (preflight checks + DB reset + maestro test
 - **Node 24.15.0** via nvm (`nvm use 24.15.0`) — the repo's toolchain expects it
 - **Xcode** with an iOS Simulator (the E2E suite pins iPhone 17 Pro, UDID `180A9433-4EA7-4F9B-9FD1-79E1250BD9BB`)
 - **Maestro** at `~/.maestro/bin/maestro` (E2E only)
-- The backend repo checked out alongside: `<repo-root>/levelup/levelup_backend` with its `.venv` set up
+- The backend repo checked out alongside: `<repo-root>/levapp/backend` with its `.venv` set up
 
 ## Running locally (dev)
 
@@ -37,7 +37,7 @@ The API base URL is set in `src/lib/config.ts`: it defaults to `http://localhost
 1. **Start the Flask backend.** For the dev DB (`levelup` on :5000):
 
    ```bash
-   cd <repo-root>/levelup/levelup_backend && source .venv/bin/activate
+   cd <repo-root>/levapp/backend && source .venv/bin/activate
    flask run --port 5000
    ```
 
@@ -46,7 +46,7 @@ The API base URL is set in `src/lib/config.ts`: it defaults to `http://localhost
 3. **Install dependencies at the monorepo root** (npm workspaces — this repo uses npm, not pnpm):
 
    ```bash
-   cd <repo-root>/levelup/levelup_frontend && npm install
+   cd <repo-root>/levapp/frontend && npm install
    ```
 
 4. **Run the app**, pointing it at the dev backend:
@@ -67,7 +67,7 @@ Full details, flow ordering, and gotchas: [`.maestro/README.md`](.maestro/README
 1. **Test backend** (`POSTGRES_HOST=localhost` — never the value from `secrets.env`, that one points at prod):
 
    ```bash
-   cd <repo-root>/levelup && source .claude/secrets.env && cd levelup_backend && \
+   cd <repo-root>/levelup && source .claude/secrets.env && cd backend && \
    source .venv/bin/activate && \
    FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost \
    POSTGRES_PORT=5432 POSTGRES_USER=padel_app_user POSTGRES_DB=levelup_test \
