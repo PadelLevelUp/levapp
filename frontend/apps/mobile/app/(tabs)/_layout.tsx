@@ -10,6 +10,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
+import * as Notifications from "expo-notifications";
 import { useAppEvents } from "@/lib/sse";
 
 /** Greeting over date, stacked, in the navy app bar. */
@@ -68,6 +69,17 @@ export default function TabsLayout() {
       (unreadData as { count?: number } | undefined)?.count ??
       0
   );
+
+  // PAD-147 / PAD-153: mirror the unread total onto the iOS home-screen
+  // (springboard) badge. Nothing else in the app ever writes that value, so
+  // before this a badge set by any source could never be cleared and stuck
+  // forever. Driving it from the same query the tab badge uses means the two
+  // can never disagree, and foregrounding the app refetches (useAppStateFocus)
+  // and self-corrects the icon even if a push was missed.
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    void Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
+  }, [unreadCount, isAuthenticated]);
 
   if (loading) {
     return (

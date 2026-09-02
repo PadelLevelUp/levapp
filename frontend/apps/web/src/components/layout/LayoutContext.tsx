@@ -23,6 +23,34 @@ type LayoutContextValue = {
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+/**
+ * Mirror the unread total onto the installed-PWA app icon badge (PAD-153),
+ * the web analogue of the iOS springboard badge.
+ *
+ * The Badging API only exists in an installed PWA on supporting browsers, so
+ * every call is feature-detected and failure is swallowed — a browser that
+ * cannot badge must never break the layout. `clearAppBadge` rather than
+ * `setAppBadge(0)` for the empty case: 0 is specified to clear, but clearing
+ * explicitly is what the API is for and avoids a "0" flashing on engines that
+ * render it.
+ */
+function syncAppBadge(count: number): void {
+  if (typeof navigator === "undefined") return;
+  const nav = navigator as Navigator & {
+    setAppBadge?: (count?: number) => Promise<void>;
+    clearAppBadge?: () => Promise<void>;
+  };
+  try {
+    if (count > 0) {
+      void nav.setAppBadge?.(count)?.catch(() => undefined);
+    } else {
+      void nav.clearAppBadge?.()?.catch(() => undefined);
+    }
+  } catch {
+    // Unsupported browser — badging is strictly best-effort.
+  }
+}
+
 const LayoutContext = createContext<LayoutContextValue | null>(null);
 
 export function LayoutProvider({ children }: { children: React.ReactNode }) {
@@ -37,6 +65,7 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
     const data = await getUnreadMessagesCount();
     const count = Number(data?.unreadCount ?? 0);
     setUnreadCount(count);
+    syncAppBadge(count);
     return count;
   }, []);
 
