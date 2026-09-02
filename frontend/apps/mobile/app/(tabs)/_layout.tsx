@@ -48,7 +48,9 @@ export default function TabsLayout() {
 
   // Unread messages badge on the Messages tab, refreshed live over SSE.
   const queryClient = useQueryClient();
-  const { data: unreadData } = useUnreadCount({ enabled: isAuthenticated });
+  const { data: unreadData, isSuccess: unreadLoaded } = useUnreadCount({
+    enabled: isAuthenticated,
+  });
   useAppEvents(
     React.useCallback(
       (evt) => {
@@ -77,9 +79,14 @@ export default function TabsLayout() {
   // can never disagree, and foregrounding the app refetches (useAppStateFocus)
   // and self-corrects the icon even if a push was missed.
   React.useEffect(() => {
-    if (!isAuthenticated) return;
+    // Wait for a real answer: until the query resolves `unreadCount` is 0,
+    // and writing that would clear a legitimate badge on every cold launch —
+    // permanently so if the fetch then fails or the device is offline. The
+    // first successful fetch still clears a stale badge, which is the
+    // PAD-147 case.
+    if (!isAuthenticated || !unreadLoaded) return;
     void Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
-  }, [unreadCount, isAuthenticated]);
+  }, [unreadCount, isAuthenticated, unreadLoaded]);
 
   if (loading) {
     return (
