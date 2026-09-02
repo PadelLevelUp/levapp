@@ -1,0 +1,171 @@
+name: Deploy prod
+
+# One workflow, two ordered jobs. In a monorepo a single push can change both
+# sides, and the two-repo setup's "merge backend first, then frontend" ordering
+# no longer exists — so the ordering lives here: `frontend` waits for `backend`.
+# The common case (additive backend work) is therefore safe by default. For the
+# rare release where the FRONTEND must go first (a backend contract change the
+# deployed frontend violates), dispatch this workflow twice by hand with
+# target=frontend and then target=backend.
+#
+# Path filtering happens INSIDE the jobs (dorny/paths-filter), never at the
+# workflow level: a workflow-level `paths:` filter that skips a required check
+# blocks the PR forever, because "skipped" is not "success".
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "What to deploy"
+        type: choice
+        default: both
+        options: [ both, backend, frontend ]
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/deploy-prod.yaml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/deploy-prod.yaml'
+
+  backend:
+    needs: changes
+    if: >-
+      (github.event_name == 'push' && needs.changes.outputs.backend == 'true') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'backend'))
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+    - name: Install Poetry
+      run: pipx install poetry
+    - name: Check lockfile is up-to-date
+      run: poetry check --lock
+      working-directory: backend
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: backend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+        platforms: linux/amd64
+    - name: Copy .env.prod to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        source: "backend/.env.prod"
+        target: "/home/${{ secrets.GCE_USER }}/"
+        strip_components: 1
+        overwrite: true
+    - name: Deploy on GCE
+      uses: appleboy/ssh-action@v1.2.5
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        script: |
+          docker network create levelup_net || true
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+          docker stop padelapp || true && docker rm padelapp || true
+          docker run -d --name padelapp -p 5000:80 \
+            --restart unless-stopped \
+            --network levelup_net \
+            --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
+            -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
+            -e FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }} \
+            -e MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} \
+            -e GCS_UPLOADS_BUCKET=${{ secrets.GCS_UPLOADS_BUCKET }} \
+            -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
+            -e VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }} \
+            -e VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }} \
+            -e VAPID_CLAIMS_EMAIL=${{ secrets.VAPID_CLAIMS_EMAIL }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+          # Reclaim disk: the previous image is dangling after the pull; the
+          # 9.7G VM disk has filled up twice.
+          docker image prune -f || true
+
+    - name: Copy backup script to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        source: "backend/scripts/backup.sh"
+        target: "/home/${{ secrets.GCE_USER }}/"
+        strip_components: 2
+
+    - name: Install nightly backup cron
+      uses: appleboy/ssh-action@v1.2.5
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        script: |
+          chmod +x /home/${{ secrets.GCE_USER }}/backup.sh
+          (crontab -l 2>/dev/null | grep -v backup.sh; echo "0 3 * * * /home/${{ secrets.GCE_USER }}/backup.sh >> /home/${{ secrets.GCE_USER }}/backup.log 2>&1") | crontab -
+
+  frontend:
+    needs: [ changes, backend ]
+    # always() lets this run when backend was SKIPPED (frontend-only push); it
+    # still refuses to run when backend actually FAILED.
+    if: >-
+      always() && needs.backend.result != 'failure' && needs.backend.result != 'cancelled' && (
+        (github.event_name == 'push' && needs.changes.outputs.frontend == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'frontend'))
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+          platforms: linux/amd64
+      - name: Deploy on GCE
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+          script: |
+            docker network create levelup_net || true
+            docker network connect levelup_net padelapp || true
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+            docker stop levelup_frontend || true && docker rm levelup_frontend || true
+            docker run -d --name levelup_frontend \
+              --restart unless-stopped \
+              --network levelup_net \
+              -p 3000:80 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+            docker image prune -f || true
