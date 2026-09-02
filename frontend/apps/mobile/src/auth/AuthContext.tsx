@@ -14,6 +14,7 @@ import {
   setUnauthorizedHandler,
 } from "@/lib/api";
 import i18n from "@/lib/i18n";
+import * as Notifications from "expo-notifications";
 import { getPushRegistrar } from "@/lib/push";
 
 export type AuthUser = authApi.MeResponse;
@@ -110,6 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // registrar never throws) but must be kicked off before the token is
     // cleared below, since the DELETE call needs it for the auth header.
     void getPushRegistrar().unregister();
+    // Clear the home-screen badge: the tabs layout (which keeps it in sync
+    // with the unread count) is about to unmount, so nothing else would
+    // reset it and the signed-out app would keep a stale count (PAD-147).
+    void Notifications.setBadgeCountAsync(0).catch(() => undefined);
     // Best-effort server-side invalidation — ignore failures.
     await api.post("/auth/logout").catch(() => undefined);
     await secureTokenStorage.removeToken().catch(() => undefined);

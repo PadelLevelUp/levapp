@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import { ErrorState } from "@/components/error-state";
 import {
   AlertDialog,
@@ -61,9 +62,14 @@ function ChatSkeleton() {
 
 export default function ConversationScreen() {
   const { t } = useTranslation();
-  // Pushed route (no tab bar): the composer must clear the home indicator.
+  // Pushed route (no tab bar): the composer must clear the home indicator —
+  // but only while the keyboard is down. An open keyboard already covers that
+  // area, so keeping the inset leaves a visible band above it (PAD-145).
   const insets = useSafeAreaInsets();
-  const composerPaddingBottom = Math.max(insets.bottom, 12);
+  const keyboardVisible = useKeyboardVisible();
+  const composerPaddingBottom = keyboardVisible
+    ? 12
+    : Math.max(insets.bottom, 12);
   const params = useLocalSearchParams<{ id: string }>();
   const conversationId = String(params.id);
   const { user } = useAuth();
@@ -600,7 +606,13 @@ export default function ConversationScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        // This screen draws its own header inside the view (headerShown:false
+        // above), so this frame already starts below the header and runs to the
+        // bottom of the screen. React Native ADDS this offset to the avoided
+        // height, so any non-zero value renders as a gap between the composer
+        // and the keyboard — which is exactly what PAD-145 reported (the old
+        // value, 90, dated from when the navigator header was still shown).
+        keyboardVerticalOffset={0}
       >
         {isLoading ? (
           <ChatSkeleton />

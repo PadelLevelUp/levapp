@@ -10,6 +10,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
+import * as Notifications from "expo-notifications";
 import { useAppEvents } from "@/lib/sse";
 
 /** Greeting over date, stacked, in the navy app bar. */
@@ -47,7 +48,9 @@ export default function TabsLayout() {
 
   // Unread messages badge on the Messages tab, refreshed live over SSE.
   const queryClient = useQueryClient();
-  const { data: unreadData } = useUnreadCount({ enabled: isAuthenticated });
+  const { data: unreadData, isSuccess: unreadLoaded } = useUnreadCount({
+    enabled: isAuthenticated,
+  });
   useAppEvents(
     React.useCallback(
       (evt) => {
@@ -68,6 +71,22 @@ export default function TabsLayout() {
       (unreadData as { count?: number } | undefined)?.count ??
       0
   );
+
+  // PAD-147 / PAD-153: mirror the unread total onto the iOS home-screen
+  // (springboard) badge. Nothing else in the app ever writes that value, so
+  // before this a badge set by any source could never be cleared and stuck
+  // forever. Driving it from the same query the tab badge uses means the two
+  // can never disagree, and foregrounding the app refetches (useAppStateFocus)
+  // and self-corrects the icon even if a push was missed.
+  React.useEffect(() => {
+    // Wait for a real answer: until the query resolves `unreadCount` is 0,
+    // and writing that would clear a legitimate badge on every cold launch —
+    // permanently so if the fetch then fails or the device is offline. The
+    // first successful fetch still clears a stale badge, which is the
+    // PAD-147 case.
+    if (!isAuthenticated || !unreadLoaded) return;
+    void Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
+  }, [unreadCount, isAuthenticated, unreadLoaded]);
 
   if (loading) {
     return (
