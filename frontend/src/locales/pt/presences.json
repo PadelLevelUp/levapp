@@ -1,0 +1,122 @@
+{
+  "presences": {
+    "eyebrow": "Treinador · Presenças",
+    "title": "Presenças",
+    "subtitle": "Presenças em aulas privadas e de academia, incluindo convidados.",
+    "unknownPlayer": "Jogador sem nome",
+    "guest": "convidado",
+    "type": {
+      "private": "Privada",
+      "academy": "Academia"
+    },
+    "response": {
+      "confirmed": "Confirmou presença",
+      "declined": "Avisou que faltava",
+      "none": "Sem resposta"
+    },
+    "mark": {
+      "present": "Presente",
+      "justified": "Falta justificada",
+      "unjustified": "Falta injustificada",
+      "short": {
+        "present": "Presente",
+        "justified": "Justificada",
+        "unjustified": "Injustificada"
+      }
+    },
+    "kpi": {
+      "totalPresences": "Total de presenças",
+      "activePlayers": "Jogadores ativos",
+      "academyShare": "Peso da academia",
+      "guestAttendances": "Presenças de convidados"
+    },
+    "week": {
+      "this": "Esta semana",
+      "last": "Semana passada",
+      "next": "Próxima semana",
+      "offset": "Semana {{offset}}",
+      "previous": "Semana anterior"
+    },
+    "validate": {
+      "trigger_one": "{{count}} aula por validar",
+      "trigger_other": "{{count}} aulas por validar",
+      "triggerHint": "Reveja e confirme as presenças.",
+      "title": "Aulas por validar",
+      "description": "Navegue por semana. As aulas em que todos responderam podem ser confirmadas em conjunto.",
+      "selectReady": "Selecionar as prontas a confirmar",
+      "validateSelected": "Validar selecionadas ({{count}})",
+      "clear": "Limpar",
+      "validate": "Validar",
+      "validateClass": "Validar aula",
+      "saveChanges": "Guardar alterações",
+      "open": "Abrir",
+      "back": "Voltar",
+      "edit": "Editar",
+      "undo": "Anular",
+      "undoValidation": "Anular validação",
+      "addPlayer": "Adicionar jogador",
+      "choosePlayer": "Escolher jogador",
+      "lastMinute": "Entrou algum jogador à última hora?",
+      "selectClass": "Selecionar {{name}}",
+      "statusFor": "Presença de {{name}}",
+      "validatedThisWeek": "Validadas esta semana",
+      "readyBanner": "Todos responderam — pronta a confirmar.",
+      "awaiting_one": "Falta decidir {{count}} jogador",
+      "awaiting_other": "Faltam decidir {{count}} jogadores",
+      "skipped_one": "{{count}} aula ignorada — tem jogadores sem resposta e precisa de ser revista individualmente.",
+      "skipped_other": "{{count}} aulas ignoradas — têm jogadores sem resposta e precisam de ser revistas uma a uma.",
+      "empty": "Não há nada para validar esta semana. Bom trabalho.",
+      "group": {
+        "needsInput": "Precisa da sua decisão ({{count}})",
+        "ready": "Prontas a confirmar ({{count}})"
+      },
+      "triggerEmpty": "Nada por validar"
+    },
+    "column": {
+      "name": "Jogador",
+      "total": "Total de presenças",
+      "private": "Aulas privadas",
+      "academy": "Aulas de academia",
+      "justified": "Faltas justificadas",
+      "unjustified": "Faltas injustificadas",
+      "invitesReceived": "Aulas como convidado",
+      "invitesJoined": "Presenças como convidado"
+    },
+    "table": {
+      "title": "Jogadores",
+      "count": "{{shown}} de {{total}} jogadores",
+      "search": "Procurar jogador…",
+      "minTotal": "Mín. de presenças",
+      "maxUnjustified": "Máx. injustificadas",
+      "any": "todas",
+      "columns": "Colunas",
+      "visibleColumns": "Colunas visíveis",
+      "export": "Exportar CSV",
+      "empty": "Nenhum jogador corresponde a estes filtros."
+    },
+    "charts": {
+      "seriesLabel": "Presenças",
+      "perPlayer": "Presenças por jogador",
+      "perPlayerHint": "8 jogadores com mais presenças",
+      "split": "Privadas vs Academia",
+      "splitHint": "Peso no total de presenças",
+      "overTime": "Presenças ao longo do tempo",
+      "overTimeHint": "No período selecionado",
+      "empty": "Ainda não há presenças registadas."
+    },
+    "toast": {
+      "validated_one": "Aula validada",
+      "validated_other": "{{count}} aulas validadas"
+    },
+    "error": {
+      "statsTitle": "Não foi possível carregar as estatísticas",
+      "statsBody": "Verifique a ligação e tente novamente.",
+      "queueTitle": "Não foi possível carregar as aulas por validar",
+      "queueBody": "Verifique a ligação e tente novamente.",
+      "validateTitle": "Não foi possível validar",
+      "validateBody": "Nada foi guardado. Tente novamente.",
+      "undoTitle": "Não foi possível reabrir a aula",
+      "undoBody": "A aula continua validada. Tente novamente."
+    }
+  }
+}

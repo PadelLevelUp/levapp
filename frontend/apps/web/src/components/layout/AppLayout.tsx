@@ -9,6 +9,7 @@ import {
   Menu,
   MessageSquare,
   Dumbbell,
+  ClipboardCheck,
   Database,
   X,
   ChevronLeft,
@@ -66,6 +67,14 @@ const navItems: NavItem[] = [
     icon: Dumbbell,
     labelKey: "nav.training",
     path: "/training",
+    roles: ["coach"],
+  },
+  {
+    // PAD-140 — coach-only: the Presences tab exposes every roster player's
+    // attendance, which students must never see (classes.detail-visibility).
+    icon: ClipboardCheck,
+    labelKey: "nav.presences",
+    path: "/presences",
     roles: ["coach"],
   },
   {

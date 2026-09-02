@@ -42,6 +42,7 @@ import miscEn from "../../../../src/locales/en/misc.json";
 import navEn from "../../../../src/locales/en/nav.json";
 import notificationsUiEn from "../../../../src/locales/en/notificationsUi.json";
 import playersEn from "../../../../src/locales/en/players.json";
+import presencesEn from "../../../../src/locales/en/presences.json";
 import settingsEn from "../../../../src/locales/en/settings.json";
 import studentsEn from "../../../../src/locales/en/students.json";
 import trainingEn from "../../../../src/locales/en/training.json";
@@ -58,6 +59,7 @@ import miscPt from "../../../../src/locales/pt/misc.json";
 import navPt from "../../../../src/locales/pt/nav.json";
 import notificationsUiPt from "../../../../src/locales/pt/notificationsUi.json";
 import playersPt from "../../../../src/locales/pt/players.json";
+import presencesPt from "../../../../src/locales/pt/presences.json";
 import settingsPt from "../../../../src/locales/pt/settings.json";
 import studentsPt from "../../../../src/locales/pt/students.json";
 import trainingPt from "../../../../src/locales/pt/training.json";
@@ -98,6 +100,7 @@ const enNamespaces: Dict[] = [
   navEn,
   notificationsUiEn,
   playersEn,
+  presencesEn,
   settingsEn,
   studentsEn,
   trainingEn,
@@ -116,6 +119,7 @@ const ptNamespaces: Dict[] = [
   navPt,
   notificationsUiPt,
   playersPt,
+  presencesPt,
   settingsPt,
   studentsPt,
   trainingPt,

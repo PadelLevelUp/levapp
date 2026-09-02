@@ -831,7 +831,10 @@ export interface AttendanceHistory {
 // "Missed" KPI counts absences regardless of justification and the page must
 // agree with the card that links to it (spec `attendance.absences` rule 3).
 
-export type AbsenceJustification = "justified" | "unjustified";
+// `AbsenceJustification` is already declared at the top of this file; PAD-141
+// re-declared it here, which is a TS2300 duplicate-identifier error. `vite
+// build` strips types without checking them, so it shipped. Removed rather than
+// renamed — the original is the one every other consumer imports.
 
 export interface AbsenceSession extends AttendanceSession {
   /** Null when the coach recorded the absence without classifying it. */
@@ -840,4 +843,92 @@ export interface AbsenceSession extends AttendanceSession {
 
 export interface AbsenceHistory extends Omit<AttendanceHistory, "sessions"> {
   sessions: AbsenceSession[];
+}
+
+/* ------------------------------------------------------------------ */
+/* PAD-140 — the coach-facing Presences tab                            */
+/* ------------------------------------------------------------------ */
+
+/** One roster player's aggregates over the selected window. */
+export interface PresencePlayerStats {
+  playerId: number;
+  name: string;
+  /** Classes attended (`status === "present"`). Equals private + academy. */
+  total: number;
+  private: number;
+  academy: number;
+  justified: number;
+  unjustified: number;
+  /**
+   * Guest appearances — classes the player was invited into without being
+   * enrolled in the parent lesson. NOT derived from `Presence.invited`, which
+   * is true for every enrolled player and so identifies nobody.
+   */
+  invitesReceived: number;
+  /** Of those, the ones they actually turned up to. */
+  invitesJoined: number;
+}
+
+export interface PresenceStatsTotals {
+  presences: number;
+  activePlayers: number;
+  private: number;
+  academy: number;
+  /** Whole percent, already guarded against an empty window server-side. */
+  academyShare: number;
+  guestAttendances: number;
+  justified: number;
+  unjustified: number;
+}
+
+export interface PresenceStats {
+  from: string;
+  to: string;
+  players: PresencePlayerStats[];
+  totals: PresenceStatsTotals;
+}
+
+export interface PresenceTrend {
+  from: string;
+  to: string;
+  granularity: AttendanceGranularity;
+  total: number;
+  buckets: AttendanceBucket[];
+}
+
+/** How a player answered before the class ran. */
+export type PresenceResponse = 'confirmed' | 'declined' | 'none';
+
+export interface PendingValidationPlayer {
+  presenceId: number;
+  playerId: number;
+  name: string;
+  response: PresenceResponse;
+  status: PresenceStatus | null;
+  justification: AbsenceJustification | null;
+  validated: boolean;
+  lateCancellation: boolean;
+  guest: boolean;
+}
+
+export interface PendingValidationClass {
+  lessonInstanceId: number;
+  calendarEventId: string;
+  title: string;
+  type: 'academy' | 'private' | null;
+  color?: string | null;
+  startDatetime: string;
+  date: string;
+  players: PendingValidationPlayer[];
+  /** How many players never answered — the only thing that blocks validating. */
+  unanswered: number;
+  ready: boolean;
+}
+
+export interface PendingValidation {
+  from: string;
+  to: string;
+  pending: PendingValidationClass[];
+  validated: PendingValidationClass[];
+  pendingCount: number;
 }

@@ -155,6 +155,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="presences"
+        options={{
+          // Coach-only, like players: the screen exposes every roster player's
+          // attendance, which `classes.detail-visibility` keeps from students.
+          href: isCoach ? undefined : null,
+          title: t("nav.presences"),
+          tabBarButtonTestID: "tab-presences",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="clipboard-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="messages"
         options={{
           title: t("nav.messages"),
