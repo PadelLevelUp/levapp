@@ -1,0 +1,24 @@
+{
+  "notificationsUi": {
+    "replacementApproval": {
+      "spotsFilledOrExpired": "These spots were already filled or expired.",
+      "genericError": "Something went wrong. Please try again.",
+      "round": "Round {{number}}",
+      "group": "Group {{index}}",
+      "noLongerNeeded": "No longer needed",
+      "approved": "Approved",
+      "scheduledFor": "Scheduled for {{window}}",
+      "windowOpen": "window open",
+      "dismissed": "Dismissed",
+      "confirmedWontAttend": "confirmed they won't attend.",
+      "waitingListAdded": "from the waiting list will be added directly to the class",
+      "inviteQueue": "Invite queue",
+      "noEligiblePlayers": "No eligible players to invite",
+      "inviteReplacements": "Invite replacements?",
+      "yesRightNow": "Yes, right now",
+      "yesAt": "Yes, at {{window}}",
+      "approveAtWindowAria": "Approve invitations at window open",
+      "no": "No"
+    }
+  }
+}

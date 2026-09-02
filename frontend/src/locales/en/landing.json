@@ -1,0 +1,71 @@
+{
+  "landing": {
+    "nav": {
+      "how": "How it works",
+      "academies": "For academies",
+      "players": "For players",
+      "login": "Log in",
+      "demo": "Request a demo",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "hero": {
+      "eyebrow": "For padel and tennis academies",
+      "titleLine1": "Fill your classes.",
+      "titleLine2": "Talk to your players.",
+      "subtitle": "LevApp handles the invitations, the follow-ups and the reminders. You handle the coaching.",
+      "primary": "Request a demo",
+      "secondary": "See how it works"
+    },
+    "preview": {
+      "date": "Tuesday, 4 August",
+      "title": "Needs attention",
+      "initials": "BT",
+      "nextEyebrow": "UP NEXT · 10:30",
+      "nextIn": "in 45 min",
+      "nextClass": "Class 5",
+      "nextMeta": "Level 3 · Court 2",
+      "nextCount": "12/16",
+      "gapTitle": "Class 12 has 9 spots open",
+      "gapMeta": "Thursday · 10:30 · Level 4- · 7/16",
+      "gapPrimary": "Invite 12 players",
+      "gapSecondary": "Later",
+      "replyInitials": "IN",
+      "replyTitle": "Inês Neuparth replied",
+      "replyBody": "“Yes, Wednesday works for me”"
+    },
+    "values": {
+      "eyebrow": "WHAT CHANGES",
+      "title": "Three things that stop eating your day",
+      "full": {
+        "title": "Full classes",
+        "body": "You see the empty spots before they become a problem. LevApp suggests who has the right level and is free."
+      },
+      "invites": {
+        "title": "Automatic invitations",
+        "body": "Invitation, follow-up and reminder go out on their own. You only step in when someone says something that needs you.",
+        "accepted": "22 accepted",
+        "pending": "9 awaiting reply"
+      },
+      "progress": {
+        "title": "Progress that counts",
+        "body": "Level, attendance and evaluations for every player in one place — and visible to them."
+      }
+    },
+    "players": {
+      "eyebrow": "ARE YOU A PLAYER?",
+      "title": "Does your academy already use LevApp?",
+      "body": "Log in to see your classes, confirm attendance and follow your level.",
+      "primary": "Log in",
+      "secondary": "I got an invitation"
+    },
+    "footer": {
+      "contact": "Contact",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "loader": {
+      "label": "Signing you in…"
+    }
+  }
+}

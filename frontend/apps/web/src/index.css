@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* There used to be an UNLAYERED :root/.dark --warning block here. Unlayered
+   declarations beat layered ones, so it silently overrode the value defined in
+   @layer base below — the token you read in the file was not the token that
+   rendered. Every token now lives in @layer base, defined exactly once. Do not
+   add token declarations outside the layer. */
+
+.message-action-menu {
+  @apply bg-card border border-border rounded-2xl shadow-xl overflow-hidden;
+}
+
+/* LevApp Design System — navy and blue, lifted from the app icon.
+   MIRROR OF packages/config/src/tokens.ts. That file feeds apps/mobile via
+   nativewindTheme(); this file feeds the web. They must agree — change both. */
+
+@layer base {
+  :root {
+    --background: 216 29% 93%;
+    --foreground: 216 52% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 216 52% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 52% 13%;
+
+    /* Blue carries identity AND every primary action. */
+    --primary: 220 84% 47%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary button: blue wash, blue label. */
+    --secondary: 217 100% 95%;
+    --secondary-foreground: 220 84% 47%;
+
+    --muted: 213 39% 95%;
+    --muted-foreground: 219 18% 41%;
+
+    /* `accent` is the menu/dropdown hover — deliberately neutral. */
+    --accent: 217 32% 92%;
+    --accent-foreground: 216 52% 13%;
+
+    --destructive: 4 63% 53%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 28% 86%;
+    --input: 215 28% 86%;
+    --ring: 220 84% 47%;
+
+    --radius: 0.625rem;
+
+    /* Class types. */
+    --academy: 214 100% 59%;
+    --academy-foreground: 0 0% 100%;
+    --private: 249 55% 59%;
+    --private-foreground: 0 0% 100%;
+
+    /* Status — one job each. Green is DONE and nothing else. */
+    --success: 161 78% 33%;
+    --success-foreground: 0 0% 100%;
+    --success-strong: 162 80% 24%;
+    --warning: 31 72% 50%;
+    --warning-foreground: 216 52% 13%;
+    --warning-strong: 33 81% 33%;
+    --info: 214 100% 59%;
+    --info-foreground: 0 0% 100%;
+
+    /* The navy chrome. */
+    --sidebar-background: 217 58% 12%;
+    --sidebar-foreground: 216 63% 97%;
+    --sidebar-primary: 213 100% 65%;
+    --sidebar-primary-foreground: 211 68% 7%;
+    --sidebar-accent: 218 54% 19%;
+    --sidebar-accent-foreground: 216 63% 97%;
+    --sidebar-border: 213 37% 23%;
+    --sidebar-ring: 213 100% 65%;
+  }
+
+  .dark {
+    --background: 218 58% 6%;
+    --foreground: 216 63% 97%;
+
+    --card: 217 51% 12%;
+    --card-foreground: 216 63% 97%;
+
+    --popover: 216 47% 17%;
+    --popover-foreground: 216 63% 97%;
+
+    /* Blue carries identity AND every primary action. */
+    --primary: 213 100% 65%;
+    --primary-foreground: 211 68% 7%;
+
+    /* Secondary button: blue wash, blue label. */
+    --secondary: 215 47% 22%;
+    --secondary-foreground: 215 100% 81%;
+
+    --muted: 216 47% 17%;
+    --muted-foreground: 215 29% 71%;
+
+    /* `accent` is the menu/dropdown hover — deliberately neutral. */
+    --accent: 216 47% 17%;
+    --accent-foreground: 216 63% 97%;
+
+    --destructive: 4 66% 59%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 213 37% 23%;
+    --input: 213 37% 23%;
+    --ring: 213 100% 65%;
+
+    /* Class types. */
+    --academy: 213 100% 65%;
+    --academy-foreground: 211 68% 7%;
+    --private: 250 80% 81%;
+    --private-foreground: 211 68% 7%;
+
+    /* Status — one job each. Green is DONE and nothing else. */
+    --success: 160 57% 60%;
+    --success-foreground: 211 68% 7%;
+    --success-strong: 160 57% 60%;
+    --warning: 34 81% 69%;
+    --warning-foreground: 211 68% 7%;
+    --warning-strong: 34 81% 69%;
+    --info: 213 100% 65%;
+    --info-foreground: 211 68% 7%;
+
+    /* The navy chrome. */
+    --sidebar-background: 216 53% 9%;
+    --sidebar-foreground: 216 63% 97%;
+    --sidebar-primary: 213 100% 65%;
+    --sidebar-primary-foreground: 211 68% 7%;
+    --sidebar-accent: 216 47% 17%;
+    --sidebar-accent-foreground: 216 63% 97%;
+    --sidebar-border: 215 43% 19%;
+    --sidebar-ring: 213 100% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Every time, score and count in this system is tabular — a column of
+       proportional figures jitters and is unreadable at a glance. This app is
+       dense with them (10:30, 12/16, Nível 4-), so it is set app-wide rather
+       than hunted down per component, which would silently miss new ones. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Display type takes negative tracking at 20px and up. Poppins is loose by
+     default at large sizes and titles look unset without this. */
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: theme("fontFamily.display");
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+}

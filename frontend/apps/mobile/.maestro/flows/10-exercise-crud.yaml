@@ -1,0 +1,78 @@
+# Mirrors: apps/web/e2e/exercise-management/exercise-crud.spec.ts
+# - create "Maestro Drill" (type keeps the default; difficulty set via the
+#   exercise-difficulty-4 toggle buttons) → appears in the list
+# - delete it with confirmation → gone
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+
+# ── Create ──
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Drill"
+# Dismiss the keyboard (on-drag) so it can't cover the buttons below.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+# Difficulty is a plain toggle row (drivable, unlike the Select portals).
+- scrollUntilVisible:
+    element:
+      id: "exercise-difficulty-4"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-difficulty-4"
+- scrollUntilVisible:
+    element:
+      id: "exercise-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-save"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Drill.*"
+    timeout: 15000
+
+# ── Delete ──
+- tapOn: ".*Maestro Drill.*"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "exercise-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-delete"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "exercise-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- assertNotVisible: ".*Maestro Drill.*"

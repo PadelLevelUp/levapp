@@ -1,0 +1,44 @@
+# Mirrors: apps/web/e2e/schedule-calendar/attendance.spec.ts
+# - open the seeded class, mark the seeded participant (E2E Student,
+#   player id 1) present, confirm, reopen — the Present badge persists.
+# NOTE: player id 1 is deterministic — seed.py creates E2E Student's Player
+# row first on a freshly reset database.
+# SIDE EFFECT: flow 14-student-calendar sees this presence as "Present".
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+# ── Open the seeded class ──
+- tapOn: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-participant-1"
+    timeout: 20000
+
+# ── Mark present and confirm ──
+- tapOn:
+    id: "attendance-present-1"
+- tapOn:
+    id: "attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      text: "Attendance saved"
+    timeout: 15000
+
+# ── Reopen: the saved presence initializes the row with a Present badge ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-participant-1"
+    timeout: 20000
+# The Present BADGE is a bare "Present" text node; the mark-present button is
+# exposed as "Mark E2E Student present" (a11y label), so this exact match
+# only passes when the saved badge is rendered.
+- assertVisible: "Present"

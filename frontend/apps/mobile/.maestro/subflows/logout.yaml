@@ -1,0 +1,15 @@
+# Log out via the More tab and wait for the login screen.
+appId: com.padellevelup.app
+---
+- tapOn:
+    id: "tab-more"
+- extendedWaitUntil:
+    visible:
+      id: "more-logout"
+    timeout: 15000
+- tapOn:
+    id: "more-logout"
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 15000

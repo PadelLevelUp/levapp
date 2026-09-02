@@ -1,0 +1,31 @@
+# Navigate the Calendar tab to the seeded Monday (the next Monday after
+# today, where seed.py schedules "E2E Academy Class" at 10:00) and select
+# that day in the week strip. The seeded Monday is always in the NEXT
+# calendar week (weeks start on Monday), so one next-week tap normally
+# reaches it; the repeat guard makes it robust either way.
+# Postcondition: the seeded Monday is selected and "E2E Academy Class"
+# is visible in the day list.
+appId: com.padellevelup.app
+---
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runScript: ../scripts/seeded-monday.js
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "calendar-day-${output.seededMonday}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.seededMonday}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 20000

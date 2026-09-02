@@ -1,0 +1,43 @@
+{
+  "editor": {
+    "models": "Modelos",
+    "loading": "A carregar…",
+    "selectModelPrompt": "Selecione um modelo na barra lateral",
+    "searchPlaceholder": "Pesquisar…",
+    "new": "Novo",
+    "loadingRecords": "A carregar registos…",
+    "noRecordsFound": "Nenhum registo encontrado.",
+    "columnId": "ID",
+    "pagination": "{{total}} registos · página {{page}} de {{pages}}",
+    "field": {
+      "passwordPlaceholder": "Deixe em branco para manter a atual",
+      "selectPlaceholder": "Selecionar…",
+      "none": "— Nenhum —",
+      "currentImageId": "ID da imagem atual: {{id}}",
+      "noOptions": "Sem opções disponíveis"
+    },
+    "sheet": {
+      "newTitle": "Novo registo",
+      "editTitle": "Editar registo",
+      "cancel": "Cancelar",
+      "saving": "A guardar…",
+      "save": "Guardar"
+    },
+    "toast": {
+      "recordCreated": "Registo criado",
+      "recordUpdated": "Registo atualizado",
+      "saveFailed": "Falha ao guardar o registo",
+      "loadModelsFailed": "Falha ao carregar os modelos",
+      "loadSchemaFailed": "Falha ao carregar o esquema",
+      "loadRecordsFailed": "Falha ao carregar os registos",
+      "recordDeleted": "Registo eliminado",
+      "deleteFailed": "Falha ao eliminar o registo"
+    },
+    "delete": {
+      "title": "Eliminar registo?",
+      "description": "Isto elimina permanentemente o registo com ID {{id}}. Esta ação não pode ser anulada.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar"
+    }
+  }
+}

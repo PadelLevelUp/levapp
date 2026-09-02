@@ -1,0 +1,44 @@
+# New flow: coach exercises the Remind and Notify actions on the seeded
+# class (Phase 2 class-detail parity).
+# - Remind is fired for real: it only nudges already-invited/unconfirmed
+#   participants and is idempotent — safe to run repeatedly.
+# - Notify is opened far enough to confirm the picker renders (groups +
+#   search), then cancelled WITHOUT sending: a real send would create
+#   notification rows other flows don't account for, so this stays read-only
+#   per the assignment.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- tapOn: "E2E Academy Class"
+
+# ── Remind ──
+- scrollUntilVisible:
+    element:
+      id: "class-remind"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-remind"
+- extendedWaitUntil:
+    visible:
+      text: ".*Reminders sent.*"
+    timeout: 15000
+
+# ── Notify: open the picker, confirm it renders, cancel without sending ──
+- scrollUntilVisible:
+    element:
+      id: "class-notify"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-notify"
+- extendedWaitUntil:
+    visible:
+      id: "class-notify-search"
+    timeout: 15000
+- tapOn: "Cancel notify"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-notify-search"
+    timeout: 10000

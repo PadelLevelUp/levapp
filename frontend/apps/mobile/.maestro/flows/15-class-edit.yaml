@@ -1,0 +1,120 @@
+# New flow: coach edits the seeded class name via class/[id].tsx's edit
+# mode (Phase 2 class-detail parity), then reverts it — "E2E Academy Class"
+# is asserted by exact text in goto-seeded-monday.yaml, 04-attendance.yaml
+# and 14-student-calendar.yaml, so this flow edits AND reverts within
+# itself rather than relying on suite ordering or a DB reset to restore it.
+# NOTE: "E2E Academy Class" is not recurring (seed.py: is_recurring=False),
+# so class-edit-save commits directly with no scope-dialog step; the
+# scope-dialog taps below are defensive (`when: visible`) in case that ever
+# changes.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+# ── Open the seeded class and enter edit mode ──
+- tapOn: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit-name"
+    timeout: 10000
+
+# ── Rename ──
+- tapOn:
+    id: "class-edit-name"
+- eraseText: 40
+- inputText: "E2E Academy Class Edited"
+- assertVisible: "E2E Academy Class Edited"
+
+# Dismiss the keyboard: this ScrollView has no keyboardDismissMode="on-drag"
+# (unlike class/new.tsx), so it falls back to the RN default
+# keyboardShouldPersistTaps="never" — the first tap on empty space is
+# consumed by the dismiss, same gotcha as 09-direct-messages.yaml.
+- tapOn:
+    point: "50%, 60%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "class-edit-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit-save"
+- runFlow:
+    when:
+      visible:
+        id: "class-scope-single"
+    commands:
+      - tapOn:
+          id: "class-scope-single"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class Edited"
+    timeout: 15000
+
+# ── Back on the calendar: the rename is visible ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- assertVisible: "E2E Academy Class Edited"
+
+# ── Revert the name so downstream/rerun flows keep matching the seeded
+#    "E2E Academy Class" text ──
+- tapOn: "E2E Academy Class Edited"
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit-name"
+    timeout: 10000
+- tapOn:
+    id: "class-edit-name"
+- eraseText: 40
+- inputText: "E2E Academy Class"
+- assertVisible: "E2E Academy Class"
+- tapOn:
+    point: "50%, 60%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "class-edit-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit-save"
+- runFlow:
+    when:
+      visible:
+        id: "class-scope-single"
+    commands:
+      - tapOn:
+          id: "class-scope-single"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 15000
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- assertVisible: "E2E Academy Class"
+- assertNotVisible: "E2E Academy Class Edited"

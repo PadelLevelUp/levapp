@@ -1,0 +1,88 @@
+# Mirrors: apps/web/e2e/settings/language-preference.spec.ts
+# - change the preferred language and back; each change is persisted via
+#   PATCH /auth/me and confirmed by the "Language preference saved." status.
+#
+# CAVEAT — coordinate tap: the language dropdown is an @rn-primitives Select
+# whose portal options are NOT exposed to the iOS accessibility tree (see
+# 08-set-player-level.skipped). Unlike the player-level select, this dropdown
+# opens at a deterministic position (fixed cards above it, non-scrolled
+# screen), so options are tapped by screen percentage as a last resort. Each
+# tap is verified by the saved-status assertion, so a miss fails loudly
+# instead of passing silently.
+#
+# GOTCHA — seeded language is "en", not "pt": seed.py (PAD-40) seeds e2e-coach
+# with language="en" so the rest of the E2E suite renders in English. The
+# Select's onValueChange no-ops when the tapped option already matches the
+# current value, so tapping "English" first (as if starting from "pt") never
+# fires the save. Instead: switch to Portuguese first (a genuine change from
+# the seeded "en") and verify the save, then switch back to English so the
+# suite's English-UI assumption (and the seed default) holds for any
+# subsequent standalone re-run of this flow or of the suite's failed-flow
+# retry (scripts/e2e.sh reruns failed flows individually, without a DB
+# reset).
+#
+# The restore-to-English step navigates away and back to Settings first,
+# forcing a remount so the leftover "Language preference saved." text from
+# the Portuguese step is gone before the second save — otherwise the stale
+# text would make a missed second tap pass silently.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-language-select"
+    timeout: 15000
+# (The selected value text is collapsed into the trigger's a11y label
+# "Preferred language", so it cannot be asserted directly.)
+
+# ── Switch to Portuguese (first option) — a genuine change from seeded "en" ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "settings-language-select"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - tapOn:
+          point: "22%,61%"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            text: "Language preference saved."
+          timeout: 8000
+
+# ── Remount Settings (clears the local saved-status text) ──
+- tapOn:
+    point: "9%,10%"
+- extendedWaitUntil:
+    visible:
+      id: "more-settings"
+    timeout: 8000
+- tapOn:
+    id: "more-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-language-select"
+    timeout: 15000
+- assertNotVisible:
+    text: "Language preference saved."
+
+# ── Switch back to English (second option) — restores the seed default ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "settings-language-select"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - tapOn:
+          point: "22%,65%"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            text: "Language preference saved."
+          timeout: 8000

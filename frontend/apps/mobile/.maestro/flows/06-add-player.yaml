@@ -1,0 +1,48 @@
+# Mirrors: apps/web/e2e/player-management/add-player.spec.ts
+# - add "Maestro Player" with a name only (PAD-105: the coach never supplies a
+#   username); it appears in the players list (found via search — with 30
+#   seeded players the new one lands on page 2 of the alphabetical list).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+
+# ── Fill name (PAD-105: no username field on the coach's form) ──
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Player"
+# Dismiss the keyboard (on-drag) so it can't cover the save button.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-save"
+
+# ── Back on the list: search finds the new player ──
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- tapOn:
+    id: "players-search"
+- inputText: "Maestro"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Player.*"
+    timeout: 20000

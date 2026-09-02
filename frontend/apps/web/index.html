@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LevApp</title>
+    <meta name="description" content="LevApp — gestão de aulas para treinadores de padel" />
+    <meta name="author" content="LevApp" />
+
+    <link rel="icon" type="image/svg+xml" href="/brand/levapp-mark-on-light.svg" />
+
+    <!-- Poppins for display (titles, hero numbers), Plus Jakarta Sans for
+         everything else. Loaded via <link> rather than an @import in CSS so it
+         does not block the stylesheet. Only the weights the system actually
+         uses are requested. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Ink, not the old #2bab6f green: this paints the mobile browser chrome. -->
+    <meta name="theme-color" content="#0B1524" />
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LevApp" />
+    <link rel="apple-touch-icon" href="/icons/192.png" />
+
+    <!-- Link previews (WhatsApp, iMessage, Slack, Twitter/X).
+         og:image MUST be an absolute URL — scrapers do not resolve relative
+         paths, and without it they fall back to guessing from apple-touch-icon,
+         which is how the retired LevelUp logo kept showing up in shared links. -->
+    <meta property="og:site_name" content="LevApp" />
+    <meta property="og:title" content="LevApp" />
+    <meta property="og:description" content="Gestão de aulas para academias de padel e ténis" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://padellevelup.com/" />
+    <meta property="og:image" content="https://padellevelup.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="LevApp — gestão de aulas para academias de padel e ténis" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="LevApp" />
+    <meta name="twitter:description" content="Gestão de aulas para academias de padel e ténis" />
+    <meta name="twitter:image" content="https://padellevelup.com/og-image.png" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

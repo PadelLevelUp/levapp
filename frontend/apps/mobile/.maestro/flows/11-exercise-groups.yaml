@@ -1,0 +1,85 @@
+# Mirrors: apps/web/e2e/exercise-management/exercise-groups.spec.ts
+# - create group "Maestro Group" → appears in the Groups tab
+# - delete it with confirmation → gone
+#
+# Fixed 2026-07-10 (Phase 4, group-folder inline browsing): the group list
+# now renders ExerciseGroupFolder (mirrors web's ExerciseGroupFolder.tsx) —
+# tapping the group's row toggles inline expand/collapse instead of opening
+# the edit form; editing requires the row's dedicated edit (pencil) icon.
+# No stable per-group testID exists for a dynamically-created group (it's
+# keyed by a runtime id this flow never captures), so the edit icon is
+# targeted by its accessibilityLabel text instead.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-training"
+- extendedWaitUntil:
+    visible:
+      id: "training-groups-tab"
+    timeout: 15000
+- tapOn:
+    id: "training-groups-tab"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 15000
+
+# ── Create ──
+- tapOn:
+    id: "group-add"
+- extendedWaitUntil:
+    visible:
+      id: "group-name"
+    timeout: 15000
+- tapOn:
+    id: "group-name"
+- inputText: "Maestro Group"
+# Dismiss the keyboard (on-drag) so it can't cover the save button.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "group-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "group-save"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Group.*"
+    timeout: 15000
+
+# ── Delete ──
+# Tap the edit (pencil) icon on the folder row to open GroupForm — tapping
+# the row itself now just expands/collapses the folder (see header note).
+- tapOn: "Edit group Maestro Group"
+- extendedWaitUntil:
+    visible:
+      id: "group-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "group-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "group-delete"
+- extendedWaitUntil:
+    visible:
+      id: "group-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "group-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "group-add"
+    timeout: 20000
+- assertNotVisible: ".*Maestro Group.*"

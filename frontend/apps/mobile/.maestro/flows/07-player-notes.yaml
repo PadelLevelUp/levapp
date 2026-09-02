@@ -1,0 +1,63 @@
+# Mirrors: apps/web/e2e/evaluation-tools/player-notes.spec.ts (+ the search
+# part of player-management/search-edit-player.spec.ts)
+# - search "E2E Student", open the detail page
+# - add strength "Maestro strength note" → visible
+# - delete it → gone
+# NOTE: player-card-1 is deterministic (see 04-attendance.yaml).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+
+# ── Search and open E2E Student ──
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── Add a strength note ──
+- scrollUntilVisible:
+    element:
+      id: "sw-add-strength-input"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "sw-add-strength-input"
+- inputText: "Maestro strength note"
+# Dismiss the keyboard (on-drag) so it can't cover the Add button, then
+# bring the row back into view (typed text persists — component state).
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 25%"
+- scrollUntilVisible:
+    element:
+      id: "sw-add-strength"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "sw-add-strength"
+- extendedWaitUntil:
+    visible:
+      text: "Maestro strength note"
+    timeout: 15000
+
+# ── Delete it via its accessible delete button ──
+- tapOn: "Delete note Maestro strength note"
+- extendedWaitUntil:
+    notVisible:
+      text: "Maestro strength note"
+    timeout: 15000

@@ -1,0 +1,91 @@
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+export interface PageAction {
+  label: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  variant?: "default" | "outline" | "destructive" | "ghost";
+  disabled?: boolean;
+  className?: string;
+  /** Optional stable hook for E2E (`data-testid` on the rendered control). */
+  testId?: string;
+}
+
+interface PageActionsProps {
+  actions: PageAction[];
+}
+
+/**
+ * Renders action buttons inline on desktop, collapsed into a "..." dropdown on mobile.
+ * Use this in any page header that has multiple action buttons.
+ */
+export function PageActions({ actions }: PageActionsProps) {
+  const { t } = useTranslation();
+  if (actions.length === 0) return null;
+
+  return (
+    <>
+      {/* Desktop: inline buttons.
+          `flex-wrap` + `justify-end`: the player profile now carries five
+          actions, and a fixed single row pushed the last one (Delete Player)
+          6px past a 1280px viewport where it was silently clipped. Wrapping
+          keeps every action reachable at any width instead of hiding whichever
+          one happens to be last. */}
+      <div className="hidden sm:flex flex-wrap justify-end items-center gap-2">
+        {actions.map((action) => (
+          <Button
+            key={action.label}
+            size="sm"
+            variant={action.variant ?? "outline"}
+            onClick={action.onClick}
+            disabled={action.disabled}
+            className={action.className}
+            data-testid={action.testId}
+          >
+            {action.icon}
+            {action.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Mobile: dropdown menu */}
+      <div className="sm:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+              <span className="sr-only">{t("common.actions")}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => (
+              <DropdownMenuItem
+                key={action.label}
+                onClick={action.onClick}
+                disabled={action.disabled}
+                className={cn(
+                  action.variant === "destructive" && "text-destructive focus:text-destructive",
+                  action.className,
+                )}
+                data-testid={action.testId}
+              >
+                {action.icon}
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,115 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "failedToLoad": "Failed to load dashboard.",
+    "unreadMessages": "Unread messages",
+    "messagesWaitingForReply": "Messages waiting for reply",
+    "latestMessage": "Latest message",
+    "conversationsToReply": "Conversations to reply",
+    "withUnreadMessages": "With unread messages",
+    "noNotificationActivity": "No notification activity yet.",
+    "unknownStudent": "Unknown student",
+    "classFallback": "Class",
+    "round": "Round {{number}}",
+    "kpi": {
+      "players": "Players",
+      "upcomingClasses": "Upcoming classes",
+      "pendingValidation": "Pending validation",
+      "revenue": "Revenue (est.)",
+      "attended": "Attended",
+      "missed": "Missed",
+      "upcomingLessons": "Upcoming lessons",
+      "invites": "Invites"
+    },
+    "list": {
+      "upcomingClasses": "Upcoming classes",
+      "needsPlayers": "Needs players",
+      "allClassesFull": "All scheduled classes are full",
+      "yourUpcomingLessons": "Your upcoming lessons",
+      "invitesToConfirm": "Invites to confirm",
+      "noPendingInvites": "No pending invites",
+      "missingSeats": "Missing {{count}}",
+      "seatsFilled": "{{filled}} of {{total}} confirmed",
+      "nothingHereYet": "Nothing here yet."
+    },
+    "activity": {
+      "title": "Notification activity"
+    },
+    "pending": {
+      "title": "Pending confirmations",
+      "subtitle": "For tomorrow's classes",
+      "notifyButton": "Send manual notification",
+      "confirmTitle": "Are you sure?",
+      "confirmDescription": "This sends an extra notification to the {{count}} student(s) who have not confirmed or declined yet. Anyone who already responded is not affected.",
+      "confirmAction": "Send",
+      "notifySuccess": "Notification sent to {{count}} student(s).",
+      "notifyError": "Could not send the notifications."
+    },
+    "status": {
+      "sent": "Sent",
+      "confirmed": "Confirmed",
+      "expired": "Expired",
+      "queued": "Queued"
+    },
+    "addParticipants": "Add participants",
+    "messagesOverviewAria": "Messages overview",
+    "conversationsToReplyCount_one": "{{count}} conversation to reply",
+    "conversationsToReplyCount_other": "{{count}} conversations to reply",
+    "greeting": {
+      "morning": "Morning, {{name}}",
+      "afternoon": "Afternoon, {{name}}",
+      "evening": "Evening, {{name}}"
+    },
+    "thingsNeedYou_one": "{{count}} thing needs you",
+    "thingsNeedYou_other": "{{count}} things need you",
+    "today": "Today",
+    "newClass": "New class",
+    "hero": {
+      "upNext": "UP NEXT · {{time}}",
+      "nextClass": "NEXT CLASS · {{weekday}}",
+      "startsIn": "in {{minutes}} min",
+      "open": "Open"
+    },
+    "needsYou": {
+      "eyebrow": "NEEDS YOU · {{count}}",
+      "empty": "Nothing needs you right now.",
+      "later": "Later",
+      "emptySeats": {
+        "title_one": "{{class}} has {{count}} empty seat",
+        "title_other": "{{class}} has {{count}} empty seats",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
+        "invite_one": "Invite {{count}} player",
+        "invite_other": "Invite {{count}} players"
+      },
+      "reply": {
+        "title": "{{name}} replied",
+        "open": "Open"
+      },
+      "validation": {
+        "title_one": "{{count}} attendance to validate",
+        "title_other": "{{count}} attendances to validate",
+        "detail_one": "From {{count}} class last week",
+        "detail_other": "From {{count}} classes last week",
+        "review": "Review"
+      }
+    },
+    "schedule": {
+      "eyebrow_one": "NEXT 7 DAYS · {{count}} CLASS",
+      "eyebrow_other": "NEXT 7 DAYS · {{count}} CLASSES",
+      "calendar": "Calendar",
+      "none": "No classes in the next 7 days.",
+      "full": "Full",
+      "empty": "Empty",
+      "seats_one": "{{count}} seat",
+      "seats_other": "{{count}} seats",
+      "invite": "Invite"
+    },
+    "pulse": {
+      "eyebrow": "THIS WEEK",
+      "seatsFilled": "Seats filled",
+      "seatsFilledSub": "{{filled}} of {{total}}",
+      "activePlayers": "Active players",
+      "activePlayersSub": "of {{total}} · {{idle}} idle"
+    }
+  }
+}

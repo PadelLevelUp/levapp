@@ -1,0 +1,67 @@
+# Mirrors: apps/web/e2e/auth-onboarding/login.spec.ts
+# - coach logs in successfully and lands on the dashboard
+# - logout returns to the login screen
+# - wrong password shows an error and stays on the login screen
+# - student logs in successfully (students have no Players tab)
+# Replaces the old flows/smoke-login.yaml.
+#
+# The wrong-password and student sections run in the same app session after a
+# UI logout (no relaunch): typing right after a relaunch of an authenticated
+# session gets wiped by a delayed login-screen remount (see subflows/login.yaml).
+appId: com.padellevelup.app
+---
+# ── Coach login success ──
+- runFlow: ../subflows/login-coach.yaml
+- assertVisible:
+    id: "screen-dashboard"
+- assertVisible:
+    id: "tab-players"
+
+# ── Logout back to login screen ──
+- runFlow: ../subflows/logout.yaml
+
+# ── Wrong password: error shown, stays on login ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: "e2e-coach"
+      - assertVisible: "e2e-coach"
+- tapOn:
+    id: "login-password"
+- eraseText: 40
+- inputText: "WrongPassword123!"
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "login-error"
+    timeout: 15000
+- assertVisible:
+    id: "login-username"
+
+# ── Student login success (same session, correct credentials) ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: "e2e-student"
+      - assertVisible: "e2e-student"
+- tapOn:
+    id: "login-password"
+- eraseText: 40
+- inputText: "E2eStudent123!"
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 25000
+- assertVisible:
+    id: "screen-dashboard"
+- assertNotVisible:
+    id: "tab-players"

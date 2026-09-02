@@ -1,0 +1,122 @@
+{
+  "presences": {
+    "eyebrow": "Coach · Attendance",
+    "title": "Presences",
+    "subtitle": "Attendance across private and academy classes, including guests joining by invite.",
+    "unknownPlayer": "Unnamed player",
+    "guest": "guest",
+    "type": {
+      "private": "Private",
+      "academy": "Academy"
+    },
+    "response": {
+      "confirmed": "Said they were coming",
+      "declined": "Said they couldn't make it",
+      "none": "No answer"
+    },
+    "mark": {
+      "present": "Present",
+      "justified": "Absent – justified",
+      "unjustified": "Absent – unjustified",
+      "short": {
+        "present": "Present",
+        "justified": "Justified",
+        "unjustified": "Unjustified"
+      }
+    },
+    "kpi": {
+      "totalPresences": "Total presences",
+      "activePlayers": "Active players",
+      "academyShare": "Academy share",
+      "guestAttendances": "Guest attendances"
+    },
+    "week": {
+      "this": "This week",
+      "last": "Last week",
+      "next": "Next week",
+      "offset": "Week {{offset}}",
+      "previous": "Previous week"
+    },
+    "validate": {
+      "trigger_one": "{{count}} class to validate",
+      "trigger_other": "{{count}} classes to validate",
+      "triggerHint": "Review and confirm attendance.",
+      "title": "Classes to validate",
+      "description": "Browse by week. Classes where everyone answered can be confirmed in bulk.",
+      "selectReady": "Select all ready to confirm",
+      "validateSelected": "Validate selected ({{count}})",
+      "clear": "Clear",
+      "validate": "Validate",
+      "validateClass": "Validate class",
+      "saveChanges": "Save changes",
+      "open": "Open",
+      "back": "Back",
+      "edit": "Edit",
+      "undo": "Undo",
+      "undoValidation": "Undo validation",
+      "addPlayer": "Add player",
+      "choosePlayer": "Choose a player",
+      "lastMinute": "Player joined last minute?",
+      "selectClass": "Select {{name}}",
+      "statusFor": "Attendance for {{name}}",
+      "validatedThisWeek": "Validated this week",
+      "readyBanner": "Everyone answered — ready to confirm.",
+      "awaiting_one": "{{count}} player still needs a decision",
+      "awaiting_other": "{{count}} players still need a decision",
+      "skipped_one": "{{count}} class skipped — it has players with no answer and must be reviewed on its own.",
+      "skipped_other": "{{count}} classes skipped — they have players with no answer and must be reviewed one by one.",
+      "empty": "Nothing left to validate this week. Nice work.",
+      "group": {
+        "needsInput": "Needs your input ({{count}})",
+        "ready": "Ready to confirm ({{count}})"
+      },
+      "triggerEmpty": "Nothing to validate"
+    },
+    "column": {
+      "name": "Player",
+      "total": "Total presences",
+      "private": "Private classes",
+      "academy": "Academy classes",
+      "justified": "Justified absences",
+      "unjustified": "Unjustified absences",
+      "invitesReceived": "Guest appearances",
+      "invitesJoined": "Attended as guest"
+    },
+    "table": {
+      "title": "Players",
+      "count": "{{shown}} of {{total}} players",
+      "search": "Search player…",
+      "minTotal": "Min. total presences",
+      "maxUnjustified": "Max. unjustified",
+      "any": "any",
+      "columns": "Columns",
+      "visibleColumns": "Visible columns",
+      "export": "Export CSV",
+      "empty": "No players match these filters."
+    },
+    "charts": {
+      "seriesLabel": "Presences",
+      "perPlayer": "Presences per player",
+      "perPlayerHint": "Top 8 players",
+      "split": "Private vs Academy",
+      "splitHint": "Share of all presences",
+      "overTime": "Presences over time",
+      "overTimeHint": "Across the selected period",
+      "empty": "No attendance recorded yet."
+    },
+    "toast": {
+      "validated_one": "Class validated",
+      "validated_other": "{{count}} classes validated"
+    },
+    "error": {
+      "statsTitle": "Couldn't load presence statistics",
+      "statsBody": "Check your connection and try again.",
+      "queueTitle": "Couldn't load classes to validate",
+      "queueBody": "Check your connection and try again.",
+      "validateTitle": "Couldn't validate",
+      "validateBody": "Nothing was saved. Try again.",
+      "undoTitle": "Couldn't reopen the class",
+      "undoBody": "The class is still validated. Try again."
+    }
+  }
+}
