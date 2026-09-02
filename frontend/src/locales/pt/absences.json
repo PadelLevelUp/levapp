@@ -1,0 +1,25 @@
+{
+  "absences": {
+    "title": "Faltas",
+    "subtitleOwn": "As aulas a que faltaste",
+    "subtitleOther": "Aulas a que {{name}} faltou",
+    "backToPlayer": "Voltar ao perfil",
+    "backToDashboard": "Voltar ao painel",
+    "chart": {
+      "title": "Faltas por período",
+      "seriesLabel": "Faltas",
+      "empty": "Sem faltas registadas neste período",
+      "loading": "A carregar faltas…",
+      "error": "Não foi possível carregar as faltas"
+    },
+    "total_one": "{{count}} falta",
+    "total_other": "{{count}} faltas",
+    "history": {
+      "title": "Aulas em falta",
+      "empty": "Ainda não há faltas neste período"
+    },
+    "justified": "Justificada",
+    "unjustified": "Injustificada",
+    "playerLink": "Ver faltas"
+  }
+}

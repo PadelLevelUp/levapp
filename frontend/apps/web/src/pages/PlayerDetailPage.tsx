@@ -12,7 +12,7 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CalendarX, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -249,6 +249,17 @@ export default function PlayerDetailPage() {
                 icon: <CalendarCheck className="mr-2 h-4 w-4" />,
                 onClick: () => navigate(`/players/${playerId}/attendance`),
                 testId: "player-attendance-link",
+              },
+              // PAD-141: the same entry point for "Faltas". Kept immediately
+              // beside its counterpart so the pair reads as one idea.
+              // `PageActions` already wraps (PAD-114 widened it after a 5th
+              // action pushed "Delete Player" off a 1280px viewport), so this
+              // 6th action does not reintroduce that overflow.
+              {
+                label: t("absences.playerLink"),
+                icon: <CalendarX className="mr-2 h-4 w-4" />,
+                onClick: () => navigate(`/players/${playerId}/absences`),
+                testId: "player-absences-link",
               },
               {
                 label: t("players.addToClasses"),

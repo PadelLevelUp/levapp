@@ -5,15 +5,10 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Test-backend port. Overridable so a LevelUp E2E run can step around another
- * project squatting on 5001 — several unrelated Flask apps default to it, and a
- * collision otherwise blocks the whole suite (`reuseExistingServer: false`
- * means Playwright fails to bind rather than silently talking to the wrong
- * app's database, which is the safe failure but still a hard stop).
- *
- * Defaults to 5001, so CI and everyone else are unaffected.
- */
+/* The E2E backend port. Overridable because 5001 is a popular port — an
+   unrelated local project holding it makes the whole suite fail to start, and
+   `reuseExistingServer: false` means Playwright can't just adopt whatever is
+   there (it would be the wrong app, or the wrong database). */
 const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "5001";
 
 export default defineConfig({
@@ -34,6 +29,12 @@ export default defineConfig({
 
   use: {
     baseURL: "http://localhost:8080",
+    /* NOTE: `reducedMotion: "reduce"` does NOT belong here. Verified on
+       Playwright 1.62.1 in this project: setting it in `use` (config- or
+       file-level) leaves `matchMedia("(prefers-reduced-motion: reduce)")`
+       false in the page, while `page.emulateMedia()` sets it correctly. An
+       inert option that reads as if it works is worse than none, so the login
+       helper calls emulateMedia instead — see e2e/helpers/auth.ts. */
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

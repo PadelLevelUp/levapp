@@ -17,6 +17,19 @@ export const COACH_NOLEVELS_PASSWORD = "E2eCoach123!";
  * Fills in the login form and waits for a successful redirect.
  */
 async function login(page: Page, username: string, password: string) {
+  // Logging in plays the launch animation over the app (see
+  // components/brand/launch-loader.tsx). Every spec logs in, so paying ~2s a
+  // time for a logo to draw itself adds minutes to a run for nothing. Under
+  // reduced motion the mark cuts straight to its finished frame — and since
+  // that is also the path a user who asks for less motion gets, the suite
+  // exercises it rather than skipping it.
+  //
+  // This has to be emulateMedia and not `use: { reducedMotion }` in
+  // playwright.config.ts: the `use` option is silently inert here (see the
+  // note in that file). Specs that want the full animation, like
+  // e2e/landing/landing-page.spec.ts, log in by hand instead of via this
+  // helper.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/auth");
   // Language-agnostic selectors: the login page renders in the default locale (pt)
   // before any user is authenticated, so we locate inputs by their stable id/type

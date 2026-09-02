@@ -585,6 +585,88 @@ with app.app_context():
         )
         attended_instances.append(attended_instance)
 
+    # ── Missed-class history (PAD-141) ───────────────────────────────────────
+    # The "Faltas" page needs past `status="absent"` presences for e2e-student,
+    # and BEFORE this block there were none anywhere for that user: the only
+    # absent rows in the seed belonged to filler players on a FUTURE class (the
+    # PAD-71 declined-count fixture). Every absence assertion would have passed
+    # vacuously against an empty chart — exactly the trap PAD-114 hit when
+    # nothing in the seed produced a `status="present"` row.
+    #
+    # Same precautions as the attended block above, for the same reasons:
+    # a dedicated lesson, instance-only attachment, `validated=True` so the
+    # coach's "Pending validation" KPI does not move, and 11:00 UTC to stay away
+    # from the midnight boundary.
+    #
+    # Deliberately a MIX of justified and unjustified: `lessons_missed` counts
+    # both, so a page that filtered on justification would disagree with the
+    # dashboard KPI that links to it, and a single-justification fixture could
+    # not detect that.
+    #
+    # The count (3) is deliberately different from the attended count (5) so a
+    # test cannot pass by reading the wrong endpoint and still seeing a
+    # plausible number.
+    missed_lesson = Lesson(
+        title="E2E Missed Class",
+        start_datetime=today - timedelta(days=200),
+        end_datetime=today - timedelta(days=200) + timedelta(hours=1),
+        is_recurring=False,
+        type="academy",
+        max_players=6,
+        club_id=club.id,
+        color="#ef4444",
+        status="active",
+    )
+    db.session.add(missed_lesson)
+    db.session.flush()
+
+    db.session.add(
+        Association_CoachLesson(coach_id=coach.id, lesson_id=missed_lesson.id)
+    )
+
+    missed_instances = []
+    for days_ago, justification in ((10, "justified"), (20, "unjustified"), (200, "justified")):
+        missed_start = (today - timedelta(days=days_ago)).replace(
+            hour=11, minute=0, second=0, microsecond=0
+        )
+        missed_instance = LessonInstance(
+            lesson_id=missed_lesson.id,
+            start_datetime=missed_start,
+            end_datetime=missed_start + timedelta(hours=1),
+            max_players=6,
+            status="scheduled",
+            level_id=level_beginner.id,
+            notifications_enabled=False,
+            original_lesson_occurence_date=missed_start.date(),
+        )
+        db.session.add(missed_instance)
+        db.session.flush()
+
+        db.session.add(
+            Association_CoachLessonInstance(
+                coach_id=coach.id,
+                lesson_instance_id=missed_instance.id,
+            )
+        )
+        db.session.add(
+            Association_PlayerLessonInstance(
+                player_id=student.id,
+                lesson_instance_id=missed_instance.id,
+            )
+        )
+        db.session.add(
+            Presence(
+                player_id=student.id,
+                lesson_instance_id=missed_instance.id,
+                invited=True,
+                confirmed=True,
+                status="absent",
+                justification=justification,
+                validated=True,
+            )
+        )
+        missed_instances.append(missed_instance)
+
     # ── Classes awaiting validation (PAD-140) ────────────────────────────────
     # The Presences tab (specs/attendance/spec.md → attendance.validation) lists
     # classes that have ENDED but whose presences are not yet validated. The
@@ -765,4 +847,9 @@ with app.app_context():
     print(
         f"  Attended history (PAD-114): {len(attended_instances)} past instances of "
         f"'{attended_lesson.title}' with presence status=present for {student_user.username}"
+    )
+    print(
+        f"  Missed history (PAD-141): {len(missed_instances)} past instances of "
+        f"'{missed_lesson.title}' with presence status=absent for {student_user.username} "
+        f"(2 justified, 1 unjustified)"
     )

@@ -820,6 +820,31 @@ export interface AttendanceHistory {
   sessions: AttendanceSession[];
 }
 
+// ── Absence history (PAD-141) ───────────────────────────────────────────────
+// Payload of `GET /app/absence_history` — the "Faltas" page. Deliberately the
+// same shape as the attendance history: the two endpoints share one backend
+// code path and differ only in which `Presence.status` they select, so modelling
+// them as one shape keeps that guarantee visible in the types.
+//
+// The only addition is `justification` on each session. It labels a row
+// justified/unjustified; it never filters the set, because the dashboard
+// "Missed" KPI counts absences regardless of justification and the page must
+// agree with the card that links to it (spec `attendance.absences` rule 3).
+
+// `AbsenceJustification` is already declared at the top of this file; PAD-141
+// re-declared it here, which is a TS2300 duplicate-identifier error. `vite
+// build` strips types without checking them, so it shipped. Removed rather than
+// renamed — the original is the one every other consumer imports.
+
+export interface AbsenceSession extends AttendanceSession {
+  /** Null when the coach recorded the absence without classifying it. */
+  justification?: AbsenceJustification | null;
+}
+
+export interface AbsenceHistory extends Omit<AttendanceHistory, "sessions"> {
+  sessions: AbsenceSession[];
+}
+
 /* ------------------------------------------------------------------ */
 /* PAD-140 — the coach-facing Presences tab                            */
 /* ------------------------------------------------------------------ */

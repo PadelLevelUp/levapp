@@ -19,8 +19,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
-import { API_BASE, AUTH_BASE } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /** A player who will hold the already-expired entry. */
 const EXPIRED_PLAYER = "Filler Player 01";

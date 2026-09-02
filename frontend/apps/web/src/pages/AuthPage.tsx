@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usernameSchema, passwordSchema } from "@levelup/validation";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
+import { useLaunchOverlay } from "@/components/brand/launch-overlay";
 
 const AuthPage = () => {
   const { t } = useTranslation();
@@ -30,6 +31,7 @@ const AuthPage = () => {
   const { toast } = useToast();
 
   const { login } = useAuth();
+  const { begin, succeed, cancel } = useLaunchOverlay();
 
   const validateForm = () => {
     const newErrors: { username?: string; password?: string } = {};
@@ -52,6 +54,11 @@ const AuthPage = () => {
     if (!validateForm()) return;
 
     setLoading(true);
+    // Cover the screen before the request goes out, not after it comes back —
+    // the mark forming IS the wait. The overlay lives above the router
+    // (LaunchOverlayProvider), so the navigate below happens underneath it and
+    // the dashboard is already fetching by the time the reveal plays.
+    begin();
 
     try {
       const res = await api.post("/auth/login", {
@@ -61,11 +68,14 @@ const AuthPage = () => {
 
       await login(res.data.accessToken)
       navigate("/dashboard");
+      succeed();
       toast({
         title: t("auth.login.welcomeTitle"),
         description: t("auth.login.welcomeDescription"),
       });
     } catch (err) {
+      // Take the overlay away at once; the error toast is behind it.
+      cancel();
       toast({
         variant: "destructive",
         title: t("auth.login.failedTitle"),

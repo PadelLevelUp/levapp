@@ -16,8 +16,10 @@
  */
 
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { API_BASE, AUTH_BASE } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 const INSTANCE_ID = 1;
 
 async function token(request: APIRequestContext, username: string, password: string): Promise<string> {

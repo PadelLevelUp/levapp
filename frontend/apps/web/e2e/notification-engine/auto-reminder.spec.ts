@@ -29,12 +29,14 @@
  */
 
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { API_BASE, AUTH_BASE } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
+const API_BASE  = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /** How many seconds from now the reminder job should fire. Must be ≥ 30 so
  *  APScheduler has time to pick up the job before it fires.             */

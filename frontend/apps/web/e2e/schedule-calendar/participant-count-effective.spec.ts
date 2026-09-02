@@ -2,8 +2,10 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
-import { API_BASE, AUTH_BASE } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /**
  * PAD-71 — the weekly calendar's `X/Y` participant badge must show EFFECTIVE

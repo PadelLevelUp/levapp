@@ -1,20 +1,24 @@
 /**
- * Base URLs for the E2E test backend.
+ * Where the E2E backend lives, for specs that call the API directly instead of
+ * going through the app.
  *
- * The port is overridable via `E2E_BACKEND_PORT` (default 5001, matching
- * `playwright.config.ts`). Several unrelated Flask apps on this machine also
- * default to 5001, and `reuseExistingServer: false` means a collision fails the
- * whole suite rather than silently talking to the wrong app's database — the
- * safe failure, but still a hard stop. Set the env var on both the run and the
- * config and the suite steps around the squatter:
- *
- *   E2E_BACKEND_PORT=5055 npx playwright test
- *
- * Specs should import from here rather than hardcoding the URL, so the port
- * lives in exactly one place.
+ * These URLs must never be hardcoded. The backend port is overridable
+ * (`E2E_BACKEND_PORT`, see playwright.config.ts) because 5001 is a popular port
+ * and an unrelated local project holding it otherwise makes the suite
+ * unrunnable. A spec with a literal `localhost:5001` in it does not follow the
+ * override — it silently talks to whatever else is on 5001 and fails with a
+ * confusing 404, which looks like a product bug and is not one.
  */
 const PORT = process.env.E2E_BACKEND_PORT ?? "5001";
 
-export const API_ROOT = `http://localhost:${PORT}/api`;
-export const API_BASE = `${API_ROOT}/app`;
-export const AUTH_BASE = `${API_ROOT}/auth`;
+/** e.g. http://localhost:5001 */
+export const BACKEND_ORIGIN = `http://localhost:${PORT}`;
+
+/** e.g. http://localhost:5001/api */
+export const API_ROOT = `${BACKEND_ORIGIN}/api`;
+
+/** e.g. http://localhost:5001/api/app */
+export const API_APP = `${API_ROOT}/app`;
+
+/** e.g. http://localhost:5001/api/auth */
+export const API_AUTH = `${API_ROOT}/auth`;

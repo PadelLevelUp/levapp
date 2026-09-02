@@ -71,30 +71,45 @@ type SettingsTab =
  * boundary is `require_coach()` on the endpoints behind these panels
  * (backend `frontend_api.py`, pinned by `test_settings_role_authz.py`).
  */
+/**
+ * PAD-142 replaced the original `coachOnly: boolean` with an explicit audience.
+ * A second `studentOnly` flag alongside `coachOnly` would have made
+ * `{coachOnly: true, studentOnly: true}` representable — a tab nobody can see —
+ * and left "both false" meaning "everyone" only by convention. One field with
+ * three values makes every tab's audience a single, total statement.
+ */
+type SettingsAudience = "everyone" | "coach" | "student";
+
 type SettingsTabDef = {
   id: SettingsTab;
   labelKey: string;
   icon: React.ReactNode;
-  coachOnly: boolean;
+  audience: SettingsAudience;
 };
 
 const SETTINGS_TABS: SettingsTabDef[] = [
-  { id: "profile", labelKey: "settings.nav.profile", icon: <User className="w-4 h-4" />, coachOnly: false },
-  { id: "preferences", labelKey: "settings.nav.preferences", icon: <Palette className="w-4 h-4" />, coachOnly: false },
-  { id: "calendar", labelKey: "settings.nav.calendar", icon: <Calendar className="w-4 h-4" />, coachOnly: true },
-  { id: "notifications", labelKey: "settings.nav.notifications", icon: <Bell className="w-4 h-4" />, coachOnly: true },
-  // PAD-112: the student's OWN notification opt-outs. Deliberately NOT
-  // coachOnly — this is a per-user preference panel, not coach configuration,
-  // and hiding it from students would defeat that ticket entirely. Everyone
-  // sees it, which is exactly what PAD-112 shipped before this batch merge.
-  { id: "myNotifications", labelKey: "settings.nav.myNotifications", icon: <BellOff className="w-4 h-4" />, coachOnly: false },
-  { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, coachOnly: true },
-  { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, coachOnly: true },
-  { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, coachOnly: false },
+  { id: "profile", labelKey: "settings.nav.profile", icon: <User className="w-4 h-4" />, audience: "everyone" },
+  { id: "preferences", labelKey: "settings.nav.preferences", icon: <Palette className="w-4 h-4" />, audience: "everyone" },
+  { id: "calendar", labelKey: "settings.nav.calendar", icon: <Calendar className="w-4 h-4" />, audience: "coach" },
+  { id: "notifications", labelKey: "settings.nav.notifications", icon: <Bell className="w-4 h-4" />, audience: "coach" },
+  // PAD-112 shipped this to everyone, because hiding the student's own opt-outs
+  // from students would have defeated that ticket. PAD-142: "everyone" was one
+  // step too wide. These are per-user preferences about receiving CLASS-VACANCY
+  // INVITATIONS, and a coach never receives those — so the coach saw a tab of
+  // controls that could not affect their account. Student-only, not deleted:
+  // the panel is still the whole point of PAD-112 for the role that has it.
+  { id: "myNotifications", labelKey: "settings.nav.myNotifications", icon: <BellOff className="w-4 h-4" />, audience: "student" },
+  { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, audience: "coach" },
+  { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, audience: "coach" },
+  { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
 ];
 
 const visibleSettingsTabs = (isCoach: boolean) =>
-  SETTINGS_TABS.filter((tab) => isCoach || !tab.coachOnly);
+  SETTINGS_TABS.filter(
+    (tab) =>
+      tab.audience === "everyone" ||
+      (isCoach ? tab.audience === "coach" : tab.audience === "student"),
+  );
 
 /**
  * PAD-81: the profile fields the coach can edit about themselves. Kept as a

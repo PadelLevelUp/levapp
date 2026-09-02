@@ -26,16 +26,15 @@ import {
   STUDENT_PASSWORD,
   loginAsCoach,
 } from "../helpers/auth";
-import { API_ROOT } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
-const API_BASE = `${API_ROOT}/app`;
 
 async function getToken(
   request: APIRequestContext,
   username: string,
   password: string
 ): Promise<string> {
-  const res = await request.post(`${API_ROOT}/auth/login`, {
+  const res = await request.post(`${API_AUTH}/login`, {
     data: { username, password },
   });
   expect(res.ok(), `login failed for ${username}: ${res.status()}`).toBeTruthy();
@@ -135,7 +134,7 @@ test.describe("PAD-140: Presences tab", () => {
     // Default window is the trailing 90 days, which comfortably covers the
     // previous-week fixture.
     const res = await request.get(
-      `${API_BASE}/class_instances/pending_validation`,
+      `${API_APP}/class_instances/pending_validation`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     expect(res.ok()).toBeTruthy();
@@ -158,7 +157,7 @@ test.describe("PAD-140: Presences tab", () => {
       "presence_trend",
       "class_instances/pending_validation",
     ]) {
-      const res = await request.get(`${API_BASE}/${path}`, {
+      const res = await request.get(`${API_APP}/${path}`, {
         headers: { Authorization: `Bearer ${studentToken}` },
       });
       expect(res.status(), `${path} should be coach-only`).toBe(403);
@@ -171,7 +170,7 @@ test.describe("PAD-140: Presences tab", () => {
     // Every enrolled player is `invited=True` at materialization, so a naive
     // rule would report the whole roster as guests (spec rule 10).
     const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
-    const res = await request.get(`${API_BASE}/presence_stats`, {
+    const res = await request.get(`${API_APP}/presence_stats`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.ok()).toBeTruthy();

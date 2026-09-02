@@ -29,7 +29,7 @@ import {
   STUDENT2_PASSWORD,
 } from "../helpers/auth";
 import { openCalendar, openSettings, openMessages } from "../helpers/navigation";
-import { API_BASE, AUTH_BASE } from "../helpers/api";
+import { API_APP, API_AUTH } from "../helpers/api";
 
 // ---------------------------------------------------------------------------
 // Constants / API helpers
@@ -42,6 +42,8 @@ const CLASS_TITLE = "E2E Academy Class";
 // before this file in the full suite) could never see a fresh pending prompt.
 const APPROVAL_CLASS_TITLE_A = "E2E Approval Class A";
 const APPROVAL_CLASS_TITLE_B = "E2E Approval Class B";
+const API_BASE = API_APP;
+const AUTH_BASE = API_AUTH;
 
 /** Classes created by these tests, removed again in afterEach. */
 const createdClasses: Array<{ model: string; originalId: number; date: string }> = [];
