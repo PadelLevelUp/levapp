@@ -261,7 +261,11 @@ export default function MessagesPage() {
     try {
       const convo = await getConversation(conversationId);
       setSelectedConversation(convo);
-      void markConversationRead(convo.id);
+      // Awaited, not fire-and-forget: refreshUnreadCount re-queries the
+      // server, so firing it alongside an uncommitted mark-read races it and
+      // can read back the pre-read count — which would leave both the nav
+      // badge and the app-icon badge stale.
+      await markConversationRead(convo.id);
       void refreshUnreadCount();
       setConversations((prev) =>
         prev.map((c) =>
