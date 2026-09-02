@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Enumerate open PRs across the LevelUp repos and group them by Linear ticket.
+"""Enumerate open PRs into `staging` on the levapp monorepo and group them by Linear ticket.
 
-Cross-repo tickets are the reason this script exists: PAD-75 is backend #62 AND
-frontend #83. Landing one half without the other ships a frontend calling an
-endpoint that doesn't exist (or a backend nobody calls), and the joint E2E gate
-will fail in a way that's hard to attribute. Grouping first makes the batch unit
-a *ticket*, not a PR.
+A ticket is usually one PR now that backend and frontend share a repo, but a
+ticket split across two PRs still lands as one unit, and the grouping is what
+orders migration-touching work last so Alembic heads reconcile once.
 
 Usage:
-    python3 list_batch.py                       # every open PR, both repos
+    python3 list_batch.py                       # every open PR into staging
     python3 list_batch.py --only PAD-75,PAD-89  # just these tickets
     python3 list_batch.py --exclude PAD-92      # everything except these
     python3 list_batch.py --json                # machine-readable, for the agent
 
-Requires `gh` authenticated as an account that can see BOTH repos
-(levelup_frontend is private — see the preflight step in SKILL.md).
+Requires `gh` authenticated as pedropacheco95 (see the preflight step in SKILL.md).
 """
 
 import argparse
@@ -24,9 +21,11 @@ import subprocess
 import sys
 
 REPOS = {
-    "backend": "PadelLevelUp/levelup_backend",
-    "frontend": "PadelLevelUp/levelup_frontend",
+    "levapp": "PadelLevelUp/levapp",
 }
+# Only PRs that target the integration branch are batch material. PRs into main are
+# the staging→main promotions themselves, never inputs to a batch.
+BATCH_BASE = "staging"
 
 # Branch/title naming has drifted over time: feature/lvl-pad-101, feature/pad-75-notify-cancel,
 # feature/lvl-51, "LVL-PAD-100: ...", "PAD-101: ...". All of these mean one ticket.
@@ -76,7 +75,7 @@ def gh_env() -> dict:
 def fetch_prs(repo: str, env: dict) -> list:
     out = subprocess.run(
         ["gh", "pr", "list", "--repo", repo, "--state", "open", "--limit", "100",
-         "--json", "number,title,headRefName,isDraft,mergeable,updatedAt,url,additions,deletions,files"],
+         "--json", "number,title,headRefName,isDraft,mergeable,updatedAt,url,additions,deletions,files,baseRefName"],
         capture_output=True, text=True, env=env,
     )
     if out.returncode != 0:
@@ -103,11 +102,13 @@ def main() -> None:
     groups: dict[str, dict] = {}
     for side, repo in REPOS.items():
         for pr in fetch_prs(repo, env):
+            if pr.get("baseRefName") != BATCH_BASE:
+                continue
             key = ticket_key(pr["headRefName"], pr["title"])
             g = groups.setdefault(key, {"ticket": key, "prs": [], "touches_migrations": False,
                                         "touches_lockfiles": False, "has_draft": False})
             paths = [f["path"] for f in pr.get("files") or []]
-            if any(p.startswith("migrations/versions/") for p in paths):
+            if any(p.startswith("backend/migrations/versions/") for p in paths):
                 g["touches_migrations"] = True
             if any(p.endswith(("poetry.lock", "package-lock.json", "pyproject.toml", "package.json")) for p in paths):
                 g["touches_lockfiles"] = True
@@ -118,7 +119,7 @@ def main() -> None:
                 "branch": pr["headRefName"], "draft": pr["isDraft"],
                 "mergeable": pr["mergeable"], "url": pr["url"],
                 "churn": pr["additions"] + pr["deletions"],
-                "migration_files": [p for p in paths if p.startswith("migrations/versions/")],
+                "migration_files": [p for p in paths if p.startswith("backend/migrations/versions/")],
             })
 
     selected = []

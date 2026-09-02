@@ -17,7 +17,7 @@
 # Usage:
 #   forecast_conflicts.sh <repo-dir> <base-ref> <branch>...
 # Example:
-#   forecast_conflicts.sh ~/levelup-batch-wt/levelup_backend origin/main \
+#   forecast_conflicts.sh ~/levapp-batch-wt origin/staging \
 #       origin/feature/lvl-pad-100 origin/feature/pad-92-authz-frontend-api
 
 set -uo pipefail

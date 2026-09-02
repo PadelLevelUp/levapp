@@ -13,29 +13,34 @@
 #     outage: deploy "succeeded", every /api/* returned 502). So a green run is
 #     necessary but not sufficient; we finish with a real HTTP probe.
 #
-# Usage: watch_deploy.sh <repo> <commit-sha> [timeout-seconds]
-#   repo: PadelLevelUp/levelup_backend | PadelLevelUp/levelup_frontend
+# Usage: watch_deploy.sh <env> <commit-sha> [timeout-seconds]
+#   env: prod (deploy-prod.yaml on main → levapp.app) | staging (deploy-staging.yaml → staging.levapp.app)
 #
 # Exit codes: 0 healthy · 1 workflow failed · 2 timed out · 3 workflow green but prod unhealthy
 
 set -uo pipefail
 
-REPO="${1:?usage: watch_deploy.sh <repo> <sha> [timeout]}"
-SHA="${2:?usage: watch_deploy.sh <repo> <sha> [timeout]}"
+ENV="${1:?usage: watch_deploy.sh <prod|staging> <sha> [timeout]}"
+SHA="${2:?usage: watch_deploy.sh <prod|staging> <sha> [timeout]}"
+REPO="PadelLevelUp/levapp"
+case "$ENV" in
+  prod)    WORKFLOW="deploy-prod.yaml";    HOST="https://levapp.app" ;;
+  staging) WORKFLOW="deploy-staging.yaml"; HOST="https://staging.levapp.app" ;;
+  *) echo "env must be prod or staging"; exit 2 ;;
+esac
 TIMEOUT="${3:-900}"
 POLL=20
 
-# Pin auth: the private frontend repo is invisible to the account that is often
-# globally active, and concurrent sessions flip `gh auth switch` back mid-run.
+# Pin auth: concurrent sessions flip `gh auth switch` back mid-run; GH_TOKEN is immune.
 if [ -z "${GH_TOKEN:-}" ]; then
   GH_TOKEN="$(gh auth token --user pedropacheco95 2>/dev/null)"
   export GH_TOKEN
 fi
 
-HEALTH_URL="${HEALTH_URL:-https://padellevelup.com/api/app/healthz}"
-FRONTEND_URL="${FRONTEND_URL:-https://padellevelup.com/}"
+HEALTH_URL="${HEALTH_URL:-$HOST/api/app/healthz}"
+FRONTEND_URL="${FRONTEND_URL:-$HOST/}"
 
-echo "Watching deploy of ${SHA:0:8} in $REPO (timeout ${TIMEOUT}s)"
+echo "Watching $WORKFLOW for ${SHA:0:8} in $REPO → $HOST (timeout ${TIMEOUT}s)"
 
 deadline=$(( $(date +%s) + TIMEOUT ))
 run_id=""
@@ -43,7 +48,7 @@ run_id=""
 # Phase 1 — find the run for THIS commit. It may not exist yet; GitHub takes a few
 # seconds to register a workflow after the push.
 while [ "$(date +%s)" -lt "$deadline" ]; do
-  run_id=$(gh run list --repo "$REPO" --commit "$SHA" --limit 1 --json databaseId \
+  run_id=$(gh run list --repo "$REPO" --workflow "$WORKFLOW" --commit "$SHA" --limit 1 --json databaseId \
              --jq '.[0].databaseId' 2>/dev/null)
   [ -n "$run_id" ] && [ "$run_id" != "null" ] && break
   echo "  … no workflow run registered for this commit yet"
@@ -52,7 +57,7 @@ done
 
 if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
   echo "TIMEOUT: no workflow run ever appeared for $SHA."
-  echo "Check that the push landed on main: gh api repos/$REPO/commits/$SHA"
+  echo "Check that the commit landed on the branch: gh api repos/$REPO/commits/$SHA"
   exit 2
 fi
 
@@ -107,9 +112,10 @@ after a batch merge is multiple Alembic heads — \`flask db upgrade\` aborts, t
 container Exits(1), nginx returns 502 on every /api/* call. Diagnose with:
 
   gcloud compute ssh levelup-instance --zone=europe-west1-b --project=padel-levelup-2026
-  sudo docker ps -a && sudo docker logs padelapp --tail 50
+  sudo docker ps -a && sudo docker logs padelapp --tail 50        # prod
+  sudo docker logs padelapp_staging --tail 50                       # staging
 
 If it is multiple heads, add a no-op merge migration (down_revision = tuple of
-both heads) and push it to main to redeploy.
+both heads) and land it through staging to redeploy.
 EOF
 exit 3
