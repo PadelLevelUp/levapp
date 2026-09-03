@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:16:04Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    { "id": "element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#ELIGIBILITY_ATTRIBUTES", "kind": "element", "label": "ELIGIBILITY_ATTRIBUTES" },
+    { "id": "element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#EligibilitySection", "kind": "element", "label": "EligibilitySection" },
+    { "id": "element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#RuleRow", "kind": "element", "label": "RuleRow" },
+    { "id": "element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#needsValue", "kind": "element", "label": "needsValue" },
+    { "id": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#AVAILABLE_ATTRIBUTES", "kind": "element", "label": "AVAILABLE_ATTRIBUTES" },
+    { "id": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#DEFAULT_INVITATION_GROUPS", "kind": "element", "label": "DEFAULT_INVITATION_GROUPS" },
+    { "id": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#GroupCard", "kind": "element", "label": "GroupCard" },
+    { "id": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#InvitationGroupsSection", "kind": "element", "label": "InvitationGroupsSection" },
+    { "id": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#RuleRow", "kind": "element", "label": "RuleRow" },
+    { "id": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#DESCRIPTION_KEYS", "kind": "element", "label": "DESCRIPTION_KEYS" },
+    { "id": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#GROUPS", "kind": "element", "label": "GROUPS" },
+    { "id": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#LABEL_KEYS", "kind": "element", "label": "LABEL_KEYS" },
+    { "id": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#MessageTemplatesSection", "kind": "element", "label": "MessageTemplatesSection" },
+    { "id": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#VARIABLE_HINTS", "kind": "element", "label": "VARIABLE_HINTS" },
+    { "id": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection", "kind": "element", "label": "NotificationsEngineSection" },
+    { "id": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#SectionHeader", "kind": "element", "label": "SectionHeader" },
+    { "id": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#save", "kind": "element", "label": "save" },
+    { "id": "file:frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx", "kind": "file", "label": "ValidateClassesDialog.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/AccountSection.tsx", "kind": "file", "label": "AccountSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/ClubSection.tsx", "kind": "file", "label": "ClubSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/CoachLevelsSection.tsx", "kind": "file", "label": "CoachLevelsSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/DataImportSection.tsx", "kind": "file", "label": "DataImportSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/EligibilitySection.tsx", "kind": "file", "label": "EligibilitySection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/EvaluationCategoriesSection.tsx", "kind": "file", "label": "EvaluationCategoriesSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/ImportHistorySection.tsx", "kind": "file", "label": "ImportHistorySection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx", "kind": "file", "label": "InvitationGroupsSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx", "kind": "file", "label": "MessageTemplatesSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/NotificationGroupsSection.tsx", "kind": "file", "label": "NotificationGroupsSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx", "kind": "file", "label": "NotificationsEngineSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/RemindersSection.tsx", "kind": "file", "label": "RemindersSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/RestrictionsPanel.tsx", "kind": "file", "label": "RestrictionsPanel.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/SeasonsSection.tsx", "kind": "file", "label": "SeasonsSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx", "kind": "file", "label": "StandingWaitingListSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/StudentNotificationBlocksSection.tsx", "kind": "file", "label": "StudentNotificationBlocksSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/settings/TiebreakersSection.tsx", "kind": "file", "label": "TiebreakersSection.tsx" },
+    { "id": "file:frontend/apps/web/src/components/students/StudentDetailSheet.tsx", "kind": "file", "label": "StudentDetailSheet.tsx" },
+    { "id": "file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx", "kind": "file", "label": "CourtDiagramEditor.tsx" },
+    { "id": "file:frontend/apps/web/src/components/training/ExerciseCard.tsx", "kind": "file", "label": "ExerciseCard.tsx" },
+    { "id": "file:frontend/apps/web/src/components/training/ExerciseFormSheet.tsx", "kind": "file", "label": "ExerciseFormSheet.tsx" },
+    { "id": "file:frontend/apps/web/src/components/training/ExerciseGroupFolder.tsx", "kind": "file", "label": "ExerciseGroupFolder.tsx" },
+    { "id": "file:frontend/apps/web/src/components/training/ExerciseGroupFormSheet.tsx", "kind": "file", "label": "ExerciseGroupFormSheet.tsx" }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection->element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#EligibilitySection",
+      "source": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection",
+      "target": "element:frontend/apps/web/src/components/settings/EligibilitySection.tsx#EligibilitySection",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "rendered as <EligibilitySection rules={config.eligibilityRules} onChange={...} disabled={disabled} /> inside the Eligibility Collapsible",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection->element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#InvitationGroupsSection",
+      "source": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection",
+      "target": "element:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx#InvitationGroupsSection",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "rendered as <InvitationGroupsSection groups={config.invitationGroups ?? []} onChange={...} disabled={disabled} /> inside the Invitation Groups Collapsible",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection->element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#MessageTemplatesSection",
+      "source": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection",
+      "target": "element:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx#MessageTemplatesSection",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "rendered as <MessageTemplatesSection templates={...} onChange={...} /> inside the Message Templates Collapsible, with no disabled prop passed",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection->element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#SectionHeader",
+      "source": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection",
+      "target": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#SectionHeader",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "SectionHeader is instantiated once per gated Collapsible section header (Reminders, Eligibility, Invitation Groups, Tiebreakers, Restrictions)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection->element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#save",
+      "source": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#NotificationsEngineSection",
+      "target": "element:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx#save",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "save(patch) is invoked directly inside the master autoNotifyEnabled toggle handler and passed down as the onChange callback to five child sections",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/EligibilitySection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/EligibilitySection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/NotificationGroupsSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/NotificationGroupsSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/RemindersSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/RemindersSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/RestrictionsPanel.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/RestrictionsPanel.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->file:frontend/apps/web/src/components/settings/TiebreakersSection.tsx",
+      "source": "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx",
+      "target": "file:frontend/apps/web/src/components/settings/TiebreakersSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

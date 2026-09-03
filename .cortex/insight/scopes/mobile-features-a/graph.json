@@ -1,0 +1,325 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:12:16Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar",
+      "kind": "element",
+      "label": "ClassFillBar"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#EventCard",
+      "kind": "element",
+      "label": "EventCard"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#SURFACES",
+      "kind": "element",
+      "label": "SURFACES"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx#MessageBubble",
+      "kind": "element",
+      "label": "MessageBubble"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx#StatusIcon",
+      "kind": "element",
+      "label": "StatusIcon"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx#withAlpha",
+      "kind": "element",
+      "label": "withAlpha"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#formatConversationTime",
+      "kind": "element",
+      "label": "formatConversationTime"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#formatMessageTime",
+      "kind": "element",
+      "label": "formatMessageTime"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#initialsOf",
+      "kind": "element",
+      "label": "initialsOf"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#invalidateMessagesLists",
+      "kind": "element",
+      "label": "invalidateMessagesLists"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#normalizeId",
+      "kind": "element",
+      "label": "normalizeId"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#updateConversationCache",
+      "kind": "element",
+      "label": "updateConversationCache"
+    },
+    {
+      "id": "element:frontend/apps/mobile/src/features/messages/utils.ts#updateMessageInCache",
+      "kind": "element",
+      "label": "updateMessageInCache"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/availability/BlockerForm.tsx",
+      "kind": "file",
+      "label": "BlockerForm.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/availability/hooks.ts",
+      "kind": "file",
+      "label": "hooks.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx",
+      "kind": "file",
+      "label": "ClassFillBar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/EventCard.tsx",
+      "kind": "file",
+      "label": "EventCard.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/ParticipantRow.tsx",
+      "kind": "file",
+      "label": "ParticipantRow.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/WeekStrip.tsx",
+      "kind": "file",
+      "label": "WeekStrip.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/class-scope-dialog.tsx",
+      "kind": "file",
+      "label": "class-scope-dialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/edit-class-diff.ts",
+      "kind": "file",
+      "label": "edit-class-diff.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/hooks.ts",
+      "kind": "file",
+      "label": "hooks.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx",
+      "kind": "file",
+      "label": "notify-modal.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/params.ts",
+      "kind": "file",
+      "label": "params.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/calendar/planning-section.tsx",
+      "kind": "file",
+      "label": "planning-section.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx",
+      "kind": "file",
+      "label": "CoachDashboard.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx",
+      "kind": "file",
+      "label": "DashboardBlocks.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/components/chat-more-options-menu.tsx",
+      "kind": "file",
+      "label": "chat-more-options-menu.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx",
+      "kind": "file",
+      "label": "conversation-item.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx",
+      "kind": "file",
+      "label": "message-bubble.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/components/message-context-menu.tsx",
+      "kind": "file",
+      "label": "message-context-menu.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/components/report-message-dialog.tsx",
+      "kind": "file",
+      "label": "report-message-dialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/hooks.ts",
+      "kind": "file",
+      "label": "hooks.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/messages/utils.ts",
+      "kind": "file",
+      "label": "utils.ts"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/players/LevelLabel.tsx",
+      "kind": "file",
+      "label": "LevelLabel.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/players/PlayerForm.tsx",
+      "kind": "file",
+      "label": "PlayerForm.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx",
+      "kind": "file",
+      "label": "StrengthsWeaknesses.tsx"
+    },
+    {
+      "id": "file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx",
+      "kind": "file",
+      "label": "add-evaluation-form.tsx"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/calendar/EventCard.tsx->element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar",
+      "source": "file:frontend/apps/mobile/src/features/calendar/EventCard.tsx",
+      "target": "element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "EventCard.tsx renders <ClassFillBar confirmed filled capacity color /> in its fill row",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx->file:frontend/apps/mobile/src/features/calendar/hooks.ts",
+      "source": "file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx",
+      "target": "file:frontend/apps/mobile/src/features/calendar/hooks.ts",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "notify-modal.tsx calls useNotificationGroups() and useSendManualNotifications() imported from ./hooks",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx->file:frontend/apps/mobile/src/features/calendar/params.ts",
+      "source": "file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx",
+      "target": "file:frontend/apps/mobile/src/features/calendar/params.ts",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "openClassListItem() calls parseDashboardItemId() to route a tapped class-list row to the class detail screen",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx->element:frontend/apps/mobile/src/features/messages/utils.ts#formatConversationTime",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx",
+      "target": "element:frontend/apps/mobile/src/features/messages/utils.ts#formatConversationTime",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ConversationItem calls formatConversationTime(lastMessageAt) to render the row timestamp",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx->element:frontend/apps/mobile/src/features/messages/utils.ts#initialsOf",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx",
+      "target": "element:frontend/apps/mobile/src/features/messages/utils.ts#initialsOf",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ConversationItem calls initialsOf(participantName) for the avatar fallback",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx->element:frontend/apps/mobile/src/features/messages/utils.ts#formatMessageTime",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx",
+      "target": "element:frontend/apps/mobile/src/features/messages/utils.ts#formatMessageTime",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "MessageBubble calls formatMessageTime(message.timestamp) to render the in-bubble timestamp",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:frontend/apps/mobile/src/features/players/PlayerForm.tsx->file:frontend/apps/mobile/src/features/players/LevelLabel.tsx",
+      "source": "file:frontend/apps/mobile/src/features/players/PlayerForm.tsx",
+      "target": "file:frontend/apps/mobile/src/features/players/LevelLabel.tsx",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "PlayerForm calls levelOptionLabel(code, label) to build level Select option labels",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/calendar/EventCard.tsx->file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx",
+      "source": "file:frontend/apps/mobile/src/features/calendar/EventCard.tsx",
+      "target": "file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx->file:frontend/apps/mobile/src/features/calendar/hooks.ts",
+      "source": "file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx",
+      "target": "file:frontend/apps/mobile/src/features/calendar/hooks.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx->file:frontend/apps/mobile/src/features/calendar/params.ts",
+      "source": "file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx",
+      "target": "file:frontend/apps/mobile/src/features/calendar/params.ts",
+      "edge_type": "imports",
+      "confidence": "stated",
+      "evidence": "DashboardBlocks.tsx imports parseDashboardItemId from @/features/calendar/params (line 19); absent from this file's L1 resolvedImports, confirmed by reading the source",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx->file:frontend/apps/mobile/src/features/messages/utils.ts",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx",
+      "target": "file:frontend/apps/mobile/src/features/messages/utils.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx->file:frontend/apps/mobile/src/features/messages/components/message-context-menu.tsx",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx",
+      "target": "file:frontend/apps/mobile/src/features/messages/components/message-context-menu.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx->file:frontend/apps/mobile/src/features/messages/utils.ts",
+      "source": "file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx",
+      "target": "file:frontend/apps/mobile/src/features/messages/utils.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/mobile/src/features/players/PlayerForm.tsx->file:frontend/apps/mobile/src/features/players/LevelLabel.tsx",
+      "source": "file:frontend/apps/mobile/src/features/players/PlayerForm.tsx",
+      "target": "file:frontend/apps/mobile/src/features/players/LevelLabel.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge (edges_within_scope)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

@@ -52,8 +52,10 @@ jobs:
 
   backend:
     needs: changes
+    # A push that CREATES the branch has no base commit for paths-filter to diff
+    # against (event.before is all zeros), so treat it as "everything changed".
     if: >-
-      (github.event_name == 'push' && needs.changes.outputs.backend == 'true') ||
+      (github.event_name == 'push' && (needs.changes.outputs.backend == 'true' || github.event.before == '0000000000000000000000000000000000000000')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'backend'))
     runs-on: ubuntu-latest
     steps:
@@ -113,7 +115,7 @@ jobs:
     # still refuses to run when backend actually FAILED.
     if: >-
       always() && needs.backend.result != 'failure' && needs.backend.result != 'cancelled' && (
-        (github.event_name == 'push' && needs.changes.outputs.frontend == 'true') ||
+        (github.event_name == 'push' && (needs.changes.outputs.frontend == 'true' || github.event.before == '0000000000000000000000000000000000000000')) ||
         (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'frontend'))
       )
     runs-on: ubuntu-latest

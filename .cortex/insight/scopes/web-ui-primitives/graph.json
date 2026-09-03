@@ -1,0 +1,453 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:21:27Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartConfig",
+      "kind": "element",
+      "label": "ChartConfig"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartContainer",
+      "kind": "element",
+      "label": "ChartContainer"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartContext",
+      "kind": "element",
+      "label": "ChartContext"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartLegend",
+      "kind": "element",
+      "label": "ChartLegend"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartLegendContent",
+      "kind": "element",
+      "label": "ChartLegendContent"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartStyle",
+      "kind": "element",
+      "label": "ChartStyle"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartTooltip",
+      "kind": "element",
+      "label": "ChartTooltip"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#ChartTooltipContent",
+      "kind": "element",
+      "label": "ChartTooltipContent"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#THEMES",
+      "kind": "element",
+      "label": "THEMES"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#getPayloadConfigFromPayload",
+      "kind": "element",
+      "label": "getPayloadConfigFromPayload"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/chart.tsx#useChart",
+      "kind": "element",
+      "label": "useChart"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#Sidebar",
+      "kind": "element",
+      "label": "Sidebar"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarContent",
+      "kind": "element",
+      "label": "SidebarContent"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarContext",
+      "kind": "element",
+      "label": "SidebarContext"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarFooter",
+      "kind": "element",
+      "label": "SidebarFooter"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarGroup",
+      "kind": "element",
+      "label": "SidebarGroup"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarGroupAction",
+      "kind": "element",
+      "label": "SidebarGroupAction"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarGroupContent",
+      "kind": "element",
+      "label": "SidebarGroupContent"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarGroupLabel",
+      "kind": "element",
+      "label": "SidebarGroupLabel"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarHeader",
+      "kind": "element",
+      "label": "SidebarHeader"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarInput",
+      "kind": "element",
+      "label": "SidebarInput"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarInset",
+      "kind": "element",
+      "label": "SidebarInset"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenu",
+      "kind": "element",
+      "label": "SidebarMenu"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuAction",
+      "kind": "element",
+      "label": "SidebarMenuAction"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuBadge",
+      "kind": "element",
+      "label": "SidebarMenuBadge"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuButton",
+      "kind": "element",
+      "label": "SidebarMenuButton"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuItem",
+      "kind": "element",
+      "label": "SidebarMenuItem"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuSkeleton",
+      "kind": "element",
+      "label": "SidebarMenuSkeleton"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuSub",
+      "kind": "element",
+      "label": "SidebarMenuSub"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuSubButton",
+      "kind": "element",
+      "label": "SidebarMenuSubButton"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarMenuSubItem",
+      "kind": "element",
+      "label": "SidebarMenuSubItem"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarProvider",
+      "kind": "element",
+      "label": "SidebarProvider"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarRail",
+      "kind": "element",
+      "label": "SidebarRail"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarSeparator",
+      "kind": "element",
+      "label": "SidebarSeparator"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#SidebarTrigger",
+      "kind": "element",
+      "label": "SidebarTrigger"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#sidebarMenuButtonVariants",
+      "kind": "element",
+      "label": "sidebarMenuButtonVariants"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/ui/sidebar.tsx#useSidebar",
+      "kind": "element",
+      "label": "useSidebar"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/accordion.tsx",
+      "kind": "file",
+      "label": "accordion.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/alert-dialog.tsx",
+      "kind": "file",
+      "label": "alert-dialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/alert.tsx",
+      "kind": "file",
+      "label": "alert.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/aspect-ratio.tsx",
+      "kind": "file",
+      "label": "aspect-ratio.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/avatar.tsx",
+      "kind": "file",
+      "label": "avatar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/badge.tsx",
+      "kind": "file",
+      "label": "badge.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/breadcrumb.tsx",
+      "kind": "file",
+      "label": "breadcrumb.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/button.tsx",
+      "kind": "file",
+      "label": "button.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/calendar.tsx",
+      "kind": "file",
+      "label": "calendar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/card.tsx",
+      "kind": "file",
+      "label": "card.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/carousel.tsx",
+      "kind": "file",
+      "label": "carousel.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/chart.tsx",
+      "kind": "file",
+      "label": "chart.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/checkbox.tsx",
+      "kind": "file",
+      "label": "checkbox.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/collapsible.tsx",
+      "kind": "file",
+      "label": "collapsible.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/command.tsx",
+      "kind": "file",
+      "label": "command.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/context-menu.tsx",
+      "kind": "file",
+      "label": "context-menu.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/dialog.tsx",
+      "kind": "file",
+      "label": "dialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/drawer.tsx",
+      "kind": "file",
+      "label": "drawer.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/dropdown-menu.tsx",
+      "kind": "file",
+      "label": "dropdown-menu.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/form.tsx",
+      "kind": "file",
+      "label": "form.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/hover-card.tsx",
+      "kind": "file",
+      "label": "hover-card.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/input-otp.tsx",
+      "kind": "file",
+      "label": "input-otp.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/input.tsx",
+      "kind": "file",
+      "label": "input.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/label.tsx",
+      "kind": "file",
+      "label": "label.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/loading-skeleton.tsx",
+      "kind": "file",
+      "label": "loading-skeleton.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/menubar.tsx",
+      "kind": "file",
+      "label": "menubar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/message-textarea.tsx",
+      "kind": "file",
+      "label": "message-textarea.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/navigation-menu.tsx",
+      "kind": "file",
+      "label": "navigation-menu.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/occupancy-bar.tsx",
+      "kind": "file",
+      "label": "occupancy-bar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/pagination.tsx",
+      "kind": "file",
+      "label": "pagination.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/popover.tsx",
+      "kind": "file",
+      "label": "popover.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/progress.tsx",
+      "kind": "file",
+      "label": "progress.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/radio-group.tsx",
+      "kind": "file",
+      "label": "radio-group.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/resizable.tsx",
+      "kind": "file",
+      "label": "resizable.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/scroll-area.tsx",
+      "kind": "file",
+      "label": "scroll-area.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/select.tsx",
+      "kind": "file",
+      "label": "select.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/separator.tsx",
+      "kind": "file",
+      "label": "separator.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/sheet.tsx",
+      "kind": "file",
+      "label": "sheet.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/sidebar.tsx",
+      "kind": "file",
+      "label": "sidebar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/skeleton.tsx",
+      "kind": "file",
+      "label": "skeleton.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/slider.tsx",
+      "kind": "file",
+      "label": "slider.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/sonner.tsx",
+      "kind": "file",
+      "label": "sonner.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/switch.tsx",
+      "kind": "file",
+      "label": "switch.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/table.tsx",
+      "kind": "file",
+      "label": "table.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/tabs.tsx",
+      "kind": "file",
+      "label": "tabs.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/textarea.tsx",
+      "kind": "file",
+      "label": "textarea.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/toast.tsx",
+      "kind": "file",
+      "label": "toast.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/toaster.tsx",
+      "kind": "file",
+      "label": "toaster.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/toggle-group.tsx",
+      "kind": "file",
+      "label": "toggle-group.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/toggle.tsx",
+      "kind": "file",
+      "label": "toggle.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/tooltip.tsx",
+      "kind": "file",
+      "label": "tooltip.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/ui/use-toast.ts",
+      "kind": "file",
+      "label": "use-toast.ts"
+    }
+  ],
+  "edges": []
+}

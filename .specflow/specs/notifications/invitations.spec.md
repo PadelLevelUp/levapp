@@ -1,0 +1,201 @@
+---
+id: notifications.invitations
+status: implemented
+depends_on: [notifications.config, notifications.reminders, eligibility.rules]
+implements: ../../specs-business/notifications/coach-fills-vacancies-automatically.business.md
+governed_by: []
+---
+
+# notifications.invitations
+
+
+### Intent
+When a spot opens in a class (player drops out), the invitation engine invites students through
+multi-round matching. The rounds are an **ordering** — who gets asked first — inside the floor set by
+`eligibility.rules`. They decide priority; they never decide permission.
+
+### Entities
+- **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at
+- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued)
+
+### Rules
+1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
+2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`; structural vacancies with no departing player have side `null`)
+2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
+   (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
+   placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
+   instance carries no level of its own. A structural vacancy (no departing player) snapshots the
+   class's effective level; a vacancy created from a departing player snapshots that player's
+   level, falling back to the class's effective level when the player has none.
+3. Multi-round matching based on `invitation_groups` config:
+   - Round 1: Exact match (same level + same side)
+   - Round 2: Same level only
+   - Round 3: Open to all eligible
+3a. **(pending PAD-128) Every round is capped at the eligibility bar.** Candidate selection applies, in this order:
+   `effective_eligibility()` for the class (`eligibility.cascade`) → the current round's
+   `invitation_groups` criteria → `restrictions` → the priority criteria and tiebreakers that rank
+   what survives. The widest round therefore means "everyone **eligible**", never "everyone". The
+   widening behaviour itself is unchanged: rounds still open up in the same order, at the same
+   timings, and a spot still reaches progressively more students — it simply stops at the floor.
+3b. **(pending PAD-128) Round criteria and eligibility parameters are different sets and stay different.** Playing side
+   is a round criterion (rules 4a/4b) and is deliberately **not** an eligibility parameter
+   (`eligibility.rules` rule 4). Removing side from the bar must not remove it from the rounds:
+   `both`-side handling and its acceptance criteria below are unaffected by this work.
+4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
+4a. Side eligibility with "both" (eligibility is symmetric and inclusive):
+   - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
+   - A `left`/`right` player is eligible for a `both` vacancy (a both-side vacancy accepts any player).
+   - A `null`-side vacancy accepts any player (no side constraint).
+   - Formally, a candidate passes a "same side" criterion when: `vacancy.side is None` OR `cp.side == vacancy.side` OR `cp.side == "both"` OR `vacancy.side == "both"`.
+4b. Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them).
+4c. Level rules are evaluated against the coach's **level ladder position**, never against the
+   raw `display_order` integer. The ladder is the coach's levels ordered by the convention in
+   levels.coach-levels rule 3 (lower `display_order` = stronger; unset order sorts last). Given
+   the ladder as a 0-indexed list where index 0 is the strongest level:
+   - `same_as_vacancy` — candidate level == vacancy level
+   - `one_above_vacancy` — candidate sits at exactly `index(vacancy) - 1` (empty when the vacancy
+     is already the strongest level)
+   - `one_below_vacancy` — candidate sits at exactly `index(vacancy) + 1` (empty when the vacancy
+     is already the weakest level)
+   - `all_above_vacancy` / `all_below_vacancy` — candidate index is strictly smaller / larger
+   Because adjacency is positional, a level that is two or more steps away in the coach's ladder
+   can never satisfy a "one level above/below" rule, regardless of what integers the levels
+   happen to carry. A candidate whose level is not in the coach's ladder never passes a level rule.
+4d. Level rules fail **closed**. When a vacancy has no effective level at all (neither the
+   instance nor its parent lesson defines one), every level rule in an invitation group evaluates
+   to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
+   "the level filter is switched off", which would silently widen a level-restricted group to the
+   coach's entire roster. The same applies to the legacy rounds `same_level` criterion.
+5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger):
+   - Skips vacancies with approval_status "pending" or "dismissed"
+   - Sends batched invitations (maxSimultaneous at a time)
+   - Respects restrictions (quiet hours, max per student per day, etc.)
+   - Expires unanswered invitations after maxInactiveTime
+6. Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no
+7. If confirmed: Vacancy.status = "filled", player added to instance
+8. If all decline or expire: moves to next round
+9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+
+### Acceptance Criteria
+
+#### Trigger invitations
+- **Given** a class with a vacancy (player Alice dropped out, level "Beginner", side "left")
+- **When** coach triggers invitations (or auto-trigger fires)
+- **Then** a Vacancy is created with original_player_id=Alice, level snapshotted
+- **And** Round 1 matching starts: same-level + same-side players identified
+
+#### Batch processing
+- **Given** an open Vacancy with 5 eligible players and maxSimultaneous=2
+- **When** `process_invitation_batches()` runs
+- **Then** 2 NotificationEvents are created with status "sent"
+- **And** invitation messages sent to those 2 players
+
+#### Player accepts invitation
+- **Given** a NotificationEvent with status "sent" for player Bob
+- **When** Bob responds with action "yes"
+- **Then** the event status becomes "confirmed"
+- **And** the Vacancy status becomes "filled", filled_by_player_id=Bob
+- **And** Bob is added to the instance (Presence + PlayerLessonInstance association)
+
+#### Quiet hours are evaluated on the club wall clock, not UTC (PAD-136)
+- **Given** a coach with `quietHours.enabled = true`
+- **When** the engine evaluates restrictions at an instant that is **22:30 club-local in summer**
+  (21:30 UTC, WEST = UTC+1)
+- **Then** the send is suppressed, because 22:30 local is inside the 22:00–07:00 window
+- **And** at **07:30 club-local in summer** (06:30 UTC) the send is allowed, because 07:30 local
+  is outside it
+
+#### The same UTC hour falls on opposite sides of the window in summer and winter (PAD-136)
+- **Given** a coach with `quietHours.enabled = true`
+- **When** restrictions are evaluated at **21:30 UTC** on a summer date and on a winter date
+- **Then** the summer evaluation suppresses the send (22:30 WEST, inside the window) and the
+  winter evaluation allows it (21:30 WET, outside the window)
+- **And** this asymmetry is the discriminating evidence that the check performs a timezone
+  conversion rather than applying a constant offset — a regression to a naive-UTC comparison
+  makes both evaluations agree and fails this criterion
+
+#### The daily invite quota counts over the club-local day, not the UTC day (PAD-144)
+- **Given** a coach with `maxInvitesPerStudentPerDay` enabled with value 2, and a student who has
+  already been sent 2 invitations at **10:00 club-local today** (09:00 UTC, WEST = UTC+1)
+- **When** the engine evaluates the limit at **00:30 club-local the next day** (23:30 UTC, still
+  the *previous* UTC day)
+- **Then** the student is allowed a further invitation, because the local calendar day has rolled
+  over and their quota has reset
+- **And** a naive-UTC boundary would still count the 2 earlier events and wrongly suppress the send
+
+#### Events in the first local hour of the day belong to that day (PAD-144)
+- **Given** a coach with `maxInvitesPerStudentPerDay` enabled with value 1
+- **And** an invitation sent to a student at **00:30 club-local in summer** (23:30 UTC the previous
+  day)
+- **When** the limit is evaluated later that same club-local day
+- **Then** the student is blocked, because that 00:30 event falls **inside** the current local day
+- **And** a naive-UTC boundary attributes it to the previous day and wrongly allows a second
+  invitation — letting the student receive 2 invitations within one local day under a limit of 1
+
+#### The same UTC instant falls on opposite sides of the day boundary in summer and winter (PAD-144)
+- **Given** a coach with `maxInvitesPerStudentPerDay` enabled
+- **When** the day boundary is derived for **23:30 UTC** on a summer date and on a winter date
+- **Then** the summer derivation places that instant in the *next* local day (00:30 WEST) and the
+  winter derivation places it in the *same* local day (23:30 WET)
+- **And** this asymmetry is the discriminating evidence that the boundary performs a timezone
+  conversion rather than applying a constant offset — a regression to a naive-UTC day boundary
+  makes both derivations agree and fails this criterion
+
+#### Escalate to next round
+- **Given** all Round 1 players declined or expired
+- **When** `process_invitation_batches()` runs
+- **Then** the Vacancy advances to Round 2
+- **And** new matching criteria are applied
+
+#### The widest round is capped at the eligibility bar (pending PAD-128)
+- **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
+- **And** a vacancy whose earlier rounds have all been exhausted
+- **When** the engine advances to the round whose `invitation_groups` entry has no rules
+- **Then** only students within one ladder step of the class are invited
+- **And** students further away are invited in no round
+- **And** with an unset eligibility bar that same round invites the whole roster, exactly as today
+
+#### "Both" player is eligible for a side-specific vacancy, exact side preferred
+- **Given** a vacancy with side "left" and level "Beginner"
+- **And** an eligible "Beginner" player Left-Lucy with side "left" and an eligible "Beginner" player Both-Bob with side "both"
+- **When** Round 1 (same level + same side) eligibility is computed
+- **Then** both Left-Lucy and Both-Bob are eligible (Both-Bob is NOT filtered out by the same-side criterion)
+- **And** Left-Lucy is ranked ahead of Both-Bob by the playing-side tiebreaker (exact side preferred over "both")
+
+#### "Both"-side vacancy accepts any-side players
+- **Given** a vacancy with side "both" (a "both" player dropped out)
+- **When** Round 1 (same level + same side) eligibility is computed
+- **Then** same-level players of side "left", "right", and "both" are all eligible
+
+#### "One level above" follows the coach's ladder, not the raw display_order value
+- **Given** a coach whose ladder is `4` (strongest), `5`, `5-` (weakest)
+- **And** an invitation group whose only rule is `level one_above_vacancy`
+- **And** a vacancy snapshotted at level `5`
+- **When** eligibility for that group is computed
+- **Then** only students at level `4` pass
+- **And** students at level `5-` (two steps away from `4`, one step below the vacancy) do NOT pass
+
+#### A level with no explicit display_order never masquerades as the strongest level
+- **Given** a coach whose ladder is `4` (display_order 1), `5` (display_order 2)
+- **And** a level `5-` created through a path that left `display_order` unset (`NULL` or `0`)
+- **And** an invitation group whose only rule is `level one_above_vacancy`
+- **And** a vacancy snapshotted at level `4`
+- **When** eligibility for that group is computed
+- **Then** no student passes (level `4` is the top of the ladder, so nothing is one level above it)
+- **And** students at level `5-` are NOT invited
+
+#### A structural vacancy inherits the level from the parent lesson
+- **Given** a class instance with no `level_id` of its own whose parent lesson has `default_level_id` = `Beginner`
+- **And** the class is not full, so the engine creates a structural vacancy (no departing player)
+- **And** an invitation group whose only rule is `level same_as_vacancy`
+- **When** the vacancy is created and eligibility for that group is computed
+- **Then** the vacancy carries level `Beginner`
+- **And** only `Beginner` students pass the group — students at other levels are NOT invited
+- **And** the `{level}` placeholder in the invitation message renders `Beginner`
+
+#### A vacancy with no level anywhere invites nobody through a level rule
+- **Given** a class instance with no `level_id` whose parent lesson has no `default_level_id` either
+- **And** an invitation group whose only rule is a level rule (`same_as_vacancy`, `one_above_vacancy`, …)
+- **When** eligibility for that group is computed
+- **Then** no student passes (the level rule fails closed)
+- **And** the group does not fall back to the coach's whole roster

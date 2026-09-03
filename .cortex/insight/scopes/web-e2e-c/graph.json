@@ -1,0 +1,273 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:18:15Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#_utcnow_naive",
+      "kind": "element",
+      "label": "_utcnow_naive"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#attended_instances",
+      "kind": "element",
+      "label": "attended_instances"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#coach_user",
+      "kind": "element",
+      "label": "coach_user"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#conversation",
+      "kind": "element",
+      "label": "conversation"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#declined_instance",
+      "kind": "element",
+      "label": "declined_instance"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#filler_players",
+      "kind": "element",
+      "label": "filler_players"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#instance",
+      "kind": "element",
+      "label": "instance"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#level_beginner",
+      "kind": "element",
+      "label": "level_beginner"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#level_intermediate",
+      "kind": "element",
+      "label": "level_intermediate"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#missed_instances",
+      "kind": "element",
+      "label": "missed_instances"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#pending_instance",
+      "kind": "element",
+      "label": "pending_instance"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#recurring_lesson",
+      "kind": "element",
+      "label": "recurring_lesson"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/scripts/seed.py#validation_lesson",
+      "kind": "element",
+      "label": "validation_lesson"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts#autoNotifySwitch",
+      "kind": "element",
+      "label": "autoNotifySwitch"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts#enableAutoNotify",
+      "kind": "element",
+      "label": "enableAutoNotify"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts#ensureDefaultInvitationGroups",
+      "kind": "element",
+      "label": "ensureDefaultInvitationGroups"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts#openNotificationsTab",
+      "kind": "element",
+      "label": "openNotificationsTab"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts#openSection",
+      "kind": "element",
+      "label": "openSection"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts#CLEARED",
+      "kind": "element",
+      "label": "CLEARED"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts#openMyNotifications",
+      "kind": "element",
+      "label": "openMyNotifications"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts#seededInstanceRef",
+      "kind": "element",
+      "label": "seededInstanceRef"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts#setStudentPrefs",
+      "kind": "element",
+      "label": "setStudentPrefs"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts#studentPlayerId",
+      "kind": "element",
+      "label": "studentPlayerId"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts#COACH_ONLY_ENDPOINTS",
+      "kind": "element",
+      "label": "COACH_ONLY_ENDPOINTS"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts#COACH_ONLY_TABS",
+      "kind": "element",
+      "label": "COACH_ONLY_TABS"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts#SHARED_TABS",
+      "kind": "element",
+      "label": "SHARED_TABS"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/daily-schedule.spec.ts",
+      "kind": "file",
+      "label": "daily-schedule.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts",
+      "kind": "file",
+      "label": "guest-list-dedupe.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts",
+      "kind": "file",
+      "label": "i18n-date-locale.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/mobile-weekly-order.spec.ts",
+      "kind": "file",
+      "label": "mobile-weekly-order.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/participant-count-effective.spec.ts",
+      "kind": "file",
+      "label": "participant-count-effective.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/recurring-class-weekday.spec.ts",
+      "kind": "file",
+      "label": "recurring-class-weekday.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts",
+      "kind": "file",
+      "label": "recurring-occurrence-delete.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/slot-drag-select.spec.ts",
+      "kind": "file",
+      "label": "slot-drag-select.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/scripts/redesign-shots.spec.ts",
+      "kind": "file",
+      "label": "redesign-shots.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/scripts/seed.py",
+      "kind": "file",
+      "label": "seed.py"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/security/frontend-api-auth.spec.ts",
+      "kind": "file",
+      "label": "frontend-api-auth.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/security/training-confirm-authz.spec.ts",
+      "kind": "file",
+      "label": "training-confirm-authz.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/security/training-players-role-authz.spec.ts",
+      "kind": "file",
+      "label": "training-players-role-authz.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts",
+      "kind": "file",
+      "label": "coach-levels-ordering-hint.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/coach-settings.spec.ts",
+      "kind": "file",
+      "label": "coach-settings.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/data-management-i18n.spec.ts",
+      "kind": "file",
+      "label": "data-management-i18n.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/language-preference.spec.ts",
+      "kind": "file",
+      "label": "language-preference.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts",
+      "kind": "file",
+      "label": "notification-engine-settings.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/profile-persistence.spec.ts",
+      "kind": "file",
+      "label": "profile-persistence.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/season-recurrence.spec.ts",
+      "kind": "file",
+      "label": "season-recurrence.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts",
+      "kind": "file",
+      "label": "season-upsert-safety.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/seasons-i18n.spec.ts",
+      "kind": "file",
+      "label": "seasons-i18n.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts",
+      "kind": "file",
+      "label": "student-notification-blocks.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts",
+      "kind": "file",
+      "label": "student-settings-scope.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/temp-id-delete-after-save.spec.ts",
+      "kind": "file",
+      "label": "temp-id-delete-after-save.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/theme-dark-mode.spec.ts",
+      "kind": "file",
+      "label": "theme-dark-mode.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts",
+      "kind": "file",
+      "label": "ticket-pad-109-standing-waitlist-search.spec.ts"
+    }
+  ],
+  "edges": []
+}

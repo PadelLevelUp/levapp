@@ -1,0 +1,61 @@
+schemaVersion: "3.0"
+built_at_commit: "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+scopes:
+  packages:
+    path: frontend/packages
+    depends_on: []
+    shared_by: [web-app-shell, web-api-hooks, web-components-a, web-components-b, web-components-c, web-ui-primitives, mobile-app, mobile-features-a, mobile-features-b, mobile-components]
+  backend-models:
+    path: backend/padel_app
+    depends_on: []
+  backend-services:
+    path: backend/padel_app
+    depends_on: [backend-models]
+  backend-api:
+    path: backend/padel_app
+    depends_on: [backend-models, backend-services]
+  backend-tests-a:
+    path: backend/padel_app/tests
+    depends_on: [backend-models, backend-services, backend-api]
+  backend-tests-b:
+    path: backend/padel_app/tests
+    depends_on: [backend-models, backend-services, backend-api]
+  web-ui-primitives:
+    path: frontend/apps/web/src/components/ui
+    depends_on: [packages]
+  web-components-a:
+    path: frontend/apps/web/src/components
+    depends_on: [packages, web-api-hooks]
+  web-components-b:
+    path: frontend/apps/web/src/components
+    depends_on: [packages, web-api-hooks]
+  web-components-c:
+    path: frontend/apps/web/src/components
+    depends_on: [packages, web-api-hooks]
+  web-api-hooks:
+    path: frontend/apps/web/src
+    depends_on: [packages]
+  web-app-shell:
+    path: frontend/apps/web/
+    depends_on: [packages, web-api-hooks]
+  web-e2e-a:
+    path: frontend/apps/web/e2e
+    depends_on: []
+  web-e2e-b:
+    path: frontend/apps/web/e2e
+    depends_on: []
+  web-e2e-c:
+    path: frontend/apps/web/e2e
+    depends_on: []
+  mobile-features-a:
+    path: frontend/apps/mobile/src/features
+    depends_on: [packages, mobile-components]
+  mobile-features-b:
+    path: frontend/apps/mobile/src/features
+    depends_on: [packages, mobile-components]
+  mobile-components:
+    path: frontend/apps/mobile/src/components
+    depends_on: [packages]
+  mobile-app:
+    path: frontend/apps/mobile/
+    depends_on: [packages, mobile-components]
