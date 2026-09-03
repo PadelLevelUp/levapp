@@ -26,8 +26,24 @@ _MAX_RETRIES = 2
 _RETRY_DELAY_S = 1.0
 _NON_RETRYABLE = (AuthenticationError, TypeError, ValueError)
 
-client = OpenAI(base_url=_BASE_URL, api_key=_API_KEY)
 logger = logging.getLogger("ai_import")
+
+_client: OpenAI | None = None
+
+
+def get_client() -> OpenAI:
+    """Build the OpenAI/OpenRouter client on first use, not at import time.
+
+    The SDK raises when no API key is configured. Constructing the client at
+    module import made the *whole* app fail to boot wherever the key is absent
+    (staging deliberately runs without one), because ``frontend_api`` imports
+    ``ai_service`` which imports this module. A missing key should break the AI
+    import feature when it is used, never the API itself.
+    """
+    global _client
+    if _client is None:
+        _client = OpenAI(base_url=_BASE_URL, api_key=_API_KEY)
+    return _client
 
 if not logger.handlers:
     _handler = logging.StreamHandler()
@@ -79,7 +95,7 @@ def call_llm(
     for attempt in range(_MAX_RETRIES + 1):
         try:
             t = time.perf_counter()
-            resp = client.chat.completions.create(**kwargs)
+            resp = get_client().chat.completions.create(**kwargs)
             log_timing(f"{label}.api", t, model=_MODEL, attempt=attempt, **extra_meta)
             return resp.choices[0].message.content.strip()
         except _NON_RETRYABLE:
