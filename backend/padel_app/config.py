@@ -95,9 +95,12 @@ class Config:
     POSTGRES_DB = os.getenv("POSTGRES_DB", "padel_app")
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 
-    # Secret key (fallback only for dev)
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret")
+    # Signing secrets. The deploy injects FLASK_SECRET_KEY (accepted as an alias
+    # of SECRET_KEY). The dev fallbacks below are for local development only:
+    # get_config_class() refuses to hand out ProdConfig while either secret is
+    # unset, so production can never sign sessions or JWTs with them (B-003).
+    SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or "dev-secret-key"
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "dev-jwt-secret"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
     JWT_TOKEN_LOCATION = ["headers", "query_string"]
     JWT_QUERY_STRING_NAME = "token"
@@ -176,7 +179,33 @@ class ProdConfig(Config):
 Config.refresh_database_settings()
 
 
-def get_config_class(env=None):
+DEV_SECRET_FALLBACKS = frozenset({"dev-secret-key", "dev-jwt-secret", ""})
+
+
+def assert_production_secrets(environ=None):
+    """Refuse to run production with unset or dev-fallback signing secrets.
+
+    Checked at config-selection time so the failure is a clear startup error
+    rather than a live deployment silently signing tokens with a value that is
+    committed to the repository (B-003).
+    """
+    environ = os.environ if environ is None else environ
+    secret = environ.get("SECRET_KEY") or environ.get("FLASK_SECRET_KEY") or ""
+    jwt = environ.get("JWT_SECRET_KEY") or ""
+    missing = [name for name, value in (("SECRET_KEY/FLASK_SECRET_KEY", secret), ("JWT_SECRET_KEY", jwt))
+               if value in DEV_SECRET_FALLBACKS]
+    if missing:
+        raise RuntimeError(
+            "Refusing to start with FLASK_ENV=production: "
+            + ", ".join(missing)
+            + " unset or equal to a development fallback. Set real values in the deploy environment."
+        )
+
+
+def get_config_class(env=None, environ=None):
     """Config class for a FLASK_ENV value (anything non-production is dev)."""
     env = env if env is not None else os.getenv("FLASK_ENV", "development")
-    return ProdConfig if env == "production" else DevConfig
+    if env == "production":
+        assert_production_secrets(environ)
+        return ProdConfig
+    return DevConfig
