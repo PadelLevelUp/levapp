@@ -1,0 +1,2020 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:05:38Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "concept:association-table",
+      "kind": "concept",
+      "label": "association-table"
+    },
+    {
+      "id": "concept:coach-scoped-data",
+      "kind": "concept",
+      "label": "coach-scoped-data"
+    },
+    {
+      "id": "concept:invitation-and-vacancy-engine-config",
+      "kind": "concept",
+      "label": "invitation-and-vacancy-engine-config"
+    },
+    {
+      "id": "element:backend/padel_app/model.py#Image",
+      "kind": "element",
+      "label": "Image"
+    },
+    {
+      "id": "element:backend/padel_app/model.py#Imageable",
+      "kind": "element",
+      "label": "Imageable"
+    },
+    {
+      "id": "element:backend/padel_app/model.py#Model",
+      "kind": "element",
+      "label": "Model"
+    },
+    {
+      "id": "element:backend/padel_app/model.py#Model._apply_column",
+      "kind": "element",
+      "label": "Model._apply_column"
+    },
+    {
+      "id": "element:backend/padel_app/model.py#Model.update_with_dict",
+      "kind": "element",
+      "label": "Model.update_with_dict"
+    },
+    {
+      "id": "element:backend/padel_app/models/exercise.py#Exercise",
+      "kind": "element",
+      "label": "Exercise"
+    },
+    {
+      "id": "element:backend/padel_app/models/exercise.py#ExerciseGroup",
+      "kind": "element",
+      "label": "ExerciseGroup"
+    },
+    {
+      "id": "element:backend/padel_app/models/exercise.py#exercise_group_exercises",
+      "kind": "element",
+      "label": "exercise_group_exercises"
+    },
+    {
+      "id": "element:backend/padel_app/models/lesson_instances.py#LessonInstance",
+      "kind": "element",
+      "label": "LessonInstance"
+    },
+    {
+      "id": "element:backend/padel_app/models/lesson_instances.py#confirmed_spots",
+      "kind": "element",
+      "label": "confirmed_spots"
+    },
+    {
+      "id": "element:backend/padel_app/models/lesson_instances.py#effective_filled_spots",
+      "kind": "element",
+      "label": "effective_filled_spots"
+    },
+    {
+      "id": "element:backend/padel_app/models/lesson_instances.py#title",
+      "kind": "element",
+      "label": "title"
+    },
+    {
+      "id": "element:backend/padel_app/models/notification_config.py#NotificationConfig",
+      "kind": "element",
+      "label": "NotificationConfig"
+    },
+    {
+      "id": "element:backend/padel_app/models/notification_config.py#NotificationConfig.get_cancellation_deadline_hours",
+      "kind": "element",
+      "label": "NotificationConfig.get_cancellation_deadline_hours"
+    },
+    {
+      "id": "element:backend/padel_app/models/notification_config.py#NotificationConfig.get_eligibility_rules",
+      "kind": "element",
+      "label": "NotificationConfig.get_eligibility_rules"
+    },
+    {
+      "id": "element:backend/padel_app/models/notification_config.py#NotificationConfig.get_invitation_groups",
+      "kind": "element",
+      "label": "NotificationConfig.get_invitation_groups"
+    },
+    {
+      "id": "element:backend/padel_app/models/notification_config.py#resolve_message_template",
+      "kind": "element",
+      "label": "resolve_message_template"
+    },
+    {
+      "id": "element:backend/padel_app/models/players.py#Player",
+      "kind": "element",
+      "label": "Player"
+    },
+    {
+      "id": "element:backend/padel_app/models/players.py#coach_player_info",
+      "kind": "element",
+      "label": "coach_player_info"
+    },
+    {
+      "id": "element:backend/padel_app/models/players.py#level",
+      "kind": "element",
+      "label": "level"
+    },
+    {
+      "id": "element:backend/padel_app/serializers/lesson.py#_invitation_precedence",
+      "kind": "element",
+      "label": "_invitation_precedence"
+    },
+    {
+      "id": "element:backend/padel_app/serializers/lesson.py#dedupe_invitation_events",
+      "kind": "element",
+      "label": "dedupe_invitation_events"
+    },
+    {
+      "id": "element:backend/padel_app/serializers/lesson.py#serialize_class_instance",
+      "kind": "element",
+      "label": "serialize_class_instance"
+    },
+    {
+      "id": "element:backend/padel_app/serializers/lesson.py#serialize_lesson",
+      "kind": "element",
+      "label": "serialize_lesson"
+    },
+    {
+      "id": "element:backend/padel_app/serializers/lesson.py#serialize_lesson_instance",
+      "kind": "element",
+      "label": "serialize_lesson_instance"
+    },
+    {
+      "id": "file:backend/padel_app/context.py",
+      "kind": "file",
+      "label": "context.py"
+    },
+    {
+      "id": "file:backend/padel_app/model.py",
+      "kind": "file",
+      "label": "model.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachClub.py",
+      "kind": "file",
+      "label": "Association_CoachClub.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "kind": "file",
+      "label": "Association_CoachExercise.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "kind": "file",
+      "label": "Association_CoachExerciseGroup.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachLesson.py",
+      "kind": "file",
+      "label": "Association_CoachLesson.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "kind": "file",
+      "label": "Association_CoachLessonInstance.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_CoachPlayer.py",
+      "kind": "file",
+      "label": "Association_CoachPlayer.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_PlayerClub.py",
+      "kind": "file",
+      "label": "Association_PlayerClub.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_PlayerLesson.py",
+      "kind": "file",
+      "label": "Association_PlayerLesson.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "kind": "file",
+      "label": "Association_PlayerLessonInstance.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/backend_apps.py",
+      "kind": "file",
+      "label": "backend_apps.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/blocked_user.py",
+      "kind": "file",
+      "label": "blocked_user.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/bulk_import.py",
+      "kind": "file",
+      "label": "bulk_import.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/calendar_blocks.py",
+      "kind": "file",
+      "label": "calendar_blocks.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/clubs.py",
+      "kind": "file",
+      "label": "clubs.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/coach_invitation.py",
+      "kind": "file",
+      "label": "coach_invitation.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/coach_levels.py",
+      "kind": "file",
+      "label": "coach_levels.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/coach_player_note.py",
+      "kind": "file",
+      "label": "coach_player_note.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/coaches.py",
+      "kind": "file",
+      "label": "coaches.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/conversation_participants.py",
+      "kind": "file",
+      "label": "conversation_participants.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/conversations.py",
+      "kind": "file",
+      "label": "conversations.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/device_token.py",
+      "kind": "file",
+      "label": "device_token.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/evaluation_category.py",
+      "kind": "file",
+      "label": "evaluation_category.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/evaluation_entry.py",
+      "kind": "file",
+      "label": "evaluation_entry.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/exercise.py",
+      "kind": "file",
+      "label": "exercise.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/lesson_instance_training.py",
+      "kind": "file",
+      "label": "lesson_instance_training.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/lesson_instances.py",
+      "kind": "file",
+      "label": "lesson_instances.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/lessons.py",
+      "kind": "file",
+      "label": "lessons.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/message_reaction.py",
+      "kind": "file",
+      "label": "message_reaction.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/message_report.py",
+      "kind": "file",
+      "label": "message_report.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/messages.py",
+      "kind": "file",
+      "label": "messages.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/notification_config.py",
+      "kind": "file",
+      "label": "notification_config.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/notification_event.py",
+      "kind": "file",
+      "label": "notification_event.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/player_invitation.py",
+      "kind": "file",
+      "label": "player_invitation.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/player_level_history.py",
+      "kind": "file",
+      "label": "player_level_history.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/players.py",
+      "kind": "file",
+      "label": "players.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/presences.py",
+      "kind": "file",
+      "label": "presences.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/push_subscriptions.py",
+      "kind": "file",
+      "label": "push_subscriptions.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/replacement_approval_prompt.py",
+      "kind": "file",
+      "label": "replacement_approval_prompt.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/seasons.py",
+      "kind": "file",
+      "label": "seasons.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "kind": "file",
+      "label": "standing_waiting_list_entry.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/token_blocklist.py",
+      "kind": "file",
+      "label": "token_blocklist.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/users.py",
+      "kind": "file",
+      "label": "users.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/vacancy.py",
+      "kind": "file",
+      "label": "vacancy.py"
+    },
+    {
+      "id": "file:backend/padel_app/models/waiting_list_entry.py",
+      "kind": "file",
+      "label": "waiting_list_entry.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/calendar.py",
+      "kind": "file",
+      "label": "calendar.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/calendar_event.py",
+      "kind": "file",
+      "label": "calendar_event.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/coach.py",
+      "kind": "file",
+      "label": "coach.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/coach_level.py",
+      "kind": "file",
+      "label": "coach_level.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/conversation.py",
+      "kind": "file",
+      "label": "conversation.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/lesson.py",
+      "kind": "file",
+      "label": "lesson.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/message.py",
+      "kind": "file",
+      "label": "message.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/player.py",
+      "kind": "file",
+      "label": "player.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/presence.py",
+      "kind": "file",
+      "label": "presence.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/season.py",
+      "kind": "file",
+      "label": "season.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/training.py",
+      "kind": "file",
+      "label": "training.py"
+    },
+    {
+      "id": "file:backend/padel_app/serializers/user.py",
+      "kind": "file",
+      "label": "user.py"
+    },
+    {
+      "id": "file:backend/padel_app/sql_db.py",
+      "kind": "file",
+      "label": "sql_db.py"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:file:backend/padel_app/serializers/calendar_event.py->element:backend/padel_app/models/lesson_instances.py#confirmed_spots",
+      "source": "file:backend/padel_app/serializers/calendar_event.py",
+      "target": "element:backend/padel_app/models/lesson_instances.py#confirmed_spots",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "serialize_calendar_event reads obj.confirmed_spots for a LessonInstance's confirmedCount field",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:backend/padel_app/serializers/calendar_event.py->element:backend/padel_app/models/lesson_instances.py#effective_filled_spots",
+      "source": "file:backend/padel_app/serializers/calendar_event.py",
+      "target": "element:backend/padel_app/models/lesson_instances.py#effective_filled_spots",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "serialize_calendar_event reads obj.effective_filled_spots for a LessonInstance's participantCount field",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:file:backend/padel_app/serializers/lesson.py->element:backend/padel_app/models/notification_config.py#NotificationConfig.get_cancellation_deadline_hours",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "element:backend/padel_app/models/notification_config.py#NotificationConfig.get_cancellation_deadline_hours",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "serialize_class_instance calls config.get_cancellation_deadline_hours() to compute cancellationDeadline",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachClub.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachClub.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachExercise.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachExerciseGroup.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachLesson.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachLesson.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachLessonInstance.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_CoachPlayer.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_CoachPlayer.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_PlayerClub.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_PlayerClub.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_PlayerLesson.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_PlayerLesson.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/Association_PlayerLessonInstance.py->concept:association-table",
+      "source": "file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "target": "concept:association-table",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "declares __tablename__ as a junction table between two entities and is a full id-bearing db.Model + model.Model (not a plain secondary table)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/bulk_import.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/bulk_import.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/coach_levels.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/coach_levels.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/coaches.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/coaches.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/evaluation_category.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/evaluation_category.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/exercise.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/exercise.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/lesson_instances.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/lesson_instances.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/lessons.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/lessons.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/notification_config.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/notification_config.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/notification_config.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/notification_config.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/notification_event.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/notification_event.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/replacement_approval_prompt.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/replacement_approval_prompt.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/seasons.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/seasons.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/standing_waiting_list_entry.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/vacancy.py->concept:coach-scoped-data",
+      "source": "file:backend/padel_app/models/vacancy.py",
+      "target": "concept:coach-scoped-data",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "carries a coach_id FK (directly or, for lesson_instances.py, transitively via lessons.py) that scopes the row to one coach's data",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/vacancy.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/vacancy.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:implements-concept:file:backend/padel_app/models/waiting_list_entry.py->concept:invitation-and-vacancy-engine-config",
+      "source": "file:backend/padel_app/models/waiting_list_entry.py",
+      "target": "concept:invitation-and-vacancy-engine-config",
+      "edge_type": "implements-concept",
+      "confidence": "inferred",
+      "evidence": "is part of the automatic/semi-automatic invitation state machine: the config, an open spot, a sent invite, an approval gate, or the overflow waitlist",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/model.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/model.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from .sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachClub.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachClub.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachClub.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachClub.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachExercise.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachExercise.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachExerciseGroup.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachExerciseGroup.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachLesson.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachLesson.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachLesson.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachLesson.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachLessonInstance.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachLessonInstance.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachPlayer.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_CoachPlayer.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_CoachPlayer.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_CoachPlayer.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerClub.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_PlayerClub.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerClub.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_PlayerClub.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerLesson.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_PlayerLesson.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerLesson.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_PlayerLesson.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerLessonInstance.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/Association_PlayerLessonInstance.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachClub.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachClub.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachClub` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachExercise.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachExercise` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachExerciseGroup` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachLesson.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachLesson.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachLesson` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachLessonInstance.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachLessonInstance` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_CoachPlayer.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_CoachPlayer.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_CoachPlayer` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_PlayerClub.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_PlayerClub.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_PlayerClub` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_PlayerLesson.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_PlayerLesson.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_PlayerLesson` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Association_PlayerLessonInstance` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/backend_apps.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/backend_apps.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Backend_App` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/blocked_user.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/blocked_user.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `BlockedUser` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/bulk_import.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/bulk_import.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `import BulkImport` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/calendar_blocks.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/calendar_blocks.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `CalendarBlock` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/clubs.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/clubs.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Club` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/coach_invitation.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/coach_invitation.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `CoachInvitation` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/coach_levels.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/coach_levels.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `CoachLevel` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/coach_player_note.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/coach_player_note.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `CoachPlayerNote` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/coaches.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/coaches.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Coach` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/conversation_participants.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/conversation_participants.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `ConversationParticipant` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/conversations.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/conversations.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Conversation` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/device_token.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/device_token.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `DeviceToken` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/evaluation_category.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/evaluation_category.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `EvaluationCategory` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/evaluation_entry.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/evaluation_entry.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `EvaluationEntry` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/exercise.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/exercise.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Exercise, ExerciseGroup` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/lesson_instance_training.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/lesson_instance_training.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `LessonInstanceTraining` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/lesson_instances.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/lesson_instances.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `LessonInstance` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/lessons.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/lessons.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Lesson` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/message_reaction.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/message_reaction.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `MessageReaction` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/message_report.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/message_report.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `MessageReport` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/messages.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/messages.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Message` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/notification_config.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/notification_config.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `NotificationConfig` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/notification_event.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/notification_event.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `NotificationEvent` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/player_invitation.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/player_invitation.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `PlayerInvitation` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/player_level_history.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/player_level_history.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `PlayerLevelHistory` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/players.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/players.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Player` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/presences.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/presences.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Presence` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/push_subscriptions.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/push_subscriptions.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `PushSubscription` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/replacement_approval_prompt.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/replacement_approval_prompt.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `ReplacementApprovalPrompt` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/seasons.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/seasons.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Season` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `StandingWaitingListEntry` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/token_blocklist.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/token_blocklist.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `TokenBlocklist` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/users.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/users.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `User` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/vacancy.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/vacancy.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `Vacancy` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/models/waiting_list_entry.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/models/waiting_list_entry.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "imports `WaitingListEntry` for the generic-editor MODELS registry",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/__init__.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/__init__.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/backend_apps.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/backend_apps.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/backend_apps.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/backend_apps.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/blocked_user.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/blocked_user.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/blocked_user.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/blocked_user.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/bulk_import.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/bulk_import.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/bulk_import.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/bulk_import.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/calendar_blocks.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/calendar_blocks.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/calendar_blocks.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/calendar_blocks.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/clubs.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/clubs.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/clubs.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/clubs.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_invitation.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/coach_invitation.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_invitation.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/coach_invitation.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_levels.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/coach_levels.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_levels.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/coach_levels.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_player_note.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/coach_player_note.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coach_player_note.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/coach_player_note.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coaches.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/coaches.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/coaches.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/coaches.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/conversation_participants.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/conversation_participants.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/conversation_participants.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/conversation_participants.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/conversations.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/conversations.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/conversations.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/conversations.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/device_token.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/device_token.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/device_token.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/device_token.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/evaluation_category.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/evaluation_category.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/evaluation_category.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/evaluation_category.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/evaluation_entry.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/evaluation_entry.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/evaluation_entry.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/evaluation_entry.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/exercise.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/exercise.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/exercise.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/exercise.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/lesson_instance_training.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/lesson_instance_training.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/lesson_instances.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/lesson_instances.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/lesson_instances.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/lesson_instances.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/lessons.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/lessons.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/lessons.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/lessons.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/message_reaction.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/message_reaction.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/message_reaction.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/message_reaction.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/message_report.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/message_report.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/message_report.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/message_report.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/messages.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/messages.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/messages.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/messages.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/notification_config.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/notification_config.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/notification_config.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/notification_config.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/notification_event.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/notification_event.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/notification_event.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/notification_event.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/player_invitation.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/player_invitation.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/player_invitation.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/player_invitation.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/player_level_history.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/player_level_history.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/player_level_history.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/player_level_history.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/players.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/players.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/players.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/players.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/presences.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/presences.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/presences.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/presences.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/push_subscriptions.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/push_subscriptions.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/push_subscriptions.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/push_subscriptions.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/replacement_approval_prompt.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/replacement_approval_prompt.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/replacement_approval_prompt.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/replacement_approval_prompt.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/seasons.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/seasons.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/seasons.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/seasons.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/standing_waiting_list_entry.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/standing_waiting_list_entry.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/standing_waiting_list_entry.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/token_blocklist.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/token_blocklist.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/users.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/users.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/users.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/users.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/vacancy.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/vacancy.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/vacancy.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/vacancy.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/waiting_list_entry.py->file:backend/padel_app/model.py",
+      "source": "file:backend/padel_app/models/waiting_list_entry.py",
+      "target": "file:backend/padel_app/model.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app import model` -- Model mixin",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/models/waiting_list_entry.py->file:backend/padel_app/sql_db.py",
+      "source": "file:backend/padel_app/models/waiting_list_entry.py",
+      "target": "file:backend/padel_app/sql_db.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.sql_db import db`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/coach.py->file:backend/padel_app/serializers/user.py",
+      "source": "file:backend/padel_app/serializers/coach.py",
+      "target": "file:backend/padel_app/serializers/user.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.serializers.user import serialize_user`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/conversation.py->file:backend/padel_app/serializers/message.py",
+      "source": "file:backend/padel_app/serializers/conversation.py",
+      "target": "file:backend/padel_app/serializers/message.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.serializers.message import serialize_message`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/models/lesson_instance_training.py",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "file:backend/padel_app/models/lesson_instance_training.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "function-local `from padel_app.models.lesson_instance_training import LessonInstanceTraining` inside serialize_class_instance",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/models/notification_config.py",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "file:backend/padel_app/models/notification_config.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "function-local `from padel_app.models.notification_config import (NotificationConfig, DEFAULT_CANCELLATION_DEADLINE_HOURS)` inside serialize_class_instance",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/models/notification_event.py",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "file:backend/padel_app/models/notification_event.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "function-local `from padel_app.models.notification_event import NotificationEvent` inside serialize_class_instance",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/serializers/player.py",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "file:backend/padel_app/serializers/player.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.serializers.player import serialize_player`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/serializers/presence.py",
+      "source": "file:backend/padel_app/serializers/lesson.py",
+      "target": "file:backend/padel_app/serializers/presence.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.serializers.presence import serialize_presence`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/serializers/player.py->file:backend/padel_app/serializers/user.py",
+      "source": "file:backend/padel_app/serializers/player.py",
+      "target": "file:backend/padel_app/serializers/user.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.serializers.user import serialize_user`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:semantically-similar-to:file:backend/padel_app/models/Association_CoachExercise.py->file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "source": "file:backend/padel_app/models/Association_CoachExercise.py",
+      "target": "file:backend/padel_app/models/Association_CoachExerciseGroup.py",
+      "edge_type": "semantically-similar-to",
+      "confidence": "inferred",
+      "evidence": "both implement an identical owner/follower role Enum ('owner' grants edit, 'follower' is read-only) over a different target entity (Exercise vs ExerciseGroup)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:semantically-similar-to:file:backend/padel_app/models/coach_invitation.py->file:backend/padel_app/models/player_invitation.py",
+      "source": "file:backend/padel_app/models/coach_invitation.py",
+      "target": "file:backend/padel_app/models/player_invitation.py",
+      "edge_type": "semantically-similar-to",
+      "confidence": "inferred",
+      "evidence": "both implement the identical token/status(pending,accepted,revoked,expired)/expires_at invite pattern for a different target entity (Club vs Player)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:semantically-similar-to:file:backend/padel_app/models/player_level_history.py->file:backend/padel_app/models/evaluation_entry.py",
+      "source": "file:backend/padel_app/models/player_level_history.py",
+      "target": "file:backend/padel_app/models/evaluation_entry.py",
+      "edge_type": "semantically-similar-to",
+      "confidence": "inferred",
+      "evidence": "both implement the same append-only history-log convention (one row per assignment/score, never updated), each exposed via a 'pick latest' property on the owning class",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:semantically-similar-to:file:backend/padel_app/serializers/calendar.py->file:backend/padel_app/serializers/lesson.py",
+      "source": "file:backend/padel_app/serializers/calendar.py",
+      "target": "file:backend/padel_app/serializers/lesson.py",
+      "edge_type": "semantically-similar-to",
+      "confidence": "inferred",
+      "evidence": "both independently implement the same 'recurrence_rule stored as JSON text, try/except json.loads to None' parsing pattern",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:semantically-similar-to:file:backend/padel_app/serializers/coach.py->file:backend/padel_app/serializers/player.py",
+      "source": "file:backend/padel_app/serializers/coach.py",
+      "target": "file:backend/padel_app/serializers/player.py",
+      "edge_type": "semantically-similar-to",
+      "confidence": "inferred",
+      "evidence": "both are near-identical thin wrappers of serialize_user, differing only in which object supplies id/userId",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

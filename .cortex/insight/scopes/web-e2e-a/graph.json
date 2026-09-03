@@ -1,0 +1,829 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:20:00Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts#fillClassForm",
+      "kind": "element",
+      "label": "fillClassForm"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts#firstMondayAfterTodayISO",
+      "kind": "element",
+      "label": "firstMondayAfterTodayISO"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts#openAddClass",
+      "kind": "element",
+      "label": "openAddClass"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts#bearer",
+      "kind": "element",
+      "label": "bearer"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts#getToken",
+      "kind": "element",
+      "label": "getToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/api.ts#API_APP",
+      "kind": "element",
+      "label": "API_APP"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/api.ts#API_AUTH",
+      "kind": "element",
+      "label": "API_AUTH"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/api.ts#API_ROOT",
+      "kind": "element",
+      "label": "API_ROOT"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/api.ts#BACKEND_ORIGIN",
+      "kind": "element",
+      "label": "BACKEND_ORIGIN"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#COACH_NOLEVELS_PASSWORD",
+      "kind": "element",
+      "label": "COACH_NOLEVELS_PASSWORD"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#COACH_NOLEVELS_USERNAME",
+      "kind": "element",
+      "label": "COACH_NOLEVELS_USERNAME"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#COACH_PASSWORD",
+      "kind": "element",
+      "label": "COACH_PASSWORD"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#COACH_USERNAME",
+      "kind": "element",
+      "label": "COACH_USERNAME"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#STUDENT2_PASSWORD",
+      "kind": "element",
+      "label": "STUDENT2_PASSWORD"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#STUDENT2_USERNAME",
+      "kind": "element",
+      "label": "STUDENT2_USERNAME"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#STUDENT_PASSWORD",
+      "kind": "element",
+      "label": "STUDENT_PASSWORD"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#STUDENT_USERNAME",
+      "kind": "element",
+      "label": "STUDENT_USERNAME"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#login",
+      "kind": "element",
+      "label": "login"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#loginAsCoach",
+      "kind": "element",
+      "label": "loginAsCoach"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#loginAsCoachNoLevels",
+      "kind": "element",
+      "label": "loginAsCoachNoLevels"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#loginAsStudent",
+      "kind": "element",
+      "label": "loginAsStudent"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/auth.ts#loginAsStudent2",
+      "kind": "element",
+      "label": "loginAsStudent2"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openAvailability",
+      "kind": "element",
+      "label": "openAvailability"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openCalendar",
+      "kind": "element",
+      "label": "openCalendar"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openDashboard",
+      "kind": "element",
+      "label": "openDashboard"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openExercises",
+      "kind": "element",
+      "label": "openExercises"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openMessages",
+      "kind": "element",
+      "label": "openMessages"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openPlayers",
+      "kind": "element",
+      "label": "openPlayers"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openSettings",
+      "kind": "element",
+      "label": "openSettings"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/helpers/navigation.ts#openTraining",
+      "kind": "element",
+      "label": "openTraining"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/attendance/absence-history.spec.ts",
+      "kind": "file",
+      "label": "absence-history.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts",
+      "kind": "file",
+      "label": "attendance-history.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts",
+      "kind": "file",
+      "label": "presences-validation.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/auth-onboarding/login.spec.ts",
+      "kind": "file",
+      "label": "login.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/availability/mobile-layout.spec.ts",
+      "kind": "file",
+      "label": "mobile-layout.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/availability/student-blockers.spec.ts",
+      "kind": "file",
+      "label": "student-blockers.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts",
+      "kind": "file",
+      "label": "unavailable-student-notifications.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts",
+      "kind": "file",
+      "label": "season-end-no-season.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts",
+      "kind": "file",
+      "label": "coach-invitation.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts",
+      "kind": "file",
+      "label": "coach-dashboard.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts",
+      "kind": "file",
+      "label": "dashboard-i18n.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts",
+      "kind": "file",
+      "label": "pending-confirmations.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts",
+      "kind": "file",
+      "label": "student-dashboard-kpi.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts",
+      "kind": "file",
+      "label": "upcoming-class-deeplink.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts",
+      "kind": "file",
+      "label": "editor-i18n.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/evaluation-tools/eval-categories.spec.ts",
+      "kind": "file",
+      "label": "eval-categories.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/evaluation-tools/evaluation-persist.spec.ts",
+      "kind": "file",
+      "label": "evaluation-persist.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/evaluation-tools/player-notes.spec.ts",
+      "kind": "file",
+      "label": "player-notes.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/exercise-management/browse-exercises.spec.ts",
+      "kind": "file",
+      "label": "browse-exercises.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/exercise-management/exercise-crud.spec.ts",
+      "kind": "file",
+      "label": "exercise-crud.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/exercise-management/exercise-groups.spec.ts",
+      "kind": "file",
+      "label": "exercise-groups.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts",
+      "kind": "file",
+      "label": "exercise-labels-i18n.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/global-setup.ts",
+      "kind": "file",
+      "label": "global-setup.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/helpers/api.ts",
+      "kind": "file",
+      "label": "api.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "kind": "file",
+      "label": "auth.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/helpers/calendar-navigation.ts",
+      "kind": "file",
+      "label": "calendar-navigation.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "kind": "file",
+      "label": "navigation.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/import-history/import-confirm-504.spec.ts",
+      "kind": "file",
+      "label": "import-confirm-504.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/import-history/import-history.spec.ts",
+      "kind": "file",
+      "label": "import-history.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/landing/landing-page.spec.ts",
+      "kind": "file",
+      "label": "landing-page.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts",
+      "kind": "file",
+      "label": "ticket-pad-24-loading-states.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts",
+      "kind": "file",
+      "label": "conversation-day-label.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts",
+      "kind": "file",
+      "label": "direct-messages.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts",
+      "kind": "file",
+      "label": "message-timestamp-timezone.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts",
+      "kind": "file",
+      "label": "participant-role-header.spec.ts"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/absence-history.spec.ts->file:frontend/apps/web/e2e/helpers/api.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/absence-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/api.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/absence-history.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/absence-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts->file:frontend/apps/web/e2e/helpers/api.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/api.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts->file:frontend/apps/web/e2e/helpers/api.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/api.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/auth-onboarding/login.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/auth-onboarding/login.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/availability/mobile-layout.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/availability/mobile-layout.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/availability/student-blockers.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/availability/student-blockers.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts->file:frontend/apps/web/e2e/helpers/calendar-navigation.ts",
+      "source": "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/calendar-navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts->file:frontend/apps/web/e2e/helpers/api.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/api.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/evaluation-tools/eval-categories.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/evaluation-tools/eval-categories.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/evaluation-tools/evaluation-persist.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/evaluation-tools/evaluation-persist.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/evaluation-tools/player-notes.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/evaluation-tools/player-notes.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/evaluation-tools/player-notes.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/evaluation-tools/player-notes.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/browse-exercises.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/browse-exercises.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/browse-exercises.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/browse-exercises.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-crud.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-crud.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-crud.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-crud.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-groups.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-groups.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-groups.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-groups.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/import-history/import-confirm-504.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/import-history/import-confirm-504.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/import-history/import-history.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/import-history/import-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/import-history/import-history.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/import-history/import-history.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/landing/landing-page.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/landing/landing-page.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts->file:frontend/apps/web/e2e/helpers/auth.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts->file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "source": "file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts",
+      "target": "file:frontend/apps/web/e2e/helpers/navigation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

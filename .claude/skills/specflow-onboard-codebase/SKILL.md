@@ -1,381 +1,431 @@
 ---
 name: specflow-onboard-codebase
-description: >
-  Reverse-engineer a spec tree from an existing codebase, creating the full Specflow project structure so the codebase can be managed through specs going forward. Use this skill when the user says "onboard this codebase", "reverse engineer specs", "generate specs from code", "specflow existing project", "bring this under spec management", "analyze this codebase", "I have an existing project I want to manage with specs", or any request to retroactively create specifications from working code. Also triggers when the user wants to understand what an existing codebase actually does vs. what it should do, or when they want to start using spec-driven development on a project that wasn't built that way.
+description: 'Reverse-engineer specs from existing code. "onboard this codebase".'
 ---
 
 # Specflow: Onboard Existing Codebase
 
-Turn an existing codebase into a spec-managed project. This is the reverse of specflow-new-project: instead of writing specs then code, you read code and extract what the specs *should have been*, then let the human correct your interpretation.
+## When to use
 
-The key insight: code tells you what the system *does*, but not always what it *should do*. A missing null check might be a bug or a deliberate choice. An unused endpoint might be dead code or a feature in progress. The human correction layer is what turns a mechanical code reading into an accurate spec tree.
+Reverse-engineer a two-layer spec tree (developer specs in .specflow/specs/ plus business specs
+in .specflow/specs-business/, with _overview.md in every folder of both trees) from an existing
+codebase. Uses bottom-up atom extraction with delegated agents for deep code investigation,
+relationship graphing for deterministic domain discovery, adversarial investigation before any
+bug classification, and a verification pass against the completed specs. Use this skill when
+the user says "onboard this codebase", "reverse engineer specs", "generate specs from code",
+"bring this under spec management", "analyze this codebase", or any request to retroactively
+create specifications from working code.
 
-## The Six Phases
+## What this skill does
 
----
+Turn an existing codebase into a spec-managed project. Read code, extract what the specs
+*should have been*, challenge every judgment, verify every spec, then let the human correct.
 
-## Phase 1: Code Scan
+## What this skill produces
 
-Read the entire codebase systematically. The goal is to build a mental model of the system — not to generate specs yet, just to understand what's there.
+Two parallel spec trees, bidirectionally linked, plus folder overviews:
 
-### Scan order
+- `.specflow/specs/` — developer specs with entity references (READS/WRITES), rules, Given/When/Then
+  criteria. Specs reference entities by name but do not define schemas — the model/migration
+  is the single source of truth for field definitions.
+- `.specflow/specs-business/` — business specs with outcomes, journeys, business rules, success
+  metrics. Organized in domain subfolders. Filenames are journey-oriented, starting with the
+  persona (`user-fills-dynamic-form.business.md`, not `form-submission.business.md`).
+- `_overview.md` in every folder of both trees
+- Bidirectional `implements:` (dev, single value) / `implemented_by:` (business, list)
+- `onboarding-scratch/atoms/` — retained atom extraction records (the audit trail)
+- Delta analysis: bug findings filed in the `.cortex/compass/bugs/` ledger, plus
+  implicit-behaviors.md, dead-features.md, link-map.md
+- Investigation records and verification feedback in proposed-notes.md
 
-Follow this order because each layer informs the next:
+## Agent Delegation Model
 
-1. **Project structure** — Directory layout, package files (package.json, pyproject.toml, Cargo.toml, etc.), config files, monorepo structure. This tells you the tech stack and how the project is organized.
+Onboarding a large codebase exceeds what a single agent can hold in context. Each
+subagent in Claude Code gets a ~200K token context window, of which ~150K is usable
+after system prompt, tools, and skill instructions. A single 4,000+ line source file
+can consume 30-40K tokens. This means a subagent trying to read an entire large module
+will run out of read budget before covering everything.
 
-2. **Data layer** — Models, migrations, schemas, database config. Read every model file. This is the foundation — entities and their relationships define the system's core concepts. Note field types, constraints, indexes, and relationships carefully.
+**The solution: delegate aggressively, delegate early, delegate small.**
 
-3. **Backend routes/services** — API endpoints, business logic, middleware, auth. For each endpoint, note: HTTP method, path, what it does, what entities it touches, what validation it performs, what errors it returns. For services, note the business rules encoded in the logic.
+| Task | Why delegate | Agent scope |
+|---|---|---|
+| Reading a large source file (1000+ lines) | A single file can consume 20-40% of context | One agent per file, returns structured atom records |
+| Reading a module with multiple files | Files compete for context space | One agent per file or small cluster of related files |
+| Scanning a code module/domain | Single agent loses context across 100+ files | One agent per top-level directory or service |
+| Investigating an atom's relationships | Tracing callers/callees requires reading many files | One atom + everything that touches it |
+| Adversarial bug investigation | Building a defense requires deep, focused reading | One potential bug + all related code |
+| Verifying a set of specs | Re-reading code against specs requires fresh context | One domain's specs + code |
 
-4. **Frontend** — Pages, components, state management, routing. Note what pages exist, how they map to API endpoints, what state they manage, and what user flows they support. Not every codebase has a frontend — adjust accordingly.
+### Context budget rules
 
-5. **Tests** — What's tested, what's not, testing framework, test patterns. Existing tests are gold — they often document intended behavior more clearly than the code itself. Note any tests that are skipped or failing.
+1. **Never try to read a file larger than 1,000 lines in your own context.** Spawn a
+   subagent to read it and return structured findings.
 
-6. **Infrastructure** — CI/CD, deployment config, env vars, Docker files. This tells you about the operational environment and constraints.
+2. **Never try to cover more than ~5,000 lines of source code in one agent's context.**
+   If a directory contains more, split it into chunks and delegate each chunk.
 
-### What to capture for each area
+3. **Each subagent should read deeply and return concisely.** The subagent reads the full
+   source file (which may be 30K tokens), extracts the atoms and rules, and returns a
+   structured summary (which is ~2K tokens). The orchestrator's context receives only
+   the summary.
 
-For each area you scan, track:
-- **Entities and fields** — What data does the system manage? What are the types, constraints, defaults?
-- **Endpoints and behaviors** — What can the system do? What are the inputs and outputs?
-- **Business rules** — What logic governs behavior? Validation, authorization, state machines, calculations.
-- **Patterns** — What conventions does the codebase follow? Naming, error handling, response formats, file organization.
-- **Anomalies** — What looks inconsistent, incomplete, or accidental? Dead code, unused imports, TODO comments, commented-out blocks.
-- **Dependencies** — What external libraries/services are used and why?
+4. **Prefer many small agents over few large ones.** 10 agents each reading one file and
+   returning summaries is better than 2 agents each trying to read 5 files. The cost is
+   tokens (parallel agents burn budget faster), but the quality is higher because each
+   agent has full context for its file.
 
-### Recognizing project types
+5. **Track coverage explicitly.** After atom extraction, count how many routes/components/
+   functions were extracted vs how many exist. If the count doesn't match, identify the
+   gap and spawn additional agents to cover the missing items. Never silently skip code
+   because the budget ran out.
 
-Adapt your scan based on what you find:
-- **Full-stack web app**: Scan both backend and frontend, note API contract between them
-- **API-only service**: No frontend to scan, focus on endpoints and data models
-- **CLI tool**: Focus on command structure, input/output formats, processing logic
-- **Library/SDK**: Focus on public API surface, internal architecture, documentation
-- **Monorepo**: Identify service boundaries, scan each service as a sub-project
+### How to delegate a large file read
 
-This phase produces an internal working document. The human does not review this — it's your scratch pad for Phase 2.
+```
+Agent tool call:
+  prompt: "Read [file path] (lines [start]-[end]). For every endpoint/function/model
+           you find, return a structured atom record with: identity (name, type, line
+           number), entities touched (READS/WRITES), atoms called, atoms that call it,
+           external dependencies, and any behavioral rules you can identify from the
+           logic. Also flag anything that looks like it might be a bug — but do NOT
+           classify it, just describe what you see."
+```
 
----
+For very large files (3,000+ lines), split into line ranges:
+- Agent 1: lines 1-1500
+- Agent 2: lines 1500-3000
+- Agent 3: lines 3000-4500
+- Agent 4: lines 4500-end
 
-## Phase 2: Proposed Spec Generation
+Each returns atom records for the endpoints/functions in its range. The orchestrator
+merges the records.
 
-From your code scan, generate the full spec tree. This is the interpretive step — you're making judgment calls about what the code *intends* to do.
+Each sub-agent receives a focused task, the context it needs, and a structured output
+format. Sub-agents extract, investigate, and verify. The orchestrating agent makes final
+classification decisions and writes specs from sub-agent outputs.
 
-### The critical distinction
+## Cortex Awareness
 
-Write specs for what the code **appears to intend**, not just what it mechanically does. Code is full of accidents — copy-paste errors, half-finished features, workarounds that became permanent. Your job is to separate signal from noise.
+When the project has a `.cortex/insight/` directory (a Cortex project — design §8.4
+bridge 5), build from the extracted insight instead of re-walking the tree:
 
-Guidelines:
-- **If a feature works but has edge case gaps** — spec the intended behavior, note gaps as `OPEN:` items. Example: login works but has no rate limiting → spec login, add `OPEN: No rate limiting implemented`
-- **If there's dead code** — don't spec it. Note it in `proposed-notes.md` under "Dead Code"
-- **If behavior is inconsistent** — pick the version that seems intentional (usually the more recent or more complete one), spec that, and note the inconsistency
-- **If something looks like a bug** — spec the *correct* behavior you think was intended, note in `OPEN:` that current implementation diverges
-- **If you genuinely can't tell what's intended** — spec what the code does literally, mark the whole spec as `OPEN: Intent unclear — needs human review`
+- **Phase 1 starts from insight.** Use the insight per-file entries (`cortex insight
+  file <path>` — Purpose + Connections per source file) and the L1 import graph
+  (`.cortex/insight/graph.json` `imports` edges) as the initial file inventory and
+  relationship seed. Delegate deep file reads only where a file has no insight entry
+  or its entry is too thin to extract atoms from — not for files insight already
+  explains.
+- **Phase 7 rules use the schema format.** Alongside the human-readable RULES.md, draft
+  the machine-readable compass rules per cortex-schema §4.2: one
+  `.cortex/compass/rules/R-NNN-<slug>.md` per rule with `id`, `title`, `source`, and
+  `governs` frontmatter — and a `check:` predicate wherever the constraint is
+  mechanically checkable.
+- **Bug findings land in the §4.3 ledger (design §8.5).** Every confirmed bug from
+  Phases 6 and 8 is filed as `.cortex/compass/bugs/B-NNN-<slug>.md` with the
+  seven-type frontmatter — never a root `bugs.md` deliverable — so the daily bug-triage
+  loop finds them.
+- **Insight coordination (when `.cortex/insight/` exists).** If the project already
+  carries an insight layer, consult it rather than re-deriving understanding: run
+  `cortex insight file <path>` for a file's rich entry and
+  `cortex insight concept <name>` for how a concept lives in the code, and delegate
+  deep reads only where the entries are missing or too thin. Insight is inferred
+  context, not authority — confirm it against the gated layers (compass rules, specs)
+  before it drives a classification. A fresh onboard typically has no insight yet —
+  proceed without it, never block on its absence; full coordination with the
+  `cortex-extract-insight` skill is future work.
 
-### Spec format
+## The Eight Phases
 
-Use the same schema as specflow-new-project. Read `references/spec-schema.md` for the exact format (it's the same file used by the new-project skill). Every spec has: id, status (always `draft`), depends_on, Intent, Entities (if applicable), Rules, Acceptance Criteria (Given/When/Then with concrete values), and Notes.
+### Phase 1: Atom Extraction
 
-For onboarding, acceptance criteria should reflect the *current behavior* of working code. If login requires email + password and returns a JWT, write:
+**Read `references/atom-extraction.md` for the full protocol.**
+
+Identify every concrete unit of behavior (atom) and map relationships. Mechanical, not
+interpretive. No specs written yet.
+
+Atom types: endpoints, models/tables, significant functions, workers/jobs, external
+integrations. For each: identity, entities touched (READS/WRITES), atoms called, atoms
+that call it, external dependencies.
+
+**Agent delegation:** Spawn one extraction agent per source file that exceeds 1,000 lines,
+or per top-level directory for smaller files. For very large files (3,000+ lines), split
+into line-range agents. Each agent reads its scope, extracts atom records, and returns
+structured findings. The orchestrator merges the records into the unified atom graph.
+
+**Coverage tracking:** After all extraction agents return, count the atoms found vs the
+total endpoints/components/functions identified in the project scan. If the count is short,
+identify which files or line ranges were missed and spawn additional agents. Report any
+remaining coverage gaps explicitly — never silently skip code.
+
+**Output:** The atom graph (nodes + entity/call/integration edges) AND committed atom
+records in `onboarding-scratch/atoms/`. These scratch files are mandatory — they are the
+audit trail for how domains were discovered.
+
+### Phase 2: Domain Discovery and Spec Generation
+
+#### 2a. Cluster atoms into domains
+
+Domains emerge from the relationship graph, not from file directory structure. Groups of
+atoms that reference each other heavily and reference other groups lightly form a domain.
+
+1. Start with entity clusters (atoms sharing the same tables)
+2. Merge clusters with many call edges between them
+3. Split clusters larger than ~20 atoms with distinct sub-concerns
+4. Separate cross-cutting atoms (rate limiting, logging) as infrastructure
+
+Name domains using the codebase's vocabulary.
+
+#### 2b. Generate the developer tree
+
+Deterministic rules:
+
+- **Entity ownership:** The spec whose atom *creates* the entity (migration, model
+  definition) owns it for dependency purposes. But specs do NOT define schemas — they
+  reference entities with READS/WRITES sections.
+- **Granularity:** One leaf spec per endpoint (backend), per route (frontend), or per
+  component with its own significant state management. Workers and jobs are one spec each.
+- **Dependency direction:** The spec that references another spec's entity depends on it.
+- **File naming:** `.specflow/specs/{domain}/{capability}/{leaf}.spec.md`
+- **Dev spec file names use the leaf name**, not generic `spec.md`.
+
+**Entity references in specs:** Every dev spec has an Entities section listing which
+entities it reads from and writes to, without defining the schema:
 
 ```markdown
-### Successful login
-- **Given** a user with email 'alice@example.com' and password 'SecurePass1!'
-- **When** they POST to /api/auth/login with those credentials
-- **Then** the response status is 200
-- **And** the response body contains a valid JWT token
+## Entities
+
+- **READS:** User, Class
+- **WRITES:** Booking, Class (decrements available_spots)
 ```
 
-These criteria become calibration tests in Phase 6 — they should pass against the current codebase.
+This anchors the relationship graph and enables verification without duplicating the
+schema. The model/migration is the single source of truth for field definitions.
 
-### Generate proposed-notes.md
+**Agent delegation:** For each domain, spawn an agent to investigate its atoms deeply and
+produce draft spec content. If a domain's source code exceeds 5,000 lines total, split
+it into sub-agents per file or per route cluster. The spec-writing agent for a domain
+should receive the atom records (from Phase 1) plus access to the source files — if the
+source files are too large for one context, it should spawn its own sub-agents to re-read
+specific sections as needed.
 
-This file captures your interpretive decisions:
+**Never let a spec-writing agent run out of read budget.** If an agent reports that it
+couldn't read all the code for its domain, spawn additional agents to cover the gap.
+Incomplete specs are worse than more agents.
 
-```markdown
-# Proposed Notes
+Do NOT classify potential bugs yet — flag them for Phase 3.
 
-## Interpretive Decisions
-[For each judgment call, explain what you saw and why you interpreted it the way you did]
+Use `references/spec-schema.md` for the full dev spec format.
 
-- `auth.login.jwt-login`: Login endpoint has no rate limiting. Specced login without it, flagged as OPEN.
-- `billing.invoices.generate-invoice`: Two code paths for invoice generation — one in services/billing.py (newer, more complete) and one in utils/legacy_billing.py (older, referenced by 2 endpoints). Specced the newer version.
+#### 2c. Synthesize the business tree
 
-## Dead Code
-[Code that exists but appears unused or deprecated]
+Business specs are synthesized by grouping dev capabilities into user-visible outcomes.
+Signals (in order of trustworthiness): frontend route tree / menu items, user-facing
+entry points, README / product description, CLI subcommands, public API contract sections,
+coherent journeys from the atom graph.
 
-- `utils/legacy_billing.py` — Old billing logic, partially duplicated in services/billing.py
-- `components/OldDashboard.tsx` — Replaced by Dashboard.tsx, no imports reference it
+**Naming convention:** Business spec filenames are journey-oriented, starting with the
+persona: `user-fills-dynamic-form.business.md`, `coach-manages-schedule.business.md`.
+This forces the author to think from the user's perspective.
 
-## Inconsistencies
-[Places where the code contradicts itself]
+**Directory structure:** `.specflow/specs-business/{domain}/{outcome}.business.md` with `_overview.md`
+in every domain folder. Business specs are NOT flat at root — they are organized in domain
+subfolders.
 
-- Error responses: /api/users returns `{error: "message"}`, /api/billing returns `{detail: "message"}`
-- Auth middleware: applied on most routes but missing from /api/webhooks and /api/health
-```
+Sizing: 8-25 business specs for a medium app. Mark uncertain groupings as `status: draft`
+with `OPEN:` notes.
 
----
+Use `references/business-spec-template.md`.
 
-## Phase 3: Human Correction Layer
+#### 2d. Wire links and emit overviews
 
-This is the most important phase. Present your proposed specs to the human domain by domain and let them correct your interpretation.
+1. Set `implements:` on each dev spec (single value) and `implemented_by:` on each
+   business spec (list). Unmapped dev specs get `implements: []`.
+2. Emit `_overview.md` in every folder of both trees using
+   `references/folder-overview-template.md`.
 
-### How to present
+### Phase 3: Adversarial Investigation
 
-For each domain:
-1. Show a summary: "I found X capabilities with Y leaf specs in the [domain] domain. Here's what I think it does..."
-2. Walk through each capability briefly
-3. Ask: "Does this match what this part of the system should do? Anything wrong, missing, or that shouldn't be there?"
+**Read `references/adversarial-investigation.md` for the full protocol.**
 
-### Processing corrections
+Before classifying anything as a bug, dead code, or coupling issue, make the strongest
+possible case that the code is correct: "How would the developer defend this?"
 
-Every correction gets logged. The correction type determines what happens next:
+Five defenses to attempt:
+1. Construct a business justification
+2. Check for systemic patterns (same "wrong" thing done consistently = convention)
+3. Trace callers and callees
+4. Check if the "fix" would break something downstream
+5. Check for compensating code elsewhere
 
-| Human says | Correction type | What it means |
-|-----------|----------------|---------------|
-| "That's right" | `approved` | Spec matches intent — no changes |
-| "That's wrong, it should be X" | `bug` | Code diverges from intent → add to bugs.md |
-| "That exists but shouldn't" | `dead-feature` | Feature is deprecated → add to dead-features.md |
-| "That's missing entirely" | `missing-spec` | Behavior exists but you missed it, OR behavior should exist but doesn't |
-| "Those shouldn't be connected" | `coupling-issue` | Accidental coupling → revise dependency graph |
-| "Actually that's intentional" | `clarification` | Your OPEN: question is answered |
+**Agent delegation:** Each potential bug gets its own investigation agent.
 
-### Log format (corrections.md)
+**Every investigated item gets a record in proposed-notes.md** — even items classified as
+correct. Do not curate the trail. The human needs the full reasoning for every judgment.
 
-```markdown
-# Corrections Log
+Classification: no defense holds = high-confidence bug. Weak defense = needs human
+judgment. Strong defense = correct behavior.
 
-## auth.login.jwt-login
-- **Type:** bug
-- **Proposed:** Login accepts any non-empty password string
-- **Corrected:** Login should validate password meets minimum 8 chars, 1 uppercase, 1 number
-- **Implication:** Bug — password validation is missing from the login endpoint
+### Phase 4: Verification Pass
 
-## billing.invoices.generate-invoice
-- **Type:** dead-feature
-- **Proposed:** Two invoice generation paths exist (legacy + current)
-- **Corrected:** Legacy path should be removed entirely
-- **Implication:** Dead feature — utils/legacy_billing.py should be deleted
+**Read `references/verification-pass.md` for the full protocol.**
 
-## notifications.email.welcome-email
-- **Type:** missing-spec
-- **Proposed:** [not in proposed specs]
-- **Corrected:** System should send a welcome email on registration
-- **Implication:** Missing spec — behavior needs to be added
-```
+Re-read the code against completed specs to catch spec-writing errors. For each dev spec:
+verify entity references match reality (does this code actually read/write these tables?),
+verify rules match the actual logic, verify acceptance criteria would pass, verify
+dependencies, verify the `implements:` link.
 
-### Handling large codebases
+**Agent delegation:** One verification agent per domain.
 
-For codebases with many domains, don't dump everything at once. Present one domain at a time, get corrections, move on. If the human seems fatigued, offer to batch the remaining domains: "Want me to present the rest, or should I generate the remaining specs and you can review the final output?"
+Corrections are applied directly. Escalated issues are flagged as `OPEN:`.
+The human receives specs that have been written, challenged, and verified.
 
----
+### Phase 5: Human Correction Layer
 
-## Phase 4: Delta Analysis
+Present both layers to the human: business tree first (smaller, more familiar), then dev
+tree with bidirectional links and investigation records from Phase 3.
 
-Process the corrections log and generate three deliverables:
+For large codebases, present one business domain at a time with its dev children inline.
 
-### bugs.md
+Every correction gets logged in `corrections.md`. Correction types: approved, bug,
+dead-feature, missing-spec, coupling-issue, clarification, regrouping, business-split,
+business-merge.
 
-```markdown
-# Bug Report
+### Phase 6: Delta Analysis
 
-## Major (data integrity, security, core flow breakage)
-1. **[spec-id]**: [description]
-   - **Current behavior:** [what the code does]
-   - **Expected behavior:** [what the human said it should do]
-   - **Location:** [file:line or endpoint]
+Process corrections.md and generate four deliverables:
 
-## Normal (incorrect behavior, non-critical)
-...
+- **Bug ledger entries (`.cortex/compass/bugs/B-NNN-<slug>.md`)** — one file per
+  confirmed bug with cortex-schema §4.3 frontmatter (seven-type `type:`, `severity`,
+  `status`, `affects`) — never a root `bugs.md`. Each body carries: spec ID,
+  investigation reference, what code does, what it should do, defense attempted, why it
+  failed. Severities follow the schema enum: `critical`/`high` (data/security/core-flow),
+  `medium` (broken with workaround), `low` (cosmetic/edge-case).
+- **implicit-behaviors.md** — Undocumented behaviors with keep/remove recommendations.
+- **dead-features.md** — Deprecated or unwanted code with removal recommendations.
+- **link-map.md** — Business-to-dev coverage table plus unmapped dev specs.
 
-## Minor (cosmetic, edge cases)
-...
-```
+### Phase 7: Claude Code Tooling Generation
 
-Severity heuristic:
-- **Major**: Affects data integrity, security, authentication, or core business flows
-- **Normal**: Incorrect behavior that doesn't risk data loss or security
-- **Minor**: Cosmetic issues, edge cases that rarely trigger, inconsistent but harmless patterns
+Generate CLAUDE.md, RULES.md, skills, and agents.
 
-### implicit-behaviors.md
+**CLAUDE.md:** What the project is, how Specflow works (two-layer model, bidirectional
+links, _overview.md, entity references not definitions), the build loop, key decisions.
 
-```markdown
-# Implicit Behaviors
+**RULES.md:** 10-20 hard constraints extracted from the codebase's patterns. Specific
+and actionable.
 
-Undocumented behaviors discovered during onboarding. Each needs a keep/remove decision.
+**Skills and agents** for project-specific patterns and operations.
 
-| Behavior | Location | Recommendation | Rationale |
-|----------|----------|---------------|-----------|
-| Soft-delete cascades to child records | models/user.py:45 | Keep | Prevents orphan records |
-| API returns 200 for empty results | routes/search.py:12 | Keep | Frontend expects this |
-| Cron job runs at 3am to clean temp files | scheduler.py:8 | Review | May not be needed anymore |
-```
+Conventions discovered during atom extraction become rules.
 
-### dead-features.md
+### Phase 8: Test Generation and Calibration
 
-```markdown
-# Dead Features
-
-Code implementing deprecated or unreferenced functionality.
-
-| Feature | Files | Evidence | Safe to remove? |
-|---------|-------|----------|----------------|
-| Legacy billing | utils/legacy_billing.py | Duplicated in services/billing.py, old endpoints deprecated | Yes |
-| Old dashboard | components/OldDashboard.tsx | No imports, replaced by Dashboard.tsx | Yes |
-| CSV export v1 | utils/csv_export.py | Referenced only by commented-out route | Likely yes |
-```
-
----
-
-## Phase 5: Claude Code Tooling Generation
-
-Generate the Claude Code infrastructure that matches the existing codebase's patterns.
-
-### Skills
-
-Read the codebase's actual conventions and extract them into skills. These are not generic "how to use React" skills — they're specific to *this* codebase.
-
-For example, if the codebase uses Flask with a specific pattern for route blueprints:
-```yaml
----
-name: flask-routes
-description: >
-  Patterns for adding Flask route blueprints in this project. Use when creating new API endpoints.
----
-# Flask Route Patterns
-
-Routes in this project follow this structure:
-[extract the actual pattern from the codebase, with real examples from the code]
-```
-
-Look for patterns in:
-- **API response format** — How errors are returned, pagination, envelope structure
-- **Component structure** — How frontend components are organized, prop patterns, state management
-- **Testing patterns** — How tests are structured, fixtures, helpers, mocking conventions
-- **Error handling** — How exceptions propagate, logging patterns, error response shapes
-- **Naming conventions** — File naming, variable naming, endpoint naming
-
-### Agents
-
-Create agents appropriate for the project's actual tech stack:
-- A **test-writer** agent that knows the project's testing patterns
-- A **code-reviewer** agent that checks against the extracted rules
-- Domain-specific agents if the codebase has clearly separated domains
-
-Agent format:
-```yaml
----
-name: agent-name
-description: >
-  When to use this agent. Be specific.
-tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
-skills:
-  - relevant-extracted-skill
----
-
-System prompt with project-specific context.
-```
-
-### RULES.md
-
-Extract hard rules from the code — things that are consistent across the codebase and should remain so:
-
-```markdown
-# Project Rules
-
-1. **API responses use envelope format** — All endpoints return `{data: ..., error: ...}`. Why: frontend client expects this shape.
-2. **Models use soft delete** — Never hard-delete records, use `deleted_at` timestamp. Why: audit trail requirement.
-[etc.]
-```
-
-### CLAUDE.md
-
-Generate a CLAUDE.md that covers:
-- What the project is
-- How Specflow works (specs are source of truth going forward)
-- Commands (dev server, tests, migrations — extracted from package.json/Makefile/etc.)
-- The build loop for implementing new specs
-- Conventions extracted from the codebase
-- What NOT to do
-
-Read `references/claude-md-template.md` for the template structure.
-
----
-
-## Phase 6: Test Generation and Calibration
-
-This phase validates that specs and code are in sync.
-
-### Generate tests
-
-For every leaf spec's acceptance criteria, generate a test. Use the project's existing testing framework and patterns (discovered in Phase 1).
-
-- If the project uses pytest, generate pytest tests
-- If it uses Jest/Vitest, generate those
-- If it uses Playwright for E2E, generate Playwright tests for UI specs
-- Match the project's existing test style (imports, fixtures, naming conventions)
-
-### Calibration run
-
-Run the generated tests against the current codebase. Three outcomes:
+Generate one atomic test per dev spec acceptance criterion. Run against the current
+codebase to calibrate:
 
 | Result | Meaning | Action |
-|--------|---------|--------|
-| Test passes | Code matches corrected spec | Spec-code alignment confirmed |
-| Test fails, code is wrong | Known bug from Phase 4 | Already in bugs.md — expected failure |
-| Test fails, test is wrong | Spec or test has an error | Fix the test to match actual behavior, update spec if needed |
+|---|---|---|
+| Pass | Code matches spec | Alignment confirmed |
+| Fail — test wrong | Agent misinterpreted spec | Fix the test |
+| Fail — code wrong | Code doesn't match spec | File in the `.cortex/compass/bugs/` ledger |
 
-After calibration, the test suite should be clean:
-- Every passing test confirms a spec
-- Every failing test corresponds to a documented bug
-- No test failures from bad test code
+After calibration: every failing test = a ledger entry (`B-NNN`), every passing test =
+confirmed alignment.
 
-Report the calibration results:
-```
-Calibration Results:
-- X tests generated
-- Y passed (spec-code alignment confirmed)
-- Z failed — W are known bugs, V were test errors (fixed)
-```
+### Phase 9: Build Order
 
----
+Generate `build-order.md` as a **phased remediation plan** organized by priority:
+
+1. **Phase 0: Guardrails** — critical safety fixes, CI setup
+2. **Phase 1: Major bug triage** — all critical/high-severity bugs from the
+   `.cortex/compass/bugs/` ledger
+3. **Phase 2: Robustness** — medium-severity bugs, input validation gaps
+4. **Phase 3: Deduplication** — dead code removal, consolidating duplicated logic
+5. **Phase 4: API hygiene** — consistency fixes, naming, response shapes
+6. **Phase 5: Stakeholder decisions** — items that need product/business input
+
+Include effort estimates per phase where possible. This is an actionable work plan, not
+just a reading order.
 
 ## Output Structure
 
-All files go into the project root (or a `specflow/` subdirectory if the user prefers):
-
 ```
 project-root/
-├── CLAUDE.md                          # Master instructions for Claude Code
-├── RULES.md                           # Hard constraints extracted from codebase
-├── build-order.md                     # Dependency-sorted spec sequence
-├── corrections.md                     # Human correction log from Phase 3
-├── bugs.md                            # Bugs found through spec-code delta
-├── implicit-behaviors.md              # Undocumented behaviors catalog
-├── dead-features.md                   # Deprecated code inventory
-├── proposed-notes.md                  # Interpretive decisions from Phase 2
+├── CLAUDE.md
+├── RULES.md
+├── build-order.md
+├── corrections.md
+├── implicit-behaviors.md
+├── dead-features.md
+├── link-map.md
+├── proposed-notes.md
+├── onboarding-scratch/
+│   └── atoms/                             # mandatory — retained extraction records
+│       ├── 01-backend-controllers.md
+│       ├── 02-config-modules.md
+│       ├── 03-frontend-components.md
+│       └── ...
 ├── .claude/
-│   ├── skills/{name}/SKILL.md         # Skills extracted from codebase patterns
-│   └── agents/{name}.md               # Agents for the project's stack
-└── specs/
-    ├── _index.md                      # Tooling manifest + dependency graph
-    └── {domain}/{capability}/spec.md  # Spec files
+│   ├── skills/{name}/SKILL.md
+│   └── agents/{name}.md
+├── .specflow/specs/
+│   ├── _overview.md
+│   ├── _index.md
+│   └── {domain}/
+│       ├── _overview.md
+│       └── {capability}/
+│           ├── _overview.md
+│           └── {leaf}.spec.md
+└── .specflow/specs-business/
+    ├── _overview.md
+    └── {domain}/
+        ├── _overview.md
+        └── {outcome}.business.md
 ```
 
-### Status conventions for onboarded specs
+Bug findings are not a project-root deliverable — they are filed in the
+`.cortex/compass/bugs/` ledger (cortex-schema §4.3).
 
-Unlike new-project specs (which all start as `draft`), onboarded specs use status to reflect reality:
-- `implemented` — Code exists, tests pass, human approved
-- `draft` — Spec exists but code has a known bug (needs reimplementation)
-- `draft` with `OPEN:` — Intent unclear, needs human decision before implementation
+## Onboarding Summary Report (mandatory final output)
 
----
+```
+Onboarding complete.
 
-## Tips for better onboarding
+Atoms extracted: [N] ([N] endpoints, [N] models, [N] functions, [N] workers, [N] integrations)
+Domains discovered: [N] ([list])
+Developer specs created: [N]
+Business specs created: [N]
+Unmapped dev specs: [N]
+Folders missing _overview.md: 0
+Business specs marked draft: [N]
 
-- **Read tests first if they exist.** Tests often express intent more clearly than implementation code. A test named `test_user_cannot_book_past_slots` tells you a business rule that might be buried in a complex service method.
-- **Check git blame for context.** Recent changes might indicate features in progress. Commit messages often explain *why* something was done.
-- **Look at the API from the frontend's perspective.** The frontend's API calls show you which endpoints are actually used and how. Dead endpoints often have no frontend callers.
-- **Don't over-spec.** If the codebase has 200 endpoints, not all need individual leaf specs. Group trivial CRUD into capability-level specs and only break out leaf specs for complex behaviors.
-- **Respect the codebase's vocabulary.** If the code calls it "session" not "class", use "session" in specs. The spec tree should speak the same language as the code.
+Adversarial investigation:
+  Items investigated: [N]
+  Classified as bugs: [N] ([N] high, [N] medium confidence)
+  Classified as correct: [N]
+  Escalated to human: [N]
+
+Verification pass:
+  Specs confirmed: [N]
+  Specs corrected: [N]
+  Issues escalated: [N]
+
+Bugs filed in the ledger: [N] ([N] critical/high, [N] medium, [N] low)
+Dead-code candidates: [N]
+```
+
+If "Folders missing _overview.md" is non-zero, go back and fill them before declaring
+onboarding complete.
+
+## Reference Files
+
+| File | Read when |
+|---|---|
+| `references/atom-extraction.md` | Phase 1 — atom types, grep patterns, project type adaptation, agent delegation |
+| `references/adversarial-investigation.md` | Phase 3 — five defenses, classification rules, record format, examples |
+| `references/verification-pass.md` | Phase 4 — six verification checks, feedback format |
+| `references/spec-schema.md` | Phase 2b — developer spec format with entity references |
+| `references/business-spec-template.md` | Phase 2c — business spec format, journey-oriented naming |
+| `references/folder-overview-template.md` | Phase 2d — overview template |
+| `references/claude-md-template.md` | Phase 7 — CLAUDE.md template |

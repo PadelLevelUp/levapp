@@ -1,0 +1,328 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T15:35:00Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts#coachLoginUI",
+      "kind": "element",
+      "label": "coachLoginUI"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts#getNotificationActivity",
+      "kind": "element",
+      "label": "getNotificationActivity"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts#getToken",
+      "kind": "element",
+      "label": "getToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts#pollForReminderMessage",
+      "kind": "element",
+      "label": "pollForReminderMessage"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts#setCoachConfig",
+      "kind": "element",
+      "label": "setCoachConfig"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts#getAllMessages",
+      "kind": "element",
+      "label": "getAllMessages"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts#getToken",
+      "kind": "element",
+      "label": "getToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts#pollForMessage",
+      "kind": "element",
+      "label": "pollForMessage"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts#setCoachConfig",
+      "kind": "element",
+      "label": "setCoachConfig"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#getConfig",
+      "kind": "element",
+      "label": "getConfig"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#presenceForStudent",
+      "kind": "element",
+      "label": "presenceForStudent"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#resetStudentPresence",
+      "kind": "element",
+      "label": "resetStudentPresence"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#restoreReminderTiming",
+      "kind": "element",
+      "label": "restoreReminderTiming"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#setReminderHoursBefore",
+      "kind": "element",
+      "label": "setReminderHoursBefore"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#studentClassPayload",
+      "kind": "element",
+      "label": "studentClassPayload"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts#token",
+      "kind": "element",
+      "label": "token"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts#coachApiToken",
+      "kind": "element",
+      "label": "coachApiToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts#openClassDetail",
+      "kind": "element",
+      "label": "openClassDetail"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts#sendNotificationFromModal",
+      "kind": "element",
+      "label": "sendNotificationFromModal"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts#studentApiToken",
+      "kind": "element",
+      "label": "studentApiToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#countInviteMessages",
+      "kind": "element",
+      "label": "countInviteMessages"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#createApprovalTestClass",
+      "kind": "element",
+      "label": "createApprovalTestClass"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#enableAutoInviteEngine",
+      "kind": "element",
+      "label": "enableAutoInviteEngine"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#getToken",
+      "kind": "element",
+      "label": "getToken"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#markSeededStudentAbsentAndConfirm",
+      "kind": "element",
+      "label": "markSeededStudentAbsentAndConfirm"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#nextMondayDate",
+      "kind": "element",
+      "label": "nextMondayDate"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#openClassDetail",
+      "kind": "element",
+      "label": "openClassDetail"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#pollForNewInviteMessage",
+      "kind": "element",
+      "label": "pollForNewInviteMessage"
+    },
+    {
+      "id": "element:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts#setCoachConfig",
+      "kind": "element",
+      "label": "setCoachConfig"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts",
+      "kind": "file",
+      "label": "auto-reminder.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts",
+      "kind": "file",
+      "label": "blank-template-fallback.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts",
+      "kind": "file",
+      "label": "cancel-attendance-class-view.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts",
+      "kind": "file",
+      "label": "cancel-attendance.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/cancellation-deadline.spec.ts",
+      "kind": "file",
+      "label": "cancellation-deadline.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/class-cancellation-notification.spec.ts",
+      "kind": "file",
+      "label": "class-cancellation-notification.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts",
+      "kind": "file",
+      "label": "manual-notify-selection.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/notification-config.spec.ts",
+      "kind": "file",
+      "label": "notification-config.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts",
+      "kind": "file",
+      "label": "proactive-decline.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts",
+      "kind": "file",
+      "label": "reminder-flow.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts",
+      "kind": "file",
+      "label": "semi-auto-approval.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts",
+      "kind": "file",
+      "label": "standing-waitlist-expired.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/add-player.spec.ts",
+      "kind": "file",
+      "label": "add-player.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/create-player-level-dropdown.spec.ts",
+      "kind": "file",
+      "label": "create-player-level-dropdown.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/delete-player.spec.ts",
+      "kind": "file",
+      "label": "delete-player.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/duplicate-name-warning.spec.ts",
+      "kind": "file",
+      "label": "duplicate-name-warning.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts",
+      "kind": "file",
+      "label": "duplicate-username-warning.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/level-formatting.spec.ts",
+      "kind": "file",
+      "label": "level-formatting.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts",
+      "kind": "file",
+      "label": "player-invite-completion.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/player-search-pagination.spec.ts",
+      "kind": "file",
+      "label": "player-search-pagination.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/player-side-both.spec.ts",
+      "kind": "file",
+      "label": "player-side-both.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/players-sort-filter-alerts.spec.ts",
+      "kind": "file",
+      "label": "players-sort-filter-alerts.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/search-edit-player.spec.ts",
+      "kind": "file",
+      "label": "search-edit-player.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts",
+      "kind": "file",
+      "label": "ticket-pad-105-coach-no-username.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/players/add-to-classes.spec.ts",
+      "kind": "file",
+      "label": "add-to-classes.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/players/set-player-level.spec.ts",
+      "kind": "file",
+      "label": "set-player-level.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/players/validation-watermark.spec.ts",
+      "kind": "file",
+      "label": "validation-watermark.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts",
+      "kind": "file",
+      "label": "attendance-save.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/attendance.spec.ts",
+      "kind": "file",
+      "label": "attendance.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-date-prepopulate.spec.ts",
+      "kind": "file",
+      "label": "class-date-prepopulate.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-delete-confirm.spec.ts",
+      "kind": "file",
+      "label": "class-delete-confirm.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts",
+      "kind": "file",
+      "label": "class-deletion.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts",
+      "kind": "file",
+      "label": "class-detail-privacy.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-management.spec.ts",
+      "kind": "file",
+      "label": "class-management.spec.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/e2e/schedule-calendar/class-overlap-warning.spec.ts",
+      "kind": "file",
+      "label": "class-overlap-warning.spec.ts"
+    }
+  ],
+  "edges": []
+}

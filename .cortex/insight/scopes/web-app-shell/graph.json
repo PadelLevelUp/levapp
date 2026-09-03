@@ -1,0 +1,566 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:15:37Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/src/App.tsx#App",
+      "kind": "element",
+      "label": "App"
+    },
+    {
+      "id": "element:frontend/apps/web/src/i18n.ts#AppLanguage",
+      "kind": "element",
+      "label": "AppLanguage"
+    },
+    {
+      "id": "element:frontend/apps/web/src/i18n.ts#SUPPORTED_LANGUAGES",
+      "kind": "element",
+      "label": "SUPPORTED_LANGUAGES"
+    },
+    {
+      "id": "element:frontend/apps/web/src/i18n.ts#deepMerge",
+      "kind": "element",
+      "label": "deepMerge"
+    },
+    {
+      "id": "element:frontend/apps/web/src/i18n.ts#modules",
+      "kind": "element",
+      "label": "modules"
+    },
+    {
+      "id": "element:frontend/apps/web/src/i18n.ts#syncDocumentLang",
+      "kind": "element",
+      "label": "syncDocumentLang"
+    },
+    {
+      "id": "element:frontend/apps/web/src/lib/conversationTime.test.ts#NOW",
+      "kind": "element",
+      "label": "NOW"
+    },
+    {
+      "id": "element:frontend/apps/web/src/lib/conversationTime.ts#FormatConversationTimestampOptions",
+      "kind": "element",
+      "label": "FormatConversationTimestampOptions"
+    },
+    {
+      "id": "element:frontend/apps/web/src/lib/conversationTime.ts#formatConversationTimestamp",
+      "kind": "element",
+      "label": "formatConversationTimestamp"
+    },
+    {
+      "id": "element:frontend/apps/web/src/lib/dateLocale.ts#LOCALE_MAP",
+      "kind": "element",
+      "label": "LOCALE_MAP"
+    },
+    {
+      "id": "element:frontend/apps/web/src/lib/dateLocale.ts#dateFnsLocale",
+      "kind": "element",
+      "label": "dateFnsLocale"
+    },
+    {
+      "id": "file:frontend/apps/web/eslint.config.js",
+      "kind": "file",
+      "label": "eslint.config.js"
+    },
+    {
+      "id": "file:frontend/apps/web/playwright.config.ts",
+      "kind": "file",
+      "label": "playwright.config.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/postcss.config.js",
+      "kind": "file",
+      "label": "postcss.config.js"
+    },
+    {
+      "id": "file:frontend/apps/web/public/sw.js",
+      "kind": "file",
+      "label": "sw.js"
+    },
+    {
+      "id": "file:frontend/apps/web/src/App.tsx",
+      "kind": "file",
+      "label": "App.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/auth/AuthContext.tsx",
+      "kind": "file",
+      "label": "AuthContext.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/auth/HomeRoute.tsx",
+      "kind": "file",
+      "label": "HomeRoute.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/auth/ProtectedRoute.tsx",
+      "kind": "file",
+      "label": "ProtectedRoute.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/auth/RoleRoute.tsx",
+      "kind": "file",
+      "label": "RoleRoute.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/auth/SuperAdminRoute.tsx",
+      "kind": "file",
+      "label": "SuperAdminRoute.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/config.ts",
+      "kind": "file",
+      "label": "config.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/i18n.ts",
+      "kind": "file",
+      "label": "i18n.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/lib/calendarOverlap.ts",
+      "kind": "file",
+      "label": "calendarOverlap.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/lib/conversationTime.test.ts",
+      "kind": "file",
+      "label": "conversationTime.test.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/lib/conversationTime.ts",
+      "kind": "file",
+      "label": "conversationTime.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/lib/dateLocale.ts",
+      "kind": "file",
+      "label": "dateLocale.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/lib/utils.ts",
+      "kind": "file",
+      "label": "utils.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/main.tsx",
+      "kind": "file",
+      "label": "main.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/AbsencesPage.tsx",
+      "kind": "file",
+      "label": "AbsencesPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/AttendancePage.tsx",
+      "kind": "file",
+      "label": "AttendancePage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/AuthPage.tsx",
+      "kind": "file",
+      "label": "AuthPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/AvailabilityPage.tsx",
+      "kind": "file",
+      "label": "AvailabilityPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/CalendarLoadingDemo.tsx",
+      "kind": "file",
+      "label": "CalendarLoadingDemo.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/CalendarPage.tsx",
+      "kind": "file",
+      "label": "CalendarPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/CoachInvitePage.tsx",
+      "kind": "file",
+      "label": "CoachInvitePage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/DashboardPage.tsx",
+      "kind": "file",
+      "label": "DashboardPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/EditorPage.tsx",
+      "kind": "file",
+      "label": "EditorPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/LandingPage.tsx",
+      "kind": "file",
+      "label": "LandingPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/MessagesLoadingDemo.tsx",
+      "kind": "file",
+      "label": "MessagesLoadingDemo.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/MessagesPage.tsx",
+      "kind": "file",
+      "label": "MessagesPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/NotFound.tsx",
+      "kind": "file",
+      "label": "NotFound.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/PlayerDetailPage.tsx",
+      "kind": "file",
+      "label": "PlayerDetailPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/PlayerInvitePage.tsx",
+      "kind": "file",
+      "label": "PlayerInvitePage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/PlayersPage.tsx",
+      "kind": "file",
+      "label": "PlayersPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/PresencesPage.tsx",
+      "kind": "file",
+      "label": "PresencesPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/PrivacyPolicyPage.tsx",
+      "kind": "file",
+      "label": "PrivacyPolicyPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/RegisterPage.tsx",
+      "kind": "file",
+      "label": "RegisterPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/SettingsPage.tsx",
+      "kind": "file",
+      "label": "SettingsPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/StudentsPage.tsx",
+      "kind": "file",
+      "label": "StudentsPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/SupportPage.tsx",
+      "kind": "file",
+      "label": "SupportPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/TermsPage.tsx",
+      "kind": "file",
+      "label": "TermsPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/TrainingExercisesPage.tsx",
+      "kind": "file",
+      "label": "TrainingExercisesPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx",
+      "kind": "file",
+      "label": "TrainingGroupsPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/pages/TrainingPage.tsx",
+      "kind": "file",
+      "label": "TrainingPage.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/state/unread.ts",
+      "kind": "file",
+      "label": "unread.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/utils/pushNotifications.ts",
+      "kind": "file",
+      "label": "pushNotifications.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/vite-env.d.ts",
+      "kind": "file",
+      "label": "vite-env.d.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/tailwind.config.ts",
+      "kind": "file",
+      "label": "tailwind.config.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/vite.config.ts",
+      "kind": "file",
+      "label": "vite.config.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/vitest.config.ts",
+      "kind": "file",
+      "label": "vitest.config.ts"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/lib/conversationTime.ts#formatConversationTimestamp->element:frontend/apps/web/src/lib/dateLocale.ts#dateFnsLocale",
+      "source": "element:frontend/apps/web/src/lib/conversationTime.ts#formatConversationTimestamp",
+      "target": "element:frontend/apps/web/src/lib/dateLocale.ts#dateFnsLocale",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "formatConversationTimestamp calls dateFnsLocale(language) to resolve the date-fns Locale for the weekday/date format() calls",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/AbsencesPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/AbsencesPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/AttendancePage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/AttendancePage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/AuthPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/AuthPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/AvailabilityPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/AvailabilityPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/CalendarPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/CalendarPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/CoachInvitePage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/CoachInvitePage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/DashboardPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/DashboardPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/EditorPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/EditorPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/LandingPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/LandingPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/MessagesPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/MessagesPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/NotFound.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/NotFound.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/PlayerDetailPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/PlayerDetailPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/PlayerInvitePage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/PlayerInvitePage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/PlayersPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/PlayersPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/PresencesPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/PresencesPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/PrivacyPolicyPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/PrivacyPolicyPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/RegisterPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/RegisterPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/SettingsPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/SettingsPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/SupportPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/SupportPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/TermsPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/TermsPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/TrainingExercisesPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/TrainingExercisesPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/App.tsx->file:frontend/apps/web/src/pages/TrainingPage.tsx",
+      "source": "file:frontend/apps/web/src/App.tsx",
+      "target": "file:frontend/apps/web/src/pages/TrainingPage.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/lib/conversationTime.test.ts->file:frontend/apps/web/src/lib/conversationTime.ts",
+      "source": "file:frontend/apps/web/src/lib/conversationTime.test.ts",
+      "target": "file:frontend/apps/web/src/lib/conversationTime.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/lib/conversationTime.ts->file:frontend/apps/web/src/lib/dateLocale.ts",
+      "source": "file:frontend/apps/web/src/lib/conversationTime.ts",
+      "target": "file:frontend/apps/web/src/lib/dateLocale.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/main.tsx->file:frontend/apps/web/src/App.tsx",
+      "source": "file:frontend/apps/web/src/main.tsx",
+      "target": "file:frontend/apps/web/src/App.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/main.tsx->file:frontend/apps/web/src/i18n.ts",
+      "source": "file:frontend/apps/web/src/main.tsx",
+      "target": "file:frontend/apps/web/src/i18n.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

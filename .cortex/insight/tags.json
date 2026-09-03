@@ -1,0 +1,2879 @@
+{
+ "schemaVersion": "3.0",
+ "generated": "2026-09-03T14:50:35Z",
+ "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "vocabulary": [
+  {
+   "tag": "accessibility",
+   "kind": "concern",
+   "aliases": [
+    "accessibility-a11y"
+   ]
+  },
+  {
+   "tag": "api-client",
+   "kind": "layer",
+   "aliases": [
+    "api-first-polling",
+    "axios",
+    "singleton"
+   ]
+  },
+  {
+   "tag": "app-shell",
+   "kind": "layer",
+   "aliases": [
+    "sidebar-navigation"
+   ]
+  },
+  {
+   "tag": "association-table",
+   "kind": "pattern",
+   "aliases": [
+    "orm-base-mixin"
+   ]
+  },
+  {
+   "tag": "attendance",
+   "kind": "domain-term",
+   "aliases": [
+    "attendance-lifecycle",
+    "attendance-validation",
+    "presences"
+   ]
+  },
+  {
+   "tag": "auth",
+   "kind": "concern"
+  },
+  {
+   "tag": "authorization",
+   "kind": "concern",
+   "aliases": [
+    "auth-guards",
+    "coach-only",
+    "coach-scoped",
+    "cross-role-flow",
+    "http-authorization-guard",
+    "idor-regression",
+    "role-based-access",
+    "role-based-access-control",
+    "role-based-visibility",
+    "route-authorization"
+   ]
+  },
+  {
+   "tag": "availability",
+   "kind": "domain-term",
+   "aliases": [
+    "availability-domain"
+   ]
+  },
+  {
+   "tag": "build-tooling",
+   "kind": "layer",
+   "aliases": [
+    "build-config"
+   ]
+  },
+  {
+   "tag": "bulk-import",
+   "kind": "concern"
+  },
+  {
+   "tag": "cache-invalidation",
+   "kind": "concern",
+   "aliases": [
+    "idempotency",
+    "in-memory-cache"
+   ]
+  },
+  {
+   "tag": "calendar",
+   "kind": "domain-term",
+   "aliases": [
+    "calendar-domain",
+    "calendar-scheduling",
+    "calendar-week-navigation"
+   ]
+  },
+  {
+   "tag": "cva-variants",
+   "kind": "pattern"
+  },
+  {
+   "tag": "dashboard",
+   "kind": "domain-term",
+   "aliases": [
+    "block-driven-dashboard",
+    "coach-dashboard",
+    "dashboard-domain"
+   ]
+  },
+  {
+   "tag": "date-fns",
+   "kind": "technology",
+   "aliases": [
+    "date-formatting"
+   ]
+  },
+  {
+   "tag": "dead-code",
+   "kind": "concern",
+   "aliases": [
+    "package-duplication-gap",
+    "supabase"
+   ]
+  },
+  {
+   "tag": "design-tokens",
+   "kind": "concern",
+   "aliases": [
+    "brand-asset",
+    "chart-theming",
+    "design-system-divergence",
+    "launch-animation"
+   ]
+  },
+  {
+   "tag": "dst-aware-datetime",
+   "kind": "pattern",
+   "aliases": [
+    "lazy-materialization",
+    "savepoint-containment"
+   ]
+  },
+  {
+   "tag": "e2e-test",
+   "kind": "layer",
+   "aliases": [
+    "deterministic-wait",
+    "e2e-helper",
+    "e2e-test-helper"
+   ]
+  },
+  {
+   "tag": "editable-ordered-list",
+   "kind": "pattern",
+   "aliases": [
+    "drag-and-drop-reorder"
+   ]
+  },
+  {
+   "tag": "eligibility",
+   "kind": "domain-term"
+  },
+  {
+   "tag": "fail-closed-guard",
+   "kind": "pattern"
+  },
+  {
+   "tag": "flask",
+   "kind": "technology"
+  },
+  {
+   "tag": "flask-blueprint",
+   "kind": "pattern"
+  },
+  {
+   "tag": "form",
+   "kind": "pattern",
+   "aliases": [
+    "form-component",
+    "form-field-primitive",
+    "form-schema",
+    "rule-builder",
+    "zod-validation"
+   ]
+  },
+  {
+   "tag": "i18n",
+   "kind": "concern",
+   "aliases": [
+    "i18n-reactive-defaults",
+    "i18n-regression",
+    "localization",
+    "react-i18next"
+   ]
+  },
+  {
+   "tag": "integration-test",
+   "kind": "layer"
+  },
+  {
+   "tag": "jwt",
+   "kind": "technology",
+   "aliases": [
+    "flask-jwt-auth",
+    "flask-jwt-extended"
+   ]
+  },
+  {
+   "tag": "legacy-admin-editor",
+   "kind": "domain-term",
+   "aliases": [
+    "admin-editor-integration"
+   ]
+  },
+  {
+   "tag": "lib-infra",
+   "kind": "layer",
+   "aliases": [
+    "shared-domain-types"
+   ]
+  },
+  {
+   "tag": "live-data-resume",
+   "kind": "concern"
+  },
+  {
+   "tag": "loading-state",
+   "kind": "concern",
+   "aliases": [
+    "loading-state-guard"
+   ]
+  },
+  {
+   "tag": "messaging",
+   "kind": "domain-term",
+   "aliases": [
+    "messaging-domain",
+    "messaging-realtime",
+    "messaging-scope"
+   ]
+  },
+  {
+   "tag": "migration-guard",
+   "kind": "concern"
+  },
+  {
+   "tag": "mobile-viewport",
+   "kind": "concern",
+   "aliases": [
+    "responsive-mobile-desktop-split"
+   ]
+  },
+  {
+   "tag": "mock-data",
+   "kind": "pattern",
+   "aliases": [
+    "mock-data-page"
+   ]
+  },
+  {
+   "tag": "nativewind",
+   "kind": "technology"
+  },
+  {
+   "tag": "non-blocking-warning",
+   "kind": "pattern"
+  },
+  {
+   "tag": "notification-engine",
+   "kind": "domain-term",
+   "aliases": [
+    "invitation-engine",
+    "level-ladder",
+    "level-select-formatting",
+    "notification-delivery",
+    "notifications",
+    "semi-auto-approval",
+    "single-chokepoint-delivery",
+    "vacancy",
+    "waiting-list"
+   ]
+  },
+  {
+   "tag": "optimistic-update",
+   "kind": "pattern",
+   "aliases": [
+    "optimistic-local-response",
+    "optimistic-save-with-revert"
+   ]
+  },
+  {
+   "tag": "padel-coaching",
+   "kind": "domain-term"
+  },
+  {
+   "tag": "players",
+   "kind": "domain-term",
+   "aliases": [
+    "player-domain",
+    "player-onboarding",
+    "player-profile"
+   ]
+  },
+  {
+   "tag": "playwright",
+   "kind": "technology",
+   "aliases": [
+    "playwright-e2e"
+   ]
+  },
+  {
+   "tag": "portal-overlay",
+   "kind": "pattern",
+   "aliases": [
+    "portal-menu-pattern"
+   ]
+  },
+  {
+   "tag": "push-notifications",
+   "kind": "concern",
+   "aliases": [
+    "native-push"
+   ]
+  },
+  {
+   "tag": "pytest",
+   "kind": "technology"
+  },
+  {
+   "tag": "radix-ui",
+   "kind": "technology"
+  },
+  {
+   "tag": "react-native",
+   "kind": "technology",
+   "aliases": [
+    "expo-router",
+    "metro",
+    "react-native-gesture-handler",
+    "react-native-svg",
+    "reanimated",
+    "rn-primitives"
+   ]
+  },
+  {
+   "tag": "react-query",
+   "kind": "technology",
+   "aliases": [
+    "react-query-hooks",
+    "tanstack-query"
+   ]
+  },
+  {
+   "tag": "recharts",
+   "kind": "technology",
+   "aliases": [
+    "recharts-chart"
+   ]
+  },
+  {
+   "tag": "recurring-scope-choice",
+   "kind": "pattern"
+  },
+  {
+   "tag": "regression-test",
+   "kind": "pattern",
+   "aliases": [
+    "ticket-regression-test"
+   ]
+  },
+  {
+   "tag": "reminder",
+   "kind": "domain-term",
+   "aliases": [
+    "proactive-decline"
+   ]
+  },
+  {
+   "tag": "route-handler",
+   "kind": "layer"
+  },
+  {
+   "tag": "route-screen",
+   "kind": "layer",
+   "aliases": [
+    "mobile-feature-screen",
+    "routing"
+   ]
+  },
+  {
+   "tag": "scheduling",
+   "kind": "concern",
+   "aliases": [
+    "apscheduler"
+   ]
+  },
+  {
+   "tag": "seed-fixture",
+   "kind": "pattern",
+   "aliases": [
+    "dedicated-per-test-fixture",
+    "pytest-fixture",
+    "seed-fixture-helpers",
+    "shared-seed-db-fixture",
+    "shared-seed-db-restoration"
+   ]
+  },
+  {
+   "tag": "serializer",
+   "kind": "layer"
+  },
+  {
+   "tag": "service-layer",
+   "kind": "layer",
+   "aliases": [
+    "services-layer"
+   ]
+  },
+  {
+   "tag": "settings",
+   "kind": "domain-term",
+   "aliases": [
+    "settings-page",
+    "settings-ui"
+   ]
+  },
+  {
+   "tag": "shadcn-ui",
+   "kind": "technology",
+   "aliases": [
+    "shadcn-ui-port"
+   ]
+  },
+  {
+   "tag": "sqlalchemy",
+   "kind": "technology",
+   "aliases": [
+    "sqlalchemy-model"
+   ]
+  },
+  {
+   "tag": "sqlite-test-db",
+   "kind": "technology",
+   "aliases": [
+    "sqlite-in-memory"
+   ]
+  },
+  {
+   "tag": "sse",
+   "kind": "technology",
+   "aliases": [
+    "messaging-sse",
+    "sse-streaming"
+   ]
+  },
+  {
+   "tag": "thin-barrel",
+   "kind": "pattern"
+  },
+  {
+   "tag": "toast-notification",
+   "kind": "concern"
+  },
+  {
+   "tag": "training-exercises",
+   "kind": "domain-term",
+   "aliases": [
+    "training-domain"
+   ]
+  },
+  {
+   "tag": "ui-primitive",
+   "kind": "layer"
+  },
+  {
+   "tag": "web-mobile-parity",
+   "kind": "pattern",
+   "aliases": [
+    "platform-neutral",
+    "web-ios-parity-port"
+   ]
+  },
+  {
+   "tag": "web-only",
+   "kind": "layer"
+  }
+ ],
+ "assignments": {
+  "concept:app-wide-i18n": [
+   "i18n",
+   "web-mobile-parity"
+  ],
+  "concept:attendance-presence-mark": [
+   "attendance",
+   "web-mobile-parity"
+  ],
+  "concept:auth-session": [
+   "api-client",
+   "auth",
+   "jwt"
+  ],
+  "concept:block-driven-dashboard": [
+   "dashboard",
+   "web-mobile-parity"
+  ],
+  "concept:calendar-visual-state": [
+   "calendar",
+   "design-tokens",
+   "web-mobile-parity"
+  ],
+  "concept:club-local-day-boundary": [
+   "dst-aware-datetime",
+   "scheduling"
+  ],
+  "concept:coach-only-settings-gating": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "concept:coach-scoped-authorization": [
+   "auth",
+   "authorization"
+  ],
+  "concept:design-tokens": [
+   "design-tokens",
+   "padel-coaching"
+  ],
+  "concept:dual-roster-cache": [
+   "cache-invalidation",
+   "players"
+  ],
+  "concept:effective-seat-count": [
+   "attendance",
+   "calendar"
+  ],
+  "concept:eligibility-bar": [
+   "eligibility",
+   "notification-engine"
+  ],
+  "concept:invitation-engine": [
+   "notification-engine",
+   "scheduling"
+  ],
+  "concept:lazy-instance-materialisation": [
+   "calendar",
+   "dst-aware-datetime"
+  ],
+  "concept:legacy-admin-editor": [
+   "form",
+   "legacy-admin-editor"
+  ],
+  "concept:levapp-visual-design-conventions": [
+   "design-tokens",
+   "ui-primitive"
+  ],
+  "concept:level-ladder-adjacency": [
+   "notification-engine",
+   "settings"
+  ],
+  "concept:notification-template-fallback": [
+   "i18n",
+   "notification-engine"
+  ],
+  "concept:parallel-toast-systems": [
+   "dead-code",
+   "toast-notification"
+  ],
+  "concept:player-username-ownership": [
+   "auth",
+   "players"
+  ],
+  "concept:reminder-lifecycle": [
+   "notification-engine",
+   "reminder",
+   "scheduling"
+  ],
+  "concept:season-bounded-recurrence": [
+   "calendar",
+   "fail-closed-guard"
+  ],
+  "concept:semi-automatic-approval": [
+   "eligibility",
+   "notification-engine"
+  ],
+  "concept:sse-streaming": [
+   "live-data-resume",
+   "messaging",
+   "sse"
+  ],
+  "concept:student-notification-blocking": [
+   "availability",
+   "non-blocking-warning",
+   "notification-engine"
+  ],
+  "concept:web-mobile-parity": [
+   "ui-primitive",
+   "web-mobile-parity"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#absence_history": [
+   "attendance"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#attendance_history": [
+   "attendance"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#events": [
+   "sse"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#import_analyze": [
+   "bulk-import",
+   "sse"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#import_confirm_stream": [
+   "bulk-import",
+   "sse"
+  ],
+  "element:backend/padel_app/modules/frontend_api.py#require_coach": [
+   "authorization"
+  ],
+  "element:backend/padel_app/modules/notification_engine_api.py#debug_reset_presence": [
+   "e2e-test"
+  ],
+  "element:backend/padel_app/modules/notification_engine_api.py#debug_schedule_reminder_test": [
+   "e2e-test"
+  ],
+  "file:backend/migrations/env.py": [
+   "migration-guard"
+  ],
+  "file:backend/padel_app/__init__.py": [
+   "flask-blueprint",
+   "jwt"
+  ],
+  "file:backend/padel_app/auth.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/config.py": [
+   "jwt",
+   "migration-guard"
+  ],
+  "file:backend/padel_app/helpers/calendar_helpers.py": [
+   "calendar"
+  ],
+  "file:backend/padel_app/helpers/dashboard/coach.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard/coach_home.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard/events.py": [
+   "calendar",
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard/kpis.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard/messages.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard/pending.py": [
+   "dashboard",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/helpers/dashboard/player.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/dashboard_services.py": [
+   "dashboard"
+  ],
+  "file:backend/padel_app/helpers/llm.py": [
+   "bulk-import"
+  ],
+  "file:backend/padel_app/helpers/parsing.py": [
+   "bulk-import"
+  ],
+  "file:backend/padel_app/helpers/text.py": [
+   "bulk-import"
+  ],
+  "file:backend/padel_app/model.py": [
+   "association-table",
+   "legacy-admin-editor"
+  ],
+  "file:backend/padel_app/models/Association_CoachClub.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_CoachExercise.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_CoachExerciseGroup.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_CoachLesson.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_CoachLessonInstance.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_CoachPlayer.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_PlayerClub.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_PlayerLesson.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/Association_PlayerLessonInstance.py": [
+   "association-table",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/__init__.py": [
+   "legacy-admin-editor"
+  ],
+  "file:backend/padel_app/models/backend_apps.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/blocked_user.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/bulk_import.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/calendar_blocks.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/clubs.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/coach_invitation.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/coach_levels.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/coach_player_note.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/coaches.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/conversation_participants.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/conversations.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/device_token.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/evaluation_category.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/evaluation_entry.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/exercise.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/lesson_instance_training.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/lesson_instances.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/lessons.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/message_reaction.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/message_report.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/messages.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/notification_config.py": [
+   "authorization",
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/notification_event.py": [
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/player_invitation.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/player_level_history.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/players.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/presences.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/push_subscriptions.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/replacement_approval_prompt.py": [
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/seasons.py": [
+   "authorization",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/standing_waiting_list_entry.py": [
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/token_blocklist.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/users.py": [
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/vacancy.py": [
+   "authorization",
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/models/waiting_list_entry.py": [
+   "notification-engine",
+   "sqlalchemy"
+  ],
+  "file:backend/padel_app/modules/api.py": [
+   "flask-blueprint",
+   "legacy-admin-editor",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/api_auth.py": [
+   "authorization",
+   "flask-blueprint",
+   "jwt",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/auth.py": [
+   "authorization",
+   "flask-blueprint",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/editor.py": [
+   "flask-blueprint",
+   "legacy-admin-editor",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/editor_api.py": [
+   "flask-blueprint",
+   "legacy-admin-editor",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/frontend_api.py": [
+   "authorization",
+   "flask-blueprint",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/notification_engine_api.py": [
+   "e2e-test",
+   "flask-blueprint",
+   "notification-engine",
+   "route-handler"
+  ],
+  "file:backend/padel_app/modules/notifications_api.py": [
+   "flask-blueprint",
+   "route-handler"
+  ],
+  "file:backend/padel_app/realtime.py": [
+   "messaging"
+  ],
+  "file:backend/padel_app/scheduler.py": [
+   "notification-engine",
+   "scheduling"
+  ],
+  "file:backend/padel_app/serializers/calendar.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/calendar_event.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/coach.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/coach_level.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/conversation.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/lesson.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/message.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/player.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/presence.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/season.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/training.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/serializers/user.py": [
+   "serializer"
+  ],
+  "file:backend/padel_app/services/ai_service.py": [
+   "bulk-import",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/attendance_history_service.py": [
+   "attendance",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/import_service.py": [
+   "bulk-import",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/lesson_service.py": [
+   "attendance",
+   "dst-aware-datetime",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/messaging_service.py": [
+   "messaging",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/notification_service.py": [
+   "eligibility",
+   "messaging",
+   "notification-engine",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/presence_overview_service.py": [
+   "attendance",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/replacement_approval_service.py": [
+   "messaging",
+   "notification-engine",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/student_availability_service.py": [
+   "eligibility",
+   "notification-engine",
+   "service-layer"
+  ],
+  "file:backend/padel_app/services/student_notification_preferences.py": [
+   "eligibility",
+   "notification-engine",
+   "service-layer"
+  ],
+  "file:backend/padel_app/tests/conftest.py": [
+   "seed-fixture",
+   "sqlite-test-db"
+  ],
+  "file:backend/padel_app/tests/helpers.py": [
+   "seed-fixture",
+   "sqlite-test-db"
+  ],
+  "file:backend/padel_app/tests/test_boolean_coercion.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_calendar_participant_count.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_check_field_available.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tests/test_class_guest_list_dedupe.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_config_database_host.py": [
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_dashboard_pending_confirmations.py": [
+   "dst-aware-datetime",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_dates.py": [
+   "dst-aware-datetime",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_delete_nonnumeric_id_guard.py": [
+   "authorization",
+   "jwt",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_effective_level_resolution.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_frontend_api_authz.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tests/test_generic_crud_auth.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tests/test_level_ladder_ordering.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_messaging_report_block_scope.py": [
+   "authorization",
+   "jwt",
+   "messaging"
+  ],
+  "file:backend/padel_app/tests/test_messaging_unread.py": [
+   "dst-aware-datetime",
+   "messaging",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_native_push.py": [
+   "notification-engine",
+   "push-notifications"
+  ],
+  "file:backend/padel_app/tests/test_notification_blank_template_fallback.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_notification_class_cancellation.py": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:backend/padel_app/tests/test_notification_config.py": [
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_notification_i18n.py": [
+   "i18n",
+   "integration-test",
+   "notification-engine",
+   "reminder"
+  ],
+  "file:backend/padel_app/tests/test_notification_integration.py": [
+   "integration-test",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_notification_localization.py": [
+   "i18n",
+   "integration-test",
+   "notification-engine",
+   "reminder"
+  ],
+  "file:backend/padel_app/tests/test_notification_reminder_flow.py": [
+   "integration-test",
+   "notification-engine",
+   "pytest",
+   "reminder"
+  ],
+  "file:backend/padel_app/tests/test_notification_schedule.py": [
+   "notification-engine",
+   "reminder",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py": [
+   "fail-closed-guard",
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_pad117_savepoint_containment.py": [
+   "fail-closed-guard",
+   "notification-engine",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_pad125_conversation_read_state.py": [
+   "fail-closed-guard",
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_pad128_eligibility.py": [
+   "eligibility",
+   "fail-closed-guard",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_pad133_eligibility_reasons.py": [
+   "eligibility",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_pad85_duplicate_materialization.py": [
+   "fail-closed-guard",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_pad93_boolean_blast_radius.py": [
+   "fail-closed-guard",
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_player_invitation.py": [
+   "authorization",
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_player_level.py": [
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_player_search.py": [
+   "authorization",
+   "sqlite-test-db"
+  ],
+  "file:backend/padel_app/tests/test_presence_overview.py": [
+   "integration-test"
+  ],
+  "file:backend/padel_app/tests/test_profile_update.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tests/test_recurring_delete_exclusion.py": [
+   "fail-closed-guard",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_recurs_until_season_end.py": [
+   "fail-closed-guard",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py": [
+   "reminder",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_reminder_response_idempotency.py": [
+   "cache-invalidation",
+   "notification-engine",
+   "reminder"
+  ],
+  "file:backend/padel_app/tests/test_scheduler_job_lifecycle.py": [
+   "reminder",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_season_service.py": [
+   "fail-closed-guard",
+   "scheduling"
+  ],
+  "file:backend/padel_app/tests/test_semi_auto_approval.py": [
+   "integration-test",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_settings_role_authz.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tests/test_side_matching.py": [
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_standing_waiting_list_readd.py": [
+   "cache-invalidation",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_student_availability_blockers.py": [
+   "fail-closed-guard",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_student_notification_block_preferences.py": [
+   "cache-invalidation",
+   "fail-closed-guard",
+   "notification-engine"
+  ],
+  "file:backend/padel_app/tests/test_training_players_role_authz.py": [
+   "authorization",
+   "jwt"
+  ],
+  "file:backend/padel_app/tools/calendar_tools.py": [
+   "calendar"
+  ],
+  "file:backend/padel_app/tools/input_tools.py": [
+   "form",
+   "legacy-admin-editor"
+  ],
+  "file:backend/padel_app/tools/request_adapter.py": [
+   "form"
+  ],
+  "file:backend/padel_app/tools/tools.py": [
+   "form",
+   "legacy-admin-editor"
+  ],
+  "file:backend/padel_app/utils/dates.py": [
+   "scheduling"
+  ],
+  "file:frontend/apps/mobile/.maestro/scripts/seeded-monday.js": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/_layout.tsx": [
+   "app-shell",
+   "react-native",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/availability.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/calendar.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/dashboard.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/messages.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/players.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/presences.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/settings.tsx": [
+   "auth",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/(tabs)/training.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/_layout.tsx": [
+   "app-shell",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/app/class/[id].tsx": [
+   "live-data-resume",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/class/new.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/conversation/[id].tsx": [
+   "live-data-resume",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/conversation/new.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/event/new.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/index.tsx": [
+   "auth",
+   "react-native",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/login.tsx": [
+   "auth",
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/player/[playerId].tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/app/player/new.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/mobile/babel.config.js": [
+   "build-tooling",
+   "nativewind"
+  ],
+  "file:frontend/apps/mobile/metro.config.js": [
+   "build-tooling",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/nativewind-env.d.ts": [
+   "build-tooling",
+   "nativewind"
+  ],
+  "file:frontend/apps/mobile/src/auth/AuthContext.tsx": [
+   "auth",
+   "lib-infra"
+  ],
+  "file:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx": [
+   "design-tokens",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/components/brand/LevAppMark.tsx": [
+   "design-tokens"
+  ],
+  "file:frontend/apps/mobile/src/components/empty-state.tsx": [
+   "form"
+  ],
+  "file:frontend/apps/mobile/src/components/error-state.tsx": [
+   "form",
+   "i18n"
+  ],
+  "file:frontend/apps/mobile/src/components/screen.tsx": [
+   "form"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/alert-dialog.tsx": [
+   "nativewind",
+   "portal-overlay",
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/avatar.tsx": [
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/badge.tsx": [
+   "cva-variants",
+   "design-tokens",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/button.tsx": [
+   "cva-variants",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/card.tsx": [
+   "design-tokens",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/checkbox.tsx": [
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/date-picker-input.tsx": [
+   "accessibility",
+   "form",
+   "i18n"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/dialog.tsx": [
+   "nativewind",
+   "portal-overlay",
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/input.tsx": [
+   "form",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/label.tsx": [
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/select.tsx": [
+   "portal-overlay",
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/separator.tsx": [
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/skeleton.tsx": [
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/spinner.tsx": [
+   "form"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/switch.tsx": [
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/tabs.tsx": [
+   "nativewind",
+   "react-native",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/text.tsx": [
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/textarea.tsx": [
+   "form",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/time-picker-input.tsx": [
+   "accessibility",
+   "form",
+   "i18n"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/toast.tsx": [
+   "portal-overlay",
+   "toast-notification"
+  ],
+  "file:frontend/apps/mobile/src/features/availability/BlockerForm.tsx": [
+   "availability",
+   "form",
+   "i18n",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/availability/hooks.ts": [
+   "availability",
+   "cache-invalidation",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx": [
+   "accessibility",
+   "calendar",
+   "react-native",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/EventCard.tsx": [
+   "calendar",
+   "react-native",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/ParticipantRow.tsx": [
+   "accessibility",
+   "calendar",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/WeekStrip.tsx": [
+   "accessibility",
+   "calendar",
+   "react-native",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/class-scope-dialog.tsx": [
+   "calendar",
+   "i18n",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/edit-class-diff.ts": [
+   "calendar",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/hooks.ts": [
+   "cache-invalidation",
+   "calendar",
+   "react-query",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/notify-modal.tsx": [
+   "calendar",
+   "i18n",
+   "messaging",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/params.ts": [
+   "calendar",
+   "dashboard",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/planning-section.tsx": [
+   "calendar",
+   "form",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx": [
+   "dashboard",
+   "i18n",
+   "react-native",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx": [
+   "dashboard",
+   "i18n",
+   "react-native",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/components/chat-more-options-menu.tsx": [
+   "accessibility",
+   "messaging",
+   "portal-overlay"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/components/conversation-item.tsx": [
+   "messaging",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/components/message-bubble.tsx": [
+   "accessibility",
+   "messaging",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/components/message-context-menu.tsx": [
+   "accessibility",
+   "messaging",
+   "portal-overlay"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/components/report-message-dialog.tsx": [
+   "form",
+   "i18n",
+   "messaging"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/hooks.ts": [
+   "messaging",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/features/messages/utils.ts": [
+   "cache-invalidation",
+   "messaging",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/features/players/LevelLabel.tsx": [
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/players/PlayerForm.tsx": [
+   "form",
+   "i18n",
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx": [
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx": [
+   "form",
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx": [
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/players/hooks.ts": [
+   "players",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx": [
+   "players",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx": [
+   "accessibility",
+   "attendance"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/PresencesScreen.tsx": [
+   "attendance",
+   "authorization",
+   "route-screen",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/ValidateClassesSheet.tsx": [
+   "accessibility",
+   "attendance",
+   "authorization"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/hooks.ts": [
+   "attendance",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/account-section.tsx": [
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/auto-invite-section.tsx": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/club-section.tsx": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/coach-levels-section.tsx": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/delete-account-section.tsx": [
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/evaluation-categories-section.tsx": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/import-section.tsx": [
+   "authorization",
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/preferences-section.tsx": [
+   "authorization",
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/profile-section.tsx": [
+   "form",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/seasons-section.tsx": [
+   "authorization",
+   "settings",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/settings-api.ts": [
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/settings-sections.ts": [
+   "authorization",
+   "settings"
+  ],
+  "file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx": [
+   "react-native",
+   "training-exercises",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/training/exercise-form.tsx": [
+   "form",
+   "training-exercises",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/training/exercise-group-folder.tsx": [
+   "accessibility",
+   "training-exercises",
+   "web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/features/training/exercises-tab.tsx": [
+   "route-screen",
+   "training-exercises"
+  ],
+  "file:frontend/apps/mobile/src/features/training/group-form.tsx": [
+   "form",
+   "training-exercises"
+  ],
+  "file:frontend/apps/mobile/src/features/training/groups-tab.tsx": [
+   "route-screen",
+   "training-exercises"
+  ],
+  "file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts": [
+   "lib-infra",
+   "live-data-resume",
+   "react-query"
+  ],
+  "file:frontend/apps/mobile/src/hooks/useKeyboardVisible.ts": [
+   "lib-infra"
+  ],
+  "file:frontend/apps/mobile/src/hooks/usePushNotificationRouting.ts": [
+   "lib-infra",
+   "push-notifications",
+   "react-native"
+  ],
+  "file:frontend/apps/mobile/src/lib/api.ts": [
+   "api-client",
+   "auth",
+   "lib-infra"
+  ],
+  "file:frontend/apps/mobile/src/lib/config.ts": [
+   "lib-infra"
+  ],
+  "file:frontend/apps/mobile/src/lib/i18n.ts": [
+   "i18n",
+   "lib-infra"
+  ],
+  "file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts": [
+   "lib-infra",
+   "push-notifications"
+  ],
+  "file:frontend/apps/mobile/src/lib/push/index.ts": [
+   "api-client",
+   "lib-infra",
+   "push-notifications"
+  ],
+  "file:frontend/apps/mobile/src/lib/push/types.ts": [
+   "lib-infra",
+   "push-notifications"
+  ],
+  "file:frontend/apps/mobile/src/lib/sse.ts": [
+   "lib-infra",
+   "live-data-resume",
+   "react-query",
+   "sse"
+  ],
+  "file:frontend/apps/mobile/src/lib/utils.ts": [
+   "lib-infra",
+   "nativewind"
+  ],
+  "file:frontend/apps/mobile/tailwind.config.js": [
+   "build-tooling",
+   "nativewind"
+  ],
+  "file:frontend/apps/web/e2e/attendance/absence-history.spec.ts": [
+   "authorization",
+   "recharts",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/attendance/attendance-history.spec.ts": [
+   "authorization",
+   "recharts",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/attendance/presences-validation.spec.ts": [
+   "authorization",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/availability/mobile-layout.spec.ts": [
+   "i18n",
+   "mobile-viewport",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/availability/student-blockers.spec.ts": [
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts": [
+   "authorization",
+   "regression-test",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts": [
+   "regression-test",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/clubs/coach-invitation.spec.ts": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts": [
+   "i18n",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts": [
+   "authorization",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/student-dashboard-kpi.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts": [
+   "regression-test",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/editor/editor-i18n.spec.ts": [
+   "i18n",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts": [
+   "i18n",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/global-setup.ts": [
+   "e2e-test"
+  ],
+  "file:frontend/apps/web/e2e/helpers/api.ts": [
+   "e2e-test",
+   "playwright"
+  ],
+  "file:frontend/apps/web/e2e/helpers/auth.ts": [
+   "e2e-test",
+   "playwright"
+  ],
+  "file:frontend/apps/web/e2e/helpers/calendar-navigation.ts": [
+   "e2e-test",
+   "playwright"
+  ],
+  "file:frontend/apps/web/e2e/helpers/navigation.ts": [
+   "e2e-test",
+   "playwright"
+  ],
+  "file:frontend/apps/web/e2e/import-history/import-confirm-504.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/import-history/import-history.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/landing/landing-page.spec.ts": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/e2e/loading-states/ticket-pad-24-loading-states.spec.ts": [
+   "loading-state",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/messaging/conversation-day-label.spec.ts": [
+   "messaging",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts": [
+   "authorization",
+   "messaging"
+  ],
+  "file:frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts": [
+   "messaging",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/messaging/participant-role-header.spec.ts": [
+   "messaging",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts": [
+   "api-client",
+   "notification-engine",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts": [
+   "api-client",
+   "notification-engine",
+   "regression-test",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts": [
+   "attendance",
+   "reminder"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts": [
+   "attendance",
+   "reminder"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/cancellation-deadline.spec.ts": [
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/class-cancellation-notification.spec.ts": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/notification-config.spec.ts": [
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts": [
+   "attendance",
+   "notification-engine",
+   "reminder",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts": [
+   "notification-engine",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts": [
+   "notification-engine",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/player-management/add-player.spec.ts": [
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/player-management/create-player-level-dropdown.spec.ts": [
+   "notification-engine",
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/player-management/delete-player.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/player-management/duplicate-name-warning.spec.ts": [
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts": [
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/player-management/level-formatting.spec.ts": [
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts": [
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/player-management/player-search-pagination.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts": [
+   "players",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/players/add-to-classes.spec.ts": [
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/players/set-player-level.spec.ts": [
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/players/validation-watermark.spec.ts": [
+   "players"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts": [
+   "attendance",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/attendance.spec.ts": [
+   "attendance"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-date-prepopulate.spec.ts": [
+   "calendar",
+   "mobile-viewport"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-delete-confirm.spec.ts": [
+   "mobile-viewport"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-overlap-warning.spec.ts": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/daily-schedule.spec.ts": [
+   "calendar",
+   "e2e-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "i18n",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/mobile-weekly-order.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/participant-count-effective.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/recurring-class-weekday.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/slot-drag-select.spec.ts": [
+   "calendar",
+   "e2e-test"
+  ],
+  "file:frontend/apps/web/e2e/scripts/redesign-shots.spec.ts": [
+   "e2e-test"
+  ],
+  "file:frontend/apps/web/e2e/scripts/seed.py": [
+   "calendar",
+   "notification-engine",
+   "seed-fixture"
+  ],
+  "file:frontend/apps/web/e2e/security/frontend-api-auth.spec.ts": [
+   "authorization",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/security/training-confirm-authz.spec.ts": [
+   "authorization",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/security/training-players-role-authz.spec.ts": [
+   "authorization",
+   "e2e-test",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts": [
+   "e2e-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/coach-settings.spec.ts": [
+   "e2e-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/data-management-i18n.spec.ts": [
+   "e2e-test",
+   "i18n",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/language-preference.spec.ts": [
+   "e2e-test",
+   "i18n",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/notification-engine-settings.spec.ts": [
+   "e2e-test",
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/profile-persistence.spec.ts": [
+   "e2e-test",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/season-recurrence.spec.ts": [
+   "calendar",
+   "e2e-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts": [
+   "e2e-test",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/seasons-i18n.spec.ts": [
+   "e2e-test",
+   "i18n",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/student-notification-blocks.spec.ts": [
+   "authorization",
+   "e2e-test",
+   "notification-engine",
+   "regression-test"
+  ],
+  "file:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts": [
+   "authorization",
+   "e2e-test",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/temp-id-delete-after-save.spec.ts": [
+   "e2e-test",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/theme-dark-mode.spec.ts": [
+   "e2e-test",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts": [
+   "e2e-test",
+   "notification-engine",
+   "regression-test",
+   "settings"
+  ],
+  "file:frontend/apps/web/eslint.config.js": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/web/playwright.config.ts": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/web/postcss.config.js": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/web/public/sw.js": [
+   "push-notifications"
+  ],
+  "file:frontend/apps/web/src/App.tsx": [
+   "authorization",
+   "route-screen"
+  ],
+  "file:frontend/apps/web/src/api/absences.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/attendance.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/auth.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/availability.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/api/calendar.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/classes.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/client.ts": [
+   "api-client"
+  ],
+  "file:frontend/apps/web/src/api/coachLevel.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/dashboard.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/editor.ts": [
+   "api-client",
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/api/evaluation.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/events.ts": [
+   "sse"
+  ],
+  "file:frontend/apps/web/src/api/fields.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/api/import.ts": [
+   "api-client",
+   "sse",
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/api/invitations.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/api/messages.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/notificationEngine.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/api/playerInvitations.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/api/players.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/presences.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/register.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/seasons.ts": [
+   "api-client",
+   "dead-code",
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/api/training.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/api/users.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/auth/AuthContext.tsx": [
+   "authorization",
+   "i18n",
+   "push-notifications"
+  ],
+  "file:frontend/apps/web/src/auth/HomeRoute.tsx": [
+   "authorization",
+   "route-screen"
+  ],
+  "file:frontend/apps/web/src/auth/ProtectedRoute.tsx": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/src/auth/RoleRoute.tsx": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/src/auth/SuperAdminRoute.tsx": [
+   "authorization"
+  ],
+  "file:frontend/apps/web/src/components/attendance/AttendanceChart.tsx": [
+   "attendance",
+   "recharts"
+  ],
+  "file:frontend/apps/web/src/components/attendance/AttendanceHistoryList.tsx": [
+   "attendance"
+  ],
+  "file:frontend/apps/web/src/components/attendance/AttendanceRangeControls.tsx": [
+   "attendance"
+  ],
+  "file:frontend/apps/web/src/components/attendance/dateRanges.ts": [
+   "attendance"
+  ],
+  "file:frontend/apps/web/src/components/brand/launch-loader.tsx": [
+   "design-tokens"
+  ],
+  "file:frontend/apps/web/src/components/brand/launch-overlay.tsx": [
+   "design-tokens"
+  ],
+  "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx": [
+   "calendar",
+   "non-blocking-warning",
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/src/components/calendar/AddEventSheet.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/AttendanceRow.tsx": [
+   "attendance",
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarGrid.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarHeader.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarToolbar.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx": [
+   "attendance",
+   "calendar",
+   "non-blocking-warning",
+   "notification-engine",
+   "recurring-scope-choice"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ClassPlanningSection.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx": [
+   "calendar",
+   "recurring-scope-choice"
+  ],
+  "file:frontend/apps/web/src/components/calendar/DeleteClassDialog.tsx": [
+   "calendar",
+   "dead-code",
+   "recurring-scope-choice"
+  ],
+  "file:frontend/apps/web/src/components/calendar/EventDetailSheet.tsx": [
+   "calendar",
+   "recurring-scope-choice"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx": [
+   "non-blocking-warning",
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/src/components/calendar/MobileCalendarView.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx": [
+   "calendar",
+   "non-blocking-warning"
+  ],
+  "file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx": [
+   "calendar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/RescheduleDialog.tsx": [
+   "calendar",
+   "recurring-scope-choice"
+  ],
+  "file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx": [
+   "calendar",
+   "non-blocking-warning",
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/CoachDashboard.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/ClassListBlock.tsx": [
+   "calendar",
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/KpiGridBlock.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx": [
+   "dashboard",
+   "notification-engine"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx": [
+   "dashboard",
+   "mobile-viewport"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/NextClassHero.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/Schedule7Days.tsx": [
+   "dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/WeekPulse.tsx": [
+   "dashboard",
+   "mobile-viewport"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/primitives.tsx": [
+   "dashboard",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/useIsDesktop.ts": [
+   "dashboard",
+   "mobile-viewport"
+  ],
+  "file:frontend/apps/web/src/components/layout/AppLayout.tsx": [
+   "app-shell",
+   "shadcn-ui",
+   "sse"
+  ],
+  "file:frontend/apps/web/src/components/layout/LayoutContext.tsx": [
+   "app-shell"
+  ],
+  "file:frontend/apps/web/src/components/layout/PageActions.tsx": [
+   "app-shell",
+   "mobile-viewport",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/messages/ActionButtons.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/ChatHeader.tsx": [
+   "messaging",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/messages/ChatThread.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/Composer.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/ConversationList.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/MessageActionMenu.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/MessageBubble.tsx": [
+   "messaging",
+   "optimistic-update"
+  ],
+  "file:frontend/apps/web/src/components/messages/MessageList.tsx": [
+   "messaging"
+  ],
+  "file:frontend/apps/web/src/components/messages/NewConversationDialog.tsx": [
+   "messaging",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/messages/ReportMessageDialog.tsx": [
+   "messaging",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/notifications/ReplacementApprovalCard.tsx": [
+   "messaging",
+   "optimistic-update"
+  ],
+  "file:frontend/apps/web/src/components/players/AddPlayerSheet.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx": [
+   "attendance",
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/EditPlayerSheet.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/PlayersToolbar.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx": [
+   "i18n",
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/PlayerEvaluations.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/PlayerHeader.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/PlayerInfoCard.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx": [
+   "players",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresenceCharts.tsx": [
+   "attendance",
+   "recharts"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx": [
+   "attendance",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresencePlayersTable.tsx": [
+   "attendance",
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx": [
+   "attendance"
+  ],
+  "file:frontend/apps/web/src/components/settings/AccountSection.tsx": [
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/ClubSection.tsx": [
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/CoachLevelsSection.tsx": [
+   "editable-ordered-list",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/DataImportSection.tsx": [
+   "settings",
+   "sse"
+  ],
+  "file:frontend/apps/web/src/components/settings/EligibilitySection.tsx": [
+   "form",
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/EvaluationCategoriesSection.tsx": [
+   "editable-ordered-list",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/ImportHistorySection.tsx": [
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx": [
+   "editable-ordered-list",
+   "form",
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/NotificationGroupsSection.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx": [
+   "notification-engine",
+   "optimistic-update",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/RemindersSection.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/RestrictionsPanel.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/SeasonsSection.tsx": [
+   "editable-ordered-list",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/StudentNotificationBlocksSection.tsx": [
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/settings/TiebreakersSection.tsx": [
+   "editable-ordered-list",
+   "notification-engine",
+   "settings"
+  ],
+  "file:frontend/apps/web/src/components/students/StudentDetailSheet.tsx": [
+   "shadcn-ui"
+  ],
+  "file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/components/training/ExerciseCard.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/components/training/ExerciseFormSheet.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/components/training/ExerciseGroupFolder.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/components/training/ExerciseGroupFormSheet.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/components/ui/accordion.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/alert-dialog.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/alert.tsx": [
+   "cva-variants",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/aspect-ratio.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/avatar.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/badge.tsx": [
+   "cva-variants",
+   "design-tokens",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/breadcrumb.tsx": [
+   "i18n",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/button.tsx": [
+   "cva-variants",
+   "design-tokens",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/calendar.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/card.tsx": [
+   "design-tokens",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/carousel.tsx": [
+   "i18n",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/chart.tsx": [
+   "design-tokens",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/checkbox.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/collapsible.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/command.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/context-menu.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/dialog.tsx": [
+   "i18n",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/drawer.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/dropdown-menu.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/form.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/hover-card.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/input-otp.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/input.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/label.tsx": [
+   "cva-variants",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/loading-skeleton.tsx": [
+   "loading-state",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/menubar.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/message-textarea.tsx": [
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/navigation-menu.tsx": [
+   "cva-variants",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/occupancy-bar.tsx": [
+   "design-tokens",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/pagination.tsx": [
+   "i18n",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/popover.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/progress.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/radio-group.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/resizable.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/scroll-area.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/select.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/separator.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/sheet.tsx": [
+   "cva-variants",
+   "i18n",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/sidebar.tsx": [
+   "app-shell",
+   "cva-variants",
+   "i18n",
+   "radix-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/skeleton.tsx": [
+   "loading-state",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/slider.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/sonner.tsx": [
+   "shadcn-ui",
+   "toast-notification",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/switch.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/table.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/tabs.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/textarea.tsx": [
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/toast.tsx": [
+   "cva-variants",
+   "design-tokens",
+   "radix-ui",
+   "shadcn-ui",
+   "toast-notification",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/toaster.tsx": [
+   "shadcn-ui",
+   "toast-notification",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/toggle-group.tsx": [
+   "cva-variants",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/toggle.tsx": [
+   "cva-variants",
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/tooltip.tsx": [
+   "radix-ui",
+   "shadcn-ui",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/components/ui/use-toast.ts": [
+   "shadcn-ui",
+   "toast-notification",
+   "ui-primitive"
+  ],
+  "file:frontend/apps/web/src/data/mockAttendance.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/data/mockData.ts": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/hooks/use-mobile.tsx": [
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/hooks/useAutoInviteEnabled.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/hooks/useCalendar.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/hooks/useFieldAvailability.ts": [
+   "thin-barrel"
+  ],
+  "file:frontend/apps/web/src/hooks/usePushNotifications.ts": [
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/hooks/useVisualViewportHeight.ts": [
+   "web-only"
+  ],
+  "file:frontend/apps/web/src/i18n.ts": [
+   "i18n"
+  ],
+  "file:frontend/apps/web/src/integrations/supabase/client.ts": [
+   "dead-code"
+  ],
+  "file:frontend/apps/web/src/integrations/supabase/types.ts": [
+   "dead-code"
+  ],
+  "file:frontend/apps/web/src/lib/conversationTime.test.ts": [
+   "date-fns"
+  ],
+  "file:frontend/apps/web/src/lib/conversationTime.ts": [
+   "date-fns",
+   "i18n"
+  ],
+  "file:frontend/apps/web/src/lib/dateLocale.ts": [
+   "date-fns",
+   "i18n"
+  ],
+  "file:frontend/apps/web/src/main.tsx": [
+   "route-screen"
+  ],
+  "file:frontend/apps/web/src/pages/CalendarLoadingDemo.tsx": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/pages/MessagesLoadingDemo.tsx": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/pages/MessagesPage.tsx": [
+   "sse"
+  ],
+  "file:frontend/apps/web/src/pages/StudentsPage.tsx": [
+   "mock-data"
+  ],
+  "file:frontend/apps/web/src/pages/TrainingExercisesPage.tsx": [
+   "react-query",
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx": [
+   "react-query",
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/pages/TrainingPage.tsx": [
+   "training-exercises"
+  ],
+  "file:frontend/apps/web/src/utils/pushNotifications.ts": [
+   "push-notifications"
+  ],
+  "file:frontend/apps/web/tailwind.config.ts": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/web/vite.config.ts": [
+   "build-tooling"
+  ],
+  "file:frontend/apps/web/vitest.config.ts": [
+   "build-tooling"
+  ],
+  "file:frontend/packages/api/src/client.ts": [
+   "api-client"
+  ],
+  "file:frontend/packages/api/src/index.ts": [
+   "api-client"
+  ],
+  "file:frontend/packages/api/src/resources/attendance.ts": [
+   "api-client",
+   "attendance"
+  ],
+  "file:frontend/packages/api/src/resources/notificationEngine.ts": [
+   "api-client",
+   "notification-engine"
+  ],
+  "file:frontend/packages/api/src/resources/players.ts": [
+   "api-client",
+   "cache-invalidation"
+  ],
+  "file:frontend/packages/api/src/resources/presences.ts": [
+   "api-client",
+   "attendance"
+  ],
+  "file:frontend/packages/api/src/sse.ts": [
+   "api-client",
+   "web-mobile-parity"
+  ],
+  "file:frontend/packages/api/src/storage.ts": [
+   "api-client",
+   "web-mobile-parity"
+  ],
+  "file:frontend/packages/config/src/calendar-status.ts": [
+   "design-tokens",
+   "web-mobile-parity"
+  ],
+  "file:frontend/packages/config/src/presence-status.ts": [
+   "attendance",
+   "web-mobile-parity"
+  ],
+  "file:frontend/packages/config/src/tokens.ts": [
+   "design-tokens",
+   "web-mobile-parity"
+  ],
+  "file:frontend/packages/hooks/src/queries.ts": [
+   "api-client",
+   "react-query"
+  ],
+  "file:frontend/packages/hooks/src/queryKeys.ts": [
+   "react-query"
+  ],
+  "file:frontend/packages/types/src/domain.ts": [
+   "lib-infra"
+  ],
+  "file:frontend/packages/types/src/training.ts": [
+   "lib-infra"
+  ],
+  "file:frontend/packages/validation/src/index.ts": [
+   "form"
+  ]
+ }
+}

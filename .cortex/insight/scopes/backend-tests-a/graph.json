@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:06:53Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#AuthActions",
+      "kind": "element",
+      "label": "AuthActions"
+    },
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#app",
+      "kind": "element",
+      "label": "app"
+    },
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#auth",
+      "kind": "element",
+      "label": "auth"
+    },
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#client",
+      "kind": "element",
+      "label": "client"
+    },
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#runner",
+      "kind": "element",
+      "label": "runner"
+    },
+    {
+      "id": "element:backend/padel_app/tests/conftest.py#seed_users",
+      "kind": "element",
+      "label": "seed_users"
+    },
+    {
+      "id": "element:backend/padel_app/tests/helpers.py#make_coach",
+      "kind": "element",
+      "label": "make_coach"
+    },
+    {
+      "id": "file:backend/padel_app/tests/conftest.py",
+      "kind": "file",
+      "label": "conftest.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/helpers.py",
+      "kind": "file",
+      "label": "helpers.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_absence_history.py",
+      "kind": "file",
+      "label": "test_absence_history.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_account_deletion.py",
+      "kind": "file",
+      "label": "test_account_deletion.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_attendance_history_buckets.py",
+      "kind": "file",
+      "label": "test_attendance_history_buckets.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_backend_500_fixes.py",
+      "kind": "file",
+      "label": "test_backend_500_fixes.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_boolean_coercion.py",
+      "kind": "file",
+      "label": "test_boolean_coercion.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_calendar_event_status.py",
+      "kind": "file",
+      "label": "test_calendar_event_status.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_calendar_participant_count.py",
+      "kind": "file",
+      "label": "test_calendar_participant_count.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_check_field_available.py",
+      "kind": "file",
+      "label": "test_check_field_available.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_class_detail_visibility.py",
+      "kind": "file",
+      "label": "test_class_detail_visibility.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_class_guest_list_dedupe.py",
+      "kind": "file",
+      "label": "test_class_guest_list_dedupe.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_coach_invitation.py",
+      "kind": "file",
+      "label": "test_coach_invitation.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_config_database_host.py",
+      "kind": "file",
+      "label": "test_config_database_host.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_confirm_presences.py",
+      "kind": "file",
+      "label": "test_confirm_presences.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_dashboard_coach_home.py",
+      "kind": "file",
+      "label": "test_dashboard_coach_home.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_dashboard_pending_confirmations.py",
+      "kind": "file",
+      "label": "test_dashboard_pending_confirmations.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_dates.py",
+      "kind": "file",
+      "label": "test_dates.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_default_coach_levels.py",
+      "kind": "file",
+      "label": "test_default_coach_levels.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_delete_nonnumeric_id_guard.py",
+      "kind": "file",
+      "label": "test_delete_nonnumeric_id_guard.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_effective_level_resolution.py",
+      "kind": "file",
+      "label": "test_effective_level_resolution.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_frontend_api_authz.py",
+      "kind": "file",
+      "label": "test_frontend_api_authz.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_generic_crud_auth.py",
+      "kind": "file",
+      "label": "test_generic_crud_auth.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_input_tools.py",
+      "kind": "file",
+      "label": "test_input_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_level_ladder_ordering.py",
+      "kind": "file",
+      "label": "test_level_ladder_ordering.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_messaging_report_block_scope.py",
+      "kind": "file",
+      "label": "test_messaging_report_block_scope.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_messaging_unread.py",
+      "kind": "file",
+      "label": "test_messaging_unread.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_native_push.py",
+      "kind": "file",
+      "label": "test_native_push.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_notification_blank_template_fallback.py",
+      "kind": "file",
+      "label": "test_notification_blank_template_fallback.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_notification_class_cancellation.py",
+      "kind": "file",
+      "label": "test_notification_class_cancellation.py"
+    },
+    {
+      "id": "file:backend/padel_app/tests/test_notification_config.py",
+      "kind": "file",
+      "label": "test_notification_config.py"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:imports:file:backend/padel_app/tests/helpers.py->file:backend/padel_app/tests/test_backend_500_fixes.py",
+      "source": "file:backend/padel_app/tests/helpers.py",
+      "target": "file:backend/padel_app/tests/test_backend_500_fixes.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/tests/helpers.py->file:backend/padel_app/tests/test_dashboard_coach_home.py",
+      "source": "file:backend/padel_app/tests/helpers.py",
+      "target": "file:backend/padel_app/tests/test_dashboard_coach_home.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/tests/helpers.py->file:backend/padel_app/tests/test_generic_crud_auth.py",
+      "source": "file:backend/padel_app/tests/helpers.py",
+      "target": "file:backend/padel_app/tests/test_generic_crud_auth.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/tests/helpers.py->file:backend/padel_app/tests/test_notification_config.py",
+      "source": "file:backend/padel_app/tests/helpers.py",
+      "target": "file:backend/padel_app/tests/test_notification_config.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}
