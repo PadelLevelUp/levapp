@@ -2,7 +2,7 @@
 id: notifications.reminders
 status: implemented
 depends_on: [notifications.config, classes.instances, attendance.presence]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/student-gets-class-reminders.business.md
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: auth.logout
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/auth/coach-relies-on-auth.business.md
+implements: ../../specs-business/auth/coach-signs-in-and-stays-connected.business.md
 governed_by: []
 ---
 

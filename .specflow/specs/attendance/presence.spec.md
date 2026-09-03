@@ -2,7 +2,7 @@
 id: attendance.presence
 status: implemented
 depends_on: [classes.instances, players.create]
-implements: ../../specs-business/attendance/coach-relies-on-attendance.business.md
+implements: ../../specs-business/attendance/player-confirms-and-manages-attendance.business.md
 governed_by: []
 ---
 

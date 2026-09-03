@@ -2,7 +2,7 @@
 id: eligibility.cascade
 status: draft
 depends_on: [eligibility.rules, classes.instances, classes.edit, classes.recurrence]
-implements: ../../specs-business/eligibility/coach-relies-on-eligibility.business.md
+implements: ../../specs-business/eligibility/coach-sets-the-eligibility-bar.business.md
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: classes.join-requests
 status: draft
 depends_on: [eligibility.open-spot-visibility, eligibility.enforcement, classes.instances, notifications.invitations, messaging.messages]
-implements: ../../specs-business/classes/coach-relies-on-classes.business.md
+implements: ../../specs-business/classes/student-joins-and-views-classes.business.md
 governed_by: []
 ---
 

@@ -4,8 +4,7 @@
 governing leaf spec and its dependencies before touching code.
 
 **What's here:** developer specs (`*.spec.md`), one leaf per behaviour, grouped by domain
-(no capability folders yet). Only leaf specs are implementable. Every leaf `implements:` a business
-spec in `../specs-business/`; those are Phase-6 placeholders until refined.
+(no capability folders yet). Only leaf specs are implementable. Every leaf `implements:` exactly one persona-journey business spec in `../specs-business/`.
 
 ## Domains
 

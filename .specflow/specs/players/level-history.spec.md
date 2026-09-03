@@ -2,7 +2,7 @@
 id: players.level-history
 status: implemented
 depends_on: [players.create, levels.coach-levels]
-implements: ../../specs-business/players/coach-relies-on-players.business.md
+implements: ../../specs-business/players/coach-browses-and-reviews-roster.business.md
 governed_by: []
 ---
 

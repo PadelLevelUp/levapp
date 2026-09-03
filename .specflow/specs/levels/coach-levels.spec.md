@@ -2,7 +2,7 @@
 id: levels.coach-levels
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/levels/coach-relies-on-levels.business.md
+implements: ../../specs-business/levels/coach-defines-and-assigns-skill-ladder.business.md
 governed_by: []
 ---
 

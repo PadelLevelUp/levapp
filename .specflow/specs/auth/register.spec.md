@@ -2,7 +2,7 @@
 id: auth.register
 status: implemented
 depends_on: []
-implements: ../../specs-business/auth/coach-relies-on-auth.business.md
+implements: ../../specs-business/auth/newcomer-creates-and-activates-an-account.business.md
 governed_by: []
 ---
 

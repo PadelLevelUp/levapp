@@ -2,7 +2,7 @@
 id: training.exercises
 status: implemented
 depends_on: [auth.login, levels.coach-levels]
-implements: ../../specs-business/training/coach-relies-on-training.business.md
+implements: ../../specs-business/training/coach-builds-exercise-library.business.md
 governed_by: []
 ---
 

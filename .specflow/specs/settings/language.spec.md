@@ -2,7 +2,7 @@
 id: settings.language
 status: draft
 depends_on: [auth.login, notifications.reminders, notifications.message-templates]
-implements: ../../specs-business/settings/coach-relies-on-settings.business.md
+implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
 ---
 

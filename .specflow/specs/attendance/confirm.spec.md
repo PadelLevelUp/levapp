@@ -2,7 +2,7 @@
 id: attendance.confirm
 status: implemented
 depends_on: [attendance.presence]
-implements: ../../specs-business/attendance/coach-relies-on-attendance.business.md
+implements: ../../specs-business/attendance/player-confirms-and-manages-attendance.business.md
 governed_by: []
 ---
 

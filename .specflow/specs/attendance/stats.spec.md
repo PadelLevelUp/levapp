@@ -2,7 +2,7 @@
 id: attendance.stats
 status: implemented
 depends_on: [attendance.presence]
-implements: ../../specs-business/attendance/coach-relies-on-attendance.business.md
+implements: ../../specs-business/attendance/coach-finalizes-attendance-records.business.md
 governed_by: []
 ---
 

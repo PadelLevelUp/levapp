@@ -2,7 +2,7 @@
 id: players.add-existing
 status: draft
 depends_on: [players.create]
-implements: ../../specs-business/players/coach-relies-on-players.business.md
+implements: ../../specs-business/players/coach-builds-roster.business.md
 governed_by: []
 ---
 

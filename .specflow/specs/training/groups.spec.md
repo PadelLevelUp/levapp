@@ -2,7 +2,7 @@
 id: training.groups
 status: implemented
 depends_on: [training.exercises]
-implements: ../../specs-business/training/coach-relies-on-training.business.md
+implements: ../../specs-business/training/coach-builds-exercise-library.business.md
 governed_by: []
 ---
 

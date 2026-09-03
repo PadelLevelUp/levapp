@@ -2,12 +2,16 @@
 
 ## What this is
 
-Business outcomes for the evaluations domain.
+Business outcomes for the evaluations domain: a coach scoring players against their own
+categories, over time.
 
 ## What it covers
 
-- `evaluations.coach-relies-on-evaluations` — draft placeholder, to be split into persona journeys.
+- `evaluations.coach-evaluates-a-player` — categories, entries, the player-profile view, and bulk
+  import all serve one outcome: a coach's ongoing, category-based scoring of a player.
 
 ## Why it's grouped this way
 
-Mirrors the developer-spec domain so every leaf's `implements:` link stays local to its domain.
+The domain has only four leaves and they are all steps of a single coach journey — define
+categories, record scores, see them, and (optionally) bring historical ones in via import — so
+they are kept as one business spec rather than split further.

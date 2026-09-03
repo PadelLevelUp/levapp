@@ -2,7 +2,7 @@
 id: notifications.message-templates
 status: implemented
 depends_on: [notifications.config]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/coach-tunes-the-invitation-engine.business.md
 governed_by: []
 ---
 
@@ -44,3 +44,8 @@ Customize the text of notification messages sent to players.
 - **Then** the rendered message reads "esta quarta-feira" (Portuguese weekday, via Flask-Babel), not "esta Wednesday"
 - **And** the `{level}` slot renders empty, so the message never contains the literal word "this"
 - **And** no raw placeholder token remains in the delivered text
+
+### Notes
+- Secondary outcome: these templates are what a student actually reads when an invitation or
+  reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
+  `notifications.student-gets-class-reminders`.

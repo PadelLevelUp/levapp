@@ -2,7 +2,7 @@
 id: players.duplicate-name-check
 status: implemented
 depends_on: [players.create, import.confirm]
-implements: ../../specs-business/players/coach-relies-on-players.business.md
+implements: ../../specs-business/players/coach-builds-roster.business.md
 governed_by: []
 ---
 

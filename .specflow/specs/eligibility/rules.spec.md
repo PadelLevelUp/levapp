@@ -2,7 +2,7 @@
 id: eligibility.rules
 status: draft
 depends_on: [notifications.config, levels.coach-levels, players.create, attendance.presence, classes.instances]
-implements: ../../specs-business/eligibility/coach-relies-on-eligibility.business.md
+implements: ../../specs-business/eligibility/coach-sets-the-eligibility-bar.business.md
 governed_by: []
 ---
 

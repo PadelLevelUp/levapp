@@ -2,7 +2,7 @@
 id: clubs.crud
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/clubs/coach-relies-on-clubs.business.md
+implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: attendance.validation
 status: draft
 depends_on: [attendance.presence, attendance.confirm, classes.instances]
-implements: ../../specs-business/attendance/coach-relies-on-attendance.business.md
+implements: ../../specs-business/attendance/coach-finalizes-attendance-records.business.md
 governed_by: []
 ---
 

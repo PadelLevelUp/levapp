@@ -2,7 +2,7 @@
 id: settings.profile
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/settings/coach-relies-on-settings.business.md
+implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
 ---
 

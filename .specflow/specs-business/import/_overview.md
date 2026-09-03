@@ -1,13 +1,18 @@
-# import
+# import — Bulk Data Import
 
 ## What this is
 
-Business outcomes for the import domain.
+The spreadsheet-to-LevelUp migration path: a coach uploads a roster spreadsheet and an AI turns it
+into real players, classes, associations, evaluations and notes in the system.
 
 ## What it covers
 
-- `import.coach-relies-on-import` — draft placeholder, to be split into persona journeys.
+- `import.coach-imports-a-roster-spreadsheet` — the full analyze → preview → confirm → revert
+  journey, end to end
 
 ## Why it's grouped this way
 
-Mirrors the developer-spec domain so every leaf's `implements:` link stays local to its domain.
+All four leaves are strictly sequential steps of one linear journey with a single persona (the
+coach) and no natural branch point between them — analysis feeds the preview, the preview feeds
+confirmation, and confirmation is what revert undoes. Splitting them into separate business specs
+would fragment one continuous action into pieces nobody experiences independently.

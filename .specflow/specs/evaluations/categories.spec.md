@@ -2,7 +2,7 @@
 id: evaluations.categories
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/evaluations/coach-relies-on-evaluations.business.md
+implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
 ---
 

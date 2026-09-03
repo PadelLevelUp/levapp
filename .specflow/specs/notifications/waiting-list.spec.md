@@ -2,7 +2,7 @@
 id: notifications.waiting-list
 status: implemented
 depends_on: [notifications.invitations, eligibility.rules]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/coach-fills-vacancies-automatically.business.md
 governed_by: []
 ---
 

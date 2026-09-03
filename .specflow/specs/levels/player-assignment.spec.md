@@ -2,7 +2,7 @@
 id: levels.player-assignment
 status: implemented
 depends_on: [levels.coach-levels, players.create]
-implements: ../../specs-business/levels/coach-relies-on-levels.business.md
+implements: ../../specs-business/levels/coach-defines-and-assigns-skill-ladder.business.md
 governed_by: []
 ---
 

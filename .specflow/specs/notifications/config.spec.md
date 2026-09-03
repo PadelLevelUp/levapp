@@ -2,7 +2,7 @@
 id: notifications.config
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/coach-tunes-the-invitation-engine.business.md
 governed_by: []
 ---
 

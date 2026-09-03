@@ -2,7 +2,7 @@
 id: messaging.read-tracking
 status: implemented
 depends_on: [messaging.conversations]
-implements: ../../specs-business/messaging/coach-relies-on-messaging.business.md
+implements: ../../specs-business/messaging/user-manages-unread-and-notifications.business.md
 governed_by: []
 ---
 

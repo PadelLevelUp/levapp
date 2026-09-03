@@ -2,7 +2,7 @@
 id: classes.edit
 status: implemented
 depends_on: [classes.create]
-implements: ../../specs-business/classes/coach-relies-on-classes.business.md
+implements: ../../specs-business/classes/coach-schedules-recurring-classes.business.md
 governed_by: []
 ---
 

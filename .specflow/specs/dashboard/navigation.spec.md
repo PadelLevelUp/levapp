@@ -2,7 +2,7 @@
 id: dashboard.navigation
 status: implemented
 depends_on: [dashboard.blocks]
-implements: ../../specs-business/dashboard/coach-relies-on-dashboard.business.md
+implements: ../../specs-business/dashboard/user-relies-on-the-dashboard.business.md
 governed_by: []
 ---
 

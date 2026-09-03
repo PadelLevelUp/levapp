@@ -2,7 +2,7 @@
 id: notifications.class-reminders-manual
 status: implemented
 depends_on: [notifications.reminders]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/student-gets-class-reminders.business.md
 governed_by: []
 ---
 

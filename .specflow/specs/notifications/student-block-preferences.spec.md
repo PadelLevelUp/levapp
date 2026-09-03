@@ -2,7 +2,7 @@
 id: notifications.student-block-preferences
 status: implemented
 depends_on: [notifications.invitations, notifications.manual, notifications.reminders, notifications.waiting-list, settings.profile, settings.role-scope, calendar.student-blockers]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/student-controls-their-notifications.business.md
 governed_by: []
 ---
 

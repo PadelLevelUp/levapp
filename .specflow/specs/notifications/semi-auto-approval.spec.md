@@ -2,7 +2,7 @@
 id: notifications.semi-auto-approval
 status: draft
 depends_on: [notifications.config, notifications.invitations, messaging.conversations, messaging.messages]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/coach-approves-replacements.business.md
 governed_by: []
 ---
 

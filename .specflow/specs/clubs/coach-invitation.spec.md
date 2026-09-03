@@ -2,7 +2,7 @@
 id: clubs.coach-invitation
 status: implemented
 depends_on: [clubs.crud, clubs.membership, auth.activate]
-implements: ../../specs-business/clubs/coach-relies-on-clubs.business.md
+implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: []
 ---
 

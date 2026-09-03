@@ -2,7 +2,7 @@
 id: eligibility.enforcement
 status: draft
 depends_on: [eligibility.cascade, notifications.invitations, notifications.waiting-list, notifications.manual]
-implements: ../../specs-business/eligibility/coach-relies-on-eligibility.business.md
+implements: ../../specs-business/eligibility/coach-enforces-the-eligibility-bar.business.md
 governed_by: []
 ---
 

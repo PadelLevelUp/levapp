@@ -2,7 +2,7 @@
 id: calendar.blocks
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/calendar/coach-relies-on-calendar.business.md
+implements: ../../specs-business/calendar/coach-blocks-personal-time.business.md
 governed_by: []
 ---
 

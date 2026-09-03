@@ -2,7 +2,7 @@
 id: players.edit
 status: implemented
 depends_on: [players.create]
-implements: ../../specs-business/players/coach-relies-on-players.business.md
+implements: ../../specs-business/players/coach-edits-player-details.business.md
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: eligibility.open-spot-visibility
 status: draft
 depends_on: [eligibility.cascade, calendar.view]
-implements: ../../specs-business/eligibility/coach-relies-on-eligibility.business.md
+implements: ../../specs-business/eligibility/student-discovers-open-spots.business.md
 governed_by: []
 ---
 

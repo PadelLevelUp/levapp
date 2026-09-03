@@ -2,7 +2,7 @@
 id: players.profile
 status: implemented
 depends_on: [players.create, evaluations.entries, players.notes]
-implements: ../../specs-business/players/coach-relies-on-players.business.md
+implements: ../../specs-business/players/coach-browses-and-reviews-roster.business.md
 governed_by: []
 ---
 

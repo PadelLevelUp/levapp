@@ -2,7 +2,7 @@
 id: notifications.groups
 status: implemented
 depends_on: [notifications.config]
-implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+implements: ../../specs-business/notifications/coach-tunes-the-invitation-engine.business.md
 governed_by: []
 ---
 
@@ -21,3 +21,7 @@ Define student notification groups for organizing who gets notified.
    - The `side` attribute with `same_as_vacancy` operation is inclusive of "both": a candidate passes when their side equals the vacancy side, OR the candidate's side is "both", OR the vacancy side is "both"/null (see notifications.invitations rule 4a)
 3. Groups determine invitation round matching order
 4. `GET /api/app/notify/groups` returns groups for a specific class instance
+
+### Notes
+- Secondary outcome: the matching order these groups define is what a student actually experiences
+  when a spot opens — see `notifications.coach-fills-vacancies-automatically`.

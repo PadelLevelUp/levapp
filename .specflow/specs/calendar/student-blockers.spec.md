@@ -2,7 +2,7 @@
 id: calendar.student-blockers
 status: implementing
 depends_on: [calendar.blocks, notifications.invitations]
-implements: ../../specs-business/calendar/coach-relies-on-calendar.business.md
+implements: ../../specs-business/calendar/student-controls-invitation-availability.business.md
 governed_by: []
 ---
 

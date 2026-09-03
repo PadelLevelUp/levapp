@@ -2,7 +2,7 @@
 id: messaging.conversations
 status: implemented
 depends_on: [auth.login]
-implements: ../../specs-business/messaging/coach-relies-on-messaging.business.md
+implements: ../../specs-business/messaging/user-and-coach-message-in-real-time.business.md
 governed_by: []
 ---
 

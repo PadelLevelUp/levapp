@@ -2,7 +2,7 @@
 id: calendar.drag-drop
 status: implemented
 depends_on: [calendar.view, classes.edit, calendar.blocks]
-implements: ../../specs-business/calendar/coach-relies-on-calendar.business.md
+implements: ../../specs-business/calendar/coach-views-and-manages-schedule.business.md
 governed_by: []
 ---
 

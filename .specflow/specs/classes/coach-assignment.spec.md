@@ -2,7 +2,7 @@
 id: classes.coach-assignment
 status: implemented
 depends_on: [classes.create]
-implements: ../../specs-business/classes/coach-relies-on-classes.business.md
+implements: ../../specs-business/classes/coach-runs-class-occurrences.business.md
 governed_by: []
 ---
 

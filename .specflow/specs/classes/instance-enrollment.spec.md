@@ -2,7 +2,7 @@
 id: classes.instance-enrollment
 status: implemented
 depends_on: [classes.instances, players.create]
-implements: ../../specs-business/classes/coach-relies-on-classes.business.md
+implements: ../../specs-business/classes/coach-runs-class-occurrences.business.md
 governed_by: []
 ---
 

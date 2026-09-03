@@ -1,13 +1,17 @@
-# dashboard
+# dashboard — Dynamic Dashboard
 
 ## What this is
 
-Business outcomes for the dashboard domain.
+The role-aware landing screen every coach and student sees on opening the app: a server-assembled
+set of at-a-glance blocks, each linking through to the exact page and item it summarizes.
 
 ## What it covers
 
-- `dashboard.coach-relies-on-dashboard` — draft placeholder, to be split into persona journeys.
+- `dashboard.user-relies-on-the-dashboard` — the dashboard's blocks and their deep-linking
+  navigation, for both coach and student roles
 
 ## Why it's grouped this way
 
-Mirrors the developer-spec domain so every leaf's `implements:` link stays local to its domain.
+Both leaves describe one indivisible surface — a set of blocks (`dashboard.blocks`) is only useful
+because each one navigates somewhere real (`dashboard.navigation`); no user experiences assembling
+the dashboard separately from clicking through it, so they're one outcome.

@@ -2,7 +2,7 @@
 id: dashboard.blocks
 status: implemented
 depends_on: [classes.instances, messaging.conversations, notifications.activity, players.list]
-implements: ../../specs-business/dashboard/coach-relies-on-dashboard.business.md
+implements: ../../specs-business/dashboard/user-relies-on-the-dashboard.business.md
 governed_by: []
 ---
 

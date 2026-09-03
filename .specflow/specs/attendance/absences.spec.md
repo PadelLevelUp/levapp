@@ -2,7 +2,7 @@
 id: attendance.absences
 status: draft
 depends_on: [attendance.presence, attendance.history, classes.instances, players.list, dashboard.navigation]
-implements: ../../specs-business/attendance/coach-relies-on-attendance.business.md
+implements: ../../specs-business/attendance/student-tracks-attendance-and-absence-history.business.md
 governed_by: []
 ---
 

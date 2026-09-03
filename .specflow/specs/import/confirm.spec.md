@@ -2,7 +2,7 @@
 id: import.confirm
 status: implemented
 depends_on: [import.preview]
-implements: ../../specs-business/import/coach-relies-on-import.business.md
+implements: ../../specs-business/import/coach-imports-a-roster-spreadsheet.business.md
 governed_by: []
 ---
 

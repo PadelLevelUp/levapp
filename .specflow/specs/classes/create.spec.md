@@ -2,7 +2,7 @@
 id: classes.create
 status: implemented
 depends_on: [clubs.crud, levels.coach-levels]
-implements: ../../specs-business/classes/coach-relies-on-classes.business.md
+implements: ../../specs-business/classes/coach-schedules-recurring-classes.business.md
 governed_by: []
 ---
 
