@@ -1,0 +1,17 @@
+id: handoff
+label: Session handoff
+classification:
+  extensions: [.md]
+  hints:
+    - "Handoff"
+    - "What changed"
+    - "Open items"
+  explicit: true
+extraction:
+  strategy: atlas
+  outputs:
+    - kind: decisions
+      path: extracted/decisions/
+      item_pattern: "YYYY-MM-DD-<slug>.md"
+    - kind: summary
+      path: extracted/summary.md
