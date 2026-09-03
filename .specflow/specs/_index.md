@@ -87,3 +87,16 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
 | settings | 2 | 2 | draft |
+
+
+## Build Order
+
+Foundations first, then the domains that read them; consumers of eligibility and messaging last.
+
+1. auth, clubs, levels
+2. players
+3. classes, calendar
+4. attendance, evaluations, messaging
+5. notifications, eligibility
+6. training, import, settings
+7. dashboard

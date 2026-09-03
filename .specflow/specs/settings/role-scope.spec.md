@@ -1,7 +1,7 @@
 ---
 id: settings.role-scope
 status: implemented
-depends_on: [auth.login, settings.profile, settings.language, levels.coach-levels, evaluations.categories, calendar.seasons, import.data-import, clubs.coach-invitation]
+depends_on: [auth.login, settings.profile, settings.language, levels.coach-levels, evaluations.categories, calendar.seasons, import.analyze, clubs.coach-invitation]
 implements: ../../specs-business/settings/coach-relies-on-settings.business.md
 governed_by: []
 ---

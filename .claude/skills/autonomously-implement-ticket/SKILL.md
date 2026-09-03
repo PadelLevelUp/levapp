@@ -1,17 +1,14 @@
 ---
 name: autonomously-implement-ticket
 description: >
-  Implement a Linear ticket end-to-end AND open the pull request, fully autonomously, with no
-  human-in-the-loop review step. Use this skill whenever the user wants a ticket taken all the way
-  to an open PR without stopping for Discord/Tailscale review — e.g. they paste a prompt starting
-  with "Autonomously implement the following ticket", or say "autonomously implement this ticket",
-  "implement this ticket and open the PR", "take this ticket all the way to a PR", or "run this
-  ticket end to end and open a PR". This is the hands-off sibling of implement-ticket: same
-  spec-driven workflow (classify → E2E test → plan → implement → iterate → regression), but instead
-  of serving a preview and pinging Discord for approval, it verifies in a browser and opens the PR
-  for the user to merge. Do NOT ask the user any questions. Do NOT serve via Tailscale or notify
-  Discord. Prefer this skill over implement-ticket when the user explicitly wants the PR opened
-  without a manual review gate.
+  Implement a Linear ticket end-to-end AND open the pull request into `staging`, fully
+  autonomously, with no human-in-the-loop review step. Use this skill whenever the user wants a
+  ticket taken all the way to an open PR — e.g. they paste a prompt starting with "Implement the
+  following ticket" or "Autonomously implement the following ticket", or say "implement this ticket
+  and open the PR", "take this ticket all the way to a PR", "run this ticket end to end". It is the
+  LevApp-specific spine (Linear ticket → feature branch → E2E-first → iOS parity gate → browser
+  verification → PR) wrapped around the Cortex specflow skills, which do the spec, plan, test and
+  build work. Do NOT ask the user any questions. Do NOT serve via Tailscale or notify Discord.
 ---
 
 # Autonomously Implement Ticket — Spec-Driven, Straight to PR
@@ -19,224 +16,207 @@ description: >
 Execute this entire workflow without asking the user any questions. If something is ambiguous,
 make a reasonable decision and document it in the commit message and PR body.
 
-The goal: take the ticket from nothing to an **open pull request** the user can merge. There is no
-human review gate in the middle — no Tailscale preview, no Discord approval. Quality comes from the
-spec classification, the E2E test, the full regression pass, and a quick browser sanity-check before
-the PR goes up.
+The goal: take the ticket from nothing to an **open pull request into `staging`** the user can
+merge. There is no human review gate in the middle. Quality comes from the spec gate, the failing
+test first, the full regression pass, and a browser walk of the changed flow before the PR goes up.
 
-## Step 0: Pre-flight & Branch
+This skill orchestrates; the Cortex bundles do the work. **Never do a step by hand that a listed
+skill owns** — the point of routing through them is that they carry the discipline (Iron Laws,
+rationalization tables) this orchestrator does not restate.
+
+## Step 0: Pre-flight & branch
 
 ```bash
 source .claude/secrets.env
-```
-
-Check the current branch:
-```bash
+export PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"     # nvm use is broken in the sandbox
 git branch --show-current
 ```
 
-Expected: `feature/pad-<id>` or `feature/pad-<id>-<short-slug>` (lowercase ticket ID). If you're
-already on it, continue.
+Expected: `feature/pad-<id>` or `feature/pad-<id>-<short-slug>`. If not on one, create it **from
+`origin/staging`** — that is where it will merge:
 
-If you're **not** on a feature branch (e.g. on `main`), create one yourself — this skill is meant
-to run without the SessionStart hook. Derive the ID from the ticket and add a short slug (e.g.
-ticket `PAD-123` → `feature/pad-123-player-export`), branching from the latest main:
 ```bash
-git fetch origin main
-git switch -c feature/pad-<id>-<short-slug> origin/main
+git fetch origin staging
+git switch -c feature/pad-<id>-<short-slug> origin/staging
 ```
 
-## Step 1: Spec Classification
+Other sessions share this checkout (scheduled tasks included). Prefer a worktree when one is
+offered (`isolation: worktree`), and never `git checkout` a branch another session may be on.
 
-**Mandatory. Never skip.**
+## Step 1: Classify against the specs — `specflow-entry`
 
-Use the `/classify-ticket` skill. Pass it the ticket's Title, Type, and Description.
+**Mandatory. Never skip.** Run `specflow-entry` with the ticket's title, type and description. It
+classifies the request against `.specflow/specs/` and `.specflow/specs-business/` and names the
+next skill. Follow its routing:
 
-It returns:
-- Classification (Bug, Spec Gap, Spec Change, New Feature, Rule Violation, Standalone, or LEGACY_MODE)
-- Related spec ID
-- Any spec/rule changes (already committed by the skill)
-- The acceptance criteria the E2E test should verify
+| entry routes to | you then run |
+|---|---|
+| a spec gap / spec change / new behaviour | `specflow-spec-editor` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
+| "something is broken" | `specflow-bugs` — root-cause it and file it in `.cortex/compass/bugs/` first; its change plan names the spec to touch. |
+| no spec applies (standalone task) | say so explicitly in the PR body and proceed from the ticket text. |
 
-If classification is LEGACY_MODE (no specs/ directory), proceed using the ticket description
-directly for all subsequent steps.
+Before touching a file, query its insight (`cortex insight file <path>`) — the managed
+CLAUDE.md block explains why. Where insight disagrees with a spec or a compass rule, the gated
+layer wins.
 
-## Step 2: Write E2E Test (TDD)
+## Step 2: Tests first — `specflow-tests`
 
-Use the `/write-e2e-test` skill.
+Run `specflow-tests` for the leaf spec(s) from Step 1. For LevApp that means, concretely:
 
-**If specs exist:** Write the test from the acceptance criteria returned by `/classify-ticket` in
-Step 1. The spec is the source of truth — if the spec and ticket disagree, the spec wins (it was
-already updated in Step 1 if needed).
+- **Backend behaviour** → a pytest case in `backend/padel_app/tests/` (fixtures in `conftest.py`;
+  import services inside the test body; `with app.app_context():`; inject `now=`).
+- **Web behaviour** → a Playwright spec in `frontend/apps/web/e2e/` named `"US-XXX: …"`, locators
+  by role first, seeded users `e2e-coach` / `e2e-student`.
+- **Mobile behaviour** → a Maestro flow in `frontend/apps/mobile/.maestro/` where the flow is
+  observable (there is no mobile unit runner; a gap you cannot measure gets a note in the PR, not
+  a vacuous flow).
 
-**If LEGACY_MODE:** Write the test from the ticket description directly.
+The test MUST fail before Step 4. **Never modify an assertion to make it pass** — if the test is
+wrong, the spec is wrong: go back to `specflow-spec-editor`, then fix the test.
 
-The test MUST fail initially.
+## Step 3: Plan — `specflow-plan`
 
-## Step 3: Plan the Implementation
+Run `specflow-plan` on the agreed spec. Its plan must name the rules and acceptance criteria being
+satisfied, the files per side (backend / web / mobile / packages), and any other leaf the change
+touches.
 
-Use the `/plan-implementation` skill. Include in the plan:
-- The spec classification from Step 1
-- The specific rules and acceptance criteria the implementation must satisfy
-- Any impacted specs from the impact analysis
+## Step 4: Build — `specflow-develop`
 
-## Step 4: Execute the Plan
+Run `specflow-develop` against the plan. LevApp conventions it must respect:
 
-Implement the changes step by step:
-- Backend: follow Flask/SQLAlchemy patterns in `levelup_backend/`
-- Frontend: follow React/TypeScript/Tailwind/shadcn patterns in `levelup_frontend/`
-- Bot: make changes to `levelup_issue_bot`
-- Follow all rules in RULES.md
+- Backend: services in `backend/padel_app/services/`, thin route handlers in `modules/`,
+  migrations via Alembic (`flask db migrate`) — one head, always (`flask db heads`).
+- Web: `@/` alias, API calls through `@levelup/api`, shadcn/ui primitives, locale strings in
+  `frontend/src/locales/{pt,en}` (pt is the default locale).
+- Compass rules (`.cortex/compass/rules/`) apply; the PreWrite hook warns when one matches.
 
-## Step 4b: Port it to iOS
+## Step 4b: Port it to iOS — the parity gate
 
-If Step 4 touched `apps/web`, build the matching `apps/mobile` screen now — same
+If Step 4 touched `frontend/apps/web`, build the matching `frontend/apps/mobile` screen now — same
 ticket, same branch. Parity is the default; web-only is the exception.
 
-Checklist:
 - [ ] Screen under `apps/mobile/app/(tabs)/` + implementation in `apps/mobile/src/features/<feature>/`
-- [ ] Locale namespace hand-added to `apps/mobile/src/lib/i18n.ts` (**static imports** — pt AND en; without this the screen renders raw key paths)
+- [ ] Locale namespace hand-added to `apps/mobile/src/lib/i18n.ts` (**static imports**, pt AND en — without this the screen renders raw key paths)
 - [ ] Same role gating as web
-- [ ] Shared logic pulled into `packages/*` or a plain `.ts` module both shells import — the shells should differ in presentation only
-- [ ] Verified in the simulator, not just typechecked
+- [ ] Shared logic in `packages/*` or a plain `.ts` module both shells import — shells differ in presentation only
+- [ ] Verified in the simulator (curl the Metro bundle and check `originModulePath` — a stale packager silently serves another checkout)
 
-Skipping this needs a very strong reason recorded in the PR body and the spec.
+Skipping this needs a very strong reason recorded in the PR body **and** the spec.
 
-## Step 5: Test & Iterate
+## Step 5: Make the new test pass
 
-Use the `/run-e2e-iterate` skill. Run the E2E test from Step 2. Max 5 iterations.
-
-**NEVER modify test assertions to make them pass.** If the test is wrong, the spec is wrong — fix
-the spec first (re-run `/classify-ticket`), then update the test.
-
-## Step 6: Regression Check
-
-Use the `/run-e2e-iterate` skill. Run ALL E2E tests. Max 5 iterations.
-
-Before fixing a regression: understand WHY your change broke it. If it violated another spec's
-rules, resolve at the spec level first, then fix the code.
-
-Because no human reviews this before it becomes a PR, the full regression pass is your main safety
-net. Don't open the PR with known-failing tests — if you genuinely can't get green within the
-iteration budget, stop and report what's failing instead of opening the PR.
-
-## Step 7: Update Spec Status
-
-If a new spec was created in Step 1, update its `status:` to `implemented` now that tests pass.
-
-## Step 8: Commit & Push
+Run the test(s) from Step 2 until green. Max 5 iterations. Then typecheck — `vite build` does not:
 
 ```bash
-git add -A
-git commit -m "<type>(PAD-<id>): <summary>"
-git push -u origin HEAD
+cd frontend && npx tsc --noEmit -p apps/web/tsconfig.json && (cd apps/mobile && npx tsc --noEmit)
 ```
 
-Use `fix` for bugs, `feat` for features, `refactor` for improvements.
+## Step 6: Regression
 
-Note: spec/rule changes were already committed separately by `/classify-ticket` in Step 1.
-
-## Step 9: Browser Verification
-
-Before opening the PR, sanity-check the change in a real browser with Claude in Chrome. This is the
-last quality gate, so it's worth the few minutes — a green E2E suite can still miss an obviously
-broken layout or interaction.
-
-Serve locally (no Tailscale — localhost only):
 ```bash
-if ! curl -s http://localhost:5000/ > /dev/null 2>&1; then
-  cd levelup_backend && source .venv/bin/activate && source ../.claude/secrets.env && \
-    nohup flask run --host 127.0.0.1 --port 5000 > /tmp/flask-ticket.log 2>&1 &
-  cd ..
-  sleep 3
+cd backend  && source .venv/bin/activate && python -m pytest padel_app/tests/ -q
+cd frontend && npm test
+kill $(lsof -ti :5001) 2>/dev/null; kill $(lsof -ti :8080) 2>/dev/null; sleep 1
+cd frontend/apps/web && bash e2e/scripts/reset-test-db.sh && npx playwright test
+```
+
+Before fixing a regression, understand WHY the change broke it. If it violated another leaf's
+rules, resolve at the spec level first. A spec that flakes alone-vs-suite is a flake, not your
+regression — re-run it in isolation before attributing it.
+
+Because no human reviews this before it becomes a PR, the regression pass is the safety net.
+**Do not open the PR with red tests** — stop and report instead.
+
+## Step 7: Spec status & verification gate
+
+Set the leaf's `status:` to `implemented` (and the business spec per Policy A) now that tests
+pass. Then run `verification-before-completion` — it is the evidence gate for every claim in the
+PR body; nothing below is written from memory.
+
+## Step 8: Commit & push
+
+```bash
+git add -A && git commit -m "<type>(PAD-<id>): <summary>" && git push -u origin HEAD
+```
+
+`fix` for bugs, `feat` for features, `refactor` for improvements. Spec edits were committed
+separately in Step 1.
+
+## Step 9: Browser verification
+
+The last quality gate — a green suite can still miss an obviously broken layout. Serve locally
+(no Tailscale):
+
+```bash
+if ! curl -s http://localhost:5000/ >/dev/null 2>&1; then
+  (cd backend && source .venv/bin/activate && source ../.claude/secrets.env && \
+     nohup flask run --host 127.0.0.1 --port 5000 > /tmp/flask-ticket.log 2>&1 &) ; sleep 3
 fi
-
-if ! lsof -i :8080 > /dev/null 2>&1; then
-  cd levelup_frontend && nohup npm run dev > /tmp/vite-ticket.log 2>&1 &
-  cd ..
-  sleep 3
+if ! lsof -i :8080 >/dev/null 2>&1; then
+  (cd frontend && nohup npm run dev > /tmp/vite-ticket.log 2>&1 &) ; sleep 3
 fi
-
-curl -s http://localhost:8080/ > /dev/null 2>&1 && echo "Frontend OK" || echo "Frontend FAILED"
-curl -s http://localhost:5000/ > /dev/null 2>&1 && echo "Backend OK" || echo "Backend FAILED"
 ```
 
-Then drive the app with Claude in Chrome (`mcp__claude-in-chrome__*` — load via ToolSearch first if
-the tools are deferred). Open `http://localhost:8080`, log in, and walk the specific flow the ticket
-changed. Confirm the new behavior actually works and nothing adjacent is visibly broken.
+Drive `http://localhost:8080` with Claude in Chrome (load the `mcp__claude-in-chrome__*` tools via
+ToolSearch first), log in, walk the flow the ticket changed. The repo lives on iCloud Drive, so
+Vite HMR misses edits — restart Vite rather than trusting a stale bundle. Find a real problem →
+back to Step 4, then Steps 5–6 again.
 
-- If it looks right, continue to the PR.
-- If you find a real problem, go back to Step 4, fix it, and re-run Steps 5–6 before proceeding.
+## Step 10: Open the pull request — into `staging`
 
-Note: this repo lives on iCloud Drive, so Vite HMR sometimes misses edits — if the page doesn't
-reflect your changes, restart the Vite dev server rather than trusting a stale bundle.
-
-## Step 10: Open the Pull Request
-
-Open the PR with `gh` (GitHub account `pedropacheco95`). The branch is already pushed from Step 8.
-
-Gather a quick change summary for the body:
-```bash
-CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
-```
+`main` only accepts PRs from `staging` (ruleset + `guard-main-source`), so feature work always
+targets `staging`. `/batch-merge-prs` promotes staging to main.
 
 ```bash
-gh pr create \
-  --base main \
-  --head "$(git branch --show-current)" \
-  --title "PAD-<id>: <ticket title>" \
-  --body "<body from template below>"
+gh pr create --base staging --head "$(git branch --show-current)" \
+  --title "PAD-<id>: <ticket title>" --body "<template below>"
 ```
 
-**PR body template:**
+Account `pedropacheco95` (`export GH_TOKEN=$(gh auth token --user pedropacheco95)`).
+
 ```
 ## Ticket
-[PAD-<id>](<linear-ticket-url-if-known>)
+[PAD-<id>](<linear url>)
 
 ## Classification
-<Bug | Spec Gap | Spec Change | New Feature | Rule Violation | Standalone> — `<spec-id>`
-<1-line: what the spec change was, or "spec unchanged">
+<specflow-entry category> — `<leaf id>`; spec <changed in <commit> | unchanged>
 
 ## What changed
-<2-4 lines describing what was implemented or fixed and why.>
+<2–4 lines: what and why>
 
 ## Files changed
-<key files grouped by area: backend / frontend / specs — what changed in each>
+backend / web / mobile / packages / specs — what changed in each
 
 ## Testing
-- E2E test: `<path/to/test.spec.ts>` (added/updated, passing)
-- Full E2E regression: passing
-- Browser-verified locally: <one line on the flow you walked through>
+- New test(s): <paths> — failed before, pass now
+- Regression: backend N · unit N · tsc clean · E2E N passed
+- Browser-verified locally: <the flow walked>
+
+## iOS parity
+<ported | not applicable (backend-only) | web-only because …>
 
 ## Notes
-<any reasonable decisions made for ambiguous parts of the ticket, or "none">
+<decisions made for ambiguous parts, partial-delivery caveats the reviewer must know, or "none">
 ```
 
-After creating the PR, **print the PR URL** so the user can open and merge it.
+Print the PR URL. If the PR is a **partial** (one half of a ticket, or a fix that needs a device
+build to reach users), say so in Notes — Linear auto-closes the ticket on merge and someone has to
+know to reopen it.
 
-## Step 11: Cleanup & Stop
+## Step 11: Cleanup & stop
 
-Stop the local dev servers you started for verification (leave any pre-existing ones the user was
-running — only kill what this run spawned):
-```bash
-# only if this run started them
-kill $(lsof -ti :5000) 2>/dev/null; kill $(lsof -ti :8080) 2>/dev/null; true
-```
-
-Then **stop.** The user reviews and merges the PR. Do not serve via Tailscale and do not notify
-Discord — that's intentionally not part of this skill.
+Kill only the dev servers this run started (`kill $(lsof -ti :5000)`, `:8080`), then **stop**.
+The user merges the PR. No Tailscale, no Discord.
 
 ## Rules
 
 - **NEVER ask the user questions.** Work with what you have.
-- **NEVER skip spec classification (Step 1).** If specs/ exists, classify first.
-- **NEVER skip the E2E test.** Writing the test first is mandatory.
-- **NEVER skip the plan.** Planning before coding is mandatory.
-- **NEVER modify test assertions just to make them pass.** Fix the implementation.
-- **Spec changes get their own commit** (handled by `/classify-ticket`).
-- **If a regression fails, check for spec conflicts first** before touching code.
-- **Do NOT open the PR if tests are red.** A green regression suite is the gate that replaces human
-  review here — if you can't get there, stop and report rather than opening a broken PR.
-- **No Tailscale, no Discord.** This skill ends at an open PR; the user merges it.
+- **NEVER skip `specflow-entry`.** It is the gate; "I already know which skill this is" is the
+  rationalisation it exists to catch.
+- **NEVER write production code before a failing test** (`specflow-tests` / `specflow-develop`
+  carry this as their Iron Law).
+- **NEVER modify test assertions to make them pass.**
+- **Spec changes get their own commit**, before code.
+- **Do NOT open the PR if tests are red.**
+- **Feature PRs target `staging`, never `main`.**
 - If something is genuinely impossible, document it and stop.
-- If no specs/ directory, run in legacy mode — log it and proceed with the ticket description directly.
