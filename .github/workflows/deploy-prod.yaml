@@ -99,6 +99,7 @@ jobs:
             --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
             -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
             -e FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }} \
+            -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
             -e MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} \
             -e GCS_UPLOADS_BUCKET=${{ secrets.GCS_UPLOADS_BUCKET }} \
             -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \

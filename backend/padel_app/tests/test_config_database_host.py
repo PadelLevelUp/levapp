@@ -146,7 +146,7 @@ def test_resolve_database_uri_reads_the_environment_at_call_time(load_config):
 def test_get_config_class_selects_by_flask_env(load_config):
     config = load_config()
 
-    assert config.get_config_class("production") is config.ProdConfig
+    assert config.get_config_class("production", environ={"FLASK_SECRET_KEY": "real-secret", "JWT_SECRET_KEY": "real-jwt"}) is config.ProdConfig
     assert config.get_config_class("development") is config.DevConfig
     assert config.get_config_class(None) is config.DevConfig
 
