@@ -1,0 +1,7 @@
+id: archive.2026-09-03-monorepo-cortex-workspace-handoff
+kind: handoff
+ingested_at: 2026-09-03T18:30:00Z
+version: "2026-09-03"
+status: active
+source_filename: 2026-09-03-monorepo-cortex-workspace-handoff.md
+origin: Claude Code session session_0198iAmzyjfYiqu3DJSzaLLC (https://claude.ai/code/session_0198iAmzyjfYiqu3DJSzaLLC) that executed plans/2026-09-02-levapp-monorepo-cortex-migration.md; committed copy at docs/handoffs/
