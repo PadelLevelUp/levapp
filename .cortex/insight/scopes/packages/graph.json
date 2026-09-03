@@ -1,0 +1,936 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T13:58:26Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/packages/api/src/client.test.ts#installAdapter",
+      "kind": "element",
+      "label": "installAdapter"
+    },
+    {
+      "id": "element:frontend/packages/api/src/client.test.ts#memoryStorage",
+      "kind": "element",
+      "label": "memoryStorage"
+    },
+    {
+      "id": "element:frontend/packages/api/src/client.ts#ApiClientOptions",
+      "kind": "element",
+      "label": "ApiClientOptions"
+    },
+    {
+      "id": "element:frontend/packages/api/src/client.ts#createApiClient",
+      "kind": "element",
+      "label": "createApiClient"
+    },
+    {
+      "id": "element:frontend/packages/api/src/client.ts#getApi",
+      "kind": "element",
+      "label": "getApi"
+    },
+    {
+      "id": "element:frontend/packages/api/src/client.ts#initApi",
+      "kind": "element",
+      "label": "initApi"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#ThemeHsl",
+      "kind": "element",
+      "label": "ThemeHsl"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#darkTheme",
+      "kind": "element",
+      "label": "darkTheme"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#darkThemeHsl",
+      "kind": "element",
+      "label": "darkThemeHsl"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#fontFamily",
+      "kind": "element",
+      "label": "fontFamily"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#lightTheme",
+      "kind": "element",
+      "label": "lightTheme"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#lightThemeHsl",
+      "kind": "element",
+      "label": "lightThemeHsl"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#nativewindTheme",
+      "kind": "element",
+      "label": "nativewindTheme"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#radius",
+      "kind": "element",
+      "label": "radius"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#toHslStrings",
+      "kind": "element",
+      "label": "toHslStrings"
+    },
+    {
+      "id": "element:frontend/packages/config/src/tokens.ts#trackingDisplay",
+      "kind": "element",
+      "label": "trackingDisplay"
+    },
+    {
+      "id": "file:frontend/packages/api/src/client.test.ts",
+      "kind": "file",
+      "label": "client.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/client.ts",
+      "kind": "file",
+      "label": "client.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/index.ts",
+      "kind": "file",
+      "label": "index.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/attendance.ts",
+      "kind": "file",
+      "label": "attendance.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/auth.ts",
+      "kind": "file",
+      "label": "auth.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/availability.ts",
+      "kind": "file",
+      "label": "availability.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/calendar.ts",
+      "kind": "file",
+      "label": "calendar.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/classes.ts",
+      "kind": "file",
+      "label": "classes.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/coachLevel.ts",
+      "kind": "file",
+      "label": "coachLevel.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/dashboard.ts",
+      "kind": "file",
+      "label": "dashboard.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/evaluation.ts",
+      "kind": "file",
+      "label": "evaluation.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/fields.ts",
+      "kind": "file",
+      "label": "fields.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/invitations.ts",
+      "kind": "file",
+      "label": "invitations.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/messages.ts",
+      "kind": "file",
+      "label": "messages.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/notificationEngine.ts",
+      "kind": "file",
+      "label": "notificationEngine.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/playerInvitations.ts",
+      "kind": "file",
+      "label": "playerInvitations.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/players.ts",
+      "kind": "file",
+      "label": "players.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/presences.ts",
+      "kind": "file",
+      "label": "presences.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/register.ts",
+      "kind": "file",
+      "label": "register.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/training.ts",
+      "kind": "file",
+      "label": "training.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/resources/users.ts",
+      "kind": "file",
+      "label": "users.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/sse.ts",
+      "kind": "file",
+      "label": "sse.ts"
+    },
+    {
+      "id": "file:frontend/packages/api/src/storage.ts",
+      "kind": "file",
+      "label": "storage.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/calendar-status.test.ts",
+      "kind": "file",
+      "label": "calendar-status.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/calendar-status.ts",
+      "kind": "file",
+      "label": "calendar-status.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/capacity.test.ts",
+      "kind": "file",
+      "label": "capacity.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/capacity.ts",
+      "kind": "file",
+      "label": "capacity.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/dashboard-format.test.ts",
+      "kind": "file",
+      "label": "dashboard-format.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/dashboard-format.ts",
+      "kind": "file",
+      "label": "dashboard-format.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/index.ts",
+      "kind": "file",
+      "label": "index.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/presence-status.test.ts",
+      "kind": "file",
+      "label": "presence-status.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/presence-status.ts",
+      "kind": "file",
+      "label": "presence-status.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/tokens.test.ts",
+      "kind": "file",
+      "label": "tokens.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/config/src/tokens.ts",
+      "kind": "file",
+      "label": "tokens.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/index.ts",
+      "kind": "file",
+      "label": "index.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/queries.ts",
+      "kind": "file",
+      "label": "queries.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/queryKeys.test.ts",
+      "kind": "file",
+      "label": "queryKeys.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/queryKeys.ts",
+      "kind": "file",
+      "label": "queryKeys.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/useAutoInviteEnabled.ts",
+      "kind": "file",
+      "label": "useAutoInviteEnabled.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/useCalendar.ts",
+      "kind": "file",
+      "label": "useCalendar.ts"
+    },
+    {
+      "id": "file:frontend/packages/hooks/src/useFieldAvailability.ts",
+      "kind": "file",
+      "label": "useFieldAvailability.ts"
+    },
+    {
+      "id": "file:frontend/packages/types/src/domain.ts",
+      "kind": "file",
+      "label": "domain.ts"
+    },
+    {
+      "id": "file:frontend/packages/types/src/index.ts",
+      "kind": "file",
+      "label": "index.ts"
+    },
+    {
+      "id": "file:frontend/packages/types/src/training.ts",
+      "kind": "file",
+      "label": "training.ts"
+    },
+    {
+      "id": "file:frontend/packages/validation/src/index.test.ts",
+      "kind": "file",
+      "label": "index.test.ts"
+    },
+    {
+      "id": "file:frontend/packages/validation/src/index.ts",
+      "kind": "file",
+      "label": "index.ts"
+    },
+    {
+      "id": "file:frontend/vitest.packages.config.ts",
+      "kind": "file",
+      "label": "vitest.packages.config.ts"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:frontend/packages/api/src/client.ts#initApi->element:frontend/packages/api/src/client.ts#createApiClient",
+      "source": "element:frontend/packages/api/src/client.ts#initApi",
+      "target": "element:frontend/packages/api/src/client.ts#createApiClient",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "initApi's body calls createApiClient(options) directly",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/packages/config/src/tokens.ts#darkTheme->element:frontend/packages/config/src/tokens.ts#toHslStrings",
+      "source": "element:frontend/packages/config/src/tokens.ts#darkTheme",
+      "target": "element:frontend/packages/config/src/tokens.ts#toHslStrings",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "darkTheme is initialized as toHslStrings(darkThemeHsl)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/packages/config/src/tokens.ts#lightTheme->element:frontend/packages/config/src/tokens.ts#toHslStrings",
+      "source": "element:frontend/packages/config/src/tokens.ts#lightTheme",
+      "target": "element:frontend/packages/config/src/tokens.ts#toHslStrings",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "lightTheme is initialized as toHslStrings(lightThemeHsl)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/client.test.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/client.test.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/client.test.ts->file:frontend/packages/api/src/sse.ts",
+      "source": "file:frontend/packages/api/src/client.test.ts",
+      "target": "file:frontend/packages/api/src/sse.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/client.test.ts->file:frontend/packages/api/src/storage.ts",
+      "source": "file:frontend/packages/api/src/client.test.ts",
+      "target": "file:frontend/packages/api/src/storage.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/client.ts->file:frontend/packages/api/src/storage.ts",
+      "source": "file:frontend/packages/api/src/client.ts",
+      "target": "file:frontend/packages/api/src/storage.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/attendance.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/attendance.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/auth.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/auth.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/availability.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/availability.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/calendar.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/calendar.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/classes.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/classes.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/coachLevel.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/coachLevel.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/dashboard.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/dashboard.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/evaluation.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/evaluation.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/fields.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/fields.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/invitations.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/invitations.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/messages.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/messages.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/notificationEngine.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/notificationEngine.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/playerInvitations.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/playerInvitations.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/players.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/players.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/presences.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/presences.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/register.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/register.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/training.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/training.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/resources/users.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/resources/users.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/index.ts->file:frontend/packages/api/src/sse.ts",
+      "source": "file:frontend/packages/api/src/index.ts",
+      "target": "file:frontend/packages/api/src/sse.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/attendance.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/attendance.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/auth.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/auth.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/availability.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/availability.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/calendar.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/calendar.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/classes.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/classes.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/coachLevel.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/coachLevel.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/dashboard.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/dashboard.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/evaluation.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/evaluation.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/fields.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/fields.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/invitations.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/invitations.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/messages.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/messages.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/notificationEngine.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/notificationEngine.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/playerInvitations.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/playerInvitations.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/playerInvitations.ts->file:frontend/packages/api/src/resources/players.ts",
+      "source": "file:frontend/packages/api/src/resources/playerInvitations.ts",
+      "target": "file:frontend/packages/api/src/resources/players.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/players.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/players.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/presences.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/presences.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/register.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/register.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/training.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/training.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/api/src/resources/users.ts->file:frontend/packages/api/src/client.ts",
+      "source": "file:frontend/packages/api/src/resources/users.ts",
+      "target": "file:frontend/packages/api/src/client.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/calendar-status.test.ts->file:frontend/packages/config/src/calendar-status.ts",
+      "source": "file:frontend/packages/config/src/calendar-status.test.ts",
+      "target": "file:frontend/packages/config/src/calendar-status.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/calendar-status.test.ts->file:frontend/packages/config/src/tokens.ts",
+      "source": "file:frontend/packages/config/src/calendar-status.test.ts",
+      "target": "file:frontend/packages/config/src/tokens.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/calendar-status.ts->file:frontend/packages/config/src/tokens.ts",
+      "source": "file:frontend/packages/config/src/calendar-status.ts",
+      "target": "file:frontend/packages/config/src/tokens.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/capacity.test.ts->file:frontend/packages/config/src/capacity.ts",
+      "source": "file:frontend/packages/config/src/capacity.test.ts",
+      "target": "file:frontend/packages/config/src/capacity.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/dashboard-format.test.ts->file:frontend/packages/config/src/dashboard-format.ts",
+      "source": "file:frontend/packages/config/src/dashboard-format.test.ts",
+      "target": "file:frontend/packages/config/src/dashboard-format.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/index.ts->file:frontend/packages/config/src/calendar-status.ts",
+      "source": "file:frontend/packages/config/src/index.ts",
+      "target": "file:frontend/packages/config/src/calendar-status.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/index.ts->file:frontend/packages/config/src/capacity.ts",
+      "source": "file:frontend/packages/config/src/index.ts",
+      "target": "file:frontend/packages/config/src/capacity.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/index.ts->file:frontend/packages/config/src/dashboard-format.ts",
+      "source": "file:frontend/packages/config/src/index.ts",
+      "target": "file:frontend/packages/config/src/dashboard-format.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/index.ts->file:frontend/packages/config/src/presence-status.ts",
+      "source": "file:frontend/packages/config/src/index.ts",
+      "target": "file:frontend/packages/config/src/presence-status.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/index.ts->file:frontend/packages/config/src/tokens.ts",
+      "source": "file:frontend/packages/config/src/index.ts",
+      "target": "file:frontend/packages/config/src/tokens.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/presence-status.test.ts->file:frontend/packages/config/src/presence-status.ts",
+      "source": "file:frontend/packages/config/src/presence-status.test.ts",
+      "target": "file:frontend/packages/config/src/presence-status.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/config/src/tokens.test.ts->file:frontend/packages/config/src/tokens.ts",
+      "source": "file:frontend/packages/config/src/tokens.test.ts",
+      "target": "file:frontend/packages/config/src/tokens.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/index.ts->file:frontend/packages/hooks/src/queries.ts",
+      "source": "file:frontend/packages/hooks/src/index.ts",
+      "target": "file:frontend/packages/hooks/src/queries.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/index.ts->file:frontend/packages/hooks/src/queryKeys.ts",
+      "source": "file:frontend/packages/hooks/src/index.ts",
+      "target": "file:frontend/packages/hooks/src/queryKeys.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/index.ts->file:frontend/packages/hooks/src/useAutoInviteEnabled.ts",
+      "source": "file:frontend/packages/hooks/src/index.ts",
+      "target": "file:frontend/packages/hooks/src/useAutoInviteEnabled.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/index.ts->file:frontend/packages/hooks/src/useCalendar.ts",
+      "source": "file:frontend/packages/hooks/src/index.ts",
+      "target": "file:frontend/packages/hooks/src/useCalendar.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/index.ts->file:frontend/packages/hooks/src/useFieldAvailability.ts",
+      "source": "file:frontend/packages/hooks/src/index.ts",
+      "target": "file:frontend/packages/hooks/src/useFieldAvailability.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/queries.ts->file:frontend/packages/hooks/src/queryKeys.ts",
+      "source": "file:frontend/packages/hooks/src/queries.ts",
+      "target": "file:frontend/packages/hooks/src/queryKeys.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/hooks/src/queryKeys.test.ts->file:frontend/packages/hooks/src/queryKeys.ts",
+      "source": "file:frontend/packages/hooks/src/queryKeys.test.ts",
+      "target": "file:frontend/packages/hooks/src/queryKeys.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/types/src/index.ts->file:frontend/packages/types/src/domain.ts",
+      "source": "file:frontend/packages/types/src/index.ts",
+      "target": "file:frontend/packages/types/src/domain.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/types/src/index.ts->file:frontend/packages/types/src/training.ts",
+      "source": "file:frontend/packages/types/src/index.ts",
+      "target": "file:frontend/packages/types/src/training.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/packages/validation/src/index.test.ts->file:frontend/packages/validation/src/index.ts",
+      "source": "file:frontend/packages/validation/src/index.test.ts",
+      "target": "file:frontend/packages/validation/src/index.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:16:49Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:frontend/apps/web/src/components/attendance/dateRanges.ts#AttendanceRange",
+      "kind": "element",
+      "label": "AttendanceRange"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/attendance/dateRanges.ts#AttendanceRangePreset",
+      "kind": "element",
+      "label": "AttendanceRangePreset"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/attendance/dateRanges.ts#parseIsoDate",
+      "kind": "element",
+      "label": "parseIsoDate"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/attendance/dateRanges.ts#presetRange",
+      "kind": "element",
+      "label": "presetRange"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/attendance/dateRanges.ts#toIsoDate",
+      "kind": "element",
+      "label": "toIsoDate"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#AddClassRejected",
+      "kind": "element",
+      "label": "AddClassRejected"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#AddClassSheet",
+      "kind": "element",
+      "label": "AddClassSheet"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#checkUnavailableThenSave",
+      "kind": "element",
+      "label": "checkUnavailableThenSave"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#daysOfWeek",
+      "kind": "element",
+      "label": "daysOfWeek"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#defaultEndTime",
+      "kind": "element",
+      "label": "defaultEndTime"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#handleSave",
+      "kind": "element",
+      "label": "handleSave"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#proceedSave",
+      "kind": "element",
+      "label": "proceedSave"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx#CalendarEventCard",
+      "kind": "element",
+      "label": "CalendarEventCard"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#ClassDetailSheet",
+      "kind": "element",
+      "label": "ClassDetailSheet"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#cancelInstanceId",
+      "kind": "element",
+      "label": "cancelInstanceId"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#commitEdit",
+      "kind": "element",
+      "label": "commitEdit"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#handleCancelAttendance",
+      "kind": "element",
+      "label": "handleCancelAttendance"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#handleConfirmAttendance",
+      "kind": "element",
+      "label": "handleConfirmAttendance"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#handleProactiveDecline",
+      "kind": "element",
+      "label": "handleProactiveDecline"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#proceedSaveEdit",
+      "kind": "element",
+      "label": "proceedSaveEdit"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#saveEdit",
+      "kind": "element",
+      "label": "saveEdit"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#startEdit",
+      "kind": "element",
+      "label": "startEdit"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#DashboardRenderer",
+      "kind": "element",
+      "label": "DashboardRenderer"
+    },
+    {
+      "id": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "kind": "element",
+      "label": "renderBlock"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/LevelLabel.tsx",
+      "kind": "file",
+      "label": "LevelLabel.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/NavLink.tsx",
+      "kind": "file",
+      "label": "NavLink.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/attendance/AttendanceChart.tsx",
+      "kind": "file",
+      "label": "AttendanceChart.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/attendance/AttendanceHistoryList.tsx",
+      "kind": "file",
+      "label": "AttendanceHistoryList.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/attendance/AttendanceRangeControls.tsx",
+      "kind": "file",
+      "label": "AttendanceRangeControls.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "kind": "file",
+      "label": "dateRanges.ts"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/brand/launch-loader.tsx",
+      "kind": "file",
+      "label": "launch-loader.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/brand/launch-overlay.tsx",
+      "kind": "file",
+      "label": "launch-overlay.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx",
+      "kind": "file",
+      "label": "AddClassSheet.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/AddEventSheet.tsx",
+      "kind": "file",
+      "label": "AddEventSheet.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/AttendanceRow.tsx",
+      "kind": "file",
+      "label": "AttendanceRow.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "kind": "file",
+      "label": "CalendarEventCard.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/CalendarGrid.tsx",
+      "kind": "file",
+      "label": "CalendarGrid.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/CalendarHeader.tsx",
+      "kind": "file",
+      "label": "CalendarHeader.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx",
+      "kind": "file",
+      "label": "CalendarLegend.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/CalendarToolbar.tsx",
+      "kind": "file",
+      "label": "CalendarToolbar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "kind": "file",
+      "label": "ClassDetailSheet.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx",
+      "kind": "file",
+      "label": "ClassFillBar.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/ClassPlanningSection.tsx",
+      "kind": "file",
+      "label": "ClassPlanningSection.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "kind": "file",
+      "label": "ClassScopeDialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/DeleteClassDialog.tsx",
+      "kind": "file",
+      "label": "DeleteClassDialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/EventDetailSheet.tsx",
+      "kind": "file",
+      "label": "EventDetailSheet.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx",
+      "kind": "file",
+      "label": "ManualNotificationModal.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/MobileCalendarView.tsx",
+      "kind": "file",
+      "label": "MobileCalendarView.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx",
+      "kind": "file",
+      "label": "OverlapConfirmDialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx",
+      "kind": "file",
+      "label": "PlayerSelector.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/RescheduleDialog.tsx",
+      "kind": "file",
+      "label": "RescheduleDialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx",
+      "kind": "file",
+      "label": "UnavailableStudentDialog.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/CoachDashboard.tsx",
+      "kind": "file",
+      "label": "CoachDashboard.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
+      "kind": "file",
+      "label": "DashboardRenderer.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/blocks/ClassListBlock.tsx",
+      "kind": "file",
+      "label": "ClassListBlock.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/blocks/KpiGridBlock.tsx",
+      "kind": "file",
+      "label": "KpiGridBlock.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
+      "kind": "file",
+      "label": "MessagesOverviewBlock.tsx"
+    },
+    {
+      "id": "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
+      "kind": "file",
+      "label": "NotificationActivityBlock.tsx"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#checkUnavailableThenSave->element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#proceedSave",
+      "source": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#checkUnavailableThenSave",
+      "target": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#proceedSave",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "checkUnavailableThenSave calls `await proceedSave()` once no unavailable students block the save",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#handleSave->element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#checkUnavailableThenSave",
+      "source": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#handleSave",
+      "target": "element:frontend/apps/web/src/components/calendar/AddClassSheet.tsx#checkUnavailableThenSave",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "handleSave calls `await checkUnavailableThenSave()` after the overlap check passes",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#proceedSaveEdit->element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#commitEdit",
+      "source": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#proceedSaveEdit",
+      "target": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#commitEdit",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "proceedSaveEdit calls `commitEdit(\"single\")` directly for a non-recurring class",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#saveEdit->element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#proceedSaveEdit",
+      "source": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#saveEdit",
+      "target": "element:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx#proceedSaveEdit",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "saveEdit calls `proceedSaveEdit()` when no timing conflict needs the overlap dialog",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#DashboardRenderer->element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "source": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#DashboardRenderer",
+      "target": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "DashboardRenderer maps `blocks` through `renderBlock(b)`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock->element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "source": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "target": "element:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx#renderBlock",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "the \"grid\" case recurses via `block.data.children.map((child) => renderBlock(child))`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/attendance/AttendanceChart.tsx->file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "source": "file:frontend/apps/web/src/components/attendance/AttendanceChart.tsx",
+      "target": "file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/attendance/AttendanceHistoryList.tsx->file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "source": "file:frontend/apps/web/src/components/attendance/AttendanceHistoryList.tsx",
+      "target": "file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/attendance/AttendanceRangeControls.tsx->file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "source": "file:frontend/apps/web/src/components/attendance/AttendanceRangeControls.tsx",
+      "target": "file:frontend/apps/web/src/components/attendance/dateRanges.ts",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx->file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx->file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx->file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/CalendarGrid.tsx->file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/CalendarGrid.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/CalendarToolbar.tsx->file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/CalendarToolbar.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/AttendanceRow.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/AttendanceRow.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/ClassPlanningSection.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ClassPlanningSection.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/OverlapConfirmDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/PlayerSelector.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/EventDetailSheet.tsx->file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/EventDetailSheet.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/MobileCalendarView.tsx->file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/MobileCalendarView.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/calendar/RescheduleDialog.tsx->file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "source": "file:frontend/apps/web/src/components/calendar/RescheduleDialog.tsx",
+      "target": "file:frontend/apps/web/src/components/calendar/ClassScopeDialog.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/ClassListBlock.tsx",
+      "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
+      "target": "file:frontend/apps/web/src/components/dashboard/blocks/ClassListBlock.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/KpiGridBlock.tsx",
+      "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
+      "target": "file:frontend/apps/web/src/components/dashboard/blocks/KpiGridBlock.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
+      "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
+      "target": "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
+      "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
+      "target": "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "L1 import edge",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

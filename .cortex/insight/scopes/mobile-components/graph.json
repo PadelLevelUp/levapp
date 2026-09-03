@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T14:13:30Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    { "id": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#Frame", "kind": "element", "label": "Frame" },
+    { "id": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LAUNCH_BG_BOTTOM", "kind": "element", "label": "LAUNCH_BG_BOTTOM" },
+    { "id": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LAUNCH_BG_TOP", "kind": "element", "label": "LAUNCH_BG_TOP" },
+    { "id": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation", "kind": "element", "label": "LaunchAnimation" },
+    { "id": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#frameAt", "kind": "element", "label": "frameAt" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#DatePickerInput", "kind": "element", "label": "DatePickerInput" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#toDate", "kind": "element", "label": "toDate" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#TimePickerInput", "kind": "element", "label": "TimePickerInput" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toDate", "kind": "element", "label": "toDate" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toTimeString", "kind": "element", "label": "toTimeString" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastHost", "kind": "element", "label": "ToastHost" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastItem", "kind": "element", "label": "ToastItem" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#addToast", "kind": "element", "label": "addToast" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#emit", "kind": "element", "label": "emit" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#getSnapshot", "kind": "element", "label": "getSnapshot" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#removeToast", "kind": "element", "label": "removeToast" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#subscribe", "kind": "element", "label": "subscribe" },
+    { "id": "element:frontend/apps/mobile/src/components/ui/toast.tsx#toast", "kind": "element", "label": "toast" },
+    { "id": "file:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx", "kind": "file", "label": "LaunchAnimation.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/brand/LevAppMark.tsx", "kind": "file", "label": "LevAppMark.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/empty-state.tsx", "kind": "file", "label": "empty-state.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/error-state.tsx", "kind": "file", "label": "error-state.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/screen.tsx", "kind": "file", "label": "screen.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/alert-dialog.tsx", "kind": "file", "label": "alert-dialog.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/avatar.tsx", "kind": "file", "label": "avatar.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/badge.tsx", "kind": "file", "label": "badge.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/button.tsx", "kind": "file", "label": "button.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/card.tsx", "kind": "file", "label": "card.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/checkbox.tsx", "kind": "file", "label": "checkbox.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/date-picker-input.tsx", "kind": "file", "label": "date-picker-input.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/dialog.tsx", "kind": "file", "label": "dialog.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/input.tsx", "kind": "file", "label": "input.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/label.tsx", "kind": "file", "label": "label.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/select.tsx", "kind": "file", "label": "select.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/separator.tsx", "kind": "file", "label": "separator.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/skeleton.tsx", "kind": "file", "label": "skeleton.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/spinner.tsx", "kind": "file", "label": "spinner.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/switch.tsx", "kind": "file", "label": "switch.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/tabs.tsx", "kind": "file", "label": "tabs.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/text.tsx", "kind": "file", "label": "text.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/textarea.tsx", "kind": "file", "label": "textarea.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/time-picker-input.tsx", "kind": "file", "label": "time-picker-input.tsx" },
+    { "id": "file:frontend/apps/mobile/src/components/ui/toast.tsx", "kind": "file", "label": "toast.tsx" }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation->element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#frameAt",
+      "source": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation",
+      "target": "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#frameAt",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "LaunchAnimation computes `const f = frameAt(c)` on every render to derive all per-frame animation values from progress c.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#DatePickerInput->element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#toDate",
+      "source": "element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#DatePickerInput",
+      "target": "element:frontend/apps/mobile/src/components/ui/date-picker-input.tsx#toDate",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "DatePickerInput calls toDate(value) to seed both the draft state and the picker's initial value.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#TimePickerInput->element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toDate",
+      "source": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#TimePickerInput",
+      "target": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toDate",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "TimePickerInput calls toDate(value) to seed both the draft state and the picker's initial value.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#TimePickerInput->element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toTimeString",
+      "source": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#TimePickerInput",
+      "target": "element:frontend/apps/mobile/src/components/ui/time-picker-input.tsx#toTimeString",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "TimePickerInput's Android onChange and confirm() call toTimeString(selected/draft) to format the picked Date back to \"HH:MM\".",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastHost->element:frontend/apps/mobile/src/components/ui/toast.tsx#getSnapshot",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastHost",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#getSnapshot",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ToastHost calls useSyncExternalStore(subscribe, getSnapshot, getSnapshot) to read the current toast list.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastHost->element:frontend/apps/mobile/src/components/ui/toast.tsx#subscribe",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastHost",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#subscribe",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ToastHost calls useSyncExternalStore(subscribe, getSnapshot, getSnapshot) to subscribe to store updates.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastItem->element:frontend/apps/mobile/src/components/ui/toast.tsx#removeToast",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#ToastItem",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#removeToast",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ToastItem's dismiss() calls removeToast(record.id) once the exit animation finishes.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#addToast->element:frontend/apps/mobile/src/components/ui/toast.tsx#emit",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#addToast",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#emit",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "addToast calls emit() after appending the new record to the toasts array.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#removeToast->element:frontend/apps/mobile/src/components/ui/toast.tsx#emit",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#removeToast",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#emit",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "removeToast calls emit() after filtering the record out of the toasts array.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:frontend/apps/mobile/src/components/ui/toast.tsx#toast->element:frontend/apps/mobile/src/components/ui/toast.tsx#addToast",
+      "source": "element:frontend/apps/mobile/src/components/ui/toast.tsx#toast",
+      "target": "element:frontend/apps/mobile/src/components/ui/toast.tsx#addToast",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "toast.success and toast.error each call addToast with a fixed variant argument.",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

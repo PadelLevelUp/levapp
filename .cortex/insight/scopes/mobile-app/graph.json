@@ -1,0 +1,573 @@
+{
+ "schemaVersion": "3.0",
+ "generated": "2026-09-03T14:11:46Z",
+ "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "nodes": [
+  {
+   "id": "element:frontend/apps/mobile/src/lib/api.ts#api",
+   "kind": "element",
+   "label": "api"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/api.ts#purgeTokenOnFreshInstall",
+   "kind": "element",
+   "label": "purgeTokenOnFreshInstall"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/api.ts#secureTokenStorage",
+   "kind": "element",
+   "label": "secureTokenStorage"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/api.ts#setUnauthorizedHandler",
+   "kind": "element",
+   "label": "setUnauthorizedHandler"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/config.ts#API_URL",
+   "kind": "element",
+   "label": "API_URL"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/config.ts#PRIVACY_POLICY_URL",
+   "kind": "element",
+   "label": "PRIVACY_POLICY_URL"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/config.ts#TERMS_URL",
+   "kind": "element",
+   "label": "TERMS_URL"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/config.ts#WEB_APP_URL",
+   "kind": "element",
+   "label": "WEB_APP_URL"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts#ExpoPushRegistrar",
+   "kind": "element",
+   "label": "ExpoPushRegistrar"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts#PUSH_TOKEN_ENDPOINT",
+   "kind": "element",
+   "label": "PUSH_TOKEN_ENDPOINT"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/push/index.ts#getPushRegistrar",
+   "kind": "element",
+   "label": "getPushRegistrar"
+  },
+  {
+   "id": "element:frontend/apps/mobile/src/lib/push/types.ts#PushRegistrar",
+   "kind": "element",
+   "label": "PushRegistrar"
+  },
+  {
+   "id": "file:frontend/apps/mobile/.maestro/scripts/seeded-monday.js",
+   "kind": "file",
+   "label": "seeded-monday.js"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/_layout.tsx",
+   "kind": "file",
+   "label": "_layout.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/availability.tsx",
+   "kind": "file",
+   "label": "availability.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/calendar.tsx",
+   "kind": "file",
+   "label": "calendar.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/dashboard.tsx",
+   "kind": "file",
+   "label": "dashboard.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/messages.tsx",
+   "kind": "file",
+   "label": "messages.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/players.tsx",
+   "kind": "file",
+   "label": "players.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/presences.tsx",
+   "kind": "file",
+   "label": "presences.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/settings.tsx",
+   "kind": "file",
+   "label": "settings.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/(tabs)/training.tsx",
+   "kind": "file",
+   "label": "training.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/_layout.tsx",
+   "kind": "file",
+   "label": "_layout.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/class/[id].tsx",
+   "kind": "file",
+   "label": "[id].tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/class/new.tsx",
+   "kind": "file",
+   "label": "new.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/conversation/[id].tsx",
+   "kind": "file",
+   "label": "[id].tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/conversation/new.tsx",
+   "kind": "file",
+   "label": "new.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/event/new.tsx",
+   "kind": "file",
+   "label": "new.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/index.tsx",
+   "kind": "file",
+   "label": "index.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/login.tsx",
+   "kind": "file",
+   "label": "login.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/player/[playerId].tsx",
+   "kind": "file",
+   "label": "[playerId].tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/app/player/new.tsx",
+   "kind": "file",
+   "label": "new.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/babel.config.js",
+   "kind": "file",
+   "label": "babel.config.js"
+  },
+  {
+   "id": "file:frontend/apps/mobile/metro.config.js",
+   "kind": "file",
+   "label": "metro.config.js"
+  },
+  {
+   "id": "file:frontend/apps/mobile/nativewind-env.d.ts",
+   "kind": "file",
+   "label": "nativewind-env.d.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "kind": "file",
+   "label": "AuthContext.tsx"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts",
+   "kind": "file",
+   "label": "useAppStateFocus.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/hooks/useKeyboardVisible.ts",
+   "kind": "file",
+   "label": "useKeyboardVisible.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/hooks/usePushNotificationRouting.ts",
+   "kind": "file",
+   "label": "usePushNotificationRouting.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/api.ts",
+   "kind": "file",
+   "label": "api.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/config.ts",
+   "kind": "file",
+   "label": "config.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/i18n.ts",
+   "kind": "file",
+   "label": "i18n.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts",
+   "kind": "file",
+   "label": "expoPushRegistrar.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/push/index.ts",
+   "kind": "file",
+   "label": "index.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/push/types.ts",
+   "kind": "file",
+   "label": "types.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "kind": "file",
+   "label": "sse.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "kind": "file",
+   "label": "utils.ts"
+  },
+  {
+   "id": "file:frontend/apps/mobile/tailwind.config.js",
+   "kind": "file",
+   "label": "tailwind.config.js"
+  }
+ ],
+ "edges": [
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/_layout.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/(tabs)/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "(tabs)/_layout.tsx calls useAuth() to gate tabs and role-split them",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/_layout.tsx->file:frontend/apps/mobile/src/lib/sse.ts",
+   "source": "file:frontend/apps/mobile/app/(tabs)/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "(tabs)/_layout.tsx calls useAppEvents() to invalidate unread-count/conversations on message_* events",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/calendar.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/(tabs)/calendar.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "calendar.tsx calls useAuth() for the isCoach role check",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/calendar.tsx->file:frontend/apps/mobile/src/lib/utils.ts",
+   "source": "file:frontend/apps/mobile/app/(tabs)/calendar.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "calendar.tsx calls cn() to position the Add-event/Add-class FABs",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/players.tsx->file:frontend/apps/mobile/src/lib/utils.ts",
+   "source": "file:frontend/apps/mobile/app/(tabs)/players.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "players.tsx calls cn() for the active-filter chip styling",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/(tabs)/settings.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/(tabs)/settings.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "settings.tsx calls useAuth() for the cached user fallback and logout()",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/_layout.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "app/_layout.tsx renders AuthProvider from ./auth/AuthContext",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/_layout.tsx->file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts",
+   "source": "file:frontend/apps/mobile/app/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "app/_layout.tsx calls useAppStateFocus() in RootLayout",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/_layout.tsx->file:frontend/apps/mobile/src/hooks/usePushNotificationRouting.ts",
+   "source": "file:frontend/apps/mobile/app/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/hooks/usePushNotificationRouting.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "app/_layout.tsx calls usePushNotificationRouting() in RootLayout",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/_layout.tsx->file:frontend/apps/mobile/src/lib/api.ts",
+   "source": "file:frontend/apps/mobile/app/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/api.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "app/_layout.tsx has a bare side-effect import of ./lib/api to register the API singleton before any screen mounts",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/_layout.tsx->file:frontend/apps/mobile/src/lib/i18n.ts",
+   "source": "file:frontend/apps/mobile/app/_layout.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/i18n.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "app/_layout.tsx has a bare side-effect import of ./lib/i18n to init i18next before any screen calls useTranslation()",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/class/[id].tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/class/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "class/[id].tsx calls useAuth() for the isCoach role gate",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/class/[id].tsx->file:frontend/apps/mobile/src/lib/sse.ts",
+   "source": "file:frontend/apps/mobile/app/class/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "class/[id].tsx calls useAppEvents() for live invitation updates",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/class/[id].tsx->file:frontend/apps/mobile/src/lib/utils.ts",
+   "source": "file:frontend/apps/mobile/app/class/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "class/[id].tsx calls cn() for the edit-mode color-swatch selection ring",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/class/new.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/class/new.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "class/new.tsx calls useAuth() for user.coachId",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/class/new.tsx->file:frontend/apps/mobile/src/lib/utils.ts",
+   "source": "file:frontend/apps/mobile/app/class/new.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "class/new.tsx calls cn() for the color-swatch/day-picker selection styling",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/conversation/[id].tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/conversation/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "conversation/[id].tsx calls useAuth() for myId",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/conversation/[id].tsx->file:frontend/apps/mobile/src/hooks/useKeyboardVisible.ts",
+   "source": "file:frontend/apps/mobile/app/conversation/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/hooks/useKeyboardVisible.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "conversation/[id].tsx calls useKeyboardVisible() to drive composer bottom padding",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/conversation/[id].tsx->file:frontend/apps/mobile/src/lib/sse.ts",
+   "source": "file:frontend/apps/mobile/app/conversation/[id].tsx",
+   "target": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "conversation/[id].tsx calls useAppEvents() for live message create/edit/delete/reaction updates",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/conversation/new.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/conversation/new.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "conversation/new.tsx calls useAuth() to exclude self from the candidate list",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/event/new.tsx->file:frontend/apps/mobile/src/lib/utils.ts",
+   "source": "file:frontend/apps/mobile/app/event/new.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/utils.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "event/new.tsx calls cn() for the day-picker selection styling",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/index.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/index.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "index.tsx calls useAuth() for loading/isAuthenticated to pick the redirect target",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/login.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/login.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "login.tsx calls useAuth() for login()",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/player/[playerId].tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/player/[playerId].tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "player/[playerId].tsx calls useAuth() for user.coachId",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/player/new.tsx->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/app/player/new.tsx",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "player/new.tsx calls useAuth() for user.coachId",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/app/player/new.tsx->file:frontend/apps/mobile/src/lib/config.ts",
+   "source": "file:frontend/apps/mobile/app/player/new.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/config.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "player/new.tsx reads WEB_APP_URL to build the full invite link from the API's relative path",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/auth/AuthContext.tsx->file:frontend/apps/mobile/src/lib/api.ts",
+   "source": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/api.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "AuthContext.tsx imports and calls api, secureTokenStorage, purgeTokenOnFreshInstall, setUnauthorizedHandler from ./lib/api",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/auth/AuthContext.tsx->file:frontend/apps/mobile/src/lib/i18n.ts",
+   "source": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/i18n.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "AuthContext.tsx calls i18n.changeLanguage() on the default-exported i18n instance from ./lib/i18n",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/auth/AuthContext.tsx->file:frontend/apps/mobile/src/lib/push/index.ts",
+   "source": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "target": "file:frontend/apps/mobile/src/lib/push/index.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "AuthContext.tsx calls getPushRegistrar().register()/.unregister() on login, silent-restore, and logout",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "source": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "target": "file:frontend/apps/mobile/src/auth/AuthContext.tsx",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "sse.ts calls useAuth() for isAuthenticated to gate the subscription lifecycle",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/apps/mobile/src/lib/api.ts",
+   "source": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "target": "file:frontend/apps/mobile/src/lib/api.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "sse.ts calls secureTokenStorage.getToken() to build the SSE connection URL",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:calls:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/apps/mobile/src/lib/config.ts",
+   "source": "file:frontend/apps/mobile/src/lib/sse.ts",
+   "target": "file:frontend/apps/mobile/src/lib/config.ts",
+   "edge_type": "calls",
+   "confidence": "stated",
+   "evidence": "sse.ts reads API_URL to build the SSE connection URL via buildEventsUrl",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:imports:file:frontend/apps/mobile/src/lib/api.ts->file:frontend/apps/mobile/src/lib/config.ts",
+   "source": "file:frontend/apps/mobile/src/lib/api.ts",
+   "target": "file:frontend/apps/mobile/src/lib/config.ts",
+   "edge_type": "imports",
+   "confidence": "structural",
+   "evidence": "L1 import edge",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:imports:file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts->file:frontend/apps/mobile/src/lib/push/types.ts",
+   "source": "file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts",
+   "target": "file:frontend/apps/mobile/src/lib/push/types.ts",
+   "edge_type": "imports",
+   "confidence": "structural",
+   "evidence": "L1 import edge",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:imports:file:frontend/apps/mobile/src/lib/push/index.ts->file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts",
+   "source": "file:frontend/apps/mobile/src/lib/push/index.ts",
+   "target": "file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts",
+   "edge_type": "imports",
+   "confidence": "structural",
+   "evidence": "L1 import edge",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  },
+  {
+   "id": "edge:imports:file:frontend/apps/mobile/src/lib/push/index.ts->file:frontend/apps/mobile/src/lib/push/types.ts",
+   "source": "file:frontend/apps/mobile/src/lib/push/index.ts",
+   "target": "file:frontend/apps/mobile/src/lib/push/types.ts",
+   "edge_type": "imports",
+   "confidence": "structural",
+   "evidence": "L1 import edge",
+   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+  }
+ ]
+}

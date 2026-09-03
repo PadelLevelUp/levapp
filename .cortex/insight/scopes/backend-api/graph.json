@@ -1,0 +1,1379 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T15:30:00Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#build_block_events",
+      "kind": "element",
+      "label": "build_block_events"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#build_coach_calendar_events",
+      "kind": "element",
+      "label": "build_coach_calendar_events"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#build_lesson_events",
+      "kind": "element",
+      "label": "build_lesson_events"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#build_player_calendar_events",
+      "kind": "element",
+      "label": "build_player_calendar_events"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#load_calendar_blocks_for_user",
+      "kind": "element",
+      "label": "load_calendar_blocks_for_user"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#load_lesson_instances_for_coach",
+      "kind": "element",
+      "label": "load_lesson_instances_for_coach"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#load_lesson_instances_for_player",
+      "kind": "element",
+      "label": "load_lesson_instances_for_player"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#load_lessons_for_coach",
+      "kind": "element",
+      "label": "load_lessons_for_coach"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/calendar_helpers.py#load_lessons_for_player",
+      "kind": "element",
+      "label": "load_lessons_for_player"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_empty_seat_items",
+      "kind": "element",
+      "label": "_empty_seat_items"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "kind": "element",
+      "label": "_load_events"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_pct",
+      "kind": "element",
+      "label": "_pct"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_player_activity",
+      "kind": "element",
+      "label": "_player_activity"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_reply_items",
+      "kind": "element",
+      "label": "_reply_items"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_roster",
+      "kind": "element",
+      "label": "_roster"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_seats_in_window",
+      "kind": "element",
+      "label": "_seats_in_window"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#_validation_item",
+      "kind": "element",
+      "label": "_validation_item"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block",
+      "kind": "element",
+      "label": "build_needs_you_block"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_next_class_block",
+      "kind": "element",
+      "label": "build_next_class_block"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_schedule_block",
+      "kind": "element",
+      "label": "build_schedule_block"
+    },
+    {
+      "id": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block",
+      "kind": "element",
+      "label": "build_week_pulse_block"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "kind": "element",
+      "label": "_assert_owns_class_payload"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "kind": "element",
+      "label": "_parse_attendance_bound"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "kind": "element",
+      "label": "_presence_overview_range"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_required_int_id",
+      "kind": "element",
+      "label": "_required_int_id"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_resolve_attendance_subject",
+      "kind": "element",
+      "label": "_resolve_attendance_subject"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#_run_import_confirm",
+      "kind": "element",
+      "label": "_run_import_confirm"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#absence_history",
+      "kind": "element",
+      "label": "absence_history"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#add_player",
+      "kind": "element",
+      "label": "add_player"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#assert_acting_coach",
+      "kind": "element",
+      "label": "assert_acting_coach"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#attendance_history",
+      "kind": "element",
+      "label": "attendance_history"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#calendar",
+      "kind": "element",
+      "label": "calendar"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#calendar_event",
+      "kind": "element",
+      "label": "calendar_event"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#check_field_available",
+      "kind": "element",
+      "label": "check_field_available"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#class_instance",
+      "kind": "element",
+      "label": "class_instance"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#confirm_presences",
+      "kind": "element",
+      "label": "confirm_presences"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#confirm_training",
+      "kind": "element",
+      "label": "confirm_training"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#current_club",
+      "kind": "element",
+      "label": "current_club"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "kind": "element",
+      "label": "current_coach"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#current_player",
+      "kind": "element",
+      "label": "current_player"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#current_user",
+      "kind": "element",
+      "label": "current_user"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#edit_class",
+      "kind": "element",
+      "label": "edit_class"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#edit_player",
+      "kind": "element",
+      "label": "edit_player"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#events",
+      "kind": "element",
+      "label": "events"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#get_lesson_instances",
+      "kind": "element",
+      "label": "get_lesson_instances"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#import_analyze",
+      "kind": "element",
+      "label": "import_analyze"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#import_confirm",
+      "kind": "element",
+      "label": "import_confirm"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#import_confirm_stream",
+      "kind": "element",
+      "label": "import_confirm_stream"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#presence_stats",
+      "kind": "element",
+      "label": "presence_stats"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#presence_trend",
+      "kind": "element",
+      "label": "presence_trend"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#remove_class",
+      "kind": "element",
+      "label": "remove_class"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#remove_player",
+      "kind": "element",
+      "label": "remove_player"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#require_accessible_exercises",
+      "kind": "element",
+      "label": "require_accessible_exercises"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "kind": "element",
+      "label": "require_coach"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#require_own_roster_relation",
+      "kind": "element",
+      "label": "require_own_roster_relation"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "kind": "element",
+      "label": "require_owned_class"
+    },
+    {
+      "id": "element:backend/padel_app/modules/frontend_api.py#require_owned_training_target",
+      "kind": "element",
+      "label": "require_owned_training_target"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#_current_coach",
+      "kind": "element",
+      "label": "_current_coach"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#_debug_endpoints_enabled",
+      "kind": "element",
+      "label": "_debug_endpoints_enabled"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#_resolve_instance",
+      "kind": "element",
+      "label": "_resolve_instance"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#availability_conflicts",
+      "kind": "element",
+      "label": "availability_conflicts"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#debug_reset_presence",
+      "kind": "element",
+      "label": "debug_reset_presence"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#debug_schedule_reminder_test",
+      "kind": "element",
+      "label": "debug_schedule_reminder_test"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#eligibility_check",
+      "kind": "element",
+      "label": "eligibility_check"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#manual_notify",
+      "kind": "element",
+      "label": "manual_notify"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#process_rounds",
+      "kind": "element",
+      "label": "process_rounds"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#save_config",
+      "kind": "element",
+      "label": "save_config"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#send_reminders",
+      "kind": "element",
+      "label": "send_reminders"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#student_groups",
+      "kind": "element",
+      "label": "student_groups"
+    },
+    {
+      "id": "element:backend/padel_app/modules/notification_engine_api.py#toggle_class_notifications",
+      "kind": "element",
+      "label": "toggle_class_notifications"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Block",
+      "kind": "element",
+      "label": "Block"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field",
+      "kind": "element",
+      "label": "Field"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field.set_boolean_value",
+      "kind": "element",
+      "label": "Field.set_boolean_value"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field.set_date_value",
+      "kind": "element",
+      "label": "Field.set_date_value"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field.set_multiple_picture_value",
+      "kind": "element",
+      "label": "Field.set_multiple_picture_value"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field.set_password_value",
+      "kind": "element",
+      "label": "Field.set_password_value"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Field.set_picture_value",
+      "kind": "element",
+      "label": "Field.set_picture_value"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Form",
+      "kind": "element",
+      "label": "Form"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Form.set_values",
+      "kind": "element",
+      "label": "Form.set_values"
+    },
+    {
+      "id": "element:backend/padel_app/tools/input_tools.py#Tab",
+      "kind": "element",
+      "label": "Tab"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#_date_label",
+      "kind": "element",
+      "label": "_date_label"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#_parse_range_or_default",
+      "kind": "element",
+      "label": "_parse_range_or_default"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#_safe_int",
+      "kind": "element",
+      "label": "_safe_int"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#create_csv_for_model",
+      "kind": "element",
+      "label": "create_csv_for_model"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#iso_date",
+      "kind": "element",
+      "label": "iso_date"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#str_to_bool",
+      "kind": "element",
+      "label": "str_to_bool"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#str_to_date",
+      "kind": "element",
+      "label": "str_to_date"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#str_to_datetime",
+      "kind": "element",
+      "label": "str_to_datetime"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#try_convert",
+      "kind": "element",
+      "label": "try_convert"
+    },
+    {
+      "id": "element:backend/padel_app/tools/tools.py#upload_csv_to_model",
+      "kind": "element",
+      "label": "upload_csv_to_model"
+    },
+    {
+      "id": "file:backend/app.py",
+      "kind": "file",
+      "label": "app.py"
+    },
+    {
+      "id": "file:backend/migrations/env.py",
+      "kind": "file",
+      "label": "env.py"
+    },
+    {
+      "id": "file:backend/padel_app/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/auth.py",
+      "kind": "file",
+      "label": "auth.py"
+    },
+    {
+      "id": "file:backend/padel_app/cli.py",
+      "kind": "file",
+      "label": "cli.py"
+    },
+    {
+      "id": "file:backend/padel_app/config.py",
+      "kind": "file",
+      "label": "config.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/calendar_helpers.py",
+      "kind": "file",
+      "label": "calendar_helpers.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/coach.py",
+      "kind": "file",
+      "label": "coach.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/coach_home.py",
+      "kind": "file",
+      "label": "coach_home.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/events.py",
+      "kind": "file",
+      "label": "events.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/kpis.py",
+      "kind": "file",
+      "label": "kpis.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/messages.py",
+      "kind": "file",
+      "label": "messages.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/pending.py",
+      "kind": "file",
+      "label": "pending.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard/player.py",
+      "kind": "file",
+      "label": "player.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/dashboard_services.py",
+      "kind": "file",
+      "label": "dashboard_services.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/llm.py",
+      "kind": "file",
+      "label": "llm.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/parsing.py",
+      "kind": "file",
+      "label": "parsing.py"
+    },
+    {
+      "id": "file:backend/padel_app/helpers/text.py",
+      "kind": "file",
+      "label": "text.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/api.py",
+      "kind": "file",
+      "label": "api.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/api_auth.py",
+      "kind": "file",
+      "label": "api_auth.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/auth.py",
+      "kind": "file",
+      "label": "auth.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/editor.py",
+      "kind": "file",
+      "label": "editor.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/editor_api.py",
+      "kind": "file",
+      "label": "editor_api.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/frontend_api.py",
+      "kind": "file",
+      "label": "frontend_api.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/main.py",
+      "kind": "file",
+      "label": "main.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/notification_engine_api.py",
+      "kind": "file",
+      "label": "notification_engine_api.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/notifications_api.py",
+      "kind": "file",
+      "label": "notifications_api.py"
+    },
+    {
+      "id": "file:backend/padel_app/modules/startup.py",
+      "kind": "file",
+      "label": "startup.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/auth_tools.py",
+      "kind": "file",
+      "label": "auth_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/calendar_tools.py",
+      "kind": "file",
+      "label": "calendar_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/documentation_tools.py",
+      "kind": "file",
+      "label": "documentation_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/email_tools.py",
+      "kind": "file",
+      "label": "email_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/image_tools.py",
+      "kind": "file",
+      "label": "image_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/input_tools.py",
+      "kind": "file",
+      "label": "input_tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/request_adapter.py",
+      "kind": "file",
+      "label": "request_adapter.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/tools.py",
+      "kind": "file",
+      "label": "tools.py"
+    },
+    {
+      "id": "file:backend/padel_app/tools/username_tools.py",
+      "kind": "file",
+      "label": "username_tools.py"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#_empty_seat_items->element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#_empty_seat_items",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_empty_seat_items calls _load_events directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#_seats_in_window->element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#_seats_in_window",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_seats_in_window calls _load_events directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_empty_seat_items",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_empty_seat_items",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_needs_you_block calls _empty_seat_items directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_reply_items",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_reply_items",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_needs_you_block calls _reply_items directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_validation_item",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_needs_you_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_validation_item",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_needs_you_block calls _validation_item directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_next_class_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_next_class_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_next_class_block calls _load_events directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_next_class_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_roster",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_next_class_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_roster",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_next_class_block calls _roster directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_schedule_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_schedule_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_load_events",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_schedule_block calls _load_events directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_pct",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_pct",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_week_pulse_block calls _pct directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_player_activity",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_player_activity",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_week_pulse_block calls _player_activity directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block->element:backend/padel_app/helpers/dashboard/coach_home.py#_seats_in_window",
+      "source": "element:backend/padel_app/helpers/dashboard/coach_home.py#build_week_pulse_block",
+      "target": "element:backend/padel_app/helpers/dashboard/coach_home.py#_seats_in_window",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "build_week_pulse_block calls _seats_in_window directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload->element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "source": "element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_assert_owns_class_payload calls require_owned_class directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#_presence_overview_range->element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "source": "element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_presence_overview_range calls _parse_attendance_bound directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#absence_history->element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "source": "element:backend/padel_app/modules/frontend_api.py#absence_history",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "absence_history calls _parse_attendance_bound directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#absence_history->element:backend/padel_app/modules/frontend_api.py#_resolve_attendance_subject",
+      "source": "element:backend/padel_app/modules/frontend_api.py#absence_history",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_resolve_attendance_subject",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "absence_history calls _resolve_attendance_subject directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#add_player->element:backend/padel_app/modules/frontend_api.py#assert_acting_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#add_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#assert_acting_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "add_player calls assert_acting_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#add_player->element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#add_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "add_player calls require_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#attendance_history->element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "source": "element:backend/padel_app/modules/frontend_api.py#attendance_history",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_parse_attendance_bound",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "attendance_history calls _parse_attendance_bound directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#attendance_history->element:backend/padel_app/modules/frontend_api.py#_resolve_attendance_subject",
+      "source": "element:backend/padel_app/modules/frontend_api.py#attendance_history",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_resolve_attendance_subject",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "attendance_history calls _resolve_attendance_subject directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#check_field_available->element:backend/padel_app/modules/frontend_api.py#assert_acting_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#check_field_available",
+      "target": "element:backend/padel_app/modules/frontend_api.py#assert_acting_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "check_field_available calls assert_acting_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#confirm_training->element:backend/padel_app/modules/frontend_api.py#require_accessible_exercises",
+      "source": "element:backend/padel_app/modules/frontend_api.py#confirm_training",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_accessible_exercises",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "confirm_training calls require_accessible_exercises directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#confirm_training->element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#confirm_training",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "confirm_training calls require_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#confirm_training->element:backend/padel_app/modules/frontend_api.py#require_owned_training_target",
+      "source": "element:backend/padel_app/modules/frontend_api.py#confirm_training",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_owned_training_target",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "confirm_training calls require_owned_training_target directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#current_club->element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#current_club",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "current_club calls require_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#current_coach->element:backend/padel_app/modules/frontend_api.py#current_user",
+      "source": "element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "target": "element:backend/padel_app/modules/frontend_api.py#current_user",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "current_coach calls current_user directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#current_player->element:backend/padel_app/modules/frontend_api.py#current_user",
+      "source": "element:backend/padel_app/modules/frontend_api.py#current_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#current_user",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "current_player calls current_user directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#edit_class->element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "source": "element:backend/padel_app/modules/frontend_api.py#edit_class",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "edit_class calls _assert_owns_class_payload directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#edit_player->element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#edit_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "edit_player calls require_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#edit_player->element:backend/padel_app/modules/frontend_api.py#require_own_roster_relation",
+      "source": "element:backend/padel_app/modules/frontend_api.py#edit_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_own_roster_relation",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "edit_player calls require_own_roster_relation directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#import_confirm->element:backend/padel_app/modules/frontend_api.py#_run_import_confirm",
+      "source": "element:backend/padel_app/modules/frontend_api.py#import_confirm",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_run_import_confirm",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "import_confirm calls _run_import_confirm directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#import_confirm_stream->element:backend/padel_app/modules/frontend_api.py#_run_import_confirm",
+      "source": "element:backend/padel_app/modules/frontend_api.py#import_confirm_stream",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_run_import_confirm",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "import_confirm_stream calls _run_import_confirm directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#presence_stats->element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "source": "element:backend/padel_app/modules/frontend_api.py#presence_stats",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "presence_stats calls _presence_overview_range directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#presence_trend->element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "source": "element:backend/padel_app/modules/frontend_api.py#presence_trend",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_presence_overview_range",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "presence_trend calls _presence_overview_range directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#remove_class->element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "source": "element:backend/padel_app/modules/frontend_api.py#remove_class",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_assert_owns_class_payload",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "remove_class calls _assert_owns_class_payload directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#remove_player->element:backend/padel_app/modules/frontend_api.py#require_own_roster_relation",
+      "source": "element:backend/padel_app/modules/frontend_api.py#remove_player",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_own_roster_relation",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "remove_player calls require_own_roster_relation directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#require_coach->element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#require_coach",
+      "target": "element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "require_coach calls current_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#require_owned_class->element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "source": "element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "target": "element:backend/padel_app/modules/frontend_api.py#current_coach",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "require_owned_class calls current_coach directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#require_owned_training_target->element:backend/padel_app/modules/frontend_api.py#_required_int_id",
+      "source": "element:backend/padel_app/modules/frontend_api.py#require_owned_training_target",
+      "target": "element:backend/padel_app/modules/frontend_api.py#_required_int_id",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "require_owned_training_target calls _required_int_id directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/modules/frontend_api.py#require_owned_training_target->element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "source": "element:backend/padel_app/modules/frontend_api.py#require_owned_training_target",
+      "target": "element:backend/padel_app/modules/frontend_api.py#require_owned_class",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "require_owned_training_target calls require_owned_class directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/tools/input_tools.py#Field.set_date_value->element:backend/padel_app/tools/tools.py#str_to_date",
+      "source": "element:backend/padel_app/tools/input_tools.py#Field.set_date_value",
+      "target": "element:backend/padel_app/tools/tools.py#str_to_date",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "Field.set_date_value calls str_to_date directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/tools/input_tools.py#Field.set_date_value->element:backend/padel_app/tools/tools.py#str_to_datetime",
+      "source": "element:backend/padel_app/tools/input_tools.py#Field.set_date_value",
+      "target": "element:backend/padel_app/tools/tools.py#str_to_datetime",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "Field.set_date_value calls str_to_datetime directly in its body",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/app.py->file:backend/padel_app/__init__.py",
+      "source": "file:backend/app.py",
+      "target": "file:backend/padel_app/__init__.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/migrations/env.py->file:backend/padel_app/config.py",
+      "source": "file:backend/migrations/env.py",
+      "target": "file:backend/padel_app/config.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/__init__.py->file:backend/padel_app/auth.py",
+      "source": "file:backend/padel_app/__init__.py",
+      "target": "file:backend/padel_app/auth.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/__init__.py->file:backend/padel_app/cli.py",
+      "source": "file:backend/padel_app/__init__.py",
+      "target": "file:backend/padel_app/cli.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/__init__.py->file:backend/padel_app/config.py",
+      "source": "file:backend/padel_app/__init__.py",
+      "target": "file:backend/padel_app/config.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/__init__.py->file:backend/padel_app/modules/__init__.py",
+      "source": "file:backend/padel_app/__init__.py",
+      "target": "file:backend/padel_app/modules/__init__.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/tools/calendar_tools.py",
+      "source": "file:backend/padel_app/helpers/calendar_helpers.py",
+      "target": "file:backend/padel_app/tools/calendar_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/coach.py->file:backend/padel_app/helpers/dashboard/coach_home.py",
+      "source": "file:backend/padel_app/helpers/dashboard/coach.py",
+      "target": "file:backend/padel_app/helpers/dashboard/coach_home.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/coach_home.py->file:backend/padel_app/helpers/calendar_helpers.py",
+      "source": "file:backend/padel_app/helpers/dashboard/coach_home.py",
+      "target": "file:backend/padel_app/helpers/calendar_helpers.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/coach_home.py->file:backend/padel_app/tools/tools.py",
+      "source": "file:backend/padel_app/helpers/dashboard/coach_home.py",
+      "target": "file:backend/padel_app/tools/tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/events.py->file:backend/padel_app/helpers/calendar_helpers.py",
+      "source": "file:backend/padel_app/helpers/dashboard/events.py",
+      "target": "file:backend/padel_app/helpers/calendar_helpers.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/events.py->file:backend/padel_app/tools/tools.py",
+      "source": "file:backend/padel_app/helpers/dashboard/events.py",
+      "target": "file:backend/padel_app/tools/tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/player.py->file:backend/padel_app/helpers/dashboard/events.py",
+      "source": "file:backend/padel_app/helpers/dashboard/player.py",
+      "target": "file:backend/padel_app/helpers/dashboard/events.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/player.py->file:backend/padel_app/helpers/dashboard/kpis.py",
+      "source": "file:backend/padel_app/helpers/dashboard/player.py",
+      "target": "file:backend/padel_app/helpers/dashboard/kpis.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard/player.py->file:backend/padel_app/tools/tools.py",
+      "source": "file:backend/padel_app/helpers/dashboard/player.py",
+      "target": "file:backend/padel_app/tools/tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard_services.py->file:backend/padel_app/helpers/dashboard/coach.py",
+      "source": "file:backend/padel_app/helpers/dashboard_services.py",
+      "target": "file:backend/padel_app/helpers/dashboard/coach.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard_services.py->file:backend/padel_app/helpers/dashboard/messages.py",
+      "source": "file:backend/padel_app/helpers/dashboard_services.py",
+      "target": "file:backend/padel_app/helpers/dashboard/messages.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/dashboard_services.py->file:backend/padel_app/helpers/dashboard/player.py",
+      "source": "file:backend/padel_app/helpers/dashboard_services.py",
+      "target": "file:backend/padel_app/helpers/dashboard/player.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/helpers/parsing.py->file:backend/padel_app/helpers/llm.py",
+      "source": "file:backend/padel_app/helpers/parsing.py",
+      "target": "file:backend/padel_app/helpers/llm.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/api.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/api.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/api_auth.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/api_auth.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/auth.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/auth.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/editor.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/editor.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/editor_api.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/editor_api.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/frontend_api.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/frontend_api.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/main.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/main.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/notification_engine_api.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/notification_engine_api.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/notifications_api.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/notifications_api.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/__init__.py->file:backend/padel_app/modules/startup.py",
+      "source": "file:backend/padel_app/modules/__init__.py",
+      "target": "file:backend/padel_app/modules/startup.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/api.py->file:backend/padel_app/tools/tools.py",
+      "source": "file:backend/padel_app/modules/api.py",
+      "target": "file:backend/padel_app/tools/tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/auth.py->file:backend/padel_app/tools/auth_tools.py",
+      "source": "file:backend/padel_app/modules/auth.py",
+      "target": "file:backend/padel_app/tools/auth_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/auth.py->file:backend/padel_app/tools/email_tools.py",
+      "source": "file:backend/padel_app/modules/auth.py",
+      "target": "file:backend/padel_app/tools/email_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/editor.py->file:backend/padel_app/tools/auth_tools.py",
+      "source": "file:backend/padel_app/modules/editor.py",
+      "target": "file:backend/padel_app/tools/auth_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/editor.py->file:backend/padel_app/tools/documentation_tools.py",
+      "source": "file:backend/padel_app/modules/editor.py",
+      "target": "file:backend/padel_app/tools/documentation_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/helpers/calendar_helpers.py",
+      "source": "file:backend/padel_app/modules/frontend_api.py",
+      "target": "file:backend/padel_app/helpers/calendar_helpers.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/helpers/dashboard_services.py",
+      "source": "file:backend/padel_app/modules/frontend_api.py",
+      "target": "file:backend/padel_app/helpers/dashboard_services.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/tools/username_tools.py",
+      "source": "file:backend/padel_app/modules/frontend_api.py",
+      "target": "file:backend/padel_app/tools/username_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/tools/input_tools.py->file:backend/padel_app/tools/image_tools.py",
+      "source": "file:backend/padel_app/tools/input_tools.py",
+      "target": "file:backend/padel_app/tools/image_tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/tools/input_tools.py->file:backend/padel_app/tools/tools.py",
+      "source": "file:backend/padel_app/tools/input_tools.py",
+      "target": "file:backend/padel_app/tools/tools.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "import statement",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

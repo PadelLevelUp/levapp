@@ -1,0 +1,1095 @@
+{
+ "schemaVersion": "3.0",
+ "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "referenced_by": {
+  "element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation": [
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/brand/launch-loader.tsx->element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation"
+  ],
+  "element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar": [
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx->element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar"
+  ],
+  "element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#EventCard": [
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#EventCard"
+  ],
+  "element:frontend/apps/mobile/src/lib/api.ts#secureTokenStorage": [
+   "edge:semantically-similar-to:element:frontend/apps/mobile/src/lib/api.ts#secureTokenStorage->file:frontend/packages/api/src/client.ts"
+  ],
+  "file:backend/app.py": [
+   "edge:semantically-similar-to:file:frontend/apps/web/playwright.config.ts->file:backend/app.py"
+  ],
+  "file:backend/padel_app/config.py": [
+   "edge:imports:file:backend/padel_app/tests/test_config_database_host.py->file:backend/padel_app/config.py"
+  ],
+  "file:backend/padel_app/helpers/calendar_helpers.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_CoachLesson.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_PlayerLesson.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_PlayerLessonInstance.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/calendar_blocks.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/lesson_instances.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/lessons.py",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/presences.py"
+  ],
+  "file:backend/padel_app/helpers/dashboard/coach_home.py": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:backend/padel_app/helpers/dashboard/coach_home.py->concept:block-driven-dashboard",
+   "edge:imports:file:backend/padel_app/tests/test_dashboard_coach_home.py->file:backend/padel_app/helpers/dashboard/coach_home.py"
+  ],
+  "file:backend/padel_app/helpers/dashboard/pending.py": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:backend/padel_app/helpers/dashboard/pending.py->concept:block-driven-dashboard",
+   "edge:imports:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->file:backend/padel_app/helpers/dashboard/pending.py"
+  ],
+  "file:backend/padel_app/helpers/llm.py": [
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/llm.py"
+  ],
+  "file:backend/padel_app/helpers/parsing.py": [
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/parsing.py"
+  ],
+  "file:backend/padel_app/helpers/text.py": [
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/text.py"
+  ],
+  "file:backend/padel_app/models/Association_CoachLesson.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_CoachLesson.py"
+  ],
+  "file:backend/padel_app/models/Association_PlayerLesson.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_PlayerLesson.py"
+  ],
+  "file:backend/padel_app/models/Association_PlayerLessonInstance.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_PlayerLessonInstance.py"
+  ],
+  "file:backend/padel_app/models/calendar_blocks.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/calendar_blocks.py"
+  ],
+  "file:backend/padel_app/models/coaches.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/models/coaches.py->concept:coach-scoped-authorization"
+  ],
+  "file:backend/padel_app/models/conversations.py": [
+   "edge:imports:file:backend/padel_app/tests/test_pad125_conversation_read_state.py->file:backend/padel_app/models/conversations.py"
+  ],
+  "file:backend/padel_app/models/lesson_instances.py": [
+   "concept:effective-seat-count",
+   "edge:implements-concept:file:backend/padel_app/models/lesson_instances.py->concept:effective-seat-count",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/lesson_instances.py"
+  ],
+  "file:backend/padel_app/models/lessons.py": [
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/lessons.py"
+  ],
+  "file:backend/padel_app/models/notification_config.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/notification_config.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/models/notification_event.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/notification_event.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/models/players.py": [
+   "edge:imports:file:backend/padel_app/models/players.py->file:backend/padel_app/services/student_notification_preferences.py"
+  ],
+  "file:backend/padel_app/models/presences.py": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:backend/padel_app/models/presences.py->concept:attendance-presence-mark",
+   "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/presences.py"
+  ],
+  "file:backend/padel_app/models/replacement_approval_prompt.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/replacement_approval_prompt.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/models/standing_waiting_list_entry.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/standing_waiting_list_entry.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/models/vacancy.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/vacancy.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/models/waiting_list_entry.py": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/models/waiting_list_entry.py->concept:invitation-engine"
+  ],
+  "file:backend/padel_app/modules/api_auth.py": [
+   "edge:imports:file:backend/padel_app/tests/test_profile_update.py->file:backend/padel_app/modules/api_auth.py"
+  ],
+  "file:backend/padel_app/modules/editor_api.py": [
+   "concept:legacy-admin-editor",
+   "edge:implements-concept:file:backend/padel_app/modules/editor_api.py->concept:legacy-admin-editor",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/api/editor.ts->file:backend/padel_app/modules/editor_api.py"
+  ],
+  "file:backend/padel_app/modules/frontend_api.py": [
+   "concept:coach-scoped-authorization",
+   "concept:sse-streaming",
+   "edge:implements-concept:file:backend/padel_app/modules/frontend_api.py->concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/modules/frontend_api.py->concept:sse-streaming",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/ai_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/attendance_history_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/calendar_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/club_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/coach_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/import_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/messaging_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/player_invitation_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/presence_overview_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/replacement_approval_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/season_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/student_availability_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/training_service.py",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/user_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_settings_role_authz.py->file:backend/padel_app/modules/frontend_api.py",
+   "edge:imports:file:backend/padel_app/tests/test_training_players_role_authz.py->file:backend/padel_app/modules/frontend_api.py"
+  ],
+  "file:backend/padel_app/modules/notification_engine_api.py": [
+   "concept:coach-scoped-authorization",
+   "concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/modules/notification_engine_api.py->concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/modules/notification_engine_api.py->concept:invitation-engine",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/notification_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/replacement_approval_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/student_availability_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/student_notification_preferences.py"
+  ],
+  "file:backend/padel_app/scheduler.py": [
+   "concept:club-local-day-boundary",
+   "concept:invitation-engine",
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_notification_schedule.py->file:backend/padel_app/scheduler.py",
+   "edge:imports:file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py->file:backend/padel_app/scheduler.py",
+   "edge:imports:file:backend/padel_app/tests/test_scheduler_job_lifecycle.py->file:backend/padel_app/scheduler.py"
+  ],
+  "file:backend/padel_app/serializers/calendar_event.py": [
+   "edge:imports:file:backend/padel_app/serializers/calendar_event.py->file:backend/padel_app/tools/calendar_tools.py"
+  ],
+  "file:backend/padel_app/serializers/lesson.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/serializers/lesson.py->concept:coach-scoped-authorization",
+   "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/services/notification_service.py"
+  ],
+  "file:backend/padel_app/services/ai_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/ai_service.py",
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/llm.py",
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/parsing.py",
+   "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/helpers/text.py"
+  ],
+  "file:backend/padel_app/services/attendance_history_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/attendance_history_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_absence_history.py->file:backend/padel_app/services/attendance_history_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_attendance_history_buckets.py->file:backend/padel_app/services/attendance_history_service.py"
+  ],
+  "file:backend/padel_app/services/calendar_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/calendar_service.py",
+   "edge:imports:file:backend/padel_app/services/calendar_service.py->file:backend/padel_app/tools/request_adapter.py"
+  ],
+  "file:backend/padel_app/services/club_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/club_service.py",
+   "edge:imports:file:backend/padel_app/services/club_service.py->file:backend/padel_app/tools/request_adapter.py"
+  ],
+  "file:backend/padel_app/services/coach_service.py": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/services/coach_service.py->concept:level-ladder-adjacency",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/coach_service.py",
+   "edge:imports:file:backend/padel_app/services/coach_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/tests/test_default_coach_levels.py->file:backend/padel_app/services/coach_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_level_ladder_ordering.py->file:backend/padel_app/services/coach_service.py"
+  ],
+  "file:backend/padel_app/services/import_service.py": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/services/import_service.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/import_service.py",
+   "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/tools/request_adapter.py"
+  ],
+  "file:backend/padel_app/services/lesson_service.py": [
+   "concept:effective-seat-count",
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/services/lesson_service.py->concept:effective-seat-count",
+   "edge:implements-concept:file:backend/padel_app/services/lesson_service.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/services/lesson_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/tests/test_boolean_coercion.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_confirm_presences.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_notification_class_cancellation.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_pad117_savepoint_containment.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_pad85_duplicate_materialization.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_recurring_delete_exclusion.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_recurs_until_season_end.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/services/level_ladder.py": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/services/level_ladder.py->concept:level-ladder-adjacency"
+  ],
+  "file:backend/padel_app/services/messaging_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/messaging_service.py",
+   "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/tests/test_messaging_unread.py->file:backend/padel_app/services/messaging_service.py"
+  ],
+  "file:backend/padel_app/services/notification_service.py": [
+   "concept:club-local-day-boundary",
+   "concept:effective-seat-count",
+   "concept:eligibility-bar",
+   "concept:invitation-engine",
+   "concept:lazy-instance-materialisation",
+   "concept:level-ladder-adjacency",
+   "concept:notification-template-fallback",
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:effective-seat-count",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:eligibility-bar",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:notification-template-fallback",
+   "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/notification_service.py",
+   "edge:imports:file:backend/padel_app/serializers/lesson.py->file:backend/padel_app/services/notification_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_effective_level_resolution.py->file:backend/padel_app/services/notification_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_level_ladder_ordering.py->file:backend/padel_app/services/notification_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_notification_reminder_flow.py->file:backend/padel_app/services/notification_service.py"
+  ],
+  "file:backend/padel_app/services/player_invitation_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/player_invitation_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_player_invitation.py->file:backend/padel_app/services/player_invitation_service.py"
+  ],
+  "file:backend/padel_app/services/player_service.py": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:backend/padel_app/services/player_service.py->concept:player-username-ownership",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/services/player_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_player_level.py->file:backend/padel_app/services/player_service.py"
+  ],
+  "file:backend/padel_app/services/presence_overview_service.py": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:backend/padel_app/services/presence_overview_service.py->concept:attendance-presence-mark",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/presence_overview_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_presence_overview.py->file:backend/padel_app/services/presence_overview_service.py"
+  ],
+  "file:backend/padel_app/services/replacement_approval_service.py": [
+   "concept:eligibility-bar",
+   "concept:invitation-engine",
+   "concept:semi-automatic-approval",
+   "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:eligibility-bar",
+   "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:invitation-engine",
+   "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:semi-automatic-approval",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/replacement_approval_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/replacement_approval_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_semi_auto_approval.py->file:backend/padel_app/services/replacement_approval_service.py"
+  ],
+  "file:backend/padel_app/services/season_service.py": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:backend/padel_app/services/season_service.py->concept:season-bounded-recurrence",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/season_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_season_service.py->file:backend/padel_app/services/season_service.py",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/api/seasons.ts->file:backend/padel_app/services/season_service.py"
+  ],
+  "file:backend/padel_app/services/student_availability_service.py": [
+   "concept:club-local-day-boundary",
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:backend/padel_app/services/student_availability_service.py->concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/services/student_availability_service.py->concept:student-notification-blocking",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/student_availability_service.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/student_availability_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_student_availability_blockers.py->file:backend/padel_app/services/student_availability_service.py"
+  ],
+  "file:backend/padel_app/services/student_notification_preferences.py": [
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:backend/padel_app/services/student_notification_preferences.py->concept:student-notification-blocking",
+   "edge:imports:file:backend/padel_app/models/players.py->file:backend/padel_app/services/student_notification_preferences.py",
+   "edge:imports:file:backend/padel_app/modules/notification_engine_api.py->file:backend/padel_app/services/student_notification_preferences.py",
+   "edge:imports:file:backend/padel_app/tests/test_student_notification_block_preferences.py->file:backend/padel_app/services/student_notification_preferences.py"
+  ],
+  "file:backend/padel_app/services/training_service.py": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/services/training_service.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/training_service.py"
+  ],
+  "file:backend/padel_app/services/user_service.py": [
+   "edge:imports:file:backend/padel_app/modules/frontend_api.py->file:backend/padel_app/services/user_service.py",
+   "edge:imports:file:backend/padel_app/services/user_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/tests/test_pad93_boolean_blast_radius.py->file:backend/padel_app/services/user_service.py"
+  ],
+  "file:backend/padel_app/tests/test_absence_history.py": [
+   "edge:imports:file:backend/padel_app/tests/test_absence_history.py->file:backend/padel_app/services/attendance_history_service.py"
+  ],
+  "file:backend/padel_app/tests/test_attendance_history_buckets.py": [
+   "edge:imports:file:backend/padel_app/tests/test_attendance_history_buckets.py->file:backend/padel_app/services/attendance_history_service.py"
+  ],
+  "file:backend/padel_app/tests/test_boolean_coercion.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/tests/test_boolean_coercion.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_boolean_coercion.py->file:backend/padel_app/services/lesson_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_boolean_coercion.py->file:backend/padel_app/tools/input_tools.py"
+  ],
+  "file:backend/padel_app/tests/test_calendar_participant_count.py": [
+   "concept:effective-seat-count",
+   "edge:implements-concept:file:backend/padel_app/tests/test_calendar_participant_count.py->concept:effective-seat-count"
+  ],
+  "file:backend/padel_app/tests/test_check_field_available.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_check_field_available.py->concept:coach-scoped-authorization"
+  ],
+  "file:backend/padel_app/tests/test_class_guest_list_dedupe.py": [
+   "concept:effective-seat-count",
+   "edge:implements-concept:file:backend/padel_app/tests/test_class_guest_list_dedupe.py->concept:effective-seat-count"
+  ],
+  "file:backend/padel_app/tests/test_config_database_host.py": [
+   "edge:imports:file:backend/padel_app/tests/test_config_database_host.py->file:backend/padel_app/config.py"
+  ],
+  "file:backend/padel_app/tests/test_confirm_presences.py": [
+   "edge:imports:file:backend/padel_app/tests/test_confirm_presences.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_dashboard_coach_home.py": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_coach_home.py->concept:block-driven-dashboard",
+   "edge:imports:file:backend/padel_app/tests/test_dashboard_coach_home.py->file:backend/padel_app/helpers/dashboard/coach_home.py"
+  ],
+  "file:backend/padel_app/tests/test_dashboard_pending_confirmations.py": [
+   "concept:block-driven-dashboard",
+   "concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->concept:block-driven-dashboard",
+   "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->concept:club-local-day-boundary",
+   "edge:imports:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->file:backend/padel_app/helpers/dashboard/pending.py"
+  ],
+  "file:backend/padel_app/tests/test_dates.py": [
+   "concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/tests/test_dates.py->concept:club-local-day-boundary",
+   "edge:imports:file:backend/padel_app/tests/test_dates.py->file:backend/padel_app/utils/dates.py"
+  ],
+  "file:backend/padel_app/tests/test_default_coach_levels.py": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/tests/test_default_coach_levels.py->concept:level-ladder-adjacency",
+   "edge:imports:file:backend/padel_app/tests/test_default_coach_levels.py->file:backend/padel_app/services/coach_service.py"
+  ],
+  "file:backend/padel_app/tests/test_delete_nonnumeric_id_guard.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_delete_nonnumeric_id_guard.py->concept:coach-scoped-authorization"
+  ],
+  "file:backend/padel_app/tests/test_effective_level_resolution.py": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/tests/test_effective_level_resolution.py->concept:level-ladder-adjacency",
+   "edge:imports:file:backend/padel_app/tests/test_effective_level_resolution.py->file:backend/padel_app/services/notification_service.py"
+  ],
+  "file:backend/padel_app/tests/test_frontend_api_authz.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_frontend_api_authz.py->concept:coach-scoped-authorization"
+  ],
+  "file:backend/padel_app/tests/test_generic_crud_auth.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_generic_crud_auth.py->concept:coach-scoped-authorization"
+  ],
+  "file:backend/padel_app/tests/test_input_tools.py": [
+   "edge:imports:file:backend/padel_app/tests/test_input_tools.py->file:backend/padel_app/tools/input_tools.py"
+  ],
+  "file:backend/padel_app/tests/test_level_ladder_ordering.py": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:backend/padel_app/tests/test_level_ladder_ordering.py->concept:level-ladder-adjacency",
+   "edge:imports:file:backend/padel_app/tests/test_level_ladder_ordering.py->file:backend/padel_app/services/coach_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_level_ladder_ordering.py->file:backend/padel_app/services/notification_service.py"
+  ],
+  "file:backend/padel_app/tests/test_messaging_unread.py": [
+   "edge:imports:file:backend/padel_app/tests/test_messaging_unread.py->file:backend/padel_app/services/messaging_service.py"
+  ],
+  "file:backend/padel_app/tests/test_native_push.py": [
+   "edge:imports:file:backend/padel_app/tests/test_native_push.py->file:backend/padel_app/utils/expo_push.py"
+  ],
+  "file:backend/padel_app/tests/test_notification_blank_template_fallback.py": [
+   "concept:notification-template-fallback",
+   "edge:implements-concept:file:backend/padel_app/tests/test_notification_blank_template_fallback.py->concept:notification-template-fallback"
+  ],
+  "file:backend/padel_app/tests/test_notification_class_cancellation.py": [
+   "edge:imports:file:backend/padel_app/tests/test_notification_class_cancellation.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_notification_config.py": [
+   "concept:notification-template-fallback",
+   "edge:implements-concept:file:backend/padel_app/tests/test_notification_config.py->concept:notification-template-fallback"
+  ],
+  "file:backend/padel_app/tests/test_notification_reminder_flow.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/tests/test_notification_reminder_flow.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_notification_reminder_flow.py->file:backend/padel_app/services/notification_service.py"
+  ],
+  "file:backend/padel_app/tests/test_notification_schedule.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/tests/test_notification_schedule.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_notification_schedule.py->file:backend/padel_app/scheduler.py",
+   "edge:imports:file:backend/padel_app/tests/test_notification_schedule.py->file:backend/padel_app/utils/notification_preview.py"
+  ],
+  "file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->concept:player-username-ownership",
+   "edge:imports:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->file:backend/padel_app/services/player_service.py",
+   "edge:imports:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->file:backend/padel_app/tools/username_tools.py"
+  ],
+  "file:backend/padel_app/tests/test_pad117_savepoint_containment.py": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/tests/test_pad117_savepoint_containment.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/tests/test_pad117_savepoint_containment.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_pad125_conversation_read_state.py": [
+   "edge:imports:file:backend/padel_app/tests/test_pad125_conversation_read_state.py->file:backend/padel_app/models/conversations.py"
+  ],
+  "file:backend/padel_app/tests/test_pad128_eligibility.py": [
+   "concept:eligibility-bar",
+   "edge:implements-concept:file:backend/padel_app/tests/test_pad128_eligibility.py->concept:eligibility-bar"
+  ],
+  "file:backend/padel_app/tests/test_pad133_eligibility_reasons.py": [
+   "concept:eligibility-bar",
+   "edge:implements-concept:file:backend/padel_app/tests/test_pad133_eligibility_reasons.py->concept:eligibility-bar"
+  ],
+  "file:backend/padel_app/tests/test_pad85_duplicate_materialization.py": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/tests/test_pad85_duplicate_materialization.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/tests/test_pad85_duplicate_materialization.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_pad93_boolean_blast_radius.py": [
+   "edge:imports:file:backend/padel_app/tests/test_pad93_boolean_blast_radius.py->file:backend/padel_app/services/user_service.py"
+  ],
+  "file:backend/padel_app/tests/test_player_invitation.py": [
+   "edge:imports:file:backend/padel_app/tests/test_player_invitation.py->file:backend/padel_app/services/player_invitation_service.py"
+  ],
+  "file:backend/padel_app/tests/test_player_level.py": [
+   "edge:imports:file:backend/padel_app/tests/test_player_level.py->file:backend/padel_app/services/player_service.py"
+  ],
+  "file:backend/padel_app/tests/test_presence_overview.py": [
+   "edge:imports:file:backend/padel_app/tests/test_presence_overview.py->file:backend/padel_app/services/presence_overview_service.py"
+  ],
+  "file:backend/padel_app/tests/test_profile_update.py": [
+   "edge:imports:file:backend/padel_app/tests/test_profile_update.py->file:backend/padel_app/modules/api_auth.py"
+  ],
+  "file:backend/padel_app/tests/test_recurring_delete_exclusion.py": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:backend/padel_app/tests/test_recurring_delete_exclusion.py->concept:lazy-instance-materialisation",
+   "edge:imports:file:backend/padel_app/tests/test_recurring_delete_exclusion.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_recurs_until_season_end.py": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:backend/padel_app/tests/test_recurs_until_season_end.py->concept:season-bounded-recurrence",
+   "edge:imports:file:backend/padel_app/tests/test_recurs_until_season_end.py->file:backend/padel_app/services/lesson_service.py"
+  ],
+  "file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py->file:backend/padel_app/scheduler.py"
+  ],
+  "file:backend/padel_app/tests/test_scheduler_job_lifecycle.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/tests/test_scheduler_job_lifecycle.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_scheduler_job_lifecycle.py->file:backend/padel_app/scheduler.py"
+  ],
+  "file:backend/padel_app/tests/test_season_service.py": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:backend/padel_app/tests/test_season_service.py->concept:season-bounded-recurrence",
+   "edge:imports:file:backend/padel_app/tests/test_season_service.py->file:backend/padel_app/services/season_service.py"
+  ],
+  "file:backend/padel_app/tests/test_semi_auto_approval.py": [
+   "concept:semi-automatic-approval",
+   "edge:implements-concept:file:backend/padel_app/tests/test_semi_auto_approval.py->concept:semi-automatic-approval",
+   "edge:imports:file:backend/padel_app/tests/test_semi_auto_approval.py->file:backend/padel_app/services/replacement_approval_service.py"
+  ],
+  "file:backend/padel_app/tests/test_settings_role_authz.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_settings_role_authz.py->concept:coach-scoped-authorization",
+   "edge:imports:file:backend/padel_app/tests/test_settings_role_authz.py->file:backend/padel_app/modules/frontend_api.py"
+  ],
+  "file:backend/padel_app/tests/test_student_availability_blockers.py": [
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:backend/padel_app/tests/test_student_availability_blockers.py->concept:student-notification-blocking",
+   "edge:imports:file:backend/padel_app/tests/test_student_availability_blockers.py->file:backend/padel_app/services/student_availability_service.py"
+  ],
+  "file:backend/padel_app/tests/test_student_notification_block_preferences.py": [
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:backend/padel_app/tests/test_student_notification_block_preferences.py->concept:student-notification-blocking",
+   "edge:imports:file:backend/padel_app/tests/test_student_notification_block_preferences.py->file:backend/padel_app/services/student_notification_preferences.py"
+  ],
+  "file:backend/padel_app/tests/test_training_players_role_authz.py": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:backend/padel_app/tests/test_training_players_role_authz.py->concept:coach-scoped-authorization",
+   "edge:imports:file:backend/padel_app/tests/test_training_players_role_authz.py->file:backend/padel_app/modules/frontend_api.py"
+  ],
+  "file:backend/padel_app/tools/calendar_tools.py": [
+   "edge:imports:file:backend/padel_app/serializers/calendar_event.py->file:backend/padel_app/tools/calendar_tools.py"
+  ],
+  "file:backend/padel_app/tools/input_tools.py": [
+   "concept:legacy-admin-editor",
+   "edge:implements-concept:file:backend/padel_app/tools/input_tools.py->concept:legacy-admin-editor",
+   "edge:imports:file:backend/padel_app/tests/test_boolean_coercion.py->file:backend/padel_app/tools/input_tools.py",
+   "edge:imports:file:backend/padel_app/tests/test_input_tools.py->file:backend/padel_app/tools/input_tools.py"
+  ],
+  "file:backend/padel_app/tools/request_adapter.py": [
+   "edge:imports:file:backend/padel_app/services/calendar_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/club_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/coach_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/lesson_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/player_service.py->file:backend/padel_app/tools/request_adapter.py",
+   "edge:imports:file:backend/padel_app/services/user_service.py->file:backend/padel_app/tools/request_adapter.py"
+  ],
+  "file:backend/padel_app/tools/username_tools.py": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:backend/padel_app/tools/username_tools.py->concept:player-username-ownership",
+   "edge:imports:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->file:backend/padel_app/tools/username_tools.py"
+  ],
+  "file:backend/padel_app/utils/dates.py": [
+   "concept:club-local-day-boundary",
+   "edge:implements-concept:file:backend/padel_app/utils/dates.py->concept:club-local-day-boundary",
+   "edge:imports:file:backend/padel_app/tests/test_dates.py->file:backend/padel_app/utils/dates.py"
+  ],
+  "file:backend/padel_app/utils/expo_push.py": [
+   "edge:imports:file:backend/padel_app/tests/test_native_push.py->file:backend/padel_app/utils/expo_push.py"
+  ],
+  "file:backend/padel_app/utils/notification_preview.py": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:backend/padel_app/utils/notification_preview.py->concept:reminder-lifecycle",
+   "edge:imports:file:backend/padel_app/tests/test_notification_schedule.py->file:backend/padel_app/utils/notification_preview.py"
+  ],
+  "file:frontend/apps/mobile/src/auth/AuthContext.tsx": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/apps/mobile/src/auth/AuthContext.tsx->concept:auth-session"
+  ],
+  "file:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx->concept:web-mobile-parity"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/avatar.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/avatar.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/avatar.tsx->file:frontend/apps/mobile/src/components/ui/avatar.tsx"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/badge.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/badge.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/badge.tsx->file:frontend/apps/mobile/src/components/ui/badge.tsx"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/button.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/button.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/button.tsx->file:frontend/apps/mobile/src/components/ui/button.tsx"
+  ],
+  "file:frontend/apps/mobile/src/components/ui/card.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/card.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/card.tsx->file:frontend/apps/mobile/src/components/ui/card.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx->concept:calendar-visual-state"
+  ],
+  "file:frontend/apps/mobile/src/features/calendar/EventCard.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/calendar/EventCard.tsx->concept:calendar-visual-state"
+  ],
+  "file:frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx->concept:block-driven-dashboard"
+  ],
+  "file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx->concept:block-driven-dashboard",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx->file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx->file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx->file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx->file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx->file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx->concept:attendance-presence-mark",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx->file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/presences/PresencesScreen.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/presences/PresencesScreen.tsx->concept:attendance-presence-mark"
+  ],
+  "file:frontend/apps/mobile/src/features/settings/settings-sections.ts": [
+   "concept:coach-only-settings-gating",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/settings/settings-sections.ts->concept:coach-only-settings-gating",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/SettingsPage.tsx->file:frontend/apps/mobile/src/features/settings/settings-sections.ts"
+  ],
+  "file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx->file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx"
+  ],
+  "file:frontend/apps/mobile/src/features/training/groups-tab.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/mobile/src/features/training/groups-tab.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx->file:frontend/apps/mobile/src/features/training/groups-tab.tsx"
+  ],
+  "file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts": [
+   "concept:sse-streaming",
+   "edge:implements-concept:file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts->concept:sse-streaming"
+  ],
+  "file:frontend/apps/mobile/src/lib/api.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/apps/mobile/src/lib/api.ts->concept:auth-session"
+  ],
+  "file:frontend/apps/mobile/src/lib/i18n.ts": [
+   "concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/mobile/src/lib/i18n.ts->concept:app-wide-i18n"
+  ],
+  "file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts->concept:auth-session"
+  ],
+  "file:frontend/apps/mobile/src/lib/push/index.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/apps/mobile/src/lib/push/index.ts->concept:auth-session"
+  ],
+  "file:frontend/apps/mobile/src/lib/sse.ts": [
+   "concept:sse-streaming",
+   "edge:implements-concept:file:frontend/apps/mobile/src/lib/sse.ts->concept:sse-streaming",
+   "edge:semantically-similar-to:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/packages/api/src/sse.ts"
+  ],
+  "file:frontend/apps/mobile/tailwind.config.js": [
+   "concept:design-tokens",
+   "edge:implements-concept:file:frontend/apps/mobile/tailwind.config.js->concept:design-tokens"
+  ],
+  "file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts": [
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts->concept:student-notification-blocking"
+  ],
+  "file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts->concept:season-bounded-recurrence"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts->concept:block-driven-dashboard"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts->concept:block-driven-dashboard"
+  ],
+  "file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts->concept:block-driven-dashboard"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts->concept:reminder-lifecycle"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts": [
+   "concept:notification-template-fallback",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts->concept:notification-template-fallback"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts->concept:reminder-lifecycle"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts->concept:reminder-lifecycle"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts": [
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts->concept:reminder-lifecycle"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts": [
+   "concept:invitation-engine",
+   "concept:reminder-lifecycle",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts->concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts->concept:reminder-lifecycle"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts": [
+   "concept:semi-automatic-approval",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts->concept:semi-automatic-approval"
+  ],
+  "file:frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts->concept:player-username-ownership"
+  ],
+  "file:frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts->concept:player-username-ownership"
+  ],
+  "file:frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts->concept:player-username-ownership"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts->concept:lazy-instance-materialisation"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts->concept:lazy-instance-materialisation"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts->concept:coach-scoped-authorization"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts": [
+   "concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts->concept:app-wide-i18n"
+  ],
+  "file:frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts": [
+   "concept:lazy-instance-materialisation",
+   "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts->concept:lazy-instance-materialisation"
+  ],
+  "file:frontend/apps/web/e2e/security/frontend-api-auth.spec.ts": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:frontend/apps/web/e2e/security/frontend-api-auth.spec.ts->concept:coach-scoped-authorization"
+  ],
+  "file:frontend/apps/web/e2e/security/training-players-role-authz.spec.ts": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:frontend/apps/web/e2e/security/training-players-role-authz.spec.ts->concept:coach-scoped-authorization"
+  ],
+  "file:frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts->concept:level-ladder-adjacency"
+  ],
+  "file:frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts->concept:season-bounded-recurrence"
+  ],
+  "file:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts": [
+   "concept:coach-scoped-authorization",
+   "edge:implements-concept:file:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts->concept:coach-scoped-authorization"
+  ],
+  "file:frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/playwright.config.ts": [
+   "edge:semantically-similar-to:file:frontend/apps/web/playwright.config.ts->file:backend/app.py"
+  ],
+  "file:frontend/apps/web/src/api/editor.ts": [
+   "concept:legacy-admin-editor",
+   "edge:implements-concept:file:frontend/apps/web/src/api/editor.ts->concept:legacy-admin-editor",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/api/editor.ts->file:backend/padel_app/modules/editor_api.py"
+  ],
+  "file:frontend/apps/web/src/api/seasons.ts": [
+   "concept:season-bounded-recurrence",
+   "edge:implements-concept:file:frontend/apps/web/src/api/seasons.ts->concept:season-bounded-recurrence",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/api/seasons.ts->file:backend/padel_app/services/season_service.py"
+  ],
+  "file:frontend/apps/web/src/auth/AuthContext.tsx": [
+   "concept:app-wide-i18n",
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/apps/web/src/auth/AuthContext.tsx->concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/src/auth/AuthContext.tsx->concept:auth-session"
+  ],
+  "file:frontend/apps/web/src/components/brand/launch-loader.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/brand/launch-loader.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/brand/launch-loader.tsx->element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation"
+  ],
+  "file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx->concept:calendar-visual-state"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->concept:calendar-visual-state",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#EventCard"
+  ],
+  "file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx->concept:calendar-visual-state"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx->concept:calendar-visual-state",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx->element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar"
+  ],
+  "file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx": [
+   "concept:student-notification-blocking",
+   "edge:implements-concept:file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx->concept:student-notification-blocking"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx->concept:block-driven-dashboard"
+  ],
+  "file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx": [
+   "concept:block-driven-dashboard",
+   "edge:implements-concept:file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx->concept:block-driven-dashboard",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx->file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx"
+  ],
+  "file:frontend/apps/web/src/components/notifications/ReplacementApprovalCard.tsx": [
+   "concept:semi-automatic-approval",
+   "edge:implements-concept:file:frontend/apps/web/src/components/notifications/ReplacementApprovalCard.tsx->concept:semi-automatic-approval"
+  ],
+  "file:frontend/apps/web/src/components/players/AddPlayerSheet.tsx": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:frontend/apps/web/src/components/players/AddPlayerSheet.tsx->concept:player-username-ownership"
+  ],
+  "file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx->file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx->file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx->file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx"
+  ],
+  "file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx->file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresenceCharts.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresenceCharts.tsx->concept:attendance-presence-mark"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx->concept:attendance-presence-mark",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx->file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx"
+  ],
+  "file:frontend/apps/web/src/components/presences/PresencePlayersTable.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresencePlayersTable.tsx->concept:attendance-presence-mark"
+  ],
+  "file:frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx->concept:attendance-presence-mark"
+  ],
+  "file:frontend/apps/web/src/components/settings/CoachLevelsSection.tsx": [
+   "concept:level-ladder-adjacency",
+   "edge:implements-concept:file:frontend/apps/web/src/components/settings/CoachLevelsSection.tsx->concept:level-ladder-adjacency"
+  ],
+  "file:frontend/apps/web/src/components/settings/EligibilitySection.tsx": [
+   "concept:eligibility-bar",
+   "edge:implements-concept:file:frontend/apps/web/src/components/settings/EligibilitySection.tsx->concept:eligibility-bar"
+  ],
+  "file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx": [
+   "concept:eligibility-bar",
+   "edge:implements-concept:file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx->concept:eligibility-bar"
+  ],
+  "file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx->concept:invitation-engine"
+  ],
+  "file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx->file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/avatar.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/avatar.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/avatar.tsx->file:frontend/apps/mobile/src/components/ui/avatar.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/badge.tsx": [
+   "concept:levapp-visual-design-conventions",
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/badge.tsx->concept:levapp-visual-design-conventions",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/badge.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/badge.tsx->file:frontend/apps/mobile/src/components/ui/badge.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/button.tsx": [
+   "concept:levapp-visual-design-conventions",
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/button.tsx->concept:levapp-visual-design-conventions",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/button.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/button.tsx->file:frontend/apps/mobile/src/components/ui/button.tsx",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/occupancy-bar.tsx->file:frontend/apps/web/src/components/ui/button.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/card.tsx": [
+   "concept:levapp-visual-design-conventions",
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/card.tsx->concept:levapp-visual-design-conventions",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/card.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/card.tsx->file:frontend/apps/mobile/src/components/ui/card.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/occupancy-bar.tsx": [
+   "concept:levapp-visual-design-conventions",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/occupancy-bar.tsx->concept:levapp-visual-design-conventions",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/occupancy-bar.tsx->file:frontend/apps/web/src/components/ui/button.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/sonner.tsx": [
+   "concept:parallel-toast-systems",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/sonner.tsx->concept:parallel-toast-systems",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/sonner.tsx->file:frontend/apps/web/src/components/ui/toast.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/toast.tsx": [
+   "concept:levapp-visual-design-conventions",
+   "concept:parallel-toast-systems",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/toast.tsx->concept:levapp-visual-design-conventions",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/toast.tsx->concept:parallel-toast-systems",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/sonner.tsx->file:frontend/apps/web/src/components/ui/toast.tsx"
+  ],
+  "file:frontend/apps/web/src/components/ui/toaster.tsx": [
+   "concept:parallel-toast-systems",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/toaster.tsx->concept:parallel-toast-systems"
+  ],
+  "file:frontend/apps/web/src/components/ui/use-toast.ts": [
+   "concept:parallel-toast-systems",
+   "edge:implements-concept:file:frontend/apps/web/src/components/ui/use-toast.ts->concept:parallel-toast-systems"
+  ],
+  "file:frontend/apps/web/src/i18n.ts": [
+   "concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/src/i18n.ts->concept:app-wide-i18n"
+  ],
+  "file:frontend/apps/web/src/index.css": [
+   "concept:design-tokens"
+  ],
+  "file:frontend/apps/web/src/lib/conversationTime.ts": [
+   "concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/src/lib/conversationTime.ts->concept:app-wide-i18n"
+  ],
+  "file:frontend/apps/web/src/lib/dateLocale.ts": [
+   "concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/src/lib/dateLocale.ts->concept:app-wide-i18n"
+  ],
+  "file:frontend/apps/web/src/pages/AbsencesPage.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/AbsencesPage.tsx->concept:attendance-presence-mark",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/AttendancePage.tsx->file:frontend/apps/web/src/pages/AbsencesPage.tsx"
+  ],
+  "file:frontend/apps/web/src/pages/AttendancePage.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/AttendancePage.tsx->concept:attendance-presence-mark",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/AttendancePage.tsx->file:frontend/apps/web/src/pages/AbsencesPage.tsx"
+  ],
+  "file:frontend/apps/web/src/pages/CalendarPage.tsx": [
+   "concept:effective-seat-count",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/CalendarPage.tsx->concept:effective-seat-count"
+  ],
+  "file:frontend/apps/web/src/pages/PresencesPage.tsx": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/PresencesPage.tsx->concept:attendance-presence-mark"
+  ],
+  "file:frontend/apps/web/src/pages/RegisterPage.tsx": [
+   "concept:player-username-ownership",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/RegisterPage.tsx->concept:player-username-ownership"
+  ],
+  "file:frontend/apps/web/src/pages/SettingsPage.tsx": [
+   "concept:app-wide-i18n",
+   "concept:coach-only-settings-gating",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/SettingsPage.tsx->concept:app-wide-i18n",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/SettingsPage.tsx->concept:coach-only-settings-gating",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/SettingsPage.tsx->file:frontend/apps/mobile/src/features/settings/settings-sections.ts"
+  ],
+  "file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx": [
+   "concept:web-mobile-parity",
+   "edge:implements-concept:file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx->concept:web-mobile-parity",
+   "edge:semantically-similar-to:file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx->file:frontend/apps/mobile/src/features/training/groups-tab.tsx"
+  ],
+  "file:frontend/apps/web/tailwind.config.ts": [
+   "concept:design-tokens",
+   "edge:implements-concept:file:frontend/apps/web/tailwind.config.ts->concept:design-tokens",
+   "edge:semantically-similar-to:file:frontend/packages/config/src/tokens.ts->file:frontend/apps/web/tailwind.config.ts"
+  ],
+  "file:frontend/packages/api/src/client.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/packages/api/src/client.ts->concept:auth-session",
+   "edge:semantically-similar-to:element:frontend/apps/mobile/src/lib/api.ts#secureTokenStorage->file:frontend/packages/api/src/client.ts"
+  ],
+  "file:frontend/packages/api/src/resources/attendance.ts": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/packages/api/src/resources/attendance.ts->concept:attendance-presence-mark"
+  ],
+  "file:frontend/packages/api/src/resources/auth.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/packages/api/src/resources/auth.ts->concept:auth-session"
+  ],
+  "file:frontend/packages/api/src/resources/notificationEngine.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/packages/api/src/resources/notificationEngine.ts->concept:invitation-engine"
+  ],
+  "file:frontend/packages/api/src/resources/players.ts": [
+   "concept:dual-roster-cache",
+   "edge:implements-concept:file:frontend/packages/api/src/resources/players.ts->concept:dual-roster-cache"
+  ],
+  "file:frontend/packages/api/src/resources/presences.ts": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/packages/api/src/resources/presences.ts->concept:attendance-presence-mark"
+  ],
+  "file:frontend/packages/api/src/sse.ts": [
+   "concept:sse-streaming",
+   "edge:implements-concept:file:frontend/packages/api/src/sse.ts->concept:sse-streaming",
+   "edge:semantically-similar-to:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/packages/api/src/sse.ts"
+  ],
+  "file:frontend/packages/api/src/storage.ts": [
+   "concept:auth-session",
+   "edge:implements-concept:file:frontend/packages/api/src/storage.ts->concept:auth-session"
+  ],
+  "file:frontend/packages/config/src/calendar-status.test.ts": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/packages/config/src/calendar-status.test.ts->concept:calendar-visual-state"
+  ],
+  "file:frontend/packages/config/src/calendar-status.ts": [
+   "concept:calendar-visual-state",
+   "edge:implements-concept:file:frontend/packages/config/src/calendar-status.ts->concept:calendar-visual-state"
+  ],
+  "file:frontend/packages/config/src/capacity.ts": [
+   "concept:effective-seat-count",
+   "edge:implements-concept:file:frontend/packages/config/src/capacity.ts->concept:effective-seat-count"
+  ],
+  "file:frontend/packages/config/src/presence-status.test.ts": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/packages/config/src/presence-status.test.ts->concept:attendance-presence-mark"
+  ],
+  "file:frontend/packages/config/src/presence-status.ts": [
+   "concept:attendance-presence-mark",
+   "edge:implements-concept:file:frontend/packages/config/src/presence-status.ts->concept:attendance-presence-mark"
+  ],
+  "file:frontend/packages/config/src/tokens.test.ts": [
+   "concept:design-tokens",
+   "edge:implements-concept:file:frontend/packages/config/src/tokens.test.ts->concept:design-tokens"
+  ],
+  "file:frontend/packages/config/src/tokens.ts": [
+   "concept:design-tokens",
+   "edge:implements-concept:file:frontend/packages/config/src/tokens.ts->concept:design-tokens",
+   "edge:semantically-similar-to:file:frontend/packages/config/src/tokens.ts->file:frontend/apps/web/tailwind.config.ts"
+  ],
+  "file:frontend/packages/hooks/src/queryKeys.ts": [
+   "concept:dual-roster-cache",
+   "edge:implements-concept:file:frontend/packages/hooks/src/queryKeys.ts->concept:dual-roster-cache"
+  ],
+  "file:frontend/packages/hooks/src/useAutoInviteEnabled.ts": [
+   "concept:invitation-engine",
+   "edge:implements-concept:file:frontend/packages/hooks/src/useAutoInviteEnabled.ts->concept:invitation-engine"
+  ]
+ }
+}

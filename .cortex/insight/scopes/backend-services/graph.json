@@ -1,0 +1,1155 @@
+{
+  "schemaVersion": "3.0",
+  "generated": "2026-09-03T13:58:46Z",
+  "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+  "nodes": [
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#CategoryRegistry",
+      "kind": "element",
+      "label": "CategoryRegistry"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "kind": "element",
+      "label": "ImportPipeline"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_build_lesson_instances",
+      "kind": "element",
+      "label": "_build_lesson_instances"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_discover_players",
+      "kind": "element",
+      "label": "_discover_players"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_infer_column_mapping",
+      "kind": "element",
+      "label": "_infer_column_mapping"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_map_coach_levels",
+      "kind": "element",
+      "label": "_map_coach_levels"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_process_segment",
+      "kind": "element",
+      "label": "_process_segment"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_classes",
+      "kind": "element",
+      "label": "_validate_classes"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_evaluations",
+      "kind": "element",
+      "label": "_validate_evaluations"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_names_with_llm",
+      "kind": "element",
+      "label": "_validate_names_with_llm"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_player_linked",
+      "kind": "element",
+      "label": "_validate_player_linked"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_players",
+      "kind": "element",
+      "label": "_validate_players"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_players_in_classes",
+      "kind": "element",
+      "label": "_validate_players_in_classes"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#_validate_presences",
+      "kind": "element",
+      "label": "_validate_presences"
+    },
+    {
+      "id": "element:backend/padel_app/services/ai_service.py#stream_import_analysis",
+      "kind": "element",
+      "label": "stream_import_analysis"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#_bulk_create_players_stream",
+      "kind": "element",
+      "label": "_bulk_create_players_stream"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#_delete_by_ids",
+      "kind": "element",
+      "label": "_delete_by_ids"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#_resolve_player_email",
+      "kind": "element",
+      "label": "_resolve_player_email"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_coach_levels",
+      "kind": "element",
+      "label": "bulk_create_coach_levels"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_evaluation_entries",
+      "kind": "element",
+      "label": "bulk_create_evaluation_entries"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_lessons",
+      "kind": "element",
+      "label": "bulk_create_lessons"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_player_lesson_associations",
+      "kind": "element",
+      "label": "bulk_create_player_lesson_associations"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_players",
+      "kind": "element",
+      "label": "bulk_create_players"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#bulk_create_presences",
+      "kind": "element",
+      "label": "bulk_create_presences"
+    },
+    {
+      "id": "element:backend/padel_app/services/import_service.py#revert_import",
+      "kind": "element",
+      "label": "revert_import"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#NoSeasonCoversDateError",
+      "kind": "element",
+      "label": "NoSeasonCoversDateError"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#_apply_future_edit_to_lesson",
+      "kind": "element",
+      "label": "_apply_future_edit_to_lesson"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#_dispatch_remove_class",
+      "kind": "element",
+      "label": "_dispatch_remove_class"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#_edit_future_instances_for_lesson",
+      "kind": "element",
+      "label": "_edit_future_instances_for_lesson"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#add_presences",
+      "kind": "element",
+      "label": "add_presences"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#create_lesson_instance_helper",
+      "kind": "element",
+      "label": "create_lesson_instance_helper"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#edit_class_service",
+      "kind": "element",
+      "label": "edit_class_service"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#edit_lesson_instance_helper",
+      "kind": "element",
+      "label": "edit_lesson_instance_helper"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#get_or_materialize_instance",
+      "kind": "element",
+      "label": "get_or_materialize_instance"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#remove_class_service",
+      "kind": "element",
+      "label": "remove_class_service"
+    },
+    {
+      "id": "element:backend/padel_app/services/lesson_service.py#split_lesson",
+      "kind": "element",
+      "label": "split_lesson"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_check_waiting_list",
+      "kind": "element",
+      "label": "_check_waiting_list"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_fan_out_standing_entry",
+      "kind": "element",
+      "label": "_fan_out_standing_entry"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_fill_from_waiting_list",
+      "kind": "element",
+      "label": "_fill_from_waiting_list"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_free_spot_for_declining_player",
+      "kind": "element",
+      "label": "_free_spot_for_declining_player"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_get_eligible_students_for_group",
+      "kind": "element",
+      "label": "_get_eligible_students_for_group"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_group_rule_failures",
+      "kind": "element",
+      "label": "_group_rule_failures"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_instance_is_over",
+      "kind": "element",
+      "label": "_instance_is_over"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_passes_group_rules",
+      "kind": "element",
+      "label": "_passes_group_rules"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "kind": "element",
+      "label": "_send_invitation_batch"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_send_system_message",
+      "kind": "element",
+      "label": "_send_system_message"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_sync_standing_entries_for_new_instance",
+      "kind": "element",
+      "label": "_sync_standing_entries_for_new_instance"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#_vacancy_level",
+      "kind": "element",
+      "label": "_vacancy_level"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#add_standing_waiting_list_entry",
+      "kind": "element",
+      "label": "add_standing_waiting_list_entry"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#cancel_attendance",
+      "kind": "element",
+      "label": "cancel_attendance"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#coach_respond_to_notification",
+      "kind": "element",
+      "label": "coach_respond_to_notification"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "kind": "element",
+      "label": "effective_eligibility"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#effective_level",
+      "kind": "element",
+      "label": "effective_level"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#effective_level_code",
+      "kind": "element",
+      "label": "effective_level_code"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#effective_level_id",
+      "kind": "element",
+      "label": "effective_level_id"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "kind": "element",
+      "label": "eligibility_failures"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#eligibility_failures_for_players",
+      "kind": "element",
+      "label": "eligibility_failures_for_players"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#get_eligible_students",
+      "kind": "element",
+      "label": "get_eligible_students"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#passes_eligibility",
+      "kind": "element",
+      "label": "passes_eligibility"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#proactive_decline_deadline",
+      "kind": "element",
+      "label": "proactive_decline_deadline"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#proactive_decline_window_is_open",
+      "kind": "element",
+      "label": "proactive_decline_window_is_open"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#process_invitation_batches",
+      "kind": "element",
+      "label": "process_invitation_batches"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#respond_to_notification",
+      "kind": "element",
+      "label": "respond_to_notification"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#respond_to_reminder",
+      "kind": "element",
+      "label": "respond_to_reminder"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#send_class_reminders",
+      "kind": "element",
+      "label": "send_class_reminders"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#students_failing_eligibility_bar",
+      "kind": "element",
+      "label": "students_failing_eligibility_bar"
+    },
+    {
+      "id": "element:backend/padel_app/services/notification_service.py#trigger_invitations",
+      "kind": "element",
+      "label": "trigger_invitations"
+    },
+    {
+      "id": "file:backend/padel_app/mail.py",
+      "kind": "file",
+      "label": "mail.py"
+    },
+    {
+      "id": "file:backend/padel_app/realtime.py",
+      "kind": "file",
+      "label": "realtime.py"
+    },
+    {
+      "id": "file:backend/padel_app/scheduler.py",
+      "kind": "file",
+      "label": "scheduler.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/account_service.py",
+      "kind": "file",
+      "label": "account_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/ai_service.py",
+      "kind": "file",
+      "label": "ai_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/attendance_history_service.py",
+      "kind": "file",
+      "label": "attendance_history_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/calendar_service.py",
+      "kind": "file",
+      "label": "calendar_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/club_service.py",
+      "kind": "file",
+      "label": "club_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/coach_service.py",
+      "kind": "file",
+      "label": "coach_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/import_service.py",
+      "kind": "file",
+      "label": "import_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/lesson_service.py",
+      "kind": "file",
+      "label": "lesson_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/level_ladder.py",
+      "kind": "file",
+      "label": "level_ladder.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/messaging_service.py",
+      "kind": "file",
+      "label": "messaging_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/notification_service.py",
+      "kind": "file",
+      "label": "notification_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/player_invitation_service.py",
+      "kind": "file",
+      "label": "player_invitation_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/player_service.py",
+      "kind": "file",
+      "label": "player_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/presence_overview_service.py",
+      "kind": "file",
+      "label": "presence_overview_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/replacement_approval_service.py",
+      "kind": "file",
+      "label": "replacement_approval_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/season_service.py",
+      "kind": "file",
+      "label": "season_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/student_availability_service.py",
+      "kind": "file",
+      "label": "student_availability_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/student_notification_preferences.py",
+      "kind": "file",
+      "label": "student_notification_preferences.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/training_service.py",
+      "kind": "file",
+      "label": "training_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/services/user_service.py",
+      "kind": "file",
+      "label": "user_service.py"
+    },
+    {
+      "id": "file:backend/padel_app/utils/__init__.py",
+      "kind": "file",
+      "label": "__init__.py"
+    },
+    {
+      "id": "file:backend/padel_app/utils/dates.py",
+      "kind": "file",
+      "label": "dates.py"
+    },
+    {
+      "id": "file:backend/padel_app/utils/expo_push.py",
+      "kind": "file",
+      "label": "expo_push.py"
+    },
+    {
+      "id": "file:backend/padel_app/utils/notification_preview.py",
+      "kind": "file",
+      "label": "notification_preview.py"
+    },
+    {
+      "id": "file:backend/padel_app/utils/push_notifications.py",
+      "kind": "file",
+      "label": "push_notifications.py"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#ImportPipeline->element:backend/padel_app/services/ai_service.py#_build_lesson_instances",
+      "source": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "target": "element:backend/padel_app/services/ai_service.py#_build_lesson_instances",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ImportPipeline.validate_presences calls _build_lesson_instances to match/create classes for presence groups",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#ImportPipeline->element:backend/padel_app/services/ai_service.py#_discover_players",
+      "source": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "target": "element:backend/padel_app/services/ai_service.py#_discover_players",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ImportPipeline.validate_players calls _discover_players to synthesize rows for names referenced but not yet in Players",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#ImportPipeline->element:backend/padel_app/services/ai_service.py#_process_segment",
+      "source": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "target": "element:backend/padel_app/services/ai_service.py#_process_segment",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ImportPipeline.map_segments submits each table segment to _process_segment via a ThreadPoolExecutor",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#ImportPipeline->element:backend/padel_app/services/ai_service.py#_validate_players",
+      "source": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "target": "element:backend/padel_app/services/ai_service.py#_validate_players",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "ImportPipeline.validate_players calls _validate_players on the raw Players rows",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#_discover_players->element:backend/padel_app/services/ai_service.py#_validate_names_with_llm",
+      "source": "element:backend/padel_app/services/ai_service.py#_discover_players",
+      "target": "element:backend/padel_app/services/ai_service.py#_validate_names_with_llm",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_discover_players calls _validate_names_with_llm to filter data errors out of unknown referenced names",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#_process_segment->element:backend/padel_app/services/ai_service.py#_infer_column_mapping",
+      "source": "element:backend/padel_app/services/ai_service.py#_process_segment",
+      "target": "element:backend/padel_app/services/ai_service.py#_infer_column_mapping",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_process_segment calls _infer_column_mapping to obtain the LLM column mapping for a segment",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/ai_service.py#stream_import_analysis->element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "source": "element:backend/padel_app/services/ai_service.py#stream_import_analysis",
+      "target": "element:backend/padel_app/services/ai_service.py#ImportPipeline",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "stream_import_analysis instantiates and drives ImportPipeline through its pipeline stages",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/import_service.py#_bulk_create_players_stream->element:backend/padel_app/services/import_service.py#_resolve_player_email",
+      "source": "element:backend/padel_app/services/import_service.py#_bulk_create_players_stream",
+      "target": "element:backend/padel_app/services/import_service.py#_resolve_player_email",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_bulk_create_players_stream calls _resolve_player_email per row to derive the uniqueness key",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/import_service.py#bulk_create_players->element:backend/padel_app/services/import_service.py#_bulk_create_players_stream",
+      "source": "element:backend/padel_app/services/import_service.py#bulk_create_players",
+      "target": "element:backend/padel_app/services/import_service.py#_bulk_create_players_stream",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "bulk_create_players delegates to (or drains) _bulk_create_players_stream",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/import_service.py#bulk_create_presences->element:backend/padel_app/services/lesson_service.py#get_or_materialize_instance",
+      "source": "element:backend/padel_app/services/import_service.py#bulk_create_presences",
+      "target": "element:backend/padel_app/services/lesson_service.py#get_or_materialize_instance",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "bulk_create_presences calls get_or_materialize_instance to materialize the target LessonInstance on demand",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/import_service.py#revert_import->element:backend/padel_app/services/import_service.py#_delete_by_ids",
+      "source": "element:backend/padel_app/services/import_service.py#revert_import",
+      "target": "element:backend/padel_app/services/import_service.py#_delete_by_ids",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "revert_import calls _delete_by_ids once per record-id bucket in reverse dependency order",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/lesson_service.py#edit_class_service->element:backend/padel_app/services/lesson_service.py#_apply_future_edit_to_lesson",
+      "source": "element:backend/padel_app/services/lesson_service.py#edit_class_service",
+      "target": "element:backend/padel_app/services/lesson_service.py#_apply_future_edit_to_lesson",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "edit_class_service calls _apply_future_edit_to_lesson on the 'future' scope branches",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/lesson_service.py#edit_class_service->element:backend/padel_app/services/lesson_service.py#_edit_future_instances_for_lesson",
+      "source": "element:backend/padel_app/services/lesson_service.py#edit_class_service",
+      "target": "element:backend/padel_app/services/lesson_service.py#_edit_future_instances_for_lesson",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "edit_class_service calls _edit_future_instances_for_lesson after splitting a LessonInstance-anchored future edit",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/lesson_service.py#get_or_materialize_instance->element:backend/padel_app/services/notification_service.py#_sync_standing_entries_for_new_instance",
+      "source": "element:backend/padel_app/services/lesson_service.py#get_or_materialize_instance",
+      "target": "element:backend/padel_app/services/notification_service.py#_sync_standing_entries_for_new_instance",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "get_or_materialize_instance calls _sync_standing_entries_for_new_instance inside a savepoint after creating a new instance",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/lesson_service.py#remove_class_service->element:backend/padel_app/services/lesson_service.py#_dispatch_remove_class",
+      "source": "element:backend/padel_app/services/lesson_service.py#remove_class_service",
+      "target": "element:backend/padel_app/services/lesson_service.py#_dispatch_remove_class",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "remove_class_service calls _dispatch_remove_class to perform the actual scope-aware deletion",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#_get_eligible_students_for_group->element:backend/padel_app/services/notification_service.py#_passes_group_rules",
+      "source": "element:backend/padel_app/services/notification_service.py#_get_eligible_students_for_group",
+      "target": "element:backend/padel_app/services/notification_service.py#_passes_group_rules",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_get_eligible_students_for_group calls _passes_group_rules to apply the invitation group's own rules",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#_get_eligible_students_for_group->element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "source": "element:backend/padel_app/services/notification_service.py#_get_eligible_students_for_group",
+      "target": "element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_get_eligible_students_for_group resolves the eligibility bar before applying group rules",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#_send_invitation_batch->element:backend/padel_app/services/notification_service.py#_check_waiting_list",
+      "source": "element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "target": "element:backend/padel_app/services/notification_service.py#_check_waiting_list",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_send_invitation_batch checks the waiting list before sending a fresh invite round",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#_send_invitation_batch->element:backend/padel_app/services/notification_service.py#_fill_from_waiting_list",
+      "source": "element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "target": "element:backend/padel_app/services/notification_service.py#_fill_from_waiting_list",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "_send_invitation_batch calls _fill_from_waiting_list when a matching waiting-list entry exists",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#add_standing_waiting_list_entry->element:backend/padel_app/services/notification_service.py#_fan_out_standing_entry",
+      "source": "element:backend/padel_app/services/notification_service.py#add_standing_waiting_list_entry",
+      "target": "element:backend/padel_app/services/notification_service.py#_fan_out_standing_entry",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "add_standing_waiting_list_entry calls _fan_out_standing_entry to create per-class rows for every upcoming instance",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#cancel_attendance->element:backend/padel_app/services/notification_service.py#_free_spot_for_declining_player",
+      "source": "element:backend/padel_app/services/notification_service.py#cancel_attendance",
+      "target": "element:backend/padel_app/services/notification_service.py#_free_spot_for_declining_player",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "cancel_attendance reuses _free_spot_for_declining_player, the same path a reminder decline uses",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#cancel_attendance->element:backend/padel_app/services/notification_service.py#proactive_decline_window_is_open",
+      "source": "element:backend/padel_app/services/notification_service.py#cancel_attendance",
+      "target": "element:backend/padel_app/services/notification_service.py#proactive_decline_window_is_open",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "cancel_attendance classifies the decline via proactive_decline_window_is_open",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#eligibility_failures->element:backend/padel_app/services/notification_service.py#_group_rule_failures",
+      "source": "element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "target": "element:backend/padel_app/services/notification_service.py#_group_rule_failures",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "eligibility_failures delegates to _group_rule_failures with short_circuit=False",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#eligibility_failures_for_players->element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "source": "element:backend/padel_app/services/notification_service.py#eligibility_failures_for_players",
+      "target": "element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "eligibility_failures_for_players resolves the bar via effective_eligibility before evaluating each player",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#eligibility_failures_for_players->element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "source": "element:backend/padel_app/services/notification_service.py#eligibility_failures_for_players",
+      "target": "element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "eligibility_failures_for_players calls eligibility_failures per candidate player",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#get_eligible_students->element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "source": "element:backend/padel_app/services/notification_service.py#get_eligible_students",
+      "target": "element:backend/padel_app/services/notification_service.py#effective_eligibility",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "get_eligible_students resolves the eligibility bar before applying round criteria",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#passes_eligibility->element:backend/padel_app/services/notification_service.py#_passes_group_rules",
+      "source": "element:backend/padel_app/services/notification_service.py#passes_eligibility",
+      "target": "element:backend/padel_app/services/notification_service.py#_passes_group_rules",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "passes_eligibility delegates to _passes_group_rules with vacancy=None",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#proactive_decline_window_is_open->element:backend/padel_app/services/notification_service.py#proactive_decline_deadline",
+      "source": "element:backend/padel_app/services/notification_service.py#proactive_decline_window_is_open",
+      "target": "element:backend/padel_app/services/notification_service.py#proactive_decline_deadline",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "proactive_decline_window_is_open compares now against the deadline returned by proactive_decline_deadline",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#process_invitation_batches->element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "source": "element:backend/padel_app/services/notification_service.py#process_invitation_batches",
+      "target": "element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "process_invitation_batches calls _send_invitation_batch for each vacancy whose inactivity timer elapsed",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#respond_to_reminder->element:backend/padel_app/services/notification_service.py#_free_spot_for_declining_player",
+      "source": "element:backend/padel_app/services/notification_service.py#respond_to_reminder",
+      "target": "element:backend/padel_app/services/notification_service.py#_free_spot_for_declining_player",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "respond_to_reminder calls _free_spot_for_declining_player on a 'no' response",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#send_class_reminders->element:backend/padel_app/services/notification_service.py#_send_system_message",
+      "source": "element:backend/padel_app/services/notification_service.py#send_class_reminders",
+      "target": "element:backend/padel_app/services/notification_service.py#_send_system_message",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "send_class_reminders calls _send_system_message to deliver each reminder",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#students_failing_eligibility_bar->element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "source": "element:backend/padel_app/services/notification_service.py#students_failing_eligibility_bar",
+      "target": "element:backend/padel_app/services/notification_service.py#eligibility_failures",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "students_failing_eligibility_bar calls eligibility_failures per enrolled student per future class",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:calls:element:backend/padel_app/services/notification_service.py#trigger_invitations->element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "source": "element:backend/padel_app/services/notification_service.py#trigger_invitations",
+      "target": "element:backend/padel_app/services/notification_service.py#_send_invitation_batch",
+      "edge_type": "calls",
+      "confidence": "stated",
+      "evidence": "trigger_invitations calls _send_invitation_batch for each sendable vacancy",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/scheduler.py->file:backend/padel_app/services/notification_service.py",
+      "source": "file:backend/padel_app/scheduler.py",
+      "target": "file:backend/padel_app/services/notification_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `get_or_create_config`, `send_class_reminders`, `trigger_invitations`, `process_invitation_batches` from `padel_app.services.notification_service`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/scheduler.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/scheduler.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import CLUB_TZ, utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/ai_service.py->file:backend/padel_app/services/coach_service.py",
+      "source": "file:backend/padel_app/services/ai_service.py",
+      "target": "file:backend/padel_app/services/coach_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import inside ImportPipeline.validate_coach_levels: `from .coach_service import get_coach_levels`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/club_service.py->file:backend/padel_app/services/coach_service.py",
+      "source": "file:backend/padel_app/services/club_service.py",
+      "target": "file:backend/padel_app/services/coach_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import inside accept_coach_invitation_service: `from padel_app.services.coach_service import create_default_levels_for_coach`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/coach_service.py->file:backend/padel_app/services/level_ladder.py",
+      "source": "file:backend/padel_app/services/coach_service.py",
+      "target": "file:backend/padel_app/services/level_ladder.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.level_ladder import get_level_ladder, is_unordered, next_display_order, normalize_display_orders`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/services/lesson_service.py",
+      "source": "file:backend/padel_app/services/import_service.py",
+      "target": "file:backend/padel_app/services/lesson_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.lesson_service import create_lesson_helper, get_or_materialize_instance`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/services/level_ladder.py",
+      "source": "file:backend/padel_app/services/import_service.py",
+      "target": "file:backend/padel_app/services/level_ladder.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.level_ladder import is_unordered, next_display_order, normalize_display_orders`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/services/player_service.py",
+      "source": "file:backend/padel_app/services/import_service.py",
+      "target": "file:backend/padel_app/services/player_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.player_service import create_player_helper`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/import_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/import_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/lesson_service.py->file:backend/padel_app/scheduler.py",
+      "source": "file:backend/padel_app/services/lesson_service.py",
+      "target": "file:backend/padel_app/scheduler.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `_maybe_schedule_instance`, `_maybe_cancel_instance`, `cancel_lesson_reminder_jobs`, `schedule_lesson_reminder_jobs`, `cancel_lesson_occurrence_job` from `padel_app.scheduler`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/lesson_service.py->file:backend/padel_app/services/notification_service.py",
+      "source": "file:backend/padel_app/services/lesson_service.py",
+      "target": "file:backend/padel_app/services/notification_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `_sync_standing_entries_for_new_instance`, `collect_cancellation_recipients`, `notify_students_of_cancellation` from `padel_app.services.notification_service`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/lesson_service.py->file:backend/padel_app/services/season_service.py",
+      "source": "file:backend/padel_app/services/lesson_service.py",
+      "target": "file:backend/padel_app/services/season_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.services import season_service` in add_class_service",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/realtime.py",
+      "source": "file:backend/padel_app/services/messaging_service.py",
+      "target": "file:backend/padel_app/realtime.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.realtime import publish`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/messaging_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/utils/expo_push.py",
+      "source": "file:backend/padel_app/services/messaging_service.py",
+      "target": "file:backend/padel_app/utils/expo_push.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.expo_push import send_expo_push_to_user`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/messaging_service.py->file:backend/padel_app/utils/push_notifications.py",
+      "source": "file:backend/padel_app/services/messaging_service.py",
+      "target": "file:backend/padel_app/utils/push_notifications.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.push_notifications import send_push_notification`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/realtime.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/realtime.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.realtime import publish`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/scheduler.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/scheduler.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `_compute_invite_start_dt`, `_compute_reminder_dt`, `reschedule_all_future_jobs` from `padel_app.scheduler`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/services/level_ladder.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/services/level_ladder.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.level_ladder import get_level_ladder, ladder_index, ladder_index_map`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/services/replacement_approval_service.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/services/replacement_approval_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.services.replacement_approval_service import create_approval_prompts` (semi-automatic mode)",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/services/student_availability_service.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/services/student_availability_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `filter_blocked_coach_players`, `blocked_players_for_instance`, `blocked_player_ids_for_window`, `instance_window_is_blocked_for_user`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/services/student_notification_preferences.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/services/student_notification_preferences.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `filter_preference_blocked_coach_players`, `user_blocks_all_notifications`, `player_blocks_manual_invitations`, `preference_blocked_players`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/utils/expo_push.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/utils/expo_push.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.utils.expo_push import send_expo_push_to_user`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/notification_service.py->file:backend/padel_app/utils/push_notifications.py",
+      "source": "file:backend/padel_app/services/notification_service.py",
+      "target": "file:backend/padel_app/utils/push_notifications.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.push_notifications import send_push_notification`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/player_service.py->file:backend/padel_app/services/student_notification_preferences.py",
+      "source": "file:backend/padel_app/services/player_service.py",
+      "target": "file:backend/padel_app/services/student_notification_preferences.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import inside _serialize_coach_player_relation: `from padel_app.services.student_notification_preferences import notification_block_payload`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/presence_overview_service.py->file:backend/padel_app/services/attendance_history_service.py",
+      "source": "file:backend/padel_app/services/presence_overview_service.py",
+      "target": "file:backend/padel_app/services/attendance_history_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.attendance_history_service import GRANULARITIES, _as_naive_utc, _bucket_series, _bucket_start, pick_granularity`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/replacement_approval_service.py->file:backend/padel_app/realtime.py",
+      "source": "file:backend/padel_app/services/replacement_approval_service.py",
+      "target": "file:backend/padel_app/realtime.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.realtime import publish`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/replacement_approval_service.py->file:backend/padel_app/scheduler.py",
+      "source": "file:backend/padel_app/services/replacement_approval_service.py",
+      "target": "file:backend/padel_app/scheduler.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.scheduler import _compute_invite_start_dt`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/replacement_approval_service.py->file:backend/padel_app/services/notification_service.py",
+      "source": "file:backend/padel_app/services/replacement_approval_service.py",
+      "target": "file:backend/padel_app/services/notification_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `_get_eligible_students_for_group`, `_serialize_cp_for_group`, `get_eligible_students`, `_check_waiting_list`, `get_or_create_config`, `trigger_invitations`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/replacement_approval_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/replacement_approval_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/replacement_approval_service.py->file:backend/padel_app/utils/push_notifications.py",
+      "source": "file:backend/padel_app/services/replacement_approval_service.py",
+      "target": "file:backend/padel_app/utils/push_notifications.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.push_notifications import send_push_notification`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/season_service.py->file:backend/padel_app/scheduler.py",
+      "source": "file:backend/padel_app/services/season_service.py",
+      "target": "file:backend/padel_app/scheduler.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy imports of `schedule_lesson_reminder_jobs`, `cancel_lesson_reminder_jobs` from `padel_app.scheduler`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/season_service.py->file:backend/padel_app/services/lesson_service.py",
+      "source": "file:backend/padel_app/services/season_service.py",
+      "target": "file:backend/padel_app/services/lesson_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.services.lesson_service import delete_future_instances`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/season_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/season_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.utils.dates import utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/student_availability_service.py->file:backend/padel_app/services/calendar_service.py",
+      "source": "file:backend/padel_app/services/student_availability_service.py",
+      "target": "file:backend/padel_app/services/calendar_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.services.calendar_service import add_event_service, edit_event_service, remove_block_service`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/student_availability_service.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/services/student_availability_service.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import CLUB_TZ`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/services/training_service.py->file:backend/padel_app/services/lesson_service.py",
+      "source": "file:backend/padel_app/services/training_service.py",
+      "target": "file:backend/padel_app/services/lesson_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import inside confirm_training_service: `from padel_app.services.lesson_service import get_or_materialize_instance`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/utils/notification_preview.py->file:backend/padel_app/scheduler.py",
+      "source": "file:backend/padel_app/utils/notification_preview.py",
+      "target": "file:backend/padel_app/scheduler.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.scheduler import _compute_timing_dt`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/utils/notification_preview.py->file:backend/padel_app/services/notification_service.py",
+      "source": "file:backend/padel_app/utils/notification_preview.py",
+      "target": "file:backend/padel_app/services/notification_service.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "lazy import `from padel_app.services.notification_service import get_or_create_config`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    },
+    {
+      "id": "edge:imports:file:backend/padel_app/utils/notification_preview.py->file:backend/padel_app/utils/dates.py",
+      "source": "file:backend/padel_app/utils/notification_preview.py",
+      "target": "file:backend/padel_app/utils/dates.py",
+      "edge_type": "imports",
+      "confidence": "structural",
+      "evidence": "`from padel_app.utils.dates import utcnow_naive`",
+      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+    }
+  ]
+}

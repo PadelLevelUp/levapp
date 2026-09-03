@@ -1,0 +1,162 @@
+{
+ "schemaVersion": "3.0",
+ "generated": "2026-09-03T14:51:05Z",
+ "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "clusters": [
+  {
+   "id": "cluster:attendance-and-presence",
+   "label": "Attendance, presence and seat accounting",
+   "members": [
+    "concept:attendance-presence-mark",
+    "concept:effective-seat-count",
+    "concept:lazy-instance-materialisation"
+   ],
+   "rationale": "The presence/absence data model and the two derived-truth properties (effective seat count, on-demand instance materialization) every attendance and calendar-capacity view reads from.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:auth-and-session",
+   "label": "Auth, session and access control",
+   "members": [
+    "concept:auth-session",
+    "concept:coach-scoped-authorization",
+    "concept:sse-streaming",
+    "concept:dual-roster-cache"
+   ],
+   "rationale": "Everything that decides who a request is from, what they may see, how their session survives across requests and app backgrounding, and how their client caches the data that authorization shapes.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:backend-models-domain-shape",
+   "label": "backend-models cross-cutting shape decisions",
+   "members": [
+    "concept:association-table",
+    "concept:coach-scoped-data",
+    "concept:invitation-and-vacancy-engine-config"
+   ],
+   "rationale": "The three structural decisions that shape nearly every model in this scope: junction tables implemented as full id-bearing rows, coach_id-based data isolation, and the invitation/vacancy persistence shape.",
+   "scope": "backend-models"
+  },
+  {
+   "id": "cluster:coach-dashboard",
+   "label": "Coach dashboard and settings gating",
+   "members": [
+    "concept:block-driven-dashboard",
+    "concept:coach-only-settings-gating"
+   ],
+   "rationale": "The block-composed coach home screen and the single source of truth that decides which surfaces (dashboard blocks included) a coach-only account may reach.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:e2e-suite-infrastructure",
+   "label": "Playwright E2E suite infrastructure",
+   "members": [
+    "file:frontend/apps/web/e2e/helpers/api.ts",
+    "file:frontend/apps/web/e2e/helpers/auth.ts",
+    "file:frontend/apps/web/e2e/helpers/calendar-navigation.ts",
+    "file:frontend/apps/web/e2e/helpers/navigation.ts"
+   ],
+   "rationale": "One Playwright suite was split into three extraction scopes (web-e2e-a/b/c) that all import these shared helpers and coordinate fixture placement against one shared levelup_test database.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:i18n-and-localization",
+   "label": "Internationalization coverage",
+   "members": [
+    "concept:app-wide-i18n",
+    "concept:notification-template-fallback"
+   ],
+   "rationale": "The PT-default/EN-fallback i18n bootstrap shared by both clients, and the backend's parallel guarantee that every rendered notification is locale-correct.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:invitation-and-eligibility-engine",
+   "label": "Invitation, vacancy and eligibility engine",
+   "members": [
+    "concept:invitation-engine",
+    "concept:eligibility-bar",
+    "concept:semi-automatic-approval",
+    "concept:level-ladder-adjacency",
+    "concept:student-notification-blocking"
+   ],
+   "rationale": "Every mechanism that decides whether and in what order a vacant class seat gets offered to a student, end to end across backend models/services/api and the web client.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:legacy-admin-tooling",
+   "label": "Legacy declarative admin editor",
+   "members": [
+    "concept:legacy-admin-editor"
+   ],
+   "rationale": "The original Field/Block/Tab/Form-declared, generic-CRUD admin editor that predates the product's purpose-built screens and still backs ~30 model files.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:messaging-and-realtime",
+   "label": "Messaging and realtime delivery",
+   "members": [
+    "concept:sse-streaming",
+    "file:backend/padel_app/services/messaging_service.py",
+    "file:frontend/apps/web/e2e/messaging/direct-messages.spec.ts"
+   ],
+   "rationale": "Chat delivery and unread tracking ride the same SSE mechanism the invitation engine and dashboard use to push live updates to an open client.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:mobile-design-system-divergence",
+   "label": "Mobile ui/ primitives vs. their web source of truth",
+   "members": [
+    "file:frontend/apps/mobile/src/components/ui/card.tsx",
+    "file:frontend/apps/web/src/components/ui/card.tsx",
+    "file:frontend/apps/mobile/src/components/ui/badge.tsx",
+    "file:frontend/apps/web/src/components/ui/badge.tsx"
+   ],
+   "rationale": "Two documented, unresolved divergences between the mobile react-native-reusables port and its web shadcn/ui source: card.tsx applies a shadow web's source comment forbids, and badge.tsx uses rounded-full where web reserves that shape for filter controls only.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:player-lifecycle-and-access",
+   "label": "Player identity and access boundaries",
+   "members": [
+    "concept:player-username-ownership",
+    "concept:coach-scoped-authorization"
+   ],
+   "rationale": "Who owns a player's credential (PAD-105) sits alongside the broader coach-scoped authorization boundary that governs everything else a coach can and cannot do to a player's record.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:reminder-and-scheduling",
+   "label": "Reminder and scheduling lifecycle",
+   "members": [
+    "concept:reminder-lifecycle",
+    "concept:club-local-day-boundary",
+    "concept:notification-template-fallback"
+   ],
+   "rationale": "The APScheduler-driven reminder state machine and the two correctness guarantees it depends on: DST-safe club-local day boundaries and non-blank locale-correct message rendering.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:season-and-recurrence",
+   "label": "Season-bounded recurring classes",
+   "members": [
+    "concept:season-bounded-recurrence",
+    "concept:lazy-instance-materialisation"
+   ],
+   "rationale": "A recurring class's occurrences are capped by its covering season and only materialize into concrete rows on demand - two halves of the same recurrence-safety story.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:web-mobile-design-system",
+   "label": "Cross-platform design system",
+   "members": [
+    "concept:design-tokens",
+    "concept:levapp-visual-design-conventions",
+    "concept:calendar-visual-state",
+    "concept:web-mobile-parity",
+    "concept:parallel-toast-systems"
+   ],
+   "rationale": "The single token source, the visual conventions built on it, and the platform-by-platform porting discipline (and occasional drift) that keeps web and iOS looking like one product.",
+   "scope": "global"
+  }
+ ]
+}
