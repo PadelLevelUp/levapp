@@ -1,0 +1,89 @@
+---
+id: notifications.config
+status: implemented
+depends_on: [auth.login]
+implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+governed_by: []
+---
+
+# notifications.config
+
+
+### Intent
+Coaches configure the notification engine: timing, restrictions, matching rules, tiebreakers, and message templates.
+
+### Entities
+- **NotificationConfig** (`notification_configs`): coach_id (unique), auto_notify_enabled, invitation_mode (automatic|semi_automatic), priority_criteria (JSON), restrictions (JSON), rounds (JSON), notification_groups (JSON), message_templates (JSON), reminder_timing (JSON), invitation_start_timing (JSON), invitation_groups (JSON), tiebreakers (JSON) — plus, **pending PAD-128/PAD-130**: eligibility_rules (JSON, nullable), open_spots_visible (bool, nullable)
+
+### Rules
+1. One config per coach (upserted on first access)
+2. `auto_notify_enabled` toggles the automatic invitation engine
+3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
+4. `reminder_timing`: `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`
+5. `invitation_start_timing`: when to start sending invitations after a vacancy
+6. `restrictions`: maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription
+6a. **(PAD-136)** `quietHours` is a **club-local wall clock** window of **22:00–07:00**, evaluated against
+   the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. The bounds are
+   currently fixed constants — `quietHours` carries only `{enabled}` and no start/end — so
+   "22:00–07:00" is the behaviour, not a default the coach can override. Because instants are
+   stored as naive UTC, the check MUST convert to club-local before comparing the hour;
+   comparing a UTC hour makes the window drift to 23:00–08:00 local through Portuguese summer
+   time (WEST = UTC+1) while reading correctly in winter (WET = UTC+0). Only restrictions with
+   wall-clock semantics need this conversion: `minTimeBeforeClass` (a duration) and `maxTotal`
+   (a count) carry none. `maxInvitesPerStudentPerDay` DOES carry them — see rule 6b.
+6b. **(PAD-144)** `maxInvitesPerStudentPerDay` counts over the **club-local calendar day**
+   (`Europe/Lisbon`), not the UTC day. "Per day" is a wall clock the coach reads off their own
+   calendar, so the counting window is local midnight → local midnight, and the boundary must be
+   *derived* in club-local time and then *converted back* to naive UTC for comparison against
+   `NotificationEvent.created_at` (which is stored naive UTC). Deriving it with a bare
+   `.replace(hour=0, ...)` on a naive-UTC instant pins the window to UTC midnight, which through
+   Portuguese summer time runs 01:00 local → 01:00 local: invitations sent between 00:00 and
+   01:00 local count against the *previous* day's quota, so a student can receive more than the
+   configured number within one local day. Like rule 6a this self-corrects in winter, so it
+   presents as intermittent.
+   This is the same defect family as rule 6a and `calendar` rule 6; the round-trip back to UTC is
+   the part rule 6a did not need, because comparing an hour never had to leave local time.
+7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
+7a. **(pending PAD-128)** `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
+   of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
+   and unset is not a value — see `eligibility.cascade` rule 1. They round-trip through
+   `GET|POST /api/app/notify/config` as `eligibilityRules` and `openSpotsVisible`.
+7b. **(pending PAD-128)** `invitation_groups` and `eligibility_rules` are **separate settings with separate meanings**:
+   groups order who gets asked first, eligibility decides who may join at all. Neither is derived
+   from the other, and existing coaches' `invitation_groups` are never migrated into
+   `eligibility_rules` (`eligibility.rules` rule 10).
+7c. **(pending PAD-132)** The `subscription_status` group attribute and the `excludeUnpaidSubscription` restriction read
+   `users.status`, which is **account activation**, not payment state. Both keep working as shipped;
+   `eligibility.rules` rule 5 explains why eligibility offers no payments attribute. Renaming these
+   two to say what they actually check is separate, deliberate work — not a silent side effect of
+   the eligibility change.
+8. `tiebreakers`: ordered ranking criteria (level, attendance, side, subscription status)
+9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
+10. Updating timing configs reschedules all future scheduler jobs
+11. `cancellationDeadlineHours` (default 24): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
+
+### Acceptance Criteria
+
+#### Get or create config
+- **Given** a coach with no existing config
+- **When** GET `/api/app/notification_config`
+- **Then** a default config is created and returned
+
+#### Update config
+- **Given** an existing config
+- **When** POST `/api/app/notification_config` with `{"auto_notify_enabled": true, "reminder_timing": {"type": "hours_before", "value": 24}}`
+- **Then** the config is updated
+- **And** scheduler jobs are rescheduled based on new timing
+
+#### Update invitation mode
+- **Given** an existing config with `auto_notify_enabled: true`
+- **When** POST `/api/app/notification_config` with `{"invitation_mode": "semi_automatic"}`
+- **Then** the config is updated
+- **And** subsequently created vacancies require coach approval before invitations are sent
+
+#### Coach configures cancellation deadline in Settings (PAD-45)
+- **Given** an authenticated coach on Settings → Notifications
+- **When** they open the Restrictions section
+- **Then** a "Cancellation deadline" control is shown with an hours-before-class value defaulting to 24
+- **And** changing the value and saving persists it via POST `/app/notify/config` under `restrictions.cancellationDeadlineHours`
+- **And** the new value survives a page reload

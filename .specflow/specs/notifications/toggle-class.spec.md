@@ -1,0 +1,18 @@
+---
+id: notifications.toggle-class
+status: implemented
+depends_on: [notifications.config, classes.instances]
+implements: ../../specs-business/notifications/coach-relies-on-notifications.business.md
+governed_by: []
+---
+
+# notifications.toggle-class
+
+
+### Intent
+Toggle notification engine on/off for a specific class.
+
+### Rules
+1. `POST /api/app/notify/toggle_class` with class reference
+2. Updates `notifications_enabled` on the Lesson or LessonInstance
+3. When disabled, no reminders or auto-invitations fire for that class

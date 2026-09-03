@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "3.3",
+  "hooks": {
+    "preRead": true
+  },
+  "pulse": {
+    "distilThresholdN": 3,
+    "dismissedWindowDays": 90,
+    "hygieneFreshnessHours": 48
+  },
+  "harness": {
+    "maxIterations": 3
+  },
+  "loop": {
+    "enabled": false
+  },
+  "profile": "specflow",
+  "insight": {
+    "exclude": [
+      "/frontend/apps/mobile/ios/",
+      "/frontend/apps/mobile/android/",
+      "**/node_modules/",
+      "**/dist/",
+      "**/build/",
+      "**/.expo/",
+      "/.claude/",
+      "/.specflow/",
+      "/.cortex/",
+      "/docs/",
+      "/plans/",
+      "/qa/",
+      "/reference/",
+      "/specs/",
+      "/specflow/",
+      "/frontend/apps/mobile/appstore-screenshots/",
+      "/backend/docs/",
+      "/backend/migrations/versions/",
+      "**/*.min.js",
+      "package-lock.json",
+      "poetry.lock",
+      "**/*.png",
+      "**/*.jpg",
+      "**/*.svg",
+      "**/*.dc.html"
+    ]
+  }
+}
