@@ -162,7 +162,14 @@ build:
 3. From a second account, send a DM with the app backgrounded.
 4. Capture the ticket id from the `/push/send` response (needs a temporary log line — the
    id is currently discarded).
-5. `curl` `https://exp.host/--/api/v2/push/getReceipts` with that ticket id.
+5. Redeem that ticket id against Expo's push-receipts endpoint and record the status/details.
+
+   Caveat on step 5: there is no receipt code in this repo to read, so the exact endpoint
+   path and request-body shape are **not verified here** — confirm them against Expo's
+   current push-receipts documentation before running anything. What *is* established is
+   the shape of the thing: receipts are a separate, later call keyed by the ticket id
+   returned from `/push/send`. A 404 at step 5 means the command was wrong, not that the
+   step is a dead end.
 
 Step 5's answer picks the branch: `DeviceNotRegistered`/`BadDeviceToken` → Gap 1 (stale
 token); an `InvalidCredentials`-class error → the Expo project's APNs key; `ok` → the

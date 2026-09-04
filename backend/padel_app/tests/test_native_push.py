@@ -526,7 +526,13 @@ def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
     `padel_app.realtime` keeps only an anonymous list of queues — it has no
     user-level connectivity state — so a "recipient is online, skip the push"
     optimisation is not merely absent from messaging_service, it is not
-    expressible. This test fails the moment anyone adds one.
+    expressible today.
+
+    Scope, honestly: the subscriber below is anonymous, so this characterises
+    current behaviour (the SSE publish and the push both happen on one send)
+    rather than guarding against a future user-keyed presence gate — such a
+    gate would need a registry that does not exist, and this subscriber would
+    not be the recipient in it.
     """
     from padel_app import realtime
     from padel_app.services.messaging_service import create_message_service
