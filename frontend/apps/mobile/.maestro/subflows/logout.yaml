@@ -1,14 +1,32 @@
-# Log out via the More tab and wait for the login screen.
+# Log out via the Settings tab and wait for the login screen.
+#
+# The logout control lives on the Settings tab's section list
+# (`app/(tabs)/settings.tsx` -> testID `settings-logout`). It used to live
+# behind a "More" tab (`tab-more` / `more-logout`); that tab no longer exists —
+# the bar renders its destinations by name — so those ids never matched and
+# this subflow always failed. Settings resets its drill-in on blur
+# (`useFocusEffect`), so tapping the tab always lands on the section list with
+# the logout button on it, whatever a previous flow left open.
+#
+# `scrollUntilVisible` rather than a plain wait: logout sits below all seven
+# ~64pt section rows, so on a shorter device it starts off-screen and `tapOn`
+# does not scroll to it. The command returns immediately when the element is
+# already visible, so it costs nothing on a tall screen.
+#
+# NOTE for PAD-193 (removes the Settings tab): this subflow is the one place
+# that depends on `tab-settings`. Whatever surface inherits the logout button
+# has to be reflected here. `login.yaml` deliberately does NOT depend on it.
 appId: com.padellevelup.app
 ---
 - tapOn:
-    id: "tab-more"
-- extendedWaitUntil:
-    visible:
-      id: "more-logout"
+    id: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-logout"
+    direction: DOWN
     timeout: 15000
 - tapOn:
-    id: "more-logout"
+    id: "settings-logout"
 - extendedWaitUntil:
     visible:
       id: "login-username"
