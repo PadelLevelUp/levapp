@@ -17,7 +17,9 @@ export default defineConfig({
   test: {
     name: "mobile",
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // `app/` too: Expo Router screens live there, and so will the helpers a
+    // screen-level sweep wants to pin.
+    include: ["src/**/*.test.ts", "app/**/*.test.ts"],
     setupFiles: ["./src/test/setup.ts"],
   },
   resolve: {
