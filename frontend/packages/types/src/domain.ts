@@ -27,33 +27,6 @@ export const SIDE_LABEL_KEYS: Record<PlayerSide, string> = {
   both: 'players.sideBoth',
 };
 
-/**
- * @deprecated PAD-182 replaced this second translation mechanism with
- * `SIDE_LABEL_KEYS` + `t()`. The only remaining caller is
- * `apps/web/src/components/students/StudentDetailSheet.tsx`, which PAD-167 is
- * deleting along with the dead StudentsPage — remove `sideLabel`, `SIDE_LABELS`
- * and `SIDE_LABELS_SHORT` with that ticket. Do not add new callers.
- */
-const SIDE_LABELS: Record<'en' | 'es', Record<PlayerSide, string>> = {
-  en: { left: 'Left', right: 'Right', both: 'Both' },
-  es: { left: 'Izquierda', right: 'Derecha', both: 'Ambos' },
-};
-const SIDE_LABELS_SHORT: Record<'en' | 'es', Record<PlayerSide, string>> = {
-  en: { left: 'Left', right: 'Right', both: 'Both' },
-  es: { left: 'Izq', right: 'Der', both: 'Ambos' },
-};
-
-/** @deprecated See `SIDE_LABEL_KEYS` — delete with PAD-167. */
-export function sideLabel(
-  side: PlayerSide | string | null | undefined,
-  opts: { locale?: 'en' | 'es'; short?: boolean } = {}
-): string {
-  if (!side) return '';
-  const { locale = 'en', short = false } = opts;
-  const table = short ? SIDE_LABELS_SHORT[locale] : SIDE_LABELS[locale];
-  return table[side as PlayerSide] ?? String(side);
-}
-
 export interface PlayerEvaluation {
   categoryId: number;
   categoryName: string;
