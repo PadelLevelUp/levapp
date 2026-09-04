@@ -45,7 +45,7 @@ function readDeepLink(search: string) {
 }
 
 export default function CalendarPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,6 +68,11 @@ export default function CalendarPage() {
   const canManageClasses = user?.roles.includes("coach") ?? false;
   const calendar = useCalendar(allEvents, {
     initialDate: deepLink.date ?? undefined,
+    // PAD-181: the week-range label follows the active UI language. Passing
+    // `i18n.language` (rather than the hook reading a module-level instance)
+    // keeps `@levelup/hooks` platform-neutral and re-renders the label when the
+    // coach switches language.
+    language: i18n.language,
   });
 
   useEffect(() => {
