@@ -42,6 +42,8 @@ the waiting list.
    send invitations to exactly the students they choose.
 6. Once the spot is filled, the coach sees it reflected on their calendar and class roster with no
    further action needed.
+7. A student who missed out because a spot was filled by someone else can answer that same message
+   with Yes to join the waiting list for that class themselves, in case another spot opens later.
 
 ## Business Rules
 
@@ -78,6 +80,10 @@ Not yet measured.
 
 ## Notes
 
-- OPEN: whether a student can still join a waiting list themselves (rather than only being added by
-  the coach) is unresolved — see `notifications.waiting-list` Rule 1 and PAD-124. Today the waiting
-  list is coach-managed in practice.
+- **[DEC 2026-09-04, PAD-124]** RESOLVED: a student can self-serve onto the waiting list — by
+  answering Yes on the same message they get when a spot was just filled by someone else. That
+  answer already worked once tapped, but neither app actually showed a Yes/No on the message, so
+  it was unreachable in practice; the decision is to make the message answerable rather than
+  remove the capability. It remains a separate path from the student-initiated "I want in" flow
+  for a full class (`classes.join-requests`, PAD-130/131) — the two are not merged. Implementation
+  detail: `notifications.waiting-list` rule 1.

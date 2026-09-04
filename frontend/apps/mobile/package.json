@@ -7,6 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prebuild:ios": "expo prebuild -p ios --clean",
     "verify:splash": "bash scripts/verify-native-splash.sh"
@@ -68,8 +70,11 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@types/react-test-renderer": "~19.1.0",
     "babel-preset-expo": "~54.0.0",
-    "typescript": "~5.9.2"
+    "react-test-renderer": "19.1.0",
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
   },
   "private": true
 }

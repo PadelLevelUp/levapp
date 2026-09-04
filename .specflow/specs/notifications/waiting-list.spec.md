@@ -12,16 +12,29 @@ governed_by: []
 ### Intent
 Players can join a waiting list for full classes. Standing waiting list entries with credits get priority.
 
+> **Forward-looking rule:** rule 1's client wiring is **not built** — it is specced ahead of the
+> PAD-124 build, decided 2026-09-04. Everything else in this spec is implemented (rules 3a/4a-4d
+> aside, which are pending PAD-128 as noted inline).
+
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id)
 - **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active
 
 ### Rules
-1. **STALE — see PAD-124.** This rule describes a student-initiated join that has never been
-   reachable: the real route is `POST /api/app/notify/respond_waiting_list`, it answers a
-   `waiting_list_offer` message, and no client has ever called it or rendered the offer's Yes/No.
-   The waiting list is coach-managed in practice. PAD-124 decides whether the path is wired or
-   retired in favour of `classes.join-requests`; this rule is rewritten to match that decision
+1. **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
+   `POST /api/app/notify/respond_waiting_list`. The offer is sent by `_offer_waiting_list()`
+   only on the "sorry, that spot was just filled" path (`respond_to_waiting_list()` upserts a
+   `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
+   no-op on a late/expired instance per PAD-68). There is no separate "browse and join" surface —
+   this message is the entire self-service join path.
+   **[DEC 2026-09-04, PAD-124]** the endpoint already existed but neither client rendered the
+   offer's Yes/No, so the path above was unreachable in practice (the waiting list was
+   coach-managed only). The decision is to **wire it**: add `waiting_list_offer` as a third
+   actionable message type — alongside `notification_invite` and `replacement_approval` — in both
+   `MessageBubble.tsx` (web) and `message-bubble.tsx` (mobile), calling the endpoint above.
+   **(pending PAD-124 build)** as of this decision the wiring itself is not yet done. This path
+   stays separate from `classes.join-requests` (PAD-130/131), the student-initiated "I want in"
+   flow for a *full* class — the two are not merged
 2. Standing entries are pre-paid slots (credits system)
    - `credits_total`: total credits purchased
    - `credits_used`: credits consumed
@@ -106,13 +119,16 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   label
 - **And** the remove button on the expired row remains fully visible and clickable
 
-#### Join waiting list — UNREACHABLE, see PAD-124
-- **Given** a full class instance
-- **When** player joins waiting list
-- **Then** a WaitingListEntry is created with is_active=True
-- **Note** no client can perform the "when" — the endpoint has no caller and the offer message
-  renders no Yes/No. This criterion has never been exercised by a real user; PAD-124 decides whether
-  it is wired or replaced by `classes.join-requests`
+#### Join waiting list via message offer (pending PAD-124 build)
+- **Given** a student who received a `waiting_list_offer` message (their spot on a class was just
+  filled by someone else)
+- **When** they tap Yes on the message
+- **Then** `POST /api/app/notify/respond_waiting_list` is called with `action=yes`
+- **And** a WaitingListEntry is created (or reactivated) with is_active=True for that instance
+- **And** the student receives the `waiting_list_confirm` reply
+- **Note** as of the 2026-09-04 decision (PAD-124) this criterion is specced but not yet built —
+  neither `MessageBubble` renders the offer's Yes/No yet, so no client can perform the "when".
+  Building the wiring above (no further decision needed) makes this criterion real
 
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)
@@ -145,3 +161,10 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **And** that student has an active standing waiting-list entry
 - **When** a vacancy opens
 - **Then** they are not placed
+
+### Notes
+- **[DEC 2026-09-04, PAD-124]** Wire `waiting_list_offer` as a third actionable message type in
+  both web and mobile `MessageBubble`s, calling the existing `POST /api/app/notify/respond_waiting_list`.
+  Keep it a separate path from `classes.join-requests` (PAD-130/131) rather than folding the two
+  together — see rule 1. Recorded so this decision is not lost the way `found_issues.md` #7 was
+  (PAD-171's framing for this whole round of decisions).

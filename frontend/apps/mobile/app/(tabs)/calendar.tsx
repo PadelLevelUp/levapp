@@ -26,11 +26,14 @@ function eventDayKey(event: CalendarEvent): string {
 
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
 
   // Week navigation first (pure), then fetch the visible week's events.
-  const calendar = useCalendar([]);
+  // PAD-181: `language` localizes the week-range label in WeekStrip. Passing
+  // `i18n.language` from useTranslation() (not a module-level import) is what
+  // re-renders the label when the coach switches language.
+  const calendar = useCalendar([], { language: i18n.language });
   const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
   const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
   const {

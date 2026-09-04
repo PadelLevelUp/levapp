@@ -8,7 +8,7 @@ import {
   parseISO,
   isWithinInterval,
 } from "date-fns";
-import { enGB } from "date-fns/locale";
+import { formatWeekRangeLabel, resolveDateLocale } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 interface UseCalendarOptions {
@@ -19,13 +19,22 @@ interface UseCalendarOptions {
    * first events fetch is made for the right week instead of the current one.
    */
   initialDate?: Date;
+  /**
+   * Active UI language (`i18n.language`), used to localize `weekLabel`.
+   * PAD-181: this hook is shared by both shells and must stay platform-neutral,
+   * so the shell passes its language in rather than the hook importing an
+   * i18next instance. Pass the value from `useTranslation()` — that is what makes
+   * the label re-render when the coach switches language. Omitted/unknown falls
+   * back to Portuguese (settings.language rule 4).
+   */
+  language?: string;
 }
 
 export function useCalendar(
   allEvents: CalendarEvent[],
   options: UseCalendarOptions = {}
 ) {
-  const { weekStartsOn = 1, initialDate } = options;
+  const { weekStartsOn = 1, initialDate, language } = options;
   const [currentDate, setCurrentDate] = useState(() => initialDate ?? new Date());
 
   const weekStart = useMemo(
@@ -71,24 +80,16 @@ export function useCalendar(
     setCurrentDate(new Date());
   }, []);
 
-  // Compact week-range label (e.g. "6–13 Jul" or "28 Jun–4 Jul"). Kept short so
+  // Compact week-range label (e.g. "6–12 Jul" or "31 Aug–6 Sep"). Kept short so
   // it stays on a single line even on narrow (375px) mobile headers.
-  const weekLabel = useMemo(() => {
-    const start = weekStart;
-    const end = addDays(weekStart, 6);
-
-    const sameMonth =
-      format(start, "MMM", { locale: enGB }) ===
-      format(end, "MMM", { locale: enGB });
-
-    if (sameMonth) {
-      return `${format(start, "d")}–${format(end, "d MMM", { locale: enGB })}`;
-    }
-
-    return `${format(start, "d MMM", { locale: enGB })}–${format(end, "d MMM", {
-      locale: enGB,
-    })}`;
-  }, [weekStart]);
+  //
+  // PAD-181: derived from `language` on every render — never frozen into state —
+  // so a language switch in Settings re-renders it. The formatting itself lives
+  // in `@levelup/config` so web, iOS and this hook share one implementation.
+  const weekLabel = useMemo(
+    () => formatWeekRangeLabel(weekStart, resolveDateLocale(language)),
+    [weekStart, language]
+  );
 
   return {
     currentDate,

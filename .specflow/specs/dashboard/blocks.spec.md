@@ -19,8 +19,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `messages_overview`: unread count, conversations to reply, latest message, link to messages
    - `kpi_grid`: 4-item grid (total players, weekly classes, attendance rate, etc.)
    - `class_list`: upcoming classes with title, date, time, color, participant count
-   - `notification_activity`: recent notification events
    - `grid`: layout container with responsive columns and child blocks
+   - **(PAD-167)** `notification_activity` and `pending_confirmations` were removed: no backend
+     builder had emitted either block type since the coach-dashboard redesign
+     (`helpers/dashboard/coach.py`), so the frontend renderer cases, components, and types were
+     dead. `messages_overview` was NOT removed despite being flagged alongside them — it is still
+     emitted for every dashboard (`helpers/dashboard_services.py`) and still renders on the player
+     dashboard.
 4. Frontend `DashboardRenderer` switches on block type
 5. Coach and player get different dashboard payloads
 6. **(PAD-144)** The coach's *pending confirmations* set covers **tomorrow's** classes, where

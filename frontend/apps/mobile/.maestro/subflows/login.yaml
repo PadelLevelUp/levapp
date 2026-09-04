@@ -13,6 +13,14 @@
 # app restores straight to the dashboard and we log out through the UI
 # (stable JS session), then type on the login screen.
 #
+# The signed-in probe keys off `tab-dashboard`, the one tab every role gets
+# (`app/(tabs)/_layout.tsx`): Players/Presences/Training are coach-only and
+# Availability is student-only, so they cannot serve as a role-agnostic
+# signal. It used to key off `tab-more`, a tab that no longer exists — the
+# probe therefore never fired, the app stayed signed in, and the flow died on
+# the login-screen wait. Settings is deliberately NOT used: PAD-193 removes
+# that tab.
+#
 # The launch itself is retried: the dev client occasionally dies during the
 # launch animation, which hard-fails even optional waits. A retry relaunches
 # cleanly. Typing is also retry-verified: each attempt clears the field with
@@ -27,13 +35,13 @@ appId: com.padellevelup.app
       # If a previous flow left someone signed in, the app lands on the tabs UI.
       - extendedWaitUntil:
           visible:
-            id: "tab-more"
+            id: "tab-dashboard"
           timeout: 20000
           optional: true
       - runFlow:
           when:
             visible:
-              id: "tab-more"
+              id: "tab-dashboard"
           file: logout.yaml
       - extendedWaitUntil:
           visible:

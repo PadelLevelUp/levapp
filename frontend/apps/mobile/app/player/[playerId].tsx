@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { lightTheme } from "@levelup/config";
 import { useCoachLevels, usePlayerProfile } from "@levelup/hooks";
-import { sideLabel } from "@levelup/types";
+import { SIDE_LABEL_KEYS } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
@@ -369,7 +369,7 @@ export default function PlayerDetailScreen() {
                 )}
                 {player.side ? (
                   <Badge variant="secondary">
-                    <Text>{sideLabel(player.side)}</Text>
+                    <Text>{t(SIDE_LABEL_KEYS[player.side])}</Text>
                   </Badge>
                 ) : null}
               </View>
