@@ -7,8 +7,33 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right' | 'both';
 
-// Human-readable label for a player's court side. Handles left/right/both plus
-// any unexpected value gracefully. `locale` picks the language for the label set.
+/**
+ * i18n keys for a player's court side (PAD-182).
+ *
+ * The labels themselves live in the shared locale tree
+ * (`src/locales/{pt,en}/players.json`) like every other user-facing string, so a
+ * badge reads "Direita" in a Portuguese app and "Right" in an English one on both
+ * shells. Call sites render them with react-i18next:
+ *
+ *     const { t } = useTranslation();
+ *     t(SIDE_LABEL_KEYS[player.side])
+ *
+ * `PlayerSide` is a closed union, so this map is exhaustive — there is no
+ * unknown-value branch to fall back on.
+ */
+export const SIDE_LABEL_KEYS: Record<PlayerSide, string> = {
+  left: 'players.sideLeft',
+  right: 'players.sideRight',
+  both: 'players.sideBoth',
+};
+
+/**
+ * @deprecated PAD-182 replaced this second translation mechanism with
+ * `SIDE_LABEL_KEYS` + `t()`. The only remaining caller is
+ * `apps/web/src/components/students/StudentDetailSheet.tsx`, which PAD-167 is
+ * deleting along with the dead StudentsPage — remove `sideLabel`, `SIDE_LABELS`
+ * and `SIDE_LABELS_SHORT` with that ticket. Do not add new callers.
+ */
 const SIDE_LABELS: Record<'en' | 'es', Record<PlayerSide, string>> = {
   en: { left: 'Left', right: 'Right', both: 'Both' },
   es: { left: 'Izquierda', right: 'Derecha', both: 'Ambos' },
@@ -18,6 +43,7 @@ const SIDE_LABELS_SHORT: Record<'en' | 'es', Record<PlayerSide, string>> = {
   es: { left: 'Izq', right: 'Der', both: 'Ambos' },
 };
 
+/** @deprecated See `SIDE_LABEL_KEYS` — delete with PAD-167. */
 export function sideLabel(
   side: PlayerSide | string | null | undefined,
   opts: { locale?: 'en' | 'es'; short?: boolean } = {}

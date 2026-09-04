@@ -4,7 +4,7 @@ import { FlatList, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { useCoachPlayersPaginated } from "@levelup/hooks";
-import { sideLabel, type CoachPlayer } from "@levelup/types";
+import { SIDE_LABEL_KEYS, type CoachPlayer } from "@levelup/types";
 import { useRouter } from "expo-router";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -154,7 +154,7 @@ export default function PlayersScreen() {
         ) : null}
         {item.side ? (
           <Badge variant="secondary">
-            <Text>{sideLabel(item.side)}</Text>
+            <Text>{t(SIDE_LABEL_KEYS[item.side])}</Text>
           </Badge>
         ) : null}
       </View>

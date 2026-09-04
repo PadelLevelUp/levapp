@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CoachLevel, PlayerSide } from "@/types";
-import { sideLabel } from "@/types";
+import { SIDE_LABEL_KEYS } from "@/types";
 
 import {
   Sheet,
@@ -162,7 +162,7 @@ export function EditPlayerSheet({
                 )}
                 {side && (
                   <Badge variant="secondary">
-                    {sideLabel(side)}
+                    {t(SIDE_LABEL_KEYS[side])}
                   </Badge>
                 )}
                 {isInactive && (
@@ -290,7 +290,7 @@ export function EditPlayerSheet({
                   </Select>
                 ) : (
                   <p className="text-sm mt-1">
-                    {side ? sideLabel(side) : "—"}
+                    {side ? t(SIDE_LABEL_KEYS[side]) : "—"}
                   </p>
                 )}
               </div>

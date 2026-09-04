@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CoachPlayer, CoachLevel, PlayerSide } from "@/types";
-import { sideLabel } from "@/types";
+import { SIDE_LABEL_KEYS } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -135,7 +135,7 @@ export function PlayerHeader({
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (
                 <Badge variant="secondary">
-                  {sideLabel(player.side)}
+                  {t(SIDE_LABEL_KEYS[player.side])}
                 </Badge>
               )}
               {level ? (

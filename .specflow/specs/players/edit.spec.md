@@ -29,7 +29,9 @@ Coaches update player information, including level, side preference, and persona
 - **Given** a player with id 3 associated with the authenticated coach
 - **When** they PATCH to `/api/app/player/3` with `{"side": "both"}`
 - **Then** the `coach_in_player` record persists `side = "both"`
-- **And** the player profile displays the side as "Both"
+- **And** the player profile displays the side in the coach's active UI language
+  (`en` → "Both", `pt` → "Ambos"), rendered from the shared `players.side*` i18n keys
+  and not from a hardcoded label table (PAD-182)
 
 #### Edit player personal info
 - **Given** a player with id 3
