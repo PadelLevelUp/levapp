@@ -123,7 +123,13 @@ test.describe("PAD-52: calendar locale-aware date formatting", () => {
     // useCalendar's `weekLabel` in @levelup/hooks, which hardcoded enGB long
     // after PAD-52 fixed the components around it — a Portuguese coach still
     // read "31 Aug–6 Sep". It must now use Portuguese month abbreviations.
-    const weekLabel = page.getByRole("heading", { level: 2 }).first();
+    // Scoped to <main>: Radix Sheet/Dialog titles also render as <h2>, but they
+    // portal to <body>, so scoping here keeps this on CalendarToolbar's label
+    // even if a sheet is open.
+    const weekLabel = page
+      .getByRole("main")
+      .getByRole("heading", { level: 2 })
+      .first();
     await expect(weekLabel).toBeVisible({ timeout: 5000 });
     const weekLabelText = (await weekLabel.textContent())?.trim() ?? "";
     // Case-sensitive on purpose: date-fns renders Portuguese abbreviations in
