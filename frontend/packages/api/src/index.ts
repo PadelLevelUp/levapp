@@ -19,5 +19,6 @@ export * as playerInvitationsApi from "./resources/playerInvitations";
 export * as playersApi from "./resources/players";
 export * as presencesApi from "./resources/presences";
 export * as registerApi from "./resources/register";
+export * as seasonsApi from "./resources/seasons";
 export * as trainingApi from "./resources/training";
 export * as usersApi from "./resources/users";
