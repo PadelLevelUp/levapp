@@ -330,8 +330,6 @@ export type DashboardBlock =
   | DashboardKpiGridBlock
   | DashboardClassListBlock
   | DashboardGridBlock
-  | DashboardNotificationActivityBlock
-  | DashboardPendingConfirmationsBlock
   // Coach home. The player dashboard still emits the blocks above.
   | DashboardNextClassBlock
   | DashboardNeedsYouBlock
@@ -468,20 +466,6 @@ export interface DashboardWeekPulseBlock {
       total: number;
       idle: number;
     };
-  };
-}
-
-/**
- * PAD-78: coach-only card that replaces the old "Revenue" KPI. Shows how many
- * students are still pending confirmation for tomorrow's classes and drives the
- * "send manual notification" action.
- */
-export interface DashboardPendingConfirmationsBlock {
-  id: string;
-  type: "pending_confirmations";
-  data: {
-    count: number;
-    canNotify: boolean;
   };
 }
 
@@ -742,15 +726,6 @@ export interface NotificationEventItem {
   createdAt: string;
   lessonInstance: { id: string; title: string | null; startDatetime: string | null };
   player: { id: string; name: string | null };
-}
-
-export interface DashboardNotificationActivityBlock {
-  id: string;
-  type: "notification_activity";
-  data: {
-    title: string;
-    items: NotificationEventItem[];
-  };
 }
 
 export type Phase =

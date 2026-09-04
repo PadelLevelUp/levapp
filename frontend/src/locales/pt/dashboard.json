@@ -7,10 +7,6 @@
     "latestMessage": "Última mensagem",
     "conversationsToReply": "Conversas por responder",
     "withUnreadMessages": "Com mensagens por ler",
-    "noNotificationActivity": "Ainda não há atividade de notificações.",
-    "unknownStudent": "Aluno desconhecido",
-    "classFallback": "Aula",
-    "round": "Ronda {{number}}",
     "kpi": {
       "players": "Jogadores",
       "upcomingClasses": "Próximas aulas",
@@ -31,25 +27,6 @@
       "missingSeats": "Faltam {{count}}",
       "seatsFilled": "{{filled}} de {{total}} confirmados",
       "nothingHereYet": "Ainda não há nada aqui."
-    },
-    "activity": {
-      "title": "Atividade de notificações"
-    },
-    "pending": {
-      "title": "Presenças por confirmar",
-      "subtitle": "Para as aulas de amanhã",
-      "notifyButton": "Enviar notificação manual",
-      "confirmTitle": "Tem a certeza?",
-      "confirmDescription": "Vai enviar uma notificação extra aos {{count}} aluno(s) que ainda não confirmaram nem recusaram. Quem já respondeu não é afetado.",
-      "confirmAction": "Enviar",
-      "notifySuccess": "Notificação enviada a {{count}} aluno(s).",
-      "notifyError": "Não foi possível enviar as notificações."
-    },
-    "status": {
-      "sent": "Enviado",
-      "confirmed": "Confirmado",
-      "expired": "Expirado",
-      "queued": "Em fila"
     },
     "addParticipants": "Adicionar participantes",
     "messagesOverviewAria": "Resumo de mensagens",
