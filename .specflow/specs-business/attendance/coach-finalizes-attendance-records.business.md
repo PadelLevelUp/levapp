@@ -67,3 +67,7 @@ the notification engine's ranking and restriction logic) is grouped here because
 same underlying `Presence` data as validation, even though it has no UI of its own and isn't
 something a coach directly "does." If a future business spec covers the invitation/eligibility
 engine's ranking logic end-to-end, `attendance.stats` might fit better there instead.
+
+- **[DEC 2026-09-04, PAD-166]** iOS gets full reporting parity with web's Presences tab: the
+  attendance charts, CSV export, table filters/column chooser, and the academy/private breakdown
+  — decided to build rather than treat as desktop-only. See `attendance.validation` Notes.

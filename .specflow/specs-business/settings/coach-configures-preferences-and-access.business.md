@@ -73,4 +73,11 @@ unauthorized-access attempt volume.
 
 ## Notes
 
-None.
+- **[DEC 2026-09-04, PAD-171 §1]** Settings is not a bottom-tab-bar / bottom-nav destination on
+  either platform — every user reaches it from the account avatar in the header. Web adds this
+  entry point in PAD-183 (this wave); iOS already has it and simply drops the redundant tab in
+  PAD-193 (next wave), taking the coach tab bar from seven destinations to six.
+- **[DEC 2026-09-04, PAD-171 §2, DIV]** The theme preference (rule above: "language and theme
+  only") has no visible effect on iOS — the app is light-only there, an intentional divergence
+  from web's dark mode, to be revisited only on user demand.
+- Full record of both decisions: `.cortex/atlas/decisions/2026-09-04-ios-tab-bar-and-theme.md`.

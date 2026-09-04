@@ -104,6 +104,16 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Then** both succeed and the preference is persisted
 
 ### Notes
+- **[DEC 2026-09-04, PAD-171 §1]** Settings stays off the bottom tab bar / bottom nav on both
+  platforms — it is reached from the account avatar in the header, as iOS already does
+  (`AccountAvatar` in `apps/mobile/app/(tabs)/_layout.tsx`). Web wires the avatar entry point in
+  PAD-183 (this wave); iOS's tab-bar count drops from seven to six in PAD-193 (next wave). This
+  is a navigation-entry-point decision, not a change to this spec's role-scoped section list —
+  see `.cortex/atlas/decisions/2026-09-04-ios-tab-bar-and-theme.md` for the full record, since no
+  dev spec governs the main app's tab bar/sidebar structure itself.
+- **[DEC 2026-09-04, PAD-171 §2, DIV]** iOS stays light-only — an intentional divergence from
+  web's dark mode (rule 2/64's "language and theme" toggle still applies to web; on iOS the theme
+  preference has no visible effect). Revisit only on user demand. See the same atlas decision file.
 - Source: ticket PAD-103 (reported by `tomasmpacheco` via Discord).
 - The ticket mentions a "time format" preference as an example of a student-relevant option; no such
   setting exists in the app today, so nothing was added for it.
