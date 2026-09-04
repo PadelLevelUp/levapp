@@ -24,8 +24,9 @@ The Discord→Linear issue bot stays in its own repo, `levelup_issue_bot`.
 ```bash
 cd frontend
 npm run dev                                     # Vite dev server (port 8080)
-npm test                                        # web unit tests + packages tests (vitest)
+npm test                                        # all unit tests: web + packages/* + mobile (vitest)
 npm run test:packages                           # packages/* unit tests only
+npm run test:mobile                             # apps/mobile unit tests only (no simulator)
 npm run test:watch                              # vitest watch mode (web)
 npm run test:e2e:headless                       # Playwright E2E (headless)
 npm run test:e2e:reset                          # Reset/reseed the levelup_test DB only
