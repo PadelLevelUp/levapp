@@ -13,8 +13,8 @@ governed_by: []
 Display a unified calendar view showing lesson instances, calendar blocks, and availability for the current user.
 
 > **Forward-looking rules:** the open-spot clauses of rules 4 and 6 are **not built** — they are
-> specced ahead of PAD-130. Everything else in this spec is implemented. Rules added ahead of their
-> ticket are marked inline.
+> specced ahead of PAD-130. Rule 12 (iOS legend) is not built either — specced ahead of PAD-170.
+> Everything else in this spec is implemented. Rules added ahead of their ticket are marked inline.
 
 ### Rules
 1. `GET /api/app/calendar?from=ISO&to=ISO` returns events in date range
@@ -34,6 +34,11 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 9. Effective filled spots is computed in exactly one place — `LessonInstance.effective_filled_spots` on the backend model — and is the single source of truth shared by the calendar event card, the class-detail "capacity" field (calendar.event-detail), and the invitation engine's capacity checks (notifications.invitation-engine). No surface recomputes it independently
 10. Lesson templates (non-materialized recurrence occurrences with no instance row) have no presences, so their `participantCount` is the enrolment count
 11. Each event exposes a `status` of `completed` or `scheduled`. An event is `completed` once its **end datetime has passed** (compared against the current time), otherwise `scheduled`. The comparison uses the real end datetime — the event's date combined with its end time-of-day — NOT just the date. So a class that ended earlier **today** reads as `completed`, exactly like classes on previous days. For recurrence occurrences the end datetime is the occurrence date combined with the template's end time-of-day. "Now" uses the same naive-UTC clock (`utcnow_naive`) the scheduler uses to compare class datetimes
+12. **(pending PAD-170 C4, decided 2026-09-04)** iOS gets the same colour-coding legend web already
+    has (`CalendarLegend.tsx`: `calendar.legend.done / event / fill / full / next`), explaining
+    rule 6's colour coding. Decision was to port it rather than decline it as an iOS-unneeded
+    surface — as a legend row under the week nav, sequenced **after** PAD-172's 50/50 split lands
+    (the split changes the layout the legend sits under)
 
 ### Acceptance Criteria
 
@@ -67,3 +72,9 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Then** that event's `status` is `completed`
 - **And** a class today that has not yet ended has `status` `scheduled`
 - **And** a class on a previous day has `status` `completed`
+
+#### iOS calendar shows the colour legend (pending PAD-170 C4, after PAD-172)
+- **Given** a coach on the iOS calendar week view, after PAD-172's 50/50 split has shipped
+- **When** they view the calendar toolbar
+- **Then** a legend row under the week nav explains each colour (`calendar.legend.done / event /
+  fill / full / next`), matching web's `CalendarLegend.tsx`
