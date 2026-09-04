@@ -1,9 +1,9 @@
 ---
-id: B-015
+id: B-016
 title: "A player's court side rendered in English regardless of the coach's language"
 type: missing-criterion
 severity: medium
-status: fixed
+status: resolved
 affects:
   - players.edit
   - settings.language
@@ -21,7 +21,7 @@ opened: 2026-09-04T00:00:00Z
 closed: 2026-09-04T00:00:00Z
 ---
 
-# B-015 — A player's court side rendered in English regardless of the coach's language
+# B-016 — A player's court side rendered in English regardless of the coach's language
 
 `packages/types/src/domain.ts` carried a second, parallel translation mechanism:
 `SIDE_LABELS` / `SIDE_LABELS_SHORT` covering only `en` and `es`, read by a
