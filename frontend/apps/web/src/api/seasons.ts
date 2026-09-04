@@ -1,35 +1,31 @@
+import "@/api/client";
 import type { Season } from "@/types";
-import { api } from "@/api/client";
+import * as seasonsApi from "@levelup/api/src/resources/seasons";
+import type { SeasonUpsert } from "@levelup/api/src/resources/seasons";
 import { USE_MOCK_DATA } from "@/config";
+
+export type { SeasonUpsert };
 
 export async function getSeasons(): Promise<Season[]> {
   if (USE_MOCK_DATA) {
+    // The demo dataset in `@/data` has no seasons to fake; Settings → Calendar
+    // renders its empty state under mock mode, as it always has.
     return [];
   }
 
-  const res = await api.get("/app/seasons");
-  return res.data;
-}
-
-/**
- * A season to upsert. `id` addresses an already-persisted season so the backend
- * updates it in place; omit it to create a new one (PAD-89).
- */
-export interface SeasonUpsert {
-  id?: string;
-  name: string;
-  startDate: string;
-  endDate: string;
+  return seasonsApi.getSeasons();
 }
 
 export async function addSeasons(data: SeasonUpsert[]): Promise<Season[]> {
   if (USE_MOCK_DATA) {
     console.log("[mock] addSeasons", data);
-    return data.map((s) => ({ ...s, id: s.id ?? crypto.randomUUID() }));
+    return data.map((s) => ({
+      ...s,
+      id: String(s.id ?? crypto.randomUUID()),
+    }));
   }
 
-  const res = await api.post("/app/add_seasons", data);
-  return res.data;
+  return seasonsApi.addSeasons(data);
 }
 
 export async function deleteSeason(id: string): Promise<void> {
@@ -37,5 +33,6 @@ export async function deleteSeason(id: string): Promise<void> {
     console.log("[mock] deleteSeason", id);
     return;
   }
-  await api.post("/app/delete/season", { id });
+
+  return seasonsApi.deleteSeason(id);
 }
