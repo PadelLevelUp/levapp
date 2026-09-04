@@ -444,3 +444,140 @@ def test_direct_message_push_carries_recipient_unread_count_as_badge(app):
         second_badge = mock_send.call_args_list[1].kwargs["badge"]
         assert first_badge == 1
         assert second_badge == 2
+
+
+# ---------------------------------------------------------------------------
+# PAD-118 — "no push arrives while the iOS app is backgrounded"
+#
+# The ticket's hypothesis was that the backend skips the push when the
+# recipient is already connected over SSE. These tests pin the opposite: the
+# send path has no presence, preference or mute gate at all, and they assert
+# the real HTTP body posted to exp.host. (The message tests above patch
+# send_expo_push_to_user, so they prove the call happens and nothing about
+# what actually goes on the wire.)
+# ---------------------------------------------------------------------------
+
+def _dm_fixture(sender_name, recipient_name, slug):
+    """Two users in a conversation; the recipient has an iOS DeviceToken."""
+    from padel_app.models import DeviceToken, Conversation, ConversationParticipant
+
+    sender = _create_user(sender_name, f"{slug}-sender")
+    recipient = _create_user(recipient_name, f"{slug}-recipient")
+    db.session.commit()
+
+    conversation = Conversation(
+        participant_key=Conversation.build_participant_key([sender.id, recipient.id]),
+    )
+    db.session.add(conversation)
+    db.session.flush()
+    db.session.add_all([
+        ConversationParticipant(conversation_id=conversation.id, user_id=sender.id),
+        ConversationParticipant(conversation_id=conversation.id, user_id=recipient.id),
+    ])
+    db.session.commit()
+
+    DeviceToken(
+        user_id=recipient.id, token=f"ExponentPushToken[{slug}]", platform="ios"
+    ).create()
+
+    return sender, recipient, conversation
+
+
+def test_direct_message_posts_expo_push_body_to_exp_host(app):
+    """End-to-end through the real Expo sender: sending a DM posts exactly one
+    message to exp.host carrying the recipient's token, the sender's name as
+    the title, the message text as the body, the tap-routing data payload and
+    the unread badge. Nothing about the recipient's app state, SSE connection
+    or notification preferences can suppress it — there is no such gate."""
+    from padel_app.services.messaging_service import create_message_service
+
+    with app.app_context():
+        sender, _recipient, conversation = _dm_fixture(
+            "Ana Coach", "Bruno Player", "pad118"
+        )
+        conversation_id, sender_id = conversation.id, sender.id
+
+        with patch("padel_app.services.messaging_service.publish"), \
+             patch("padel_app.services.messaging_service.send_push_notification"), \
+             patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response({"data": [{"status": "ok"}]})
+            create_message_service(
+                {"conversationId": conversation_id, "text": "Training moved to 19h"},
+                sender_id,
+            )
+
+        assert mock_post.call_count == 1
+        args, kwargs = mock_post.call_args
+        assert args[0] == "https://exp.host/--/api/v2/push/send"
+        assert kwargs["json"] == [
+            {
+                "to": "ExponentPushToken[pad118]",
+                "title": "Ana Coach",
+                "body": "Training moved to 19h",
+                "data": {"type": "message", "conversationId": conversation_id},
+                "badge": 1,
+            }
+        ]
+
+
+def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
+    """The push is sent even when the recipient has a live SSE subscription.
+
+    `padel_app.realtime` keeps only an anonymous list of queues — it has no
+    user-level connectivity state — so a "recipient is online, skip the push"
+    optimisation is not merely absent from messaging_service, it is not
+    expressible. This test fails the moment anyone adds one.
+    """
+    from padel_app import realtime
+    from padel_app.services.messaging_service import create_message_service
+
+    with app.app_context():
+        sender, _recipient, conversation = _dm_fixture(
+            "Carla Coach", "Diogo Player", "pad118sse"
+        )
+        conversation_id, sender_id = conversation.id, sender.id
+
+        subscriber = realtime.subscribe()
+        try:
+            with patch("padel_app.services.messaging_service.send_push_notification"), \
+                 patch("padel_app.utils.expo_push.requests.post") as mock_post:
+                mock_post.return_value = _mock_response({"data": [{"status": "ok"}]})
+                create_message_service(
+                    {"conversationId": conversation_id, "text": "still pushed"},
+                    sender_id,
+                )
+        finally:
+            realtime.unsubscribe(subscriber)
+
+        # The SSE event went out *and* so did the push.
+        assert not subscriber.empty()
+        assert mock_post.call_count == 1
+        assert mock_post.call_args.kwargs["json"][0]["to"] == "ExponentPushToken[pad118sse]"
+
+
+def test_expo_ticket_response_is_not_a_delivery_receipt(app):
+    """PAD-118's blind spot, pinned.
+
+    `/push/send` returns *tickets*. APNs-level verdicts (BadDeviceToken from an
+    aps-environment mismatch, InvalidCredentials from a missing Expo APNs key)
+    only appear later, via `/push/getReceipts` keyed by the ticket id. This
+    sender treats an `ok` ticket as success and drops the ticket id, so it can
+    never learn that a push it "sent" was never delivered.
+
+    When a receipt-fetching step is added, replace this with a test asserting
+    ticket ids are retained and redeemed.
+    """
+    from padel_app.utils.expo_push import send_expo_push
+
+    with app.app_context():
+        with patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response(
+                {"data": [{"status": "ok", "id": "XXXX-XXXX-XXXX-XXXX"}]}
+            )
+            result = send_expo_push(["ExponentPushToken[t]"], "T", "B", {})
+
+        # Reported as success purely on the strength of the ticket.
+        assert result is True
+        # Only one HTTP call is ever made: the ticket id is never redeemed.
+        assert mock_post.call_count == 1
+        assert all("getReceipts" not in str(c) for c in mock_post.call_args_list)
