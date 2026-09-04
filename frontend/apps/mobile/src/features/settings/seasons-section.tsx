@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import { seasonsApi } from "@levelup/api";
+import type { SeasonUpsert } from "@levelup/api/src/resources/seasons";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -16,12 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
-import {
-  addSeasons,
-  deleteSeason,
-  getSeasons,
-  type SeasonUpsert,
-} from "@/features/settings/settings-api";
 
 interface SeasonDraft {
   id: string | number;
@@ -56,7 +52,8 @@ export function SeasonsSection() {
 
   React.useEffect(() => {
     let cancelled = false;
-    getSeasons()
+    seasonsApi
+      .getSeasons()
       .then((data) => {
         if (cancelled) return;
         setSeasons(
@@ -109,7 +106,7 @@ export function SeasonsSection() {
     }
     setRemovingId(season.id);
     try {
-      await deleteSeason(season.id);
+      await seasonsApi.deleteSeason(season.id);
       setSeasons((prev) => prev.filter((s) => s.id !== season.id));
     } catch {
       setStatus(t("settings.seasons.deleteFailed"));
@@ -141,7 +138,7 @@ export function SeasonsSection() {
     setSaving(true);
     setStatus(null);
     try {
-      const updated = await addSeasons(payload);
+      const updated = await seasonsApi.addSeasons(payload);
       setSeasons(
         updated.map((s) => ({
           id: s.id,

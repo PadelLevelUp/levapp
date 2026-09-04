@@ -130,6 +130,14 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     return item.roles.some(role => user?.roles.includes(role));
   });
 
+  // PAD-183: Settings is dropped from the mobile bottom nav only — at 390px
+  // wide, seven (coach) or five (student) tabs with Portuguese labels overflow
+  // the bar (measured scrollWidth 428 vs clientWidth 390). Settings is
+  // redundant there anyway: the avatar menu in the header already links to it
+  // on every viewport. The desktop sidebar keeps using `visibleNavItems`
+  // unfiltered, so this has no effect above the `md` breakpoint.
+  const mobileNavItems = visibleNavItems.filter(item => item.path !== "/settings");
+
   const userInitials =
     user?.name
       ?.split(" ")
@@ -286,12 +294,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
       {/* Mobile Sidebar */}
       <nav
+        data-testid="mobile-bottom-nav"
         className={cn(
           "md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 transition-transform duration-200",
           bottomNavHidden ? "translate-y-full" : "translate-y-0"
         )}
       >
-        {visibleNavItems.map((item) => {
+        {mobileNavItems.map((item) => {
           const isActive =
             location.pathname === item.path ||
             (item.path !== "/dashboard" &&
@@ -374,7 +383,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2"
+                data-testid="user-menu-trigger"
+              >
                 <Avatar className="w-8 h-8">
                   <AvatarImage src="" />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
@@ -388,7 +401,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <DropdownMenuItem
+                onClick={() => navigate("/settings")}
+                data-testid="user-menu-settings"
+              >
                 <Settings className="w-4 h-4 mr-2" />
                 {t("nav.settings")}
               </DropdownMenuItem>

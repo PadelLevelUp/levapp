@@ -6,9 +6,7 @@ import type {
   DashboardIcon,
   DashboardKpiGridBlock,
   DashboardMessagesOverviewBlock,
-  DashboardNotificationActivityBlock,
 } from "@levelup/types";
-import { formatDistanceToNow } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { parseDashboardItemId } from "@/features/calendar/params";
-import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<DashboardIcon, keyof typeof Ionicons.glyphMap> = {
   users: "people-outline",
@@ -283,86 +280,6 @@ function MessagesOverview({
   );
 }
 
-/** Mirrors web's STATUS_STYLES (NotificationActivityBlock.tsx) so status
- * pills match across platforms: pale fill + matching text, raw lowercase status. */
-const STATUS_STYLES: Record<string, { badge: string; text: string }> = {
-  sent: { badge: "bg-primary/10", text: "text-primary" },
-  confirmed: { badge: "bg-success/15", text: "text-success" },
-  expired: { badge: "bg-muted", text: "text-muted-foreground" },
-  queued: { badge: "bg-warning/15", text: "text-warning" },
-};
-
-function NotificationActivity({
-  block,
-}: {
-  block: DashboardNotificationActivityBlock;
-}) {
-  const { t } = useTranslation();
-  // Same treatment as web: the backend emits the block title in English, and
-  // the block id is stable, so translate off that.
-  const title =
-    block.id === "notification_activity"
-      ? t("dashboard.activity.title")
-      : block.data.title;
-  return (
-    <Card testID="dashboard-notification-activity">
-      <CardHeader className="flex-row items-center gap-2">
-        <Ionicons
-          name="notifications-outline"
-          size={16}
-          color={lightTheme.mutedForeground}
-        />
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="gap-2">
-        {block.data.items.length === 0 ? (
-          <Text className="text-sm text-muted-foreground">
-            {t("dashboard.noNotificationActivity")}
-          </Text>
-        ) : (
-          block.data.items.map((item) => (
-            <View
-              key={item.id}
-              className="flex-row items-start gap-3 rounded-lg bg-muted p-3"
-            >
-              <Ionicons
-                name={item.type === "manual" ? "send-outline" : "notifications-outline"}
-                size={14}
-                color={lightTheme.mutedForeground}
-                style={{ marginTop: 2 }}
-              />
-              <View className="flex-1">
-                <Text className="text-sm font-medium" numberOfLines={1}>
-                  {item.player.name ?? t("dashboard.unknownStudent")}
-                </Text>
-                <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                  {item.lessonInstance.title ?? t("dashboard.classFallback")}
-                  {item.createdAt
-                    ? ` · ${formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}`
-                    : ""}
-                </Text>
-              </View>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "border-transparent",
-                  STATUS_STYLES[item.status]?.badge ?? "bg-muted"
-                )}
-              >
-                <Text className={STATUS_STYLES[item.status]?.text ?? "text-muted-foreground"}>
-                  {t(`dashboard.status.${item.status}`, {
-                    defaultValue: item.status,
-                  })}
-                </Text>
-              </Badge>
-            </View>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function renderBlock(block: DashboardBlock): React.ReactNode {
   switch (block.type) {
     case "messages_overview":
@@ -371,8 +288,6 @@ function renderBlock(block: DashboardBlock): React.ReactNode {
       return <KpiGrid key={block.id} block={block} />;
     case "class_list":
       return <ClassList key={block.id} block={block} />;
-    case "notification_activity":
-      return <NotificationActivity key={block.id} block={block} />;
     case "grid":
       // Mobile is single-column: flatten grid children into the stack.
       return (

@@ -24,8 +24,9 @@ npm install                       # workspaces install
 npm run dev                       # web dev server (Vite, port 8080)
 npm run mobile                    # mobile: expo start
 npm run mobile:ios                # mobile: expo run:ios (build + install dev client)
-npm test                          # web unit tests + packages tests (vitest)
+npm test                          # all unit tests: web + packages/* + mobile (vitest)
 npm run test:packages             # packages/* unit tests only
+npm run test:mobile               # apps/mobile unit tests only (vitest, no simulator)
 npm run test:e2e:headless         # web Playwright E2E (headless)
 bash apps/mobile/scripts/e2e.sh   # mobile Maestro E2E (see apps/mobile/README.md for setup)
 ```
@@ -76,6 +77,23 @@ See `apps/mobile/README.md` for run instructions, E2E setup (test backend :5001,
 - Maestro flow docs and gotchas (Select portals invisible to iOS a11y, no unbounded `eraseText`, non-inverted FlatList): `apps/mobile/.maestro/README.md`.
 - Backend endpoint surface: `apps/mobile/API-CONTRACT.md`.
 - Push notifications are scaffolded but stubbed (`PUSH_TOKEN_ENDPOINT = null` in `apps/mobile/src/lib/push/expoPushRegistrar.ts`) until the backend grows a native token endpoint.
+
+### Mobile unit tests (`npm run test:mobile`)
+
+`apps/mobile/vitest.config.ts` runs `src/**/*.test.ts` in a plain **Node** environment — no
+Metro, no bundler, no simulator. `react-native` is aliased to a hand-written stub
+(`apps/mobile/src/test/mocks/react-native.ts`) so a module can import `Keyboard`/`Platform`
+without dragging react-native's Flow sources into vitest; extend the stub when a test needs
+more of the API, and keep the behaviour honest (its `remove()` really unsubscribes, so
+cleanup assertions mean something). Consequences:
+
+- **Pure modules and hooks only.** Component rendering is out: `@testing-library/react-native`
+  needs the real `react-native` package, which is exactly what the alias removes. Screens stay
+  Maestro's job. Hooks are driven with `react-test-renderer` (React's own DOM-free renderer;
+  its deprecation notice is filtered in `src/test/setup.ts`).
+- `.test.tsx` is not in the include glob — that is deliberate, not an oversight.
+- `format()` helpers render in **local** time; assert on timezone-less ISO strings
+  (`"2026-09-04T14:30:00"`, no trailing `Z`) and pin "today" with `vi.setSystemTime`.
 
 ## Metro monorepo config
 

@@ -155,3 +155,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - Source: ticket PAD-140.
 - Fills in the `validated` field reserved by `attendance.presence` rule 5, which
   had no rules or acceptance criteria of its own.
+- **[DEC 2026-09-04, PAD-166]** PAD-140 ported the Presences tab to iOS as a subset (this spec's
+  rules 1-16, the validate flow, is PAD-185 and needs no decision). The remaining gap — the three
+  charts (attendance-over-time, per-player, academy/private split), CSV export, table filters,
+  the column chooser, and the academy/private breakdown — was an open product question (is
+  presence *analysis* phone work at all). Decided: **build it.** PAD-166 becomes a real build
+  ticket (wave 3): charts via `react-native-svg` (not Recharts, which is web-only), CSV export via
+  the iOS share sheet rather than a browser download. Not yet built as of this decision.

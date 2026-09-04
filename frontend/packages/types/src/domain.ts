@@ -7,26 +7,25 @@ export type AbsenceJustification = 'justified' | 'unjustified';
 export type CalendarBlockType = 'break' | 'holiday' | 'off_work' | 'personal';
 export type PlayerSide = 'left' | 'right' | 'both';
 
-// Human-readable label for a player's court side. Handles left/right/both plus
-// any unexpected value gracefully. `locale` picks the language for the label set.
-const SIDE_LABELS: Record<'en' | 'es', Record<PlayerSide, string>> = {
-  en: { left: 'Left', right: 'Right', both: 'Both' },
-  es: { left: 'Izquierda', right: 'Derecha', both: 'Ambos' },
+/**
+ * i18n keys for a player's court side (PAD-182).
+ *
+ * The labels themselves live in the shared locale tree
+ * (`src/locales/{pt,en}/players.json`) like every other user-facing string, so a
+ * badge reads "Direita" in a Portuguese app and "Right" in an English one on both
+ * shells. Call sites render them with react-i18next:
+ *
+ *     const { t } = useTranslation();
+ *     t(SIDE_LABEL_KEYS[player.side])
+ *
+ * `PlayerSide` is a closed union, so this map is exhaustive — there is no
+ * unknown-value branch to fall back on.
+ */
+export const SIDE_LABEL_KEYS: Record<PlayerSide, string> = {
+  left: 'players.sideLeft',
+  right: 'players.sideRight',
+  both: 'players.sideBoth',
 };
-const SIDE_LABELS_SHORT: Record<'en' | 'es', Record<PlayerSide, string>> = {
-  en: { left: 'Left', right: 'Right', both: 'Both' },
-  es: { left: 'Izq', right: 'Der', both: 'Ambos' },
-};
-
-export function sideLabel(
-  side: PlayerSide | string | null | undefined,
-  opts: { locale?: 'en' | 'es'; short?: boolean } = {}
-): string {
-  if (!side) return '';
-  const { locale = 'en', short = false } = opts;
-  const table = short ? SIDE_LABELS_SHORT[locale] : SIDE_LABELS[locale];
-  return table[side as PlayerSide] ?? String(side);
-}
 
 export interface PlayerEvaluation {
   categoryId: number;
@@ -330,8 +329,6 @@ export type DashboardBlock =
   | DashboardKpiGridBlock
   | DashboardClassListBlock
   | DashboardGridBlock
-  | DashboardNotificationActivityBlock
-  | DashboardPendingConfirmationsBlock
   // Coach home. The player dashboard still emits the blocks above.
   | DashboardNextClassBlock
   | DashboardNeedsYouBlock
@@ -468,20 +465,6 @@ export interface DashboardWeekPulseBlock {
       total: number;
       idle: number;
     };
-  };
-}
-
-/**
- * PAD-78: coach-only card that replaces the old "Revenue" KPI. Shows how many
- * students are still pending confirmation for tomorrow's classes and drives the
- * "send manual notification" action.
- */
-export interface DashboardPendingConfirmationsBlock {
-  id: string;
-  type: "pending_confirmations";
-  data: {
-    count: number;
-    canNotify: boolean;
   };
 }
 
@@ -742,15 +725,6 @@ export interface NotificationEventItem {
   createdAt: string;
   lessonInstance: { id: string; title: string | null; startDatetime: string | null };
   player: { id: string; name: string | null };
-}
-
-export interface DashboardNotificationActivityBlock {
-  id: string;
-  type: "notification_activity";
-  data: {
-    title: string;
-    items: NotificationEventItem[];
-  };
 }
 
 export type Phase =
