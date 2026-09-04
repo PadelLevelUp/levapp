@@ -119,6 +119,30 @@ test.describe("PAD-52: calendar locale-aware date formatting", () => {
     // language — this is the assertion that fails without the fix.
     await expect(page.getByText(EN_WEEKDAY)).toHaveCount(0);
 
+    // PAD-181 (calendar.view rule 12): the week-range label comes from
+    // useCalendar's `weekLabel` in @levelup/hooks, which hardcoded enGB long
+    // after PAD-52 fixed the components around it — a Portuguese coach still
+    // read "31 Aug–6 Sep". It must now use Portuguese month abbreviations.
+    // Scoped to <main>: Radix Sheet/Dialog titles also render as <h2>, but they
+    // portal to <body>, so scoping here keeps this on CalendarToolbar's label
+    // even if a sheet is open.
+    const weekLabel = page
+      .getByRole("main")
+      .getByRole("heading", { level: 2 })
+      .first();
+    await expect(weekLabel).toBeVisible({ timeout: 5000 });
+    const weekLabelText = (await weekLabel.textContent())?.trim() ?? "";
+    // Case-sensitive on purpose: date-fns renders Portuguese abbreviations in
+    // lower case ("ago", "set") and English ones capitalized ("Aug", "Sep"), so
+    // this stays a real assertion in the weeks where the two spellings would
+    // otherwise collide (e.g. "jul" vs "Jul").
+    expect(weekLabelText).toMatch(
+      /\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/
+    );
+    expect(weekLabelText).not.toMatch(
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/
+    );
+
     // Restore English so the shared seed DB / later specs stay in English.
     await openPreferences(page);
     await selectLanguage(page, /english|inglês/i);
