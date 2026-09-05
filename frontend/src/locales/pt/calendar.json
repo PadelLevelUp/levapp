@@ -81,7 +81,8 @@
       "missingFieldsDescription": "Preencha: {{fields}}",
       "fieldDate": "Data",
       "fieldDays": "Dias da semana",
-      "fieldEndDate": "Data de fim"
+      "fieldEndDate": "Data de fim",
+      "repeatOnDay": "Repetir no dia {{day}}"
     },
     "attendance": {
       "playerFallback": "Jogador",
@@ -90,7 +91,11 @@
       "present": "Presente",
       "justified": "Justificada",
       "unjustified": "Injustificada",
-      "absent": "Ausente"
+      "absent": "Ausente",
+      "markPresent": "Marcar {{name}} como presente",
+      "markAbsent": "Marcar {{name}} como ausente",
+      "markJustified": "Marcar a falta de {{name}} como justificada",
+      "markUnjustified": "Marcar a falta de {{name}} como injustificada"
     },
     "detail": {
       "date": "Data",
@@ -158,7 +163,9 @@
       "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "notAttending": "Não vais comparecer",
-      "notAttendingJustified": "Falta justificada"
+      "notAttendingJustified": "Falta justificada",
+      "colorOption": "Cor {{color}}",
+      "invitedCount": "Convidados ({{count}})"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -174,7 +181,12 @@
       "noGroupsFound": "Nenhum grupo encontrado",
       "exerciseCount_one": "{{count}} exercício",
       "exerciseCount_other": "{{count}} exercícios",
-      "allAlreadyAdded": " · já adicionados"
+      "allAlreadyAdded": " · já adicionados",
+      "editPlan": "Editar plano de treino",
+      "removeExercise": "Remover {{name}}",
+      "addExercise": "Adicionar {{name}}",
+      "addGroup": "Adicionar grupo {{name}}",
+      "searchExercises": "Pesquisar exercícios"
     },
     "scope": {
       "cancel": "Cancelar",
@@ -242,7 +254,8 @@
       "invitationSent_one": "Convite enviado a {{count}} aluno",
       "invitationSent_other": "Convite enviado a {{count}} alunos",
       "failedSendInvitations": "Falha ao enviar os convites",
-      "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)"
+      "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)",
+      "searchStudents": "Pesquisar alunos"
     },
     "playerSelector": {
       "participants": "Participantes ({{count}})",

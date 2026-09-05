@@ -65,6 +65,30 @@ export function formatConversationTime(iso: string | null): string {
   return format(date, "d MMM yyyy");
 }
 
+/** Backend role enum → `messages.role*` translation key, or null if unknown. */
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  coach: "messages.roleCoach",
+  player: "messages.rolePlayer",
+  assistant: "messages.roleAssistant",
+};
+
+/**
+ * Translation key for a conversation participant's role (PAD-158).
+ *
+ * The conversation list used to print the raw backend enum with a `capitalize`
+ * class, so a Portuguese device read "Player". Mirrors web's `getRoleLabel`
+ * (ChatHeader.tsx), including its case-insensitivity and its fallback: an
+ * unrecognised role returns null rather than a key, because `t()` on a missing
+ * key renders the key path itself ("messages.roleReferee") — worse than the
+ * untranslated word. Callers show the raw role in that case, as web does.
+ */
+export function roleLabelKey(
+  role: string | null | undefined
+): string | null {
+  if (!role) return null;
+  return ROLE_LABEL_KEYS[role.toLowerCase()] ?? null;
+}
+
 /** Initials for avatar fallbacks. */
 export function initialsOf(name: string | undefined | null): string {
   if (!name) return "?";

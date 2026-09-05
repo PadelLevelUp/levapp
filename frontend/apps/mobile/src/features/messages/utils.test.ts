@@ -5,6 +5,7 @@ import {
   formatMessageTime,
   initialsOf,
   normalizeId,
+  roleLabelKey,
 } from "./utils";
 
 // Every ISO string here is deliberately timezone-less: date-fns `format` renders in
@@ -85,5 +86,30 @@ describe("formatConversationTime", () => {
   it("returns an empty string for null or garbage", () => {
     expect(formatConversationTime(null)).toBe("");
     expect(formatConversationTime("not-a-date")).toBe("");
+  });
+});
+
+describe("roleLabelKey", () => {
+  // PAD-158: the conversation list printed the raw backend enum with a
+  // `capitalize` class, so a Portuguese device showed "Player". Web maps the
+  // enum to messages.role* keys; this is the same mapping, kept pure so the
+  // component only has to call t().
+  it("maps the backend role enum to a translation key", () => {
+    expect(roleLabelKey("coach")).toBe("messages.roleCoach");
+    expect(roleLabelKey("player")).toBe("messages.rolePlayer");
+    expect(roleLabelKey("assistant")).toBe("messages.roleAssistant");
+  });
+
+  it("is case-insensitive, like web's getRoleLabel", () => {
+    expect(roleLabelKey("Coach")).toBe("messages.roleCoach");
+    expect(roleLabelKey("PLAYER")).toBe("messages.rolePlayer");
+  });
+
+  it("returns null for an unknown or missing role so the caller can fall back", () => {
+    // Returning a key here would render a raw "messages.roleReferee" path.
+    expect(roleLabelKey("referee")).toBeNull();
+    expect(roleLabelKey(undefined)).toBeNull();
+    expect(roleLabelKey(null)).toBeNull();
+    expect(roleLabelKey("")).toBeNull();
   });
 });
