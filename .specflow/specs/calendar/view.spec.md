@@ -41,6 +41,15 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     surface — as a legend row under the week nav, sequenced **after** PAD-172's 50/50 split lands
     (the split changes the layout the legend sits under)
 
+14. **(PAD-172)** On iOS the week strip and the day-detail list are a `flex-1` / `flex-1` pair
+    filling the space below the week-nav row, mirroring web's `MobileCalendarView` split. The
+    strip's share of the screen is therefore **constant regardless of class density** — it neither
+    collapses on a quiet week nor grows with the busiest day. Each day column scrolls **internally**
+    when its classes exceed the column height, so overflow is absorbed by scrolling rather than by
+    shrinking the strip or by truncating the list. Consequently iOS renders **every** class in a day
+    column and never shows a `+N` more indicator; web still caps its column at 4 chips plus `+N`,
+    which is a remaining web-side gap, not an iOS deviation
+
 ### Acceptance Criteria
 
 #### Coach calendar view
@@ -85,3 +94,13 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **When** they view the calendar toolbar
 - **Then** a legend row under the week nav explains each colour (`calendar.legend.done / event /
   fill / full / next`), matching web's `CalendarLegend.tsx`
+
+#### iOS week strip keeps a constant share of the screen (PAD-172)
+- **Given** a coach on the iOS calendar week view
+- **When** the visible week has no classes at all
+- **Then** the week strip still occupies the same share of the space below the week-nav row as the
+  day-detail list below it — it does not collapse to its content height
+- **And** on a week whose busiest day has eight classes the strip occupies that same share — it does
+  not grow to fit the busiest day
+- **And** that day's column scrolls internally to reach the eighth class
+- **And** no `+N` more indicator is rendered on iOS, because no class is cut from the column
