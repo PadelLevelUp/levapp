@@ -27,7 +27,8 @@
         "holiday": "Férias",
         "off_work": "Folga",
         "unavailable": "Indisponível"
-      }
+      },
+      "openAria": "Abrir {{title}}, {{start}} às {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
