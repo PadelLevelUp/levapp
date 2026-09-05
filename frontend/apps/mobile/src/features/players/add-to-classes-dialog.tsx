@@ -27,7 +27,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { notificationEngineApi } from "@levelup/api";
 import { useEditClass } from "@/features/calendar/hooks";
+import {
+  UnavailableStudentDialog,
+  type BlockedStudentLike,
+} from "@/features/calendar/unavailable-student-dialog";
 import { cn } from "@/lib/utils";
 import { useClassInstancesForWeek } from "./hooks";
 
@@ -58,6 +63,11 @@ export function AddToClassesDialog({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const editClass = useEditClass();
+  const [blockedStudents, setBlockedStudents] = React.useState<
+    BlockedStudentLike[]
+  >([]);
+  const [unavailableAcknowledged, setUnavailableAcknowledged] =
+    React.useState(false);
 
   const [weekStart, setWeekStart] = React.useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -81,6 +91,10 @@ export function AddToClassesDialog({
     if (!open) return;
     setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
     setSelectedIds(new Set());
+    // PAD-159: a fresh dialog session re-checks availability, so a previous
+    // "proceed anyway" never silently carries over to a different selection.
+    setBlockedStudents([]);
+    setUnavailableAcknowledged(false);
   }, [open]);
 
   const weekDays = React.useMemo(
@@ -121,6 +135,44 @@ export function AddToClassesDialog({
   const handleSave = async () => {
     const targets = classes.filter((c) => selectedIds.has(c.id));
     if (targets.length === 0) return;
+
+    // PAD-159 / PAD-107: warn before putting this player into a slot they
+    // marked unavailable. Web raises this while picking students during class
+    // CREATION; iOS has no player picker there, so the equivalent moment is
+    // here — the one place iOS attaches a player to a slot.
+    //
+    // Non-blocking, like web: enrolment is the coach's call, they are just
+    // told no notification will reach the player for that slot. A failed
+    // lookup must never stop a coach booking — the backend send-time block is
+    // the real guarantee.
+    if (!unavailableAcknowledged) {
+      try {
+        const results = await Promise.all(
+          targets.map((cls) =>
+            notificationEngineApi.checkAvailabilityConflicts(
+              cls.date,
+              cls.startTime,
+              cls.endTime,
+              [playerId]
+            )
+          )
+        );
+        // One player, up to N slots: dedupe so the dialog names them once.
+        const blocked = results.flat();
+        if (blocked.length > 0) {
+          setBlockedStudents([blocked[0]]);
+          return;
+        }
+      } catch {
+        // Ignored on purpose — see above.
+      }
+    }
+
+    await proceedSave(targets);
+  };
+
+  const proceedSave = async (targets: typeof classes) => {
+    setBlockedStudents([]);
     setSaving(true);
 
     let successCount = 0;
@@ -331,6 +383,20 @@ export function AddToClassesDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <UnavailableStudentDialog
+        open={blockedStudents.length > 0}
+        students={blockedStudents}
+        onCancel={() => setBlockedStudents([])}
+        onConfirm={() => {
+          // Acknowledged once per dialog session, so re-saving does not
+          // re-prompt for the same slots — mirrors web's
+          // `unavailableAcknowledged` flag.
+          setUnavailableAcknowledged(true);
+          setBlockedStudents([]);
+          void proceedSave(classes.filter((c) => selectedIds.has(c.id)));
+        }}
+      />
     </Dialog>
   );
 }

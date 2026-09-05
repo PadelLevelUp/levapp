@@ -1,8 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { effectiveFilledSpots, lightTheme } from "@levelup/config";
+import {
+  effectiveFilledSpots,
+  findOverlappingEvent,
+  lightTheme,
+} from "@levelup/config";
 import {
   queryKeys,
   useAutoInviteEnabled,
+  useCalendarEvents,
   useClassInstance,
   useCoachLevels,
 } from "@levelup/hooks";
@@ -45,6 +50,7 @@ import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
+import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import {
   diffInstance,
   EDITABLE_CLASS_FIELDS,
@@ -147,6 +153,16 @@ export default function ClassDetailScreen() {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
+  const [overlapOpen, setOverlapOpen] = React.useState(false);
+
+  // PAD-159: the day's other events, for the overlap check on a timing edit.
+  // Keyed off the DRAFT's date so moving the class to another day checks the
+  // day it is moving TO, not the one it came from.
+  const overlapDate = draft?.date ?? instance?.date ?? "";
+  const { data: dayEvents } = useCalendarEvents(
+    overlapDate ? `${overlapDate}T00:00:00` : "",
+    overlapDate ? `${overlapDate}T23:59:59` : ""
+  );
   const active = draft ?? instance ?? null;
 
   // ── Notify / invited ──
@@ -276,6 +292,37 @@ export default function ClassDetailScreen() {
       setDraft(null);
       return;
     }
+
+    // PAD-159, mirroring web's ClassDetailSheet: only worth checking when the
+    // timing actually moved, and the class must not clash with itself — hence
+    // excluding this event's own id.
+    const timingChanged =
+      draft.date !== instance.date ||
+      draft.startTime !== instance.startTime ||
+      draft.endTime !== instance.endTime;
+
+    if (timingChanged) {
+      const conflict = findOverlappingEvent(
+        {
+          date: draft.date,
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+        },
+        dayEvents ?? [],
+        event ? String(event.id) : undefined
+      );
+      if (conflict) {
+        setOverlapOpen(true);
+        return;
+      }
+    }
+
+    proceedEdit();
+  };
+
+  /** The half of saveEdit that runs once any overlap has been acknowledged. */
+  const proceedEdit = () => {
+    setOverlapOpen(false);
     if (canApplyScope) {
       setEditScopeOpen(true);
     } else {
@@ -1046,6 +1093,12 @@ export default function ClassDetailScreen() {
         mode="edit"
         onClose={() => setEditScopeOpen(false)}
         onConfirm={(scope) => void commitEdit(scope)}
+      />
+
+      <OverlapConfirmDialog
+        open={overlapOpen}
+        onCancel={() => setOverlapOpen(false)}
+        onConfirm={proceedEdit}
       />
 
       {/* Manual notification picker */}

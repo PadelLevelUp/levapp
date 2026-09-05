@@ -37,7 +37,7 @@ import type {
 } from "@/types";
 
 
-import { effectiveFilledSpots } from "@levelup/config";
+import { effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
@@ -85,7 +85,6 @@ import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
-import { findOverlappingEvent } from "@/lib/calendarOverlap";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 
 const COLORS = [
