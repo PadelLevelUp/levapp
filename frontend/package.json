@@ -14,7 +14,7 @@
     "lint": "npm run lint -w @levelup/web",
     "preview": "npm run preview -w @levelup/web",
     "test": "npm run test -w @levelup/web && npm run test:packages && npm run test:mobile",
-    "test:packages": "vitest run --config vitest.packages.config.ts",
+    "test:packages": "vitest run --config vitest.packages.config.mts",
     "test:mobile": "npm run test -w @levelup/mobile",
     "test:watch": "npm run test:watch -w @levelup/web",
     "test:e2e": "npm run test:e2e -w @levelup/web",
