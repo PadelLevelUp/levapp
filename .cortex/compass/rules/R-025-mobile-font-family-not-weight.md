@@ -20,10 +20,16 @@ inert: it sets `fontWeight` on a family that has one face, and renders Regular.
 
 Call sites may still write the standard Tailwind weight names. They work
 because `resolveFontClass` (`apps/mobile/src/lib/font-class.ts`) collapses them
-onto the registered face, and it is applied in the four places app text is
-rendered: the `Text` wrapper (`components/ui/text.tsx`) plus the three
+onto the registered face, and it is applied in the five places app text is
+rendered: the `Text` wrapper (`components/ui/text.tsx`) plus the four
 `@rn-primitives` components that render a native `Text` without going through
-it — `Label`, `DialogTitle`, `SelectLabel`.
+it — `Label`, `DialogTitle`, `AlertDialogTitle`, `SelectLabel`.
+
+To find them: a component is affected when it renders an `@rn-primitives`
+`Title` / `Description` / `Label` / `Text` with a weight utility in its own
+class string. Importing `TextClassContext` does NOT make a file safe — that
+context only styles descendant `<Text>` components, not the primitive itself.
+`alert-dialog.tsx` was missed on the first pass for exactly that reason.
 
 **If you add another component that renders text outside the `Text` wrapper,
 run its class string through `resolveFontClass`** — otherwise its weights are
