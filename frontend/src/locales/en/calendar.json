@@ -11,7 +11,8 @@
       "canceled": "Canceled",
       "completed": "Completed",
       "fallbackTitle": "Class",
-      "fallbackEvent": "Event"
+      "fallbackEvent": "Event",
+      "openAria": "Open {{title}}, {{start}} to {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} class",

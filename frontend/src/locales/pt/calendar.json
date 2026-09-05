@@ -11,7 +11,8 @@
       "canceled": "Cancelada",
       "completed": "Concluída",
       "fallbackTitle": "Aula",
-      "fallbackEvent": "Evento"
+      "fallbackEvent": "Evento",
+      "openAria": "Abrir {{title}}, {{start}} às {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",

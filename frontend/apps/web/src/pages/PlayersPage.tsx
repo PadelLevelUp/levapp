@@ -295,10 +295,25 @@ export default function PlayersPage() {
                 key={`coach-player-${cs.id}-${cs.playerId}`}
                 data-testid={`player-card-${cs.playerId}`}
                 data-validated={cs.validated ? "true" : "false"}
-                className={`cursor-pointer hover:shadow-md transition-shadow ${
+                // PAD-148 / R-026: the card is the only route to a player's
+                // detail page, so it has to be a real control. `role="button"`
+                // rather than a native <button> because Card and CardContent
+                // render <div>s, which a <button> may not contain. Same key as
+                // iOS uses on its Pressable, so the two shells share the string.
+                role="button"
+                tabIndex={0}
+                aria-label={t("players.openPlayerAria", { name: cs.name })}
+                className={`cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   cs.validated ? "" : "opacity-60"
                 }`}
                 onClick={() => navigate(`/players/${cs.playerId}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    // Without preventDefault, Space scrolls the roster instead.
+                    e.preventDefault();
+                    navigate(`/players/${cs.playerId}`);
+                  }
+                }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">

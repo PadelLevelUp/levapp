@@ -203,6 +203,11 @@ export function MobileCalendarView({
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
+                      // PAD-148: without this, Space scrolled the day list AND
+                      // opened the class. The narrow-viewport day list is the
+                      // same /calendar route the week grid serves, so it is
+                      // fixed here rather than left half-working.
+                      e.preventDefault();
                       onEventClick?.(event);
                     }
                   }}
