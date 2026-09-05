@@ -1,3 +1,4 @@
+import { enUS, pt } from "date-fns/locale";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -56,6 +57,13 @@ describe("formatMessageTime", () => {
 });
 
 describe("formatConversationTime", () => {
+  // PAD-157: month names and the "yesterday" label are locale-dependent, so
+  // the caller supplies both. Making them required (rather than defaulting to
+  // English) is the point — a new call site cannot silently reintroduce the
+  // bug this ticket fixes.
+  const EN = { locale: enUS, yesterdayLabel: "Yesterday" };
+  const PT = { locale: pt, yesterdayLabel: "Ontem" };
+
   beforeEach(() => {
     vi.useFakeTimers();
     // Local-time construction on purpose — no timezone assumption.
@@ -67,23 +75,27 @@ describe("formatConversationTime", () => {
   });
 
   it("shows the time for today", () => {
-    expect(formatConversationTime("2026-09-04T09:30:00")).toBe("09:30");
+    expect(formatConversationTime("2026-09-04T09:30:00", EN)).toBe("09:30");
+    expect(formatConversationTime("2026-09-04T09:30:00", PT)).toBe("09:30");
   });
 
-  it("shows Yesterday for yesterday", () => {
-    expect(formatConversationTime("2026-09-03T22:10:00")).toBe("Yesterday");
+  it("shows the caller's yesterday label, not a hardcoded English one", () => {
+    expect(formatConversationTime("2026-09-03T22:10:00", EN)).toBe("Yesterday");
+    expect(formatConversationTime("2026-09-03T22:10:00", PT)).toBe("Ontem");
   });
 
-  it("shows a day+month for earlier this year", () => {
-    expect(formatConversationTime("2026-02-14T08:00:00")).toBe("14 Feb");
+  it("renders the month in the caller's locale for earlier this year", () => {
+    expect(formatConversationTime("2026-02-14T08:00:00", EN)).toBe("14 Feb");
+    expect(formatConversationTime("2026-02-14T08:00:00", PT)).toBe("14 fev");
   });
 
-  it("adds the year for anything older", () => {
-    expect(formatConversationTime("2025-12-31T08:00:00")).toBe("31 Dec 2025");
+  it("adds the year for anything older, still localized", () => {
+    expect(formatConversationTime("2025-12-31T08:00:00", EN)).toBe("31 Dec 2025");
+    expect(formatConversationTime("2025-12-31T08:00:00", PT)).toBe("31 dez 2025");
   });
 
   it("returns an empty string for null or garbage", () => {
-    expect(formatConversationTime(null)).toBe("");
-    expect(formatConversationTime("not-a-date")).toBe("");
+    expect(formatConversationTime(null, PT)).toBe("");
+    expect(formatConversationTime("not-a-date", PT)).toBe("");
   });
 });

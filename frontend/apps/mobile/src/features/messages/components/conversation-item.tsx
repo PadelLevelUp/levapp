@@ -5,6 +5,7 @@ import { Pressable, View } from "react-native";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
+import { useDateLocale } from "@/lib/date-locale";
 import { formatConversationTime, initialsOf } from "../utils";
 
 type ConversationItemProps = {
@@ -18,6 +19,7 @@ export function ConversationItem({
   onPress,
 }: ConversationItemProps) {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const {
     participantName,
     participantAvatar,
@@ -55,7 +57,10 @@ export function ConversationItem({
             {participantName}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {formatConversationTime(lastMessageAt)}
+            {formatConversationTime(lastMessageAt, {
+              locale,
+              yesterdayLabel: t("messages.yesterday"),
+            })}
           </Text>
         </View>
 

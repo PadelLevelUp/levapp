@@ -13,6 +13,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
+import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 
 type WeekStripProps = {
@@ -70,6 +71,7 @@ export function WeekStrip({
   eventsByDay = {},
 }: WeekStripProps) {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   return (
     <View className="border-b border-border bg-card px-2 pb-2 pt-1">
       <View className="flex-row items-center gap-2">
@@ -122,7 +124,7 @@ export function WeekStrip({
             <Pressable
               key={dayKey}
               testID={`calendar-day-${dayKey}`}
-              accessibilityLabel={format(day, "EEEE, MMMM d")}
+              accessibilityLabel={format(day, "EEEE, MMMM d", { locale })}
               accessibilityValue={{
                 text: t("calendar.mobile.classCount", { count: dayEvents.length }),
               }}
@@ -135,7 +137,7 @@ export function WeekStrip({
               )}
             >
               <Text className="text-center text-[10px] uppercase text-muted-foreground">
-                {format(day, "EEE")}
+                {format(day, "EEE", { locale })}
               </Text>
               <Text
                 className={cn(
