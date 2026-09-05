@@ -463,6 +463,67 @@ export default function ConversationScreen() {
     }
   };
 
+  // PAD-151: attendance reminders had no response path on iOS at all. Same
+  // shape as the invite handler above — the answer is written into the cached
+  // message metadata so MessageBubble renders off metadata, not local state.
+  const [respondingReminderId, setRespondingReminderId] = React.useState<
+    string | number | null
+  >(null);
+
+  const lessonInstanceIdOf = (message: Message): number | null => {
+    const raw = message.metadata?.lessonInstanceId;
+    const id = Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  };
+
+  const handleRespondToReminder = async (
+    message: Message,
+    action: "yes" | "no"
+  ) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingReminderId !== null) return;
+    setRespondingReminderId(message.id);
+    try {
+      const result = await notificationEngineApi.respondToReminder(
+        instanceId,
+        action
+      );
+      // Trust the SERVER's action, not the tap: a late or superseded answer is
+      // rejected backend-side, and painting the tapped choice would show a
+      // confirmation that was never recorded.
+      const confirmed = result?.action === "confirmed";
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: {
+          ...m.metadata,
+          responded: true,
+          response: confirmed ? "yes" : "no",
+        },
+      }));
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingReminderId(null);
+    }
+  };
+
+  const handleCancelAttendance = async (message: Message) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingReminderId !== null) return;
+    setRespondingReminderId(message.id);
+    try {
+      await notificationEngineApi.cancelAttendance(instanceId);
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: { ...m.metadata, responded: true, response: "no" },
+      }));
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingReminderId(null);
+    }
+  };
+
   // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
     if (!confirmingDelete) return;
@@ -669,6 +730,11 @@ export default function ConversationScreen() {
                       ? undefined
                       : (emoji) => handleToggleReaction(item.id, emoji)
                   }
+                  respondingReminder={respondingReminderId === item.id}
+                  onRespondReminder={(action) =>
+                    void handleRespondToReminder(item, action)
+                  }
+                  onCancelAttendance={() => void handleCancelAttendance(item)}
                   respondingInvite={respondingInviteId === item.id}
                   onRespondInvite={
                     isTempId(item.id)
