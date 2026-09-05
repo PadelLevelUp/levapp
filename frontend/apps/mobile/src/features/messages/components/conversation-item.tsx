@@ -5,7 +5,7 @@ import { Pressable, View } from "react-native";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
-import { formatConversationTime, initialsOf } from "../utils";
+import { formatConversationTime, initialsOf, roleLabelKey } from "../utils";
 
 type ConversationItemProps = {
   conversation: Conversation;
@@ -62,7 +62,15 @@ export function ConversationItem({
         <View className="flex-row items-center gap-2">
           {participantRole ? (
             <Badge variant="outline">
-              <Text className="capitalize">{participantRole}</Text>
+              {/* An unknown role has no key, so fall back to the raw value
+                  with `capitalize` — same behaviour as web's getRoleLabel. */}
+              <Text
+                className={roleLabelKey(participantRole) ? undefined : "capitalize"}
+              >
+                {roleLabelKey(participantRole)
+                  ? t(roleLabelKey(participantRole) as string)
+                  : participantRole}
+              </Text>
             </Badge>
           ) : null}
           <Text

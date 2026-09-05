@@ -44,6 +44,7 @@ import { ReportMessageDialog } from "@/features/messages/components/report-messa
 import {
   invalidateMessagesLists,
   normalizeId,
+  roleLabelKey,
   updateConversationCache,
   updateMessageInCache,
 } from "@/features/messages/utils";
@@ -573,7 +574,15 @@ export default function ConversationScreen() {
                 <Badge
                   variant="secondary"
                   testID="chat-header-role"
-                  accessibilityLabel={`Role: ${conversation.participantRole}`}
+                  accessibilityLabel={t("messages.roleLabel", {
+                      role: roleLabelKey(conversation.participantRole)
+                        ? t(
+                            roleLabelKey(
+                              conversation.participantRole
+                            ) as string
+                          )
+                        : conversation.participantRole,
+                    })}
                 >
                   <Text className="capitalize">
                     {conversation.participantRole}

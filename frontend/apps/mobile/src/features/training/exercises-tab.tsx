@@ -314,7 +314,7 @@ export function ExercisesTab() {
           renderItem={({ item }) => (
             <Pressable
               testID={`exercise-card-${item.id}`}
-              accessibilityLabel={`Exercise ${item.name}`}
+              accessibilityLabel={t("training.exerciseItem", { name: item.name })}
               role="button"
               onPress={() => {
                 setEditing(item);
