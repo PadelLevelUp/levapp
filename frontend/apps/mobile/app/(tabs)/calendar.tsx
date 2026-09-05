@@ -94,6 +94,24 @@ export default function CalendarScreen() {
   );
 
   const openEvent = (event: CalendarEvent) => {
+    // PAD-160: non-class events have their own detail screen. Web branches the
+    // same way (CalendarPage checks `event.type === "block"` and opens
+    // EventDetailSheet instead of ClassDetailSheet); iOS used to route
+    // everything to /class/[id], which is why a blocker was unreachable.
+    if (event.type === "block") {
+      router.push({
+        pathname: "/event/[id]",
+        params: {
+          id: event.id,
+          originalId: String(event.originalId),
+          date: event.date ?? "",
+          startTime: event.startTime ?? "",
+          endTime: event.endTime ?? "",
+          title: event.title ?? "",
+        },
+      });
+      return;
+    }
     router.push({ pathname: "/class/[id]", params: eventToParams(event) });
   };
 

@@ -226,7 +226,8 @@
       "eventUpdated": "Evento atualizado",
       "failedUpdateEvent": "Falha ao atualizar o evento",
       "eventDeleted": "Evento eliminado",
-      "failedDeleteEvent": "Falha ao eliminar o evento"
+      "failedDeleteEvent": "Falha ao eliminar o evento",
+      "repeatOnDay": "Repetir no dia {{day}}"
     },
     "notify": {
       "title": "Notificar alunos",
