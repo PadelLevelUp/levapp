@@ -41,6 +41,59 @@ export function useAddEvent() {
   });
 }
 
+/** One calendar block, for the event-detail screen (PAD-160). */
+export function useCalendarBlock(blockId: number | null) {
+  return useQuery({
+    queryKey: ["calendar-block", blockId],
+    queryFn: () => calendarApi.getCalendarBlock(blockId as number),
+    enabled: blockId != null && Number.isFinite(blockId),
+  });
+}
+
+/**
+ * Edit a calendar block (PAD-160). Web's EventDetailSheet does this inline;
+ * iOS routes it through a hook so the same invalidation runs as for classes.
+ */
+export function useEditEvent() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      blockId,
+      data,
+    }: {
+      blockId: number;
+      data: Record<string, unknown>;
+    }) => calendarApi.editCalendarBlock(blockId, data),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Delete a calendar block (PAD-160).
+ *
+ * `scope` is only sent for a recurring block, matching web: the backend reads
+ * the occurrence date alongside it to decide between this one and all future.
+ */
+export function useRemoveEvent() {
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      blockId,
+      occDate,
+      scope,
+    }: {
+      blockId: number;
+      occDate?: string;
+      scope?: "single" | "future";
+    }) =>
+      calendarApi.deleteCalendarBlock(
+        blockId,
+        scope ? { occDate: occDate ?? "", scope } : undefined
+      ),
+    onSuccess: invalidate,
+  });
+}
+
 export function useRemoveClass() {
   const invalidate = useInvalidateClassData();
   return useMutation({

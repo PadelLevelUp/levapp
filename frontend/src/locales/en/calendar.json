@@ -226,7 +226,8 @@
       "eventUpdated": "Event updated",
       "failedUpdateEvent": "Failed to update event",
       "eventDeleted": "Event deleted",
-      "failedDeleteEvent": "Failed to delete event"
+      "failedDeleteEvent": "Failed to delete event",
+      "repeatOnDay": "Repeat on day {{day}}"
     },
     "notify": {
       "title": "Notify students",
