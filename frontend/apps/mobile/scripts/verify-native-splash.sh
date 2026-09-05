@@ -16,7 +16,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-GENERATED="ios/LevelUp/Images.xcassets/SplashScreenLegacy.imageset/image.png"
+# The native project directory is named after the app (LevelUp before the
+# rebrand, LevApp after), so locate it rather than hardcoding the name.
+GENERATED="$(ls ios/*/Images.xcassets/SplashScreenLegacy.imageset/image.png 2>/dev/null | head -1)"
+if [ -z "$GENERATED" ]; then
+  echo "FAIL: no ios/*/Images.xcassets/SplashScreenLegacy.imageset/image.png — run 'npm run prebuild:ios' before archiving." >&2
+  exit 1
+fi
 SOURCE="assets/splash-icon.png"
 # sha1 of Expo's default splash placeholder as generated into this project.
 PLACEHOLDER_SHA="883431ee5f40bcef96a27f1bf5514db14d984a85"
