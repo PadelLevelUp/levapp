@@ -34,6 +34,17 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
     }
   }, [editingMessage]);
 
+  // PAD-149. The bottom nav is hidden onFocus and restored onBlur below, but a
+  // focused element that is REMOVED from the DOM does not reliably fire blur —
+  // so unmounting the composer while it has focus leaves the nav hidden.
+  //
+  // That used to self-correct: AppLayout mounted its own LayoutProvider, so
+  // this state was thrown away on every route change. PAD-149 removed that
+  // duplicate provider, which is the right fix for the unread badge but gives
+  // this flag session lifetime — without this cleanup the bottom nav would stay
+  // hidden on every subsequent page, on mobile, for the rest of the session.
+  useEffect(() => () => setBottomNavHidden(false), [setBottomNavHidden]);
+
   const handleSend = () => {
     if (disabled) return;
     const trimmed = text.trim();
