@@ -109,6 +109,25 @@ export function roleLabelKey(
   return ROLE_LABEL_KEYS[role.toLowerCase()] ?? null;
 }
 
+/**
+ * The text a "Copy" action should put on the clipboard (PAD-168).
+ *
+ * Web's `MessageActionMenu` copies `message.content` unconditionally, but its
+ * menu never opens on a deleted bubble. iOS reaches the same conclusion
+ * explicitly rather than relying on that: a deleted message has no content
+ * worth copying (its bubble shows a localized "message deleted" placeholder,
+ * which is chrome, not the message), and neither does a whitespace-only one.
+ * `null` means "nothing to copy", so the caller can say so instead of
+ * silently wiping the user's clipboard.
+ */
+export function messageCopyText(
+  message: Pick<Message, "content" | "isDeleted"> | null | undefined
+): string | null {
+  if (!message || message.isDeleted) return null;
+  const content = typeof message.content === "string" ? message.content : "";
+  return content.trim() === "" ? null : content;
+}
+
 /** Initials for avatar fallbacks. */
 export function initialsOf(name: string | undefined | null): string {
   if (!name) return "?";

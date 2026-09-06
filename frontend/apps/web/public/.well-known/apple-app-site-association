@@ -1,0 +1,23 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["9K2J8D2ARR.com.padellevelup.app"],
+        "components": [
+          {
+            "/": "/invite/player/*",
+            "comment": "Player completes their profile from a coach's invite link."
+          },
+          {
+            "/": "/invite/coach/*",
+            "comment": "Coach joins a club from a club invite link."
+          },
+          {
+            "/": "/register/*",
+            "comment": "Newcomer activates the account a coach created for them."
+          }
+        ]
+      }
+    ]
+  }
+}

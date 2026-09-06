@@ -15,6 +15,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
+import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import { reminderState } from "../reminder-state";
 import { formatMessageTime } from "../utils";
 import type { ContextMenuAnchor } from "./message-context-menu";
@@ -150,6 +152,16 @@ export function MessageBubble({
   // late cancellation, already-answered) live in reminder-state.ts.
   const isReminder = message.messageType === "notification_reminder";
   const reminder = reminderState(message.metadata, null);
+
+  // PAD-168: `replacement_approval` messages rendered as plain text on iOS, so
+  // a coach could not complete a semi-automatic approval from the phone at
+  // all. Web reads the bundle straight off metadata and guards on bundleId +
+  // a non-empty vacancy list; that guard is `approvalBundleFrom`.
+  const isReplacementApproval =
+    message.messageType === "replacement_approval";
+  const approvalBundle = isReplacementApproval
+    ? approvalBundleFrom(message.metadata)
+    : null;
   const [confirmingLateCancel, setConfirmingLateCancel] =
     React.useState(false);
 
@@ -364,6 +376,16 @@ export function MessageBubble({
             </View>
           ) : null}
         </View>
+
+        {/* Replacement-approval prompt, semi-automatic mode (PAD-168). Web
+            renders it in exactly this slot — after the bubble, before the
+            reminder area. Own messages are read-only: a coach looking at the
+            copy they sent has nothing to approve on it. */}
+        {approvalBundle ? (
+          <View className="mt-1.5 self-start">
+            <ReplacementApprovalCard bundle={approvalBundle} readOnly={own} />
+          </View>
+        ) : null}
 
         {/* Attendance-reminder response area (PAD-151), mirroring web's
             notification_reminder block. Own messages never get buttons — a

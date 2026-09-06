@@ -5,6 +5,7 @@ import {
   formatConversationTime,
   formatMessageTime,
   initialsOf,
+  messageCopyText,
   normalizeId,
   roleLabelKey,
 } from "./utils";
@@ -123,5 +124,31 @@ describe("roleLabelKey", () => {
     expect(roleLabelKey(undefined)).toBeNull();
     expect(roleLabelKey(null)).toBeNull();
     expect(roleLabelKey("")).toBeNull();
+  });
+});
+
+describe("messageCopyText", () => {
+  it("copies the message content verbatim, inner whitespace included", () => {
+    expect(messageCopyText({ content: "  Até logo!  ", isDeleted: false })).toBe(
+      "  Até logo!  "
+    );
+    expect(messageCopyText({ content: "line 1\nline 2" })).toBe("line 1\nline 2");
+  });
+
+  it("refuses a deleted message — its bubble shows chrome, not content", () => {
+    expect(messageCopyText({ content: "gone", isDeleted: true })).toBeNull();
+  });
+
+  it("refuses an empty or whitespace-only message rather than wiping the clipboard", () => {
+    expect(messageCopyText({ content: "" })).toBeNull();
+    expect(messageCopyText({ content: "   \n " })).toBeNull();
+  });
+
+  it("refuses a missing message or a non-string body", () => {
+    expect(messageCopyText(null)).toBeNull();
+    expect(messageCopyText(undefined)).toBeNull();
+    expect(
+      messageCopyText({ content: undefined as unknown as string })
+    ).toBeNull();
   });
 });

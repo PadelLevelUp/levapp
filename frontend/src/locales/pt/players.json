@@ -78,6 +78,8 @@
     "noAccount": "Sem conta",
     "noAccountMessage": "Este jogador não tem conta",
     "shareRegisterLink": "Partilhe esta ligação para que se possa registar.",
+    "shareLinkAction": "Partilhar ligação",
+    "shareLinkFailed": "Não foi possível abrir a partilha",
     "contactInformation": "Informações de contacto",
     "noEmail": "Sem email",
     "noPhone": "Sem telefone",

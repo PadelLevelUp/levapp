@@ -4,6 +4,7 @@ status: implemented
 implemented_by:
   - ../../specs/auth/register.spec.md
   - ../../specs/auth/activate.spec.md
+  - ../../specs/auth/mobile-universal-links.spec.md
 ---
 
 # Newcomer creates and activates an account

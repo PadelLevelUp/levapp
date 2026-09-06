@@ -16,6 +16,7 @@ import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
 import { SeasonsSection } from "@/features/settings/seasons-section";
+import { StudentNotificationBlocksSection } from "@/features/settings/student-notification-blocks-section";
 import { TutorialsSection } from "@/features/settings/tutorials-section";
 import {
   visibleSections,
@@ -61,6 +62,14 @@ function SectionRow({
  * Settings — a DRILL-IN, matching the web app's phone layout: the list of
  * sections first, one section at a time with a back control.
  *
+ * It lives OUTSIDE the `(tabs)` group (PAD-193): Settings came off the bottom
+ * bar on both platforms (DEC 2026-09-04, PAD-171 §1) and is now pushed onto
+ * the root stack from the header avatar (`header-account` in
+ * `app/(tabs)/_layout.tsx`), so the coach bar is back to the six destinations
+ * its label sizing was tuned for. The route path is unchanged — `/settings`
+ * still resolves, so deep links and `router.push("/settings")` callers keep
+ * working — and the native stack now gives the screen a real back button.
+ *
  * Role gating happens ONCE, in `visibleSections(isCoach)`: the same list
  * builds the nav and resolves `activeSection`, so a player can never reach a
  * coach pane — not by a stale `openId`, and not in the window before
@@ -70,7 +79,8 @@ function SectionRow({
  *
  * Log out stays on the section list rather than moving inside Account: it is
  * the one action people come to Settings to perform, and the More tab that
- * used to hold it is gone.
+ * used to hold it is gone. Maestro reaches it via the header avatar
+ * (`.maestro/subflows/logout.yaml`).
  */
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -87,9 +97,10 @@ export default function SettingsScreen() {
   const [openId, setOpenId] = React.useState<SettingsSectionId | null>(null);
 
   // Web's drill-in resets because navigating away unmounts SettingsPage.
-  // expo-router keeps tab screens mounted, so without this, leaving for the
-  // Calendar tab and coming back drops you inside whatever section was open,
-  // with the list nowhere in sight. Reset on blur to match web.
+  // Popping this screen off the stack unmounts it too, so the reset is
+  // belt-and-braces now rather than the only thing standing between a coach
+  // and a stale open section — it still covers the case where the screen is
+  // merely blurred (something pushed on top of it) instead of popped.
   useFocusEffect(
     React.useCallback(() => {
       return () => setOpenId(null);
@@ -111,6 +122,8 @@ export default function SettingsScreen() {
         return <SeasonsSection />;
       case "notifications":
         return <AutoInviteSection />;
+      case "myNotifications":
+        return <StudentNotificationBlocksSection />;
       case "tutorials":
         return <TutorialsSection />;
       case "import":
@@ -128,9 +141,10 @@ export default function SettingsScreen() {
         options={{
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          // headerTitle, NOT title: `title` also feeds tabBarLabel, so drilling
-          // into a section renamed the Settings TAB after it — the bar read
-          // "Preferenc…" truncated, and "Calendar" twice.
+          // headerTitle, NOT title: `title` also feeds a tab/back label, and
+          // when this screen was a tab, drilling into a section renamed the
+          // Settings TAB after it — the bar read "Preferenc…" truncated, and
+          // "Calendar" twice. headerTitle keeps the rename to the header.
           headerTitle: activeSection
             ? t(activeSection.labelKey)
             : t("settings.title"),

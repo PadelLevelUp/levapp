@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import timedelta, datetime
 
@@ -26,6 +27,24 @@ PUBLIC_BASE = f"https://storage.googleapis.com/{GCS_BUCKET}"
 # expired while a page was still open; an hour outlives a render without
 # turning the URL into a durable capability.
 SIGNED_URL_MINUTES = 60
+
+# One storage client per process (B-018). `storage.Client()` resolves
+# credentials against the metadata server every time it is built; doing that
+# once per avatar on a page of real users is what made staging crawl.
+_STORAGE_CLIENT = None
+
+
+def _storage_client():
+    global _STORAGE_CLIENT
+    if _STORAGE_CLIENT is None:
+        _STORAGE_CLIENT = storage.Client()
+    return _STORAGE_CLIENT
+
+
+def _reset_storage_client():
+    """Tests only: forget the cached client."""
+    global _STORAGE_CLIENT
+    _STORAGE_CLIENT = None
 
 
 class Model:
@@ -373,7 +392,7 @@ class Image(db.Model):
         return True
 
     def _blob(self):
-        return storage.Client().bucket(GCS_BUCKET).blob(self.object_key)
+        return _storage_client().bucket(GCS_BUCKET).blob(self.object_key)
 
     def public_url(self):
         return f"{PUBLIC_BASE}/{self.object_key}"
@@ -384,7 +403,27 @@ class Image(db.Model):
         )
 
     def url(self):
-        return self.public_url() if self.is_public else self.signed_url()
+        """The URL a client may load this image from, or None.
+
+        B-018: a private image needs a signer — a configured bucket and a
+        service account allowed to sign (``iam.serviceAccountTokenCreator``).
+        An environment without one (staging carries no bucket; a VM whose IAM
+        binding was never applied) must degrade to "no image", never to a 500
+        on every page that serializes a user, club or message. Signing is
+        also per image, so a page of avatars cannot afford a fresh client each
+        time — see :func:`_storage_client`.
+        """
+        if self.is_public:
+            return self.public_url()
+        if not GCS_BUCKET:
+            return None
+        try:
+            return self.signed_url()
+        except Exception as exc:  # noqa: BLE001 — any signer failure degrades
+            logging.getLogger(__name__).warning(
+                "could not sign image %s: %s", self.object_key, exc
+            )
+            return None
 
 
 class Imageable(db.Model):

@@ -31,6 +31,7 @@ import { initReactI18next } from "react-i18next";
 //   user's persisted `language` preference loads — see AuthContext, which
 //   calls i18n.changeLanguage() when `user.language` is known.
 
+import attendanceEn from "../../../../src/locales/en/attendance.json";
 import authEn from "../../../../src/locales/en/auth.json";
 import availabilityEn from "../../../../src/locales/en/availability.json";
 import calendarEn from "../../../../src/locales/en/calendar.json";
@@ -48,6 +49,7 @@ import trainingEn from "../../../../src/locales/en/training.json";
 import tutorialsEn from "../../../../src/locales/en/tutorials.json";
 import uiEn from "../../../../src/locales/en/ui.json";
 
+import attendancePt from "../../../../src/locales/pt/attendance.json";
 import authPt from "../../../../src/locales/pt/auth.json";
 import availabilityPt from "../../../../src/locales/pt/availability.json";
 import calendarPt from "../../../../src/locales/pt/calendar.json";
@@ -89,6 +91,7 @@ function deepMerge(target: Dict, source: Dict): Dict {
 }
 
 const enNamespaces: Dict[] = [
+  attendanceEn,
   authEn,
   availabilityEn,
   calendarEn,
@@ -108,6 +111,7 @@ const enNamespaces: Dict[] = [
 ];
 
 const ptNamespaces: Dict[] = [
+  attendancePt,
   authPt,
   availabilityPt,
   calendarPt,

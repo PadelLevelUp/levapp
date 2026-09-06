@@ -25,6 +25,13 @@ Send, edit, and delete messages within conversations, with support for replies a
     served as a short-lived signed URL minted per response, never as a durable
     public link; its storage key carries a random segment so it cannot be guessed
     from the sender, the send time or the original filename (B-015)
+5b. **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
+    When no uploads bucket is configured, or the runtime cannot mint a signed URL (no
+    `iam.serviceAccountTokenCreator` on the service account, storage unreachable), the
+    attachment URL — and every other image URL built the same way: avatars, club logos —
+    serializes as `null` and the failure is logged. A payload that carries an image must never
+    fail because the image cannot be signed. The storage client is created once per process,
+    not once per image.
 6. System messages have `message_type="notification"` or `"system"` with `msg_metadata`
 7. On send: push notification sent to all other conversation participants
 8. On send: SSE event published to real-time stream
@@ -44,6 +51,14 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Then** the attachment URL is a signed URL that expires
 - **And** fetching the underlying object without that signature is refused
 - **And** the storage key cannot be derived from the sender, timestamp or filename
+
+#### An attachment that cannot be signed is omitted, not an error (B-018)
+- **Given** a message with a private image attachment
+- **And** a runtime with no uploads bucket configured, or whose signer raises
+- **When** the message payload is serialized
+- **Then** the response succeeds with `attachmentUrl` `null`
+- **And** the same holds for a user's avatar and a club's logo in any payload
+- **And** one storage client serves every image signed in that process
 
 #### Send message
 - **Given** a conversation between users 1 and 5
