@@ -90,8 +90,10 @@ cut a student off from their coach.
     considerada injustificada caso não confirme a sua indisponibilidade. Tem a certeza que
     pretende avançar?". The preference is persisted only after the student confirms; cancelling
     leaves the toggle off and writes nothing. Switching it OFF needs no confirmation.
-13. The preferences are configured **only** from the student's Settings. No toggle, button or
-    shortcut for them appears on the calendar.
+13. The preferences are configured **only** from the student's Settings, on **both** shells —
+    web's `myNotifications` tab (`StudentNotificationBlocksSection.tsx`) and iOS's
+    `myNotifications` section (`student-notification-blocks-section.tsx`), which is the surface
+    most students actually have. No toggle, button or shortcut for them appears on the calendar.
 14. All four preference fields are per-user and stay open to a student caller — they must not be
     swept up by the coach-only role check of `settings.role-scope` rule 6.
 
@@ -103,8 +105,15 @@ cut a student off from their coach.
 - **Then** `blockAutoInvitations`, `blockManualInvitations` and `blockAllNotifications` are all `false`
 - **And** `notificationBlockReason` is empty
 
+#### The panel is reachable on both shells
+- **Given** an authenticated student
+- **When** they open Settings on the web app and on iOS
+- **Then** each offers a "My notifications" section carrying the same three toggles and reason
+  field
+- **And** a coach sees the section on neither
+
 #### Student blocks automatic invitations with a reason
-- **Given** an authenticated student on Settings → Notifications
+- **Given** an authenticated student on Settings → My notifications
 - **When** they switch on "block automatic invitations", type a reason and save
 - **Then** `PATCH /api/auth/me` succeeds and a success notification is shown
 - **And** after reloading the page the toggle is still on and the reason still shown
@@ -121,7 +130,7 @@ cut a student off from their coach.
 - **And** switching `blockAllNotifications` on leaves the other two unchanged
 
 #### Blocking everything demands confirmation
-- **Given** an authenticated student on Settings → Notifications
+- **Given** an authenticated student on Settings → My notifications
 - **When** they switch on "block all notifications"
 - **Then** a confirmation dialog appears warning that missed classes will count as unjustified
 - **And** cancelling leaves the toggle off and sends no request
@@ -172,7 +181,9 @@ cut a student off from their coach.
 - **Then** no toggle, button or shortcut for these notification preferences is offered there
 
 ### Notes
-- Source: ticket PAD-112 (reported by `tomasmpacheco` via Discord).
+- Source: ticket PAD-112 (reported by `tomasmpacheco` via Discord). PAD-142 narrowed the panel's
+  audience from everyone to students only; PAD-169 ported it to iOS (finding S1 of the PAD-152
+  parity audit) — it had shipped web-only without a recorded decision.
 - Distinct from `calendar.student-blockers` (PAD-28/PAD-107): those are time-window blockers
   evaluated against the class instance window; these are standing per-user preferences evaluated
   regardless of when the class is. The two compose additively at every enforcement point.

@@ -39,8 +39,13 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
    levels** and **evaluation categories**.
-4. The section list is defined **once** and drives both the desktop sidebar nav and the mobile
-   section dropdown, so the two can never disagree about what a role may see.
+4. The section list is defined **once per shell** and drives both that shell's nav and the pane
+   it renders, so the two can never disagree about what a role may see. Each entry states its
+   audience explicitly — `everyone` / `coach` / `student`, one total field rather than independent
+   `coachOnly` / `studentOnly` booleans, which would make "visible to nobody" representable and
+   leave "everyone" true only by convention. Web: `SETTINGS_TABS` in `SettingsPage.tsx` (PAD-142).
+   iOS: `SETTINGS_SECTIONS` in `apps/mobile/src/features/settings/settings-sections.ts` (PAD-169,
+   pinned by `settings-sections.test.ts`).
 5. If the active section is not permitted for the caller's role, the page falls back to a permitted
    section rather than rendering a coach-only panel.
 6. Hiding a section in the UI is never the authorization boundary. Every endpoint behind a coach-only
@@ -58,12 +63,18 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 ### Acceptance Criteria
 
 #### Student sees only student-relevant sections
-- **Given** an authenticated student on `/settings`
+- **Given** an authenticated student on `/settings` (web) or the Settings tab (iOS)
 - **When** the page renders
 - **Then** the section list offers only Profile, Preferences, Notifications preferences and Account
 - **And** no Calendar/Seasons, notification-engine, Import or Club section is offered
 - **And** the Preferences panel shows language and theme but no skill-levels and no
   evaluation-categories management
+
+#### Coach does not see the student's own notification preferences
+- **Given** an authenticated coach on Settings, on either shell
+- **When** the section list renders
+- **Then** no "My notifications" section is offered — a coach never receives a class-vacancy
+  invitation, so the controls could not affect their account (PAD-142 on web, PAD-169 on iOS)
 
 #### Coach still sees every section
 - **Given** an authenticated coach on `/settings`
@@ -118,8 +129,12 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - Source: ticket PAD-103 (reported by `tomasmpacheco` via Discord).
 - The ticket mentions a "time format" preference as an example of a student-relevant option; no such
   setting exists in the app today, so nothing was added for it.
-- The mobile Settings screen (`apps/mobile/app/settings.tsx`) already gated its coach sections on
-  `user.roles.includes("coach")`; only the web shell leaked. Mobile is unchanged.
+- The mobile Settings screen (`apps/mobile/app/(tabs)/settings.tsx`) already gated its coach
+  sections on `user.roles.includes("coach")`; only the web shell leaked at PAD-103 time.
+- **[PAD-169]** iOS had the coach-only half of rule 3 but none of the student-only half of rule 2:
+  `myNotifications` simply did not exist in `settings-sections.ts`, so a student could be opted out
+  of class-vacancy invitations with no way to change it from the phone. PAD-169 ported the panel
+  and widened mobile's gating from a `COACH_ONLY_SECTIONS` list to the `audience` field of rule 4.
 - Follow-ups found while auditing, NOT fixed here (each is outside the Settings surface):
   `POST /api/app/class_instance/training/confirm` carries no coach/ownership check at all, and the
   `exercises`, `exercise-groups`, `players`, `coach_players*` and `player_profile` routes still use

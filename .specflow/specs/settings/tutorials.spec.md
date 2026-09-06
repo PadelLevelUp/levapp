@@ -24,7 +24,8 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 
 ### Rules
 1. `tutorials` is added to the **single section registry** of each app — web `SettingsPage.tsx`
-   with `audience: "coach"`, mobile `settings-sections.ts` inside `COACH_ONLY_SECTIONS` — placed
+   with `audience: "coach"`, mobile `settings-sections.ts` also with `audience: "coach"`
+   (PAD-169 replaced mobile's `COACH_ONLY_SECTIONS` list with the same field web uses) — placed
    directly after **Notifications**. Students never see it (`settings.role-scope` rules 2–5); no
    backend endpoint is added by this leaf, so the authorization boundary is the simulation's own
    `require_coach()`.

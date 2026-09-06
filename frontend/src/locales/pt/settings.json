@@ -138,6 +138,7 @@
       "moveLevelUp": "Mover nível para cima",
       "moveLevelDown": "Mover nível para baixo",
       "coachLevelsDescription": "Define os níveis usados para classificar os teus jogadores e exercícios. Usa as setas para reordenar.",
+      "myNotificationsNavDescription": "Escolhe que convites para vagas em aulas queres receber.",
       "importNavDescription": "Rever e reverter importações anteriores.",
       "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
       "importHistoryEmpty": "Ainda não há importações."
