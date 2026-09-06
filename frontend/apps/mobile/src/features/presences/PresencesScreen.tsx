@@ -13,6 +13,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { ValidateClassesSheet } from "./ValidateClassesSheet";
 import {
+  useCoachRoster,
   usePendingValidation,
   usePresenceStats,
   useUnvalidateClass,
@@ -48,6 +49,7 @@ export function PresencesScreen() {
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
   const queue = usePendingValidation(week);
+  const roster = useCoachRoster();
   const validate = useValidateClasses();
   const unvalidate = useUnvalidateClass();
 
@@ -161,6 +163,7 @@ export function PresencesScreen() {
         weekOffset={weekOffset}
         onWeekChange={setWeekOffset}
         loading={queue.isLoading}
+        roster={roster}
         busy={validate.isPending || unvalidate.isPending}
         onValidate={async (classes) => {
           await validate.mutateAsync(classes);

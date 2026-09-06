@@ -160,6 +160,9 @@ describe("presences translation keys", () => {
       "presences.validate.validateClass",
       "presences.validate.saveChanges",
       "presences.validate.undoValidation",
+      "presences.validate.addPlayer",
+      "presences.validate.choosePlayer",
+      "presences.validate.lastMinute",
     ]) {
       expect(keys, `${key} is no longer rendered by the Presences tab`).toContain(
         key
