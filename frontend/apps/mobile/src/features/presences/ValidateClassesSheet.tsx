@@ -371,6 +371,9 @@ export function ValidateClassesSheet({
             <ScrollView
               style={{ maxHeight: height * 0.55 }}
               showsVerticalScrollIndicator
+              // The walk-in picker's search field lives in here. Without this,
+              // the first tap on a name only dismisses the keyboard.
+              keyboardShouldPersistTaps="handled"
             >
               {loading ? (
                 <View className="gap-2">
@@ -547,12 +550,11 @@ function WalkInPicker({
         placeholder={t("presences.validate.choosePlayer")}
         testID={`${testIDPrefix}-player-search`}
       />
-      {/* Capped so the picker never swallows the sheet; the search field is
-          how a coach reaches a name past the fold. */}
-      <ScrollView
-        style={{ maxHeight: 180 }}
-        keyboardShouldPersistTaps="handled"
-      >
+      {/* A plain View, not a ScrollView: this always renders inside one of the
+          sheet's scroll areas, and a nested vertical ScrollView on iOS fights
+          its parent for the gesture. The search field is how a coach reaches a
+          name past the fold. */}
+      <View>
         {matches.map((option) => (
           <Pressable
             key={option.id}
@@ -569,7 +571,7 @@ function WalkInPicker({
             <Text className="text-sm">{option.name}</Text>
           </Pressable>
         ))}
-      </ScrollView>
+      </View>
       <Button
         variant="ghost"
         size="sm"
@@ -806,7 +808,12 @@ function ClassDetail({
           : t("presences.validate.readyBanner")}
       </Text>
 
-      <ScrollView style={{ maxHeight }} showsVerticalScrollIndicator>
+      <ScrollView
+        style={{ maxHeight }}
+        showsVerticalScrollIndicator
+        // As in the list: the last-minute picker's search field is inside.
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="gap-2">
           {sortPlayers(klass.players, edits).map((player) => (
             <View
