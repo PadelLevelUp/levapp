@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
+import { formatImportTimestamp } from "@/features/settings/date-format";
 import {
   getImportHistory,
   revertImport,
@@ -56,16 +57,6 @@ function formatSummary(summary: Record<string, number>, t: TFunction): string {
     .join(", ");
 }
 
-function formatDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 /**
  * Import Data — history and revert only.
  *
@@ -83,7 +74,7 @@ function formatDate(isoString: string): string {
  * empty state is explicit here, and the "upload on the web" line always shows.
  */
 export function ImportSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [history, setHistory] = React.useState<ImportHistoryEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -153,7 +144,7 @@ export function ImportSection() {
             >
               <View className="flex-row flex-wrap items-center gap-2">
                 <Text className="text-sm font-medium">
-                  {formatDate(entry.created_at)}
+                  {formatImportTimestamp(entry.created_at, i18n.language)}
                 </Text>
                 <Badge
                   variant={entry.status === "active" ? "default" : "secondary"}

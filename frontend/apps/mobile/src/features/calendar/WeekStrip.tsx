@@ -124,7 +124,7 @@ export function WeekStrip({
             <Pressable
               key={dayKey}
               testID={`calendar-day-${dayKey}`}
-              accessibilityLabel={format(day, "EEEE, MMMM d", { locale })}
+              accessibilityLabel={format(day, "EEEE, d MMMM", { locale })}
               accessibilityValue={{
                 text: t("calendar.mobile.classCount", { count: dayEvents.length }),
               }}
