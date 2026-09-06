@@ -9,7 +9,7 @@ The settings domain.
 - `settings.language` — draft
 - `settings.profile` — implemented
 - `settings.role-scope` — implemented
-- `settings.tutorials` — draft — the coach-only Tutorials section and its first walkthrough,
+- `settings.tutorials` — implemented — the coach-only Tutorials section and its first walkthrough,
   "Understand invites" (data from `notifications.invite-simulation`)
 
 ## Why it's grouped this way

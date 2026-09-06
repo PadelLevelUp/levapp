@@ -27,6 +27,7 @@ import {
   Calendar,
   Palette,
   ChevronLeft, Save,
+  GraduationCap,
   Upload,
   User,
   UserX,
@@ -40,6 +41,7 @@ import { NotificationsEngineSection } from "@/components/settings/NotificationsE
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
+import { TutorialsSection } from "@/components/settings/TutorialsSection";
 
 /**
  * PAD-112 adds `myNotifications` — the STUDENT's own notification block
@@ -53,6 +55,7 @@ type SettingsTab =
   | "preferences"
   | "calendar"
   | "notifications"
+  | "tutorials"
   | "myNotifications"
   | "import"
   | "club"
@@ -99,6 +102,9 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   // controls that could not affect their account. Student-only, not deleted:
   // the panel is still the whole point of PAD-112 for the role that has it.
   { id: "myNotifications", labelKey: "settings.nav.myNotifications", icon: <BellOff className="w-4 h-4" />, audience: "student" },
+  // PAD-196: interactive walkthroughs of the engine ("Understand invites").
+  // Coach-only — settings.role-scope rule 3; settings.tutorials rule 1.
+  { id: "tutorials", labelKey: "settings.nav.tutorials", icon: <GraduationCap className="w-4 h-4" />, audience: "coach" },
   { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, audience: "coach" },
   { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, audience: "coach" },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
@@ -465,6 +471,9 @@ export default function SettingsPage() {
 
             {/* NOTIFICATIONS — the coach's notification-engine configuration. */}
             {activeTab === "notifications" && <NotificationsEngineSection />}
+
+            {/* TUTORIALS — PAD-196: coach-only walkthroughs (settings.tutorials). */}
+            {activeTab === "tutorials" && <TutorialsSection />}
 
             {/* MY NOTIFICATIONS — PAD-112: the student's own block preferences.
                 Visible to both roles; only a student has any use for it, but

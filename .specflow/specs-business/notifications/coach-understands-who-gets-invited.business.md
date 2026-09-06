@@ -1,6 +1,6 @@
 ---
 id: notifications.coach-understands-who-gets-invited
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/notifications/invite-simulation.spec.md
   - ../../specs/settings/tutorials.spec.md

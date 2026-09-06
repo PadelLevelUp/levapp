@@ -82,11 +82,11 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | levels | 2 | 4 | implemented |
 | evaluations | 2 | 5 | implemented |
 | messaging | 3 | 8 | implemented |
-| notifications | 4 | 13 | implemented (notifications.invite-simulation draft) |
+| notifications | 4 | 13 | implemented |
 | training | 2 | 6 | implemented |
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
-| settings | 2 | 4 | draft (settings.tutorials draft) |
+| settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
 
 
 ## Build Order

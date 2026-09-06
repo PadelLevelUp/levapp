@@ -1,0 +1,70 @@
+# PAD-196 — Settings › Tutorials › "Understand invites" (settings.tutorials).
+# Mirrors: apps/web/e2e/settings/tutorials-understand-invites.spec.ts
+#   US-196-01 (coach sees Tutorials) and US-196-02 (class → player → rounds).
+#
+# Read-only on purpose: the tutorial is a rehearsal of the invitation engine
+# and creates nothing, so there is no state to restore afterwards.
+#
+# Pickers are Pressable rows with testIDs (an @rn-primitives Select's portal
+# is invisible to the iOS accessibility tree — see 08-set-player-level.skipped),
+# so every step below taps an id or a visible label, never a coordinate.
+#
+# Seeded locale is English (see 12-settings-language.yaml), so the badge text
+# asserted at the end is the English `tutorials.sendStatus.first_batch`.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+
+# ── Tutorials row is offered to the coach ──
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-tutorials"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-tutorials"
+- assertVisible:
+    id: "settings-tutorials"
+
+# ── Open "Understand invites" ──
+- tapOn:
+    id: "tutorial-understand-invites"
+- extendedWaitUntil:
+    visible:
+      id: "tutorial-understand-invites-screen"
+    timeout: 15000
+
+# ── Step 1: the seeded class ──
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 15000
+- tapOn:
+    text: "E2E Academy Class"
+
+# ── Step 2: the enrolled student ──
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn:
+    text: "E2E Student"
+
+# ── Step 3: results — rounds with a first-batch badge ──
+- extendedWaitUntil:
+    visible:
+      id: "tutorial-results"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "tutorial-round-1"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    text: "first batch"

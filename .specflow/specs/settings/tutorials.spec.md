@@ -1,6 +1,6 @@
 ---
 id: settings.tutorials
-status: draft
+status: implemented
 depends_on: [settings.role-scope, notifications.invite-simulation, calendar.view, classes.instances]
 implements: ../../specs-business/notifications/coach-understands-who-gets-invited.business.md
 governed_by: [R-001, R-011, R-012, R-015, R-024]
@@ -58,9 +58,11 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 5. Below the rounds, a **"Why isn't … invited?"** search backed by the existing
    `GET /api/app/notify/player_search`; picking a result calls the explain endpoint. The verdict
    renders as **one sentence for the stage**, and when the stage is `eligibility` the structured
-   failure records render with the **same renderer the PAD-133 manual-add warning uses** on that
-   app (`eligibility.enforcement` rule 7) — the tutorial and the warning must say the same thing
-   about the same student. A student who *is* invited gets "Invited in round 2, position 3 —
+   failure records render through **one shared, platform-neutral formatter**
+   (`@levelup/config` `describeEligibilityFailure`, record → locale key + params) that both shells
+   call — the tutorial and the PAD-133 manual-add warning (`eligibility.enforcement` rule 7) must
+   say the same thing about the same student. Neither app had a renderer for those records before
+   this leaf; the warning adopts this one when it is built. A student who *is* invited gets "Invited in round 2, position 3 —
    waiting" rather than a reason.
 6. All copy lives in a new i18n namespace **`tutorials`** in both languages (pt, en). On mobile
    the namespace must be **statically imported** in `src/lib/i18n.ts` — the static-import trap in

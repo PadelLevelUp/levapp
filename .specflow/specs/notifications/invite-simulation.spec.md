@@ -1,6 +1,6 @@
 ---
 id: notifications.invite-simulation
-status: draft
+status: implemented
 depends_on: [notifications.invitations, notifications.config, notifications.waiting-list, notifications.semi-auto-approval, eligibility.rules, eligibility.cascade, eligibility.enforcement, calendar.student-blockers, notifications.student-block-preferences, classes.instances]
 implements: ../../specs-business/notifications/coach-understands-who-gets-invited.business.md
 governed_by: [R-002, R-005, R-022, R-023]
@@ -104,8 +104,10 @@ that what the tutorial shows and what the engine does can never disagree.
     value}]` (an empty list means "everyone eligible"), and a player appears only in the **first**
     round that admits them, exactly as `compute_full_invite_queue` deduplicates.
 11. Each candidate is `{playerId, name, levelCode, side, rank, priority, sendStatus}`. `rank` is
-    1-based within the round. `priority` carries one entry per **enabled** priority criterion, in
-    the coach's configured order, with the value the sort key actually used:
+    1-based within the round. `priority` is an **ordered list** with one entry `{id, …}` per
+    **enabled** priority criterion, in the coach's configured order (a list, not an object, so the
+    client renders values in the order the engine sorted by), carrying the value the sort key
+    actually used:
     `level: {ladderDistance}` (signed, negative = stronger than the spot),
     `attendance: {rate}`, `justifiedMisses: {rate}`, `playingSide: {match}` with `match` one of
     `"exact" | "both" | "other"`, `subscriptionStatus: {active}`. `sendStatus` is:
