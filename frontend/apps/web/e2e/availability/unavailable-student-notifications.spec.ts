@@ -94,8 +94,14 @@ test("PAD-107: scheduling a class into the blocked window warns the coach", asyn
   const monday = firstMondayAfterTodayISO();
 
   await openAddClass(page);
-  // 18:15-19:15 sits inside the student's 18:00-20:00 blocker.
-  await fillClassForm(page, "PAD-107 Blocked Class", monday, "18:15", "19:15", {
+  // 19:15-19:45 sits inside the student's 18:00-20:00 blocker. Deliberately
+  // clear of the seeded "E2E Pending Confirm Class" (tomorrow, 18:00-19:00)
+  // even on the one day of the week where "tomorrow" and "the first Monday
+  // after today" are the same date (i.e. when this suite runs on a Sunday) —
+  // a slot like 18:15-19:15 collides with that seed on Sundays and trips the
+  // PAD-99 overlap warning instead of the unavailable-student one this test
+  // is asserting on.
+  await fillClassForm(page, "PAD-107 Blocked Class", monday, "19:15", "19:45", {
     withStudent: true,
   });
 
