@@ -34,16 +34,11 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useAddEvent } from "@/features/calendar/hooks";
 
-// Monday-first, matching web's AddEventSheet.
-const DAYS_OF_WEEK = [
-  { value: 1, label: "M" },
-  { value: 2, label: "T" },
-  { value: 3, label: "W" },
-  { value: 4, label: "T" },
-  { value: 5, label: "F" },
-  { value: 6, label: "S" },
-  { value: 0, label: "S" },
-];
+// Monday-first, matching web's AddEventSheet. Values only: the chip label is
+// `availability.dayInitials.<value>` and the a11y label
+// `availability.days.<value>`, so a Portuguese app shows S T Q Q S S D rather
+// than the English initials this list used to hardcode (PAD-158 / B-020).
+const DAYS_OF_WEEK = [1, 2, 3, 4, 5, 6, 0];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -339,13 +334,15 @@ export default function NewEventScreen() {
                     {t("calendar.addEvent.daysOfWeek")}
                   </Text>
                   <View className="flex-row gap-1.5">
-                    {DAYS_OF_WEEK.map(({ value, label }) => {
+                    {DAYS_OF_WEEK.map((value) => {
                       const selected = selectedDays.includes(value);
                       return (
                         <Pressable
                           key={value}
                           testID={`event-day-${value}`}
-                          accessibilityLabel={t("calendar.addEvent.repeatOnDay", { day: value })}
+                          accessibilityLabel={t("calendar.addEvent.repeatOnDay", {
+                            day: t(`availability.days.${value}`),
+                          })}
                           role="button"
                           onPress={() => toggleDay(value)}
                           className={cn(
@@ -361,7 +358,7 @@ export default function NewEventScreen() {
                                 : "text-foreground"
                             )}
                           >
-                            {label}
+                            {t(`availability.dayInitials.${value}`)}
                           </Text>
                         </Pressable>
                       );

@@ -152,6 +152,7 @@
     "filterMissingLevelAria": "Filtrar jogadores sem nível",
     "filterMissingSideAria": "Filtrar jogadores sem lado de jogo",
     "createFailed": "Não foi possível criar o jogador. Tenta novamente.",
+    "createInviteFailed": "Não foi possível criar o convite. Tenta novamente.",
     "noStrengthsYet": "Ainda não há pontos fortes registados.",
     "noWeaknessesYet": "Ainda não há pontos fracos registados.",
     "deleteNoteAria": "Eliminar nota {{text}}",
