@@ -78,6 +78,8 @@
     "noAccount": "No account",
     "noAccountMessage": "This player doesn't have an account",
     "shareRegisterLink": "Share this link so they can register.",
+    "shareLinkAction": "Share link",
+    "shareLinkFailed": "Could not open the share sheet",
     "contactInformation": "Contact information",
     "noEmail": "No email",
     "noPhone": "No phone",
