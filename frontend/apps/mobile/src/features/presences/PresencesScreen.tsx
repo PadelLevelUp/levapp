@@ -12,32 +12,57 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { PresenceReportCharts } from "./PresenceReportCharts";
+import {
+  PresenceColumnsSheet,
+  PresenceFiltersSheet,
+} from "./PresenceReportSheets";
 import { ValidateClassesSheet } from "./ValidateClassesSheet";
+import { sharePresencesCsv } from "./csv-share";
+import {
+  DEFAULT_SORT,
+  DEFAULT_VISIBLE_COLUMNS,
+  EMPTY_FILTERS,
+  type PresenceColumnKey,
+  type PresenceFilters,
+  type PresenceSort,
+  activeFilterCount,
+  buildPresencesCsv,
+  csvFileName,
+  filterPlayers,
+  sortPlayerStats,
+  visibleColumns,
+} from "./report-state";
 import {
   useCoachRoster,
   usePendingValidation,
   usePresenceStats,
+  usePresenceTrend,
   useUnvalidateClass,
   useValidateClasses,
   weekBounds,
 } from "./hooks";
 
 /**
- * PAD-140 — "Presenças" on iOS. Coach-only.
+ * PAD-140 — "Presenças" on iOS. Coach-only. PAD-185 gave it the validate flow,
+ * PAD-166 the reporting half.
  *
  * Feature parity with the web tab, adapted to a phone:
  *   * same validation inbox (see `ValidateClassesSheet`)
  *   * same four KPI figures
+ *   * the same three charts (PAD-166), stacked rather than in a row and drawn
+ *     with `react-native-svg` — see `PresenceReportCharts`
  *   * the players *table* becomes a searchable list — eight numeric columns do
- *     not fit 390pt, so each row leads with the total and shows the rest as
- *     labelled chips
- *   * the trend line chart is dropped in favour of the figures it summarises;
- *     a 300pt-wide 90-day sparkline communicates less than the totals already
- *     shown, and mobile has no Recharts. The per-player bar chart's ranking is
- *     preserved by sorting the list by total, which is what that chart said.
+ *     not fit 390pt, so each row leads with the total and shows the visible
+ *     ones as labelled chips. Web's toolbar controls (the two numeric filters,
+ *     sort, the column chooser, Export CSV) move into a compact button row and
+ *     two sheets, because a phone list has no column headings to hang sorting
+ *     on and no header row to hold four controls.
  *
  * Those are presentation choices; every number and every action a coach can
- * take on web, they can take here.
+ * take on web, they can take here. The filtering, sorting and CSV arithmetic
+ * lives in `report-state.ts` so it is unit-testable — the mobile vitest project
+ * cannot render a React Native tree.
  */
 export function PresencesScreen() {
   const { t } = useTranslation();
@@ -45,24 +70,58 @@ export function PresencesScreen() {
 
   const [weekOffset, setWeekOffset] = React.useState(0);
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [columnsOpen, setColumnsOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [filters, setFilters] =
+    React.useState<PresenceFilters>(EMPTY_FILTERS);
+  const [sort, setSort] = React.useState<PresenceSort>(DEFAULT_SORT);
+  const [visible, setVisible] = React.useState<PresenceColumnKey[]>(
+    DEFAULT_VISIBLE_COLUMNS
+  );
 
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
+  const trend = usePresenceTrend();
   const queue = usePendingValidation(week);
   const roster = useCoachRoster();
   const validate = useValidateClasses();
   const unvalidate = useUnvalidateClass();
 
   const totals = stats.data?.totals;
-  const players = stats.data?.players ?? [];
+  const players = React.useMemo(
+    () => stats.data?.players ?? [],
+    [stats.data]
+  );
 
-  const rows = React.useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return needle
-      ? players.filter((p) => p.name.toLowerCase().includes(needle))
-      : players;
-  }, [players, query]);
+  const columns = React.useMemo(() => visibleColumns(visible), [visible]);
+
+  const rows = React.useMemo(
+    () => sortPlayerStats(filterPlayers(players, filters), sort),
+    [players, filters, sort]
+  );
+
+  const filterCount = activeFilterCount(filters);
+
+  const handleExport = React.useCallback(async () => {
+    setExporting(true);
+    try {
+      await sharePresencesCsv({
+        // Exactly what the list is showing: the visible columns, the filtered
+        // rows, in the current order. A coach who narrowed the list expects the
+        // file to be the thing they narrowed it to, not the whole roster.
+        csv: buildPresencesCsv(rows, columns, (key) =>
+          t(`presences.column.${key}`)
+        ),
+        fileName: csvFileName(new Date()),
+        title: t("presences.table.export"),
+      });
+    } catch {
+      toast.error(t("presences.error.exportBody"));
+    } finally {
+      setExporting(false);
+    }
+  }, [rows, columns, t]);
 
   if (stats.isError) {
     return <ErrorState onRetry={() => void stats.refetch()} />;
@@ -127,14 +186,64 @@ export function PresencesScreen() {
         />
       </View>
 
+      <PresenceReportCharts
+        players={players}
+        totals={totals}
+        trend={trend.data?.buckets ?? []}
+        granularity={trend.data?.granularity ?? "day"}
+        loading={stats.isLoading || trend.isLoading}
+        trendError={trend.isError}
+      />
+
       <View className="gap-2">
-        <Text className="text-base font-sans-bold">{t("presences.table.title")}</Text>
+        <View className="flex-row items-baseline justify-between">
+          <Text className="text-base font-sans-bold">
+            {t("presences.table.title")}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t("presences.table.count", {
+              shown: rows.length,
+              total: players.length,
+            })}
+          </Text>
+        </View>
         <Input
-          value={query}
-          onChangeText={setQuery}
+          value={filters.query}
+          onChangeText={(query) =>
+            setFilters((prev) => ({ ...prev, query }))
+          }
           placeholder={t("presences.table.search")}
           testID="presences-search"
         />
+
+        <View className="flex-row gap-2">
+          <ToolbarButton
+            icon="funnel-outline"
+            label={t("presences.table.filters")}
+            // The count is on the button rather than only inside the sheet: a
+            // filter the coach forgot about is otherwise indistinguishable
+            // from an empty roster.
+            badge={filterCount}
+            onPress={() => setFiltersOpen(true)}
+            testID="presences-filters-trigger"
+          />
+          <ToolbarButton
+            icon="options-outline"
+            label={t("presences.table.columns")}
+            onPress={() => setColumnsOpen(true)}
+            testID="presences-columns-trigger"
+          />
+          <ToolbarButton
+            icon="share-outline"
+            label={t("presences.table.export")}
+            // Nothing to export and nothing to say about it — a share sheet
+            // over a one-line file is worse than a disabled button.
+            disabled={exporting || rows.length === 0}
+            onPress={() => void handleExport()}
+            testID="presences-export"
+          />
+        </View>
+
         {stats.isLoading ? (
           <View className="gap-2">
             <Skeleton className="h-16 w-full" />
@@ -150,11 +259,30 @@ export function PresencesScreen() {
             <PlayerRow
               key={player.playerId}
               player={player}
+              columns={visible}
               onPress={() => router.push(`/player/${player.playerId}`)}
             />
           ))
         )}
       </View>
+
+      <PresenceFiltersSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        sort={sort}
+        onApply={({ filters: next, sort: nextOrder }) => {
+          setFilters(next);
+          setSort(nextOrder);
+        }}
+      />
+
+      <PresenceColumnsSheet
+        open={columnsOpen}
+        onOpenChange={setColumnsOpen}
+        visible={visible}
+        onApply={setVisible}
+      />
 
       <ValidateClassesSheet
         open={sheetOpen}
@@ -234,20 +362,73 @@ function StatTile({
   );
 }
 
+/**
+ * PAD-166 — one of web's toolbar controls, shrunk to a third of a phone's
+ * width. Icon plus label, because three unlabelled glyphs in a row is a guess.
+ */
+function ToolbarButton({
+  icon,
+  label,
+  badge,
+  disabled,
+  onPress,
+  testID,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  badge?: number;
+  disabled?: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      className={cn(
+        "flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-2.5",
+        disabled && "opacity-50"
+      )}
+    >
+      <Ionicons name={icon} size={16} color={lightTheme.primary} />
+      <Text className="text-xs" numberOfLines={1}>
+        {label}
+      </Text>
+      {badge ? (
+        <View className="h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
+          <Text className="text-[10px] text-primary-foreground">{badge}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 function PlayerRow({
   player,
+  columns,
   onPress,
 }: {
   player: PresencePlayerStats;
+  /** The chosen columns; the row renders the numeric ones it was given. */
+  columns: PresenceColumnKey[];
   onPress: () => void;
 }) {
   const { t } = useTranslation();
-  const chips: Array<{ key: string; value: number; tone?: "bad" }> = [
-    { key: "private", value: player.private },
-    { key: "academy", value: player.academy },
-    { key: "unjustified", value: player.unjustified, tone: "bad" },
-    { key: "invitesJoined", value: player.invitesJoined },
-  ];
+  const showTotal = columns.includes("total");
+  // `total` leads in the avatar circle rather than repeating as a chip, and
+  // `name` is the row's own title. Everything else the coach ticked becomes a
+  // chip, in `PRESENCE_COLUMNS` order — the same order the CSV uses.
+  const chips = visibleColumns(columns)
+    .filter((column) => column.key !== "name" && column.key !== "total")
+    .map((column) => ({
+      key: column.key,
+      value: player[column.key] as number,
+      tone: column.key === "unjustified" ? ("bad" as const) : undefined,
+    }));
 
   return (
     <Pressable
@@ -258,9 +439,11 @@ function PlayerRow({
       onPress={onPress}
       className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-3 py-3"
     >
-      <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-        <Text className="text-sm font-sans-bold">{player.total}</Text>
-      </View>
+      {showTotal ? (
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+          <Text className="text-sm font-sans-bold">{player.total}</Text>
+        </View>
+      ) : null}
       <View className="flex-1">
         <Text className="text-sm font-sans-bold" numberOfLines={1}>
           {player.name}

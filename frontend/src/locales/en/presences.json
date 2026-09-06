@@ -92,7 +92,15 @@
       "columns": "Columns",
       "visibleColumns": "Visible columns",
       "export": "Export CSV",
-      "empty": "No players match these filters."
+      "empty": "No players match these filters.",
+      "filters": "Filters",
+      "sortBy": "Sort by",
+      "sortAsc": "ascending",
+      "sortDesc": "descending",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "reset": "Reset",
+      "columnsHint": "Choose what shows on each player and in the exported CSV."
     },
     "charts": {
       "seriesLabel": "Presences",
@@ -116,7 +124,9 @@
       "validateTitle": "Couldn't validate",
       "validateBody": "Nothing was saved. Try again.",
       "undoTitle": "Couldn't reopen the class",
-      "undoBody": "The class is still validated. Try again."
+      "undoBody": "The class is still validated. Try again.",
+      "exportTitle": "Couldn't export",
+      "exportBody": "The CSV file was not created. Try again."
     }
   }
 }
