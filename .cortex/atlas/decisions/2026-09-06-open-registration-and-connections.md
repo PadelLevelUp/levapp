@@ -95,7 +95,7 @@ another coach's student; proposes a coach-scoped QR join token). This decision s
   and `players.claim`.
 - `auth.register` is corrected: `POST /api/auth/register` never existed as a JSON route (only
   the legacy server-rendered `/auth/register` template). The leaf is rewritten as the
-  self-service signup and its status set to `draft` (bug B-019).
+  self-service signup and its status set to `draft` (bug B-023).
 
 ## Left open, on purpose
 

@@ -56,6 +56,7 @@ const GUARDED_ROUTES: Array<{
   body?: Record<string, unknown>;
   query?: Record<string, string>;
 }> = [
+  { method: "post", path: "/club", body: { name: "PAD-210 guard check" } },
   { method: "post", path: "/add_player", body: { coachId: 1, name: "Anon" } },
   {
     method: "post",
@@ -98,7 +99,9 @@ const GUARDED_ROUTES: Array<{
 
 /** Legacy routes PAD-92 removed outright — nothing in the apps called them. */
 const DELETED_ROUTES: Array<{ method: "post" | "get"; path: string }> = [
-  { method: "post", path: "/club" },
+  // `POST /club` came back in PAD-210 (auth.register / clubs.join-request:
+  // an approved coach creates their own club), now behind JWT +
+  // require_coach() — it is asserted as a guarded route below, not a deleted one.
   { method: "post", path: "/user" },
   { method: "post", path: "/player" },
   { method: "post", path: "/coach" },

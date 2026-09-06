@@ -3,6 +3,7 @@ export { createApiClient, initApi, getApi, type ApiClientOptions } from "./clien
 export { buildEventsUrl } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
+export * as adminApi from "./resources/admin";
 export * as authApi from "./resources/auth";
 export * as attendanceApi from "./resources/attendance";
 export * as availabilityApi from "./resources/availability";

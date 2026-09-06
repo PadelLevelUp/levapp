@@ -9,7 +9,7 @@ governing leaf spec and its dependencies before touching code.
 ## Domains
 
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
-- `auth/` — Authentication & User Management (8 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, both draft)
+- `auth/` — Authentication & User Management (8 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210)
 - `calendar/` — Calendar View & Blocks (7 leaves)
 - `classes/` — Lessons & Instances (10 leaves)
 - `clubs/` — Club Management (4 leaves)
@@ -78,7 +78,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 
 | Domain | Capabilities | Leaf Specs | Status |
 |--------|-------------|------------|--------|
-| auth | 5 | 8 | implemented (auth.register, auth.coach-approval draft; B-019) |
+| auth | 5 | 8 | implemented |
 | clubs | 3 | 4 | implemented (clubs.join-request draft) |
 | players | 3 | 11 (+1 deprecated) | implemented (players.join-token, players.claim draft; invite-completion partial) |
 | classes | 3 | 10 | implemented (classes.join-requests draft) |

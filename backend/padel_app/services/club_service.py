@@ -130,7 +130,8 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     db.session.add(user)
     db.session.flush()
 
-    new_coach = Coach(user_id=user.id)
+    # auth.coach-approval rule 1: an existing club member vouched for them.
+    new_coach = Coach(user_id=user.id, approval_status="approved")
     db.session.add(new_coach)
     db.session.flush()
 

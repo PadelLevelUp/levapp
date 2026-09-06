@@ -1,6 +1,6 @@
 ---
 id: auth.coach-approval
-status: draft
+status: implemented
 depends_on: [auth.register, auth.login]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: []

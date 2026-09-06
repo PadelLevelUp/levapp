@@ -409,7 +409,10 @@ def test_owner_can_remove_own_player(app, client, world):
 # ---------------------------------------------------------------------------
 
 DELETED_ROUTES = [
-    ("post", "/api/app/club"),
+    # ("post", "/api/app/club") — reintroduced by PAD-210 (clubs.join-request
+    # rule 7) as a JWT + require_coach() route: the acting coach comes from the
+    # token and becomes the club's member. The PAD-92 concern (anonymous club
+    # minting) is covered by test_url_map_has_no_unauthenticated_write_routes.
     ("post", "/api/app/user"),
     ("post", "/api/app/player"),
     ("post", "/api/app/coach"),

@@ -1,6 +1,6 @@
 ---
 id: auth.register
-status: draft
+status: implemented
 depends_on: [auth.login]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: []
@@ -8,7 +8,7 @@ governed_by: []
 
 # auth.register
 
-### Status correction (2026-09-06, B-019)
+### Status correction (2026-09-06, B-023)
 This leaf read `status: implemented` and described `POST /api/auth/register` creating an
 `inactive` user. **No such JSON route ever existed** — `padel_app/modules/api_auth.py` has
 login/logout/me only, and the only `/register` is the legacy server-rendered template in

@@ -8,9 +8,9 @@ The auth domain.
 
 - `auth.login` — implemented
 - `auth.logout` — implemented
-- `auth.register` — draft (rewritten 2026-09-06 as self-service signup for both roles; the old `POST /api/auth/register` never existed, B-019)
+- `auth.register` — implemented (rewritten 2026-09-06 as self-service signup for both roles; the old `POST /api/auth/register` never existed, B-023; built in PAD-210)
 - `auth.activate` — implemented
-- `auth.coach-approval` — draft (LevApp admin approves self-registered coaches; gate is switchable)
+- `auth.coach-approval` — implemented (LevApp admin approves self-registered coaches; gate is switchable; PAD-210)
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
 - `auth.mobile-universal-links` — implemented

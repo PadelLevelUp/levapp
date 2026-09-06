@@ -1,9 +1,10 @@
 import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { postLoginRoute } from "@/auth/postLoginRoute";
 
 export default function Index() {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
 
   if (loading) {
     return (
@@ -16,8 +17,10 @@ export default function Index() {
     );
   }
 
+  // auth.register rule 11: a coach still waiting for approval, or with no
+  // club yet, is held on the matching screen instead of the tabs.
   return isAuthenticated ? (
-    <Redirect href="/(tabs)/dashboard" />
+    <Redirect href={postLoginRoute(user)} />
   ) : (
     <Redirect href="/login" />
   );

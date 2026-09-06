@@ -60,5 +60,5 @@ Not yet measured. No signup-completion-rate or activation-funnel dashboard exist
 ## Notes
 
 - 2026-09-06: `auth.register` moved out of this outcome. It had described a direct-signup
-  endpoint that never existed (B-019); it is rewritten as the self-service signup under
+  endpoint that never existed (B-023); it is rewritten as the self-service signup under
   `auth.newcomer-signs-up-on-their-own`. What remains here is the activation half only.

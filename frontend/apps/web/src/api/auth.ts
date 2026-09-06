@@ -3,8 +3,14 @@ import * as authApi from "@levelup/api/src/resources/auth";
 import { USE_MOCK_DATA } from "@/config";
 import { MOCK_COACH_ID } from "@/data/mockData";
 
-export type { MeResponse, UpdateMePayload } from "@levelup/api/src/resources/auth";
-import type { MeResponse, UpdateMePayload } from "@levelup/api/src/resources/auth";
+export type {
+  MeResponse,
+  UpdateMePayload,
+  RegisterPayload,
+  RegisterResponse,
+  CoachApprovalStatus,
+} from "@levelup/api/src/resources/auth";
+import type { MeResponse, UpdateMePayload, RegisterPayload, RegisterResponse } from "@levelup/api/src/resources/auth";
 
 export async function getMe(): Promise<MeResponse> {
   if (USE_MOCK_DATA) {
@@ -23,10 +29,18 @@ export async function getMe(): Promise<MeResponse> {
       blockManualInvitations: false,
       blockAllNotifications: false,
       notificationBlockReason: "",
+      coachApproval: "approved",
+      clubs: [{ id: 1, name: "Padel Academy" }],
+      pendingClubJoinRequest: null,
     };
   }
 
   return authApi.getMe();
+}
+
+/** auth.register: self-service signup. Not mockable — it creates a real account. */
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
+  return authApi.register(payload);
 }
 
 export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
