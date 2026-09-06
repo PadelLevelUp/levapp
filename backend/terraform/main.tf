@@ -99,6 +99,26 @@ resource "google_storage_bucket" "general" {
   uniform_bucket_level_access = true
 }
 
+# Staging's uploads bucket. Separate from production's on purpose: staging runs
+# on the same VM under the same service account, so the bucket name is the only
+# thing keeping a staging upload out of prod's bucket. Public access prevention
+# is enforced — nothing here is ever served by ACL, only by signed URL.
+resource "google_storage_bucket" "staging" {
+  name          = "padel-levelup-2026-storage-staging"
+  location      = "europe-west1"
+  storage_class = "STANDARD"
+
+  force_destroy               = true
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+}
+
+resource "google_storage_bucket_iam_member" "staging_instance_rw" {
+  bucket = google_storage_bucket.staging.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.vm_sa.email}"
+}
+
 resource "google_service_account" "vm_sa" {
   account_id   = "levelup-vm-sa"
   display_name = "Padel App VM SA"
