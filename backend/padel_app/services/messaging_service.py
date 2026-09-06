@@ -41,16 +41,24 @@ def _is_blocked_either_way(user_a_id, user_b_id):
 def _messageable_target_ids_for(user):
     """The set of user ids `user` is allowed to START a new conversation with.
 
-    Coach -> players belonging to any club the coach is in.
-    Everyone else (student/player) -> any coach.
+    Coach -> the union of their own roster (`coach_in_player`) and the players
+    of every club they belong to (`player_in_club`).
+    Everyone else (student/player) -> any active coach.
+
+    PAD-205 / B-020: this read club membership alone. Outside `seed/mock_data.py`
+    nothing writes `player_in_club` — adding a player, importing one, or
+    accepting an invitation all create a roster row instead — so a coach could
+    not message a student they had added through the app. The roster is the
+    record the app actually keeps; the club stays in the union so seeded and
+    club-wide links keep working.
     """
     coach = getattr(user, "coach", None)
     if coach:
-        return {
-            player.user_id
-            for club in coach.clubs
-            for player in club.players
-        }
+        players = list(coach.players)
+        for club in coach.clubs:
+            players.extend(club.players)
+        # A player awaiting activation can exist without a user row yet.
+        return {player.user_id for player in players if player.user_id}
 
     return {
         row.user_id

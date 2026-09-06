@@ -3,7 +3,7 @@ id: B-020
 title: "A coach cannot message a player on their own roster — the messageable set reads club membership, which no app path ever writes"
 type: incomplete-rule
 severity: high
-status: open
+status: resolved
 affects:
   - backend/padel_app/services/messaging_service.py
   - messaging.conversations
@@ -13,6 +13,7 @@ related_specs:
   - ../../../.specflow/specs-business/messaging/user-and-coach-message-in-real-time.business.md
 proposed_fix: "The coach's messageable set becomes the union of their roster (`coach_in_player`) and the players of their clubs (`player_in_club`); the student branch is unchanged."
 opened: 2026-09-06T17:40:00Z
+resolved: 2026-09-06T18:20:00Z
 ---
 
 # B-020 — The coach messageable set reads club membership, which no app path ever writes
@@ -114,4 +115,17 @@ the standing evidence.
 
 ### Resolution
 
-_Pending — see PAD-205._
+**Resolved 2026-09-06 (PAD-205).** `_messageable_target_ids_for` returns the union of
+`coach.players` (roster) and the players of `coach.clubs`, skipping any player row without a
+`user_id`. The student branch is untouched, `_assert_messageable` is still reached only from
+`create_conversation_service` (so rule 8 holds), and no `player_in_club` write was added
+anywhere — the reader was taught to read the table the writer fills, not the other way round.
+
+- Spec changes: `messaging.conversations` rules 7–8 + three criteria;
+  `messaging.user-and-coach-message-in-real-time` business rule.
+- Tests added: `backend/padel_app/tests/test_messaging_roster_scope.py` (6 cases — two failed
+  before the fix: `assert 2 in {3}`, `assert 403 == 201`);
+  `frontend/apps/web/e2e/messaging/messageable-roster.spec.ts` (US-205, **unrun** — the shared
+  `levelup_test` DB was in use by another session).
+- Code changes: `backend/padel_app/services/messaging_service.py` only. No migration.
+- Regression: 838 backend tests pass.
