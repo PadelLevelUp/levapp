@@ -1,5 +1,5 @@
 ---
-id: B-019
+id: B-022
 title: "Messaging read state is wrong at second boundaries, and one participant-less conversation 500s the whole list"
 type: incomplete-rule
 severity: high
@@ -20,7 +20,7 @@ opened: 2026-09-06T00:00:00Z
 resolved: 2026-09-06T00:00:00Z
 ---
 
-# B-019 — Messaging read state is wrong at second boundaries, and one participant-less conversation 500s the whole list
+# B-022 — Messaging read state is wrong at second boundaries, and one participant-less conversation 500s the whole list
 
 **Source:** human report (PAD-203), itself derived from the 2026-09-02 data-model audit
 (`.cortex/archive/documents/data-model-audit-2026-09-02/extracted/findings.md`, findings H6,
@@ -138,7 +138,7 @@ produces and never say it is one unit of work. Incomplete rule.
 **Add criterion:**
 
 ```
-#### A message sent just after a read is unread (B-019)
+#### A message sent just after a read is unread (B-022)
 - **Given** a participant marks a conversation read at instant T
 - **When** a message is sent to that conversation 1 ms later
 - **Then** the message counts as unread for that participant

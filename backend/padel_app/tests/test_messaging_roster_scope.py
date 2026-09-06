@@ -1,5 +1,5 @@
 """
-PAD-205 / B-020 — a coach may message any player on their own roster.
+PAD-205 / B-023 — a coach may message any player on their own roster.
 
 `_messageable_target_ids_for(coach)` used to read club membership
 (`player_in_club`) only. Outside `seed/mock_data.py` no app path ever writes

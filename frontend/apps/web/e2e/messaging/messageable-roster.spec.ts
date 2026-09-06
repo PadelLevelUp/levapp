@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openMessages, openPlayers } from "../helpers/navigation";
 
-// PAD-205 / B-020 — a coach must be able to message a player they added
+// PAD-205 / B-023 — a coach must be able to message a player they added
 // themselves.
 //
 // The messageable-users endpoint used to answer from club membership

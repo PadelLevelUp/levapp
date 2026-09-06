@@ -1,5 +1,5 @@
 ---
-id: B-021
+id: B-024
 title: "Message send/edit/delete/react never check the caller is a participant"
 type: incomplete-rule
 severity: high
@@ -13,7 +13,7 @@ opened: 2026-09-06T00:00:00Z
 resolved: 2026-09-06T00:00:00Z
 ---
 
-# B-021 — Message send/edit/delete/react never check the caller is a participant
+# B-024 — Message send/edit/delete/react never check the caller is a participant
 
 **Source:** PAD-206, from the 2026-09-02 data-model audit (finding H2). Second half of the
 finding; the SSE half is B-004.
@@ -56,8 +56,8 @@ require the caller to be a participant of the message's conversation; otherwise 
 no row written, no SSE event and no push. The conversation id comes from the target row,
 never from the request body as proof of access.
 
-**Criteria added:** "A non-participant cannot post into a conversation (B-021)" and
-"A non-participant cannot react to a message (B-021)".
+**Criteria added:** "A non-participant cannot post into a conversation (B-024)" and
+"A non-participant cannot react to a message (B-024)".
 
 ### Resolution
 

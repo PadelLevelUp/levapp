@@ -1,5 +1,5 @@
 """
-PAD-203 / B-019 — messaging read state at second boundaries, and one malformed
+PAD-203 / B-022 — messaging read state at second boundaries, and one malformed
 conversation taking the whole list down.
 
 Three defects, one ticket. Each has its own section below.
