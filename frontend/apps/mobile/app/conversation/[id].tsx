@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { queryKeys, useConversation } from "@levelup/hooks";
@@ -41,9 +42,11 @@ import {
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
+import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
 import {
   invalidateMessagesLists,
+  messageCopyText,
   normalizeId,
   roleLabelKey,
   updateConversationCache,
@@ -379,10 +382,28 @@ export default function ConversationScreen() {
     handleToggleReaction(messageId, emoji);
   };
 
-  // ── Reply (launched from the swipe-right gesture on a bubble) ──
+  // ── Reply (swipe-right gesture, or the context menu since PAD-168) ──
   const handleReply = (message: Message) => {
     setEditing(null);
     setReplyingTo(message);
+  };
+
+  const startReplying = () => {
+    if (!contextMenu) return;
+    const message = contextMenu.message;
+    setContextMenu(null);
+    handleReply(message);
+  };
+
+  // ── Copy (PAD-168; web has it in MessageActionMenu, iOS had nothing) ──
+  const handleCopy = () => {
+    if (!contextMenu) return;
+    const text = messageCopyText(contextMenu.message);
+    setContextMenu(null);
+    if (text === null) return;
+    Clipboard.setStringAsync(text)
+      .then(() => toast.success(t("messages.messageCopied")))
+      .catch(() => toast.error(t("messages.somethingWentWrong")));
   };
 
   // NOT an inverted list: on the New Architecture (Fabric), `inverted`
@@ -694,6 +715,11 @@ export default function ConversationScreen() {
         // value, 90, dated from when the navigator header was still shown).
         keyboardVerticalOffset={0}
       >
+        {/* PAD-168: mirrors web's MessagesPage banners — a student whose
+            notifications are off otherwise gets no prompt to turn them back
+            on. Renders nothing when permission is granted. */}
+        <NotificationsBlockedBanner />
+
         {isLoading ? (
           <ChatSkeleton />
         ) : isError || !conversation ? (
@@ -968,6 +994,14 @@ export default function ConversationScreen() {
           anchor={contextMenu.anchor}
           isMine={Number(contextMenu.message.senderId) === myId}
           onClose={() => setContextMenu(null)}
+          onReply={startReplying}
+          onCopy={
+            // Hidden rather than disabled when there is nothing to copy — a
+            // Copy row that silently does nothing is worse than no row.
+            messageCopyText(contextMenu.message) === null
+              ? undefined
+              : handleCopy
+          }
           onEdit={
             Number(contextMenu.message.senderId) === myId
               ? startEditing

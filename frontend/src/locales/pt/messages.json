@@ -3,6 +3,8 @@
     "enableNotificationsPrompt": "Ativar notificações de mensagens",
     "enable": "Ativar",
     "notificationsBlocked": "Notificações bloqueadas. Ativa-as nas definições do navegador.",
+    "notificationsBlockedDevice": "Notificações desativadas. Ativa-as nas Definições.",
+    "messageCopied": "Mensagem copiada",
     "selectConversation": "Seleciona uma conversa",
     "selectConversationHint": "Escolhe uma conversa da lista para ver as mensagens.",
     "accepted": "Aceite",
