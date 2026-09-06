@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
 import { messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { queryKeys, useConversation } from "@levelup/hooks";
@@ -401,7 +400,20 @@ export default function ConversationScreen() {
     const text = messageCopyText(contextMenu.message);
     setContextMenu(null);
     if (text === null) return;
-    Clipboard.setStringAsync(text)
+    // expo-clipboard is a native module. Load it lazily so a binary built
+    // before the module was added (an older dev client, a stale TestFlight
+    // build) fails at the tap with a toast, not at route load with a red
+    // screen — `requireNativeModule` throws when the module is absent, and a
+    // top-level import would evaluate it while expo-router mounts this screen.
+    let clipboard: typeof import("expo-clipboard");
+    try {
+      clipboard = require("expo-clipboard");
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+      return;
+    }
+    clipboard
+      .setStringAsync(text)
       .then(() => toast.success(t("messages.messageCopied")))
       .catch(() => toast.error(t("messages.somethingWentWrong")));
   };
