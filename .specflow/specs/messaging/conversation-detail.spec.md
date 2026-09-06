@@ -17,7 +17,7 @@ View a single conversation with all its messages and participant info.
 2. Messages ordered by `sent_at` ascending
 3. Includes reaction data and reply chains
 4. Frontend renders as scrollable message list with chat bubbles
-5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`
+5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`. When there is no other participant to derive it from, the payload degrades exactly as `messaging.conversations` rule 10 prescribes — `participantRole: null` alongside `participantDeleted: true` — rather than failing (B-019)
 6. The chat header subtitle displays the participant's actual role (capitalized), not a hardcoded value
 7. While the on-screen keyboard is open, the message composer stays docked directly above it with no gap, and the most recent message stays visible. On the native shell the `KeyboardAvoidingView` offset must equal the real distance between that view's bottom edge and the bottom of the screen — 0 for a full-height stack route — never a hardcoded constant, since React Native adds the offset to the avoided height rather than subtracting it
 
