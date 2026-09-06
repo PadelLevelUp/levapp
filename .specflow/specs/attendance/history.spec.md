@@ -80,6 +80,28 @@ for every bucket and every history row.
 14. All user-facing copy goes through the i18n system (`src/locales/{pt,en}/attendance.json`).
     No hardcoded strings; default locale is `pt`.
 
+### Mobile (PAD-162)
+
+15. **iOS ships the same surface.** PAD-114 shipped web-only and no PR recorded a decision to
+    do that; PAD-162 closes it. `apps/mobile/app/attendance.tsx` is the single screen behind
+    both entry points, and rules 10–14 hold on it unchanged.
+16. Expo Router has no `/players/:playerId/attendance` path, so the coach variant is the same
+    screen with a query param: `/attendance?playerId=<id>`. This is a routing shape only — the
+    param is still not authorization, and rule 3 is still the whole of it.
+17. Entry points mirror web's:
+    - the student's dashboard "Attended" KPI tile (`href: "/attendance"` from the backend, now
+      mapped to a mobile route in `DashboardBlocks`);
+    - an action on the coach's player-detail screen (`player-attendance-link`), first in the
+      action row, as it is first in web's `PageActions`.
+18. A history row deep-links to `/class/[id]` rather than following the server-built `href`
+    from rule 8: `/calendar?classId=…` is not a route in the Expo Router tree. The row resolves
+    the same `calendarEventId` through `parseDashboardItemId`, which is exactly what a mobile
+    dashboard class row already does — one deep-link contract, two route shapes.
+19. There is no Recharts on mobile. The chart is drawn with `react-native-svg` through a
+    generic chart primitive (`apps/mobile/src/components/charts/`) that takes a series of
+    `{ label, value }` and renders bars or a line, so `attendance.absences` and the Presences
+    tab can reuse it rather than each growing their own.
+
 ### Acceptance Criteria
 
 #### Student sees their own attendance history
@@ -126,5 +148,16 @@ for every bucket and every history row.
 - **When** they open `/attendance`
 - **Then** only the attended classes are counted and listed; missed classes never appear
 
+#### Student sees their own attendance history on iOS
+- **Given** a signed-in student on the mobile dashboard
+- **When** they tap the "Attended" KPI tile
+- **Then** the attendance screen opens with the chart, the range controls `1W` / `1M` / `1Y` /
+  `…` below it, and the attended classes listed underneath
+
+#### Coach reaches a roster player's attendance from iOS player detail
+- **Given** a coach on a roster player's detail screen
+- **When** they tap the attendance action
+- **Then** the same attendance screen opens for that player, subtitled with their name
+
 ### Notes
-- Source: ticket PAD-114.
+- Source: ticket PAD-114. iOS parity: PAD-162 (from the PAD-152 parity audit, finding A1).

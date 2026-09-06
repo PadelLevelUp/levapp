@@ -76,8 +76,10 @@ unauthorized-access attempt volume.
 
 - **[DEC 2026-09-04, PAD-171 §1]** Settings is not a bottom-tab-bar / bottom-nav destination on
   either platform — every user reaches it from the account avatar in the header. Web adds this
-  entry point in PAD-183 (this wave); iOS already has it and simply drops the redundant tab in
-  PAD-193 (next wave), taking the coach tab bar from seven destinations to six.
+  entry point in PAD-183; iOS dropped the redundant tab in PAD-193, taking the coach tab bar
+  from seven destinations to six and a student's from five to four. On iOS the avatar is now a
+  control (it was decorative), it rides in the header of every tab, and Settings is a pushed
+  screen (`app/settings.tsx`) rather than a tab — the `/settings` route itself is unchanged.
 - **[DEC 2026-09-04, PAD-171 §2, DIV]** The theme preference (rule above: "language and theme
   only") has no visible effect on iOS — the app is light-only there, an intentional divergence
   from web's dark mode, to be revisited only on user demand.

@@ -138,6 +138,7 @@
       "moveLevelUp": "Move level up",
       "moveLevelDown": "Move level down",
       "coachLevelsDescription": "Define the levels used to classify your players and exercises. Use the arrows to reorder.",
+      "myNotificationsNavDescription": "Choose which class-vacancy invitations you want to receive.",
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet."

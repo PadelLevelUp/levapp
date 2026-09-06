@@ -12,10 +12,10 @@
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
+# The "More" tab (`tab-more` / `more-training`) has not existed since the bar
+# started rendering its destinations by name — Training is a tab of its own.
 - tapOn:
-    id: "tab-more"
-- tapOn:
-    id: "more-training"
+    id: "tab-training"
 - extendedWaitUntil:
     visible:
       id: "training-groups-tab"

@@ -33,7 +33,15 @@ export function PresenceMarkToggle({
   const { t } = useTranslation();
 
   return (
-    <View className="flex-row gap-1.5" accessibilityRole="radiogroup">
+    <View
+      className="flex-row gap-1.5"
+      accessibilityRole="radiogroup"
+      // Same label web puts on its radiogroup (PAD-185). The long
+      // `presences.mark.*` variants web uses in its detail view stay off iOS on
+      // purpose: "Absent – unjustified" three-across does not fit 390pt, and the
+      // group label already says whose row this is.
+      accessibilityLabel={t("presences.validate.statusFor", { name: playerName })}
+    >
       {OPTIONS.map((option) => {
         const active = value === option;
         return (

@@ -33,3 +33,6 @@ executionOrder:
     # 21 creates and deletes its own "Maestro Test Event", so its position is
     # not load bearing — listed for a deterministic full-suite run.
     - 21-event-detail
+    # 22 only reads (it never writes a presence), so it is order-independent;
+    # it does read better after 04 has marked the seeded student present.
+    - 22-student-attendance-history

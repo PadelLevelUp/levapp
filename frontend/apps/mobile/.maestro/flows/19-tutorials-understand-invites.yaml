@@ -14,8 +14,10 @@
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
+# PAD-193: Settings is off the bottom bar — the account avatar in the
+# header (`header-account`) pushes it onto the root stack.
 - tapOn:
-    id: "tab-settings"
+    id: "header-account"
 - extendedWaitUntil:
     visible:
       id: "screen-settings"

@@ -80,6 +80,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     this surface can never disagree with the dashboard or `attendance.history`.
 
 ### Frontend rules
+12b. **Both shells implement the whole flow.** Rules 5-11 — per-player marks, the
+    prefill, walk-ins, bulk validation and undo — are behaviour, not web chrome,
+    and iOS carries all of them (PAD-185). Only presentation differs, and only
+    where the phone forces it: the walk-in picker is a searchable inline list
+    rather than a dropdown (a portalled Select is invisible to iOS
+    accessibility), the class list expands one class at a time, and the
+    three-way mark keeps its short labels on both levels because
+    "Absent – unjustified" three-across does not fit 390pt.
 13. The tab lives at `/presences`, is coach-only, and appears in the sidebar. Each
     endpoint re-checks `require_coach()` server-side — the route guard is UX only
     (PAD-88 / PAD-115 precedent). `classes.detail-visibility` forbids exposing one
@@ -136,6 +144,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** that player's "invites received"/"joined as guest" counts include it
 - **And** an enrolled player on the same class is not counted as a guest
 
+#### A coach finishes a week's validation without leaving the phone
+- **Given** a past class on iOS where one enrolled player never answered and a
+  walk-in attended who was never enrolled
+- **When** the coach opens it from the Presences tab
+- **Then** they can see each player's own answer, mark the silent one, add the
+  walk-in from the roster picker, and validate the class
+- **And** nothing in the flow requires the web app
+
 #### A future class is never listed
 - **Given** a class scheduled for next week
 - **When** the coach opens the Presences tab
@@ -162,3 +178,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   presence *analysis* phone work at all). Decided: **build it.** PAD-166 becomes a real build
   ticket (wave 3): charts via `react-native-svg` (not Recharts, which is web-only), CSV export via
   the iOS share sheet rather than a browser download. Not yet built as of this decision.
+- **[PAD-185, 2026-09-06]** The iOS validate flow now matches web: per-player status and roster
+  edit before validating, walk-ins, batch select with the rule-7 skip notice, and undo/edit on an
+  already-validated class. Rule 12b records the presentation differences that remain. The
+  roster-diff and selection arithmetic lives in
+  `apps/mobile/src/features/presences/validate-state.ts` as a pure module — the mobile vitest
+  project cannot render a React Native tree, so logic left inside the component is logic no
+  automated test can reach.

@@ -1,0 +1,84 @@
+# PAD-162 — the student's own attendance history on iOS.
+# Closest web spec: attendance/attendance-history.spec.ts (student view).
+# - student opens their own history from the dashboard "Attended" KPI
+# - the range controls (1W / 1M / 1Y / …) are present below the total
+# - switching preset and opening the custom-period fields both work
+# - the attended-class list container renders (empty or populated — an empty
+#   period is a state of the list, so its container is asserted, not its rows)
+#
+# NOTE: written but NOT run — this batch does not boot the simulator.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-student.yaml
+
+# ── Enter from the dashboard "Attended" KPI ──
+- scrollUntilVisible:
+    element:
+      id: "dashboard-kpi-attended"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "dashboard-kpi-attended"
+- extendedWaitUntil:
+    visible:
+      id: "attendance"
+    timeout: 20000
+
+# ── The screen identifies whose history this is, and how many classes ──
+- assertVisible:
+    id: "attendance-subject"
+- assertVisible:
+    id: "attendance-total"
+
+# ── The chart, and the range controls below it (spec rule 10) ──
+- assertVisible:
+    id: "attendance-chart"
+- assertVisible:
+    id: "attendance-range-controls"
+- assertVisible:
+    id: "attendance-range-1w"
+- assertVisible:
+    id: "attendance-range-1m"
+- assertVisible:
+    id: "attendance-range-1y"
+
+# The attended-class list is always present, populated or not — but it
+# replaces a skeleton once the first fetch lands, so wait rather than assert.
+- extendedWaitUntil:
+    visible:
+      id: "attendance-history-list"
+    timeout: 20000
+
+# ── Switching preset re-queries; the list container survives the refetch ──
+- tapOn:
+    id: "attendance-range-1y"
+- extendedWaitUntil:
+    visible:
+      id: "attendance-history-list"
+    timeout: 20000
+
+# ── `…` reveals the custom-period fields, and hides them again ──
+- assertNotVisible:
+    id: "attendance-custom-fields"
+- tapOn:
+    id: "attendance-range-custom"
+- assertVisible:
+    id: "attendance-custom-fields"
+- assertVisible:
+    id: "attendance-custom-from"
+- assertVisible:
+    id: "attendance-custom-to"
+- assertVisible:
+    id: "attendance-custom-apply"
+- tapOn:
+    id: "attendance-range-custom"
+- assertNotVisible:
+    id: "attendance-custom-fields"
+
+# ── Back returns to the dashboard ──
+- tapOn:
+    id: "attendance-back"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-kpi-attended"
+    timeout: 20000

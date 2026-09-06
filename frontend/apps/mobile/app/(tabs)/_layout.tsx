@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { queryKeys, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Text } from "@/components/ui/text";
@@ -25,20 +25,34 @@ function DashboardGreeting({ name }: { name: string }) {
   );
 }
 
-/** Account initials. The sidebar/app bar owns identity, so the page header
- * never repeats it. */
-function AccountAvatar({ name }: { name: string }) {
+/** Account initials, and — since PAD-193 — the only way into Settings.
+ *
+ * The sidebar/app bar owns identity, so the page header never repeats it.
+ * Settings came off the bottom bar (DEC 2026-09-04, PAD-171 §1: seven coach
+ * destinations on a 390pt bar truncated every label), so the avatar is the
+ * entry point on both platforms — web's header avatar menu links to
+ * `/settings` the same way (PAD-183).
+ */
+function AccountAvatar() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const router = useRouter();
+  const name = user?.name ?? "";
   const parts = name.trim().split(" ").filter(Boolean);
   const initials = parts.length
     ? ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase()
     : "?";
   return (
-    <View
+    <Pressable
+      testID="header-account"
+      accessibilityLabel={t("nav.settings")}
+      role="button"
+      onPress={() => router.push("/settings")}
       style={{ marginRight: 16 }}
-      className="h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent"
+      className="h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent active:opacity-70"
     >
       <Text className="text-xs font-sans-bold text-sidebar-accent-foreground">{initials}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -116,6 +130,10 @@ export default function TabsLayout() {
             <LevAppMark size={26} />
           </View>
         ),
+        // The avatar rides in every tab's header, not just the dashboard's:
+        // it is the only way into Settings now that the tab is gone, so it
+        // has to be there wherever a coach happens to be standing.
+        headerRight: () => <AccountAvatar />,
         tabBarActiveTintColor: lightTheme.primary,
         tabBarInactiveTintColor: lightTheme.mutedForeground,
         // The bar carried no bottom inset, so its labels sat flush against
@@ -128,8 +146,12 @@ export default function TabsLayout() {
           paddingBottom: 24,
           height: 84,
         },
-        // Six destinations across a 390pt bar: the labels need to be a touch
-        // smaller and the items narrower than the four-tab default.
+        // Six destinations across a 390pt bar for a coach (Dashboard,
+        // Calendar, Players, Presences, Messages, Training — Settings left
+        // the bar in PAD-193, and a student sees four): the labels need to be
+        // a touch smaller and the items narrower than the four-tab default.
+        // Kept as-is rather than relaxed — six is exactly the count this was
+        // tuned for, and it is still the coach's worst case.
         tabBarLabelStyle: { fontSize: 10, paddingBottom: 2 },
         tabBarItemStyle: { paddingHorizontal: 0 },
       }}
@@ -145,7 +167,6 @@ export default function TabsLayout() {
           // the wordmark does not, and the account avatar takes the right.
           headerTitle: () => <DashboardGreeting name={user?.name ?? ""} />,
           headerTitleAlign: "left",
-          headerRight: () => <AccountAvatar name={user?.name ?? ""} />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),
@@ -221,16 +242,8 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: t("nav.settings"),
-          tabBarButtonTestID: "tab-settings",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" color={color} size={size} />
-          ),
-        }}
-      />
+      {/* No Settings tab: the screen lives at `app/settings.tsx`, outside this
+          group, and is pushed from the header avatar above (PAD-193). */}
     </Tabs>
   );
 }
