@@ -10,9 +10,11 @@ import { ErrorState } from "@/components/error-state";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { ValidateClassesSheet } from "./ValidateClassesSheet";
 import {
+  useCoachRoster,
   usePendingValidation,
   usePresenceStats,
   useUnvalidateClass,
@@ -48,6 +50,7 @@ export function PresencesScreen() {
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
   const queue = usePendingValidation(week);
+  const roster = useCoachRoster();
   const validate = useValidateClasses();
   const unvalidate = useUnvalidateClass();
 
@@ -161,12 +164,30 @@ export function PresencesScreen() {
         weekOffset={weekOffset}
         onWeekChange={setWeekOffset}
         loading={queue.isLoading}
+        roster={roster}
         busy={validate.isPending || unvalidate.isPending}
         onValidate={async (classes) => {
-          await validate.mutateAsync(classes);
+          // Web (PresencesPage) toasts on both outcomes. Without this a
+          // rejected write escaped onPress as an unhandled rejection and the
+          // coach saw nothing — with bulk validation that could silently
+          // swallow a whole week.
+          try {
+            await validate.mutateAsync(classes);
+            toast.success(
+              t("presences.toast.validated", { count: classes.length }),
+            );
+          } catch (err) {
+            toast.error(t("presences.error.validateBody"));
+            throw err; // the sheet catches this to keep the coach's edits open
+          }
         }}
         onUnvalidate={async (id) => {
-          await unvalidate.mutateAsync(id);
+          try {
+            await unvalidate.mutateAsync(id);
+          } catch (err) {
+            toast.error(t("presences.error.undoBody"));
+            throw err;
+          }
         }}
       />
     </ScrollView>
