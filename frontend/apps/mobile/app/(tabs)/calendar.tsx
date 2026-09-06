@@ -16,6 +16,7 @@ import { Text } from "@/components/ui/text";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import { WeekStrip } from "@/features/calendar/WeekStrip";
+import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 
 function eventDayKey(event: CalendarEvent): string {
@@ -28,6 +29,7 @@ export default function CalendarScreen() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  const locale = useDateLocale();
 
   // Week navigation first (pure), then fetch the visible week's events.
   // PAD-181: `language` localizes the week-range label in WeekStrip. Passing
@@ -130,7 +132,7 @@ export default function CalendarScreen() {
         >
           <View>
             <Text className="font-semibold">
-              {format(selectedDay, "EEEE, d MMMM")}
+              {format(selectedDay, "EEEE, d MMMM", { locale })}
             </Text>
             <Text className="text-sm text-muted-foreground">
               {t("calendar.mobile.classCount", { count: dayEvents.length })}

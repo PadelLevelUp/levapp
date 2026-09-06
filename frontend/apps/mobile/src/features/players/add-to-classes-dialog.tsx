@@ -28,6 +28,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useEditClass } from "@/features/calendar/hooks";
+import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 import { useClassInstancesForWeek } from "./hooks";
 
@@ -56,6 +57,7 @@ export function AddToClassesDialog({
   playerName,
 }: AddToClassesDialogProps) {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const queryClient = useQueryClient();
   const editClass = useEditClass();
 
@@ -188,7 +190,8 @@ export function AddToClassesDialog({
             />
           </Pressable>
           <Text className="text-sm font-medium">
-            {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
+            {format(weekStart, "d MMM", { locale })} –{" "}
+            {format(weekEnd, "d MMM yyyy", { locale })}
           </Text>
           <Pressable
             testID="add-to-classes-week-next"
@@ -225,7 +228,7 @@ export function AddToClassesDialog({
                 return (
                   <View key={dateStr} className="gap-2">
                     <Text className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {format(day, "EEEE, MMM d")}
+                      {format(day, "EEEE, d MMM", { locale })}
                     </Text>
                     <View className="gap-2">
                       {dayClasses.map((cls) => {

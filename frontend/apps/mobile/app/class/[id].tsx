@@ -8,6 +8,7 @@ import {
 } from "@levelup/hooks";
 import type { ClassInstance, PresenceStatus } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
+import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -42,6 +43,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
@@ -80,10 +82,10 @@ const COLORS = [
   "#6366f1",
 ];
 
-function formatDay(dateStr?: string): string {
+function formatDay(dateStr: string | undefined, locale: Locale): string {
   if (!dateStr) return "";
   try {
-    return format(parseISO(dateStr), "EEE, MMM d");
+    return format(parseISO(dateStr), "EEE, d MMM", { locale });
   } catch {
     return dateStr;
   }
@@ -91,6 +93,7 @@ function formatDay(dateStr?: string): string {
 
 export default function ClassDetailScreen() {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const params = useLocalSearchParams<ClassRouteParams>();
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
@@ -235,7 +238,7 @@ export default function ClassDetailScreen() {
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
 
   const dateLabel =
-    formatDay(active?.date || event.date) || (params.displayDate ?? "");
+    formatDay(active?.date || event.date, locale) || (params.displayDate ?? "");
   const startTime = active?.startTime || event.startTime;
   const endTime = active?.endTime || event.endTime;
   const timeLabel =
@@ -502,7 +505,7 @@ export default function ClassDetailScreen() {
                     {active?.recurrenceEnd && !active?.parentClassId ? (
                       <Text className="mt-0.5 text-xs text-muted-foreground">
                         {t("calendar.detail.untilDate", {
-                          date: formatDay(active.recurrenceEnd),
+                          date: formatDay(active.recurrenceEnd, locale),
                         })}
                       </Text>
                     ) : null}
@@ -650,7 +653,7 @@ export default function ClassDetailScreen() {
               <Text className="text-xs text-muted-foreground">
                 Recurring class
                 {instance?.recurrenceEnd
-                  ? ` · until ${formatDay(instance.recurrenceEnd)}`
+                  ? ` · until ${formatDay(instance.recurrenceEnd, locale)}`
                   : ""}
               </Text>
             </View>
