@@ -23,10 +23,12 @@ went through `Image.signed_url()`, which
 
 1. built a **new `storage.Client()` per image** — on GCE that resolves credentials against the
    metadata server every time, so a page of avatars paid that cost once per row; and
-2. then **failed**: staging carries no `GCS_UPLOADS_BUCKET` at all, and the VM's service account
-   never received `roles/iam.serviceAccountTokenCreator` (PAD-197's live rollout was not applied),
-   so v4 signing under ADC could not sign. The exception escaped `url()`, so any endpoint that
-   serialized a user with an avatar answered 500.
+2. then **failed**: staging carries no `GCS_UPLOADS_BUCKET` at all, so `bucket(None)` cannot be
+   signed against. The exception escaped `url()`, so any endpoint that serialized a user with an
+   avatar answered 500. (Correction, later the same day: the IAM side is fine — the VM service
+   account `levelup-vm-sa` already holds `roles/storage.objectViewer` on the bucket and
+   `roles/iam.serviceAccountTokenCreator` on itself, verified with `gcloud … get-iam-policy`. The
+   missing bucket on staging was the whole cause; prod, which has the bucket, can sign.)
 
 Together: "staging is super slow and doesn't seem to be working". The local E2E seed has no
 avatars, which is why nothing caught it before real data arrived.
@@ -37,8 +39,9 @@ storage client is created once per process. Pinned by `test_image_privacy.py`
 (`test_url_degrades_to_none_when_signing_fails`, `test_url_is_none_without_a_bucket`,
 `test_storage_client_is_built_once`) and by `messaging.messages` rule 5b.
 
-The IAM binding itself is still PAD-197's rollout step 1; until it is applied, private images
-render as missing on prod too once B-015's migration reaches it. That is the intended degraded
-state, not a crash.
+On staging, private images render as missing (no bucket) — the intended degraded state, not a
+crash. Prod has the bucket and the IAM bindings, so once B-015's migration reaches `main` it
+serves signed URLs; only PAD-197's step 3 (revoking `allUsers`, still pending) changes anything
+there.
 
 *Found by the owner trying staging after PAD-196 + PAD-200 landed, 2026-09-06.*
