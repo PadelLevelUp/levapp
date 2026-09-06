@@ -30,7 +30,9 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "attendance-total"
 
-# ── Range controls, below the total (spec attendance.history rule 10) ──
+# ── The chart, and the range controls below it (spec rule 10) ──
+- assertVisible:
+    id: "attendance-chart"
 - assertVisible:
     id: "attendance-range-controls"
 - assertVisible:

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { AttendanceChart } from "@/features/attendance/AttendanceChart";
 import { AttendanceHistoryList } from "@/features/attendance/AttendanceHistoryList";
 import { AttendanceRangeControls } from "@/features/attendance/AttendanceRangeControls";
 import {
@@ -108,13 +109,24 @@ export default function AttendanceScreen() {
 
         <Card>
           <CardContent className="gap-4 pt-6">
-            <Text
-              testID="attendance-total"
-              className="text-sm text-muted-foreground"
-            >
-              {t("attendance.total", { count: history?.total ?? 0 })}
-            </Text>
-            {/* Range controls sit below the measure, per spec rule 10. */}
+            <View className="flex-row items-center justify-between gap-4">
+              <Text className="flex-1 text-base font-semibold">
+                {t("attendance.chart.title")}
+              </Text>
+              <Text
+                testID="attendance-total"
+                className="text-sm text-muted-foreground"
+              >
+                {t("attendance.total", { count: history?.total ?? 0 })}
+              </Text>
+            </View>
+            <AttendanceChart
+              buckets={history?.buckets ?? []}
+              granularity={history?.granularity ?? "day"}
+              loading={isPending}
+              error={isError}
+            />
+            {/* Chart on top, range controls directly below it (spec rule 10). */}
             <AttendanceRangeControls
               preset={preset}
               customRange={customRange}
@@ -128,11 +140,10 @@ export default function AttendanceScreen() {
           </CardContent>
         </Card>
 
+        {/* The chart above already carries the failure message, so this is the
+            retry affordance rather than a second copy of the same sentence. */}
         {isError ? (
-          <ErrorState
-            message={t("attendance.chart.error")}
-            onRetry={() => void refetch()}
-          />
+          <ErrorState onRetry={() => void refetch()} />
         ) : isPending ? (
           <Skeleton className="h-48 w-full rounded-lg" />
         ) : (
