@@ -57,11 +57,16 @@ test("US-58: coach can type and send a message", async ({ page }) => {
 
 // US-59: Sent messages appear immediately (without page reload)
 test("US-59: sent messages appear immediately in the conversation", async ({ page }) => {
-  await page.getByText("E2E Student").first().click();
-  await page.waitForResponse(
-    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // Arm the wait before the click: the detail response can land before a
+  // wait registered afterwards would see it (PAD-204 made it fast enough
+  // for that race to show up under full-suite load).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    page.getByText("E2E Student").first().click(),
+  ]);
 
   const msgInput = page.getByPlaceholder(/type a message/i);
   const newMessage = `US-59 immediate ${Date.now()}`;
@@ -82,11 +87,16 @@ test("US-59: sent messages appear immediately in the conversation", async ({ pag
 
 // US-60: Coach can edit a sent message via the right-click context menu
 test("US-60: coach can edit a sent message", async ({ page }) => {
-  await page.getByText("E2E Student").first().click();
-  await page.waitForResponse(
-    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // Arm the wait before the click: the detail response can land before a
+  // wait registered afterwards would see it (PAD-204 made it fast enough
+  // for that race to show up under full-suite load).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    page.getByText("E2E Student").first().click(),
+  ]);
 
   // The seeded coach message is editable (mine=true, so Edit/Delete are exposed).
   const bubble = page.getByText(SEEDED_COACH_MESSAGE).first();
@@ -114,11 +124,16 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
 
 // US-61: Coach can delete a sent message via the right-click context menu
 test("US-61: coach can delete a sent message", async ({ page }) => {
-  await page.getByText("E2E Student").first().click();
-  await page.waitForResponse(
-    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // Arm the wait before the click: the detail response can land before a
+  // wait registered afterwards would see it (PAD-204 made it fast enough
+  // for that race to show up under full-suite load).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    page.getByText("E2E Student").first().click(),
+  ]);
 
   // Send a fresh message that we can safely delete (avoids racing against the
   // edit test if it runs first and modifies the seeded message).
@@ -166,11 +181,16 @@ test("US-62: unread badge updates when a message is received", async ({ page, br
     await loginAsStudent(studentPage);
     await openMessages(studentPage);
 
-    await studentPage.getByText("E2E Coach").first().click();
-    await studentPage.waitForResponse(
-      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-      { timeout: 10_000 }
-    );
+    // Arm the wait before the click: the detail response can land before a
+    // wait registered afterwards would see it (PAD-204 made it fast enough
+    // for that race to show up under full-suite load).
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+        { timeout: 10_000 }
+      ),
+      studentPage.getByText("E2E Coach").first().click(),
+    ]);
 
     const msgInput = studentPage.getByPlaceholder(/type a message/i);
     await msgInput.fill(`US-62 unread ping ${Date.now()}`);
@@ -224,22 +244,32 @@ test("US-63: opening a conversation clears the unread count", async ({ page }) =
 // US-64: New message received inside an open conversation auto-scrolls into view
 test("US-64: new message in open conversation is scrolled into view", async ({ page, browser }) => {
   // Coach opens the seeded conversation
-  await page.getByText("E2E Student").first().click();
-  await page.waitForResponse(
-    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // Arm the wait before the click: the detail response can land before a
+  // wait registered afterwards would see it (PAD-204 made it fast enough
+  // for that race to show up under full-suite load).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    page.getByText("E2E Student").first().click(),
+  ]);
 
   const studentCtx = await browser.newContext();
   try {
     const studentPage = await studentCtx.newPage();
     await loginAsStudent(studentPage);
     await openMessages(studentPage);
-    await studentPage.getByText("E2E Coach").first().click();
-    await studentPage.waitForResponse(
-      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-      { timeout: 10_000 }
-    );
+    // Arm the wait before the click: the detail response can land before a
+    // wait registered afterwards would see it (PAD-204 made it fast enough
+    // for that race to show up under full-suite load).
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+        { timeout: 10_000 }
+      ),
+      studentPage.getByText("E2E Coach").first().click(),
+    ]);
 
     const uniqueText = `US-64 scroll test ${Date.now()}`;
     const msgInput = studentPage.getByPlaceholder(/type a message/i);

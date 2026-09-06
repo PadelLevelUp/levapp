@@ -101,6 +101,7 @@
     "confirmDeleteMessageAria": "Confirmar eliminação da mensagem",
     "delete": "Eliminar",
     "conversationFallback": "Conversa",
+    "deletedUser": "Utilizador eliminado",
     "noMessagesSayHi": "Ainda não há mensagens. Diz olá!",
     "reactWith": "Reagir com {{emoji}}",
     "roleLabel": "Função: {{role}}",

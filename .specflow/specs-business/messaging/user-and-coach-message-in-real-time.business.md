@@ -43,6 +43,9 @@ the mechanism itself is generic 1:1 (and group) messaging.
 
 ## Business Rules
 
+- A coach can always message any student on their own roster — anyone they added, imported, or who
+  accepted their invitation — as well as any student at a club they coach at. Nobody else. A
+  student can message any active coach.
 - A conversation between the same two people is found, not recreated, every time — starting a
   "new" conversation with someone you've already messaged reuses the existing thread.
 - Only the sender of a message can edit or delete it.

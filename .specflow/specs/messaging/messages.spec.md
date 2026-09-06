@@ -36,6 +36,20 @@ Send, edit, and delete messages within conversations, with support for replies a
 7. On send: push notification sent to all other conversation participants
 8. On send: SSE event published to real-time stream
 9. `sent_at` is stored as naive UTC in the DB and serialized as a **UTC-aware ISO 8601 string** (with an explicit `+00:00`/`Z` offset) in the `timestamp`/`lastMessageAt` fields, so clients parse it correctly and render in the viewer's local timezone
+9a. `sent_at` is written with the same clock **and the same precision** as
+    `ConversationParticipant.last_read_at` — the value `utcnow_naive()` returns, microseconds
+    kept — never a second-truncated string (B-024). Unread is decided by
+    `sent_at > last_read_at` (`messaging.read-tracking` rule 3), so truncating one side of
+    that comparison and not the other makes any message sent in the same wall-clock second
+    as a mark-read born already-read
+10. **Every message operation requires the caller to be a participant of the message's
+    conversation** — sending (`POST /api/app/message`), editing, deleting, reacting
+    (`POST /api/app/message/{id}/reaction`), reporting and reading the conversation
+    (`GET /api/app/conversation/{id}`). A non-participant gets **403**; nothing is
+    written, no SSE event is published and no push is sent. Being the sender is an
+    additional requirement for edit and delete (rules 2 and 3), not a substitute for
+    this one, and the conversation id is taken from the target row — never trusted
+    from the request body as proof of access (B-026)
 
 ### Acceptance Criteria
 
@@ -44,6 +58,12 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **When** the message payload is serialized
 - **Then** `timestamp` carries an explicit UTC offset (e.g. `2026-07-01T17:00:00+00:00`)
 - **And** a client in Lisbon (UTC+1 in summer) renders it as 18:00 local, not 17:00
+
+#### A message sent just after a read is unread (B-024)
+- **Given** a participant marks a conversation read at instant T
+- **When** a message is sent to that conversation 1 ms later
+- **Then** the message counts as unread for that participant
+- **And** the same holds anywhere inside the same wall-clock second
 
 #### Attachment is not publicly readable
 - **Given** a message with an image attachment
@@ -83,3 +103,21 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Given** message id 50 sent by user 1
 - **When** user 5 tries to PATCH or DELETE
 - **Then** the request is rejected (403)
+
+#### A non-participant cannot post into a conversation (B-026)
+- **Given** a conversation between users 1 and 5
+- **And** user 9 who is not a participant of it
+- **When** user 9 POSTs to `/api/app/message` with that `conversationId`
+- **Then** the response is 403
+- **And** no Message row is created
+- **And** no SSE event is published and no push notification is sent
+
+#### A non-participant cannot react to a message (B-026)
+- **Given** message id 50 in a conversation between users 1 and 5
+- **When** user 9 POSTs `/api/app/message/50/reaction` with `{"emoji": "👍"}`
+- **Then** the response is 403 and no MessageReaction row is created
+
+#### An SSE event only reaches the conversation's participants (B-004)
+- **Given** a conversation between users 1 and 5, and a connected user 9
+- **When** user 1 sends a message in it
+- **Then** the `message_created` event is delivered to users 1 and 5 only

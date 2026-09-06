@@ -4,6 +4,7 @@ from padel_app.utils.dates import utcnow_naive
 
 from flask import abort
 from sqlalchemy import func, nullslast, or_, and_
+from sqlalchemy.orm import joinedload, selectinload
 
 from padel_app.sql_db import db
 from padel_app.models import (
@@ -18,6 +19,10 @@ from padel_app.models import (
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.realtime import publish
+from padel_app.services.conversation_access import (
+    message_recipient_ids,
+    require_participant,
+)
 from padel_app.serializers.message import serialize_message
 from padel_app.utils.push_notifications import send_push_notification
 from padel_app.utils.expo_push import send_expo_push_to_user
@@ -41,16 +46,24 @@ def _is_blocked_either_way(user_a_id, user_b_id):
 def _messageable_target_ids_for(user):
     """The set of user ids `user` is allowed to START a new conversation with.
 
-    Coach -> players belonging to any club the coach is in.
-    Everyone else (student/player) -> any coach.
+    Coach -> the union of their own roster (`coach_in_player`) and the players
+    of every club they belong to (`player_in_club`).
+    Everyone else (student/player) -> any active coach.
+
+    PAD-205 / B-025: this read club membership alone. Outside `seed/mock_data.py`
+    nothing writes `player_in_club` — adding a player, importing one, or
+    accepting an invitation all create a roster row instead — so a coach could
+    not message a student they had added through the app. The roster is the
+    record the app actually keeps; the club stays in the union so seeded and
+    club-wide links keep working.
     """
     coach = getattr(user, "coach", None)
     if coach:
-        return {
-            player.user_id
-            for club in coach.clubs
-            for player in club.players
-        }
+        players = list(coach.players)
+        for club in coach.clubs:
+            players.extend(club.players)
+        # A player awaiting activation can exist without a user row yet.
+        return {player.user_id for player in players if player.user_id}
 
     return {
         row.user_id
@@ -116,23 +129,25 @@ def get_messageable_users_service(user):
 def report_message_service(reporter_id, message_id, reason=None):
     """Report a message. Only participants of that message's conversation may report it."""
     message = Message.query.get_or_404(message_id)
-    is_participant = (
-        ConversationParticipant.query.filter_by(
-            conversation_id=message.conversation_id, user_id=reporter_id
-        ).first()
-        is not None
-    )
-    if not is_participant:
-        abort(403, "You cannot report a message outside your conversations")
+    # messaging.messages rule 10 — the same guard every other message operation
+    # now uses. This check was already here; PAD-206 moved it somewhere the
+    # others could reach rather than leaving report the only route that
+    # remembered to make it.
+    require_participant(message.conversation_id, reporter_id)
 
     report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
     report.create()
     return report
 
 
+# The "never read anything" sentinel the unread comparison falls back to when a
+# participant row has no `last_read_at` — or, for the list query below, when the
+# caller has no participant row at all (messaging.conversations rule 10).
+_UNREAD_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
 def get_unread_count(user_id):
     """Returns the number of unread messages for a user."""
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
     CP = ConversationParticipant
     M = Message
 
@@ -142,17 +157,91 @@ def get_unread_count(user_id):
         .filter(CP.user_id == user_id)
         .filter(M.sender_id != user_id)
         .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, epoch))
+        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
         .scalar()
     )
 
     return int(unread or 0)
 
 
-def create_message_service(data, user_id):
+def unread_counts_for_conversations(user_id, conversation_ids):
+    """`{conversation_id: unread count}` for `user_id`, in ONE query.
+
+    PAD-204 / messaging.conversations rule 12. The conversation list used to
+    count unread in Python, over `conversation.messages` — which is what forced
+    every message of every listed thread into the identity map. The predicate is
+    deliberately `get_unread_count`'s, soft-delete filter included (R-016), so
+    the numbers on the rows and the number on the tab badge are computed the
+    same way and agree.
+
+    The join to the caller's participant row is an OUTER join on purpose: a
+    conversation the caller has no row in must still count as entirely unread
+    rather than silently as zero (messaging.conversations rule 10, B-024). With
+    no row, `last_read_at` is NULL, and the coalesce turns that into "never
+    read" exactly as a row with a null `last_read_at` would.
+
+    Conversations with nothing unread are absent from the result, so callers
+    read it with `.get(conversation_id, 0)`.
+    """
+    if not conversation_ids:
+        return {}
+
+    CP = ConversationParticipant
+    M = Message
+
+    rows = (
+        db.session.query(M.conversation_id, func.count(M.id))
+        .outerjoin(
+            CP,
+            and_(
+                CP.conversation_id == M.conversation_id,
+                CP.user_id == user_id,
+            ),
+        )
+        .filter(M.conversation_id.in_(conversation_ids))
+        .filter(M.sender_id != user_id)
+        .filter(M.is_deleted == False)
+        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .group_by(M.conversation_id)
+        .all()
+    )
+
+    return {conversation_id: int(count) for conversation_id, count in rows}
+
+
+def last_messages_by_id(message_ids):
+    """`{message_id: Message}` for the given ids, in ONE query.
+
+    The other half of rule 12: `conversations.last_message_id` says which row
+    the list needs, and this fetches all of them together instead of one lazy
+    load per conversation. Ids that are None (a conversation with no messages)
+    or that no longer resolve are simply absent.
+    """
+    wanted = {message_id for message_id in message_ids if message_id is not None}
+    if not wanted:
+        return {}
+
+    return {
+        message.id: message
+        for message in Message.query.filter(Message.id.in_(wanted)).all()
+    }
+
+
+def create_message_service(data, user_id, now=None):
     """Creates a message and publishes a real-time event."""
+    conversation_id = data["conversationId"]
+
+    # messaging.messages rule 10 (B-026). Before this, the body's
+    # `conversationId` was taken as proof of access: the service loaded the
+    # OTHER participants, checked blocks against them and wrote the row — so any
+    # authenticated user could post into any conversation and have it pushed and
+    # broadcast as if they belonged there. An id in a request body is an
+    # argument, never a credential.
+    require_participant(conversation_id, user_id)
+
+    now = now or utcnow_naive()
     recipient_participants = ConversationParticipant.query.filter(
-        ConversationParticipant.conversation_id == data["conversationId"],
+        ConversationParticipant.conversation_id == conversation_id,
         ConversationParticipant.user_id != user_id,
     ).all()
 
@@ -162,14 +251,23 @@ def create_message_service(data, user_id):
 
     payload = {
         "text": data["text"],
-        "conversation": data["conversationId"],
+        "conversation": conversation_id,
         "sender": user_id,
         # UTC, to match last_read_at (mark_conversation_read_service uses
         # utcnow_naive) and the unread query `sent_at > last_read_at`. Using
         # local time here stamped fresh messages ~1h in the future under a +1
         # offset, so a just-read message stayed "unread" until UTC caught up
         # (PAD-66).
-        "sent_at": utcnow_naive().strftime("%Y-%m-%dT%H:%M:%S"),
+        #
+        # PAD-203: the datetime goes in as an OBJECT, not through
+        # `.strftime("%Y-%m-%dT%H:%M:%S")`. That format discarded the
+        # microseconds while `last_read_at` kept them, so a message sent in the
+        # same wall-clock second as a mark-read compared `<=` and was born
+        # already-read — the residue PAD-66's clock fix did not reach.
+        # `tools.str_to_datetime` returns a datetime untouched, so there is no
+        # string round-trip left to lose precision in (messaging.messages
+        # rule 9a).
+        "sent_at": now,
     }
 
     message = Message()
@@ -207,10 +305,12 @@ def create_message_service(data, user_id):
             badge=get_unread_count(participant.user_id),
         )
 
-    publish({
-        "type": "message_created",
-        "payload": serialize_message(message, None),
-    })
+    # Recipients are the conversation's participants — the sender included, so
+    # their own other tabs stay in sync (B-004).
+    publish(
+        {"type": "message_created", "payload": serialize_message(message, None)},
+        [user_id] + [p.user_id for p in recipient_participants],
+    )
 
     return message
 
@@ -218,36 +318,48 @@ def create_message_service(data, user_id):
 def edit_message_service(message_id, new_text, user_id):
     """Edit a message. Only the sender may edit."""
     message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
     message.text   = new_text
     message.edited = True
     message.save()
-    publish({
-        "type": "message_edited",
-        "payload": serialize_message(message, None),
-    })
+    publish(
+        {"type": "message_edited", "payload": serialize_message(message, None)},
+        message_recipient_ids(message),
+    )
     return message
 
 
 def delete_message_service(message_id, user_id):
     """Soft-delete a message. Only the sender may delete."""
     message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
     message.is_deleted = True
     message.save()
-    publish({
-        "type": "message_deleted",
-        "payload": {
-            "id": message_id,
-            "conversationId": message.conversation_id,
+    publish(
+        {
+            "type": "message_deleted",
+            "payload": {
+                "id": message_id,
+                "conversationId": message.conversation_id,
+            },
         },
-    })
+        message_recipient_ids(message),
+    )
 
 
 def toggle_reaction_service(message_id, emoji, user_id):
     """Add or remove a reaction (toggle)."""
+    # The message is loaded FIRST so participation is settled before anything is
+    # written. The old order accepted any message id, created the reaction row,
+    # and then republished the whole serialized message — text included — to
+    # every connected client (B-026 on the way in, B-004 on the way out).
+    message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
+
     existing = MessageReaction.query.filter_by(
         message_id=message_id, user_id=user_id, emoji=emoji
     ).first()
@@ -256,32 +368,73 @@ def toggle_reaction_service(message_id, emoji, user_id):
     else:
         MessageReaction(message_id=message_id, user_id=user_id, emoji=emoji).create()
 
-    message = Message.query.get_or_404(message_id)
-    publish({
-        "type": "message_reaction",
-        "payload": serialize_message(message, None),
-    })
+    publish(
+        {"type": "message_reaction", "payload": serialize_message(message, None)},
+        message_recipient_ids(message),
+    )
 
 
 def get_user_conversations(user, page=1, limit=20):
-    """Returns paginated conversations the user participates in, ordered by last message descending."""
+    """Returns paginated conversations the user participates in, ordered by last message descending.
+
+    PAD-204 / messaging.conversations rules 11-12. The order used to come from a
+    correlated `MAX(messages.sent_at)` subquery evaluated per candidate row,
+    against a `messages` table with no index on `conversation_id` — so paging a
+    coach's conversations scanned every message in the database. It now reads
+    the denormalised `last_message_at` the `Message` `after_insert` listener
+    maintains, which is a plain column sort.
+
+    The participants (and their users) are eager-loaded because
+    `serialize_conversation` reads both for every row; leaving them lazy is two
+    more statements per conversation on the page. The messages themselves are
+    NOT loaded — that is the point of the whole ticket.
+    """
     offset = (page - 1) * limit
-    last_message_at = (
-        db.session.query(func.max(Message.sent_at))
-        .filter(Message.conversation_id == Conversation.id)
-        .correlate(Conversation)
-        .scalar_subquery()
-    )
     query = (
         Conversation.query
         .join(ConversationParticipant)
         .filter(ConversationParticipant.user_id == user.id)
-        .order_by(nullslast(last_message_at.desc()))
+        .options(
+            selectinload(Conversation.participants)
+            .joinedload(ConversationParticipant.user)
+            # `participantRole` reads `User.role`, which is
+            # `'coach' if self.coach else 'player'` — a lazy load per
+            # participant if the relationship is left cold, and the single
+            # largest remaining term in the list's statement count.
+            .joinedload(User.coach)
+        )
+        .order_by(nullslast(Conversation.last_message_at.desc()))
         .offset(offset)
     )
     convs = query.limit(limit + 1).all()
     has_more = len(convs) > limit
     return {"conversations": convs[:limit], "has_more": has_more}
+
+
+def get_conversation_for_detail(conversation_id):
+    """One conversation, with everything the detail payload reads already loaded.
+
+    messaging.conversation-detail rule 8. `serialize_message` reads
+    `message.reactions` for every message it renders, so with the relationship
+    lazy a 200-message thread cost 200 extra round trips on top of the one that
+    fetched the thread. `selectinload` collapses those into a single
+    `message_reactions WHERE message_id IN (...)`.
+    """
+    return (
+        Conversation.query
+        .options(
+            selectinload(Conversation.messages).selectinload(Message.reactions),
+            selectinload(Conversation.participants)
+            .joinedload(ConversationParticipant.user)
+            # `participantRole` reads `User.role`, which is
+            # `'coach' if self.coach else 'player'` — a lazy load per
+            # participant if the relationship is left cold, and the single
+            # largest remaining term in the list's statement count.
+            .joinedload(User.coach),
+        )
+        .filter(Conversation.id == conversation_id)
+        .first_or_404()
+    )
 
 
 def create_conversation_service(data, user):
@@ -320,18 +473,44 @@ def create_conversation_service(data, user):
         values = form.set_values(fake_request)
 
         conversation.update_with_dict(values)
-        conversation.create()
 
-        for participant_id in payload.get("participant_ids", []):
-            ConversationParticipant(
-                conversation_id=conversation.id,
-                user_id=participant_id,
-            ).create()
+        # PAD-203: the conversation and ALL of its participant rows are one
+        # transaction (messaging.conversations rule 9). The base mixin's
+        # `create()` is add-then-COMMIT, so the old shape — `conversation.create()`
+        # followed by a `.create()` per participant — committed the conversation
+        # first and each participant separately. A failure anywhere after the
+        # first commit left a durable conversation with a missing participant
+        # row, which is precisely the input `serialize_conversation` used to
+        # raise `StopIteration` on: one such row 500'd the other person's entire
+        # conversation list, forever. So: `add` + `flush` to get the id the
+        # participants need, then a single commit at the end, with the savepoint
+        # rolled back on failure so nothing survives (PAD-117's pattern —
+        # `begin_nested()` opened OUTSIDE the try, so a failure to open it cannot
+        # leave `sp` unbound and mask the real exception).
+        sp = db.session.begin_nested()
+        try:
+            db.session.add(conversation)
+            db.session.flush()
+
+            for participant_id in payload.get("participant_ids", []):
+                db.session.add(
+                    ConversationParticipant(
+                        conversation_id=conversation.id,
+                        user_id=participant_id,
+                    )
+                )
+            db.session.flush()
+            sp.commit()
+        except Exception:
+            sp.rollback()
+            raise
+
+        db.session.commit()
 
     return conversation, user.id
 
 
-def mark_conversation_read_service(conversation_id, user):
+def mark_conversation_read_service(conversation_id, user, now=None):
     """Marks a conversation as read for the given user."""
     participation = (
         ConversationParticipant.query
@@ -342,5 +521,5 @@ def mark_conversation_read_service(conversation_id, user):
         .first_or_404()
     )
 
-    participation.last_read_at = utcnow_naive()
+    participation.last_read_at = now or utcnow_naive()
     participation.save()
