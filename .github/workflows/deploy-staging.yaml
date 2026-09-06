@@ -21,9 +21,10 @@ name: Deploy staging
 # the production one, so it can exercise the signed-URL path without being able
 # to write a byte into prod uploads. The bucket name is not a credential — access
 # comes from the VM service account — so it is inlined rather than held as a
-# secret. Staging's database is synced from prod, so the copied image rows name
-# keys absent from the staging bucket: they sign fine and then 404, which is the
-# intended "no image", not a fault.
+# secret, and it lives in .env.staging so sync-staging-db.sh can read it too.
+# That script seeds a placeholder object for every key the copied database
+# references, so images resolve on staging without a production byte ever
+# leaving its bucket.
 
 on:
   push:
@@ -114,7 +115,6 @@ jobs:
             -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
             -e FLASK_SECRET_KEY=${{ secrets.STAGING_FLASK_SECRET_KEY }} \
             -e JWT_SECRET_KEY=${{ secrets.STAGING_JWT_SECRET_KEY }} \
-            -e GCS_UPLOADS_BUCKET=padel-levelup-2026-storage-staging \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
