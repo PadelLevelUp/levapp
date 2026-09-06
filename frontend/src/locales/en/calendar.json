@@ -81,7 +81,8 @@
       "missingFieldsDescription": "Please fill in: {{fields}}",
       "fieldDate": "Date",
       "fieldDays": "Days of the week",
-      "fieldEndDate": "End date"
+      "fieldEndDate": "End date",
+      "repeatOnDay": "Repeat on day {{day}}"
     },
     "attendance": {
       "playerFallback": "Player",
@@ -90,7 +91,11 @@
       "present": "Present",
       "justified": "Justified",
       "unjustified": "Unjustified",
-      "absent": "Absent"
+      "absent": "Absent",
+      "markPresent": "Mark {{name}} present",
+      "markAbsent": "Mark {{name}} absent",
+      "markJustified": "Mark {{name}}'s absence justified",
+      "markUnjustified": "Mark {{name}}'s absence unjustified"
     },
     "detail": {
       "date": "Date",
@@ -106,6 +111,8 @@
       "autoNotificationsDescription": "Students will be auto-invited",
       "color": "Color",
       "recurring": "Recurring",
+      "recurringClass": "Recurring class",
+      "recurringClassUntil": "Recurring class · until {{date}}",
       "daysOfWeek": "Days of the week",
       "endDate": "End date",
       "attendance": "Attendance",
@@ -158,7 +165,9 @@
       "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
       "notAttending": "Not attending",
-      "notAttendingJustified": "Justified absence"
+      "notAttendingJustified": "Justified absence",
+      "colorOption": "Color {{color}}",
+      "invitedCount": "Invited ({{count}})"
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -174,7 +183,12 @@
       "noGroupsFound": "No groups found",
       "exerciseCount_one": "{{count}} exercise",
       "exerciseCount_other": "{{count}} exercises",
-      "allAlreadyAdded": " · all already added"
+      "allAlreadyAdded": " · all already added",
+      "editPlan": "Edit training plan",
+      "removeExercise": "Remove {{name}}",
+      "addExercise": "Add {{name}}",
+      "addGroup": "Add group {{name}}",
+      "searchExercises": "Search exercises"
     },
     "scope": {
       "cancel": "Cancel",
@@ -247,7 +261,8 @@
       "invitationSent_one": "Invitation sent to {{count}} student",
       "invitationSent_other": "Invitation sent to {{count}} students",
       "failedSendInvitations": "Failed to send invitations",
-      "blockedByPreference": "Could not notify: {{names}} (notifications blocked)"
+      "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
+      "searchStudents": "Search students"
     },
     "playerSelector": {
       "participants": "Participants ({{count}})",

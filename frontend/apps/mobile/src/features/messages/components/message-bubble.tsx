@@ -336,9 +336,10 @@ export function MessageBubble({
                     <Pressable
                       key={emoji}
                       testID={`message-reaction-${message.id}-${index}`}
-                      accessibilityLabel={`${emoji} reaction${
-                        count > 1 ? ` (${count})` : ""
-                      }`}
+                      accessibilityLabel={t("messages.reactionLabel", {
+                        emoji,
+                        count,
+                      })}
                       accessibilityValue={{ text: emoji }}
                       role="button"
                       disabled={!onReaction}

@@ -99,6 +99,10 @@
     "confirmDeleteMessageAria": "Confirm delete message",
     "delete": "Delete",
     "conversationFallback": "Conversation",
-    "noMessagesSayHi": "No messages yet. Say hi!"
+    "noMessagesSayHi": "No messages yet. Say hi!",
+    "reactWith": "React with {{emoji}}",
+    "roleLabel": "Role: {{role}}",
+    "reactionLabel_one": "{{emoji}} reaction",
+    "reactionLabel_other": "{{emoji}} reaction ({{count}})"
   }
 }

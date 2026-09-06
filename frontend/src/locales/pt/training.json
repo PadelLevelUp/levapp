@@ -181,6 +181,7 @@
       "instructionsTouch": "Toque numa ferramenta e depois toque no campo para a colocar. Toque num elemento para o selecionar — arraste para o mover, ou use o botão eliminar para o remover. Desenhe setas e linhas de movimento arrastando pelo campo e depois selecione-as para adicionar uma etiqueta ou curva. Máximo 4 jogadores."
     },
     "exercisesTabAria": "Separador de exercícios",
-    "groupsTabAria": "Separador de grupos"
+    "groupsTabAria": "Separador de grupos",
+    "exerciseItem": "Exercício {{name}}"
   }
 }

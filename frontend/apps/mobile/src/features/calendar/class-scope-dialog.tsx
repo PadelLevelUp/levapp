@@ -87,7 +87,7 @@ export function ClassScopeDialog({
         </View>
 
         <AlertDialogFooter>
-          <AlertDialogCancel accessibilityLabel="Cancel">
+          <AlertDialogCancel accessibilityLabel={t("calendar.scope.cancel")}>
             <Text>{t("common.cancel")}</Text>
           </AlertDialogCancel>
         </AlertDialogFooter>

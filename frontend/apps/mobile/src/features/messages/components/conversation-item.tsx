@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
-import { formatConversationTime, initialsOf } from "../utils";
+import { formatConversationTime, initialsOf, roleLabelKey } from "../utils";
 
 type ConversationItemProps = {
   conversation: Conversation;
@@ -28,6 +28,7 @@ export function ConversationItem({
     lastMessageAt,
     unreadCount,
   } = conversation;
+  const roleKey = roleLabelKey(participantRole);
 
   return (
     <Pressable
@@ -67,7 +68,11 @@ export function ConversationItem({
         <View className="flex-row items-center gap-2">
           {participantRole ? (
             <Badge variant="outline">
-              <Text className="capitalize">{participantRole}</Text>
+              {/* An unknown role has no key, so fall back to the raw value
+                  with `capitalize` — same behaviour as web's getRoleLabel. */}
+              <Text className={roleKey ? undefined : "capitalize"}>
+                {roleKey ? t(roleKey) : participantRole}
+              </Text>
             </Badge>
           ) : null}
           <Text

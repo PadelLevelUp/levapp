@@ -698,10 +698,14 @@ export default function ClassDetailScreen() {
                 color={lightTheme.mutedForeground}
               />
               <Text className="text-xs text-muted-foreground">
-                Recurring class
+                {/* Two whole sentences rather than a translated "until"
+                    glued onto an English stem — the separator and word
+                    order are the translator's to choose. */}
                 {instance?.recurrenceEnd
-                  ? ` · until ${formatDay(instance.recurrenceEnd, locale)}`
-                  : ""}
+                  ? t("calendar.detail.recurringClassUntil", {
+                      date: formatDay(instance.recurrenceEnd, locale),
+                    })
+                  : t("calendar.detail.recurringClass")}
               </Text>
             </View>
           ) : null}
@@ -752,7 +756,7 @@ export default function ClassDetailScreen() {
                   <Pressable
                     key={color}
                     testID={`class-edit-color-${color.slice(1)}`}
-                    accessibilityLabel={`Color ${color}`}
+                    accessibilityLabel={t("calendar.detail.colorOption", { color })}
                     role="button"
                     onPress={() =>
                       setDraft((d) => (d ? { ...d, color } : d))
@@ -825,7 +829,9 @@ export default function ClassDetailScreen() {
               <View className="gap-2">
                 <Pressable
                   testID="class-invited-toggle"
-                  accessibilityLabel={`Invited (${invitations.length})`}
+                  accessibilityLabel={t("calendar.detail.invitedCount", {
+                      count: invitations.length,
+                    })}
                   role="button"
                   onPress={() => setInvitationsOpen((open) => !open)}
                   className="flex-row items-center justify-between py-1"

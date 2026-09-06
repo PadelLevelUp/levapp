@@ -45,6 +45,7 @@ import { reminderResponseOutcome } from "@/features/messages/reminder-state";
 import {
   invalidateMessagesLists,
   normalizeId,
+  roleLabelKey,
   updateConversationCache,
   updateMessageInCache,
 } from "@/features/messages/utils";
@@ -626,28 +627,41 @@ export default function ConversationScreen() {
           headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
-          headerTitle: () => (
-            <View className="flex-row items-center gap-2">
-              <Text
-                numberOfLines={1}
-                className="text-base font-bold"
-                style={{ color: lightTheme.sidebarForeground }}
-              >
-                {conversation?.participantName ?? t("messages.conversationFallback")}
-              </Text>
-              {conversation?.participantRole ? (
-                <Badge
-                  variant="secondary"
-                  testID="chat-header-role"
-                  accessibilityLabel={`Role: ${conversation.participantRole}`}
+          headerTitle: () => {
+            // The badge shows the role to the eye and to VoiceOver, so both
+            // must resolve through the same key. An unknown role has no key
+            // and falls back to the raw value with `capitalize` — the same
+            // behaviour as `ConversationItem` and web's `getRoleLabel`.
+            const roleKey = roleLabelKey(conversation?.participantRole);
+            const roleLabel = roleKey
+              ? t(roleKey)
+              : conversation?.participantRole;
+            return (
+              <View className="flex-row items-center gap-2">
+                <Text
+                  numberOfLines={1}
+                  className="text-base font-bold"
+                  style={{ color: lightTheme.sidebarForeground }}
                 >
-                  <Text className="capitalize">
-                    {conversation.participantRole}
-                  </Text>
-                </Badge>
-              ) : null}
-            </View>
-          ),
+                  {conversation?.participantName ??
+                    t("messages.conversationFallback")}
+                </Text>
+                {conversation?.participantRole ? (
+                  <Badge
+                    variant="secondary"
+                    testID="chat-header-role"
+                    accessibilityLabel={t("messages.roleLabel", {
+                      role: roleLabel,
+                    })}
+                  >
+                    <Text className={roleKey ? undefined : "capitalize"}>
+                      {roleLabel}
+                    </Text>
+                  </Badge>
+                ) : null}
+              </View>
+            );
+          },
           headerRight: conversation
             ? () => (
                 <Pressable
