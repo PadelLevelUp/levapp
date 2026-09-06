@@ -1,5 +1,5 @@
 ---
-id: B-019
+id: B-021
 title: "Deleting a one-off calendar event was a no-op: axios sent no body, Flask answered 415"
 type: layer-drift
 severity: high
@@ -15,7 +15,7 @@ opened: 2026-09-06T00:00:00Z
 resolved: 2026-09-06T00:00:00Z
 ---
 
-# B-019 — a bodyless DELETE hit Flask's 415 and the event survived
+# B-021 — a bodyless DELETE hit Flask's 415 and the event survived
 
 Found by the iOS simulator pass on `batch/wave-1-2` (PAD-160, item F): deleting a
 **non-recurring** calendar event showed "Falha ao eliminar o evento", the detail screen

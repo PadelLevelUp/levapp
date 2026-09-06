@@ -39,7 +39,7 @@ describe("calendarApi.deleteCalendarBlock", () => {
   it("sends an empty JSON body when no scope is given (one-off event)", async () => {
     const seen = installSingleton();
 
-    // PAD-160 / bug B-019: with `{ data: undefined }` axios sends no body and
+    // PAD-160 / bug B-021: with `{ data: undefined }` axios sends no body and
     // strips `Content-Type`, and Flask's `request.get_json()` answers 415 — the
     // block survived and the app showed "failed to delete". A one-off delete
     // must carry a JSON body even though it has nothing to say.

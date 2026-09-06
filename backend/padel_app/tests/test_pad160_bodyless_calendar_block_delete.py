@@ -1,5 +1,5 @@
 """
-PAD-160 / bug B-019 — `DELETE /api/app/calendar_block/<id>` must tolerate a
+PAD-160 / bug B-021 — `DELETE /api/app/calendar_block/<id>` must tolerate a
 request with no body.
 
 A one-off (non-recurring) calendar event has nothing to say on delete: no

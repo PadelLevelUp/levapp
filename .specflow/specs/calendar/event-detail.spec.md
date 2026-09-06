@@ -38,7 +38,7 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     A recurring occurrence sends `{occDate, scope}`; a ONE-OFF event has neither, and must still
     send `{}` with `Content-Type: application/json`. `DELETE /api/app/calendar_block/<id>` reads
     its body with `get_json(silent=True)`, so a bodyless request is honoured rather than answered
-    415 (bug B-019 — an already-installed mobile build cannot be patched retroactively)
+    415 (bug B-021 — an already-installed mobile build cannot be patched retroactively)
 14. The scope dialog shown for a RECURRING block event is worded for an event, not a class
     (`calendar.eventScope.*`, "Delete event" / "Only this event"). `calendar.scope.*` stays
     class-worded and is what `ClassDetailSheet` uses
