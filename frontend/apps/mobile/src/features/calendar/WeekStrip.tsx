@@ -186,16 +186,40 @@ export function WeekStrip({
               {/* The column's own scroller: this is what absorbs a busy day,
                   instead of the strip growing or the list being cut to "+N".
                   `accessible={false}` on the inner Pressable keeps VoiceOver
-                  seeing one selectable element per day — the header above. */}
+                  seeing one selectable element per day — the header above.
+
+                  Two things below are load-bearing, not cosmetic:
+
+                  1. `grow` on BOTH the content container and the inner
+                     Pressable. Rule 14 makes this column ~half the screen tall,
+                     but its chips only fill as much of it as the day is busy.
+                     Without `grow`, a day with no classes gives the Pressable
+                     zero height, so everything under the ~47pt header is a dead
+                     zone — the tap lands on the ScrollView and the day is never
+                     selected. That regression arrives with the full-height
+                     column and hits exactly the quiet week this rule exists for.
+                     With `grow` the Pressable stretches to the whole scroller
+                     and the entire column selects its day, as it did when the
+                     column was content-sized.
+                     It must be `grow` (flexGrow:1, flexBasis auto) and NOT
+                     `flex-1` (flexGrow:1 + flexBasis 0): a flex-basis-0 child of
+                     a scroll content container takes its height from the
+                     scroller rather than from its content, which squashes a busy
+                     day back to one screenful and kills the internal scrolling
+                     this change exists to add.
+
+                  2. The vertical scroll indicator stays visible. With "+N" gone
+                     it is the only signal that a busy column continues below the
+                     fold; hiding it makes those classes undiscoverable. */}
               <ScrollView
                 className="flex-1"
-                contentContainerClassName="px-0.5 pb-1.5"
-                showsVerticalScrollIndicator={false}
+                contentContainerClassName="grow px-0.5 pb-1.5"
+                showsVerticalScrollIndicator
               >
                 <Pressable
                   accessible={false}
                   onPress={() => onSelectDay(day)}
-                  className="gap-1"
+                  className="grow gap-1"
                 >
                   {chips.map((event) => {
                     const isBlockEvent = event.type === "block";

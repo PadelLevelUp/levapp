@@ -104,3 +104,8 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
   not grow to fit the busiest day
 - **And** that day's column scrolls internally to reach the eighth class
 - **And** no `+N` more indicator is rendered on iOS, because no class is cut from the column
+- **And** the column keeps its scroll indicator visible, since with `+N` gone that is the only signal
+  that more classes sit below the fold
+- **And** tapping anywhere in a day's column selects that day — including the empty area below the
+  chips, and the whole column on a day with no classes at all; the full-height column is one
+  day-select target, not just its header
