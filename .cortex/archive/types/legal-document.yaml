@@ -1,0 +1,18 @@
+id: legal-document
+label: Legal document (policy, terms, contract)
+classification:
+  extensions: [.docx, .pdf, .md]
+  hints:
+    - "Effective date"
+    - "Privacy Policy"
+    - "Terms of Service"
+    - "data controller"
+    - "These Terms"
+  explicit: true
+extraction:
+  strategy: generic
+  outputs:
+    - kind: summary
+      path: extracted/summary.md
+    - kind: document
+      path: extracted/document.md

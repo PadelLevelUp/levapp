@@ -8,3 +8,5 @@ One entry per ingested document — active and superseded. Updated by
 | `2026-09-03-monorepo-cortex-workspace-handoff` | handoff | 2026-09-03 | active | Claude Code session that executed the monorepo/Cortex migration; full text also at `docs/handoffs/` (local-only — `docs/` is gitignored) |
 | `infra-handoff-2026-08-25` | handoff | 2026-08-25 | active | Infrastructure snapshot prepared 2026-08-25 for an infra discussion; two items now stale (B-003 fixed, tfstate claim wrong) — see `extracted/summary.md` |
 | `notifications-internals` | technical-reference | 2026-08-25 | active | Pre-rewrite code snapshot of the notification engine; superseded by `.specflow/specs/notifications/` and the current code |
+| `privacy-policy-2026-09-06` | legal-document | 2026-09-06 | active | Reviewed Privacy Policy received by email 2026-09-06; not yet published — PAD-219, blocked on PAD-198 (parental consent) |
+| `terms-of-service-2026-09-06` | legal-document | 2026-09-06 | active | Reviewed Terms of Service received by email 2026-09-06; not yet published — PAD-219, blocked on PAD-198 (parental consent) |
