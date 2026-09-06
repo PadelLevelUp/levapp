@@ -24,12 +24,15 @@ that what the tutorial shows and what the engine does can never disagree.
 - **CREATES:** nothing persistent. The hypothetical **Vacancy** is an unsaved in-memory object.
 
 ### Rules
-1. `POST /api/app/notify/invite_simulation` with body `{lessonInstanceId, departingPlayerId}` runs
-   the simulation. Coach-only via `require_coach()` — a student caller gets **403**
-   (`settings.role-scope` rule 6). The instance must be one of the coach's (404 otherwise) and the
-   departing player must be enrolled in it (400 otherwise). The response is camelCase (R-022).
+1. `POST /api/app/notify/invite_simulation` with body `{model, originalId, date, departingPlayerId}`
+   runs the simulation. `model`/`originalId`/`date` address the class exactly as
+   `eligibility_check` does and resolve through `get_or_materialize_instance` (R-001) — the only
+   sanctioned way to reach a virtual occurrence. Coach-only via the blueprint's coach check — a
+   student caller gets **403** (`settings.role-scope` rule 6). The instance must be one of the
+   coach's (404 otherwise) and the departing player must be enrolled in it (400 otherwise). The
+   response is camelCase (R-022).
 2. `POST /api/app/notify/invite_simulation/explain` with body
-   `{lessonInstanceId, departingPlayerId, playerId}` returns the verdict for **one** roster player:
+   `{model, originalId, date, departingPlayerId, playerId}` returns the verdict for **one** roster player:
    `{playerId, name, stage, details}`. Same authorization as rule 1; a `playerId` outside the
    coach's roster is a 404.
 3. **No writes.** The simulation creates no `Vacancy` row, no `NotificationEvent`, no `Message`,
