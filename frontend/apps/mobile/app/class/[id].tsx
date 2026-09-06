@@ -11,7 +11,11 @@ import {
   useClassInstance,
   useCoachLevels,
 } from "@levelup/hooks";
-import type { ClassInstance, PresenceStatus } from "@levelup/types";
+import type {
+  ApprovalBundle,
+  ClassInstance,
+  PresenceStatus,
+} from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
@@ -67,6 +71,7 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
+import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import { paramsToEvent, type ClassRouteParams } from "@/features/calendar/params";
 import {
   ParticipantRow,
@@ -151,6 +156,10 @@ export default function ClassDetailScreen() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [feedback, setFeedback] = React.useState<string | null>(null);
+  // PAD-168: semi-automatic mode returns the vacancies awaiting approval from
+  // the presence-confirm call; it is only ever set by that response.
+  const [approvalBundle, setApprovalBundle] =
+    React.useState<ApprovalBundle | null>(null);
 
   // ── Edit mode (coach only) ──
   const [isEditing, setIsEditing] = React.useState(false);
@@ -411,11 +420,20 @@ export default function ClassDetailScreen() {
 
     setFeedback(null);
     try {
-      await confirmPresences.mutateAsync({
+      const { approvalBundle: bundle } = await confirmPresences.mutateAsync({
         classInstance: instance,
         presences: payload,
       });
-      setFeedback(t("calendar.detail.attendanceSavedTitle"));
+      // PAD-168: in semi-automatic mode the absences opened vacancies that
+      // wait on the coach's approval. Web surfaces the bundle here (see
+      // ClassDetailSheet's handleSaveAttendance); iOS dropped it, so the
+      // invitations sat unapproved with nothing on screen saying so.
+      setApprovalBundle(bundle ?? null);
+      setFeedback(
+        bundle
+          ? t("calendar.detail.approvalNeededDescription")
+          : t("calendar.detail.attendanceSavedTitle")
+      );
     } catch {
       setFeedback(t("calendar.detail.failedSaveAttendance"));
     }
@@ -821,6 +839,16 @@ export default function ClassDetailScreen() {
               </Button>
             ) : null}
           </View>
+
+          {/* Replacement approval (semi-automatic mode, PAD-168) — mirrors
+              web's ClassDetailSheet, which renders the same card between the
+              attendance block and the Invited list. */}
+          {isCoach && !isEditing && approvalBundle ? (
+            <>
+              <Separator />
+              <ReplacementApprovalCard bundle={approvalBundle} />
+            </>
+          ) : null}
 
           {/* Invited (N) — coach only, collapsible, live via SSE above. */}
           {isCoach && !isEditing && invitations.length > 0 ? (

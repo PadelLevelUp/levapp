@@ -22,7 +22,11 @@ type Props = {
   /** Own messages get Edit/Delete; others only get quick reactions. */
   isMine: boolean;
   onClose: () => void;
+  /** PAD-168: reply existed only as a swipe gesture — undiscoverable. */
+  onReply?: () => void;
   onEdit?: () => void;
+  /** PAD-168: absent when the message has no text worth copying. */
+  onCopy?: () => void;
   onDelete?: () => void;
   onReport: () => void;
   onReaction: (emoji: string) => void;
@@ -30,7 +34,8 @@ type Props = {
 
 /**
  * Floating menu anchored near the pressed bubble: a quick-reactions row on
- * top and Edit/Delete below (own messages only). Mirrors web's
+ * top and Reply/Edit/Copy/Delete/Report below (Edit and Delete on own
+ * messages only). Mirrors web's
  * MessageActionMenu.tsx, hand-rolled since no @rn-primitives popover/context
  * -menu primitive is installed — reuses the same Portal + backdrop pattern
  * already used by alert-dialog.tsx / dialog.tsx / select.tsx.
@@ -39,7 +44,9 @@ export function MessageContextMenu({
   anchor,
   isMine,
   onClose,
+  onReply,
   onEdit,
+  onCopy,
   onDelete,
   onReport,
   onReaction,
@@ -47,7 +54,22 @@ export function MessageContextMenu({
   const { t } = useTranslation();
   const { width: vw, height: vh } = Dimensions.get("window");
 
+  // Order mirrors web's MessageActionMenu: Reply / Edit / Copy / Delete /
+  // Report. Web's trailing "Cancel" row has no iOS counterpart — the backdrop
+  // Pressable below already carries that label and dismisses on tap.
   const actions = [
+    ...(onReply
+      ? [
+          {
+            key: "reply",
+            testID: "message-reply-action",
+            label: t("messages.reply"),
+            icon: "arrow-undo-outline" as const,
+            destructive: false,
+            onPress: onReply,
+          },
+        ]
+      : []),
     ...(onEdit
       ? [
           {
@@ -57,6 +79,18 @@ export function MessageContextMenu({
             icon: "pencil-outline" as const,
             destructive: false,
             onPress: onEdit,
+          },
+        ]
+      : []),
+    ...(onCopy
+      ? [
+          {
+            key: "copy",
+            testID: "message-copy",
+            label: t("messages.copy"),
+            icon: "copy-outline" as const,
+            destructive: false,
+            onPress: onCopy,
           },
         ]
       : []),
