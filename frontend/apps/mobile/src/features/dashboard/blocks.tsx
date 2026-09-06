@@ -48,7 +48,9 @@ import { cn } from "@/lib/utils";
  */
 export function canGo(href: string | undefined): href is string {
   if (!href) return false;
-  return ["/calendar", "/messages", "/players", "/attendance"].some((p) => href.startsWith(p));
+  return ["/calendar", "/messages", "/players", "/attendance", "/absences"].some((p) =>
+    href.startsWith(p),
+  );
 }
 
 export function go(href: string, hint?: { title?: string; timeLabel?: string }) {
@@ -75,9 +77,11 @@ export function go(href: string, hint?: { title?: string; timeLabel?: string }) 
     router.push("/(tabs)/calendar");
   } else if (href.startsWith("/messages")) router.push("/(tabs)/messages");
   else if (href.startsWith("/players")) router.push("/(tabs)/players");
-  // PAD-162: the student's "Attended" KPI. There is no absences screen on iOS
-  // yet, so "Missed" (`/absences`) stays inert here — dashboard.navigation rule 6.
+  // PAD-162: the student's "Attended" KPI.
   else if (href.startsWith("/attendance")) router.push("/attendance" as never);
+  // PAD-163: the student's "Missed" KPI, same backend contract
+  // (helpers/dashboard/player.py emits `/absences` for both shells).
+  else if (href.startsWith("/absences")) router.push("/absences" as never);
 }
 
 /* ── primitives ──────────────────────────────────────────────────────────── */

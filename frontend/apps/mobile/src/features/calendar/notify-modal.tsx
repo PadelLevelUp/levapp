@@ -1,5 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import {
+  blockedNames,
+  blockedReasons,
+  lightTheme,
+  shouldReportSent,
+  splitBlockedByCause,
+} from "@levelup/config";
 import { playersApi } from "@levelup/api";
 import type { CalendarEvent, CoachPlayer, StudentGroup } from "@levelup/types";
 import { useQuery } from "@tanstack/react-query";
@@ -126,7 +132,7 @@ export function NotifyModal({
   const handleSend = async () => {
     if (selected.size === 0) return;
     try {
-      const { sent } = await sendNotifications.mutateAsync({
+      const { sent, blocked } = await sendNotifications.mutateAsync({
         model: event.model,
         originalId,
         date: event.date,
@@ -134,7 +140,42 @@ export function NotifyModal({
       });
       resetAndClose();
       onSent?.();
-      toast.success(t("calendar.notify.invitationSent", { count: sent }));
+
+      // PAD-170 C6, porting web's ManualNotificationModal. iOS used to drop
+      // `blocked` on the floor and report only "sent to N", so a coach whose
+      // student had turned invitations off believed everyone was reached. The
+      // two causes are told apart (`splitBlockedByCause`) because "they are
+      // busy then" and "they turned invitations off" are different problems
+      // with different fixes.
+      const { unavailable, optedOut } = splitBlockedByCause(blocked);
+
+      // PAD-107: name whoever marked themselves unavailable for this slot.
+      if (unavailable.length > 0) {
+        toast.error(
+          t("calendar.unavailable.blocked", {
+            count: unavailable.length,
+            names: blockedNames(unavailable),
+          })
+        );
+      }
+      // PAD-112: a student who blocked notifications is skipped; naming them
+      // (and their own reason, when they gave one) makes the short count read
+      // as their choice rather than as a failure. Web uses a warning toast
+      // here; the mobile toast has only success/error, and reporting "could
+      // not notify" as a success would be a lie, so it takes the error slot.
+      if (optedOut.length > 0) {
+        toast.error(
+          t("calendar.notify.blockedByPreference", {
+            names: blockedNames(optedOut),
+          }),
+          blockedReasons(optedOut) || undefined
+        );
+      }
+      // PAD-107's ordering: no "invitations sent to 0" when everyone was
+      // skipped — the toasts above already told the whole story.
+      if (shouldReportSent(sent, blocked)) {
+        toast.success(t("calendar.notify.invitationSent", { count: sent }));
+      }
     } catch {
       toast.error(t("calendar.notify.failedSendInvitations"));
     }

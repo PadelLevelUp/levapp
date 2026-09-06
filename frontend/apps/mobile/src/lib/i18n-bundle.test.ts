@@ -181,6 +181,35 @@ describe("mobile i18n bundle", () => {
     }
   });
 
+  it("bundles the absences namespace the Faltas screen renders (PAD-163)", () => {
+    // Same trap as the attendance check above: without the static import the
+    // screen renders "absences.title" et al as literal key paths.
+    expect(importedNamespaces("en")).toContain("absences");
+    expect(importedNamespaces("pt")).toContain("absences");
+
+    for (const key of [
+      "absences.title",
+      "absences.subtitleOwn",
+      "absences.subtitleOther",
+      "absences.backToPlayer",
+      "absences.backToDashboard",
+      "absences.playerLink",
+      "absences.total_one",
+      "absences.total_other",
+      "absences.chart.title",
+      "absences.history.title",
+      "absences.history.empty",
+      "absences.justified",
+      "absences.unjustified",
+    ]) {
+      expect(typeof en[key], `${key} missing from en`).toBe("string");
+      expect(typeof pt[key], `${key} missing from pt`).toBe("string");
+    }
+
+    expect(en["absences.subtitleOther"]).toContain("{{name}}");
+    expect(pt["absences.subtitleOther"]).toContain("{{name}}");
+  });
+
   it("resolves the strings the class-detail recurrence line renders", () => {
     // Was a hardcoded English `" · until "` template literal before PAD-158.
     for (const key of [

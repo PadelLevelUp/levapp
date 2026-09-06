@@ -1,8 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
+  blockedNames,
+  blockedReasons,
   effectiveFilledSpots,
   findOverlappingEvent,
   lightTheme,
+  shouldReportSent,
+  splitBlockedByCause,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -55,6 +59,11 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import {
+  canCancelAttendance,
+  canDeclineProactively,
+  hasDeclined,
+} from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import {
@@ -155,6 +164,10 @@ export default function ClassDetailScreen() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
+  // confirmation, with no deadline warning, because by definition it happens
+  // before the student was even reminded.
+  const [proactiveDeclineOpen, setProactiveDeclineOpen] = React.useState(false);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   // PAD-168: semi-automatic mode returns the vacancies awaiting approval from
   // the presence-confirm call; it is only ever set by that response.
@@ -368,12 +381,35 @@ export default function ClassDetailScreen() {
   const handleRemind = async () => {
     if (!event) return;
     try {
-      const { sent } = await sendReminders.mutateAsync({
+      const { sent, blocked } = await sendReminders.mutateAsync({
         model: event.model,
         originalId: String(event.originalId),
         date: event.date,
       });
-      toast.success(t("calendar.detail.remindersSent", { count: sent }));
+
+      // PAD-170 C6: same reporting web's ClassDetailSheet does. `blocked` was
+      // being discarded here, so "reminders sent to N" was the only thing the
+      // coach saw even when nobody could be reached.
+      const { unavailable, optedOut } = splitBlockedByCause(blocked);
+      if (unavailable.length > 0) {
+        toast.error(
+          t("calendar.unavailable.blocked", {
+            count: unavailable.length,
+            names: blockedNames(unavailable),
+          })
+        );
+      }
+      if (optedOut.length > 0) {
+        toast.error(
+          t("calendar.notify.blockedByPreference", {
+            names: blockedNames(optedOut),
+          }),
+          blockedReasons(optedOut) || undefined
+        );
+      }
+      if (shouldReportSent(sent, blocked)) {
+        toast.success(t("calendar.detail.remindersSent", { count: sent }));
+      }
     } catch {
       toast.error(t("calendar.detail.failedSendReminders"));
     }
@@ -451,11 +487,21 @@ export default function ClassDetailScreen() {
 
   // Student-only: their own presence row (the API only ever returns theirs).
   const myPresence = !isCoach ? (instance?.presences ?? [])[0] : undefined;
-  const canCancelAttendance =
-    !isCoach &&
-    !isCanceled &&
-    myPresence != null &&
-    myPresence.status !== "absent";
+
+  // PAD-170 C5: the gates live in `attendance-decline.ts` so the unit runner can
+  // exercise them. The proactive WINDOW is the server's answer
+  // (`canDeclineProactively`), never re-derived here.
+  const declineGate = {
+    isCoach,
+    isCanceled,
+    ownPresence: myPresence,
+    canDeclineProactively: instance?.canDeclineProactively,
+    date: active?.date ?? event.date,
+    startTime: active?.startTime ?? event.startTime,
+  };
+  const canCancel = canCancelAttendance(declineGate);
+  const declined = hasDeclined(myPresence);
+  const canDeclineEarly = canDeclineProactively(declineGate);
 
   const handleCancelAttendance = async () => {
     setCancelOpen(false);
@@ -466,6 +512,22 @@ export default function ClassDetailScreen() {
       setFeedback(t("classDetail.spotReleased"));
     } catch {
       setFeedback(t("classDetail.couldNotCancelAttendance"));
+    }
+  };
+
+  // PAD-170 C5: the same endpoint as the plain cancel — the server classifies
+  // which kind of decline it was (`attendance.confirm` rule 11), so this
+  // handler never has to reason about the reminder cutoff itself. Only the copy
+  // differs: freeing the spot early is a favour, not a cancellation.
+  const handleProactiveDecline = async () => {
+    setProactiveDeclineOpen(false);
+    if (!myPresence) return;
+    setFeedback(null);
+    try {
+      await cancelAttendance.mutateAsync(Number(myPresence.lessonInstanceId));
+      toast.success(t("calendar.detail.proactiveDeclineDone"));
+    } catch {
+      toast.error(t("calendar.detail.proactiveDeclineFailed"));
     }
   };
 
@@ -945,7 +1007,59 @@ export default function ClassDetailScreen() {
                     </Text>
                   </Badge>
                 </View>
-                {canCancelAttendance ? (
+
+                {/* PAD-170 C5 / `attendance.confirm` rule 16: once declined,
+                    the student's own row says so in words, not just as a
+                    status chip — and says the absence is justified, which is
+                    the part that decides whether it counts against them. */}
+                {declined ? (
+                  <View
+                    testID="class-not-attending"
+                    className="flex-row items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2"
+                  >
+                    <Ionicons
+                      name="person-remove-outline"
+                      size={16}
+                      color={lightTheme.mutedForeground}
+                    />
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium">
+                        {t("calendar.detail.notAttending")}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        {t("calendar.detail.notAttendingJustified")}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* PAD-170 C5: freeing the spot EARLY is what gives the
+                    invitation engine time to fill it, so it gets its own
+                    affordance rather than hiding behind the cancel action —
+                    and a hint saying why it is worth doing. */}
+                {canDeclineEarly ? (
+                  <View className="gap-1">
+                    <Button
+                      testID="class-proactive-decline"
+                      accessibilityLabel={t("calendar.detail.proactiveDecline")}
+                      variant="outline"
+                      onPress={() => setProactiveDeclineOpen(true)}
+                      disabled={cancelAttendance.isPending}
+                    >
+                      <Ionicons
+                        name="person-remove-outline"
+                        size={16}
+                        color={lightTheme.mutedForeground}
+                      />
+                      <Text>{t("calendar.detail.proactiveDecline")}</Text>
+                    </Button>
+                    <Text className="text-xs text-muted-foreground">
+                      {t("calendar.detail.proactiveDeclineHint")}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {canCancel ? (
                   <Button
                     testID="class-cancel-attendance"
                     accessibilityLabel={t("calendar.detail.cancelAttendance")}
@@ -1220,6 +1334,39 @@ export default function ClassDetailScreen() {
               onPress={handleCancelAttendance}
             >
               <Text>{t("classDetail.cancelMySpot")}</Text>
+            </Button>
+            <AlertDialogCancel>
+              <Text>{t("calendar.detail.keepAttendance")}</Text>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* PAD-170 C5: confirm a PROACTIVE decline. Deliberately different copy
+          from the cancellation above — there is no deadline warning to give,
+          because this happens before the student was ever asked, and the
+          absence lands justified. */}
+      <AlertDialog
+        open={proactiveDeclineOpen}
+        onOpenChange={setProactiveDeclineOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("calendar.detail.proactiveDeclineConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("calendar.detail.proactiveDeclineConfirmBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              testID="class-proactive-decline-confirm"
+              accessibilityLabel={t("calendar.detail.proactiveDecline")}
+              onPress={handleProactiveDecline}
+              disabled={cancelAttendance.isPending}
+            >
+              <Text>{t("calendar.detail.proactiveDecline")}</Text>
             </Button>
             <AlertDialogCancel>
               <Text>{t("calendar.detail.keepAttendance")}</Text>

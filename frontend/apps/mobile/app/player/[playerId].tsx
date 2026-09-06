@@ -288,6 +288,29 @@ export default function PlayerDetailScreen() {
           />
           <Text>{t("attendance.playerLink")}</Text>
         </Button>
+        {/* PAD-163: the same entry point for "Faltas", kept immediately beside
+            its attendance counterpart (web mirrors this in PlayerDetailPage's
+            PageActions) so the pair reads as one idea. The student reaches the
+            same screen from their dashboard "Missed" KPI. */}
+        <Button
+          variant="outline"
+          size="sm"
+          testID="player-absences-link"
+          accessibilityLabel={t("absences.playerLink")}
+          onPress={() =>
+            router.push({
+              pathname: "/absences",
+              params: { playerId: String(player.playerId) },
+            })
+          }
+        >
+          <Ionicons
+            name="close-circle-outline"
+            size={16}
+            color={lightTheme.foreground}
+          />
+          <Text>{t("absences.playerLink")}</Text>
+        </Button>
         <Button
           variant="outline"
           size="sm"

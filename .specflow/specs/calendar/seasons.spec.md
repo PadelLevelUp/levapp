@@ -55,6 +55,17 @@ never sent `id`, every "Save seasons" click deleted and re-created the coach's e
     toggle telling the coach to set a season or turn the toggle off and pick an end date. It is not a
     toast — a toast disappears and the sheet would already have closed over a class that was never
     created.
+11. **(PAD-170 C7)** The same surface exists on iOS (`app/class/new.tsx`): the "recurs until season
+    end" toggle, its hint, and the `no_season_covers_date` message rendered beside the toggle
+    without leaving the screen. Turning the toggle on replaces the end-date picker rather than
+    joining it, and the payload sends `recursUntilSeasonEnd` with `endDate: null` — sending both
+    would let a hand-typed date silently win over the season.
+12. **(PAD-170 C7)** iOS additionally warns **before** submitting, by asking the coach's own season
+    list whether any season covers the chosen date (`findSeasonCoveringDate` in `@levelup/config`,
+    shared so the range test cannot drift between shells). This is a HINT, not a gate: the client's
+    season list can be stale, the create is still attempted, and rule 8's server-side check stays
+    the authority. A stale hint costs a redundant warning; a client-side refusal would cost a class
+    the coach was entitled to create.
 
 ### Acceptance Criteria
 
@@ -113,10 +124,20 @@ never sent `id`, every "Save seasons" click deleted and re-created the coach's e
 - **And** a message beside the toggle explains that no season covers this date
 - **And** turning the toggle off clears the message, and picking an end date lets the class save
 
+#### iOS warns before the round trip (PAD-170 C7)
+- **Given** a coach on iOS creating a recurring class on a date no season covers
+- **When** they enable "recurs until season end"
+- **Then** the no-season message appears immediately, without submitting anything
+- **And** the end-date picker is replaced by the "ends at your season's end date" hint
+- **And** submitting anyway keeps them on the screen with every field intact, showing the same
+  message from the backend's `no_season_covers_date` rejection
+- **And** with a covering season the toggle shows only the hint, and the class saves with the
+  season's end date
+
 ### Notes
 - Source: tickets PAD-8 (feature), PAD-89 (write-contract fix), PAD-90 (fail-closed resolution),
   PAD-83 (investigation).
-- Rules 8–10 cover the create path only (`add_class_service`); no edit path can set
+- Rules 8–12 cover the create path only (`add_class_service`); no edit path can set
   `recurs_until_season_end`.
 - The DB has no unique/exclusion/check constraint on `seasons` — rules 1–2 are enforced only in the
   service layer, so the generic-CRUD write paths bypass them entirely (tracked separately as PAD-88).
