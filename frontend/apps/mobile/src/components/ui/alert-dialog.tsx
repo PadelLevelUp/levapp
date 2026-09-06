@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { buttonTextVariants, buttonVariants } from "@/components/ui/button";
 import { TextClassContext } from "@/components/ui/text";
+import { resolveFontClass } from "@/lib/font-class";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -79,7 +80,10 @@ function AlertDialogTitle({
 }: AlertDialogPrimitive.TitleProps) {
   return (
     <AlertDialogPrimitive.Title
-      className={cn("text-lg font-semibold text-foreground", className)}
+      // @rn-primitives Title renders a native Text directly — R-025.
+      className={resolveFontClass(
+        cn("text-lg font-semibold text-foreground", className)
+      )}
       {...props}
     />
   );

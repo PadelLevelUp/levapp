@@ -28,7 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
-import { findOverlappingEvent } from '@/lib/calendarOverlap';
+import { findOverlappingEvent } from "@levelup/config";
 import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 import { UnavailableStudentDialog } from './UnavailableStudentDialog';
 import { checkAvailabilityConflicts, type BlockedStudent } from '@/api/notificationEngine';

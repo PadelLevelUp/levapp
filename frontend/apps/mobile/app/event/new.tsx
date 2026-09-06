@@ -345,7 +345,7 @@ export default function NewEventScreen() {
                         <Pressable
                           key={value}
                           testID={`event-day-${value}`}
-                          accessibilityLabel={`Repeat on day ${value}`}
+                          accessibilityLabel={t("calendar.addEvent.repeatOnDay", { day: value })}
                           role="button"
                           onPress={() => toggleDay(value)}
                           className={cn(

@@ -5,7 +5,8 @@ import { Pressable, View } from "react-native";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
-import { formatConversationTime, initialsOf } from "../utils";
+import { useDateLocale } from "@/lib/date-locale";
+import { formatConversationTime, initialsOf, roleLabelKey } from "../utils";
 
 type ConversationItemProps = {
   conversation: Conversation;
@@ -18,6 +19,7 @@ export function ConversationItem({
   onPress,
 }: ConversationItemProps) {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const {
     participantName,
     participantAvatar,
@@ -26,6 +28,7 @@ export function ConversationItem({
     lastMessageAt,
     unreadCount,
   } = conversation;
+  const roleKey = roleLabelKey(participantRole);
 
   return (
     <Pressable
@@ -55,14 +58,21 @@ export function ConversationItem({
             {participantName}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {formatConversationTime(lastMessageAt)}
+            {formatConversationTime(lastMessageAt, {
+              locale,
+              yesterdayLabel: t("messages.yesterday"),
+            })}
           </Text>
         </View>
 
         <View className="flex-row items-center gap-2">
           {participantRole ? (
             <Badge variant="outline">
-              <Text className="capitalize">{participantRole}</Text>
+              {/* An unknown role has no key, so fall back to the raw value
+                  with `capitalize` — same behaviour as web's getRoleLabel. */}
+              <Text className={roleKey ? undefined : "capitalize"}>
+                {roleKey ? t(roleKey) : participantRole}
+              </Text>
             </Badge>
           ) : null}
           <Text

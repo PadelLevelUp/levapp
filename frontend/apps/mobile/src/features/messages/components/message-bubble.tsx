@@ -15,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { reminderState } from "../reminder-state";
 import { formatMessageTime } from "../utils";
 import type { ContextMenuAnchor } from "./message-context-menu";
 
@@ -106,6 +107,12 @@ type MessageBubbleProps = {
   respondingInvite?: boolean;
   /** Fires when the user taps Yes/No on a notification_invite message. */
   onRespondInvite?: (action: "yes" | "no") => void;
+  /** True while a notification_reminder answer is in flight (PAD-151). */
+  respondingReminder?: boolean;
+  /** Fires when the user taps Yes/No on a notification_reminder message. */
+  onRespondReminder?: (action: "yes" | "no") => void;
+  /** Fires when a confirmed student cancels their attendance. */
+  onCancelAttendance?: () => void;
 };
 
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
@@ -121,6 +128,9 @@ export function MessageBubble({
   onReaction,
   respondingInvite,
   onRespondInvite,
+  respondingReminder,
+  onRespondReminder,
+  onCancelAttendance,
   onScrollToReply,
 }: MessageBubbleProps) {
   const { t } = useTranslation();
@@ -134,6 +144,14 @@ export function MessageBubble({
   const isInvite = message.messageType === "notification_invite";
   const alreadyResponded = !!message.metadata?.responded;
   const response = message.metadata?.response;
+
+  // PAD-151: attendance reminders were rendered with no buttons at all, so a
+  // student could not answer one from the app. Its state rules (superseded,
+  // late cancellation, already-answered) live in reminder-state.ts.
+  const isReminder = message.messageType === "notification_reminder";
+  const reminder = reminderState(message.metadata, null);
+  const [confirmingLateCancel, setConfirmingLateCancel] =
+    React.useState(false);
 
   const translateX = useSharedValue(0);
 
@@ -318,9 +336,10 @@ export function MessageBubble({
                     <Pressable
                       key={emoji}
                       testID={`message-reaction-${message.id}-${index}`}
-                      accessibilityLabel={`${emoji} reaction${
-                        count > 1 ? ` (${count})` : ""
-                      }`}
+                      accessibilityLabel={t("messages.reactionLabel", {
+                        emoji,
+                        count,
+                      })}
                       accessibilityValue={{ text: emoji }}
                       role="button"
                       disabled={!onReaction}
@@ -345,6 +364,161 @@ export function MessageBubble({
             </View>
           ) : null}
         </View>
+
+        {/* Attendance-reminder response area (PAD-151), mirroring web's
+            notification_reminder block. Own messages never get buttons — a
+            coach's own reminder is not theirs to answer. */}
+        {isReminder && !own ? (
+          <View className="mt-1.5 flex-row flex-wrap gap-2 self-start">
+            {reminder.confirmed ? (
+              <>
+                <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
+                  <Ionicons
+                    name="checkmark"
+                    size={14}
+                    color={ACCEPTED_ICON_COLOR}
+                  />
+                  <Text className="text-xs font-medium text-success">
+                    {t("messages.confirmed")}
+                  </Text>
+                </View>
+
+                {reminder.canCancel ? (
+                  reminder.isLateCancellation && confirmingLateCancel ? (
+                    <View className="w-full gap-1.5">
+                      <View className="flex-row items-center gap-1.5">
+                        <Ionicons
+                          name="warning-outline"
+                          size={14}
+                          color={lightTheme.warning}
+                        />
+                        <Text className="flex-1 text-xs font-medium text-warning">
+                          {t("messages.lateCancellationWarning")}
+                        </Text>
+                      </View>
+                      <View className="flex-row gap-2">
+                        <Pressable
+                          testID="message-cancel-attendance-confirm"
+                          accessibilityLabel={t("messages.cancelAttendance")}
+                          role="button"
+                          disabled={respondingReminder}
+                          onPress={() => {
+                            setConfirmingLateCancel(false);
+                            onCancelAttendance?.();
+                          }}
+                          className={cn(
+                            "flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5",
+                            respondingReminder && "opacity-50"
+                          )}
+                        >
+                          <Ionicons
+                            name="close"
+                            size={14}
+                            color={lightTheme.destructive}
+                          />
+                          <Text className="text-xs font-medium text-destructive">
+                            {t("messages.cancelAttendance")}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          testID="message-cancel-attendance-abort"
+                          accessibilityLabel={t("messages.no")}
+                          role="button"
+                          disabled={respondingReminder}
+                          onPress={() => setConfirmingLateCancel(false)}
+                          className={cn(
+                            "rounded-full bg-muted px-3 py-1.5",
+                            respondingReminder && "opacity-50"
+                          )}
+                        >
+                          <Text className="text-xs font-medium text-foreground">
+                            {t("messages.no")}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <Pressable
+                      testID="message-cancel-attendance"
+                      accessibilityLabel={t("messages.cancelAttendance")}
+                      role="button"
+                      disabled={respondingReminder}
+                      onPress={() =>
+                        reminder.isLateCancellation
+                          ? setConfirmingLateCancel(true)
+                          : onCancelAttendance?.()
+                      }
+                      className={cn(
+                        "flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5",
+                        respondingReminder && "opacity-50"
+                      )}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={14}
+                        color={lightTheme.mutedForeground}
+                      />
+                      <Text className="text-xs font-medium text-foreground">
+                        {t("messages.cancelAttendance")}
+                      </Text>
+                    </Pressable>
+                  )
+                ) : null}
+              </>
+            ) : reminder.declined ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
+                <Ionicons name="close" size={14} color={lightTheme.destructive} />
+                <Text className="text-xs font-medium text-destructive">
+                  {t("messages.absent")}
+                </Text>
+              </View>
+            ) : reminder.superseded ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70">
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  color={lightTheme.mutedForeground}
+                />
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {t("messages.reminderExpired")}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  testID="message-reminder-yes"
+                  accessibilityLabel={t("messages.yes")}
+                  role="button"
+                  disabled={respondingReminder}
+                  onPress={() => onRespondReminder?.("yes")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-primary py-1.5",
+                    respondingReminder && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-primary-foreground">
+                    {t("messages.yes")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="message-reminder-no"
+                  accessibilityLabel={t("messages.no")}
+                  role="button"
+                  disabled={respondingReminder}
+                  onPress={() => onRespondReminder?.("no")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-muted py-1.5",
+                    respondingReminder && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {t("messages.no")}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
 
         {isInvite ? (
           <View

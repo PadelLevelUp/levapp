@@ -41,9 +41,11 @@ import {
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
+import { reminderResponseOutcome } from "@/features/messages/reminder-state";
 import {
   invalidateMessagesLists,
   normalizeId,
+  roleLabelKey,
   updateConversationCache,
   updateMessageInCache,
 } from "@/features/messages/utils";
@@ -463,6 +465,71 @@ export default function ConversationScreen() {
     }
   };
 
+  // PAD-151: attendance reminders had no response path on iOS at all. Same
+  // shape as the invite handler above — the answer is written into the cached
+  // message metadata so MessageBubble renders off metadata, not local state.
+  const [respondingReminderId, setRespondingReminderId] = React.useState<
+    string | number | null
+  >(null);
+
+  const lessonInstanceIdOf = (message: Message): number | null => {
+    const raw = message.metadata?.lessonInstanceId;
+    const id = Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  };
+
+  const handleRespondToReminder = async (
+    message: Message,
+    action: "yes" | "no"
+  ) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingReminderId !== null) return;
+    setRespondingReminderId(message.id);
+    try {
+      const result = await notificationEngineApi.respondToReminder(
+        instanceId,
+        action
+      );
+      // Trust the SERVER's action, not the tap: a late or superseded answer is
+      // rejected backend-side, and painting the tapped choice would show a
+      // state that was never recorded. PAD-68's "expired" writes nothing.
+      const outcome = reminderResponseOutcome(result?.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.write === null) return;
+      const response = outcome.write;
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: {
+          ...m.metadata,
+          responded: true,
+          response,
+        },
+      }));
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingReminderId(null);
+    }
+  };
+
+  const handleCancelAttendance = async (message: Message) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingReminderId !== null) return;
+    setRespondingReminderId(message.id);
+    try {
+      await notificationEngineApi.cancelAttendance(instanceId);
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: { ...m.metadata, responded: true, response: "no" },
+      }));
+      toast.success(t("messages.attendanceCancelled"));
+    } catch {
+      toast.error(t("messages.cancelAttendanceFailed"));
+    } finally {
+      setRespondingReminderId(null);
+    }
+  };
+
   // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
     if (!confirmingDelete) return;
@@ -560,28 +627,41 @@ export default function ConversationScreen() {
           headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
-          headerTitle: () => (
-            <View className="flex-row items-center gap-2">
-              <Text
-                numberOfLines={1}
-                className="text-base font-bold"
-                style={{ color: lightTheme.sidebarForeground }}
-              >
-                {conversation?.participantName ?? t("messages.conversationFallback")}
-              </Text>
-              {conversation?.participantRole ? (
-                <Badge
-                  variant="secondary"
-                  testID="chat-header-role"
-                  accessibilityLabel={`Role: ${conversation.participantRole}`}
+          headerTitle: () => {
+            // The badge shows the role to the eye and to VoiceOver, so both
+            // must resolve through the same key. An unknown role has no key
+            // and falls back to the raw value with `capitalize` — the same
+            // behaviour as `ConversationItem` and web's `getRoleLabel`.
+            const roleKey = roleLabelKey(conversation?.participantRole);
+            const roleLabel = roleKey
+              ? t(roleKey)
+              : conversation?.participantRole;
+            return (
+              <View className="flex-row items-center gap-2">
+                <Text
+                  numberOfLines={1}
+                  className="text-base font-bold"
+                  style={{ color: lightTheme.sidebarForeground }}
                 >
-                  <Text className="capitalize">
-                    {conversation.participantRole}
-                  </Text>
-                </Badge>
-              ) : null}
-            </View>
-          ),
+                  {conversation?.participantName ??
+                    t("messages.conversationFallback")}
+                </Text>
+                {conversation?.participantRole ? (
+                  <Badge
+                    variant="secondary"
+                    testID="chat-header-role"
+                    accessibilityLabel={t("messages.roleLabel", {
+                      role: roleLabel,
+                    })}
+                  >
+                    <Text className={roleKey ? undefined : "capitalize"}>
+                      {roleLabel}
+                    </Text>
+                  </Badge>
+                ) : null}
+              </View>
+            );
+          },
           headerRight: conversation
             ? () => (
                 <Pressable
@@ -669,6 +749,11 @@ export default function ConversationScreen() {
                       ? undefined
                       : (emoji) => handleToggleReaction(item.id, emoji)
                   }
+                  respondingReminder={respondingReminderId === item.id}
+                  onRespondReminder={(action) =>
+                    void handleRespondToReminder(item, action)
+                  }
+                  onCancelAttendance={() => void handleCancelAttendance(item)}
                   respondingInvite={respondingInviteId === item.id}
                   onRespondInvite={
                     isTempId(item.id)

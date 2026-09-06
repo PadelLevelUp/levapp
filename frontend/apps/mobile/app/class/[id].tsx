@@ -1,13 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import { effectiveFilledSpots, lightTheme } from "@levelup/config";
+import {
+  effectiveFilledSpots,
+  findOverlappingEvent,
+  lightTheme,
+} from "@levelup/config";
 import {
   queryKeys,
   useAutoInviteEnabled,
+  useCalendarEvents,
   useClassInstance,
   useCoachLevels,
 } from "@levelup/hooks";
 import type { ClassInstance, PresenceStatus } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
+import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -42,9 +48,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
+import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import {
   diffInstance,
   EDITABLE_CLASS_FIELDS,
@@ -80,10 +88,10 @@ const COLORS = [
   "#6366f1",
 ];
 
-function formatDay(dateStr?: string): string {
+function formatDay(dateStr: string | undefined, locale: Locale): string {
   if (!dateStr) return "";
   try {
-    return format(parseISO(dateStr), "EEE, MMM d");
+    return format(parseISO(dateStr), "EEE, d MMM", { locale });
   } catch {
     return dateStr;
   }
@@ -91,6 +99,7 @@ function formatDay(dateStr?: string): string {
 
 export default function ClassDetailScreen() {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const params = useLocalSearchParams<ClassRouteParams>();
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
@@ -147,6 +156,16 @@ export default function ClassDetailScreen() {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
+  const [overlapOpen, setOverlapOpen] = React.useState(false);
+
+  // PAD-159: the day's other events, for the overlap check on a timing edit.
+  // Keyed off the DRAFT's date so moving the class to another day checks the
+  // day it is moving TO, not the one it came from.
+  const overlapDate = draft?.date ?? instance?.date ?? "";
+  const { data: dayEvents } = useCalendarEvents(
+    overlapDate ? `${overlapDate}T00:00:00` : "",
+    overlapDate ? `${overlapDate}T23:59:59` : ""
+  );
   const active = draft ?? instance ?? null;
 
   // ── Notify / invited ──
@@ -235,7 +254,7 @@ export default function ClassDetailScreen() {
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
 
   const dateLabel =
-    formatDay(active?.date || event.date) || (params.displayDate ?? "");
+    formatDay(active?.date || event.date, locale) || (params.displayDate ?? "");
   const startTime = active?.startTime || event.startTime;
   const endTime = active?.endTime || event.endTime;
   const timeLabel =
@@ -276,6 +295,37 @@ export default function ClassDetailScreen() {
       setDraft(null);
       return;
     }
+
+    // PAD-159, mirroring web's ClassDetailSheet: only worth checking when the
+    // timing actually moved, and the class must not clash with itself — hence
+    // excluding this event's own id.
+    const timingChanged =
+      draft.date !== instance.date ||
+      draft.startTime !== instance.startTime ||
+      draft.endTime !== instance.endTime;
+
+    if (timingChanged) {
+      const conflict = findOverlappingEvent(
+        {
+          date: draft.date,
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+        },
+        dayEvents ?? [],
+        event ? String(event.id) : undefined
+      );
+      if (conflict) {
+        setOverlapOpen(true);
+        return;
+      }
+    }
+
+    proceedEdit();
+  };
+
+  /** The half of saveEdit that runs once any overlap has been acknowledged. */
+  const proceedEdit = () => {
+    setOverlapOpen(false);
     if (canApplyScope) {
       setEditScopeOpen(true);
     } else {
@@ -502,7 +552,7 @@ export default function ClassDetailScreen() {
                     {active?.recurrenceEnd && !active?.parentClassId ? (
                       <Text className="mt-0.5 text-xs text-muted-foreground">
                         {t("calendar.detail.untilDate", {
-                          date: formatDay(active.recurrenceEnd),
+                          date: formatDay(active.recurrenceEnd, locale),
                         })}
                       </Text>
                     ) : null}
@@ -648,10 +698,14 @@ export default function ClassDetailScreen() {
                 color={lightTheme.mutedForeground}
               />
               <Text className="text-xs text-muted-foreground">
-                Recurring class
+                {/* Two whole sentences rather than a translated "until"
+                    glued onto an English stem — the separator and word
+                    order are the translator's to choose. */}
                 {instance?.recurrenceEnd
-                  ? ` · until ${formatDay(instance.recurrenceEnd)}`
-                  : ""}
+                  ? t("calendar.detail.recurringClassUntil", {
+                      date: formatDay(instance.recurrenceEnd, locale),
+                    })
+                  : t("calendar.detail.recurringClass")}
               </Text>
             </View>
           ) : null}
@@ -702,7 +756,7 @@ export default function ClassDetailScreen() {
                   <Pressable
                     key={color}
                     testID={`class-edit-color-${color.slice(1)}`}
-                    accessibilityLabel={`Color ${color}`}
+                    accessibilityLabel={t("calendar.detail.colorOption", { color })}
                     role="button"
                     onPress={() =>
                       setDraft((d) => (d ? { ...d, color } : d))
@@ -775,7 +829,9 @@ export default function ClassDetailScreen() {
               <View className="gap-2">
                 <Pressable
                   testID="class-invited-toggle"
-                  accessibilityLabel={`Invited (${invitations.length})`}
+                  accessibilityLabel={t("calendar.detail.invitedCount", {
+                      count: invitations.length,
+                    })}
                   role="button"
                   onPress={() => setInvitationsOpen((open) => !open)}
                   className="flex-row items-center justify-between py-1"
@@ -1046,6 +1102,12 @@ export default function ClassDetailScreen() {
         mode="edit"
         onClose={() => setEditScopeOpen(false)}
         onConfirm={(scope) => void commitEdit(scope)}
+      />
+
+      <OverlapConfirmDialog
+        open={overlapOpen}
+        onCancel={() => setOverlapOpen(false)}
+        onConfirm={proceedEdit}
       />
 
       {/* Manual notification picker */}

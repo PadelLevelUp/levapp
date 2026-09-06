@@ -5,6 +5,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button } from "@/components/ui/button";
+import { formatInviteExpiry } from "@/features/settings/date-format";
 import {
   Card,
   CardContent,
@@ -38,7 +39,7 @@ import { toast } from "@/components/ui/toast";
  * the same need without adding a new native module mid-task.
  */
 export function ClubSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [loading, setLoading] = React.useState(true);
   const [club, setClub] = React.useState<invitationsApi.CoachClub | null>(
@@ -196,7 +197,7 @@ export function ClubSection() {
                       </Text>
                       <Text className="text-xs text-muted-foreground">
                         {t("settings.club.expires", {
-                          date: new Date(inv.expiresAt).toLocaleDateString(),
+                          date: formatInviteExpiry(inv.expiresAt, i18n.language),
                         })}
                       </Text>
                     </View>

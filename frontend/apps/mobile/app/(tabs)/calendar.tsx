@@ -16,6 +16,7 @@ import { Text } from "@/components/ui/text";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import { WeekStrip } from "@/features/calendar/WeekStrip";
+import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 
 function eventDayKey(event: CalendarEvent): string {
@@ -28,6 +29,7 @@ export default function CalendarScreen() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  const locale = useDateLocale();
 
   // Week navigation first (pure), then fetch the visible week's events.
   // PAD-181: `language` localizes the week-range label in WeekStrip. Passing
@@ -94,13 +96,36 @@ export default function CalendarScreen() {
   );
 
   const openEvent = (event: CalendarEvent) => {
+    // PAD-160: non-class events have their own detail screen. Web branches the
+    // same way (CalendarPage checks `event.type === "block"` and opens
+    // EventDetailSheet instead of ClassDetailSheet); iOS used to route
+    // everything to /class/[id], which is why a blocker was unreachable.
+    if (event.type === "block") {
+      router.push({
+        pathname: "/event/[id]",
+        params: {
+          id: event.id,
+          originalId: String(event.originalId),
+          date: event.date ?? "",
+          startTime: event.startTime ?? "",
+          endTime: event.endTime ?? "",
+          title: event.title ?? "",
+        },
+      });
+      return;
+    }
     router.push({ pathname: "/class/[id]", params: eventToParams(event) });
   };
 
   return (
     <Screen testID="screen-calendar">
       {/* SPLIT VIEW: the week's classes across the top, the selected day's
-          detail underneath — mirroring apps/web's MobileCalendarView. */}
+          detail underneath — mirroring apps/web's MobileCalendarView.
+          `calendar.view` rule 14 (PAD-172): WeekStrip renders a fixed week-nav
+          row plus a `flex-1` day grid, and the detail region below is `flex-1`
+          too, so the two halves split the space under the nav row evenly at
+          any class density. Before this, the strip was content-sized and
+          collapsed to 19% of the screen where web gives it 50%. */}
       <WeekStrip
         weekDays={calendar.weekDays}
         weekLabel={calendar.weekLabel}
@@ -112,54 +137,56 @@ export default function CalendarScreen() {
         eventsByDay={eventsByDay}
       />
 
-      {isError ? (
-        <ErrorState
-          message={t("calendar.mobile.loadFailed")}
-          onRetry={() => refetch()}
-        />
-      ) : isPending ? (
-        <View className="gap-3 p-4">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-        </View>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="gap-2 p-4 pb-24"
-        >
-          <View>
-            <Text className="font-semibold">
-              {format(selectedDay, "EEEE, d MMMM")}
-            </Text>
-            <Text className="text-sm text-muted-foreground">
-              {t("calendar.mobile.classCount", { count: dayEvents.length })}
-            </Text>
+      <View className="flex-1">
+        {isError ? (
+          <ErrorState
+            message={t("calendar.mobile.loadFailed")}
+            onRetry={() => refetch()}
+          />
+        ) : isPending ? (
+          <View className="gap-3 p-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
           </View>
-          {dayEvents.length === 0 ? (
-            <EmptyState
-              icon="calendar-outline"
-              title={t("calendar.mobile.noClasses")}
-              message={t("calendar.mobile.noClassesScheduled")}
-              className="py-12"
-            />
-          ) : (
-            dayEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onPress={openEvent}
-                isNext={event.id === nextEventId}
-                levelCode={
-                  event.levelId !== undefined
-                    ? levelCodeById.get(String(event.levelId))
-                    : undefined
-                }
+        ) : (
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="gap-2 p-4 pb-24"
+          >
+            <View>
+              <Text className="font-semibold">
+                {format(selectedDay, "EEEE, d MMMM", { locale })}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                {t("calendar.mobile.classCount", { count: dayEvents.length })}
+              </Text>
+            </View>
+            {dayEvents.length === 0 ? (
+              <EmptyState
+                icon="calendar-outline"
+                title={t("calendar.mobile.noClasses")}
+                message={t("calendar.mobile.noClassesScheduled")}
+                className="py-12"
               />
-            ))
-          )}
-        </ScrollView>
-      )}
+            ) : (
+              dayEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onPress={openEvent}
+                  isNext={event.id === nextEventId}
+                  levelCode={
+                    event.levelId !== undefined
+                      ? levelCodeById.get(String(event.levelId))
+                      : undefined
+                  }
+                />
+              ))
+            )}
+          </ScrollView>
+        )}
+      </View>
 
       {/* "Add event" mirrors web's CalendarToolbar: available to every role
           (coach and student alike), unlike "Add class" which is coach-only. */}

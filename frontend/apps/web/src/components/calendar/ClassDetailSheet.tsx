@@ -37,7 +37,7 @@ import type {
 } from "@/types";
 
 
-import { effectiveFilledSpots } from "@levelup/config";
+import { effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
@@ -85,7 +85,6 @@ import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
-import { findOverlappingEvent } from "@/lib/calendarOverlap";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 
 const COLORS = [
@@ -706,11 +705,11 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   <p className="text-sm font-medium">
-                    {format(new Date(active.date), "EEE, MMM d", { locale: dateFnsLocale(i18n.language) })}
+                    {format(new Date(active.date), "EEE, d MMM", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   {active.recurrenceEnd && !active.parentClassId && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "MMM d", { locale: dateFnsLocale(i18n.language) }) })}
+                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })}
                     </p>
                   )}
                 </div>

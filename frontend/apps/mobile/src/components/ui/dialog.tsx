@@ -5,6 +5,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { resolveFontClass } from "@/lib/font-class";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -110,7 +111,10 @@ function DialogFooter({ className, ...props }: ViewProps) {
 function DialogTitle({ className, ...props }: DialogPrimitive.TitleProps) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-lg font-semibold text-foreground", className)}
+      // @rn-primitives Title renders a native Text directly — R-025.
+      className={resolveFontClass(
+        cn("text-lg font-semibold text-foreground", className)
+      )}
       {...props}
     />
   );

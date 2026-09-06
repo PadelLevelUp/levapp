@@ -5,6 +5,7 @@ import type {
   PresenceStatus,
 } from "@levelup/types";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,8 @@ export function ParticipantRow({
     }
   };
 
+  const { t } = useTranslation();
+
   return (
     <View
       testID={`class-participant-${playerId}`}
@@ -80,13 +83,17 @@ export function ParticipantRow({
 
         {presence?.invited ? (
           <Badge variant={presence.confirmed ? "success" : "warning"}>
-            <Text>{presence.confirmed ? "Confirmed" : "Invited"}</Text>
+            <Text>
+              {presence.confirmed
+                ? t("calendar.attendance.confirmedAttendance")
+                : t("calendar.attendance.reminderSent")}
+            </Text>
           </Badge>
         ) : null}
 
         {attendance.status === "present" ? (
           <Badge variant="success">
-            <Text>Present</Text>
+            <Text>{t("calendar.attendance.present")}</Text>
           </Badge>
         ) : null}
         {attendance.status === "absent" ? (
@@ -99,8 +106,8 @@ export function ParticipantRow({
           >
             <Text>
               {attendance.justification === "justified"
-                ? "Justified"
-                : "Absent"}
+                ? t("calendar.attendance.justified")
+                : t("calendar.attendance.absent")}
             </Text>
           </Badge>
         ) : null}
@@ -110,7 +117,7 @@ export function ParticipantRow({
         <View className="flex-row gap-2">
           <Button
             testID={`attendance-present-${playerId}`}
-            accessibilityLabel={`Mark ${name} present`}
+            accessibilityLabel={t("calendar.attendance.markPresent", { name })}
             variant={attendance.status === "present" ? "default" : "outline"}
             size="sm"
             className={cn(
@@ -124,18 +131,18 @@ export function ParticipantRow({
                 attendance.status === "present" && "text-success-foreground"
               )}
             >
-              Present
+              {t("calendar.attendance.present")}
             </Text>
           </Button>
           <Button
             testID={`attendance-absent-${playerId}`}
-            accessibilityLabel={`Mark ${name} absent`}
+            accessibilityLabel={t("calendar.attendance.markAbsent", { name })}
             variant={attendance.status === "absent" ? "destructive" : "outline"}
             size="sm"
             className="flex-1"
             onPress={() => setStatus("absent")}
           >
-            <Text>Absent</Text>
+            <Text>{t("calendar.attendance.absent")}</Text>
           </Button>
         </View>
       ) : null}
@@ -144,7 +151,7 @@ export function ParticipantRow({
         <View className="flex-row gap-2">
           <Button
             testID={`attendance-justified-${playerId}`}
-            accessibilityLabel={`Mark ${name} absence justified`}
+            accessibilityLabel={t("calendar.attendance.markJustified", { name })}
             variant={
               attendance.justification === "justified" ? "default" : "outline"
             }
@@ -164,12 +171,12 @@ export function ParticipantRow({
                   "text-warning-foreground"
               )}
             >
-              Justified
+              {t("calendar.attendance.justified")}
             </Text>
           </Button>
           <Button
             testID={`attendance-unjustified-${playerId}`}
-            accessibilityLabel={`Mark ${name} absence unjustified`}
+            accessibilityLabel={t("calendar.attendance.markUnjustified", { name })}
             variant={
               attendance.justification === "unjustified"
                 ? "destructive"
@@ -181,7 +188,9 @@ export function ParticipantRow({
               onChange?.({ status: "absent", justification: "unjustified" })
             }
           >
-            <Text className="text-xs">Unjustified</Text>
+            <Text className="text-xs">
+              {t("calendar.attendance.unjustified")}
+            </Text>
           </Button>
         </View>
       ) : null}

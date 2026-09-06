@@ -103,7 +103,7 @@ export function PlanningSection({
             variant="ghost"
             size="sm"
             testID="class-planning-add"
-            accessibilityLabel="Add exercises"
+            accessibilityLabel={t("calendar.planning.addExercises")}
             onPress={() => {
               setSearch("");
               setPickerOpen(true);
@@ -118,7 +118,7 @@ export function PlanningSection({
             variant="ghost"
             size="sm"
             testID="class-planning-edit"
-            accessibilityLabel="Edit training plan"
+            accessibilityLabel={t("calendar.planning.editPlan")}
             onPress={onEditStart}
           >
             <Ionicons
@@ -162,7 +162,7 @@ export function PlanningSection({
               {isEditing ? (
                 <Pressable
                   testID={`class-planning-remove-${exercise.id}`}
-                  accessibilityLabel={`Remove ${exercise.name}`}
+                  accessibilityLabel={t("calendar.planning.removeExercise", { name: exercise.name })}
                   role="button"
                   hitSlop={8}
                   onPress={() => removeExercise(exercise.id)}
@@ -188,7 +188,7 @@ export function PlanningSection({
 
           <Input
             testID="class-planning-search"
-            accessibilityLabel="Search exercises"
+            accessibilityLabel={t("calendar.planning.searchExercises")}
             placeholder={t("calendar.planning.searchPlaceholder")}
             value={search}
             onChangeText={setSearch}
@@ -223,7 +223,7 @@ export function PlanningSection({
                       <Pressable
                         key={exercise.id}
                         testID={`class-planning-exercise-${exercise.id}`}
-                        accessibilityLabel={`Add ${exercise.name}`}
+                        accessibilityLabel={t("calendar.planning.addExercise", { name: exercise.name })}
                         role="button"
                         onPress={() => addExercise(exercise.id)}
                         className="flex-row items-center justify-between gap-2 rounded-lg p-2.5 active:bg-accent"
@@ -276,7 +276,7 @@ export function PlanningSection({
                         <Pressable
                           key={group.id}
                           testID={`class-planning-group-${group.id}`}
-                          accessibilityLabel={`Add group ${group.name}`}
+                          accessibilityLabel={t("calendar.planning.addGroup", { name: group.name })}
                           role="button"
                           disabled={newCount === 0}
                           onPress={() => addGroup(group.exerciseIds)}
