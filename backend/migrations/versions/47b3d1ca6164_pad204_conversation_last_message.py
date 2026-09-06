@@ -37,6 +37,34 @@ Create Date: 2026-09-06
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect as sa_inspect
+
+
+# Every DDL step below is guarded, so the revision can be applied to a database
+# that already carries part of it. That is not hypothetical: staging is copied
+# from prod on every deploy (PAD-200), and prod already had
+# `ix_messages_conversation_id_sent_at` and `ix_messages_sender_id` without any
+# migration recording them, so the first staging deploy of this revision died
+# on DuplicateTable and crash-looped the container. The UPDATE and DELETE are
+# idempotent by construction; the guards make the DDL match.
+def _inspector():
+    return sa_inspect(op.get_bind())
+
+
+def _has_column(table, name):
+    return name in {c["name"] for c in _inspector().get_columns(table)}
+
+
+def _has_index(table, name):
+    return name in {i["name"] for i in _inspector().get_indexes(table)}
+
+
+def _has_unique(table, name):
+    return name in {u["name"] for u in _inspector().get_unique_constraints(table)}
+
+
+def _has_fk(table, name):
+    return name in {f["name"] for f in _inspector().get_foreign_keys(table)}
 
 revision = "47b3d1ca6164"
 down_revision = "f1a2b3c4d5e6"
@@ -47,20 +75,23 @@ depends_on = None
 def upgrade():
     # 1 + 2 — the denormalised pointer, and its constraint added separately so
     # the conversations <-> messages cycle never lands in one statement.
-    op.add_column(
-        "conversations", sa.Column("last_message_at", sa.DateTime(), nullable=True)
-    )
-    op.add_column(
-        "conversations", sa.Column("last_message_id", sa.Integer(), nullable=True)
-    )
-    op.create_foreign_key(
-        "fk_conversations_last_message_id",
-        "conversations",
-        "messages",
-        ["last_message_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    if not _has_column("conversations", "last_message_at"):
+        op.add_column(
+            "conversations", sa.Column("last_message_at", sa.DateTime(), nullable=True)
+        )
+    if not _has_column("conversations", "last_message_id"):
+        op.add_column(
+            "conversations", sa.Column("last_message_id", sa.Integer(), nullable=True)
+        )
+    if not _has_fk("conversations", "fk_conversations_last_message_id"):
+        op.create_foreign_key(
+            "fk_conversations_last_message_id",
+            "conversations",
+            "messages",
+            ["last_message_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
     # 3 — backfill: the newest message per conversation. `DISTINCT ON` takes the
     # first row of each ordered group, and the `id DESC` tie-break makes the
@@ -96,41 +127,42 @@ def upgrade():
     )
 
     # 5 — the constraint rule 13 asks for, then the access-path indexes.
-    op.create_unique_constraint(
-        "uq_conversation_participant",
-        "conversation_participants",
-        ["conversation_id", "user_id"],
-    )
-    op.create_index(
-        "ix_conversation_participants_user_id",
-        "conversation_participants",
-        ["user_id"],
-    )
-    op.create_index(
-        "ix_messages_conversation_id_sent_at",
-        "messages",
-        ["conversation_id", "sent_at"],
-    )
-    op.create_index("ix_messages_sender_id", "messages", ["sender_id"])
+    if not _has_unique("conversation_participants", "uq_conversation_participant"):
+        op.create_unique_constraint(
+            "uq_conversation_participant",
+            "conversation_participants",
+            ["conversation_id", "user_id"],
+        )
+    for name, table, cols in (
+        ("ix_conversation_participants_user_id", "conversation_participants", ["user_id"]),
+        ("ix_messages_conversation_id_sent_at", "messages", ["conversation_id", "sent_at"]),
+        ("ix_messages_sender_id", "messages", ["sender_id"]),
+    ):
+        if not _has_index(table, name):
+            op.create_index(name, table, cols)
 
 
 def downgrade():
-    op.drop_index("ix_messages_sender_id", table_name="messages")
-    op.drop_index("ix_messages_conversation_id_sent_at", table_name="messages")
-    op.drop_index(
-        "ix_conversation_participants_user_id",
-        table_name="conversation_participants",
-    )
-    op.drop_constraint(
-        "uq_conversation_participant",
-        "conversation_participants",
-        type_="unique",
-    )
+    for name, table in (
+        ("ix_messages_sender_id", "messages"),
+        ("ix_messages_conversation_id_sent_at", "messages"),
+        ("ix_conversation_participants_user_id", "conversation_participants"),
+    ):
+        if _has_index(table, name):
+            op.drop_index(name, table_name=table)
+    if _has_unique("conversation_participants", "uq_conversation_participant"):
+        op.drop_constraint(
+            "uq_conversation_participant",
+            "conversation_participants",
+            type_="unique",
+        )
     # The de-duplication in step 4 is not reversible — the rows it removed were
     # duplicates of rows that remain, and re-creating them would only re-break
     # what rule 13 fixed.
-    op.drop_constraint(
-        "fk_conversations_last_message_id", "conversations", type_="foreignkey"
-    )
-    op.drop_column("conversations", "last_message_id")
-    op.drop_column("conversations", "last_message_at")
+    if _has_fk("conversations", "fk_conversations_last_message_id"):
+        op.drop_constraint(
+            "fk_conversations_last_message_id", "conversations", type_="foreignkey"
+        )
+    for col in ("last_message_id", "last_message_at"):
+        if _has_column("conversations", col):
+            op.drop_column("conversations", col)
