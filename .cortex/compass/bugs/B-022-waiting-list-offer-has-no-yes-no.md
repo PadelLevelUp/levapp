@@ -1,7 +1,7 @@
 ---
-id: B-019
+id: B-022
 title: "The waiting_list_offer message had no Yes/No, so the only self-service route onto the waiting list was unreachable in both apps"
-type: dead-path
+type: layer-drift
 severity: medium
 status: resolved
 affects:
@@ -14,7 +14,7 @@ opened: 2026-08-07T12:02:26Z
 resolved: 2026-09-06T18:00:00Z
 ---
 
-# B-019 — `waiting_list_offer` was a question nobody could answer
+# B-022 — `waiting_list_offer` was a question nobody could answer
 
 `_offer_waiting_list()` sends a student a `waiting_list_offer` chat message on the "sorry, that
 spot was just filled" path, and `POST /api/app/notify/respond_waiting_list` has always been able to
