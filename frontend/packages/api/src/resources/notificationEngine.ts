@@ -170,6 +170,18 @@ export async function cancelAttendance(
   return res.data;
 }
 
+export async function respondToWaitingList(
+  lessonInstanceId: number,
+  action: "yes" | "no"
+  // PAD-124: the student answers the `waiting_list_offer` message they get when
+  // the spot they wanted was just filled. "expired" mirrors PAD-68 — a class that
+  // has already started can no longer take a waiting-list entry, so nothing is
+  // recorded. "unknown" is the instance having no coach association.
+): Promise<{ action: "added_to_waiting_list" | "declined" | "expired" | "unknown" }> {
+  const res = await getApi().post("/app/notify/respond_waiting_list", { lessonInstanceId, action });
+  return res.data;
+}
+
 export async function updateMessageTemplates(templates: Partial<MessageTemplates>): Promise<NotificationConfig> {
   const res = await getApi().post("/app/notify/config", { messageTemplates: templates });
   return res.data;

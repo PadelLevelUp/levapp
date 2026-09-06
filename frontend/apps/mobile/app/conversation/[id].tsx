@@ -43,6 +43,7 @@ import {
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
   messageCopyText,
@@ -563,6 +564,41 @@ export default function ConversationScreen() {
     }
   };
 
+  // PAD-124: the `waiting_list_offer` message had no response path on either
+  // client, so the endpoint behind it was unreachable. Same shape as the
+  // reminder handler above — the server's action, not the tap, decides what is
+  // written into the cached metadata the bubble renders off.
+  const [respondingWaitingListId, setRespondingWaitingListId] = React.useState<
+    string | number | null
+  >(null);
+
+  const handleRespondToWaitingList = async (
+    message: Message,
+    action: "yes" | "no"
+  ) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingWaitingListId !== null) return;
+    setRespondingWaitingListId(message.id);
+    try {
+      const result = await notificationEngineApi.respondToWaitingList(
+        instanceId,
+        action
+      );
+      const outcome = waitingListResponseOutcome(result?.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.write === null) return;
+      const response = outcome.write;
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: { ...m.metadata, responded: true, response },
+      }));
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingWaitingListId(null);
+    }
+  };
+
   // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
     if (!confirmingDelete) return;
@@ -792,6 +828,12 @@ export default function ConversationScreen() {
                     void handleRespondToReminder(item, action)
                   }
                   onCancelAttendance={() => void handleCancelAttendance(item)}
+                  respondingWaitingList={respondingWaitingListId === item.id}
+                  onRespondWaitingList={
+                    isTempId(item.id)
+                      ? undefined
+                      : (action) => void handleRespondToWaitingList(item, action)
+                  }
                   respondingInvite={respondingInviteId === item.id}
                   onRespondInvite={
                     isTempId(item.id)
