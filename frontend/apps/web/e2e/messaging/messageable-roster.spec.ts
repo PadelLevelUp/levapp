@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
-import { openMessages, openPlayers } from "../helpers/navigation";
+import { openMessages } from "../helpers/navigation";
 
 // PAD-205 / B-025 — a coach must be able to message a player they added
 // themselves.
@@ -23,23 +23,16 @@ test.beforeEach(async ({ page }) => {
 });
 
 // US-205: A player the coach added in the app is messageable
-test("US-205: coach can start a conversation with a player they just added", async ({
+test("US-205: coach can start a conversation with a roster-only player", async ({
   page,
 }) => {
-  const playerName = `PAD205 Roster ${Date.now()}`;
-
-  // --- The coach adds a player (roster row, no club row) -------------------
-  await openPlayers(page);
-  await page.getByRole("button", { name: /add player/i }).first().click();
-  await page.getByPlaceholder("e.g. John Doe").fill(playerName);
-
-  const createBtn = page.getByRole("button", { name: /create player/i });
-  await expect(createBtn).toBeEnabled({ timeout: 5000 });
-  await createBtn.click();
-
-  // Confirm the player actually exists before blaming messaging for its absence.
-  await page.getByPlaceholder(/search/i).first().fill(playerName);
-  await expect(page.getByText(playerName)).toBeVisible({ timeout: 8000 });
+  // "Filler Player 27" is seeded active, on e2e-coach's roster through
+  // `coach_in_player`, with no `player_in_club` row (the seed writes none) and
+  // no existing conversation — exactly the case B-025 describes. A player
+  // created through "Add player" would NOT do here: that user stays
+  // `inactive` until they activate their account, and the messageable list
+  // has always excluded inactive users because there is no login to message.
+  const playerName = "Filler Player 27";
 
   // --- They appear in the new-conversation picker --------------------------
   await openMessages(page);
