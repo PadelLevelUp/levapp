@@ -183,9 +183,12 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
 
   return (
     <>
+    {/* A personal event is not a class: the scope dialog takes the
+        event-worded copy, not `calendar.scope`'s "Delete class". */}
     <ClassScopeDialog
       open={scopeDialogOpen}
       mode="delete"
+      keyPrefix="calendar.eventScope"
       onClose={() => setScopeDialogOpen(false)}
       onConfirm={confirmDelete}
     />

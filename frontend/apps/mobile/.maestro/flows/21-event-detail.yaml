@@ -60,7 +60,16 @@ appId: com.padellevelup.app
     timeout: 20000
 
 # ── THE REGRESSION: tapping the event card opens the detail screen ──
-- tapOn: "Maestro Test Event"
+# Match on the DAY-LIST card, not on text alone. Since PAD-172 the week-strip
+# column renders a chip carrying the same title (`calendar-day-chip-<id>`), and
+# it is the FIRST match for a bare `tapOn: "Maestro Test Event"` — tapping a
+# chip only selects the day (the whole column is a day-select target by
+# design), so the flow used to sit on the calendar and fail the next assert.
+# `calendar-event-<id>` is the day-list `EventCard`'s own testID; combining it
+# with the text picks this event's card and nothing else.
+- tapOn:
+    id: "calendar-event-.*"
+    text: "Maestro Test Event"
 - extendedWaitUntil:
     visible:
       id: "event-detail"
