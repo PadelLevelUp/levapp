@@ -12,6 +12,7 @@ The auth domain.
 - `auth.activate` — implemented
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
+- `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
 - `auth.mobile-universal-links` — implemented
 
 ## Why it's grouped this way

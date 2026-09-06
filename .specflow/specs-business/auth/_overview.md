@@ -11,6 +11,8 @@ LevApp.
   registration, and sign out. Applies equally to coaches and players.
 - `auth.newcomer-creates-and-activates-an-account` — the create-inactive-then-activate pattern behind
   every new account, whether from direct signup or an invite link's account half.
+- `auth.visitor-picks-an-audience-and-finds-the-way-in` — the public landing page: a visitor with
+  no account picks coach / player / other and is pointed at a demo, the login, support or an email.
 
 ## Why it's grouped this way
 
