@@ -227,6 +227,30 @@ export default function PlayerDetailScreen() {
         className="max-h-14 grow-0 border-b border-border"
         contentContainerClassName="flex-row items-center gap-2 px-4 py-2"
       >
+        {/* PAD-162: the coach-side entry into the shared attendance-history
+            screen, first in the action row exactly as web puts it first in
+            PlayerDetailPage's PageActions. The student reaches the same screen
+            from their dashboard "Attended" KPI; both land on one screen backed
+            by one server-authorized endpoint. */}
+        <Button
+          variant="outline"
+          size="sm"
+          testID="player-attendance-link"
+          accessibilityLabel={t("attendance.playerLink")}
+          onPress={() =>
+            router.push({
+              pathname: "/attendance",
+              params: { playerId: String(player.playerId) },
+            })
+          }
+        >
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={16}
+            color={lightTheme.foreground}
+          />
+          <Text>{t("attendance.playerLink")}</Text>
+        </Button>
         <Button
           variant="outline"
           size="sm"
