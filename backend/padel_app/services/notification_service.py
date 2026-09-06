@@ -3588,6 +3588,44 @@ def _offer_waiting_list(
     )
 
 
+def _mark_waiting_list_offer_responded(
+    coach_user_id: int | None,
+    player_user_id: int,
+    lesson_instance_id: int,
+    action: str,
+) -> None:
+    """Settle the newest un-answered ``waiting_list_offer`` for this pair.
+
+    PAD-124: the offer bubble keys its answered state off the same
+    ``responded`` / ``response`` metadata the invite and reminder bubbles use, so
+    the answer has to be written back onto the message — otherwise the settled
+    state lives only in client memory and the Yes/No reappear on reload.
+    Re-answering an already-settled offer is a no-op here; the waiting-list
+    upsert itself is idempotent.
+    """
+    if not coach_user_id:
+        return
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+
+    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    offer = next(
+        (m for m in Message.query.filter_by(
+            conversation_id=conv.id,
+            message_type="waiting_list_offer",
+        ).order_by(Message.id.desc()).all()
+         if m.msg_metadata
+         and m.msg_metadata.get("lessonInstanceId") == lesson_instance_id
+         and not m.msg_metadata.get("responded")),
+        None,
+    )
+    if offer is None:
+        return
+    offer.msg_metadata = {**offer.msg_metadata, "responded": True, "response": action}
+    offer.save()
+    publish({"type": "message_edited", "payload": serialize_message(offer, None)})
+
+
 def respond_to_waiting_list(
     lesson_instance_id: int,
     action: str,
@@ -3601,6 +3639,10 @@ def respond_to_waiting_list(
     PAD-68: joining the waiting list for a class that already happened is
     meaningless — the entry could never be filled — so a late answer is a no-op
     and any invitation still pending for that class is retired.
+
+    PAD-124: the offer message is marked ``responded`` here, the same way
+    :func:`respond_to_reminder` marks its reminder, so the answered bubble
+    survives a reload instead of only living in client state.
     """
     from padel_app.models import Coach, Player
 
@@ -3611,20 +3653,37 @@ def respond_to_waiting_list(
         from flask import abort
         abort(403)
 
-    if _instance_is_over(instance, now):
-        _expire_stale_invitations(instance)
-        return {"action": "expired"}
-
     coach_rel = Association_CoachLessonInstance.query.filter_by(
         lesson_instance_id=lesson_instance_id
     ).first()
     coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+
+    if _instance_is_over(instance, now):
+        _expire_stale_invitations(instance)
+        # PAD-124: settle the offer as expired too, so the student is not left
+        # tapping a question the server will refuse every time.
+        if coach:
+            _mark_waiting_list_offer_responded(
+                coach.user_id, acting_user_id, lesson_instance_id, "expired"
+            )
+        return {"action": "expired"}
+
     if not coach:
         return {"action": "unknown"}
 
     config = get_or_create_config(coach.id)
     locale = _resolve_locale(coach)
     templates = config.get_message_templates(locale)
+
+    if action not in ("yes", "no"):
+        return {"action": "unknown"}
+
+    # PAD-124: mark the offer message answered so the bubble renders its settled
+    # state on reload, exactly as the reminder bubble does. Done for both answers
+    # — "no" also closes the question.
+    _mark_waiting_list_offer_responded(
+        coach.user_id, acting_user_id, lesson_instance_id, action
+    )
 
     if action == "yes":
         # Upsert waiting list entry
