@@ -32,6 +32,13 @@ Automatically send class reminders to enrolled players at a configured time befo
     - "Already on record" means the Presence row still reflects that same answer **and** no un-actioned reminder message is pending for that (player, instance). A newer reminder (rule 9) is a fresh question and is always answerable, even with the same answer.
     - Changing the answer (`yes` → `no`, or `no` → `yes`) is never suppressed.
     - The invitation engine enforces the same guarantee independently: the decline path does not re-trigger invitations when the player's spot already has an open Vacancy with live (`sent`/`queued`/`confirmed`) invitations out for it.
+13. **Answering is reading (PAD-202).** A reminder can be answered from outside the chat — the
+    student dashboard offers Yes/No on the class row (`dashboard.blocks` rule 3a). When
+    `respond_to_reminder()` records a fresh answer and finds the pending reminder message, it
+    advances the player's `ConversationParticipant.last_read_at` in that conversation to the
+    reminder's `sent_at` (never backwards, never past it), so the reminder — and only what came
+    before it — stops counting as unread. Messages sent after the reminder stay unread. A
+    duplicate answer (rule 12) or an expired reminder (rule 10) does not touch the read marker.
 
 ### Acceptance Criteria
 
@@ -82,6 +89,13 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **And** exactly ONE round of replacement invitations was fanned out (no candidate is invited twice)
 - **And** the same holds for repeated `yes` (one `reminder_confirmed` message)
 - **And** answering `yes` after `no` (a genuine change) is still processed normally
+
+#### Answering from the dashboard marks the reminder read (PAD-202)
+- **Given** a player whose direct conversation with the coach holds an unread reminder for
+  instance 10 (sent 10:00) and an unread coach message sent after it (10:05)
+- **When** they respond `yes` through `respond_to_reminder()`
+- **Then** their `last_read_at` in that conversation equals the reminder's `sent_at`, the reminder
+  no longer counts as unread, and the 10:05 message still does
 
 #### Newer reminder supersedes older reminder buttons (PAD-49)
 - **Given** a player who received a first reminder (with live Yes/No buttons) for instance 10 and has not yet responded
