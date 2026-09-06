@@ -105,9 +105,12 @@ export function EventCard({
     <Pressable
       testID={`calendar-event-${event.id}`}
       accessibilityLabel={event.title || fallbackTitle}
-      accessibilityState={{ disabled: !isClass || !onPress }}
+      // PAD-160: only `onPress` gates this now. It used to also require
+      // isClass, which made every blocker/personal/holiday card inert —
+      // uneditable and undeletable from the phone.
+      accessibilityState={{ disabled: !onPress }}
       role="button"
-      disabled={!isClass || !onPress}
+      disabled={!onPress}
       onPress={() => onPress?.(event)}
       className={cn(
         "gap-1 rounded-xl px-3 py-2.5",
@@ -116,7 +119,7 @@ export function EventCard({
         // No hex: fall back to the class-type tokens, which are dark enough
         // for white text.
         !isBlock && !hex && (event.classType === "private" ? "bg-private" : "bg-academy"),
-        isClass && onPress && "active:opacity-90",
+        onPress && "active:opacity-90",
         isCanceled && "opacity-50"
       )}
       style={stateStyle}
