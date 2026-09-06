@@ -388,11 +388,14 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<{ id: string; name: string }[] | null>(null);
   const [verdict, setVerdict] = React.useState<InviteExplain | null>(null);
+  // The name of the result the coach picked: refilling the input with it must
+  // not re-run the search and reopen the list over the verdict.
+  const [selectedName, setSelectedName] = React.useState<string | null>(null);
   const seq = React.useRef(0);
 
   React.useEffect(() => {
     const term = query.trim();
-    if (!term) {
+    if (!term || term === selectedName) {
       setResults(null);
       return;
     }
@@ -408,7 +411,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         });
     }, 250);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, selectedName]);
 
   React.useEffect(() => {
     setVerdict(null);
@@ -416,6 +419,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
 
   const explain = (player: { id: string; name: string }) => {
     setResults(null);
+    setSelectedName(player.name);
     setQuery(player.name);
     notificationEngineApi
       .explainInviteCandidate({ ...request, playerId: player.id })
@@ -435,6 +439,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         value={query}
         onChangeText={(value) => {
           setQuery(value);
+          setSelectedName(null);
           setVerdict(null);
         }}
         autoCorrect={false}

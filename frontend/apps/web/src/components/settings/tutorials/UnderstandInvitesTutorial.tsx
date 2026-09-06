@@ -435,11 +435,14 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
   const [results, setResults] = useState<{ id: string; name: string }[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [verdict, setVerdict] = useState<InviteExplain | null>(null);
+  // The name of the result the coach picked: refilling the input with it must
+  // not re-run the search and reopen the dropdown over the verdict.
+  const [selectedName, setSelectedName] = useState<string | null>(null);
   const seq = useRef(0);
 
   useEffect(() => {
     const term = query.trim();
-    if (!term) {
+    if (!term || term === selectedName) {
       setResults(null);
       return;
     }
@@ -458,7 +461,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         });
     }, 250);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, selectedName]);
 
   // A new class/player invalidates the previous verdict.
   useEffect(() => {
@@ -467,6 +470,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
 
   const explain = (player: { id: string; name: string }) => {
     setResults(null);
+    setSelectedName(player.name);
     setQuery(player.name);
     explainInviteCandidate({ ...request, playerId: player.id })
       .then(setVerdict)
@@ -488,6 +492,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setSelectedName(null);
             setVerdict(null);
           }}
         />
