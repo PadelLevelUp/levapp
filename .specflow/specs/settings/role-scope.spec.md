@@ -36,8 +36,9 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    engine configuration of rule 3: they must carry distinct section ids so that hiding the coach
    one can never hide the student one.
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
-   **Import** (data import + history), **Club** (club details + coach invitations), and — inside
-   Preferences — **skill levels** and **evaluation categories**.
+   **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
+   history), **Club** (club details + coach invitations), and — inside Preferences — **skill
+   levels** and **evaluation categories**.
 4. The section list is defined **once** and drives both the desktop sidebar nav and the mobile
    section dropdown, so the two can never disagree about what a role may see.
 5. If the active section is not permitted for the caller's role, the page falls back to a permitted
@@ -67,7 +68,7 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 #### Coach still sees every section
 - **Given** an authenticated coach on `/settings`
 - **When** the page renders
-- **Then** Profile, Preferences, Calendar, Notifications, Import, Club and Account are all offered
+- **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club and Account are all offered
 - **And** the Preferences panel still shows skill levels and evaluation categories
 
 #### Coach-only reads reject a student with 403

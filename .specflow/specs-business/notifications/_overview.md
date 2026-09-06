@@ -18,6 +18,9 @@ coach and student control over how and when that happens.
   and the confirm/decline flow
 - `notifications.student-controls-their-notifications` — a student's own standing opt-out of
   invitations and/or reminders, visible to their coach
+- `notifications.coach-understands-who-gets-invited` — a rehearsal in Settings → Tutorials: pick a
+  class and a player who cancels, see who would be invited right now and why, and ask about any
+  student who is missing from the list
 
 ## Why it's grouped this way
 

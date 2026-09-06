@@ -18,6 +18,8 @@ The notifications domain.
 - `notifications.groups` — implemented
 - `notifications.message-templates` — implemented
 - `notifications.student-block-preferences` — implemented
+- `notifications.invite-simulation` — draft — read-only dry run of the engine for a hypothetical
+  vacancy, stage-tagged so it can explain who is invited and why; feeds `settings.tutorials`
 
 ## Why it's grouped this way
 
