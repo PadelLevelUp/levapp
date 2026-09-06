@@ -19,6 +19,13 @@ module.exports = {
       // must NOT be `medium`/`semibold`/`bold`: Tailwind would emit
       // `.font-semibold` as a FAMILY utility and collide with the built-in
       // font-WEIGHT utility of the same name.
+      //
+      // You do NOT have to write these names by hand (PAD-156, compass R-025).
+      // A bare `font-semibold` is inert on its own — it sets fontWeight on a
+      // one-face family and renders Regular — so `resolveFontClass`
+      // (src/lib/font-class.ts) maps the standard Tailwind weight names onto
+      // the faces below, and every component that renders text applies it.
+      // Add a new face here and it also needs a branch there.
       fontFamily: {
         sans: ["PlusJakartaSans_400Regular"],
         "sans-medium": ["PlusJakartaSans_500Medium"],
