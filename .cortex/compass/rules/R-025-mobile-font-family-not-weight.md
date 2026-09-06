@@ -34,6 +34,11 @@ context only styles descendant `<Text>` components, not the primitive itself.
 **If you add another component that renders text outside the `Text` wrapper,
 run its class string through `resolveFontClass`** — otherwise its weights are
 silently inert, which is exactly how this regressed to 105 dead classes.
+`src/lib/font-class.wiring.test.ts` enforces this by reading the sources: it
+fails if one of the five stops resolving, or if a new component imports
+react-native's `Text` without resolving its class string. A value-level test
+cannot see that, because deleting a call site leaves the mapping correct and
+unused.
 
 `resolveFontClass` must run **after** `cn()`: twMerge does not know the custom
 `font-sans-*` utilities and would leave both the base family and the override

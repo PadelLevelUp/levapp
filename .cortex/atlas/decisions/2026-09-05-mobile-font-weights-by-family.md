@@ -42,10 +42,14 @@ replacing 105 call sites. Two reasons:
    `cn()` emits exactly one family class.
 
 **Known limit.** The mapping is applied where text is actually rendered: the `Text`
-wrapper, which holds the app's only `Text` import from react-native, plus the three
+wrapper, which holds the app's only `Text` import from react-native, plus the four
 `@rn-primitives` components that render a native `Text` around it (`Label`,
-`DialogTitle`, `SelectLabel`). A future component that renders text outside those paths
-needs the same treatment — hence R-025.
+`DialogTitle`, `AlertDialogTitle`, `SelectLabel`) — five places in all. `AlertDialogTitle`
+was missed on the first pass because `alert-dialog.tsx` imports `TextClassContext`, which
+looks like coverage and is not: that context styles descendant `<Text>` components, never
+the primitive itself. A future component that renders text outside those paths needs the
+same treatment — hence R-025, and the source-scanning guard in
+`src/lib/font-class.wiring.test.ts` that fails when one of the five stops resolving.
 
 **Not settled, and not worth settling.** Two hypotheses explain the measurement equally
 well: RN not synthesizing weights for a custom family, or `react-native-css-interop`
