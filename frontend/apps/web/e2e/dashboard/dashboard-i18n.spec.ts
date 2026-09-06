@@ -100,14 +100,30 @@ test.describe("PAD-77: dashboard i18n consistency", () => {
     try {
       await waitForDashboard(page);
 
+      // PAD-202: the student home has no "Dashboard"/"Painel" heading either —
+      // the greeting is the page's orientation, and it must be PT.
+      await expect(page.getByTestId("student-dashboard")).toBeVisible({
+        timeout: 10_000,
+      });
       await expect(
-        page.getByRole("heading", { name: "Painel" })
+        page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite),/ })
       ).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("heading", { name: /^(Dashboard|Painel)$/ })).toHaveCount(0);
 
+      // Section eyebrows and KPI tiles must be PT.
+      await expect(page.getByText(/PRÓXIMOS 7 DIAS/).first()).toBeVisible();
+      await expect(page.getByText(/PRECISA DE TI/).first()).toBeVisible();
+      await expect(page.getByTestId("dashboard-kpi-attended")).toContainText("Presenças");
+      await expect(page.getByTestId("dashboard-kpi-missed")).toContainText("Faltas");
+
+      // No English leftovers anywhere on the dashboard.
+      await expect(page.getByText(/NEXT 7 DAYS/)).toHaveCount(0);
+      await expect(page.getByText(/NEEDS YOU/)).toHaveCount(0);
       await expect(page.getByText("Dashboard", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Your upcoming lessons")).toHaveCount(0);
       await expect(page.getByText("Upcoming lessons")).toHaveCount(0);
       await expect(page.getByText("Invites to confirm")).toHaveCount(0);
+      await expect(page.getByText(/of \d+ lessons/)).toHaveCount(0);
     } finally {
       await openPreferences(page);
       await selectLanguage(page, /english|inglês/i);

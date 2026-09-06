@@ -15,7 +15,12 @@
       "attended": "Attended",
       "missed": "Missed",
       "upcomingLessons": "Upcoming lessons",
-      "invites": "Invites"
+      "invites": "Invites",
+      "eyebrow": "YOUR RECORD",
+      "ofLessons_one": "of {{count}} lesson",
+      "ofLessons_other": "of {{count}} lessons",
+      "next30Days": "next 30 days",
+      "toConfirm": "to confirm"
     },
     "list": {
       "upcomingClasses": "Upcoming classes",
@@ -68,6 +73,11 @@
         "detail_one": "From {{count}} class last week",
         "detail_other": "From {{count}} classes last week",
         "review": "Review"
+      },
+      "invite": {
+        "title": "You're invited to {{class}}",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
+        "open": "Open"
       }
     },
     "schedule": {

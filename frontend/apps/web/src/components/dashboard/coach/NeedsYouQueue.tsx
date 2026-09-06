@@ -11,6 +11,7 @@
 import type {
   DashboardNeedsYouBlock,
   DashboardNeedsYouEmptySeats,
+  DashboardNeedsYouInvite,
   DashboardNeedsYouItem,
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
@@ -52,6 +53,8 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   switch (item.kind) {
     case "empty_seats":
       return <EmptySeatsCard item={item} />;
+    case "invite":
+      return <InviteCard item={item} />;
     case "reply":
       return <ReplyCard item={item} />;
     case "validation":
@@ -89,6 +92,39 @@ function EmptySeatsCard({ item }: { item: DashboardNeedsYouEmptySeats }) {
         </Button>
         <Button variant="outline" className="h-11 lg:h-10">
           {t("dashboard.needsYou.later")}
+        </Button>
+      </div>
+    </ActionCard>
+  );
+}
+
+/**
+ * PAD-202: the student's counterpart of the empty-seats card. Amber because it
+ * is the student's to resolve; "Open" lands on the class with the confirm and
+ * decline actions in view (dashboard.navigation rule 8).
+ */
+function InviteCard({ item }: { item: DashboardNeedsYouInvite }) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+
+  return (
+    <ActionCard accent="attention" className="flex flex-col gap-3.5" testId="dashboard-queue-invite">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold">
+          {t("dashboard.needsYou.invite.title", { class: item.classTitle })}
+        </span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">
+          {t("dashboard.needsYou.invite.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+            filled: item.filled,
+            capacity: item.capacity,
+          })}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <Button className="h-11 flex-1 lg:h-10" onClick={() => navigate(item.href)}>
+          {t("dashboard.needsYou.invite.open")}
         </Button>
       </div>
     </ActionCard>
