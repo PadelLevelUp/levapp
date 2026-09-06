@@ -34,6 +34,7 @@ Handles reminders, vacancy-based invitations, waiting list, and manual notificat
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from padel_app.sql_db import db
@@ -895,6 +896,281 @@ def _passes_group_rules(
     )
 
 
+# ---------------------------------------------------------------------------
+# Candidate pipeline — ONE stage-tagged evaluation shared by the engine and the
+# "Understand invites" simulation (PAD-196, notifications.invite-simulation
+# rule 4)
+# ---------------------------------------------------------------------------
+#
+# Before PAD-196 the two candidate functions below each ran the same filter
+# chain inline. The tutorial needs to say WHY a student is not invited, and the
+# only answer that can never drift from the engine is the engine's own
+# evaluation — the same principle PAD-133 applied to the eligibility bar
+# (`passes_eligibility` / `eligibility_failures` share `_group_rule_failures`).
+# So the chain lives once, in `evaluate_candidates`, which tags EVERY roster
+# player with the first stage that dropped them; the engine keeps the
+# survivors, the simulation keeps everything.
+
+CANDIDATE_STAGES = (
+    "departing_player",
+    "already_enrolled",
+    "already_invited",
+    "eligibility",
+    "excluded_by_coach",
+    "inactive_account",
+    "unavailable",
+    "auto_invites_off",
+    "no_round_matched",
+    "invited",
+)
+
+LEGACY_ROUND_CRITERIA = ("same_level", "same_side", "max_unjustified_absences")
+
+
+@dataclass
+class CandidateVerdict:
+    """One roster player's fate for one wave of one vacancy."""
+
+    cp: Association_CoachPlayer
+    stage: str
+    details: dict = field(default_factory=dict)
+
+    @property
+    def invited(self) -> bool:
+        return self.stage == "invited"
+
+
+def legacy_round_rules(round_cfg: dict) -> list[dict]:
+    """A legacy round's criteria in the structured `{attribute, operation,
+    value}` shape invitation groups already use, so one client renderer covers
+    both vocabularies."""
+    values = round_cfg.get("criteria_values", {}) or {}
+    rules = []
+    for criterion in round_cfg.get("criteria", []) or []:
+        if criterion == "same_level":
+            rules.append({"attribute": "level", "operation": "same_level", "value": None})
+        elif criterion == "same_side":
+            rules.append({"attribute": "side", "operation": "same_side", "value": None})
+        elif criterion == "max_unjustified_absences":
+            rules.append({
+                "attribute": "unjustified_absences",
+                "operation": "max_unjustified_absences",
+                "value": values.get("max_unjustified_absences", 0),
+            })
+    return rules
+
+
+def _legacy_round_failures(
+    round_cfg: dict,
+    cp: Association_CoachPlayer,
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    coach_id: int,
+    *,
+    short_circuit: bool,
+) -> list:
+    """The legacy `rounds` criteria, evaluated exactly as `get_eligible_students`
+    always has (PAD-86 fail-closed level, PAD-15 inclusive side), reported in
+    the PAD-133 record shape."""
+    failures: list = []
+    values = round_cfg.get("criteria_values", {}) or {}
+    vacancy_level_id, vacancy_level = _vacancy_level(vacancy, instance)
+
+    for criterion in round_cfg.get("criteria", []) or []:
+        if criterion == "same_level":
+            if vacancy_level_id is None:
+                failures.append({
+                    "attribute": "level", "operation": "same_level",
+                    "actual": getattr(cp.level, "code", None), "threshold": None,
+                    "ladder_distance": None, "reason": "class_has_no_level",
+                })
+            elif cp.level_id != vacancy_level_id:
+                failures.append({
+                    "attribute": "level", "operation": "same_level",
+                    "actual": getattr(cp.level, "code", None),
+                    "threshold": getattr(vacancy_level, "code", None),
+                    "ladder_distance": None, "reason": None,
+                })
+        elif criterion == "same_side":
+            if vacancy.side is not None and not _side_eligible(cp.side, vacancy.side):
+                failures.append({
+                    "attribute": "side", "operation": "same_side",
+                    "actual": cp.side, "threshold": vacancy.side,
+                    "ladder_distance": None, "reason": None,
+                })
+        elif criterion == "max_unjustified_absences":
+            max_abs = values.get("max_unjustified_absences", 0)
+            count = _unjustified_absence_count(cp.player_id, coach_id)
+            if count > max_abs:
+                failures.append({
+                    "attribute": "unjustified_absences",
+                    "operation": "max_unjustified_absences",
+                    "actual": count, "threshold": max_abs,
+                    "ladder_distance": None, "reason": None,
+                })
+        if failures and short_circuit:
+            return failures
+    return failures
+
+
+def _wave_rules(config: NotificationConfig, wave: tuple) -> tuple[list | None, dict | None]:
+    """`(group_rules, round_cfg)` for a wave — exactly one of the two is set,
+    or both are None when the wave does not exist in this coach's config."""
+    kind, number = wave
+    if kind == "group":
+        groups = config.get_invitation_groups()
+        idx = int(number) - 1
+        if idx < 0 or idx >= len(groups):
+            return None, None
+        return (groups[idx].get("rules", []) or []), None
+    rounds = config.get_rounds()
+    round_cfg = next((r for r in rounds if r["id"] == number), None)
+    if round_cfg is None:
+        return None, None
+    return None, round_cfg
+
+
+def evaluate_candidates(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    coach_id: int,
+    config: NotificationConfig,
+    *,
+    wave: tuple,
+    explain: bool = False,
+    only_player_ids=None,
+) -> list[CandidateVerdict]:
+    """Tag every roster player with the FIRST stage that drops them for ``wave``.
+
+    ``wave`` is ``("group", group_index)`` (1-based, invitation groups) or
+    ``("round", round_number)`` (legacy rounds). Stages are tried in
+    ``CANDIDATE_STAGES`` order and a player who passes them all is ``invited``.
+
+    ``explain=False`` is the engine's hot path: it stops at the first failure
+    exactly as the inline chain did, so cost is unchanged. ``explain=True`` is
+    the coach-facing path and evaluates every rule of a failing stage so the
+    reasons are complete (eligibility: PAD-133 records; round: per-rule records
+    in the same shape). ``only_player_ids`` restricts the roster scan.
+
+    Verdicts come back in roster order (the `Association_CoachPlayer` query
+    order), which is what the ranking sort has always been stable over.
+
+    A vacancy with no ``id`` (the simulation's unsaved hypothetical) has no
+    invitations in flight — the ``already_invited`` lookup is skipped rather
+    than let SQLAlchemy match the NULL-vacancy rows manual notifications leave.
+    """
+    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    departing_id = getattr(vacancy, "original_player_id", None)
+
+    active_invite_ids: set = set()
+    if getattr(vacancy, "id", None) is not None:
+        active_invite_ids = {
+            e.player_id
+            for e in NotificationEvent.query.filter(
+                NotificationEvent.vacancy_id == vacancy.id,
+                NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+            ).all()
+        }
+
+    eligibility_rules = effective_eligibility(instance, coach_id, config)
+
+    restrictions = config.get_restrictions()
+    excluded_player_ids: set = set()
+    if restrictions["excludedPlayers"]["enabled"]:
+        excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
+    exclude_inactive = bool(restrictions["excludeUnpaidSubscription"]["enabled"])
+
+    group_rules, round_cfg = _wave_rules(config, wave)
+    wave_exists = group_rules is not None or round_cfg is not None
+
+    # PAD-28 (availability blockers) and PAD-112 (auto-invite opt-out) are two
+    # independent questions — "are they free at THIS hour?" and "do they want
+    # to be asked at all?" — evaluated per player through the same functions
+    # the batch filters call, so the answer is the engine's answer.
+    from padel_app.services.student_availability_service import user_is_blocked_for_window
+    from padel_app.services.student_notification_preferences import (
+        player_blocks_auto_invitations,
+    )
+
+    roster_query = Association_CoachPlayer.query.filter_by(coach_id=coach_id)
+    if only_player_ids is not None:
+        roster_query = roster_query.filter(
+            Association_CoachPlayer.player_id.in_(list(only_player_ids))
+        )
+
+    verdicts: list[CandidateVerdict] = []
+    for cp in roster_query.all():
+        pid = cp.player_id
+        if departing_id is not None and pid == departing_id:
+            verdicts.append(CandidateVerdict(cp, "departing_player"))
+            continue
+        if pid in enrolled_ids:
+            verdicts.append(CandidateVerdict(cp, "already_enrolled"))
+            continue
+        if pid in active_invite_ids:
+            verdicts.append(CandidateVerdict(cp, "already_invited"))
+            continue
+        if explain:
+            failures = eligibility_failures(cp, instance, coach_id, eligibility_rules)
+            if failures:
+                verdicts.append(CandidateVerdict(cp, "eligibility", {"failures": failures}))
+                continue
+        elif not passes_eligibility(cp, instance, coach_id, eligibility_rules):
+            verdicts.append(CandidateVerdict(cp, "eligibility"))
+            continue
+        if str(pid) in excluded_player_ids:
+            verdicts.append(CandidateVerdict(cp, "excluded_by_coach"))
+            continue
+        if exclude_inactive:
+            user = cp.player.user if cp.player else None
+            if not user or user.status != "active":
+                verdicts.append(CandidateVerdict(cp, "inactive_account"))
+                continue
+        user_id = cp.player.user_id if cp.player else None
+        if user_is_blocked_for_window(user_id, instance.start_datetime, instance.end_datetime):
+            verdicts.append(CandidateVerdict(cp, "unavailable"))
+            continue
+        if player_blocks_auto_invitations(pid):
+            verdicts.append(CandidateVerdict(cp, "auto_invites_off"))
+            continue
+        if not wave_exists:
+            verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": []}))
+            continue
+        if group_rules is not None:
+            failures = _group_rule_failures(
+                group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain
+            )
+        else:
+            failures = _legacy_round_failures(
+                round_cfg, cp, vacancy, instance, coach_id, short_circuit=not explain
+            )
+        if failures:
+            verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
+            continue
+        verdicts.append(CandidateVerdict(cp, "invited"))
+
+    return verdicts
+
+
+def _rank_invited(
+    verdicts: list[CandidateVerdict],
+    config: NotificationConfig,
+    vacancy: Vacancy,
+) -> list[Association_CoachPlayer]:
+    """The survivors of a wave, ranked by the coach's priority criteria — the
+    exact stats + sort the engine has always applied."""
+    coach_players = [v.cp for v in verdicts if v.invited]
+    player_stats = {}
+    for cp in coach_players:
+        att_rate, just_rate = _attendance_stats(cp.player_id)
+        player_stats[cp.player_id] = {
+            "attendance_rate": att_rate,
+            "justified_miss_rate": just_rate,
+        }
+    sort_key = _build_sort_key(config.get_priority_criteria(), player_stats, vacancy)
+    return sorted(coach_players, key=sort_key)
+
+
 def _get_eligible_students_for_group(
     vacancy: Vacancy,
     instance: LessonInstance,
@@ -903,69 +1179,11 @@ def _get_eligible_students_for_group(
     group_index: int,
 ) -> list[Association_CoachPlayer]:
     """Like get_eligible_students but uses invitation group rules instead of round criteria."""
-    invitation_groups = config.get_invitation_groups()
-    idx = group_index - 1  # 1-indexed → 0-indexed
-    if idx < 0 or idx >= len(invitation_groups):
-        return []
-    group = invitation_groups[idx]
-    rules = group.get("rules", [])
-
-    enrolled_ids = {rel.player_id for rel in instance.players_relations}
-    active_invite_ids = {
-        e.player_id
-        for e in NotificationEvent.query.filter(
-            NotificationEvent.vacancy_id == vacancy.id,
-            NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
-        ).all()
-    }
-    excluded_ids = enrolled_ids | active_invite_ids
-
-    # PAD-128: eligibility FIRST, wave criteria second
-    # (eligibility.enforcement rule 1). The widening rounds are unchanged; the
-    # widest one now means "everyone ELIGIBLE" instead of "everyone". With no
-    # bar defined this is a no-op and the engine behaves exactly as before.
-    eligibility_rules = effective_eligibility(instance, coach_id, config)
-
-    coach_players = [
-        cp for cp in Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()
-        if cp.player_id not in excluded_ids
-        and passes_eligibility(cp, instance, coach_id, eligibility_rules)
-        and _passes_group_rules(rules, cp, vacancy, coach_id, instance)
-    ]
-
-    restrictions = config.get_restrictions()
-    if restrictions["excludedPlayers"]["enabled"]:
-        excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
-        coach_players = [cp for cp in coach_players if str(cp.player_id) not in excluded_player_ids]
-    if restrictions["excludeUnpaidSubscription"]["enabled"]:
-        coach_players = [
-            cp for cp in coach_players
-            if cp.player and cp.player.user and cp.player.user.status == "active"
-        ]
-
-    # PAD-28: drop students who have set an availability blocker overlapping
-    # this class window (AUTO invitations only — manual add is unaffected).
-    from padel_app.services.student_availability_service import filter_blocked_coach_players
-    coach_players = filter_blocked_coach_players(coach_players, instance)
-
-    # PAD-112: drop students who switched off AUTOMATIC invitations outright.
-    # Additive with the line above and deliberately separate: that one asks "are
-    # they free at THIS hour?", this one asks "do they want to be asked at all?".
-    # Filtering here — rather than at delivery — is what keeps the engine from
-    # creating a NotificationEvent for someone it will never message, which
-    # would leave the vacancy waiting on a reply that can never arrive.
-    from padel_app.services.student_notification_preferences import (
-        filter_preference_blocked_coach_players,
+    return _rank_invited(
+        evaluate_candidates(vacancy, instance, coach_id, config, wave=("group", group_index)),
+        config,
+        vacancy,
     )
-    coach_players = filter_preference_blocked_coach_players(coach_players)
-
-    player_stats = {}
-    for cp in coach_players:
-        att_rate, just_rate = _attendance_stats(cp.player_id)
-        player_stats[cp.player_id] = {"attendance_rate": att_rate, "justified_miss_rate": just_rate}
-
-    sort_key = _build_sort_key(config.get_priority_criteria(), player_stats, vacancy)
-    return sorted(coach_players, key=sort_key)
 
 
 # ---------------------------------------------------------------------------
@@ -983,101 +1201,57 @@ def get_eligible_students(
     Returns coach_player relations for students eligible for the given vacancy and round,
     ranked by the configured priority criteria.
     """
-    # Players already enrolled in this instance
-    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    return _rank_invited(
+        evaluate_candidates(vacancy, instance, coach_id, config, wave=("round", round_number)),
+        config,
+        vacancy,
+    )
 
-    # Players with an active (non-expired) invitation for THIS vacancy
-    active_invite_ids = {
-        e.player_id
-        for e in NotificationEvent.query.filter(
-            NotificationEvent.vacancy_id == vacancy.id,
-            NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
-        ).all()
-    }
 
-    excluded_ids = enrolled_ids | active_invite_ids
-
-    # PAD-128: eligibility FIRST, round criteria second
-    # (eligibility.enforcement rule 1). No-op when no bar is defined.
-    eligibility_rules = effective_eligibility(instance, coach_id, config)
-
-    coach_players = [
-        cp for cp in Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()
-        if cp.player_id not in excluded_ids
-        and passes_eligibility(cp, instance, coach_id, eligibility_rules)
+def invitation_waves(config: NotificationConfig) -> list[tuple]:
+    """Every wave of this coach's engine, in the order it widens:
+    ``(number, kind, rules)`` — invitation groups when any are configured,
+    otherwise the legacy rounds. One definition, used by the engine's round
+    counter, the approval prompt and the simulation."""
+    groups = config.get_invitation_groups()
+    if groups:
+        return [
+            (idx, "group", list(g.get("rules", []) or []))
+            for idx, g in enumerate(groups, start=1)
+        ]
+    return [
+        (r["id"], "legacy", legacy_round_rules(r))
+        for r in config.get_rounds()
     ]
 
-    restrictions = config.get_restrictions()
-    if restrictions["excludedPlayers"]["enabled"]:
-        excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
-        coach_players = [cp for cp in coach_players if str(cp.player_id) not in excluded_player_ids]
-    if restrictions["excludeUnpaidSubscription"]["enabled"]:
-        coach_players = [
-            cp for cp in coach_players
-            if cp.player and cp.player.user and cp.player.user.status == "active"
-        ]
 
-    # Apply round criteria filters
-    rounds = config.get_rounds()
-    round_cfg = next((r for r in rounds if r["id"] == round_number), None)
-    if round_cfg is None:
-        return []
+def ordered_invite_rounds(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    coach_id: int,
+    config: NotificationConfig,
+) -> list[tuple[int, str, list, list[Association_CoachPlayer]]]:
+    """``(number, kind, rules, ranked_cps)`` per wave, in engine order, with a
+    player appearing only in the FIRST wave that admits them — the full ordered
+    invite queue behind the semi-auto approval prompt and the tutorial."""
+    seen: set = set()
+    rounds = []
+    for number, kind, rules in invitation_waves(config):
+        wave = ("group", number) if kind == "group" else ("round", number)
+        ranked = _rank_invited(
+            evaluate_candidates(vacancy, instance, coach_id, config, wave=wave),
+            config,
+            vacancy,
+        )
+        fresh = []
+        for cp in ranked:
+            if cp.player_id in seen:
+                continue
+            seen.add(cp.player_id)
+            fresh.append(cp)
+        rounds.append((number, kind, rules, fresh))
+    return rounds
 
-    # PAD-28: drop students who have set an availability blocker overlapping
-    # this class window (AUTO invitations only — manual add is unaffected).
-    from padel_app.services.student_availability_service import filter_blocked_coach_players
-    coach_players = filter_blocked_coach_players(coach_players, instance)
-
-    # PAD-112: drop students who switched off AUTOMATIC invitations outright.
-    # Additive with the line above and deliberately separate: that one asks "are
-    # they free at THIS hour?", this one asks "do they want to be asked at all?".
-    # Filtering here — rather than at delivery — is what keeps the engine from
-    # creating a NotificationEvent for someone it will never message, which
-    # would leave the vacancy waiting on a reply that can never arrive.
-    from padel_app.services.student_notification_preferences import (
-        filter_preference_blocked_coach_players,
-    )
-    coach_players = filter_preference_blocked_coach_players(coach_players)
-
-    criteria = round_cfg.get("criteria", [])
-    criteria_values = round_cfg.get("criteria_values", {})
-
-    vacancy_level_id, _ = _vacancy_level(vacancy, instance)
-
-    for criterion in criteria:
-        if criterion == "same_level":
-            # PAD-86: fail closed — no level anywhere means nobody matches.
-            if vacancy_level_id is None:
-                coach_players = []
-            else:
-                coach_players = [cp for cp in coach_players if cp.level_id == vacancy_level_id]
-
-        elif criterion == "same_side":
-            if vacancy.side is not None:
-                # "both" players (and any player for a "both" vacancy) stay eligible;
-                # exact-side is preferred later by the playing-side tiebreaker.
-                coach_players = [
-                    cp for cp in coach_players if _side_eligible(cp.side, vacancy.side)
-                ]
-
-        elif criterion == "max_unjustified_absences":
-            max_abs = criteria_values.get("max_unjustified_absences", 0)
-            coach_players = [
-                cp for cp in coach_players
-                if _unjustified_absence_count(cp.player_id, coach_id) <= max_abs
-            ]
-
-    # Build stats and rank
-    player_stats = {}
-    for cp in coach_players:
-        att_rate, just_rate = _attendance_stats(cp.player_id)
-        player_stats[cp.player_id] = {
-            "attendance_rate": att_rate,
-            "justified_miss_rate": just_rate,
-        }
-
-    sort_key = _build_sort_key(config.get_priority_criteria(), player_stats, vacancy)
-    return sorted(coach_players, key=sort_key)
 
 
 # ---------------------------------------------------------------------------
@@ -1708,19 +1882,38 @@ def _broadcast_spot_filled(
 # Vacancy helpers
 # ---------------------------------------------------------------------------
 
+def vacancy_snapshot_for_player(
+    instance: LessonInstance, coach_id: int, player_id: int
+) -> tuple:
+    """``(side, level_id, level_source)`` a vacancy snapshots from a departing
+    player — notifications.invitations rules 2/2a, in ONE place.
+
+    PAD-86: the departing player's level, falling back to the class's
+    effective level when the player has none — never leave the vacancy
+    level-less, which would disable every level rule downstream.
+    ``level_source`` says which tier answered: ``"player"``, ``"class"`` or
+    ``"none"`` (PAD-196 shows it to the coach).
+    """
+    cp = Association_CoachPlayer.query.filter_by(
+        coach_id=coach_id, player_id=player_id
+    ).first()
+    side = cp.side if cp else None
+    if cp and cp.level_id:
+        return side, cp.level_id, "player"
+    class_level_id = effective_level_id(instance)
+    if class_level_id:
+        return side, class_level_id, "class"
+    return side, None, "none"
+
+
 def _create_vacancy_for_absent_player(
     instance: LessonInstance,
     coach_id: int,
     absent_player_id: int,
 ) -> Vacancy:
-    cp = Association_CoachPlayer.query.filter_by(
-        coach_id=coach_id, player_id=absent_player_id
-    ).first()
-    side = cp.side if cp else None
-    # PAD-86: snapshot the departing player's level, falling back to the class's
-    # effective level when the player has none — never leave the vacancy
-    # level-less, which would disable every level rule downstream.
-    level_id = (cp.level_id if cp else None) or effective_level_id(instance)
+    side, level_id, _source = vacancy_snapshot_for_player(
+        instance, coach_id, absent_player_id
+    )
 
     config = get_or_create_config(coach_id)
 
@@ -3489,10 +3682,16 @@ def _check_waiting_list(
     coach_id: int,
     config: NotificationConfig,
     round_number: int,
+    *,
+    dry_run: bool = False,
 ) -> WaitingListEntry | None:
     """
     Return the highest-priority waiting list entry that meets the current round's criteria,
     or None if the waiting list is empty / no match.
+
+    ``dry_run`` (PAD-196): answer the question without the side effect — an
+    expired standing entry is skipped but NOT deactivated, so the simulation
+    writes nothing (notifications.invite-simulation rule 3).
     """
     entries = WaitingListEntry.query.filter_by(
         lesson_instance_id=instance.id,
@@ -3541,7 +3740,8 @@ def _check_waiting_list(
         if entry.standing_entry_id:
             standing = StandingWaitingListEntry.query.get(entry.standing_entry_id)
             if standing and (not standing.is_active or standing.expires_at < utcnow_naive()):
-                _deactivate_standing_entry(standing)
+                if not dry_run:
+                    _deactivate_standing_entry(standing)
                 continue
 
         cp = Association_CoachPlayer.query.filter_by(

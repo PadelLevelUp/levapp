@@ -96,36 +96,21 @@ def compute_full_invite_queue(vacancy, instance, coach_id: int, config) -> list[
     receive invitations for this vacancy (eligibility is recomputed at send
     time with the same rules).
     """
+    # PAD-196: the waves, their order and the dedupe live in
+    # `ordered_invite_rounds` — the same function the "Understand invites"
+    # simulation reads, so the prompt and the tutorial are one list
+    # (notifications.invite-simulation rule 5).
     from padel_app.services.notification_service import (
-        _get_eligible_students_for_group,
         _serialize_cp_for_group,
-        get_eligible_students,
+        ordered_invite_rounds,
     )
 
     queue: list[dict] = []
-    seen: set[int] = set()
-
-    invitation_groups = config.get_invitation_groups()
-    if invitation_groups:
-        for idx in range(1, len(invitation_groups) + 1):
-            for cp in _get_eligible_students_for_group(
-                vacancy, instance, coach_id, config, idx
-            ):
-                if cp.player_id in seen:
-                    continue
-                seen.add(cp.player_id)
-                queue.append({**_serialize_cp_for_group(cp), "roundNumber": idx})
-    else:
-        for round_cfg in config.get_rounds():
-            round_number = round_cfg["id"]
-            for cp in get_eligible_students(
-                vacancy, instance, coach_id, config, round_number
-            ):
-                if cp.player_id in seen:
-                    continue
-                seen.add(cp.player_id)
-                queue.append({**_serialize_cp_for_group(cp), "roundNumber": round_number})
-
+    for number, _kind, _rules, cps in ordered_invite_rounds(
+        vacancy, instance, coach_id, config
+    ):
+        for cp in cps:
+            queue.append({**_serialize_cp_for_group(cp), "roundNumber": number})
     return queue
 
 

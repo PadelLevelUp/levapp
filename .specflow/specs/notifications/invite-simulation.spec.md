@@ -92,8 +92,9 @@ that what the tutorial shows and what the engine does can never disagree.
 8. `waitingListPlacement` is `{playerId, name, standing}` when an active waiting-list entry for
    the class passes the bar and the unconditional guards (`notifications.waiting-list` rules
    4a–4c) — that student is placed directly and no invitation goes out for this spot — and `null`
-   otherwise. When a placement is reported the queue is still returned, marked as what would
-   happen if the placement did not go through.
+   otherwise. When a placement is reported the queue is still returned — it is what happens if
+   the placement does not go through — but the placed student is **not** listed in any round:
+   they are placed, never invited.
 9. `spot` is `{side, levelId, levelCode, levelSource}` snapshotted exactly as
    `notifications.invitations` rules 2 and 2a: side from the departing player; level from the
    departing player (`levelSource: "player"`), falling back to the class's effective level
