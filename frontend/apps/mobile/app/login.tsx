@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { LegalLinks } from "@/features/auth/LegalLinks";
 
 type FieldErrors = { username?: string; password?: string };
 
@@ -196,6 +197,11 @@ export default function LoginScreen() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Web's sign-in page carries these under the card; mobile had them
+            only inside Settings, i.e. behind the very sign-in a new user has
+            not completed yet (PAD-164). */}
+        <LegalLinks testID="login-legal" />
       </ScrollView>
     </KeyboardAvoidingView>
   );
