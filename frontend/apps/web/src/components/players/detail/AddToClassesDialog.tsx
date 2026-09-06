@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, parseISO } from "date-fns";
-import { enUS } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { dateFnsLocale } from "@/lib/dateLocale";
 
 import {
   Dialog,
@@ -32,7 +32,8 @@ interface AddToClassesDialogProps {
 }
 
 export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClassesDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateLocale = dateFnsLocale(i18n.language);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [classes, setClasses] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -162,7 +163,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium">
-            {format(weekStart, "MMM d", { locale: enUS })} – {format(weekEnd, "MMM d, yyyy", { locale: enUS })}
+            {format(weekStart, "d MMM", { locale: dateLocale })} – {format(weekEnd, "d MMM yyyy", { locale: dateLocale })}
           </span>
           <Button
             variant="outline"
@@ -196,7 +197,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                 return (
                   <div key={dateStr}>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                      {format(day, "EEEE, MMM d", { locale: enUS })}
+                      {format(day, "EEEE, d MMM", { locale: dateLocale })}
                     </p>
                     <div className="space-y-2">
                       {dayClasses.map((cls) => {

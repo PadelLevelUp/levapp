@@ -40,9 +40,9 @@ def guard_migration_target():
     """
     from padel_app.config import assert_safe_migration_target
 
-    host = get_engine().url.host
-    assert_safe_migration_target(host)
-    logger.info('Running migrations against database host %s', host)
+    url = get_engine().url
+    assert_safe_migration_target(url.host, url.port)
+    logger.info('Running migrations against database host %s:%s', url.host, url.port)
 
 
 guard_migration_target()

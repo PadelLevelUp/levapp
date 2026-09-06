@@ -110,6 +110,41 @@ jobs:
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
 
+  # PAD-200: refresh staging's database from prod on EVERY staging deploy, so
+  # staging tests against current, realistic data. Best-effort by contract:
+  # `continue-on-error` keeps a failed copy from failing the deploy, the script
+  # itself exits 0 on every guard, and it always restarts the staging app.
+  # Runs after `backend` (which may be skipped on a frontend-only push — the
+  # copy still happens) and in parallel with `frontend`. The restart the script
+  # performs re-runs the entrypoint's `flask db upgrade`, so the copied prod
+  # schema is brought up to whatever migrations staging carries.
+  sync-db:
+    needs: [ changes, backend ]
+    if: >-
+      always() && needs.backend.result != 'failure' && needs.backend.result != 'cancelled'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v4
+    - name: Copy sync script to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        source: "backend/scripts/sync-staging-db.sh"
+        target: "/home/${{ secrets.GCE_USER }}/"
+        strip_components: 2
+        overwrite: true
+    - name: Sync staging DB from prod
+      uses: appleboy/ssh-action@v1.2.5
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        script: |
+          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging || true
+
   frontend:
     needs: [ changes, backend ]
     # always() lets this run when backend was SKIPPED (frontend-only push); it

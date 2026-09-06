@@ -19,7 +19,7 @@ import { initReactI18next } from "react-i18next";
 // Locked decisions for this module:
 // - fallbackLng "en": every existing mobile screen is hardcoded English
 //   today (retrofit to useTranslation() is a separate follow-up ticket, see
-//   plans/mobile-web-parity-plan.md Phase 0 item 5) so an English fallback
+//   docs/plans/mobile-web-parity-plan.md Phase 0 item 5) so an English fallback
 //   degrades gracefully for untranslated keys. Web's fallback is "pt"
 //   (PAD-39, locked) — the two platforms intentionally diverge here until
 //   the mobile retrofit lands full pt coverage.
@@ -45,6 +45,7 @@ import playersEn from "../../../../src/locales/en/players.json";
 import presencesEn from "../../../../src/locales/en/presences.json";
 import settingsEn from "../../../../src/locales/en/settings.json";
 import trainingEn from "../../../../src/locales/en/training.json";
+import tutorialsEn from "../../../../src/locales/en/tutorials.json";
 import uiEn from "../../../../src/locales/en/ui.json";
 
 import authPt from "../../../../src/locales/pt/auth.json";
@@ -61,6 +62,7 @@ import playersPt from "../../../../src/locales/pt/players.json";
 import presencesPt from "../../../../src/locales/pt/presences.json";
 import settingsPt from "../../../../src/locales/pt/settings.json";
 import trainingPt from "../../../../src/locales/pt/training.json";
+import tutorialsPt from "../../../../src/locales/pt/tutorials.json";
 import uiPt from "../../../../src/locales/pt/ui.json";
 
 type Dict = Record<string, unknown>;
@@ -101,6 +103,7 @@ const enNamespaces: Dict[] = [
   presencesEn,
   settingsEn,
   trainingEn,
+  tutorialsEn,
   uiEn,
 ];
 
@@ -119,6 +122,7 @@ const ptNamespaces: Dict[] = [
   presencesPt,
   settingsPt,
   trainingPt,
+  tutorialsPt,
   uiPt,
 ];
 

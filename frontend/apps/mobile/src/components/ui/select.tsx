@@ -4,6 +4,7 @@ import * as SelectPrimitive from "@rn-primitives/select";
 import * as React from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { resolveFontClass } from "@/lib/font-class";
 import { cn } from "@/lib/utils";
 
 type Option = SelectPrimitive.Option;
@@ -90,9 +91,12 @@ function SelectContent({
 function SelectLabel({ className, ...props }: SelectPrimitive.LabelProps) {
   return (
     <SelectPrimitive.Label
-      className={cn(
-        "py-1.5 pl-8 pr-2 text-sm font-semibold text-popover-foreground",
-        className
+      // @rn-primitives Label renders a native Text directly — R-025.
+      className={resolveFontClass(
+        cn(
+          "py-1.5 pl-8 pr-2 text-sm font-semibold text-popover-foreground",
+          className
+        )
       )}
       {...props}
     />

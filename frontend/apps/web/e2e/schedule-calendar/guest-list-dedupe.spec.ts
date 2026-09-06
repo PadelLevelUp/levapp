@@ -2,7 +2,7 @@
  * E2E — PAD-72: a student invited several times for the same class must appear
  * only ONCE in the class-detail guest ("Invited") list.
  *
- * Spec: specs/calendar/spec.md — calendar.event-detail rules 6-9.
+ * Spec: .specflow/specs/calendar/event-detail.spec.md — rules 6-9.
  *
  * The invitation engine legitimately creates one `NotificationEvent` per invite
  * sent (multi-round matching, manual + automatic invites, re-invites). The

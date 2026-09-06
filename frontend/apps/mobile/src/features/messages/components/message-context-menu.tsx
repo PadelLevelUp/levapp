@@ -118,7 +118,7 @@ export function MessageContextMenu({
                 <Pressable
                   key={emoji}
                   testID={`reaction-${index}`}
-                  accessibilityLabel={`React with ${emoji}`}
+                  accessibilityLabel={t("messages.reactWith", { emoji })}
                   role="button"
                   onPress={() => onReaction(emoji)}
                   className="p-1 active:opacity-60"

@@ -181,6 +181,7 @@
       "instructionsTouch": "Tap a tool, then tap the court to place it. Tap an element to select it — drag to move it, or use the delete button to remove it. Draw arrows and movement lines by dragging across the court, then select them to add a label or curve. Max 4 players."
     },
     "exercisesTabAria": "Exercises tab",
-    "groupsTabAria": "Groups tab"
+    "groupsTabAria": "Groups tab",
+    "exerciseItem": "Exercise {{name}}"
   }
 }

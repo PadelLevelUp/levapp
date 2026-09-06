@@ -113,6 +113,7 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
 | schedule-calendar/class-detail-privacy.spec.ts | `14-student-calendar.yaml` (student sees no coach controls) |
 | schedule-calendar/class-management.spec.ts | `03-class-management.yaml` |
 | schedule-calendar/daily-schedule.spec.ts | covered by `03`/`14` (day list + student view) |
+| _(no web spec — web's `EventDetailSheet` journey)_ | `21-event-detail.yaml` — create/open/edit/delete a non-class calendar event (PAD-160) |
 | schedule-calendar/mobile-weekly-order.spec.ts | not applicable — web mobile-viewport spec; the WeekStrip is exercised by `goto-seeded-monday` |
 | settings/coach-settings.spec.ts | profile/settings screen covered by `12`; skill-levels editor outside the critical set |
 | settings/language-preference.spec.ts | `12-settings-language.yaml` (coordinate tap, see limitations) |

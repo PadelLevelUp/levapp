@@ -8,7 +8,8 @@
  * the geometry, colours and easing below are copied across verbatim rather
  * than re-derived — a second tracing of the mark would drift from the icon.
  *
- * The design canvas for this surface is `reference/design/LA Website Loader.dc.html`
+ * The design canvas for this surface is `.cortex/atlas/sources/la-website-loader.dc.html`
+ * (gitignored raw material, schema §4.3 — ask a maintainer for a copy)
  * (and its `… Mobile.dc.html` twin, identical but for `markSize`: 300 vs 240).
  * Those two files name three scenes — `Form` 2.4s, `Loading` 1.6s, `Reveal`
  * 1.4s — but their component source (`la-loader.jsx`) was not exported with

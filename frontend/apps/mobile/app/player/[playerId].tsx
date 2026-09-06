@@ -11,6 +11,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
+import { useDateLocale } from "@/lib/date-locale";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +64,7 @@ function getInitials(name: string) {
 
 export default function PlayerDetailScreen() {
   const { t } = useTranslation();
+  const locale = useDateLocale();
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -424,7 +426,7 @@ export default function PlayerDetailScreen() {
                       {ev.categoryName}
                     </Text>
                     <Text className="text-xs text-muted-foreground">
-                      {format(parseISO(ev.evaluatedAt), "MMM d, yyyy")}
+                      {format(parseISO(ev.evaluatedAt), "d MMM yyyy", { locale })}
                     </Text>
                   </View>
                   <Badge variant="outline">

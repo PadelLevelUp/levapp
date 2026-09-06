@@ -58,7 +58,9 @@ def create_app(test_config=None):
         # Fail closed before anything opens a connection: never migrate a
         # production database from a non-production process (PAD-95).
         if is_migration_invocation():
-            assert_safe_migration_target(config_cls.POSTGRES_HOST, env)
+            assert_safe_migration_target(
+                config_cls.POSTGRES_HOST, config_cls.POSTGRES_PORT, env
+            )
 
     # Ensure responses aren't cached + refresh nearly-expired JWT tokens
     @app.after_request

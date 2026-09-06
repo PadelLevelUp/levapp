@@ -239,7 +239,7 @@ export function NotifyModal({
 
             <Input
               testID="class-notify-search"
-              accessibilityLabel="Search students"
+              accessibilityLabel={t("calendar.notify.searchStudents")}
               placeholder={t("calendar.notify.searchPlaceholder")}
               value={search}
               onChangeText={setSearch}
@@ -278,7 +278,7 @@ export function NotifyModal({
           <Button
             variant="outline"
             className="flex-1"
-            accessibilityLabel="Cancel notify"
+            accessibilityLabel={t("calendar.notify.cancel")}
             onPress={resetAndClose}
             disabled={sendNotifications.isPending}
           >
@@ -286,7 +286,7 @@ export function NotifyModal({
           </Button>
           <Button
             testID="class-notify-send"
-            accessibilityLabel="Send notifications"
+            accessibilityLabel={t("calendar.notify.send")}
             className="flex-1"
             disabled={selected.size === 0 || sendNotifications.isPending}
             onPress={() => void handleSend()}

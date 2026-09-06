@@ -1,6 +1,6 @@
 """Canonical ordering of a coach's skill-level ladder.
 
-A coach defines their own levels (see ``specs/levels/spec.md``). The ordering
+A coach defines their own levels (see ``.specflow/specs/levels/coach-levels.spec.md``). The ordering
 convention across the whole codebase is:
 
     **lower ``display_order`` = HIGHER / stronger skill level**

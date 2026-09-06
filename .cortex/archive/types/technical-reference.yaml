@@ -1,0 +1,14 @@
+id: technical-reference
+label: Technical reference document
+classification:
+  extensions: [.md]
+  hints:
+    - "Internal Reference"
+    - "need to be understood before"
+    - "actual source code"
+  explicit: true
+extraction:
+  strategy: generic
+  outputs:
+    - kind: summary
+      path: extracted/summary.md

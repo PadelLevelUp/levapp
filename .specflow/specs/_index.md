@@ -19,9 +19,9 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (7 leaves)
-- `notifications/` — Notification Engine (12 leaves)
+- `notifications/` — Notification Engine (13 leaves)
 - `players/` — Player Management (10 leaves)
-- `settings/` — User Preferences & Internationalization (3 leaves)
+- `settings/` — User Preferences & Internationalization (4 leaves)
 - `training/` — Exercise Library & Training Planning (5 leaves)
 
 ## Tooling Manifest
@@ -49,6 +49,7 @@ messaging ── [auth] ──────────────────�
 notifications [classes, players, messaging, attendance] ─┤
 eligibility  [notifications, levels, players, attendance, classes] ─┤
 training ─── [classes] ────────────────┤
+settings ─── [notifications, calendar] ┤
 import ───── [players, classes, levels, evaluations] ────┤
 dashboard ── [classes, messaging, notifications, players]┘
 ```
@@ -81,11 +82,11 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | levels | 2 | 4 | implemented |
 | evaluations | 2 | 5 | implemented |
 | messaging | 3 | 8 | implemented |
-| notifications | 4 | 12 | implemented |
+| notifications | 4 | 13 | implemented |
 | training | 2 | 6 | implemented |
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
-| settings | 2 | 2 | draft |
+| settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
 
 
 ## Build Order

@@ -33,8 +33,9 @@ managing only their own personal profile and preferences.
    drives both the app's UI text and the wording of auto-generated notifications sent to them, going
    forward and after every login, not just while Settings happens to be open.
 4. If a coach, they also see and can manage club-wide configuration from the same screen: seasons, the
-   club's skill-level ladder, evaluation scoring categories, the notification engine, data import, and
-   club/coach-invitation management.
+   club's skill-level ladder, evaluation scoring categories, the notification engine, interactive
+   tutorials (see "Coach understands who gets invited" in the notifications domain), data import,
+   and club/coach-invitation management.
 5. If a student, none of those coach-only panels appear on their Settings screen at all — they see
    Profile, Preferences (language and theme only), their own notification preferences, and Account —
    they are never bounced away from `/settings` altogether, just shown a smaller page.

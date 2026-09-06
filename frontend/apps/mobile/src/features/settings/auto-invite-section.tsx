@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { EligibilitySection } from "./eligibility-section";
 
 /**
  * Auto-Invite Engine basic controls, mirroring the top-level portion of
@@ -160,6 +161,27 @@ export function AutoInviteSection() {
             </View>
           </View>
         ) : null}
+
+        {/* Eligibility — PAD-128, ported to iOS by PAD-161. The minimum bar to
+            join a class AT ALL, so unlike the invitation mode above it is NOT
+            gated on autoNotifyEnabled: it governs who may join even when the
+            coach invites by hand. Web places it above invitation groups for
+            the same reason — the groups are an ORDERING on top of this floor,
+            not a permission system of their own. */}
+        <View className="gap-2 border-t border-border pt-4">
+          <View>
+            <Text className="text-sm font-medium">
+              {t("settings.engine.eligibility")}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {t("settings.engine.eligibilityHint")}
+            </Text>
+          </View>
+          <EligibilitySection
+            rules={config.eligibilityRules}
+            onChange={(eligibilityRules) => void save({ eligibilityRules })}
+          />
+        </View>
       </CardContent>
     </Card>
   );

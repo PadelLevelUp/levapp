@@ -18,3 +18,7 @@ a user can edit about themselves, and which parts of that same screen they're al
 Role-scope isn't a separable outcome on its own — it only makes sense in the context of what's being
 scoped (profile and language, plus the coach-only panels this domain gates access to) — so this 3-leaf
 domain gets one business spec per the sizing guidance.
+
+The Tutorials section (`settings.tutorials` on the engineering side) is gated here but its outcome
+lives in the notifications domain as "Coach understands who gets invited": the screen is Settings
+furniture, the value is understanding the invitation engine.

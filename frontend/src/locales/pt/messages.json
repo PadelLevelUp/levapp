@@ -99,6 +99,10 @@
     "confirmDeleteMessageAria": "Confirmar eliminação da mensagem",
     "delete": "Eliminar",
     "conversationFallback": "Conversa",
-    "noMessagesSayHi": "Ainda não há mensagens. Diz olá!"
+    "noMessagesSayHi": "Ainda não há mensagens. Diz olá!",
+    "reactWith": "Reagir com {{emoji}}",
+    "roleLabel": "Função: {{role}}",
+    "reactionLabel_one": "Reação {{emoji}}",
+    "reactionLabel_other": "Reação {{emoji}} ({{count}})"
   }
 }

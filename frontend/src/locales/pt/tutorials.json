@@ -1,0 +1,172 @@
+{
+  "tutorials": {
+    "title": "Tutoriais",
+    "description": "Percursos interativos para perceber o que a app faz por ti.",
+    "back": "Tutoriais",
+    "understandInvites": {
+      "title": "Perceber os convites",
+      "description": "Escolhe uma aula e um aluno que falta, e vê exatamente quem seria convidado e porquê.",
+      "intro": "Isto é um ensaio: nada é enviado, ninguém é colocado, nenhuma vaga é aberta.",
+      "stepClass": "1. Escolhe uma aula",
+      "stepPlayer": "2. Escolhe quem falta",
+      "stepResults": "3. O que o motor faria agora",
+      "noClasses": "Não tens aulas com alunos inscritos nas próximas 4 semanas.",
+      "noPlayers": "Esta aula não tem alunos inscritos.",
+      "loadingClasses": "A carregar as aulas…",
+      "loadingPlayers": "A carregar os alunos…",
+      "loadingResults": "A simular…",
+      "error": "Não foi possível simular. Tenta outra vez.",
+      "evaluatedAt": "às {{time}}",
+      "blockedTitle": "Neste momento o motor não convidaria ninguém",
+      "clearTitle": "Nada impede o envio neste momento",
+      "approvalRequired": "Estás em modo semi-automático: antes de qualquer envio, ser-te-ia pedido para aprovares esta lista.",
+      "waitingList": "{{name}} seria colocado(a) diretamente a partir da lista de espera — ninguém é convidado para esta vaga.",
+      "waitingListStanding": "(inscrição permanente)",
+      "spot": "Vaga de lado {{side}}, nível {{level}} — {{source}}",
+      "spotNoLevel": "Vaga de lado {{side}}, sem nível — {{source}}",
+      "roundTitle": "Ronda {{number}}",
+      "rank": "#{{rank}}",
+      "lookupTitle": "Porque é que … não é convidado(a)?",
+      "lookupPlaceholder": "Escreve o nome de um aluno",
+      "lookupNoResults": "Nenhum aluno com esse nome.",
+      "lookupSearching": "A procurar…",
+      "notInvited": "{{name}}:",
+      "invitedPosition": "Convidado(a) na ronda {{round}}, posição {{rank}} — {{status}}",
+      "roundReason": "Ronda {{round}}: {{reason}}",
+      "changeClass": "Mudar de aula",
+      "changePlayer": "Mudar de aluno"
+    },
+    "rounds": {
+      "everyone": "Todos os alunos elegíveis",
+      "empty": "Nenhum aluno cumpre os critérios desta ronda."
+    },
+    "sendStatus": {
+      "first_batch": "primeiro envio",
+      "queued": "em espera",
+      "daily_quota": "acima do limite de hoje"
+    },
+    "gates": {
+      "auto_notify_disabled": "O motor de convites automáticos está desligado.",
+      "class_notifications_disabled": "As notificações estão desligadas para esta aula.",
+      "class_over": "A aula já começou ou terminou.",
+      "invitation_window": "Os convites só abrem a {{opensAt}}.",
+      "quiet_hours": "Horas de silêncio — os convites retomam às {{until}}.",
+      "min_time_before_class": "Faltam menos de {{minutes}} minutos para a aula.",
+      "max_total_reached": "Já foram enviados {{sent}} convites para esta aula (limite {{limit}})."
+    },
+    "gatesOk": {
+      "auto_notify_disabled": "Motor de convites ligado",
+      "class_notifications_disabled": "Notificações ligadas para esta aula",
+      "class_over": "A aula ainda não começou",
+      "invitation_window": "Janela de convites aberta",
+      "quiet_hours": "Fora das horas de silêncio",
+      "min_time_before_class": "Ainda há tempo antes da aula",
+      "max_total_reached": "Limite de convites por aula não atingido ({{sent}}/{{limit}})"
+    },
+    "stages": {
+      "departing_player": "É o aluno que falta — a vaga é dele(a).",
+      "already_enrolled": "Já está inscrito(a) nesta aula.",
+      "already_invited": "Já tem um convite pendente para esta vaga.",
+      "eligibility": "Está abaixo da barra de elegibilidade desta aula:",
+      "excluded_by_coach": "Excluíste este aluno dos convites automáticos (Definições › Notificações › Restrições).",
+      "inactive_account": "A conta não está ativa e as contas inativas estão excluídas.",
+      "unavailable": "Marcou-se como indisponível à hora desta aula.",
+      "auto_invites_off": "Desligou os convites automáticos.",
+      "no_round_matched": "Não cumpre os critérios de nenhuma ronda:",
+      "invited": "Seria convidado(a)."
+    },
+    "rules": {
+      "level": {
+        "same_as_vacancy": "mesmo nível que a vaga",
+        "same_level": "mesmo nível que a vaga",
+        "one_above_vacancy": "um nível acima da vaga",
+        "one_below_vacancy": "um nível abaixo da vaga",
+        "all_above_vacancy": "qualquer nível acima da vaga",
+        "all_below_vacancy": "qualquer nível abaixo da vaga",
+        "same_as_class": "mesmo nível que a aula",
+        "equal_or_above_class": "nível igual ou superior ao da aula",
+        "equal_or_below_class": "nível igual ou inferior ao da aula",
+        "one_below_or_above_class": "até um nível de diferença",
+        "within_n_of_class": "até {{value}} níveis de diferença"
+      },
+      "side": {
+        "same_as_vacancy": "mesmo lado que a vaga",
+        "same_side": "mesmo lado que a vaga"
+      },
+      "unjustified_absences": {
+        "max_unjustified_absences": "no máximo {{value}} faltas injustificadas",
+        "less_than": "menos de {{value}} faltas injustificadas",
+        "less_than_or_equal": "no máximo {{value}} faltas injustificadas",
+        "equals": "exatamente {{value}} faltas injustificadas",
+        "greater_than": "mais de {{value}} faltas injustificadas",
+        "greater_than_or_equal": "pelo menos {{value}} faltas injustificadas"
+      },
+      "justified_absences": {
+        "less_than": "menos de {{value}} faltas justificadas",
+        "less_than_or_equal": "no máximo {{value}} faltas justificadas",
+        "equals": "exatamente {{value}} faltas justificadas",
+        "greater_than": "mais de {{value}} faltas justificadas",
+        "greater_than_or_equal": "pelo menos {{value}} faltas justificadas"
+      },
+      "attendance_rate": {
+        "less_than": "assiduidade abaixo de {{value}}%",
+        "less_than_or_equal": "assiduidade até {{value}}%",
+        "equals": "assiduidade de {{value}}%",
+        "greater_than": "assiduidade acima de {{value}}%",
+        "greater_than_or_equal": "assiduidade de pelo menos {{value}}%"
+      },
+      "has_makeups": {
+        "is_true": "tem reposições por fazer"
+      },
+      "subscription_status": {
+        "equals": "conta {{value}}"
+      }
+    },
+    "eligibility": {
+      "levelBelow": "{{n}} níveis abaixo desta aula",
+      "levelBelowOne": "1 nível abaixo desta aula",
+      "levelAbove": "{{n}} níveis acima desta aula",
+      "levelAboveOne": "1 nível acima desta aula",
+      "levelNotSame": "nível {{actual}}, a aula é de nível {{threshold}}",
+      "classHasNoLevel": "a aula não tem nível definido, por isso nenhuma regra de nível pode ser cumprida",
+      "studentHasNoLevel": "o aluno não tem nível atribuído",
+      "levelNotInLadder": "o nível do aluno não está na tua escada de níveis",
+      "absencesOver": "acima do limite de faltas injustificadas ({{actual}}, limite {{threshold}})",
+      "justifiedAbsences": "faltas justificadas fora do limite ({{actual}}, limite {{threshold}})",
+      "attendanceUnder": "assiduidade fora do limite ({{actual}}%, limite {{threshold}}%)",
+      "sideMismatch": "joga à {{actual}}, a vaga é de lado {{threshold}}",
+      "noMakeups": "não tem reposições por fazer",
+      "subscription": "estado da conta: {{actual}}",
+      "generic": "regra \"{{attribute}}\" não cumprida"
+    },
+    "priority": {
+      "levelSame": "mesmo nível",
+      "levelBelow": "{{n}} abaixo",
+      "levelAbove": "{{n}} acima",
+      "levelUnknown": "nível desconhecido",
+      "justifiedMisses": "faltas justificadas {{pct}}%",
+      "attendance": "assiduidade {{pct}}%",
+      "playingSide": {
+        "exact": "lado certo",
+        "both": "joga dos dois lados",
+        "other": "outro lado"
+      },
+      "subscription": {
+        "active": "conta ativa",
+        "inactive": "conta inativa"
+      },
+      "unknown": "—"
+    },
+    "sides": {
+      "left": "esquerdo",
+      "right": "direito",
+      "both": "ambos",
+      "none": "indiferente"
+    },
+    "levelSource": {
+      "player": "nível do aluno que falta",
+      "class": "nível da aula (o aluno não tem nível)",
+      "none": "nem o aluno nem a aula têm nível"
+    }
+  }
+}

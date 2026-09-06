@@ -11,16 +11,53 @@ import type {
   ClassInstance,
   PresenceStatus,
 } from "@levelup/types";
+import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+/** Every query a class mutation can affect. */
+const CLASS_DATA_KEYS: QueryKey[] = [
+  ["calendar-events"],
+  ["class-instance"],
+  ["dashboard"],
+];
+
+/** The key `useCalendarBlock` caches one calendar block under. */
+export function calendarBlockQueryKey(blockId: number | null): QueryKey {
+  return ["calendar-block", blockId];
+}
+
+/**
+ * Every query a calendar-block (non-class event) mutation can affect (PAD-160).
+ *
+ * `CLASS_DATA_KEYS` alone is not enough: the event-detail screen renders from
+ * `["calendar-block", blockId]`, so leaving that entry cached made a successful
+ * save snap the screen back to the pre-edit title/description — the mutation
+ * had landed, but the view was reading a stale block.
+ */
+export function eventMutationInvalidationKeys(blockId: number): QueryKey[] {
+  return [...CLASS_DATA_KEYS, calendarBlockQueryKey(blockId)];
+}
+
+function invalidateKeys(queryClient: QueryClient, keys: QueryKey[]) {
+  for (const queryKey of keys) {
+    void queryClient.invalidateQueries({ queryKey });
+  }
+}
+
+/**
+ * The `onSuccess` an event mutation runs, as a plain function of the query
+ * client — extracted from the hooks so the unit runner can exercise the real
+ * invalidation instead of a restatement of it.
+ */
+export function eventMutationOnSuccess(queryClient: QueryClient) {
+  return (_data: unknown, variables: { blockId: number }) =>
+    invalidateKeys(queryClient, eventMutationInvalidationKeys(variables.blockId));
+}
 
 /** Invalidates every query a class mutation can affect. */
 function useInvalidateClassData() {
   const queryClient = useQueryClient();
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
-    void queryClient.invalidateQueries({ queryKey: ["class-instance"] });
-    void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-  };
+  return () => invalidateKeys(queryClient, CLASS_DATA_KEYS);
 }
 
 export function useAddClass() {
@@ -38,6 +75,59 @@ export function useAddEvent() {
     mutationFn: (data: Record<string, unknown>) =>
       calendarApi.addCalendarBlock(data),
     onSuccess: invalidate,
+  });
+}
+
+/** One calendar block, for the event-detail screen (PAD-160). */
+export function useCalendarBlock(blockId: number | null) {
+  return useQuery({
+    queryKey: calendarBlockQueryKey(blockId),
+    queryFn: () => calendarApi.getCalendarBlock(blockId as number),
+    enabled: blockId != null && Number.isFinite(blockId),
+  });
+}
+
+/**
+ * Edit a calendar block (PAD-160). Web's EventDetailSheet does this inline;
+ * iOS routes it through a hook so the same invalidation runs as for classes.
+ */
+export function useEditEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      blockId,
+      data,
+    }: {
+      blockId: number;
+      data: Record<string, unknown>;
+    }) => calendarApi.editCalendarBlock(blockId, data),
+    onSuccess: eventMutationOnSuccess(queryClient),
+  });
+}
+
+/**
+ * Delete a calendar block (PAD-160).
+ *
+ * `scope` is only sent for a recurring block, matching web: the backend reads
+ * the occurrence date alongside it to decide between this one and all future.
+ */
+export function useRemoveEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      blockId,
+      occDate,
+      scope,
+    }: {
+      blockId: number;
+      occDate?: string;
+      scope?: "single" | "future";
+    }) =>
+      calendarApi.deleteCalendarBlock(
+        blockId,
+        scope ? { occDate: occDate ?? "", scope } : undefined
+      ),
+    onSuccess: eventMutationOnSuccess(queryClient),
   });
 }
 

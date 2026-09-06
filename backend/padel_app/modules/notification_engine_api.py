@@ -135,6 +135,75 @@ def eligibility_check():
     })
 
 
+def _simulation_inputs(coach):
+    """Shared parsing for the two simulation routes — PAD-196,
+    notifications.invite-simulation rules 1–2.
+
+    The class is addressed as `{model, originalId, date}` exactly like
+    `eligibility_check`, because `_resolve_instance` is the path that
+    materializes a virtual occurrence (R-001). The instance must be this
+    coach's (404) and the departing player must be enrolled in it (400).
+    """
+    from padel_app.models.Association_CoachLessonInstance import (
+        Association_CoachLessonInstance,
+    )
+
+    data = request.get_json() or {}
+    if data.get("originalId") in (None, ""):
+        abort(400, "originalId is required")
+    instance = _resolve_instance(
+        data.get("model", "LessonInstance"),
+        int(data.get("originalId")),
+        data.get("date"),
+    )
+    owned = Association_CoachLessonInstance.query.filter_by(
+        coach_id=coach.id, lesson_instance_id=instance.id
+    ).first()
+    if owned is None:
+        abort(404)
+    try:
+        departing_player_id = int(data.get("departingPlayerId"))
+    except (TypeError, ValueError):
+        abort(400, "departingPlayerId is required")
+    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    if departing_player_id not in enrolled_ids:
+        abort(400, "departingPlayerId must be enrolled in this class")
+    return data, instance, departing_player_id
+
+
+@bp.post("/invite_simulation")
+@jwt_required()
+def invite_simulation():
+    """Dry run of the invitation engine for a hypothetical vacancy, as of now.
+
+    PAD-196 / notifications.invite-simulation. Read-only: no vacancy, event,
+    message, prompt or waiting-list write happens on this path. Structured
+    codes only — the client renders them in the coach's locale.
+    """
+    coach = _current_coach()
+    _data, instance, departing_player_id = _simulation_inputs(coach)
+    from padel_app.services.invite_simulation_service import simulate_vacancy
+    return jsonify(simulate_vacancy(instance, coach.id, departing_player_id))
+
+
+@bp.post("/invite_simulation/explain")
+@jwt_required()
+def invite_simulation_explain():
+    """Why ONE roster player is, or is not, invited for that hypothetical
+    vacancy — the first stage that dropped them (rule 2)."""
+    coach = _current_coach()
+    data, instance, departing_player_id = _simulation_inputs(coach)
+    try:
+        player_id = int(data.get("playerId"))
+    except (TypeError, ValueError):
+        abort(400, "playerId is required")
+    from padel_app.services.invite_simulation_service import explain_player
+    verdict = explain_player(instance, coach.id, departing_player_id, player_id)
+    if verdict is None:
+        abort(404)
+    return jsonify(verdict)
+
+
 @bp.post("/toggle_class")
 @jwt_required()
 def toggle_class_notifications():

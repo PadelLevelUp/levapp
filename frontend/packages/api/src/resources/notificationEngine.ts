@@ -1,6 +1,9 @@
 import type {
   ApprovalAction,
   ApprovalVacancyResult,
+  InviteExplain,
+  InviteSimulation,
+  InviteSimulationRequest,
   NotificationConfig,
   NotificationEventItem,
   StudentGroup,
@@ -188,4 +191,25 @@ export async function addToStandingWaitingList(
 
 export async function removeFromStandingWaitingList(entryId: number): Promise<void> {
   await getApi().delete(`/app/notify/standing_waiting_list/${entryId}`);
+}
+
+// ---------------------------------------------------------------------------
+// PAD-196 — "Understand invites" (notifications.invite-simulation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Read-only dry run of the invitation engine for a hypothetical vacancy,
+ * evaluated as of now. Nothing is sent, placed or created.
+ */
+export async function simulateInvites(req: InviteSimulationRequest): Promise<InviteSimulation> {
+  const res = await getApi().post("/app/notify/invite_simulation", req);
+  return res.data;
+}
+
+/** Why one roster player is, or is not, invited for that hypothetical vacancy. */
+export async function explainInviteCandidate(
+  req: InviteSimulationRequest & { playerId: string | number },
+): Promise<InviteExplain> {
+  const res = await getApi().post("/app/notify/invite_simulation/explain", req);
+  return res.data;
 }
