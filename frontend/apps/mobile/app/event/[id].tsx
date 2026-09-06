@@ -515,10 +515,14 @@ export default function EventDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Recurring delete: this occurrence or all future ones. */}
+      {/* Recurring delete: this occurrence or all future ones. `keyPrefix`
+          swaps the dialog's class-worded copy ("Eliminar aula") for the
+          event-worded `calendar.eventScope.*` — a personal event is not a
+          class, and web's EventDetailSheet passes the same prefix. */}
       <ClassScopeDialog
         open={deleteScopeOpen}
         mode="delete"
+        keyPrefix="calendar.eventScope"
         onClose={() => setDeleteScopeOpen(false)}
         onConfirm={(scope) => void confirmDelete(scope)}
       />
