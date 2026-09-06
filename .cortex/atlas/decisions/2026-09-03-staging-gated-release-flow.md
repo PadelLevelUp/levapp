@@ -17,5 +17,9 @@ with no file on the VM's disk, the staging app stopped for the copy and restarte
 its entrypoint's `flask db upgrade` applies whatever migrations staging carries beyond prod. The
 copy is deliberately best-effort (`continue-on-error` on the job, `exit 0` on every guard in the
 script): staging data is a convenience, the deploy is not. No anonymisation was wanted — staging
-holds no push, mail or AI credentials, so copied students cannot be contacted from it.
-Consequence: staging is never a place to keep anything; it is prod as of the last deploy.
+holds no push, mail or AI credentials, so copied students cannot be contacted from it — but a
+**safety scrub** runs after every copy so that stays true even if staging later gains those
+credentials: push subscriptions and device tokens are emptied and every email is rewritten to
+`user<id>@staging.invalid`. Names, phones, passwords, classes and messages stay real; login is by
+username, so prod credentials keep working. Consequence: staging is never a place to keep
+anything; it is prod as of the last deploy, minus every outbound channel.
