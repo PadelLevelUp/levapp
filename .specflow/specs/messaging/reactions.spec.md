@@ -21,7 +21,10 @@ Users can add emoji reactions to messages, with toggle behavior.
 2. If reaction exists: remove it. If not: add it.
 3. Multiple users can react with the same emoji
 4. Same user can have multiple different emoji reactions on one message
-5. SSE event published on reaction change
+5. SSE event published on reaction change, addressed to the participants of the
+   message's conversation (messaging.sse-realtime rule 8)
+6. Only a participant of the message's conversation may react to it; anyone else gets
+   403 (messaging.messages rule 10)
 
 ### Acceptance Criteria
 
