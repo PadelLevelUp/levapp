@@ -42,9 +42,12 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "attendance-range-1y"
 
-# The attended-class list is always present, populated or not.
-- assertVisible:
-    id: "attendance-history-list"
+# The attended-class list is always present, populated or not — but it
+# replaces a skeleton once the first fetch lands, so wait rather than assert.
+- extendedWaitUntil:
+    visible:
+      id: "attendance-history-list"
+    timeout: 20000
 
 # ── Switching preset re-queries; the list container survives the refetch ──
 - tapOn:

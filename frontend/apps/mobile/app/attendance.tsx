@@ -143,7 +143,7 @@ export default function AttendanceScreen() {
         {/* The chart above already carries the failure message, so this is the
             retry affordance rather than a second copy of the same sentence. */}
         {isError ? (
-          <ErrorState onRetry={() => void refetch()} />
+          <ErrorState className="flex-none py-8" onRetry={() => void refetch()} />
         ) : isPending ? (
           <Skeleton className="h-48 w-full rounded-lg" />
         ) : (

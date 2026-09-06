@@ -42,12 +42,14 @@ export function AttendanceChart({
     [buckets, granularity, locale]
   );
 
+  // Height via className, not `style`: Skeleton spreads its props AFTER its
+  // own `style={animatedStyle}`, so a style prop here would replace the pulse
+  // animation rather than add to it.
   if (loading) {
     return (
       <Skeleton
         testID="attendance-chart"
-        className="w-full rounded-md"
-        style={{ height: CHART_HEIGHT }}
+        className="h-[200px] w-full rounded-md"
         accessibilityLabel={t("attendance.chart.loading")}
       />
     );
