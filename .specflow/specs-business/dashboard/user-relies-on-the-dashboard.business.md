@@ -24,8 +24,10 @@ Every coach and every student, as the first screen they see on opening the app.
 1. A coach opens the app and lands on their dashboard: how many unread conversations need a reply,
    key numbers (total players, this week's classes, attendance rate), their upcoming classes, and
    recent notification activity.
-2. A student opens the app and sees their own version: their enrolled classes for the week, their
-   own key numbers (like lessons attended, lessons missed), and any pending confirmations.
+2. A student opens the app and sees their own version, in the same look and layout as the
+   coach's: a greeting, their next class front and centre, a short queue of things waiting on
+   them (invites to confirm, messages to answer), their classes for the coming week, and their
+   own key numbers (lessons attended and missed, each against their total).
 3. The coach clicks an unread-messages block and lands directly in Messages.
 4. The coach clicks an upcoming class and lands on the calendar already showing the right week,
    with that exact class's details already open — no hunting through weeks to find it.
@@ -39,7 +41,9 @@ Every coach and every student, as the first screen they see on opening the app.
 - The dashboard is server-driven: an ordered set of blocks, each with its own type, assembled per
   request for the specific user asking.
 - A coach and a student see meaningfully different dashboards, built for what each role actually
-  needs to act on.
+  needs to act on — but in one shared visual language, so the app never looks like two apps
+  depending on who signed in.
+- An invite the student has not answered is shown as something to resolve, not merely counted.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
   a matching page actually exists to receive the click.
 - Clicking an upcoming class always opens that exact occurrence's details already in view — never a

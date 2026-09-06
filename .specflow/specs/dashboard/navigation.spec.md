@@ -30,10 +30,13 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
      always agree
    - `date` is required because a materialised instance id does not encode its own date, and an
      upcoming class often falls outside the currently displayed week
-9. Rule 8 applies to every `class_list` block on every dashboard — coach ("Upcoming classes",
-   "Needs players") and player/student ("Your upcoming lessons", "Invites to confirm") alike
-10. `class_list` items are keyboard reachable: each row is exposed as a button and activates with
-    Enter/Space, not only with a pointer click
+9. Rule 8 applies to every class-carrying item on every dashboard — `schedule_7d` rows,
+   `next_class`, and the `empty_seats` / `invite` kinds of `needs_you` — for coach and student
+   alike. **(PAD-202)** `class_list` no longer exists; the student's "Your upcoming lessons" is
+   their `schedule_7d` and "Invites to confirm" is the `invite` kind of `needs_you`, and both
+   keep the same deep-link shape.
+10. Schedule rows and queue cards are keyboard reachable: each is exposed as a button and
+    activates with Enter/Space, not only with a pointer click
 11. The student "Attended" KPI links to the attendance history page (`href: /attendance`, see
     `attendance.history`). It is the student-side entry point to that page.
 11a. **(PAD-141)** The student "Missed" KPI links to the absence history page
@@ -80,5 +83,11 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 
 #### Student upcoming lesson opens that exact class
 - **Given** an authenticated student with an upcoming lesson
-- **When** they click it in "Your upcoming lessons"
+- **When** they click its row in "NEXT 7 DAYS"
 - **Then** the calendar opens on that lesson's week with its detail sheet open
+
+#### Student invite opens that exact class (PAD-202)
+- **Given** an authenticated student with a pending invite in the "NEEDS YOU" queue
+- **When** they activate the invite card's "Open" action
+- **Then** the calendar opens on that class's week with its detail sheet open, where the
+  student can confirm or decline
