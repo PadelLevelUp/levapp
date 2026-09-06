@@ -21,9 +21,11 @@ import { Share } from "react-native";
  * it somewhere it is a copy, and iOS is free to reclaim it. Re-exporting the
  * same day overwrites rather than accumulating `presences-1.csv`.
  *
- * @returns `true` when the coach sent the file somewhere, `false` when they
- *          dismissed the sheet. Throws only if writing or presenting failed,
- *          which is what the caller surfaces as an error.
+ * Resolves once the sheet closes, and says nothing about which way it closed.
+ * `Share` reports send-vs-dismiss, but there is nothing useful to do with it:
+ * the file is written either way, "cancelled" is not an error, and a coach who
+ * dismissed the sheet on purpose does not need to be told. Throws only if
+ * writing or presenting actually failed — that is what the caller surfaces.
  */
 export async function sharePresencesCsv({
   csv,
@@ -33,7 +35,7 @@ export async function sharePresencesCsv({
   csv: string;
   fileName: string;
   title: string;
-}): Promise<boolean> {
+}): Promise<void> {
   const file = new File(Paths.cache, fileName);
   // `create` throws when the file is already there unless told otherwise, and
   // a coach exporting twice in one day is normal, not an error.
@@ -43,6 +45,5 @@ export async function sharePresencesCsv({
   // `url`, not `message`: `message` would paste the CSV *text* into Mail's
   // body, which is not a spreadsheet and cannot be opened in Numbers. On iOS
   // `url` is the attachment.
-  const result = await Share.share({ url: file.uri, title }, { subject: title });
-  return result.action !== Share.dismissedAction;
+  await Share.share({ url: file.uri, title }, { subject: title });
 }

@@ -91,12 +91,18 @@ export function activeFilterCount(filters: PresenceFilters): number {
 }
 
 /**
- * Web's predicate, verbatim: name contains the needle, total at least
- * `minTotal`, unjustified at most `maxUnjustified`.
+ * The same predicate web filters on: name contains the needle, total at least
+ * `minTotal`, unjustified at most `maxUnjustified`. A blank bound is ±Infinity
+ * rather than 0, so an empty field filters nothing.
  *
- * A blank bound is ±Infinity rather than 0, so an empty field filters nothing.
- * A bound that is not a number is also treated as absent — a partially typed
- * "-" or "1." must not blank the list mid-keystroke.
+ * One deliberate deviation from web: a bound that is not a finite number is
+ * treated as absent as well. Web's field is an `<input type="number">`, which
+ * hands back `""` for anything unparseable, so `Number()` there only ever sees
+ * a number or a blank. React Native has no such input — `keyboardType` is a
+ * hint, not a constraint, and a hardware or third-party keyboard can put "-",
+ * "1." or "e" in the field. `Number("-")` is `NaN`, and every comparison
+ * against `NaN` is false, so without this the list would blank out
+ * mid-keystroke and read as "no players match these filters".
  */
 export function filterPlayers(
   players: PresencePlayerStats[],
@@ -183,9 +189,15 @@ export function visibleColumns(
 
 /**
  * RFC-4180 CSV of exactly what the screen is showing — the visible columns, the
- * filtered rows, in the current sort order. Byte-for-byte the same builder web
- * uses (`PresencePlayersTable.exportCsv`), so the two shells cannot produce
- * files that disagree.
+ * filtered rows, in the current sort order.
+ *
+ * Ported from web's `PresencePlayersTable.exportCsv` and checked against it
+ * column by column: same column set and order, same quote-everything escaping,
+ * same `\n` separator, same date-stamped name. Nothing *proves* the two stay
+ * identical — they are separate functions in separate shells, and a shared
+ * module in `packages/*` would be the only thing that could. If they are ever
+ * required not to drift, that is the move; today the tests below pin this
+ * shell's ordering and escaping only.
  *
  * Every field is quoted, not just the ones that need it: a coach's name can
  * contain a comma, and the header is translated copy that in Portuguese

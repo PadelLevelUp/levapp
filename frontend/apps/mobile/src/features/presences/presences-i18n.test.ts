@@ -216,6 +216,7 @@ describe("presences translation keys", () => {
       "presences.table.cancel",
       "presences.table.count",
       "presences.table.export",
+      "presences.error.exportTitle",
       "presences.error.exportBody",
     ]) {
       expect(

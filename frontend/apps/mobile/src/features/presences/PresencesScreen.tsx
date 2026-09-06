@@ -117,7 +117,10 @@ export function PresencesScreen() {
         title: t("presences.table.export"),
       });
     } catch {
-      toast.error(t("presences.error.exportBody"));
+      toast.error(
+        t("presences.error.exportTitle"),
+        t("presences.error.exportBody")
+      );
     } finally {
       setExporting(false);
     }
