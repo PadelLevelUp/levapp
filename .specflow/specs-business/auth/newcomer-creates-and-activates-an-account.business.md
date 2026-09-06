@@ -2,7 +2,6 @@
 id: auth.newcomer-creates-and-activates-an-account
 status: implemented
 implemented_by:
-  - ../../specs/auth/register.spec.md
   - ../../specs/auth/activate.spec.md
   - ../../specs/auth/mobile-universal-links.spec.md
 ---
@@ -11,21 +10,21 @@ implemented_by:
 
 ## Outcome
 
-A new person gets a working, sign-in-ready account: the account is created in an inactive state first,
-and only becomes usable once the person themselves sets a password and (where relevant) chooses their
-own username. This two-step create-then-activate pattern is the shared plumbing behind every "someone
-new joins the app" story — direct signup, and the account half of a coach- or player-invite link.
+A person whose account was created *for them* — by a coach, a teammate or an invite flow — gets a
+working, sign-in-ready account: it starts inactive and only becomes usable once the person themselves
+sets a password and (where relevant) chooses their own username. This create-then-activate pattern
+is the plumbing behind every "someone else created my account" story. Creating one's own account is a
+different journey — [[auth.newcomer-signs-up-on-their-own]] — and is active from the start.
 
 ## Who This Is For
 
-Anyone setting up an account for the first time: a coach signing up directly, or anyone completing an
-account that already exists in inactive form (created ahead of time by a teammate or by an invite
-flow) via the generic activation link.
+Anyone completing an account that already exists in inactive form (created ahead of time by a coach,
+a teammate or an invite flow) via the generic activation link.
 
 ## User Journey
 
-1. A basic account record is created — name, username, password — landing in an "inactive" state
-   that can't yet sign in.
+1. A basic account record is created by someone else — name, and a placeholder username — landing in
+   an "inactive" state that can't yet sign in.
 2. The person receives (or navigates to) an activation link tied to that account, `/register/:userId`.
 3. They set their password and confirm/update their name on that page; if the account was still
    carrying a system-generated placeholder username, the form leaves the username field empty so
@@ -35,7 +34,9 @@ flow) via the generic activation link.
 
 ## Business Rules
 
-- A brand-new account always starts inactive — nobody can sign in with it until it's been activated.
+- An account created on someone's behalf always starts inactive — nobody can sign in with it until it's
+  been activated. (A self-registered account is the exception: it is active from the start, see
+  [[auth.newcomer-signs-up-on-their-own]].)
 - Only an inactive account can be activated; the activation link is specific to that one account.
 - The account's username must end up unique across the whole app once activation is complete.
 - The activation form never reveals a system-generated placeholder username to the person completing
@@ -48,6 +49,7 @@ Not yet measured. No signup-completion-rate or activation-funnel dashboard exist
 
 ## Out of Scope
 
+- Creating your own account from the login screen — [[auth.newcomer-signs-up-on-their-own]].
 - What happens after activation — signing in and staying signed in — see
   [[auth.coach-signs-in-and-stays-connected]].
 - The player-specific invite-and-complete-profile flow, which is its own outcome with its own
@@ -57,7 +59,6 @@ Not yet measured. No signup-completion-rate or activation-funnel dashboard exist
 
 ## Notes
 
-OPEN: it isn't fully clear from the dev specs alone who walks this exact generic register→activate
-path end to end today versus the more specific invite flows (player invite, coach-club invite) that
-each have their own accept endpoints. Treating `auth.register` + `auth.activate` as the shared
-underlying primitive rather than a user-facing funnel of its own.
+- 2026-09-06: `auth.register` moved out of this outcome. It had described a direct-signup
+  endpoint that never existed (B-019); it is rewritten as the self-service signup under
+  `auth.newcomer-signs-up-on-their-own`. What remains here is the activation half only.

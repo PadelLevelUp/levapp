@@ -5,6 +5,7 @@ implemented_by:
   - ../../specs/clubs/crud.spec.md
   - ../../specs/clubs/membership.spec.md
   - ../../specs/clubs/coach-invitation.spec.md
+  - ../../specs/clubs/join-request.spec.md
 ---
 
 # Coach runs a club and its team
@@ -18,9 +19,10 @@ starting point for using LevApp at all.
 
 ## Who This Is For
 
-Coaches — both the one who first creates a club, and any coach who later joins it via an invite link.
-Players belong to a club too, but join implicitly (see User Journey) rather than through an action of
-their own.
+Coaches — the one who first creates a club, any coach who later joins it via an invite link, and a
+coach who signs up on their own and asks to join a club that already exists. Players belong to a club
+too, but join through a coach's action (being added, or scanning a coach's QR) rather than a club
+action of their own.
 
 ## User Journey
 
@@ -36,7 +38,13 @@ their own.
    elsewhere, accepting just adds them to this club.
 5. The inviting coach can see and revoke any invitation that hasn't been used yet.
 6. Players never explicitly "join" a club — they become members automatically the moment a coach in
-   that club adds them as a player (see the players domain).
+   that club adds them as a player, or the moment they redeem that coach's join QR (see the
+   players domain).
+7. A coach who signed up on their own and has been approved by the LevApp admin picks an existing
+   club instead of creating one, which sends that club a join request. Every current coach of the club sees it under Settings → Club, with the
+   requester's name, and approves or declines. Approval makes them a member exactly as an accepted
+   invitation would; a decline is final for that request (they can ask again, or create their own
+   club).
 
 ## Business Rules
 
@@ -53,6 +61,10 @@ their own.
   invitation for it.
 - Accepting an invitation never duplicates membership — an already-member coach accepting again is a
   no-op, not a second association.
+- Nobody joins an existing club without a current member saying yes — by invitation (member acts
+  first) or by approving a join request (newcomer acts first). Both end in the same membership.
+- Any club may be found by name when signing up; what a search reveals is the club's name, location
+  and logo — never who belongs to it.
 
 ## Success Metrics
 
@@ -70,4 +82,7 @@ codebase.
 
 ## Notes
 
-None.
+- Join requests were added by decision 2026-09-06 (`open-registration-and-connections`, item 2):
+  self-registering coaches must end up in a club, and letting them join any club by name would
+  hand a stranger the club's students (messaging reach is club-scoped).
+- OPEN: no push notification for a new join request in v1 — Settings → Club shows a badge.
