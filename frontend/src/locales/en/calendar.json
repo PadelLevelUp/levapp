@@ -111,6 +111,8 @@
       "autoNotificationsDescription": "Students will be auto-invited",
       "color": "Color",
       "recurring": "Recurring",
+      "recurringClass": "Recurring class",
+      "recurringClassUntil": "Recurring class · until {{date}}",
       "daysOfWeek": "Days of the week",
       "endDate": "End date",
       "attendance": "Attendance",

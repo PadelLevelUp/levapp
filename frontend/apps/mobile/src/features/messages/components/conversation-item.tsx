@@ -26,6 +26,7 @@ export function ConversationItem({
     lastMessageAt,
     unreadCount,
   } = conversation;
+  const roleKey = roleLabelKey(participantRole);
 
   return (
     <Pressable
@@ -64,12 +65,8 @@ export function ConversationItem({
             <Badge variant="outline">
               {/* An unknown role has no key, so fall back to the raw value
                   with `capitalize` — same behaviour as web's getRoleLabel. */}
-              <Text
-                className={roleLabelKey(participantRole) ? undefined : "capitalize"}
-              >
-                {roleLabelKey(participantRole)
-                  ? t(roleLabelKey(participantRole) as string)
-                  : participantRole}
+              <Text className={roleKey ? undefined : "capitalize"}>
+                {roleKey ? t(roleKey) : participantRole}
               </Text>
             </Badge>
           ) : null}

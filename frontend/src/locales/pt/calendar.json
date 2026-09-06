@@ -111,6 +111,8 @@
       "autoNotificationsDescription": "Os alunos serão convidados automaticamente",
       "color": "Cor",
       "recurring": "Recorrente",
+      "recurringClass": "Aula recorrente",
+      "recurringClassUntil": "Aula recorrente · até {{date}}",
       "daysOfWeek": "Dias da semana",
       "endDate": "Data de fim",
       "attendance": "Presenças",

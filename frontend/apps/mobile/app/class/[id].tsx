@@ -648,10 +648,14 @@ export default function ClassDetailScreen() {
                 color={lightTheme.mutedForeground}
               />
               <Text className="text-xs text-muted-foreground">
-                Recurring class
+                {/* Two whole sentences rather than a translated "until"
+                    glued onto an English stem — the separator and word
+                    order are the translator's to choose. */}
                 {instance?.recurrenceEnd
-                  ? ` · until ${formatDay(instance.recurrenceEnd)}`
-                  : ""}
+                  ? t("calendar.detail.recurringClassUntil", {
+                      date: formatDay(instance.recurrenceEnd),
+                    })
+                  : t("calendar.detail.recurringClass")}
               </Text>
             </View>
           ) : null}
