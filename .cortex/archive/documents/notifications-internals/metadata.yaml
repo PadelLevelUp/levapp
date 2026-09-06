@@ -1,0 +1,7 @@
+id: archive.notifications-internals
+kind: technical-reference
+ingested_at: 2026-09-04T10:00:00Z
+version: "2026-08-25"
+status: active
+source_filename: NOTIFICATIONS_INTERNALS.md
+origin: Working aid assembled before the notification-engine rewrite; pasted model and service source as it stood pre-monorepo. Ingestion was planned in docs/plans/2026-09-02-levapp-monorepo-cortex-migration.md Phase 6 item 6.

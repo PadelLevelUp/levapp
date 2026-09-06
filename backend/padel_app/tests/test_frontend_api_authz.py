@@ -500,7 +500,7 @@ def test_debug_reminder_endpoint_404s_when_flag_off(app, client, world):
 # 200, and the neighbouring failure mode on this blueprint is a 500, so a loose
 # assertion would pass against unfixed code.
 #
-# Spec: specs/training/spec.md -> training.lesson-planning, rules 5-8.
+# Spec: .specflow/specs/training/lesson-planning.spec.md, rules 5-8.
 
 
 @pytest.fixture

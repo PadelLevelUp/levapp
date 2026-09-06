@@ -1,7 +1,7 @@
 /**
  * E2E tests — Semi-Automatic Replacement Approval (notifications.semi-auto-approval)
  *
- * Spec: specs/notifications/spec.md — notifications.semi-auto-approval + the
+ * Spec: .specflow/specs/notifications/semi-auto-approval.spec.md + the
  * `invitation_mode` addition in notifications.config.
  *
  * In semi-automatic mode (`invitation_mode: "semi_automatic"`), when the coach

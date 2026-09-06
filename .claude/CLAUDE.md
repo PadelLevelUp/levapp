@@ -10,7 +10,11 @@ One repository (`PadelLevelUp/levapp`, monorepo since 2026-09-03):
 - `frontend/` — npm-workspaces: `apps/web` (React/Vite), `apps/mobile` (Expo), `packages/*` (see `frontend/CLAUDE.md`)
 - `.specflow/specs/` + `.specflow/specs-business/` — the spec trees (source of truth); `.cortex/` — rules, bugs, decisions, insight
 - `.github/workflows/` — `deploy-staging.yaml` (push to `staging` → staging.levapp.app), `deploy-prod.yaml` (push to `main` → levapp.app), `guard-main-source.yaml`
-- `plans/`, `qa/`, `reference/`, `docs/` — plans, QA reports, design sources, infra notes
+- `docs/` — the one home for prose: `plans/`, `qa/` (journeys, rubric, reports, baselines),
+  `infra/` (living notification-engine reference), `handoffs/`, `onboarding/` (build order, dead
+  features, implicit behaviours). Raw design canvases and vendored reference apps live in
+  `.cortex/atlas/sources/` (gitignored, schema §4.3) — `.cortex/` itself is layout-validated
+  by `cortex validate`, so prose directories never go inside it.
 
 The Discord→Linear issue bot stays in its own repo, `levelup_issue_bot`.
 

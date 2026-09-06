@@ -201,3 +201,48 @@ def test_migration_guard_has_an_explicit_escape_hatch(load_config):
         config.assert_safe_migration_target("34.77.91.59", env="development")
     finally:
         os.environ.pop("ALLOW_PRODUCTION_MIGRATIONS", None)
+
+
+# --------------------------------------------------------------------------
+# B-016 — a tunnelled remote database must not read as a local one.
+#
+# Postgres is no longer reachable from the internet, so the shared database is
+# forwarded to a local port. That makes the PAD-95 guard's host check see
+# "localhost" for real data; the reserved port is what keeps them apart.
+# --------------------------------------------------------------------------
+
+
+def test_tunnelled_port_is_a_production_target(load_config):
+    config = load_config()
+
+    assert config.is_production_target("localhost", 5434)
+    assert config.is_production_target("127.0.0.1", "5434")
+
+
+def test_plain_local_database_is_not_a_production_target(load_config):
+    config = load_config()
+
+    assert not config.is_production_target("localhost", 5432)
+    assert not config.is_production_target("localhost", 5433)  # the local dev DB
+    assert not config.is_production_target("localhost", None)
+
+
+def test_migration_guard_refuses_a_tunnelled_target(load_config):
+    config = load_config()
+
+    with pytest.raises(RuntimeError, match="Refusing to run migrations"):
+        config.assert_safe_migration_target("localhost", 5434, env="development")
+
+
+def test_migration_guard_still_allows_a_genuinely_local_database(load_config):
+    config = load_config()
+
+    config.assert_safe_migration_target("localhost", 5432, env="development")
+    config.assert_safe_migration_target("localhost", 5433, env="development")
+
+
+def test_known_remote_hosts_are_production_targets_at_any_port(load_config):
+    config = load_config()
+
+    assert config.is_production_target("34.78.247.45", 5432)
+    assert config.is_production_target("10.132.0.2", None)

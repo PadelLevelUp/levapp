@@ -76,7 +76,7 @@ Instead, duplicate adds are guarded server-side: `player_in_lesson_instance` has
 
 ## Hidden for App Store submission — rebuild later
 
-App Store readiness Phase 1 (`plans/app-store-readiness-plan.md`) hid the following mocked/dead/non-persisting UI so nothing incomplete ships to reviewers. Each needs a real backend-backed implementation before being reintroduced.
+App Store readiness Phase 1 (`docs/plans/app-store-readiness-plan.md`) hid the following mocked/dead/non-persisting UI so nothing incomplete ships to reviewers. Each needs a real backend-backed implementation before being reintroduced.
 
 - **Billing tab** — `apps/web/src/pages/SettingsPage.tsx`: entire tab (nav item + panel) removed; was a static "Coach Pro / Active" card with a disabled "Manage billing" button, no backend behind it.
 - **Change password** — `apps/web/src/pages/SettingsPage.tsx`: `handleChangePassword` and its form removed; only faked a 400ms delay and a success toast, never called an auth endpoint.

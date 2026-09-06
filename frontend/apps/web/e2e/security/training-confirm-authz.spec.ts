@@ -17,7 +17,7 @@
  *   own class, unreachable exercise    -> 403, nothing written
  *   owner, own exercise                -> 200
  *
- * Spec: specs/training/spec.md -> training.lesson-planning, rules 5-8.
+ * Spec: .specflow/specs/training/lesson-planning.spec.md, rules 5-8.
  *
  * Talks to the API directly rather than through the UI: the vulnerability is an
  * HTTP-layer one, and the UI never offered these requests in the first place.

@@ -1,0 +1,7 @@
+id: archive.infra-handoff-2026-08-25
+kind: handoff
+ingested_at: 2026-09-04T10:00:00Z
+version: "2026-08-25"
+status: active
+source_filename: INFRA_HANDOFF.md
+origin: Prepared 2026-08-25 for an infrastructure discussion; facts verified against the then-separate repos on that date. Ingestion was planned in docs/plans/2026-09-02-levapp-monorepo-cortex-migration.md Phase 6 item 6.

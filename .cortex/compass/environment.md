@@ -10,4 +10,4 @@ Operational pointers only — aliases, profile names, tool locations. **Never se
 - **Secrets live in**: GitHub Actions secrets of `levapp`; `.claude/secrets.env` (gitignored) locally; the VM container env. Never in the repo.
 - **Browser automation**: the Chrome profile "padel-app-chrome" — attach with `switch_browser` and click Connect there (the remembered device id points at a different Chrome).
 - **Local dev DB**: `padel_app` on Postgres **5433**; E2E `levelup_test` on 5432 (Flask :5001, Vite :8080). Node 24.15.0 via `export PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"`.
-- **Scheduled routines**: Claude Desktop, ten `levapp-*` tasks (see `plans/2026-09-03-scheduled-tasks-registration.md`); registry file under `~/Library/Application Support/Claude/claude-code-sessions/…/scheduled-tasks.json` — edit only with the app quit.
+- **Scheduled routines**: Claude Desktop, ten `levapp-*` tasks (see `docs/plans/2026-09-03-scheduled-tasks-registration.md`); registry file under `~/Library/Application Support/Claude/claude-code-sessions/…/scheduled-tasks.json` — edit only with the app quit.

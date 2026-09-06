@@ -1,7 +1,7 @@
 /**
  * PAD-141 — "Faltas": the absence-history sub-page.
  *
- * Spec: `attendance.absences` (specs/attendance/spec.md).
+ * Spec: `attendance.absences` (.specflow/specs/attendance/absences.spec.md).
  *
  * One page, two entry points, mirroring PAD-114:
  *   * `/absences`                     — the signed-in student's own absences

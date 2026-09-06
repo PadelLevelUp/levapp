@@ -1,7 +1,7 @@
 /**
  * PAD-140 — the coach-facing "Presenças" tab.
  *
- * Spec: `attendance.validation` (specs/attendance/spec.md).
+ * Spec: `attendance.validation` (.specflow/specs/attendance/validation.spec.md).
  *
  * A coach reviews classes that have already ENDED and finalizes who actually
  * attended. Two states drive the whole surface: a class where every enrolled
