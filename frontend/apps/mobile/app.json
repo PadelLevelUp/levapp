@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "associatedDomains": ["applinks:levapp.app", "applinks:padellevelup.com"],
+      "associatedDomains": ["applinks:levapp.app", "applinks:padellevelup.com", "applinks:www.padellevelup.com"],
       "bundleIdentifier": "com.padellevelup.app",
       "infoPlist": {
         "NSAppTransportSecurity": {
