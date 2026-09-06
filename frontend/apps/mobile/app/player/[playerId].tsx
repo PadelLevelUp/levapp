@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, Share, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,9 @@ import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
+import { WEB_APP_URL } from "@/lib/config";
 import { useDateLocale } from "@/lib/date-locale";
+import { registerLink } from "@/lib/web-links";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +47,7 @@ import {
   useStandingWaitingList,
 } from "@/features/players/hooks";
 import { LevelLabel } from "@/features/players/LevelLabel";
+import { summarizeNotificationBlock } from "@/features/players/notification-block";
 import {
   PlayerForm,
   type PlayerFormValues,
@@ -106,6 +109,40 @@ export default function PlayerDetailScreen() {
       ) ?? null,
     [standingList, player]
   );
+
+  // PAD-165: the student's own notification opt-outs (PAD-112), which web has
+  // shown on player detail since it landed and iOS did not surface at all — a
+  // coach inviting from the phone saw nothing happen and had no way to learn
+  // why. The reason breakdown lives in the pure summarizer so it can be tested.
+  const notificationBlock = React.useMemo(
+    () => summarizeNotificationBlock(player),
+    [player]
+  );
+
+  // PAD-165: web's PlayerHeader offers this link at any time; iOS only ever
+  // showed one inline at creation (app/player/new.tsx), so a coach who
+  // dismissed that screen could never re-share it from the phone.
+  const registerUrl = registerLink(WEB_APP_URL, player?.userId);
+
+  const handleShareRegisterLink = async () => {
+    try {
+      // RN's own Share — not expo-sharing, which only shares local FILES, and
+      // not expo-clipboard, which would add a native module this batch cannot
+      // rebuild. The iOS share sheet already carries "Copy", and the link is
+      // rendered selectable below for a long-press copy as well.
+      //
+      // `url` on iOS (UIActivityViewController treats it as a link, so targets
+      // render a preview and Copy yields the bare URL); `message` on Android,
+      // which ignores `url` entirely. Passing both would share two items.
+      await Share.share(
+        Platform.OS === "ios"
+          ? { url: registerUrl }
+          : { message: registerUrl }
+      );
+    } catch {
+      toast.error(t("players.shareLinkFailed"));
+    }
+  };
 
   const handleRemoveFromWaitingList = async () => {
     if (!standingEntry || !player) return;
@@ -374,7 +411,112 @@ export default function PlayerDetailScreen() {
                     <Text>{t(SIDE_LABEL_KEYS[player.side])}</Text>
                   </Badge>
                 ) : null}
+                {/* PAD-112 / PAD-165: the student switched their own class
+                    invitations off. Shown so a coach reads a silent student as
+                    a deliberate choice rather than as someone ignoring them. */}
+                {notificationBlock.blocked ? (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-warning"
+                    testID="player-notifications-blocked-badge"
+                  >
+                    <Ionicons
+                      name="notifications-off-outline"
+                      size={12}
+                      color="#b45309"
+                    />
+                    <Text className="text-warning">
+                      {t("players.notificationsBlockedBadge")}
+                    </Text>
+                  </Badge>
+                ) : null}
               </View>
+
+              {notificationBlock.blocked ? (
+                <View
+                  className="gap-1 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
+                  testID="player-notifications-blocked-detail"
+                >
+                  <View className="flex-row items-center gap-1">
+                    <Ionicons
+                      name="notifications-off-outline"
+                      size={14}
+                      color="#b45309"
+                    />
+                    <Text className="text-xs text-muted-foreground">
+                      {t("players.notificationsBlockedTitle")}
+                    </Text>
+                  </View>
+                  {notificationBlock.levelKeys.map((key) => (
+                    <Text key={key} className="text-sm text-muted-foreground">
+                      {`• ${t(key)}`}
+                    </Text>
+                  ))}
+                  {/* Read-only for the coach — the reason belongs to the
+                      student and is edited only from the student's Settings
+                      (notifications.student-block-preferences rule 11). */}
+                  <Text className="mt-1 text-xs text-muted-foreground">
+                    {t("players.notificationsBlockedReason")}
+                  </Text>
+                  <Text
+                    className="text-sm"
+                    testID="player-notifications-blocked-reason"
+                  >
+                    {notificationBlock.reason ??
+                      t("players.notificationsBlockedNoReason")}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* PAD-165: web's "no account yet" panel, available at any time
+                  rather than only in the dialog that follows creation. */}
+              {!player.isActive ? (
+                <View
+                  className="gap-3 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
+                  testID="player-no-account"
+                >
+                  <View className="flex-row gap-2">
+                    <Ionicons
+                      name="person-remove-outline"
+                      size={16}
+                      color="#b45309"
+                    />
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-sm font-semibold">
+                        {t("players.noAccountMessage")}
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {t("players.shareRegisterLink")}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Selectable so the OS long-press "Copy" works without a
+                      clipboard native module — same precedent as the invite
+                      dialog in app/player/new.tsx. */}
+                  <View
+                    className="rounded-md border border-input bg-background px-3 py-2"
+                    testID="player-register-link"
+                  >
+                    <Text selectable className="text-xs text-foreground">
+                      {registerUrl}
+                    </Text>
+                  </View>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    testID="player-share-register-link"
+                    accessibilityLabel={t("players.shareLinkAction")}
+                    onPress={() => void handleShareRegisterLink()}
+                  >
+                    <Ionicons
+                      name="share-outline"
+                      size={16}
+                      color={lightTheme.foreground}
+                    />
+                    <Text>{t("players.shareLinkAction")}</Text>
+                  </Button>
+                </View>
+              ) : null}
 
               <View className="flex-row gap-2">
                 <Button

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
 import { WEB_APP_URL } from "@/lib/config";
+import { webAppLink } from "@/lib/web-links";
 import { useAddPlayer, useCreateIncompletePlayer } from "@/features/players/hooks";
 import { PlayerForm, type PlayerFormValues } from "@/features/players/PlayerForm";
 
@@ -76,7 +77,9 @@ export default function NewPlayerScreen() {
       // The API returns a RELATIVE link ("/invite/player/<token>"); mobile has
       // no window.location to resolve it against, so we prefix the configured
       // public web origin — the link is opened on the web app either way.
-      setInviteUrl(`${WEB_APP_URL}${created.inviteLink}`);
+      // PAD-165 moved that join into `lib/web-links` so player detail can hand
+      // out the same kind of link long after this screen is gone.
+      setInviteUrl(webAppLink(WEB_APP_URL, created.inviteLink));
       setInviteDialogOpen(true);
     } catch {
       setError("Failed to create the invite. Please try again.");
