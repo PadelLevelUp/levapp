@@ -1,7 +1,7 @@
 /**
  * PAD-114 — "Presenças": attendance-history sub-page.
  *
- * Spec: `attendance.history` (specs/attendance/spec.md).
+ * Spec: `attendance.history` (.specflow/specs/attendance/history.spec.md).
  *
  * One page, two entry points:
  *   * `/attendance`                     — the signed-in student's own history

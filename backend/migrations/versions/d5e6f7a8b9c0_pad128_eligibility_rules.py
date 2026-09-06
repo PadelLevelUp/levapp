@@ -1,7 +1,7 @@
 """PAD-128: add notification_configs.eligibility_rules (nullable JSON)
 
-The coach-tier standard eligibility bar (specs/eligibility/spec.md ->
-eligibility.rules).
+The coach-tier standard eligibility bar
+(.specflow/specs/eligibility/rules.spec.md).
 
 Nullable with NO server default, and existing rows are deliberately left at
 NULL rather than being backfilled from their `invitation_groups`

@@ -8,9 +8,10 @@
  * software, where the iOS equivalent is the App Store listing. Note the loader
  * this page hands off to is NOT web-only — iOS has had the same animation on
  * cold start since the launch-animation work, so it brings web up to parity.
- * (specs/ is not under git, so this comment is the durable home for the reason.)
+ * (the design canvas is gitignored, so this comment is the durable home for the reason.)
  *
- * Built from `reference/design/LevApp Landing Page.dc.html`, which ships two
+ * Built from `.cortex/atlas/sources/levapp-landing-page.dc.html`
+ * (gitignored raw material, schema §4.3 — ask a maintainer for a copy), which ships two
  * artboards (desktop 1440, mobile 390). This is one responsive page rather
  * than two, so the breakpoints below are where the desktop artboard has to
  * become the mobile one, not arbitrary choices.

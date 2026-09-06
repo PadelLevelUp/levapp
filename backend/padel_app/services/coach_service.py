@@ -15,7 +15,7 @@ from padel_app.services.level_ladder import (
 from padel_app.sql_db import db
 from padel_app.tools.request_adapter import JsonRequestAdapter
 
-# Ordering convention (specs/levels/spec.md rule 3): lower display_order =
+# Ordering convention (.specflow/specs/levels/coach-levels.spec.md rule 3): lower display_order =
 # STRONGER level, so the first entry here is the top of a new coach's ladder.
 # These are placeholders the coach renames and reorders in Settings.
 DEFAULT_COACH_LEVELS = [
@@ -253,7 +253,7 @@ def get_coach_levels(coach_id: int) -> list:
         - code (str): unique level identifier, e.g. "COMP", "ADV", "INT"
         - label (str): display name, e.g. "Competicao", "Avancado", "Intermedio"
         - display_order (int): ladder position — **lower = stronger**
-          (specs/levels/spec.md rule 3), so ``display_order`` 1 is the coach's
+          (.specflow/specs/levels/coach-levels.spec.md rule 3), so ``display_order`` 1 is the coach's
           top level, not their beginners.
 
     Example ladder:

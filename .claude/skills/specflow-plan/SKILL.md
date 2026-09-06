@@ -30,7 +30,7 @@ Hardening mechanisms per `skills/_conventions/hardening.md`.
 
 ## What this produces
 
-A plan file — the project's plan directory if one exists, else `plans/<YYYY-MM-DD>-<slug>.md`
+A plan file — the project's plan directory if one exists, else `docs/plans/<YYYY-MM-DD>-<slug>.md`
 created at the project root. It is durable and reviewable: a plan that lives only in a
 transcript dies with the session, which is the failure this skill exists to fix.
 

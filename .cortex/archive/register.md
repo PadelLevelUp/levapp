@@ -5,4 +5,6 @@ One entry per ingested document — active and superseded. Updated by
 
 | Slug | Kind | Version | Status | Origin |
 |---|---|---|---|---|
-| `2026-09-03-monorepo-cortex-workspace-handoff` | handoff | 2026-09-03 | active | Claude Code session that executed the monorepo/Cortex migration; full text also at `docs/handoffs/` |
+| `2026-09-03-monorepo-cortex-workspace-handoff` | handoff | 2026-09-03 | active | Claude Code session that executed the monorepo/Cortex migration; full text also at `docs/handoffs/` (local-only — `docs/` is gitignored) |
+| `infra-handoff-2026-08-25` | handoff | 2026-08-25 | active | Infrastructure snapshot prepared 2026-08-25 for an infra discussion; two items now stale (B-003 fixed, tfstate claim wrong) — see `extracted/summary.md` |
+| `notifications-internals` | technical-reference | 2026-08-25 | active | Pre-rewrite code snapshot of the notification engine; superseded by `.specflow/specs/notifications/` and the current code |
