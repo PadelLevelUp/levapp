@@ -11,7 +11,7 @@ import { openPlayers } from "../helpers/navigation";
  * creation which the student replaces when they activate their own account
  * (invite link — `players.invite-completion` — or the activation link).
  *
- * Spec: specs/players/spec.md → `players.create` rules 4–6.
+ * Spec: .specflow/specs/players/create.spec.md → rules 4–6.
  */
 
 const UNIQUE = Date.now();

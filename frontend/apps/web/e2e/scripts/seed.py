@@ -136,7 +136,7 @@ with app.app_context():
     db.session.add(nolevels_coach_club)
 
     # ── Coach levels ──────────────────────────────────────────────────────────
-    # Ordering convention (specs/levels/spec.md rule 3, PAD-70): lower
+    # Ordering convention (.specflow/specs/levels/coach-levels.spec.md rule 3, PAD-70): lower
     # display_order = STRONGER level, so Intermediate is 1 and Beginner is 2.
     # The seed used to have these inverted, which would have taught any
     # level-adjacency test the wrong ladder direction.
@@ -508,7 +508,7 @@ with app.app_context():
     )
 
     # ── Attended history (PAD-114) ───────────────────────────────────────────
-    # The attendance page (specs/attendance/spec.md → attendance.history) counts a
+    # The attendance page (.specflow/specs/attendance/history.spec.md) counts a
     # class as attended when `Presence.status == "present"`. Nothing else in the
     # seed produced such a row, so every chart range and every history list would
     # have been empty and the spec vacuous.
@@ -668,7 +668,7 @@ with app.app_context():
         missed_instances.append(missed_instance)
 
     # ── Classes awaiting validation (PAD-140) ────────────────────────────────
-    # The Presences tab (specs/attendance/spec.md → attendance.validation) lists
+    # The Presences tab (.specflow/specs/attendance/validation.spec.md) lists
     # classes that have ENDED but whose presences are not yet validated. The
     # PAD-114 fixture above deliberately sets validated=True, so without this
     # block the queue is always empty and any spec over it is vacuous.

@@ -19,7 +19,7 @@ import { initReactI18next } from "react-i18next";
 // Locked decisions for this module:
 // - fallbackLng "en": every existing mobile screen is hardcoded English
 //   today (retrofit to useTranslation() is a separate follow-up ticket, see
-//   plans/mobile-web-parity-plan.md Phase 0 item 5) so an English fallback
+//   docs/plans/mobile-web-parity-plan.md Phase 0 item 5) so an English fallback
 //   degrades gracefully for untranslated keys. Web's fallback is "pt"
 //   (PAD-39, locked) — the two platforms intentionally diverge here until
 //   the mobile retrofit lands full pt coverage.

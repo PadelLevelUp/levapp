@@ -20,19 +20,15 @@ resource "google_compute_firewall" "http-https" {
   source_ranges = ["0.0.0.0/0"]
 }
 
-resource "google_compute_firewall" "allow-postgres" {
-  name    = "levelup-allow-postgres"
-  network = data.google_compute_network.default.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["5432"]
-  }
-
-  #source_ranges = ["2.80.118.223/32"]
-  source_ranges = ["0.0.0.0/0"]
-  description   = "Allow external access to PostgreSQL"
-}
+# Postgres is deliberately NOT reachable from the internet. It listens only on
+# the VM, and the app connects over the VM-internal address. To reach the shared
+# database from a workstation, forward it over SSH instead of opening the port:
+#
+#   gcloud compute ssh levelup-instance --zone europe-west1-b -- -N -L 5434:localhost:5432
+#
+# then point POSTGRES_HOST=localhost / POSTGRES_PORT=5434 (that is what
+# backend/.env.dev does). Port 5433 is treated as a remote target by the PAD-95
+# migration guard, so the tunnel does not disguise real data as a local database.
 
 resource "google_compute_address" "static_ip" {
   name = "levelup-static-ip"
@@ -114,8 +110,25 @@ resource "google_storage_bucket_iam_member" "allow_instance_uploads" {
   member = "serviceAccount:${google_service_account.vm_sa.email}"
 }
 
-resource "google_storage_bucket_iam_member" "public_all" {
+# The uploads bucket is private. Objects are served through short-lived V4
+# signed URLs minted by the application (`Image.signed_url`), never by a public
+# ACL: `roles/storage.objectViewer` on `allUsers` also carries
+# `storage.objects.list`, which made the whole bucket anonymously enumerable —
+# including chat attachments (B-015).
+
+# Read back what it uploaded. Without this the app cannot serve its own objects
+# once the public grant is gone (`objectCreator` alone is write-only).
+resource "google_storage_bucket_iam_member" "instance_reads" {
   bucket = google_storage_bucket.general.name
   role   = "roles/storage.objectViewer"
-  member = "allUsers"
+  member = "serviceAccount:${google_service_account.vm_sa.email}"
+}
+
+# Sign URLs while running on the VM under ADC. `generate_signed_url` has no
+# private key there, so it falls back to the IAM signBlob API, which requires
+# the service account to be able to impersonate itself.
+resource "google_service_account_iam_member" "vm_sa_can_sign" {
+  service_account_id = google_service_account.vm_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.vm_sa.email}"
 }

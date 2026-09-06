@@ -15,6 +15,10 @@ python -m pytest padel_app/tests/test_<name>.py -v  # Specific file
 
 - **Dev**: `padel_app` on Postgres port **5433**, user `padel_app_user`
 - **E2E**: `levelup_test` on Postgres port 5432, user `padel_app_user`
+- **Shared dev DB on the VM**: port **5434**, reached only through an SSH forward —
+  `gcloud compute ssh levelup-instance --zone europe-west1-b -- -N -L 5434:localhost:5432`
+  (`.env.dev`). Postgres is not exposed to the internet (B-016), and 5434 is reserved so
+  the PAD-95 migration guard can still tell a tunnelled remote database from a local one.
 - Migrations: Alembic via `flask db upgrade`
 
 > Two Postgres servers run locally and both hold a 47-table LevelUp schema, so the port is what disambiguates them, not the DB name. Port 5433 serves exactly one database — `padel_app` — and that is dev. Port 5432 is the multi-tenant server holding `levelup_test` (E2E), `levelup_qa`, and a stale `levelup` DB owned by `postgres` that is **not** the dev database despite the name. `config.py` defaults to port 5432, so dev runs need `POSTGRES_PORT=5433` from `.env`.

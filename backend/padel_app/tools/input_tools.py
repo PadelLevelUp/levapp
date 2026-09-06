@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 
 from werkzeug.security import generate_password_hash
@@ -89,13 +90,17 @@ class Field:
 
         now = datetime.now().strftime("%Y%m%d%H%M%S")
         file, base = image_tools.file_handler(fs)
-        object_key = self.mandatory_path or f"images/{self.model}/{now}_{base}"
+        # `now` + the original filename is guessable; the random segment is what
+        # keeps an object key from being enumerable (B-015).
+        object_key = (
+            self.mandatory_path
+            or f"images/{self.model}/{now}_{secrets.token_urlsafe(16)}_{base}"
+        )
 
         if image_tools.save_file(file, object_key):
             img = Image(
                 object_key=object_key,
                 content_type=getattr(file, "mimetype", None),
-                is_public=True,
             )
             img.create()
             self.value = img.id
@@ -107,12 +112,14 @@ class Field:
         ids = []
         for _i, fs in enumerate(files):
             file, base = image_tools.file_handler(fs)
-            object_key = self.mandatory_path or f"images/{self.model}/{now}_{base}"
+            object_key = (
+                self.mandatory_path
+                or f"images/{self.model}/{now}_{secrets.token_urlsafe(16)}_{base}"
+            )
             if image_tools.save_file(file, object_key):
                 img = Image(
                     object_key=object_key,
                     content_type=getattr(file, "mimetype", None),
-                    is_public=True,
                 )
                 img.create()
                 ids.append(img.id)

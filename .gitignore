@@ -19,6 +19,7 @@
 # OS / editor / caches
 .DS_Store
 .pytest_cache/
+__pycache__/
 .vscode/
 
 # local-only Claude Code state (settings.local.json holds machine permissions incl. secret-bearing patterns)
@@ -28,3 +29,7 @@
 .cortex/pulse/
 .cortex/constellation.json
 .cortex/archive/documents/*/source.*
+
+# internal prose — plans, QA, handoffs, onboarding notes, vendored reference apps.
+# Kept on disk, out of the public repo. Cortex knowledge lives in .cortex/ instead.
+docs/

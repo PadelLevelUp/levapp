@@ -20,6 +20,18 @@ PRODUCTION_POSTGRES_HOSTS = frozenset(
 # through to a remote database (PAD-95).
 LOCAL_POSTGRES_HOST = "localhost"
 
+# Spellings of "this machine" that a tunnel endpoint can legitimately use.
+LOCAL_POSTGRES_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# Postgres is no longer reachable from the internet (B-016), so the shared
+# database is reached by forwarding it to a local port. That makes a remote
+# database look like `localhost`, which would silently disarm the host-based
+# guard below — the very check that stops a workstation migrating real data.
+# Reserving a port that no local Postgres uses keeps the two distinguishable.
+# Locally 5432 is the multi-tenant server (levelup_test, levelup_qa) and 5433 is
+# the dev database, so the tunnel takes 5434 (see backend/CLAUDE.md).
+TUNNELLED_REMOTE_PORTS = frozenset({"5434"})
+
 
 def build_database_uri(user, password, host, port, database):
     """Build a SQLAlchemy Postgres URI from its parts."""
@@ -29,6 +41,18 @@ def build_database_uri(user, password, host, port, database):
 def is_production_host(host):
     """True when ``host`` is one of the known production/remote databases."""
     return host in PRODUCTION_POSTGRES_HOSTS
+
+
+def is_production_target(host, port=None):
+    """True when (host, port) reaches real data, tunnels included.
+
+    The host alone is no longer sufficient: a forwarded port makes a remote
+    database answer on ``localhost``. A local host on a reserved tunnel port is
+    therefore treated as production (see ``TUNNELLED_REMOTE_PORTS``).
+    """
+    if is_production_host(host):
+        return True
+    return host in LOCAL_POSTGRES_HOSTS and str(port) in TUNNELLED_REMOTE_PORTS
 
 
 def is_migration_invocation(argv=None):
@@ -43,15 +67,17 @@ def is_migration_invocation(argv=None):
     return "db" in args
 
 
-def assert_safe_migration_target(host, env=None):
-    """Refuse to run migrations against a production host outside production.
+def assert_safe_migration_target(host, port=None, env=None):
+    """Refuse to run migrations against a production target outside production.
 
     Set ``ALLOW_PRODUCTION_MIGRATIONS=1`` to override deliberately (e.g. a
-    one-off manual migration run from a workstation).
+    one-off manual migration run from a workstation). ``port`` is what
+    distinguishes a tunnelled remote database from a genuinely local one; when
+    it is omitted the check falls back to the host alone.
     """
     env = env if env is not None else os.getenv("FLASK_ENV", "development")
 
-    if not is_production_host(host) or env == "production":
+    if not is_production_target(host, port) or env == "production":
         return
 
     if os.getenv("ALLOW_PRODUCTION_MIGRATIONS") == "1":
