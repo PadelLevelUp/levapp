@@ -4,7 +4,7 @@ Phase 3 — Report/Block for messaging (Apple 1.2 UGC) + conversation scoping
 
 Scope rule: a coach may start a conversation with any player on their roster
 (`coach_in_player`) or in a club they belong to (`player_in_club`) — the union
-of the two, see PAD-205/B-023 and `test_messaging_roster_scope.py`, which pins
+of the two, see PAD-205/B-025 and `test_messaging_roster_scope.py`, which pins
 the roster half. The cases below cover the club half and the exclusions. A
 player/student may only start a conversation
 with a coach. Block is bidirectional and prevents both starting a new

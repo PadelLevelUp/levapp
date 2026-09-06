@@ -7,7 +7,7 @@ re-derive them:
   `conversation_participant_ids()` — the answer `realtime.publish()` needs for
   every message-shaped event (B-004).
 * **May this user act in this conversation?** `require_participant()` — the
-  guard `create_message_service` and friends were missing (B-024).
+  guard `create_message_service` and friends were missing (B-026).
 
 Its own module rather than a corner of `messaging_service`: the notification
 engine and the replacement-approval service both need the recipient list, and

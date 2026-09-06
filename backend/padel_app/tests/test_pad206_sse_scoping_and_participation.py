@@ -1,6 +1,6 @@
 """
 PAD-206 — SSE fan-out is scoped to named recipients (B-004) and every message
-operation requires the caller to be a participant of the conversation (B-024).
+operation requires the caller to be a participant of the conversation (B-026).
 
 Two halves of the same audit finding (2026-09-02 data-model audit, H2):
 
@@ -242,7 +242,7 @@ def test_event_shape_is_unchanged(app, trio):
 
 
 # ---------------------------------------------------------------------------
-# B-024 — every message operation requires participation
+# B-026 — every message operation requires participation
 # ---------------------------------------------------------------------------
 
 def test_non_participant_cannot_send_message(client, app, trio):

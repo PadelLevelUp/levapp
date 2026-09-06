@@ -1,5 +1,5 @@
 ---
-id: B-023
+id: B-025
 title: "A coach cannot message a player on their own roster — the messageable set reads club membership, which no app path ever writes"
 type: incomplete-rule
 severity: high
@@ -16,7 +16,7 @@ opened: 2026-09-06T17:40:00Z
 resolved: 2026-09-06T18:20:00Z
 ---
 
-# B-023 — The coach messageable set reads club membership, which no app path ever writes
+# B-025 — The coach messageable set reads club membership, which no app path ever writes
 
 **Source:** the 2026-09-02 data-model audit
 (`.cortex/archive/documents/data-model-audit-2026-09-02/extracted/findings.md`, §6 "smaller

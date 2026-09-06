@@ -37,7 +37,7 @@ Manage conversations between users (1:1 or group chats).
    a conversation that already exists.
 9. A conversation and **all** of its `ConversationParticipant` rows are written in one
    transaction. A failure part-way through creation leaves nothing behind — never a
-   committed conversation with a missing participant row (B-022)
+   committed conversation with a missing participant row (B-024)
 10. `GET /api/app/conversations` never fails because of one malformed conversation. A
    conversation whose counterpart is missing (hard-deleted user, empty participant list, a
    row lost before rule 9 existed) serializes with `participantId: null`,
@@ -45,7 +45,7 @@ Manage conversations between users (1:1 or group chats).
    still listed; every other conversation in the list is unaffected. Clients render their own
    localized "Deleted user" label from the flag — the server sends no display string, because
    there is no server-side i18n for serializer output. `serialize_conversation_detail`
-   degrades identically (B-022)
+   degrades identically (B-024)
 11. `conversations.last_message_at` and `conversations.last_message_id` are the denormalised
     pointer to the most recent message in the thread. They are written **in the same
     transaction as the message insert itself** — every path that creates a `messages` row
@@ -97,13 +97,13 @@ Manage conversations between users (1:1 or group chats).
 - **When** C POSTs a conversation with R
 - **Then** the request is rejected with 403, and R never appeared in C's messageable list
 
-#### Creation is all-or-nothing (B-022)
+#### Creation is all-or-nothing (B-024)
 - **Given** user 1 creates a conversation with user 5
 - **When** the second `ConversationParticipant` insert fails
 - **Then** no `Conversation` row remains
 - **And** no orphaned `ConversationParticipant` row remains
 
-#### One malformed conversation does not break the list (B-022)
+#### One malformed conversation does not break the list (B-024)
 - **Given** user 1 has three conversations, one of which has no participant row for anyone
   but user 1
 - **When** user 1 GETs `/api/app/conversations`
@@ -112,7 +112,7 @@ Manage conversations between users (1:1 or group chats).
   `participantRole: null` and `participantDeleted: true`
 - **And** the other two are serialized normally
 
-#### A conversation the caller has no row in still serializes (B-022)
+#### A conversation the caller has no row in still serializes (B-024)
 - **Given** a conversation whose only participant row belongs to someone else
 - **When** it is serialized for user 1
 - **Then** serialization succeeds and `unreadCount` is computed as if user 1 had never read

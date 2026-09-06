@@ -50,7 +50,7 @@ def _messageable_target_ids_for(user):
     of every club they belong to (`player_in_club`).
     Everyone else (student/player) -> any active coach.
 
-    PAD-205 / B-023: this read club membership alone. Outside `seed/mock_data.py`
+    PAD-205 / B-025: this read club membership alone. Outside `seed/mock_data.py`
     nothing writes `player_in_club` — adding a player, importing one, or
     accepting an invitation all create a roster row instead — so a coach could
     not message a student they had added through the app. The roster is the
@@ -176,7 +176,7 @@ def unread_counts_for_conversations(user_id, conversation_ids):
 
     The join to the caller's participant row is an OUTER join on purpose: a
     conversation the caller has no row in must still count as entirely unread
-    rather than silently as zero (messaging.conversations rule 10, B-022). With
+    rather than silently as zero (messaging.conversations rule 10, B-024). With
     no row, `last_read_at` is NULL, and the coalesce turns that into "never
     read" exactly as a row with a null `last_read_at` would.
 
@@ -231,7 +231,7 @@ def create_message_service(data, user_id, now=None):
     """Creates a message and publishes a real-time event."""
     conversation_id = data["conversationId"]
 
-    # messaging.messages rule 10 (B-024). Before this, the body's
+    # messaging.messages rule 10 (B-026). Before this, the body's
     # `conversationId` was taken as proof of access: the service loaded the
     # OTHER participants, checked blocks against them and wrote the row — so any
     # authenticated user could post into any conversation and have it pushed and
@@ -356,7 +356,7 @@ def toggle_reaction_service(message_id, emoji, user_id):
     # The message is loaded FIRST so participation is settled before anything is
     # written. The old order accepted any message id, created the reaction row,
     # and then republished the whole serialized message — text included — to
-    # every connected client (B-024 on the way in, B-004 on the way out).
+    # every connected client (B-026 on the way in, B-004 on the way out).
     message = Message.query.get_or_404(message_id)
     require_participant(message.conversation_id, user_id)
 
