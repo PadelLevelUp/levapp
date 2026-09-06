@@ -425,7 +425,10 @@ export function MessageBubble({
                           role="button"
                           disabled={respondingReminder}
                           onPress={() => setConfirmingLateCancel(false)}
-                          className="rounded-full bg-muted px-3 py-1.5"
+                          className={cn(
+                            "rounded-full bg-muted px-3 py-1.5",
+                            respondingReminder && "opacity-50"
+                          )}
                         >
                           <Text className="text-xs font-medium text-foreground">
                             {t("messages.no")}

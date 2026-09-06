@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reminderState } from "./reminder-state";
+import { reminderResponseOutcome, reminderState } from "./reminder-state";
 
 /**
  * PAD-151. iOS rendered no buttons at all on an attendance reminder, so a
@@ -154,5 +154,43 @@ describe("reminderState", () => {
   it("survives missing metadata entirely", () => {
     expect(reminderState(null, null, NOW).showResponseButtons).toBe(true);
     expect(reminderState(undefined, null, NOW).showResponseButtons).toBe(true);
+  });
+});
+
+/**
+ * The response path, not the render path. The screen writes the answer into
+ * the cached message and the bubble renders off that, so writing the wrong
+ * thing here is indistinguishable from the server having recorded it.
+ */
+describe("reminderResponseOutcome", () => {
+  it("records yes when the server confirmed the answer", () => {
+    expect(reminderResponseOutcome("confirmed")).toEqual({
+      write: "yes",
+      toastKey: null,
+    });
+  });
+
+  it("records no when the server declined the answer", () => {
+    expect(reminderResponseOutcome("declined")).toEqual({
+      write: "no",
+      toastKey: null,
+    });
+  });
+
+  it("records nothing and explains when the reminder expired (PAD-68)", () => {
+    // The backend refused the answer because the class already started. The
+    // student must not see an Absent badge for something never recorded.
+    expect(reminderResponseOutcome("expired")).toEqual({
+      write: null,
+      toastKey: "messages.reminderExpired",
+    });
+  });
+
+  it("fails safe to absent for an unrecognised or missing action", () => {
+    // Never invent a confirmation: anything we cannot read reads as absent,
+    // the same asymmetry `reminderState` applies to recorded metadata.
+    expect(reminderResponseOutcome("something-new").write).toBe("no");
+    expect(reminderResponseOutcome(undefined).write).toBe("no");
+    expect(reminderResponseOutcome(null).write).toBe("no");
   });
 });

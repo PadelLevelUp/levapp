@@ -41,6 +41,7 @@ import {
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
+import { reminderResponseOutcome } from "@/features/messages/reminder-state";
 import {
   invalidateMessagesLists,
   normalizeId,
@@ -490,14 +491,17 @@ export default function ConversationScreen() {
       );
       // Trust the SERVER's action, not the tap: a late or superseded answer is
       // rejected backend-side, and painting the tapped choice would show a
-      // confirmation that was never recorded.
-      const confirmed = result?.action === "confirmed";
+      // state that was never recorded. PAD-68's "expired" writes nothing.
+      const outcome = reminderResponseOutcome(result?.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.write === null) return;
+      const response = outcome.write;
       updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
         ...m,
         metadata: {
           ...m.metadata,
           responded: true,
-          response: confirmed ? "yes" : "no",
+          response,
         },
       }));
     } catch {
@@ -517,8 +521,9 @@ export default function ConversationScreen() {
         ...m,
         metadata: { ...m.metadata, responded: true, response: "no" },
       }));
+      toast.success(t("messages.attendanceCancelled"));
     } catch {
-      toast.error(t("messages.somethingWentWrong"));
+      toast.error(t("messages.cancelAttendanceFailed"));
     } finally {
       setRespondingReminderId(null);
     }

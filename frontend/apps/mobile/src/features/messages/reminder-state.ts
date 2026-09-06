@@ -91,3 +91,35 @@ export function reminderState(
     showResponseButtons: !confirmed && !declined && !superseded,
   };
 }
+
+/**
+ * What to do with the action the server returned for a reminder answer.
+ *
+ * The tap is a request, not the outcome: the backend refuses an answer to a
+ * class that has already started (PAD-68) and records nothing. Writing the
+ * tapped choice into the cache in that case paints an "Absent" badge for an
+ * answer that does not exist. Web decides this inline in `MessageBubble`
+ * (`handleRespondReminder`); pulling the decision out here is what makes it
+ * reachable from a unit test on iOS, where the screen itself is not testable.
+ */
+export type ReminderResponseOutcome = {
+  /** The `response` to record in metadata — `null` means record nothing. */
+  write: "yes" | "no" | null;
+  /** An error toast to show, or `null` when there is nothing to say. */
+  toastKey: string | null;
+};
+
+export function reminderResponseOutcome(
+  action: string | null | undefined
+): ReminderResponseOutcome {
+  // PAD-68: the answer was refused, so leave the message exactly as it was and
+  // say why instead of inventing a state for it.
+  if (action === "expired") {
+    return { write: null, toastKey: "messages.reminderExpired" };
+  }
+
+  // Same asymmetry as `reminderState`: only an explicit "confirmed" reads as a
+  // yes, so an unrecognised action fails safe to absent rather than showing a
+  // confirmation the server never gave.
+  return { write: action === "confirmed" ? "yes" : "no", toastKey: null };
+}
