@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -65,7 +66,7 @@ export function TimePickerInput({
   disabled,
   testID,
 }: TimePickerInputProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Resolved in the body, not the parameter list, so it follows the active
   // language; callers that pass a placeholder still win.
   const resolvedPlaceholder =
@@ -143,6 +144,11 @@ export function TimePickerInput({
               mode="time"
               is24Hour
               display="spinner"
+              // Same reason as DatePickerInput: the native wheel otherwise
+              // follows the device locale, not the app's (PAD-157). Nothing
+              // language-dependent shows on a 24h wheel today, but the prop
+              // keeps the two pickers honest if `is24Hour` ever comes off.
+              locale={nativeLocaleTag(i18n.language)}
               onChange={(_event, selected) => {
                 if (selected) setDraft(selected);
               }}
