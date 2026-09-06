@@ -93,7 +93,12 @@ function KpiTile({ item }: { item: KpiItem }) {
       )}
     >
       <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
-      <span className="font-display text-2xl font-bold tracking-tight tabular-nums">
+      {/* The number gets its own id: a tile now also carries its denominator,
+          so a test that wants the value must not scrape the whole tile. */}
+      <span
+        data-testid={`dashboard-kpi-${slug}-value`}
+        className="font-display text-2xl font-bold tracking-tight tabular-nums"
+      >
         {item.prefix ?? ""}
         {item.value}
       </span>
