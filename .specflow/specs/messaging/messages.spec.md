@@ -36,6 +36,12 @@ Send, edit, and delete messages within conversations, with support for replies a
 7. On send: push notification sent to all other conversation participants
 8. On send: SSE event published to real-time stream
 9. `sent_at` is stored as naive UTC in the DB and serialized as a **UTC-aware ISO 8601 string** (with an explicit `+00:00`/`Z` offset) in the `timestamp`/`lastMessageAt` fields, so clients parse it correctly and render in the viewer's local timezone
+9a. `sent_at` is written with the same clock **and the same precision** as
+    `ConversationParticipant.last_read_at` — the value `utcnow_naive()` returns, microseconds
+    kept — never a second-truncated string (B-019). Unread is decided by
+    `sent_at > last_read_at` (`messaging.read-tracking` rule 3), so truncating one side of
+    that comparison and not the other makes any message sent in the same wall-clock second
+    as a mark-read born already-read
 10. **Every message operation requires the caller to be a participant of the message's
     conversation** — sending (`POST /api/app/message`), editing, deleting, reacting
     (`POST /api/app/message/{id}/reaction`), reporting and reading the conversation
@@ -52,6 +58,12 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **When** the message payload is serialized
 - **Then** `timestamp` carries an explicit UTC offset (e.g. `2026-07-01T17:00:00+00:00`)
 - **And** a client in Lisbon (UTC+1 in summer) renders it as 18:00 local, not 17:00
+
+#### A message sent just after a read is unread (B-019)
+- **Given** a participant marks a conversation read at instant T
+- **When** a message is sent to that conversation 1 ms later
+- **Then** the message counts as unread for that participant
+- **And** the same holds anywhere inside the same wall-clock second
 
 #### Attachment is not publicly readable
 - **Given** a message with an image attachment

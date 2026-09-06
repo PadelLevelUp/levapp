@@ -34,7 +34,10 @@ function buildMockDashboard(): DashboardDefinition {
           conversationsToReply,
           latest: latest
             ? {
-                sender: latest.participantName,
+                // PAD-203: null when the counterpart is gone. The dashboard
+                // card has no `t` here, so it falls back to the empty string
+                // and the tile simply shows the preview without a name.
+                sender: latest.participantName ?? "",
                 preview: latest.lastMessage ?? "",
               }
             : undefined,
