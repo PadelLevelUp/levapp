@@ -21,6 +21,12 @@ from .sql_db import db
 GCS_BUCKET = os.environ.get("GCS_UPLOADS_BUCKET")
 PUBLIC_BASE = f"https://storage.googleapis.com/{GCS_BUCKET}"
 
+# Signed URLs are handed to clients inside API responses and then used by
+# an <img> tag for as long as that payload stays on screen. Five minutes
+# expired while a page was still open; an hour outlives a render without
+# turning the URL into a durable capability.
+SIGNED_URL_MINUTES = 60
+
 
 class Model:
 
@@ -338,7 +344,10 @@ class Image(db.Model):
     object_key = Column(String(512), nullable=False, unique=True)
     content_type = Column(String(128))
     size_bytes = Column(BigInteger)
-    is_public = Column(Boolean, nullable=False, default=True)
+    # Private by default: the bucket carries no public ACL (B-015), so an
+    # object is only reachable through a signed URL unless something
+    # deliberately marks it public.
+    is_public = Column(Boolean, nullable=False, default=False)
 
     imageable_id = Column(
         Integer, ForeignKey("imageables.imageable_id", ondelete="CASCADE")
@@ -369,7 +378,7 @@ class Image(db.Model):
     def public_url(self):
         return f"{PUBLIC_BASE}/{self.object_key}"
 
-    def signed_url(self, minutes=5, method="GET"):
+    def signed_url(self, minutes=SIGNED_URL_MINUTES, method="GET"):
         return self._blob().generate_signed_url(
             version="v4", expiration=timedelta(minutes=minutes), method=method
         )

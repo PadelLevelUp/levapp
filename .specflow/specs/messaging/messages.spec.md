@@ -21,6 +21,10 @@ Send, edit, and delete messages within conversations, with support for replies a
 3. `DELETE /api/app/message/{id}` — soft delete (sender only), sets `is_deleted=True`
 4. Messages can reply to another message (`reply_to_id`)
 5. Messages can have image attachments (`attachment_id`)
+5a. An attachment is **private**. It is stored in a bucket with no public ACL and
+    served as a short-lived signed URL minted per response, never as a durable
+    public link; its storage key carries a random segment so it cannot be guessed
+    from the sender, the send time or the original filename (B-015)
 6. System messages have `message_type="notification"` or `"system"` with `msg_metadata`
 7. On send: push notification sent to all other conversation participants
 8. On send: SSE event published to real-time stream
@@ -33,6 +37,13 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **When** the message payload is serialized
 - **Then** `timestamp` carries an explicit UTC offset (e.g. `2026-07-01T17:00:00+00:00`)
 - **And** a client in Lisbon (UTC+1 in summer) renders it as 18:00 local, not 17:00
+
+#### Attachment is not publicly readable
+- **Given** a message with an image attachment
+- **When** the message payload is serialized for a participant
+- **Then** the attachment URL is a signed URL that expires
+- **And** fetching the underlying object without that signature is refused
+- **And** the storage key cannot be derived from the sender, timestamp or filename
 
 #### Send message
 - **Given** a conversation between users 1 and 5
