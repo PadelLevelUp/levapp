@@ -13,8 +13,8 @@ governed_by: []
 Display a unified calendar view showing lesson instances, calendar blocks, and availability for the current user.
 
 > **Forward-looking rules:** the open-spot clauses of rules 4 and 6 are **not built** — they are
-> specced ahead of PAD-130. Rule 12 (iOS legend) is not built either — specced ahead of PAD-170.
-> Everything else in this spec is implemented. Rules added ahead of their ticket are marked inline.
+> specced ahead of PAD-130. Everything else in this spec is implemented. Rules added ahead of
+> their ticket are marked inline.
 
 ### Rules
 1. `GET /api/app/calendar?from=ISO&to=ISO` returns events in date range
@@ -35,11 +35,16 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 10. Lesson templates (non-materialized recurrence occurrences with no instance row) have no presences, so their `participantCount` is the enrolment count
 11. Each event exposes a `status` of `completed` or `scheduled`. An event is `completed` once its **end datetime has passed** (compared against the current time), otherwise `scheduled`. The comparison uses the real end datetime — the event's date combined with its end time-of-day — NOT just the date. So a class that ended earlier **today** reads as `completed`, exactly like classes on previous days. For recurrence occurrences the end datetime is the occurrence date combined with the template's end time-of-day. "Now" uses the same naive-UTC clock (`utcnow_naive`) the scheduler uses to compare class datetimes
 12. The week-range label (`useCalendar`'s `weekLabel`) is rendered in the **active UI language**, not a hardcoded English locale: month abbreviations follow the coach's `users.language` preference on web and on iOS alike (`pt` → "31 ago–6 set", `en` → "31 Aug–6 Sep"). `useCalendar` lives in `@levelup/hooks`, which must stay platform-neutral (no React DOM, no React Native, no Expo import), so the shell passes its active language in (`options.language`) and the hook derives the label from it. The language→`date-fns` `Locale` mapping lives in exactly one place, `resolveDateLocale` in `@levelup/config`, shared by both shells and by the hook; the fallback stays `pt` per settings.language rule 4. The label is *derived* from the stored language on every render, never frozen into state, so switching language in Settings re-renders it without a reload
-13. **(pending PAD-170 C4, decided 2026-09-04)** iOS gets the same colour-coding legend web already
-    has (`CalendarLegend.tsx`: `calendar.legend.done / event / fill / full / next`), explaining
-    rule 6's colour coding. Decision was to port it rather than decline it as an iOS-unneeded
-    surface — as a legend row under the week nav, sequenced **after** PAD-172's 50/50 split lands
-    (the split changes the layout the legend sits under)
+13. **(PAD-170 C4, decided 2026-09-04)** iOS carries the same colour-coding legend web has
+    (`calendar.legend.done / event / fill / full / next`), explaining rule 6's colour coding. The
+    decision was to port it rather than decline it as an iOS-unneeded surface. It renders as a
+    fixed-height legend row between the week nav and the day grid, so rule 14's `flex-1` / `flex-1`
+    pair still splits whatever is left below those two fixed rows — the strip and the day list keep
+    equal shares. The swatches show the TREATMENT, not a palette: the class colour is the coach's,
+    so each sample uses a neutral stand-in and what it carries is the border, the fade and the
+    dashed edge. The whole row is ONE accessibility element reading the five labels, because a
+    legend is reference material and five VoiceOver stops between the nav and the grid would be
+    five stops in the way
 
 14. **(PAD-172)** On iOS the week strip and the day-detail list are a `flex-1` / `flex-1` pair
     filling the space below the week-nav row, mirroring web's `MobileCalendarView` split. The
@@ -89,11 +94,15 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Then** the week-range label reads "31 ago–6 set"
 - **And** with `language` `en` the same week reads "31 Aug–6 Sep"
 - **And** switching the language in Settings re-renders the label without a page reload
-#### iOS calendar shows the colour legend (pending PAD-170 C4, after PAD-172)
-- **Given** a coach on the iOS calendar week view, after PAD-172's 50/50 split has shipped
-- **When** they view the calendar toolbar
+#### iOS calendar shows the colour legend (PAD-170 C4)
+- **Given** a coach on the iOS calendar week view
+- **When** they view the calendar
 - **Then** a legend row under the week nav explains each colour (`calendar.legend.done / event /
   fill / full / next`), matching web's `CalendarLegend.tsx`
+- **And** the week strip and the day-detail list still take equal shares of the space below the nav
+  and legend rows — the legend narrows what they divide, it does not tilt the split
+- **And** VoiceOver reads the legend as a single element listing the five labels, not as five
+  separate stops
 
 #### iOS week strip keeps a constant share of the screen (PAD-172)
 - **Given** a coach on the iOS calendar week view

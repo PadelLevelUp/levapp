@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { findOverlappingEvent, lightTheme } from "@levelup/config";
+import { seasonsApi } from "@levelup/api";
+import {
+  findOverlappingEvent,
+  findSeasonCoveringDate,
+  lightTheme,
+} from "@levelup/config";
 import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import { classFormSchema } from "@levelup/validation";
+import { useQuery } from "@tanstack/react-query";
 import { addMonths, format } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -58,6 +64,13 @@ const TYPE_OPTIONS = [
   { value: "private", labelKey: "calendar.addClass.typePrivate" },
 ] as const;
 
+/**
+ * PAD-170 C7: the one backend rejection this screen explains in place rather
+ * than as a generic "creation failed". Same constant web's `AddClassSheet`
+ * exports; `calendar.seasons` rule 8 is where the code comes from.
+ */
+const NO_SEASON_COVERS_DATE = "no_season_covers_date";
+
 type FieldErrors = Partial<
   Record<"date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate", string>
 >;
@@ -93,9 +106,17 @@ export default function NewClassScreen() {
   const [isRecurring, setIsRecurring] = React.useState(false);
   const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [endDate, setEndDate] = React.useState("");
+  // PAD-170 C7: "recurs until season end" replaces the manual end date with the
+  // covering season's end date, snapshotted server-side (`calendar.seasons`
+  // rule 8).
+  const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = React.useState(false);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
+  // Set when the backend rejected the create for a reason the coach can fix
+  // here. The screen stays put and explains it beside the toggle instead of
+  // navigating back over a class that was never created.
+  const [rejection, setRejection] = React.useState<string | null>(null);
 
   // PAD-159: the overlap warning needs the day's existing events. Fetching the
   // single day (not the week) keeps this to what the check actually reads —
@@ -104,6 +125,24 @@ export default function NewClassScreen() {
     `${date}T00:00:00`,
     `${date}T23:59:59`
   );
+
+  // PAD-170 C7: the coach's seasons, so the screen can warn BEFORE submitting
+  // that no season covers this date. Web only learns that from the backend's
+  // rejection; asking here costs one cached request and turns a failed create
+  // into a hint next to the toggle that caused it.
+  const { data: seasons } = useQuery({
+    queryKey: ["seasons"],
+    queryFn: seasonsApi.getSeasons,
+  });
+
+  // A hint, never a gate: the phone's season list can be stale and the backend
+  // stays the authority (`calendar.seasons` rule 8 fails closed either way).
+  const coveringSeason = findSeasonCoveringDate(date, seasons);
+  const showNoSeasonWarning =
+    isRecurring &&
+    recursUntilSeasonEnd &&
+    (rejection === NO_SEASON_COVERS_DATE ||
+      (seasons != null && coveringSeason == null));
 
   // When recurring turns on, pre-select the weekday of the chosen date (web parity).
   React.useEffect(() => {
@@ -149,7 +188,11 @@ export default function NewClassScreen() {
         if (field === "date" && !next.date)
           next.date = t("classDetail.new.dateRequired");
         if (field === "daysOfWeek") next.days = t("classDetail.new.pickAtLeastOneDay");
-        if (field === "endDate" && !next.endDate)
+        // PAD-170 C7: "recurs until season end" IS the end date — the season's
+        // own, resolved server-side — so the shared schema's end-date
+        // requirement does not apply while the toggle is on. Web makes the same
+        // exception (`isRecurring && !recursUntilSeasonEnd && !endDate`).
+        if (field === "endDate" && !next.endDate && !recursUntilSeasonEnd)
           next.endDate = t("classDetail.new.endDateRequired");
       }
     }
@@ -160,6 +203,7 @@ export default function NewClassScreen() {
 
   const handleSave = async () => {
     setFormError(null);
+    setRejection(null);
     if (!validate()) return;
 
     // PAD-159, mirroring web's AddClassSheet: a non-blocking warning. For a
@@ -201,13 +245,27 @@ export default function NewClassScreen() {
       recurrenceRule: isRecurring
         ? { frequency: "weekly", daysOfWeek: selectedDays }
         : null,
-      endDate: computedEndDate,
+      // PAD-170 C7, matching web's payload: the flag only travels for a
+      // recurring class, and it replaces the end date rather than joining it —
+      // sending both would let a manual date silently win over the season.
+      recursUntilSeasonEnd: isRecurring ? recursUntilSeasonEnd : false,
+      endDate: recursUntilSeasonEnd ? null : computedEndDate,
     };
 
     try {
       await addClass.mutateAsync(data);
       router.back();
-    } catch {
+    } catch (err) {
+      // PAD-170 C7: a rejection the coach can fix on this screen keeps them on
+      // it, with every field intact, and is explained beside the toggle that
+      // caused it. Navigating back over a class that was never created is how
+      // the failure went unnoticed.
+      const code = (err as { response?: { data?: { code?: string } } })?.response
+        ?.data?.code;
+      if (code === NO_SEASON_COVERS_DATE) {
+        setRejection(NO_SEASON_COVERS_DATE);
+        return;
+      }
       setFormError(t("classDetail.new.createFailed"));
     }
   };
@@ -458,16 +516,52 @@ export default function NewClassScreen() {
                   ) : null}
                 </View>
 
-                <DatePickerInput
-                  testID="class-end-date"
-                  label={t("calendar.addClass.endDate")}
-                  value={endDate}
-                  error={errors.endDate}
-                  onChange={(value) => {
-                    setEndDate(value);
-                    setErrors((prev) => ({ ...prev, endDate: undefined }));
-                  }}
-                />
+                {/* PAD-170 C7: recurrence ran to a hand-typed end date with
+                    nothing on screen saying seasons existed. The toggle, its
+                    hint and the no-season warning are web's `AddClassSheet`
+                    copy verbatim (`calendar.addClass.*`). */}
+                <View className="flex-row items-center justify-between">
+                  <Text className="flex-1 text-xs text-muted-foreground">
+                    {t("calendar.addClass.recursUntilSeasonEnd")}
+                  </Text>
+                  <Switch
+                    testID="class-season-end-switch"
+                    accessibilityLabel={t("calendar.addClass.recursUntilSeasonEnd")}
+                    checked={recursUntilSeasonEnd}
+                    onCheckedChange={(checked) => {
+                      setRecursUntilSeasonEnd(checked);
+                      setRejection(null);
+                      setErrors((prev) => ({ ...prev, endDate: undefined }));
+                    }}
+                  />
+                </View>
+
+                {showNoSeasonWarning ? (
+                  <Text
+                    testID="class-no-season-warning"
+                    role="alert"
+                    className="rounded-md border border-destructive bg-destructive/10 p-2 text-xs text-destructive"
+                  >
+                    {t("calendar.addClass.noSeasonCoversDate")}
+                  </Text>
+                ) : null}
+
+                {recursUntilSeasonEnd ? (
+                  <Text className="text-xs text-muted-foreground">
+                    {t("calendar.addClass.recursUntilSeasonEndHint")}
+                  </Text>
+                ) : (
+                  <DatePickerInput
+                    testID="class-end-date"
+                    label={t("calendar.addClass.endDate")}
+                    value={endDate}
+                    error={errors.endDate}
+                    onChange={(value) => {
+                      setEndDate(value);
+                      setErrors((prev) => ({ ...prev, endDate: undefined }));
+                    }}
+                  />
+                )}
               </>
             ) : null}
           </View>

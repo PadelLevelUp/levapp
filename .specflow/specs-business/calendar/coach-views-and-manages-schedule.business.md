@@ -59,4 +59,4 @@ Creating or editing classes themselves as data (`classes` domain); personal avai
 
 - **[DEC 2026-09-04, PAD-170 C4]** iOS gets the same colour legend web already has, as a legend
   row under the week nav — decided to port it rather than decline it as a phone-toolbar surface,
-  sequenced after PAD-172's 50/50 split lands. See `calendar.view` rule 12.
+  sequenced after PAD-172's 50/50 split lands. Shipped in PAD-170; see `calendar.view` rule 13.
