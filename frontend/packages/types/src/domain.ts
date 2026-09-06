@@ -299,11 +299,20 @@ export interface Message {
 
 export interface Conversation {
   id: string;
-  participantId: string;
-  participantName: string;
+  /**
+   * Null when the other participant is gone (PAD-203 / messaging.conversations
+   * rule 10) — a hard-deleted user, or a conversation whose participant row was
+   * lost. The conversation is still listed; the server sends no display string
+   * because it has no i18n, so render `messages.deletedUser` off
+   * `participantDeleted`.
+   */
+  participantId: string | null;
+  participantName: string | null;
   participantAvatar?: string;
   /** Role of the other participant, e.g. "coach" or "player" */
-  participantRole?: string;
+  participantRole?: string | null;
+  /** True when there is no other participant left to describe */
+  participantDeleted?: boolean;
   /** True when the other participant is the platform assistant (one-way channel) */
   isAssistant?: boolean;
 

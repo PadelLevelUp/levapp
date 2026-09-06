@@ -149,8 +149,9 @@ def get_unread_count(user_id):
     return int(unread or 0)
 
 
-def create_message_service(data, user_id):
+def create_message_service(data, user_id, now=None):
     """Creates a message and publishes a real-time event."""
+    now = now or utcnow_naive()
     recipient_participants = ConversationParticipant.query.filter(
         ConversationParticipant.conversation_id == data["conversationId"],
         ConversationParticipant.user_id != user_id,
@@ -169,7 +170,16 @@ def create_message_service(data, user_id):
         # local time here stamped fresh messages ~1h in the future under a +1
         # offset, so a just-read message stayed "unread" until UTC caught up
         # (PAD-66).
-        "sent_at": utcnow_naive().strftime("%Y-%m-%dT%H:%M:%S"),
+        #
+        # PAD-203: the datetime goes in as an OBJECT, not through
+        # `.strftime("%Y-%m-%dT%H:%M:%S")`. That format discarded the
+        # microseconds while `last_read_at` kept them, so a message sent in the
+        # same wall-clock second as a mark-read compared `<=` and was born
+        # already-read — the residue PAD-66's clock fix did not reach.
+        # `tools.str_to_datetime` returns a datetime untouched, so there is no
+        # string round-trip left to lose precision in (messaging.messages
+        # rule 9a).
+        "sent_at": now,
     }
 
     message = Message()
@@ -320,18 +330,44 @@ def create_conversation_service(data, user):
         values = form.set_values(fake_request)
 
         conversation.update_with_dict(values)
-        conversation.create()
 
-        for participant_id in payload.get("participant_ids", []):
-            ConversationParticipant(
-                conversation_id=conversation.id,
-                user_id=participant_id,
-            ).create()
+        # PAD-203: the conversation and ALL of its participant rows are one
+        # transaction (messaging.conversations rule 9). The base mixin's
+        # `create()` is add-then-COMMIT, so the old shape — `conversation.create()`
+        # followed by a `.create()` per participant — committed the conversation
+        # first and each participant separately. A failure anywhere after the
+        # first commit left a durable conversation with a missing participant
+        # row, which is precisely the input `serialize_conversation` used to
+        # raise `StopIteration` on: one such row 500'd the other person's entire
+        # conversation list, forever. So: `add` + `flush` to get the id the
+        # participants need, then a single commit at the end, with the savepoint
+        # rolled back on failure so nothing survives (PAD-117's pattern —
+        # `begin_nested()` opened OUTSIDE the try, so a failure to open it cannot
+        # leave `sp` unbound and mask the real exception).
+        sp = db.session.begin_nested()
+        try:
+            db.session.add(conversation)
+            db.session.flush()
+
+            for participant_id in payload.get("participant_ids", []):
+                db.session.add(
+                    ConversationParticipant(
+                        conversation_id=conversation.id,
+                        user_id=participant_id,
+                    )
+                )
+            db.session.flush()
+            sp.commit()
+        except Exception:
+            sp.rollback()
+            raise
+
+        db.session.commit()
 
     return conversation, user.id
 
 
-def mark_conversation_read_service(conversation_id, user):
+def mark_conversation_read_service(conversation_id, user, now=None):
     """Marks a conversation as read for the given user."""
     participation = (
         ConversationParticipant.query
@@ -342,5 +378,5 @@ def mark_conversation_read_service(conversation_id, user):
         .first_or_404()
     )
 
-    participation.last_read_at = utcnow_naive()
+    participation.last_read_at = now or utcnow_naive()
     participation.save()

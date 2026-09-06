@@ -21,13 +21,17 @@ export function ConversationItem({
   const { t } = useTranslation();
   const locale = useDateLocale();
   const {
-    participantName,
     participantAvatar,
     participantRole,
     lastMessage,
     lastMessageAt,
     unreadCount,
   } = conversation;
+  // PAD-203: the server sends `participantName: null` when the counterpart is
+  // gone (messaging.conversations rule 10) — it has no i18n, so the label is
+  // resolved here. Mirrors web's ConversationList.
+  const participantName =
+    conversation.participantName ?? t("messages.deletedUser");
   const roleKey = roleLabelKey(participantRole);
 
   return (

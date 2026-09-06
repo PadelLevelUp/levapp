@@ -139,6 +139,15 @@ export default function ConversationScreen() {
     : null;
   const isBlocked = participantId ? blockedUserIds.has(participantId) : false;
 
+  // PAD-203: `participantName` is null once the counterpart is gone
+  // (messaging.conversations rule 10) — a different thing from "not loaded
+  // yet", which is what `conversationFallback` means. The server sends no
+  // display string because it has no i18n, so the label is resolved here.
+  // Mirrors web's ChatThread/ChatHeader.
+  const participantName = conversation
+    ? conversation.participantName ?? t("messages.deletedUser")
+    : t("messages.conversationFallback");
+
   React.useEffect(() => {
     let cancelled = false;
     messagesApi
@@ -613,7 +622,7 @@ export default function ConversationScreen() {
               className="shrink text-base font-bold"
               style={{ color: lightTheme.sidebarForeground }}
             >
-              {conversation?.participantName ?? t("messages.conversationFallback")}
+              {participantName}
             </Text>
             {conversation?.participantRole ? (
               <View
@@ -676,8 +685,7 @@ export default function ConversationScreen() {
                   className="text-base font-bold"
                   style={{ color: lightTheme.sidebarForeground }}
                 >
-                  {conversation?.participantName ??
-                    t("messages.conversationFallback")}
+                  {participantName}
                 </Text>
                 {conversation?.participantRole ? (
                   <Badge
@@ -772,7 +780,7 @@ export default function ConversationScreen() {
                   message={item}
                   own={own}
                   userId={myId}
-                  participantName={conversation.participantName}
+                  participantName={participantName}
                   replyToMessage={replyToMessage}
                   isHighlighted={highlightedId === item.id}
                   onLongPressMenu={
@@ -865,7 +873,7 @@ export default function ConversationScreen() {
                   <Text className="text-right text-xs font-semibold text-primary">
                     {Number(replyingTo.senderId) === myId
                       ? t("messages.you")
-                      : conversation?.participantName}
+                      : participantName}
                   </Text>
                   <Text
                     numberOfLines={1}
