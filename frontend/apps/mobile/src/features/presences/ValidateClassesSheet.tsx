@@ -149,12 +149,18 @@ export function ValidateClassesSheet({
 
   async function validateClasses(classes: PendingValidationClass[]) {
     if (!classes.length) return;
-    await onValidate(
-      classes.map((klass) => ({
-        lessonInstanceId: klass.lessonInstanceId,
-        presences: resolvePresences(klass, edits[klass.lessonInstanceId] ?? {}),
-      }))
-    );
+    try {
+      await onValidate(
+        classes.map((klass) => ({
+          lessonInstanceId: klass.lessonInstanceId,
+          presences: resolvePresences(klass, edits[klass.lessonInstanceId] ?? {}),
+        }))
+      );
+    } catch {
+      // The screen already toasted. Keep the selection, the expanded card
+      // and any roster edits exactly as they were so the coach can retry.
+      return false;
+    }
     setExpandedId(null);
     setSelected((prev) =>
       clearValidated(
@@ -162,6 +168,7 @@ export function ValidateClassesSheet({
         classes.map((klass) => klass.lessonInstanceId)
       )
     );
+    return true;
   }
 
   /**
@@ -250,11 +257,14 @@ export function ValidateClassesSheet({
             onAddWalkIn={(option) => addWalkIn(detail, option)}
             onBack={() => setDetailId(null)}
             onValidate={async () => {
-              await validateClasses([detail]);
-              setDetailId(null);
+              if (await validateClasses([detail])) setDetailId(null);
             }}
             onUnvalidate={async () => {
-              await onUnvalidate(detail.lessonInstanceId);
+              try {
+                await onUnvalidate(detail.lessonInstanceId);
+              } catch {
+                return; // screen toasted; stay on the detail
+              }
               setDetailId(null);
             }}
           />
@@ -461,7 +471,11 @@ export function ValidateClassesSheet({
                           variant="ghost"
                           size="sm"
                           disabled={busy}
-                          onPress={() => onUnvalidate(klass.lessonInstanceId)}
+                          onPress={() =>
+                            onUnvalidate(klass.lessonInstanceId).catch(() => {
+                              /* screen toasted */
+                            })
+                          }
                           testID={`presences-undo-${klass.lessonInstanceId}`}
                         >
                           <Text>{t("presences.validate.undo")}</Text>
