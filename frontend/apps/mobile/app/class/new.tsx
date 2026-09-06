@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
-import { useCoachLevels } from "@levelup/hooks";
+import { findOverlappingEvent, lightTheme } from "@levelup/config";
+import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import { classFormSchema } from "@levelup/validation";
 import { addMonths, format } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
@@ -33,6 +33,7 @@ import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
+import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 
 const COLORS = [
   "#0ea5e9",
@@ -94,6 +95,15 @@ export default function NewClassScreen() {
   const [endDate, setEndDate] = React.useState("");
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [overlapOpen, setOverlapOpen] = React.useState(false);
+
+  // PAD-159: the overlap warning needs the day's existing events. Fetching the
+  // single day (not the week) keeps this to what the check actually reads —
+  // findOverlappingEvent compares day keys and ignores anything else.
+  const { data: dayEvents } = useCalendarEvents(
+    `${date}T00:00:00`,
+    `${date}T23:59:59`
+  );
 
   // When recurring turns on, pre-select the weekday of the chosen date (web parity).
   React.useEffect(() => {
@@ -151,6 +161,25 @@ export default function NewClassScreen() {
   const handleSave = async () => {
     setFormError(null);
     if (!validate()) return;
+
+    // PAD-159, mirroring web's AddClassSheet: a non-blocking warning. For a
+    // recurring class only the first occurrence is checked, which is the scope
+    // web uses too. The coach may genuinely want two things at once, so this
+    // asks rather than refuses.
+    const conflict = findOverlappingEvent(
+      { date, startTime, endTime },
+      dayEvents ?? []
+    );
+    if (conflict) {
+      setOverlapOpen(true);
+      return;
+    }
+
+    await proceedSave();
+  };
+
+  const proceedSave = async () => {
+    setOverlapOpen(false);
 
     const computedEndDate = isRecurring
       ? endDate || format(addMonths(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd")
@@ -466,6 +495,12 @@ export default function NewClassScreen() {
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OverlapConfirmDialog
+        open={overlapOpen}
+        onCancel={() => setOverlapOpen(false)}
+        onConfirm={() => void proceedSave()}
+      />
     </Screen>
   );
 }
