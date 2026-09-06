@@ -1152,7 +1152,11 @@ def put_calendar_block(block_id):
 @bp.delete("/calendar_block/<int:block_id>")
 @jwt_required()
 def delete_calendar_block(block_id):
-    data = request.get_json() or {}
+    # PAD-160 / bug B-019: a DELETE has nothing to say for a non-recurring block,
+    # so clients legitimately send no body. `request.get_json()` raises 415 on a
+    # bodyless request (the `or {}` never runs), which killed the one-off delete.
+    # `silent=True` makes the body optional, as it always was in intent.
+    data = request.get_json(silent=True) or {}
     remove_block_service(block_id, current_user().id, data.get('occDate'), data.get('scope', 'all'))
     return "", 204
 

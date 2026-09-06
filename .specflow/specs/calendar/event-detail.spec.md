@@ -34,6 +34,14 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 12. A `classId` that matches no event in the target week is a no-op: the calendar still shows the
     requested week, no sheet opens, and no error is surfaced. `date` alone (no `classId`) simply
     selects that week
+13. Deleting a block event always sends a JSON request body, even when there is nothing to say.
+    A recurring occurrence sends `{occDate, scope}`; a ONE-OFF event has neither, and must still
+    send `{}` with `Content-Type: application/json`. `DELETE /api/app/calendar_block/<id>` reads
+    its body with `get_json(silent=True)`, so a bodyless request is honoured rather than answered
+    415 (bug B-019 — an already-installed mobile build cannot be patched retroactively)
+14. The scope dialog shown for a RECURRING block event is worded for an event, not a class
+    (`calendar.eventScope.*`, "Delete event" / "Only this event"). `calendar.scope.*` stays
+    class-worded and is what `ClassDetailSheet` uses
 
 ### Acceptance Criteria
 
@@ -54,3 +62,11 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Given** a student with both a `confirmed` invite and a later `sent` invite for the same instance
 - **When** the class-detail payload is serialized
 - **Then** that student's single entry has status `confirmed`
+
+#### Deleting a one-off event succeeds
+- **Given** a coach viewing a non-recurring personal/break/holiday/off-work event
+- **When** they confirm the delete
+- **Then** the client sends a DELETE carrying a JSON body (`{}`, no `occDate`, no `scope`)
+- **And** the API answers 204, the `calendar_blocks` row is gone, and the calendar returns without
+  the event — no "failed to delete" toast
+- **And** the same DELETE sent with no body at all is still honoured (204), not rejected with 415
