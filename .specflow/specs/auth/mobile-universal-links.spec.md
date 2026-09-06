@@ -18,8 +18,7 @@ iOS universal links fix this: the app claims the three account-creation paths, a
 one of them to the app instead of to Safari, with the token intact.
 
 This spec covers the **link plumbing only** — the entitlement, the served association file, and the
-path→route mapping. The native screens that replace the web forms are `PAD-164`; until they land the
-routes hand off to the web flow, so the link at least arrives in the right place.
+path→route mapping. The native screens the arriving link lands on are `auth.mobile-account-creation`.
 
 ### Claimed paths
 Exactly three, all account-creation entry points:
@@ -48,8 +47,9 @@ Exactly three, all account-creation entry points:
 5. This is additive. Universal links do not fire from every context — a URL typed into Safari's
    address bar, some in-app browsers, some QR scanners — so the web flow remains the fallback and is
    unchanged.
-6. Until `PAD-164` builds the native screens, each claimed route renders a hand-off placeholder that
-   opens the equivalent web URL, preserving the token.
+6. Each claimed route renders the native account-creation screen for that path — see
+   `auth.mobile-account-creation`. (Until PAD-164 landed, the routes rendered a hand-off placeholder
+   that reopened the equivalent web URL instead.)
 
 ### Acceptance Criteria
 
