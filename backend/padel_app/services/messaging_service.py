@@ -4,6 +4,7 @@ from padel_app.utils.dates import utcnow_naive
 
 from flask import abort
 from sqlalchemy import func, nullslast, or_, and_
+from sqlalchemy.orm import joinedload, selectinload
 
 from padel_app.sql_db import db
 from padel_app.models import (
@@ -130,9 +131,14 @@ def report_message_service(reporter_id, message_id, reason=None):
     return report
 
 
+# The "never read anything" sentinel the unread comparison falls back to when a
+# participant row has no `last_read_at` — or, for the list query below, when the
+# caller has no participant row at all (messaging.conversations rule 10).
+_UNREAD_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
 def get_unread_count(user_id):
     """Returns the number of unread messages for a user."""
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
     CP = ConversationParticipant
     M = Message
 
@@ -142,11 +148,74 @@ def get_unread_count(user_id):
         .filter(CP.user_id == user_id)
         .filter(M.sender_id != user_id)
         .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, epoch))
+        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
         .scalar()
     )
 
     return int(unread or 0)
+
+
+def unread_counts_for_conversations(user_id, conversation_ids):
+    """`{conversation_id: unread count}` for `user_id`, in ONE query.
+
+    PAD-204 / messaging.conversations rule 12. The conversation list used to
+    count unread in Python, over `conversation.messages` — which is what forced
+    every message of every listed thread into the identity map. The predicate is
+    deliberately `get_unread_count`'s, soft-delete filter included (R-016), so
+    the numbers on the rows and the number on the tab badge are computed the
+    same way and agree.
+
+    The join to the caller's participant row is an OUTER join on purpose: a
+    conversation the caller has no row in must still count as entirely unread
+    rather than silently as zero (messaging.conversations rule 10, B-019). With
+    no row, `last_read_at` is NULL, and the coalesce turns that into "never
+    read" exactly as a row with a null `last_read_at` would.
+
+    Conversations with nothing unread are absent from the result, so callers
+    read it with `.get(conversation_id, 0)`.
+    """
+    if not conversation_ids:
+        return {}
+
+    CP = ConversationParticipant
+    M = Message
+
+    rows = (
+        db.session.query(M.conversation_id, func.count(M.id))
+        .outerjoin(
+            CP,
+            and_(
+                CP.conversation_id == M.conversation_id,
+                CP.user_id == user_id,
+            ),
+        )
+        .filter(M.conversation_id.in_(conversation_ids))
+        .filter(M.sender_id != user_id)
+        .filter(M.is_deleted == False)
+        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .group_by(M.conversation_id)
+        .all()
+    )
+
+    return {conversation_id: int(count) for conversation_id, count in rows}
+
+
+def last_messages_by_id(message_ids):
+    """`{message_id: Message}` for the given ids, in ONE query.
+
+    The other half of rule 12: `conversations.last_message_id` says which row
+    the list needs, and this fetches all of them together instead of one lazy
+    load per conversation. Ids that are None (a conversation with no messages)
+    or that no longer resolve are simply absent.
+    """
+    wanted = {message_id for message_id in message_ids if message_id is not None}
+    if not wanted:
+        return {}
+
+    return {
+        message.id: message
+        for message in Message.query.filter(Message.id.in_(wanted)).all()
+    }
 
 
 def create_message_service(data, user_id, now=None):
@@ -274,24 +343,66 @@ def toggle_reaction_service(message_id, emoji, user_id):
 
 
 def get_user_conversations(user, page=1, limit=20):
-    """Returns paginated conversations the user participates in, ordered by last message descending."""
+    """Returns paginated conversations the user participates in, ordered by last message descending.
+
+    PAD-204 / messaging.conversations rules 11-12. The order used to come from a
+    correlated `MAX(messages.sent_at)` subquery evaluated per candidate row,
+    against a `messages` table with no index on `conversation_id` — so paging a
+    coach's conversations scanned every message in the database. It now reads
+    the denormalised `last_message_at` the `Message` `after_insert` listener
+    maintains, which is a plain column sort.
+
+    The participants (and their users) are eager-loaded because
+    `serialize_conversation` reads both for every row; leaving them lazy is two
+    more statements per conversation on the page. The messages themselves are
+    NOT loaded — that is the point of the whole ticket.
+    """
     offset = (page - 1) * limit
-    last_message_at = (
-        db.session.query(func.max(Message.sent_at))
-        .filter(Message.conversation_id == Conversation.id)
-        .correlate(Conversation)
-        .scalar_subquery()
-    )
     query = (
         Conversation.query
         .join(ConversationParticipant)
         .filter(ConversationParticipant.user_id == user.id)
-        .order_by(nullslast(last_message_at.desc()))
+        .options(
+            selectinload(Conversation.participants)
+            .joinedload(ConversationParticipant.user)
+            # `participantRole` reads `User.role`, which is
+            # `'coach' if self.coach else 'player'` — a lazy load per
+            # participant if the relationship is left cold, and the single
+            # largest remaining term in the list's statement count.
+            .joinedload(User.coach)
+        )
+        .order_by(nullslast(Conversation.last_message_at.desc()))
         .offset(offset)
     )
     convs = query.limit(limit + 1).all()
     has_more = len(convs) > limit
     return {"conversations": convs[:limit], "has_more": has_more}
+
+
+def get_conversation_for_detail(conversation_id):
+    """One conversation, with everything the detail payload reads already loaded.
+
+    messaging.conversation-detail rule 8. `serialize_message` reads
+    `message.reactions` for every message it renders, so with the relationship
+    lazy a 200-message thread cost 200 extra round trips on top of the one that
+    fetched the thread. `selectinload` collapses those into a single
+    `message_reactions WHERE message_id IN (...)`.
+    """
+    return (
+        Conversation.query
+        .options(
+            selectinload(Conversation.messages).selectinload(Message.reactions),
+            selectinload(Conversation.participants)
+            .joinedload(ConversationParticipant.user)
+            # `participantRole` reads `User.role`, which is
+            # `'coach' if self.coach else 'player'` — a lazy load per
+            # participant if the relationship is left cold, and the single
+            # largest remaining term in the list's statement count.
+            .joinedload(User.coach),
+        )
+        .filter(Conversation.id == conversation_id)
+        .first_or_404()
+    )
 
 
 def create_conversation_service(data, user):

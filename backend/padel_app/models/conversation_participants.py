@@ -1,4 +1,11 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy import (
+    Column,
+    Integer,
+    DateTime,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from padel_app.sql_db import db
@@ -8,7 +15,20 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class ConversationParticipant(db.Model, model.Model):
     __tablename__ = "conversation_participants"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        # PAD-204 / messaging.conversations rule 13. Participant rows are
+        # inserted by looping a raw id list, so "a user appears once per
+        # conversation" only ever held by the loop's good manners. A duplicate
+        # row makes `serialize_conversation` pick an arbitrary counterpart and
+        # double-counts nothing quietly — the database says no instead.
+        UniqueConstraint(
+            "conversation_id", "user_id", name="uq_conversation_participant"
+        ),
+        # Every messaging query starts from "which conversations is this user
+        # in"; that column had no index (messaging.conversations Entities).
+        Index("ix_conversation_participants_user_id", "user_id"),
+        {"extend_existing": True},
+    )
     page_title = "Conversation Partipants"
     model_name = "ConversationParticipant"
 
