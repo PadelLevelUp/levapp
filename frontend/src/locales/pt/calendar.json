@@ -209,6 +209,25 @@
         "futureDescription": "Aplica as alterações a esta aula e a todas as seguintes"
       }
     },
+    "eventScope": {
+      "cancel": "Cancelar",
+      "delete": {
+        "title": "Eliminar evento",
+        "description": "Que eventos pretende eliminar?",
+        "singleTitle": "Apenas este evento",
+        "singleDescription": "Elimina apenas esta ocorrência",
+        "futureTitle": "Este e todos os eventos futuros",
+        "futureDescription": "Elimina este evento e todos os seguintes da série"
+      },
+      "edit": {
+        "title": "Editar evento",
+        "description": "Onde devem ser aplicadas estas alterações?",
+        "singleTitle": "Apenas este evento",
+        "singleDescription": "Aplica as alterações apenas a esta ocorrência",
+        "futureTitle": "Este e todos os eventos futuros",
+        "futureDescription": "Aplica as alterações a este evento e a todos os seguintes"
+      }
+    },
     "deleteDialog": {
       "title": "Eliminar aula",
       "description": "Que aulas pretende eliminar?",

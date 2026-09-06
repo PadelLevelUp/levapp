@@ -82,7 +82,7 @@ export default function NewPlayerScreen() {
       setInviteUrl(webAppLink(WEB_APP_URL, created.inviteLink));
       setInviteDialogOpen(true);
     } catch {
-      setError("Failed to create the invite. Please try again.");
+      setError(t("players.createInviteFailed"));
     }
   };
 

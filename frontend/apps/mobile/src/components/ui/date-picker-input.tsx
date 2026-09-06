@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,7 +56,7 @@ export function DatePickerInput({
   disabled,
   testID,
 }: DatePickerInputProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Resolved in the body, not the parameter list, so it follows the active
   // language; callers that pass a placeholder still win.
   const resolvedPlaceholder =
@@ -131,6 +132,12 @@ export function DatePickerInput({
               value={draft}
               mode="date"
               display="spinner"
+              // Without this the UIDatePicker uses the *device* locale, so a
+              // Portuguese app on an English phone spun through "September /
+              // October / November" next to its own `Concluído` / `Cancelar`
+              // buttons (PAD-157 / B-020). Android's imperative dialog has no
+              // equivalent option and follows the system locale.
+              locale={nativeLocaleTag(i18n.language)}
               onChange={(_event, selected) => {
                 if (selected) setDraft(selected);
               }}
