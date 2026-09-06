@@ -204,8 +204,7 @@ Each class (lesson instance) has an individual `notifications_enabled` flag that
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/notifications/vapid-public-key` | Returns the VAPID public key for push subscription |
-| `POST` | `/api/notifications/subscribe` | Register a browser push subscription |
-| `POST` | `/api/notifications/save-subscription` | Persist a push subscription |
+| `POST` | `/api/notifications/save-subscription` | Register (upsert) a browser push subscription |
 | `DELETE` | `/api/notifications/unsubscribe` | Remove a push subscription |
 
 ---
