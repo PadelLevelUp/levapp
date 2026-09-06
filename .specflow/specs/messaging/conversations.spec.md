@@ -23,6 +23,13 @@ Manage conversations between users (1:1 or group chats).
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
 6. `POST /api/app/conversation` finds or creates by participant list
+7. A coach may start a conversation with any player on their **roster** (`coach_in_player`) or in
+   any **club** they belong to (`player_in_club`) — the union of the two is the coach's
+   messageable set. Everyone else is a student and may start a conversation with any active coach.
+   The same set backs both `GET /api/app/messageable-users` (the picker) and the 403 guard on
+   `POST /api/app/conversation`. Blocks, either way, remove a user from it.
+8. The scope in rule 7 governs **starting** a conversation only. It never restricts sending inside
+   a conversation that already exists.
 
 ### Acceptance Criteria
 
@@ -36,3 +43,19 @@ Manage conversations between users (1:1 or group chats).
 - **Given** a conversation already exists between users 1 and 5
 - **When** user 5 tries to create a conversation with user 1
 - **Then** the existing conversation is returned (no duplicate)
+
+#### Coach messages a player they added in the app
+- **Given** coach C added player P through the app, so P has a `coach_in_player` row for C and no
+  `player_in_club` row for any of C's clubs
+- **When** C requests `GET /api/app/messageable-users`, or POSTs a conversation with P
+- **Then** P appears in the list, and the conversation is created
+
+#### Coach messages a player who is only in their club
+- **Given** player Q is in a club C belongs to but has no `coach_in_player` row for C
+- **When** C requests `GET /api/app/messageable-users`
+- **Then** Q still appears in the list
+
+#### Coach cannot message an unrelated player
+- **Given** player R is neither on C's roster nor in any club C belongs to
+- **When** C POSTs a conversation with R
+- **Then** the request is rejected with 403, and R never appeared in C's messageable list
