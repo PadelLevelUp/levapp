@@ -1,0 +1,172 @@
+{
+  "tutorials": {
+    "title": "Tutorials",
+    "description": "Interactive walkthroughs of what the app does for you.",
+    "back": "Tutorials",
+    "understandInvites": {
+      "title": "Understand invites",
+      "description": "Pick a class and a student who cancels, and see exactly who would be invited and why.",
+      "intro": "This is a rehearsal: nothing is sent, nobody is placed, no spot is opened.",
+      "stepClass": "1. Pick a class",
+      "stepPlayer": "2. Pick who cancels",
+      "stepResults": "3. What the engine would do right now",
+      "noClasses": "You have no classes with enrolled students in the next 4 weeks.",
+      "noPlayers": "This class has no enrolled students.",
+      "loadingClasses": "Loading classes…",
+      "loadingPlayers": "Loading students…",
+      "loadingResults": "Simulating…",
+      "error": "Could not simulate. Please try again.",
+      "evaluatedAt": "as of {{time}}",
+      "blockedTitle": "Right now the engine would contact nobody",
+      "clearTitle": "Nothing stops a send right now",
+      "approvalRequired": "You are in semi-automatic mode: before anything is sent, you would be asked to approve this list.",
+      "waitingList": "{{name}} would be placed directly from the waiting list — nobody is invited for this spot.",
+      "waitingListStanding": "(standing entry)",
+      "spot": "A {{side}}-side spot at level {{level}} — {{source}}",
+      "spotNoLevel": "A {{side}}-side spot with no level — {{source}}",
+      "roundTitle": "Round {{number}}",
+      "rank": "#{{rank}}",
+      "lookupTitle": "Why isn't … invited?",
+      "lookupPlaceholder": "Type a student's name",
+      "lookupNoResults": "No student with that name.",
+      "lookupSearching": "Searching…",
+      "notInvited": "{{name}}:",
+      "invitedPosition": "Invited in round {{round}}, position {{rank}} — {{status}}",
+      "roundReason": "Round {{round}}: {{reason}}",
+      "changeClass": "Change class",
+      "changePlayer": "Change student"
+    },
+    "rounds": {
+      "everyone": "Everyone eligible",
+      "empty": "Nobody matches this round's criteria."
+    },
+    "sendStatus": {
+      "first_batch": "first batch",
+      "queued": "waiting",
+      "daily_quota": "over today's limit"
+    },
+    "gates": {
+      "auto_notify_disabled": "The automatic invitation engine is switched off.",
+      "class_notifications_disabled": "Notifications are switched off for this class.",
+      "class_over": "The class has already started or finished.",
+      "invitation_window": "Invitations only open at {{opensAt}}.",
+      "quiet_hours": "Quiet hours — invitations resume at {{until}}.",
+      "min_time_before_class": "Less than {{minutes}} minutes remain before the class.",
+      "max_total_reached": "{{sent}} invitations were already sent for this class (limit {{limit}})."
+    },
+    "gatesOk": {
+      "auto_notify_disabled": "Invitation engine is on",
+      "class_notifications_disabled": "Notifications are on for this class",
+      "class_over": "The class has not started yet",
+      "invitation_window": "Invitation window is open",
+      "quiet_hours": "Outside quiet hours",
+      "min_time_before_class": "There is still time before the class",
+      "max_total_reached": "Per-class invitation limit not reached ({{sent}}/{{limit}})"
+    },
+    "stages": {
+      "departing_player": "This is the student who cancels — the spot is theirs.",
+      "already_enrolled": "Already enrolled in this class.",
+      "already_invited": "Already has a pending invitation for this spot.",
+      "eligibility": "Below the eligibility bar for this class:",
+      "excluded_by_coach": "You excluded this student from automatic invitations (Settings › Notifications › Restrictions).",
+      "inactive_account": "The account is not active and inactive accounts are excluded.",
+      "unavailable": "Marked themselves unavailable at this class's time.",
+      "auto_invites_off": "Switched automatic invitations off.",
+      "no_round_matched": "Matches no round's criteria:",
+      "invited": "Would be invited."
+    },
+    "rules": {
+      "level": {
+        "same_as_vacancy": "same level as the spot",
+        "same_level": "same level as the spot",
+        "one_above_vacancy": "one level above the spot",
+        "one_below_vacancy": "one level below the spot",
+        "all_above_vacancy": "any level above the spot",
+        "all_below_vacancy": "any level below the spot",
+        "same_as_class": "same level as the class",
+        "equal_or_above_class": "level equal to or above the class",
+        "equal_or_below_class": "level equal to or below the class",
+        "one_below_or_above_class": "at most one level away",
+        "within_n_of_class": "at most {{value}} levels away"
+      },
+      "side": {
+        "same_as_vacancy": "same side as the spot",
+        "same_side": "same side as the spot"
+      },
+      "unjustified_absences": {
+        "max_unjustified_absences": "at most {{value}} unjustified absences",
+        "less_than": "fewer than {{value}} unjustified absences",
+        "less_than_or_equal": "at most {{value}} unjustified absences",
+        "equals": "exactly {{value}} unjustified absences",
+        "greater_than": "more than {{value}} unjustified absences",
+        "greater_than_or_equal": "at least {{value}} unjustified absences"
+      },
+      "justified_absences": {
+        "less_than": "fewer than {{value}} justified absences",
+        "less_than_or_equal": "at most {{value}} justified absences",
+        "equals": "exactly {{value}} justified absences",
+        "greater_than": "more than {{value}} justified absences",
+        "greater_than_or_equal": "at least {{value}} justified absences"
+      },
+      "attendance_rate": {
+        "less_than": "attendance below {{value}}%",
+        "less_than_or_equal": "attendance up to {{value}}%",
+        "equals": "attendance of {{value}}%",
+        "greater_than": "attendance above {{value}}%",
+        "greater_than_or_equal": "attendance of at least {{value}}%"
+      },
+      "has_makeups": {
+        "is_true": "has make-ups owed"
+      },
+      "subscription_status": {
+        "equals": "account {{value}}"
+      }
+    },
+    "eligibility": {
+      "levelBelow": "{{n}} levels below this class",
+      "levelBelowOne": "1 level below this class",
+      "levelAbove": "{{n}} levels above this class",
+      "levelAboveOne": "1 level above this class",
+      "levelNotSame": "level {{actual}}, the class is level {{threshold}}",
+      "classHasNoLevel": "the class has no level, so no level rule can be met",
+      "studentHasNoLevel": "the student has no level assigned",
+      "levelNotInLadder": "the student's level is not in your level ladder",
+      "absencesOver": "over the unjustified-absence limit ({{actual}}, limit is {{threshold}})",
+      "justifiedAbsences": "justified absences outside the limit ({{actual}}, limit is {{threshold}})",
+      "attendanceUnder": "attendance outside the limit ({{actual}}%, limit is {{threshold}}%)",
+      "sideMismatch": "plays {{actual}}, the spot is {{threshold}}-side",
+      "noMakeups": "has no make-ups owed",
+      "subscription": "account status: {{actual}}",
+      "generic": "rule \"{{attribute}}\" not met"
+    },
+    "priority": {
+      "levelSame": "same level",
+      "levelBelow": "{{n}} below",
+      "levelAbove": "{{n}} above",
+      "levelUnknown": "level unknown",
+      "justifiedMisses": "justified misses {{pct}}%",
+      "attendance": "attendance {{pct}}%",
+      "playingSide": {
+        "exact": "exact side",
+        "both": "plays both sides",
+        "other": "other side"
+      },
+      "subscription": {
+        "active": "active account",
+        "inactive": "inactive account"
+      },
+      "unknown": "—"
+    },
+    "sides": {
+      "left": "left",
+      "right": "right",
+      "both": "both",
+      "none": "any"
+    },
+    "levelSource": {
+      "player": "level taken from the student who cancels",
+      "class": "level taken from the class (the student has none)",
+      "none": "neither the student nor the class has a level"
+    }
+  }
+}

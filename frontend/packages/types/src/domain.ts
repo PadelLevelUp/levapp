@@ -687,6 +687,138 @@ export interface ApprovalQueuePlayer {
   groupLabel?: string;
 }
 
+// ---------------------------------------------------------------------------
+// PAD-196 — notifications.invite-simulation ("Understand invites" tutorial)
+// ---------------------------------------------------------------------------
+
+/**
+ * One failed rule, exactly as the backend's shared evaluator records it
+ * (PAD-133, eligibility.enforcement rule 7a). `ladder_distance` is signed:
+ * negative = the student is STRONGER than the class. `reason` names the
+ * fail-closed cases where `actual`/`threshold` cannot be meaningful.
+ */
+export interface EligibilityFailure {
+  attribute: string;
+  operation: string;
+  actual: string | number | boolean | null;
+  threshold: string | number | boolean | null;
+  ladder_distance: number | null;
+  reason: string | null;
+}
+
+export type InviteSimulationGateCode =
+  | "auto_notify_disabled"
+  | "class_notifications_disabled"
+  | "class_over"
+  | "invitation_window"
+  | "quiet_hours"
+  | "min_time_before_class"
+  | "max_total_reached";
+
+export interface InviteSimulationGate {
+  code: InviteSimulationGateCode;
+  blocked: boolean;
+  enabled?: boolean;
+  /** invitation_window: naive-UTC ISO instant the window opens */
+  opensAt?: string | null;
+  /** quiet_hours: club-local wall clock ("07:00") */
+  until?: string;
+  /** quiet_hours: naive-UTC ISO instant the window ends, when blocked */
+  untilAt?: string | null;
+  /** min_time_before_class */
+  minutes?: number | null;
+  /** max_total_reached */
+  sent?: number;
+  limit?: number | null;
+}
+
+export interface InviteSimulationSpot {
+  side: PlayerSide | null;
+  levelId: string | null;
+  levelCode: string | null;
+  levelSource: "player" | "class" | "none";
+}
+
+export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
+
+export type InviteSimulationPriority =
+  | { id: "level"; ladderDistance: number | null; levelCode: string | null }
+  | { id: "justified_misses"; rate: number }
+  | { id: "attendance"; rate: number }
+  | { id: "playing_side"; match: "exact" | "both" | "other"; side: PlayerSide | null }
+  | { id: "subscription_status"; active: boolean };
+
+export interface InviteSimulationCandidate {
+  playerId: string;
+  name: string | null;
+  levelCode: string | null;
+  levelId: string | null;
+  side: PlayerSide | null;
+  /** 1-based, within the round */
+  rank: number;
+  /** The coach's ENABLED priority criteria, in configured order */
+  priority: InviteSimulationPriority[];
+  sendStatus: InviteSendStatus;
+}
+
+export interface InviteSimulationRule {
+  attribute: string;
+  operation: string;
+  value: string | number | null;
+}
+
+export interface InviteSimulationRound {
+  number: number;
+  kind: "group" | "legacy";
+  label: string;
+  /** Empty = everyone eligible */
+  rules: InviteSimulationRule[];
+  candidates: InviteSimulationCandidate[];
+}
+
+export interface InviteSimulation {
+  /** naive-UTC ISO instant the answer was evaluated at */
+  evaluatedAt: string;
+  approvalRequired: boolean;
+  gates: InviteSimulationGate[];
+  waitingListPlacement: { playerId: string; name: string | null; standing: boolean } | null;
+  spot: InviteSimulationSpot;
+  rounds: InviteSimulationRound[];
+}
+
+export type InviteExplainStage =
+  | "departing_player"
+  | "already_enrolled"
+  | "already_invited"
+  | "eligibility"
+  | "excluded_by_coach"
+  | "inactive_account"
+  | "unavailable"
+  | "auto_invites_off"
+  | "no_round_matched"
+  | "invited";
+
+export interface InviteExplain {
+  playerId: string;
+  name: string | null;
+  stage: InviteExplainStage;
+  details: {
+    roundNumber?: number;
+    rank?: number;
+    sendStatus?: InviteSendStatus;
+    failures?: EligibilityFailure[];
+    rounds?: { number: number; failures: EligibilityFailure[] }[];
+  };
+}
+
+/** The class is addressed exactly as `eligibility_check` addresses it. */
+export interface InviteSimulationRequest {
+  model: string;
+  originalId: number | string;
+  date: string | null;
+  departingPlayerId: string | number;
+}
+
 export interface ApprovalVacancyInfo {
   vacancyId: number;
   declinedPlayerId: number;

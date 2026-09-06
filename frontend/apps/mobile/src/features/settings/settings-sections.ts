@@ -15,6 +15,7 @@ export type SettingsSectionId =
   | "preferences"
   | "calendar"
   | "notifications"
+  | "tutorials"
   | "import"
   | "club"
   | "account";
@@ -23,6 +24,7 @@ export type SettingsSectionId =
 export const COACH_ONLY_SECTIONS: readonly SettingsSectionId[] = [
   "calendar",
   "notifications",
+  "tutorials",
   "import",
   "club",
 ];
@@ -60,6 +62,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     labelKey: "settings.nav.notifications",
     descriptionKey: "settings.engine.description",
     icon: "notifications-outline",
+  },
+  {
+    // PAD-196: interactive walkthroughs (settings.tutorials rule 1), right
+    // after Notifications on both shells.
+    id: "tutorials",
+    labelKey: "settings.nav.tutorials",
+    descriptionKey: "tutorials.description",
+    icon: "school-outline",
   },
   {
     id: "import",
