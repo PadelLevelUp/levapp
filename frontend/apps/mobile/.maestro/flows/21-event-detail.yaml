@@ -1,0 +1,127 @@
+# Mirrors: apps/web/e2e/schedule-calendar/ — web's EventDetailSheet journey
+# (CalendarPage branches on event.type === "block"). No dedicated web spec
+# covers it, so this flow is the only automated coverage of PAD-160.
+#
+# PAD-160: a non-class calendar event (personal/break/holiday/off-work) could
+# be CREATED on iOS but never opened again — EventCard was `disabled` unless
+# the event was a class, and every calendar tap routed to /class/[id]. The
+# tap in the middle of this flow is the regression: before the fix it does
+# nothing at all.
+#
+# Also pins the two defects the first attempt shipped:
+#   - the one-off delete confirm rendered the literal key "calendar.scope.delete"
+#     (that key is an OBJECT), hence the assertNotVisible on raw key paths;
+#   - a successful save left ["calendar-block", id] cached, so the header
+#     reverted to the pre-edit title — hence asserting the NEW title after save
+#     and the OLD one gone.
+#
+# SELF-CONTAINED: creates "Maestro Test Event" and deletes it again, so it
+# leaves the seeded DB exactly as it found it and has no order dependency
+# beyond a logged-in coach.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+# Navigates to the seeded Monday and asserts "E2E Academy Class" is there.
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+# ── Create a personal event on the selected (seeded) Monday ──
+# Type defaults to Personal and the date is pre-populated from the selected
+# day; the Select is never touched (Select portals are invisible to the iOS
+# a11y tree — see ../README.md).
+- tapOn:
+    id: "calendar-add-event"
+- extendedWaitUntil:
+    visible:
+      id: "event-name"
+    timeout: 15000
+- tapOn:
+    id: "event-name"
+- inputText: "Maestro Test Event"
+# Dismiss the keyboard (keyboardDismissMode="on-drag") so it cannot cover the
+# save button — Maestro taps element coordinates even when the keyboard
+# overlaps them.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "event-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "event-save"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "Maestro Test Event"
+    timeout: 20000
+
+# ── THE REGRESSION: tapping the event card opens the detail screen ──
+- tapOn: "Maestro Test Event"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail"
+    timeout: 15000
+- assertVisible: "Maestro Test Event"
+
+# ── Edit the title and save ──
+- tapOn:
+    id: "event-detail-edit"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail-title"
+    timeout: 10000
+- tapOn:
+    id: "event-detail-title"
+- eraseText: 40
+- inputText: "Maestro Test Event Edited"
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "event-detail-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "event-detail-save"
+
+# The screen stays open after a save. The header re-renders from the refetched
+# block, so the NEW title must be the one on screen — if ["calendar-block", id]
+# were left cached this would still read "Maestro Test Event".
+- extendedWaitUntil:
+    visible:
+      text: "Maestro Test Event Edited"
+    timeout: 15000
+- assertVisible:
+    id: "event-detail-edit"
+- assertNotVisible: "Maestro Test Event$"
+
+# ── Delete it (non-recurring → plain confirm, no scope dialog) ──
+- tapOn:
+    id: "event-detail-delete"
+- extendedWaitUntil:
+    visible:
+      id: "event-delete-confirm"
+    timeout: 10000
+# The confirm dialog must render translated copy, not i18next key paths. A key
+# that resolves to an object (or is missing) renders as its own path.
+- assertNotVisible: "calendar.scope.delete"
+- assertNotVisible: "calendar.eventDetail.delete"
+- assertNotVisible: "calendar.eventDetail.deleteTitle"
+- tapOn:
+    id: "event-delete-confirm"
+
+# ── Back on the calendar: the event is gone, the seeded class remains ──
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 20000
+- assertNotVisible: "Maestro Test Event Edited"

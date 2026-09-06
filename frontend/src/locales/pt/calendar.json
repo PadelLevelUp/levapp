@@ -227,7 +227,11 @@
       "failedUpdateEvent": "Falha ao atualizar o evento",
       "eventDeleted": "Evento eliminado",
       "failedDeleteEvent": "Falha ao eliminar o evento",
-      "repeatOnDay": "Repetir no dia {{day}}"
+      "repeatOnDay": "Repetir no dia {{day}}",
+      "delete": "Eliminar",
+      "deleteTitle": "Eliminar evento",
+      "deleteDescription": "Este evento será eliminado permanentemente.",
+      "failedLoadEvent": "Não foi possível carregar o evento"
     },
     "notify": {
       "title": "Notificar alunos",

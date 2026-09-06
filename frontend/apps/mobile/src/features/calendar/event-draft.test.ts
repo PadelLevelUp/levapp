@@ -1,6 +1,13 @@
+import { enUS, pt } from "date-fns/locale";
 import { describe, expect, it } from "vitest";
 
-import { blockToDraft, draftToPayload, type EventDraft } from "./event-draft";
+import {
+  EVENT_END_DATE_PATTERN,
+  blockToDraft,
+  draftToPayload,
+  formatEventDate,
+  type EventDraft,
+} from "./event-draft";
 
 /**
  * PAD-160. iOS could create a calendar block but never open, edit or delete
@@ -150,5 +157,39 @@ describe("draftToPayload", () => {
       recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 3] },
       endDate: "2026-12-31",
     });
+  });
+});
+
+/**
+ * The read-only date line (PAD-160). The first attempt printed the raw
+ * `YYYY-MM-DD` the API stores, where web localizes it — a Portuguese coach saw
+ * "2026-09-07" instead of "segunda-feira, 7 setembro".
+ */
+describe("formatEventDate", () => {
+  it("renders the weekday and month in the given locale", () => {
+    expect(formatEventDate("2026-09-07", pt)).toBe("segunda-feira, 7 setembro");
+    expect(formatEventDate("2026-09-07", enUS)).toBe("Monday, 7 September");
+  });
+
+  it("reads a date-only string in local time, not UTC", () => {
+    // `new Date("2026-09-07")` is midnight UTC, which is still the 6th in the
+    // Americas. parseISO keeps the calendar day the API meant.
+    expect(formatEventDate("2026-09-07", enUS)).toContain("7 September");
+  });
+
+  it("puts the day before the month, matching PAD-157's mobile ordering", () => {
+    const formatted = formatEventDate("2026-09-07", pt);
+    expect(formatted.indexOf("7")).toBeLessThan(formatted.indexOf("setembro"));
+  });
+
+  it("takes the year for a recurrence end date", () => {
+    expect(formatEventDate("2026-12-31", pt, EVENT_END_DATE_PATTERN)).toBe(
+      "31 dezembro 2026"
+    );
+  });
+
+  it("falls back to the raw value rather than rendering Invalid Date", () => {
+    expect(formatEventDate("", pt)).toBe("");
+    expect(formatEventDate("not-a-date", pt)).toBe("not-a-date");
   });
 });

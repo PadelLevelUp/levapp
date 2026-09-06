@@ -30,3 +30,6 @@ executionOrder:
     - 18-settings-sections
     - 19-message-reply
     - 20-add-player-invite
+    # 21 creates and deletes its own "Maestro Test Event", so its position is
+    # not load bearing — listed for a deterministic full-suite run.
+    - 21-event-detail

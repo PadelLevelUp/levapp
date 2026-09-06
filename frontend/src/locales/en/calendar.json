@@ -227,7 +227,11 @@
       "failedUpdateEvent": "Failed to update event",
       "eventDeleted": "Event deleted",
       "failedDeleteEvent": "Failed to delete event",
-      "repeatOnDay": "Repeat on day {{day}}"
+      "repeatOnDay": "Repeat on day {{day}}",
+      "delete": "Delete",
+      "deleteTitle": "Delete event",
+      "deleteDescription": "This event will be permanently deleted.",
+      "failedLoadEvent": "Failed to load event"
     },
     "notify": {
       "title": "Notify students",

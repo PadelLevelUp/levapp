@@ -43,8 +43,10 @@ import { toast } from "@/components/ui/toast";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import {
   BLOCK_TYPES,
+  EVENT_END_DATE_PATTERN,
   blockToDraft,
   draftToPayload,
+  formatEventDate,
   type EventDraft,
 } from "@/features/calendar/event-draft";
 import {
@@ -52,6 +54,7 @@ import {
   useEditEvent,
   useRemoveEvent,
 } from "@/features/calendar/hooks";
+import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 
 // Monday-first, matching web's EventDetailSheet and app/event/new.tsx.
@@ -84,6 +87,7 @@ function capitalize(value: string): string {
  */
 export default function EventDetailScreen() {
   const { t } = useTranslation();
+  const dateLocale = useDateLocale();
   const params = useLocalSearchParams<{
     id?: string;
     originalId?: string;
@@ -206,7 +210,7 @@ export default function EventDetailScreen() {
         {!isPending && !isError ? (
           <Pressable
             testID="event-detail-delete"
-            accessibilityLabel={t("calendar.deleteDialog.title")}
+            accessibilityLabel={t("calendar.eventDetail.deleteTitle")}
             role="button"
             onPress={handleDelete}
             className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
@@ -217,7 +221,7 @@ export default function EventDetailScreen() {
       </View>
 
       {isError ? (
-        <ErrorState message={t("calendar.eventDetail.failedUpdateEvent")} />
+        <ErrorState message={t("calendar.eventDetail.failedLoadEvent")} />
       ) : isPending ? (
         <View className="gap-3 p-4">
           <Skeleton className="h-12 w-full" />
@@ -333,7 +337,8 @@ export default function EventDetailScreen() {
               <View className="gap-1.5">
                 <Label>{t("calendar.detail.date")}</Label>
                 <Text className="text-base">
-                  {active.date} · {active.startTime}–{active.endTime}
+                  {formatEventDate(active.date, dateLocale)} ·{" "}
+                  {active.startTime}–{active.endTime}
                 </Text>
               </View>
             )}
@@ -422,7 +427,13 @@ export default function EventDetailScreen() {
                       <Text className="text-xs text-muted-foreground">
                         {t("calendar.eventDetail.endDate")}
                       </Text>
-                      <Text className="text-base">{active.endDate}</Text>
+                      <Text className="text-base">
+                        {formatEventDate(
+                          active.endDate,
+                          dateLocale,
+                          EVENT_END_DATE_PATTERN
+                        )}
+                      </Text>
                     </View>
                   ) : null}
                 </>
@@ -472,31 +483,33 @@ export default function EventDetailScreen() {
         </KeyboardAvoidingView>
       )}
 
-      {/* One-off delete: plain confirm. */}
+      {/* One-off delete: plain confirm. `calendar.deleteDialog.*` and
+          `calendar.scope.*` are both class-worded ("Delete class") — an event
+          gets its own copy under `calendar.eventDetail.*`. */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("calendar.deleteDialog.title")}
+              {t("calendar.eventDetail.deleteTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("calendar.deleteDialog.singleDescription")}
+              {t("calendar.eventDetail.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               testID="event-delete-cancel"
-              accessibilityLabel={t("calendar.deleteDialog.cancel")}
+              accessibilityLabel={t("calendar.eventDetail.cancel")}
               onPress={() => setDeleteOpen(false)}
             >
-              <Text>{t("calendar.deleteDialog.cancel")}</Text>
+              <Text>{t("calendar.eventDetail.cancel")}</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="event-delete-confirm"
-              accessibilityLabel={t("calendar.scope.delete")}
+              accessibilityLabel={t("calendar.eventDetail.delete")}
               onPress={() => void confirmDelete()}
             >
-              <Text>{t("calendar.scope.delete")}</Text>
+              <Text>{t("calendar.eventDetail.delete")}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
