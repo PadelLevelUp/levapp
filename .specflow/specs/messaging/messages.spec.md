@@ -36,6 +36,14 @@ Send, edit, and delete messages within conversations, with support for replies a
 7. On send: push notification sent to all other conversation participants
 8. On send: SSE event published to real-time stream
 9. `sent_at` is stored as naive UTC in the DB and serialized as a **UTC-aware ISO 8601 string** (with an explicit `+00:00`/`Z` offset) in the `timestamp`/`lastMessageAt` fields, so clients parse it correctly and render in the viewer's local timezone
+10. **Every message operation requires the caller to be a participant of the message's
+    conversation** — sending (`POST /api/app/message`), editing, deleting, reacting
+    (`POST /api/app/message/{id}/reaction`), reporting and reading the conversation
+    (`GET /api/app/conversation/{id}`). A non-participant gets **403**; nothing is
+    written, no SSE event is published and no push is sent. Being the sender is an
+    additional requirement for edit and delete (rules 2 and 3), not a substitute for
+    this one, and the conversation id is taken from the target row — never trusted
+    from the request body as proof of access (B-021)
 
 ### Acceptance Criteria
 
@@ -83,3 +91,21 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Given** message id 50 sent by user 1
 - **When** user 5 tries to PATCH or DELETE
 - **Then** the request is rejected (403)
+
+#### A non-participant cannot post into a conversation (B-021)
+- **Given** a conversation between users 1 and 5
+- **And** user 9 who is not a participant of it
+- **When** user 9 POSTs to `/api/app/message` with that `conversationId`
+- **Then** the response is 403
+- **And** no Message row is created
+- **And** no SSE event is published and no push notification is sent
+
+#### A non-participant cannot react to a message (B-021)
+- **Given** message id 50 in a conversation between users 1 and 5
+- **When** user 9 POSTs `/api/app/message/50/reaction` with `{"emoji": "👍"}`
+- **Then** the response is 403 and no MessageReaction row is created
+
+#### An SSE event only reaches the conversation's participants (B-004)
+- **Given** a conversation between users 1 and 5, and a connected user 9
+- **When** user 1 sends a message in it
+- **Then** the `message_created` event is delivered to users 1 and 5 only

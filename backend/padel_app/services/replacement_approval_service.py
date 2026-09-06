@@ -23,6 +23,7 @@ from datetime import datetime
 
 from padel_app.sql_db import db
 from padel_app.realtime import publish
+from padel_app.services.conversation_access import message_recipient_ids
 from padel_app.utils.dates import utcnow_naive
 from padel_app.utils.push_notifications import send_push_notification
 
@@ -254,10 +255,12 @@ def create_approval_prompts(
             prompt.message_id = msg.id
         db.session.commit()
 
-        publish({
-            "type": "message_created",
-            "payload": serialize_message(msg, None),
-        })
+        # The assistant conversation holds the coach and the assistant user —
+        # this prompt is addressed to them and nobody else (B-004).
+        publish(
+            {"type": "message_created", "payload": serialize_message(msg, None)},
+            message_recipient_ids(msg),
+        )
         # Push to the COACH (the recipient of the approval request)
         send_push_notification(
             user_id=coach_user_id,
@@ -376,10 +379,10 @@ def respond_to_approval(
                 "decidedAt": _now.isoformat(),
             }
             msg.save()
-            publish({
-                "type": "message_edited",
-                "payload": serialize_message(msg, None),
-            })
+            publish(
+                {"type": "message_edited", "payload": serialize_message(msg, None)},
+                message_recipient_ids(msg),
+            )
 
     # Send invitations once per instance (not per vacancy)
     for instance in instances_to_trigger.values():
