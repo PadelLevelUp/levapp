@@ -400,13 +400,20 @@ def require_owned_training_target(coach, class_instance_data):
 @bp.route("/events")
 @jwt_required(locations=["query_string"])
 def events():
+    # Read the identity HERE, in the request context — not inside the generator.
+    # The generator body runs after this request context has popped, so
+    # get_jwt_identity() there would raise. This id is what scopes the stream:
+    # the queue is registered under it and only events addressed to this user
+    # are delivered to it (messaging.sse-realtime rule 7, B-004).
+    subscriber_id = int(get_jwt_identity())
+
     def stream():
         # Each connected client pins one gunicorn thread for the lifetime of
         # this generator. A disconnect is only detected when a write fails, so
         # q.get() must time out and emit a keep-alive: otherwise a closed tab
         # whose queue never receives an event leaks its thread forever and the
         # worker pool eventually starves (prod outage 2026-06-10/11).
-        q = subscribe()
+        q = subscribe(subscriber_id)
         try:
             while True:
                 try:
@@ -416,7 +423,7 @@ def events():
                     continue
                 yield f"data: {json.dumps(event)}\n\n"
         finally:
-            unsubscribe(q)
+            unsubscribe(subscriber_id, q)
 
     return Response(
         stream(),

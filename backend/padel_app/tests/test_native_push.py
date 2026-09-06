@@ -523,27 +523,24 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
 def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
     """The push is sent even when the recipient has a live SSE subscription.
 
-    `padel_app.realtime` keeps only an anonymous list of queues — it has no
-    user-level connectivity state — so a "recipient is online, skip the push"
-    optimisation is not merely absent from messaging_service, it is not
-    expressible today.
-
-    Scope, honestly: the subscriber below is anonymous, so this characterises
-    current behaviour (the SSE publish and the push both happen on one send)
-    rather than guarding against a future user-keyed presence gate — such a
-    gate would need a registry that does not exist, and this subscriber would
-    not be the recipient in it.
+    Since PAD-206 `padel_app.realtime` IS keyed by user id, so the subscriber
+    below is genuinely the recipient's connection — the caveat this test used
+    to carry (an anonymous queue that could not stand in for the recipient) no
+    longer applies. `messaging_service` still has no "recipient is online, skip
+    the push" gate, and this pins that: one send produces both the SSE event on
+    the recipient's own queue and the Expo push.
     """
     from padel_app import realtime
     from padel_app.services.messaging_service import create_message_service
 
     with app.app_context():
-        sender, _recipient, conversation = _dm_fixture(
+        sender, recipient, conversation = _dm_fixture(
             "Carla Coach", "Diogo Player", "pad118sse"
         )
         conversation_id, sender_id = conversation.id, sender.id
+        recipient_id = recipient.id
 
-        subscriber = realtime.subscribe()
+        subscriber = realtime.subscribe(recipient_id)
         try:
             with patch("padel_app.services.messaging_service.send_push_notification"), \
                  patch("padel_app.utils.expo_push.requests.post") as mock_post:
@@ -553,7 +550,7 @@ def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
                     sender_id,
                 )
         finally:
-            realtime.unsubscribe(subscriber)
+            realtime.unsubscribe(recipient_id, subscriber)
 
         # The SSE event went out *and* so did the push.
         assert not subscriber.empty()

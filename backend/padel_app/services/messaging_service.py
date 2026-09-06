@@ -18,6 +18,10 @@ from padel_app.models import (
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.realtime import publish
+from padel_app.services.conversation_access import (
+    message_recipient_ids,
+    require_participant,
+)
 from padel_app.serializers.message import serialize_message
 from padel_app.utils.push_notifications import send_push_notification
 from padel_app.utils.expo_push import send_expo_push_to_user
@@ -116,14 +120,11 @@ def get_messageable_users_service(user):
 def report_message_service(reporter_id, message_id, reason=None):
     """Report a message. Only participants of that message's conversation may report it."""
     message = Message.query.get_or_404(message_id)
-    is_participant = (
-        ConversationParticipant.query.filter_by(
-            conversation_id=message.conversation_id, user_id=reporter_id
-        ).first()
-        is not None
-    )
-    if not is_participant:
-        abort(403, "You cannot report a message outside your conversations")
+    # messaging.messages rule 10 — the same guard every other message operation
+    # now uses. This check was already here; PAD-206 moved it somewhere the
+    # others could reach rather than leaving report the only route that
+    # remembered to make it.
+    require_participant(message.conversation_id, reporter_id)
 
     report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
     report.create()
@@ -151,8 +152,18 @@ def get_unread_count(user_id):
 
 def create_message_service(data, user_id):
     """Creates a message and publishes a real-time event."""
+    conversation_id = data["conversationId"]
+
+    # messaging.messages rule 10 (B-021). Before this, the body's
+    # `conversationId` was taken as proof of access: the service loaded the
+    # OTHER participants, checked blocks against them and wrote the row — so any
+    # authenticated user could post into any conversation and have it pushed and
+    # broadcast as if they belonged there. An id in a request body is an
+    # argument, never a credential.
+    require_participant(conversation_id, user_id)
+
     recipient_participants = ConversationParticipant.query.filter(
-        ConversationParticipant.conversation_id == data["conversationId"],
+        ConversationParticipant.conversation_id == conversation_id,
         ConversationParticipant.user_id != user_id,
     ).all()
 
@@ -162,7 +173,7 @@ def create_message_service(data, user_id):
 
     payload = {
         "text": data["text"],
-        "conversation": data["conversationId"],
+        "conversation": conversation_id,
         "sender": user_id,
         # UTC, to match last_read_at (mark_conversation_read_service uses
         # utcnow_naive) and the unread query `sent_at > last_read_at`. Using
@@ -207,10 +218,12 @@ def create_message_service(data, user_id):
             badge=get_unread_count(participant.user_id),
         )
 
-    publish({
-        "type": "message_created",
-        "payload": serialize_message(message, None),
-    })
+    # Recipients are the conversation's participants — the sender included, so
+    # their own other tabs stay in sync (B-004).
+    publish(
+        {"type": "message_created", "payload": serialize_message(message, None)},
+        [user_id] + [p.user_id for p in recipient_participants],
+    )
 
     return message
 
@@ -218,36 +231,48 @@ def create_message_service(data, user_id):
 def edit_message_service(message_id, new_text, user_id):
     """Edit a message. Only the sender may edit."""
     message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
     message.text   = new_text
     message.edited = True
     message.save()
-    publish({
-        "type": "message_edited",
-        "payload": serialize_message(message, None),
-    })
+    publish(
+        {"type": "message_edited", "payload": serialize_message(message, None)},
+        message_recipient_ids(message),
+    )
     return message
 
 
 def delete_message_service(message_id, user_id):
     """Soft-delete a message. Only the sender may delete."""
     message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
     message.is_deleted = True
     message.save()
-    publish({
-        "type": "message_deleted",
-        "payload": {
-            "id": message_id,
-            "conversationId": message.conversation_id,
+    publish(
+        {
+            "type": "message_deleted",
+            "payload": {
+                "id": message_id,
+                "conversationId": message.conversation_id,
+            },
         },
-    })
+        message_recipient_ids(message),
+    )
 
 
 def toggle_reaction_service(message_id, emoji, user_id):
     """Add or remove a reaction (toggle)."""
+    # The message is loaded FIRST so participation is settled before anything is
+    # written. The old order accepted any message id, created the reaction row,
+    # and then republished the whole serialized message — text included — to
+    # every connected client (B-021 on the way in, B-004 on the way out).
+    message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
+
     existing = MessageReaction.query.filter_by(
         message_id=message_id, user_id=user_id, emoji=emoji
     ).first()
@@ -256,11 +281,10 @@ def toggle_reaction_service(message_id, emoji, user_id):
     else:
         MessageReaction(message_id=message_id, user_id=user_id, emoji=emoji).create()
 
-    message = Message.query.get_or_404(message_id)
-    publish({
-        "type": "message_reaction",
-        "payload": serialize_message(message, None),
-    })
+    publish(
+        {"type": "message_reaction", "payload": serialize_message(message, None)},
+        message_recipient_ids(message),
+    )
 
 
 def get_user_conversations(user, page=1, limit=20):
