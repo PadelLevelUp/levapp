@@ -16,6 +16,7 @@ import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
 import { SeasonsSection } from "@/features/settings/seasons-section";
+import { StudentNotificationBlocksSection } from "@/features/settings/student-notification-blocks-section";
 import { TutorialsSection } from "@/features/settings/tutorials-section";
 import {
   visibleSections,
@@ -121,6 +122,8 @@ export default function SettingsScreen() {
         return <SeasonsSection />;
       case "notifications":
         return <AutoInviteSection />;
+      case "myNotifications":
+        return <StudentNotificationBlocksSection />;
       case "tutorials":
         return <TutorialsSection />;
       case "import":
