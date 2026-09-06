@@ -21,17 +21,33 @@
 # retry (scripts/e2e.sh reruns failed flows individually, without a DB
 # reset).
 #
-# The restore-to-English step navigates away and back to Settings first,
-# forcing a remount so the leftover "Language preference saved." text from
-# the Portuguese step is gone before the second save — otherwise the stale
-# text would make a missed second tap pass silently.
+# The restore-to-English step leaves the Preferences pane and comes back
+# first, forcing a remount so the leftover "Language preference saved." text
+# from the Portuguese step is gone before the second save — otherwise the
+# stale text would make a missed second tap pass silently.
+#
+# PAD-193 rewired the navigation only: Settings is off the bottom bar and is
+# pushed from the header avatar (`header-account`), and the language control
+# lives one drill-in down, inside Preferences (`settings-nav-preferences`) —
+# the old `tab-more` / `more-settings` pair had been dead far longer than that.
+# STILL STALE, and not fixed here because it cannot be re-measured without a
+# simulator: the two `point:` taps below were measured when the select sat on
+# an undrilled Settings screen, so both percentages are almost certainly wrong
+# now. `SelectItem` has since gained `settings-language-pt` / `-en` testIDs
+# (preferences-section.tsx) — try tapping those first; fall back to
+# re-measured coordinates only if the portal is still invisible to the iOS
+# accessibility tree.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
-    id: "tab-more"
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
 - tapOn:
-    id: "more-settings"
+    id: "settings-nav-preferences"
 - extendedWaitUntil:
     visible:
       id: "settings-language-select"
@@ -57,13 +73,13 @@ appId: com.padellevelup.app
 
 # ── Remount Settings (clears the local saved-status text) ──
 - tapOn:
-    point: "9%,10%"
+    id: "settings-back"
 - extendedWaitUntil:
     visible:
-      id: "more-settings"
+      id: "settings-section-list"
     timeout: 8000
 - tapOn:
-    id: "more-settings"
+    id: "settings-nav-preferences"
 - extendedWaitUntil:
     visible:
       id: "settings-language-select"

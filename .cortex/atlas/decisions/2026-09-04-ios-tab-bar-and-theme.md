@@ -22,8 +22,14 @@ originally tuned for. Web has the same problem as a bottom nav on the commonest 
 from the account avatar in the header instead — iOS already renders `AccountAvatar` there
 (`apps/mobile/app/(tabs)/_layout.tsx`), so this is a no-op for iOS beyond removing the redundant
 tab. Web adds the avatar entry point in PAD-183 (this wave, alongside fixing the overflow). iOS
-drops the tab in PAD-193 (next wave), taking the coach bar from seven destinations to six —
-matching the six-tab layout the label sizing was originally tuned for.
+dropped the tab in PAD-193, taking the coach bar from seven destinations to six — matching the
+six-tab layout the label sizing was originally tuned for (the sizing was therefore kept, not
+relaxed). Two things the "no-op for iOS" phrasing above under-counted: `AccountAvatar` was
+decorative and had to become a control, and it was rendered only on the Dashboard header, so it
+moved into `screenOptions` to appear on every tab — otherwise Settings would have been reachable
+from one tab only. The screen itself moved out of the tab group to `apps/mobile/app/settings.tsx`
+and is pushed onto the root stack (the `/settings` route, deep links and the drill-in sections are
+unchanged; the push also gives it a native back button).
 
 No dev spec governs the main app's tab-bar/sidebar structure as a capability (it isn't a domain in
 `.specflow/specs/`), so this decision is recorded here rather than in a leaf spec. The nearest

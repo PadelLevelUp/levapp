@@ -1,21 +1,25 @@
-# New flow: smoke-checks the new coach-only Settings sections (Phase 6+7 —
-# Club + auto-invite toggle). Read-only on purpose:
+# Smoke-checks the coach-only Settings sections (Club + auto-invite toggle).
+# Read-only on purpose:
 # - club-invite is only asserted visible, never tapped (would send a real
 #   coach invite).
 # - settings-auto-invite-toggle is only asserted visible, never flipped
 #   (the seeded notification config's autoNotifyEnabled is relied on by
 #   other flows/tests — see useAutoInviteEnabled gating class/[id].tsx's
 #   auto-notifications card).
-# NOTE: settings.tsx has no tab navigation (memory notes about a tabbed
-# SettingsPage describe the WEB app) — it's a single scrollable column, so
-# these sections just need scrolling into view, not a tab switch.
+#
+# Navigation, twice rewritten:
+# - PAD-193 took Settings off the bottom bar; the account avatar in the header
+#   (`header-account`) pushes `app/settings.tsx` onto the root stack. The old
+#   `tab-more` / `more-settings` pair had not existed for far longer than that.
+# - Settings is a DRILL-IN (a section list, one pane at a time), not the single
+#   scrollable column an earlier note here claimed: each section is reached by
+#   its `settings-nav-<id>` row and left again via `settings-back`. That is the
+#   same shape 19-tutorials-understand-invites.yaml walks.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
-    id: "tab-more"
-- tapOn:
-    id: "more-settings"
+    id: "header-account"
 - extendedWaitUntil:
     visible:
       id: "screen-settings"
@@ -24,13 +28,44 @@ appId: com.padellevelup.app
 # ── Club section renders (seeded coach belongs to "E2E Club") ──
 - scrollUntilVisible:
     element:
+      id: "settings-nav-club"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-club"
+- extendedWaitUntil:
+    visible:
       id: "settings-club"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "club-invite"
     direction: DOWN
     timeout: 30000
 - assertVisible:
     id: "club-invite"
 
+# ── Back to the section list, then into Notifications ──
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-section-list"
+    timeout: 15000
+
 # ── Auto-invite toggle renders ──
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-notifications"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-notifications"
 - scrollUntilVisible:
     element:
       id: "settings-auto-invite-toggle"

@@ -1,25 +1,32 @@
-# Log out via the Settings tab and wait for the login screen.
+# Log out via Settings (reached from the header avatar) and wait for the login
+# screen.
 #
-# The logout control lives on the Settings tab's section list
-# (`app/(tabs)/settings.tsx` -> testID `settings-logout`). It used to live
-# behind a "More" tab (`tab-more` / `more-logout`); that tab no longer exists —
-# the bar renders its destinations by name — so those ids never matched and
-# this subflow always failed. Settings resets its drill-in on blur
-# (`useFocusEffect`), so tapping the tab always lands on the section list with
-# the logout button on it, whatever a previous flow left open.
+# The logout control lives on the Settings section list
+# (`app/settings.tsx` -> testID `settings-logout`). Getting there has moved
+# twice: it was behind a "More" tab (`tab-more` / `more-logout`), then behind
+# the Settings tab (`tab-settings`), and since PAD-193 Settings is off the
+# bottom bar entirely — it is pushed onto the root stack from the account
+# avatar in the header (`header-account`, `app/(tabs)/_layout.tsx`), which is
+# rendered on EVERY tab, so this subflow works from whatever tab the calling
+# flow happens to have left the app on. `login.yaml` deliberately does NOT
+# depend on any of this.
+#
+# Settings resets its drill-in on blur (`useFocusEffect`) and is unmounted
+# when popped, so opening it always lands on the section list with the logout
+# button on it, whatever a previous flow left open.
 #
 # `scrollUntilVisible` rather than a plain wait: logout sits below all seven
 # ~64pt section rows, so on a shorter device it starts off-screen and `tapOn`
 # does not scroll to it. The command returns immediately when the element is
 # already visible, so it costs nothing on a tall screen.
-#
-# NOTE for PAD-193 (removes the Settings tab): this subflow is the one place
-# that depends on `tab-settings`. Whatever surface inherits the logout button
-# has to be reflected here. `login.yaml` deliberately does NOT depend on it.
 appId: com.padellevelup.app
 ---
 - tapOn:
-    id: "tab-settings"
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "settings-logout"
