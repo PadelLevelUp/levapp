@@ -7,6 +7,7 @@ import { effectiveMark, type PresenceMark } from "@levelup/config";
 import type { PendingValidationClass } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -21,11 +22,15 @@ import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import type { ValidatePayload } from "./hooks";
 import {
   availableRoster,
+  clearValidated,
   filterRoster,
   makeWalkIn,
+  partitionSelection,
+  readyClassIds,
   remainingFor as remainingIn,
   resolvePresences,
   sortPlayers,
+  toggleSelection,
   withExtras,
   type Edits,
   type Extras,
@@ -83,6 +88,8 @@ export function ValidateClassesSheet({
   const [extras, setExtras] = React.useState<Extras>({});
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
   const [detailId, setDetailId] = React.useState<number | null>(null);
+  const [selected, setSelected] = React.useState<number[]>([]);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
   // Walk-ins are merged in once, here, so one behaves as an ordinary roster row
   // everywhere below — list, detail, readiness count and validate payload alike.
@@ -131,12 +138,14 @@ export function ValidateClassesSheet({
   const detail =
     detailId == null
       ? null
-      : [...pendingClasses, ...validatedClasses].find(
+      : ([...pendingClasses, ...validatedClasses].find(
           (c) => c.lessonInstanceId === detailId
-        ) ?? null;
+        ) ?? null);
   const detailIsValidated =
     detail != null &&
-    validatedClasses.some((c) => c.lessonInstanceId === detail.lessonInstanceId);
+    validatedClasses.some(
+      (c) => c.lessonInstanceId === detail.lessonInstanceId
+    );
 
   async function validateClasses(classes: PendingValidationClass[]) {
     if (!classes.length) return;
@@ -147,6 +156,34 @@ export function ValidateClassesSheet({
       }))
     );
     setExpandedId(null);
+    setSelected((prev) =>
+      clearValidated(
+        prev,
+        classes.map((klass) => klass.lessonInstanceId)
+      )
+    );
+  }
+
+  /**
+   * PAD-185 — validate the selection in one go.
+   *
+   * Rule 7: never force-approve. Classes with an unanswered player are written
+   * back into the selection with a count of what was skipped, so the coach ends
+   * up holding exactly the ones that still need them.
+   */
+  async function validateSelected() {
+    const { ready: canValidate, needs } = partitionSelection(
+      pendingClasses,
+      selected,
+      edits
+    );
+    if (canValidate.length) await validateClasses(canValidate);
+    if (needs.length) {
+      setNotice(t("presences.validate.skipped", { count: needs.length }));
+      setSelected(needs.map((klass) => klass.lessonInstanceId));
+    } else {
+      setNotice(null);
+    }
   }
 
   const weekLabel = React.useMemo(() => {
@@ -189,8 +226,12 @@ export function ValidateClassesSheet({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
-        // Reopening always lands on the list, never mid-edit.
-        if (!next) setDetailId(null);
+        // Reopening always lands on the list, never mid-edit, and never
+        // holding a stale "N classes skipped" from the previous visit.
+        if (!next) {
+          setDetailId(null);
+          setNotice(null);
+        }
       }}
     >
       <DialogContent style={{ maxHeight: height * 0.85 }}>
@@ -258,6 +299,75 @@ export function ValidateClassesSheet({
               </Pressable>
             </View>
 
+            {/* PAD-185 — the speed half. Validating a week one class at a time
+                is a lot of taps on a phone; this is the same select/confirm
+                pair web has, laid out as two full-width rows because three
+                buttons across 390pt truncate their own labels. */}
+            {pendingClasses.length > 0 && (
+              <View className="mb-3 gap-2">
+                <View className="flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled={!ready.length}
+                    onPress={() => {
+                      setSelected(readyClassIds(pendingClasses, edits));
+                      setNotice(null);
+                    }}
+                    testID="presences-select-ready"
+                  >
+                    <Text numberOfLines={1}>
+                      {t("presences.validate.selectReady")}
+                    </Text>
+                  </Button>
+                  {selected.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => {
+                        setSelected([]);
+                        setNotice(null);
+                      }}
+                      testID="presences-clear-selection"
+                    >
+                      <Text>{t("presences.validate.clear")}</Text>
+                    </Button>
+                  )}
+                </View>
+                {selected.length > 0 && (
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onPress={validateSelected}
+                    testID="presences-validate-selected"
+                  >
+                    <Text numberOfLines={1}>
+                      {t("presences.validate.validateSelected", {
+                        count: selected.length,
+                      })}
+                    </Text>
+                  </Button>
+                )}
+                {notice && (
+                  <View className="flex-row items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
+                    <Ionicons
+                      name="warning-outline"
+                      size={16}
+                      color={lightTheme.foreground}
+                    />
+                    <Text
+                      accessibilityRole="alert"
+                      testID="presences-skipped-notice"
+                      className="flex-1 text-sm text-warning-strong"
+                    >
+                      {notice}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             <ScrollView
               style={{ maxHeight: height * 0.55 }}
               showsVerticalScrollIndicator
@@ -296,12 +406,18 @@ export function ValidateClassesSheet({
                             edits={edits[klass.lessonInstanceId] ?? {}}
                             roster={availableRoster(roster, klass)}
                             expanded={expandedId === klass.lessonInstanceId}
+                            selected={selected.includes(klass.lessonInstanceId)}
                             busy={busy}
                             onToggleExpand={() =>
                               setExpandedId((cur) =>
                                 cur === klass.lessonInstanceId
                                   ? null
                                   : klass.lessonInstanceId
+                              )
+                            }
+                            onToggleSelect={() =>
+                              setSelected((prev) =>
+                                toggleSelection(prev, klass.lessonInstanceId)
                               )
                             }
                             onMark={(playerId, mark) =>
@@ -433,7 +549,10 @@ function WalkInPicker({
       />
       {/* Capped so the picker never swallows the sheet; the search field is
           how a coach reaches a name past the fold. */}
-      <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={{ maxHeight: 180 }}
+        keyboardShouldPersistTaps="handled"
+      >
         {matches.map((option) => (
           <Pressable
             key={option.id}
@@ -473,8 +592,10 @@ function ClassCard({
   edits,
   roster,
   expanded,
+  selected,
   busy,
   onToggleExpand,
+  onToggleSelect,
   onMark,
   onAddWalkIn,
   onOpen,
@@ -485,8 +606,10 @@ function ClassCard({
   edits: Record<number, PresenceMark>;
   roster: RosterOption[];
   expanded: boolean;
+  selected: boolean;
   busy?: boolean;
   onToggleExpand: () => void;
+  onToggleSelect: () => void;
   onMark: (playerId: number, mark: PresenceMark) => void;
   onAddWalkIn: (option: RosterOption) => void;
   onOpen: () => void;
@@ -506,32 +629,43 @@ function ClassCard({
       accessibilityValue={{ text: remaining === 0 ? "ready" : "needs-input" }}
       className="rounded-lg border border-border bg-card p-3"
     >
-      {/* The header row toggles expansion. The Validate button sits OUTSIDE it —
-          nesting a Pressable inside a Pressable breaks touch handling on iOS. */}
-      <Pressable
-        onPress={onToggleExpand}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        className="flex-row items-center justify-between"
-      >
-        <View className="flex-1 pr-2">
-          <Text className="text-sm font-sans-bold" numberOfLines={1}>
-            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} ·{" "}
-            {klass.title}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
-            {klass.type ? t(`presences.type.${klass.type}`) : null}
-            {remaining > 0
-              ? ` · ${t("presences.validate.awaiting", { count: remaining })}`
-              : null}
-          </Text>
-        </View>
-        <Ionicons
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={lightTheme.mutedForeground}
+      {/* The checkbox and the Validate button both sit OUTSIDE the expand
+          Pressable — nesting a Pressable inside a Pressable breaks touch
+          handling on iOS, and the selection checkbox is a Pressable. */}
+      <View className="flex-row items-center gap-2">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggleSelect}
+          accessibilityLabel={t("presences.validate.selectClass", {
+            name: klass.title,
+          })}
+          testID={`presences-select-${klass.lessonInstanceId}`}
         />
-      </Pressable>
+        <Pressable
+          onPress={onToggleExpand}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          className="flex-1 flex-row items-center justify-between"
+        >
+          <View className="flex-1 pr-2">
+            <Text className="text-sm font-sans-bold" numberOfLines={1}>
+              {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))}{" "}
+              · {klass.title}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {klass.type ? t(`presences.type.${klass.type}`) : null}
+              {remaining > 0
+                ? ` · ${t("presences.validate.awaiting", { count: remaining })}`
+                : null}
+            </Text>
+          </View>
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={lightTheme.mutedForeground}
+          />
+        </Pressable>
+      </View>
 
       {expanded && (
         <View className="mt-3 gap-2">
