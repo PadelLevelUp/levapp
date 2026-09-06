@@ -46,6 +46,9 @@ function mapHref(href: string | undefined): string | null {
   // for both shells (helpers/dashboard/player.py); until this ticket the
   // mobile tile had no target and rendered as a dead View.
   if (href.startsWith("/attendance")) return "/attendance";
+  // PAD-163: the student's "Missed" KPI, same backend contract
+  // (helpers/dashboard/player.py emits `/absences` for both shells).
+  if (href.startsWith("/absences")) return "/absences";
   return null;
 }
 

@@ -41,3 +41,30 @@ export function useAttendanceHistory(
     placeholderData: (previous) => previous,
   });
 }
+
+/**
+ * PAD-163 — query wiring for the mobile "Faltas" (absences) screen.
+ *
+ * Same shape as `useAttendanceHistory` above, against the sibling
+ * `getAbsenceHistory` endpoint (PAD-141): same params, same authorization
+ * caveat (a `playerId` is never trusted client-side — the server re-resolves
+ * the caller and 403s otherwise), and a disjoint query key so the two
+ * histories never share a cache entry.
+ */
+export const absenceKeys = {
+  history: (playerId: string | undefined, range: AttendanceRange) =>
+    ["absence-history", playerId ?? "self", range.from, range.to] as const,
+};
+
+export function useAbsenceHistory(range: AttendanceRange, playerId?: string) {
+  return useQuery({
+    queryKey: absenceKeys.history(playerId, range),
+    queryFn: () =>
+      attendanceApi.getAbsenceHistory({
+        playerId: playerId || undefined,
+        from: range.from,
+        to: range.to,
+      }),
+    placeholderData: (previous) => previous,
+  });
+}
