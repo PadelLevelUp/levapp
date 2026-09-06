@@ -127,6 +127,60 @@ describe("mobile i18n bundle", () => {
     }
   });
 
+  it("bundles the attendance namespace the history screen renders (PAD-162)", () => {
+    // The screen ported in PAD-162 was the first mobile consumer of this
+    // namespace. Without the static import it renders "attendance.title" et al
+    // as literal key paths and nothing else fails — which is exactly the trap
+    // this file exists for, so the namespace is named here rather than left to
+    // the generic parity check above (which passes when a namespace is in
+    // NEITHER language).
+    expect(importedNamespaces("en")).toContain("attendance");
+    expect(importedNamespaces("pt")).toContain("attendance");
+
+    for (const key of [
+      "attendance.title",
+      "attendance.subtitleOwn",
+      "attendance.subtitleOther",
+      "attendance.backToPlayer",
+      "attendance.backToDashboard",
+      "attendance.playerLink",
+      "attendance.total_one",
+      "attendance.total_other",
+      "attendance.chart.title",
+      "attendance.chart.seriesLabel",
+      "attendance.chart.empty",
+      "attendance.chart.error",
+      "attendance.history.title",
+      "attendance.history.empty",
+      "attendance.history.openClass",
+      "attendance.ranges.week",
+      "attendance.ranges.month",
+      "attendance.ranges.year",
+      "attendance.ranges.custom",
+      "attendance.ranges.weekAria",
+      "attendance.ranges.monthAria",
+      "attendance.ranges.yearAria",
+      "attendance.ranges.customAria",
+      "attendance.ranges.from",
+      "attendance.ranges.to",
+      "attendance.ranges.apply",
+      "attendance.ranges.clear",
+      "attendance.ranges.invalid",
+    ]) {
+      expect(typeof en[key], `${key} missing from en`).toBe("string");
+      expect(typeof pt[key], `${key} missing from pt`).toBe("string");
+    }
+
+    // The interpolated strings must carry their placeholders, or the coach's
+    // subtitle loses the player's name and a history row loses its date.
+    expect(en["attendance.subtitleOther"]).toContain("{{name}}");
+    expect(pt["attendance.subtitleOther"]).toContain("{{name}}");
+    for (const lang of [en, pt]) {
+      expect(lang["attendance.history.openClass"]).toContain("{{title}}");
+      expect(lang["attendance.history.openClass"]).toContain("{{date}}");
+    }
+  });
+
   it("resolves the strings the class-detail recurrence line renders", () => {
     // Was a hardcoded English `" · until "` template literal before PAD-158.
     for (const key of [
