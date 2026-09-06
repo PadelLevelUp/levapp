@@ -95,4 +95,19 @@ if docker exec "$PG_CONTAINER" sh -c \
 else
   log "copy finished with pg_restore exit $? (non-fatal errors are normal with --clean)"
 fi
+
+# ── 5. Safety scrub — nothing on staging may ever reach a real person ────────
+# Staging carries no push / mail credentials today; this makes that permanent.
+# If someone later adds VAPID / Expo / mail secrets to staging, there is no
+# token to push to and no deliverable address to mail. Usernames, passwords,
+# names, phones, classes and messages are left intact on purpose: they are what
+# makes testing on staging meaningful, and no automated channel uses them.
+log "scrubbing outbound channels on $TARGET_DB"
+pg "$TARGET_DB" "delete from push_subscriptions;" >/dev/null \
+  || log "WARNING: could not clear push_subscriptions"
+pg "$TARGET_DB" "delete from device_tokens;" >/dev/null \
+  || log "WARNING: could not clear device_tokens"
+pg "$TARGET_DB" "update users set email = 'user' || id || '@staging.invalid' where email is not null;" >/dev/null \
+  || log "WARNING: could not rewrite emails"
+log "scrub done: $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails left"
 exit 0
