@@ -26,6 +26,8 @@ const SOURCES = [
   "src/features/presences/ValidateClassesSheet.tsx",
   "src/features/presences/PresenceMarkToggle.tsx",
   "src/features/presences/PresencesScreen.tsx",
+  "src/features/presences/PresenceReportCharts.tsx",
+  "src/features/presences/PresenceReportSheets.tsx",
 ].map((rel) => path.join(MOBILE_ROOT, rel));
 
 type Dict = Record<string, unknown>;
@@ -88,7 +90,19 @@ const TEMPLATE_SUFFIXES: Record<string, string[]> = {
   "presences.type.": ["academy", "private"],
   "presences.response.": ["confirmed", "declined", "none"],
   "presences.mark.short.": ["present", "justified", "unjustified"],
-  "presences.column.": ["private", "academy", "unjustified", "invitesJoined"],
+  // PAD-166 made the column set user-chosen: the chips on a row, the sort
+  // chips and the CSV header all iterate `PRESENCE_COLUMNS`, so every column
+  // can now be rendered and every one needs its label.
+  "presences.column.": [
+    "name",
+    "total",
+    "private",
+    "academy",
+    "justified",
+    "unjustified",
+    "invitesReceived",
+    "invitesJoined",
+  ],
 };
 
 /** Literal and template `t()` keys in a source file, templates expanded. */
@@ -172,6 +186,43 @@ describe("presences translation keys", () => {
       expect(keys, `${key} is no longer rendered by the Presences tab`).toContain(
         key
       );
+    }
+  });
+
+  it("renders the reporting keys PAD-166 brought over from web", () => {
+    // The charts, the filters/column sheets and the CSV export. Same guard as
+    // the block above: pinned so the reporting half cannot quietly regress to
+    // "a searchable list and four figures".
+    for (const key of [
+      "presences.charts.perPlayer",
+      "presences.charts.perPlayerHint",
+      "presences.charts.split",
+      "presences.charts.splitHint",
+      "presences.charts.overTime",
+      "presences.charts.overTimeHint",
+      "presences.charts.empty",
+      "presences.table.filters",
+      "presences.table.minTotal",
+      "presences.table.maxUnjustified",
+      "presences.table.any",
+      "presences.table.sortBy",
+      "presences.table.sortAsc",
+      "presences.table.sortDesc",
+      "presences.table.columns",
+      "presences.table.columnsHint",
+      "presences.table.visibleColumns",
+      "presences.table.apply",
+      "presences.table.reset",
+      "presences.table.cancel",
+      "presences.table.count",
+      "presences.table.export",
+      "presences.error.exportTitle",
+      "presences.error.exportBody",
+    ]) {
+      expect(
+        keys,
+        `${key} is no longer rendered by the Presences tab`
+      ).toContain(key);
     }
   });
 

@@ -5,6 +5,7 @@ implemented_by:
   - ../../specs/auth/register.spec.md
   - ../../specs/auth/activate.spec.md
   - ../../specs/auth/mobile-universal-links.spec.md
+  - ../../specs/auth/mobile-account-creation.spec.md
 ---
 
 # Newcomer creates and activates an account

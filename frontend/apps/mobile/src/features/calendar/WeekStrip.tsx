@@ -15,6 +15,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
+import { CalendarLegend } from "./CalendarLegend";
 import { dayColumnContent } from "./week-strip-columns";
 
 type WeekStripProps = {
@@ -36,12 +37,13 @@ const SURFACES = nativeCalendarSurfaces("light");
  * small chips underneath. React Native port of the top half of the web
  * `MobileCalendarView`.
  *
- * LAYOUT (`calendar.view` rule 14, PAD-172): this renders TWO siblings — a
- * fixed-height week-nav row, then a `flex-1` day grid. The calendar screen puts
- * a `flex-1` detail list after them, so the grid and the detail list split the
- * space below the nav row in half, exactly as web's `flex-1 min-h-0` /
- * `flex-1` pair does. The strip's share is therefore constant: it neither
- * collapses on an empty week nor grows with the busiest day.
+ * LAYOUT (`calendar.view` rule 14, PAD-172): this renders THREE siblings — a
+ * fixed-height week-nav row, the fixed-height colour legend (rule 13, PAD-170),
+ * then a `flex-1` day grid. The calendar screen puts a `flex-1` detail list
+ * after them, so the grid and the detail list split what is left below those two
+ * fixed rows in half, exactly as web's `flex-1 min-h-0` / `flex-1` pair does.
+ * The strip's share is therefore constant: it neither collapses on an empty week
+ * nor grows with the busiest day.
  *
  * Each day column scrolls internally, so a day with more classes than fit is
  * reached by scrolling rather than cut to "+N" — which is why there is no
@@ -127,7 +129,14 @@ export function WeekStrip({
         </View>
       </View>
 
-      <View className="mt-1 flex-1 flex-row border-b border-border bg-card px-2 pb-2">
+      {/* `calendar.view` rule 13 (PAD-170 C4): the colour legend sits directly
+          under the week nav, above the grid whose tinting it explains. It is a
+          fixed-height row like the nav, so the flex-1/flex-1 split of rule 14
+          still divides what is left between the grid and the day list — the
+          strip keeps exactly the same share of that remainder as the list. */}
+      <CalendarLegend />
+
+      <View className="flex-1 flex-row border-b border-border bg-card px-2 pb-2">
         {weekDays.map((day) => {
           const dayKey = format(day, "yyyy-MM-dd");
           const isSelected = isSameDay(day, selectedDay);

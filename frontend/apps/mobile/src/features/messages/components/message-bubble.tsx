@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import { reminderState } from "../reminder-state";
+import { waitingListOfferState } from "../waiting-list-state";
 import { formatMessageTime } from "../utils";
 import type { ContextMenuAnchor } from "./message-context-menu";
 
@@ -115,6 +116,10 @@ type MessageBubbleProps = {
   onRespondReminder?: (action: "yes" | "no") => void;
   /** Fires when a confirmed student cancels their attendance. */
   onCancelAttendance?: () => void;
+  /** True while a waiting_list_offer answer is in flight (PAD-124). */
+  respondingWaitingList?: boolean;
+  /** Fires when the user taps Yes/No on a waiting_list_offer message. */
+  onRespondWaitingList?: (action: "yes" | "no") => void;
 };
 
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
@@ -133,6 +138,8 @@ export function MessageBubble({
   respondingReminder,
   onRespondReminder,
   onCancelAttendance,
+  respondingWaitingList,
+  onRespondWaitingList,
   onScrollToReply,
 }: MessageBubbleProps) {
   const { t } = useTranslation();
@@ -152,6 +159,13 @@ export function MessageBubble({
   // late cancellation, already-answered) live in reminder-state.ts.
   const isReminder = message.messageType === "notification_reminder";
   const reminder = reminderState(message.metadata, null);
+
+  // PAD-124: the `waiting_list_offer` sent on the "that spot was just filled"
+  // path is the entire self-service route onto the waiting list, and neither
+  // client rendered its Yes/No — so the endpoint behind it was unreachable.
+  // Its state rules live in waiting-list-state.ts.
+  const isWaitingListOffer = message.messageType === "waiting_list_offer";
+  const waitingList = waitingListOfferState(message.metadata, null);
 
   // PAD-168: `replacement_approval` messages rendered as plain text on iOS, so
   // a coach could not complete a semi-automatic approval from the phone at
@@ -531,6 +545,91 @@ export function MessageBubble({
                   className={cn(
                     "flex-1 items-center rounded-xl bg-muted py-1.5",
                     respondingReminder && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {t("messages.no")}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
+
+        {/* Waiting-list offer response area (PAD-124), mirroring web's
+            waiting_list_offer block. Own messages never get buttons — the
+            coach's own offer is not theirs to answer; they see the same
+            "waiting for response" line the invite bubble shows them. */}
+        {isWaitingListOffer ? (
+          <View
+            className={cn(
+              "mt-1.5 flex-row flex-wrap gap-2",
+              own ? "self-end" : "self-start"
+            )}
+          >
+            {waitingList.joined ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
+                <Ionicons
+                  name="checkmark"
+                  size={14}
+                  color={ACCEPTED_ICON_COLOR}
+                />
+                <Text className="text-xs font-medium text-success">
+                  {t("messages.waitingListJoined")}
+                </Text>
+              </View>
+            ) : waitingList.declined ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
+                <Ionicons
+                  name="close"
+                  size={14}
+                  color={lightTheme.destructive}
+                />
+                <Text className="text-xs font-medium text-destructive">
+                  {t("messages.declined")}
+                </Text>
+              </View>
+            ) : waitingList.expired ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70">
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  color={lightTheme.mutedForeground}
+                />
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {t("messages.waitingListOfferExpired")}
+                </Text>
+              </View>
+            ) : own ? (
+              <Text className="text-xs italic text-muted-foreground">
+                {t("messages.waitingForResponse")}
+              </Text>
+            ) : (
+              <>
+                <Pressable
+                  testID="message-waiting-list-yes"
+                  accessibilityLabel={t("messages.yes")}
+                  role="button"
+                  disabled={respondingWaitingList}
+                  onPress={() => onRespondWaitingList?.("yes")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-primary py-1.5",
+                    respondingWaitingList && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-primary-foreground">
+                    {t("messages.yes")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="message-waiting-list-no"
+                  accessibilityLabel={t("messages.no")}
+                  role="button"
+                  disabled={respondingWaitingList}
+                  onPress={() => onRespondWaitingList?.("no")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-muted py-1.5",
+                    respondingWaitingList && "opacity-50"
                   )}
                 >
                   <Text className="text-sm font-medium text-foreground">
