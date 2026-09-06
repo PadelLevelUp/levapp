@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, shortDate } from "@levelup/config";
 import type {
   DashboardBlock,
   DashboardClassListBlock,
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { parseDashboardItemId } from "@/features/calendar/params";
+import { classListItemISODate } from "@/features/dashboard/utils";
 
 const ICON_MAP: Record<DashboardIcon, keyof typeof Ionicons.glyphMap> = {
   users: "people-outline",
@@ -159,7 +160,7 @@ function openClassListItem(item: DashboardClassListBlock["data"]["items"][number
 }
 
 function ClassList({ block }: { block: DashboardClassListBlock }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isUpcoming =
     block.id === "upcoming_classes" || block.id === "player_upcoming";
   const itemTestID = isUpcoming
@@ -178,6 +179,17 @@ function ClassList({ block }: { block: DashboardClassListBlock }) {
     if (!badge) return undefined;
     const m = /^Missing (\d+)$/.exec(badge);
     return m ? t("dashboard.list.missingSeats", { count: Number(m[1]) }) : badge;
+  };
+
+  // `item.dateLabel` arrives pre-formatted in English ("Mon 7 Sep"). Re-format
+  // it from the ISO date the href carries, with the same shared formatter the
+  // coach dashboard uses, so the student's list follows the app language too
+  // (PAD-157 / B-020). Items whose href has no date keep the server string.
+  const dateLabel = (
+    item: DashboardClassListBlock["data"]["items"][number]
+  ): string => {
+    const iso = classListItemISODate(item.href);
+    return iso ? shortDate(iso, i18n.language) : item.dateLabel;
   };
 
   return (
@@ -223,7 +235,7 @@ function ClassList({ block }: { block: DashboardClassListBlock }) {
                 ) : null}
               </View>
               <Text className="text-sm text-muted-foreground">
-                {item.dateLabel} · {item.timeLabel}
+                {dateLabel(item)} · {item.timeLabel}
               </Text>
             </View>
             {item.rightLabel ? (

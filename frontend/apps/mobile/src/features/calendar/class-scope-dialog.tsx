@@ -23,6 +23,13 @@ interface ClassScopeDialogProps {
   mode: ClassScopeMode;
   onClose: () => void;
   onConfirm: (scope: ApplyScope) => void;
+  /**
+   * i18n namespace the six strings come from. Defaults to the class-worded
+   * `calendar.scope` ("Eliminar aula"); a personal calendar event passes
+   * `calendar.eventScope` so the same dialog reads "Eliminar evento". Same
+   * prop, same default, as web's ClassScopeDialog.tsx.
+   */
+  keyPrefix?: string;
 }
 
 /** Ports web's ClassScopeDialog.tsx: lets the coach choose whether an edit
@@ -33,6 +40,7 @@ export function ClassScopeDialog({
   mode,
   onClose,
   onConfirm,
+  keyPrefix = "calendar.scope",
 }: ClassScopeDialogProps) {
   const { t } = useTranslation();
 
@@ -40,16 +48,16 @@ export function ClassScopeDialog({
     <AlertDialog open={open} onOpenChange={(next) => (!next ? onClose() : null)}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t(`calendar.scope.${mode}.title`)}</AlertDialogTitle>
+          <AlertDialogTitle>{t(`${keyPrefix}.${mode}.title`)}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t(`calendar.scope.${mode}.description`)}
+            {t(`${keyPrefix}.${mode}.description`)}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <View className="gap-3">
           <AlertDialogAction
             testID="class-scope-single"
-            accessibilityLabel={t(`calendar.scope.${mode}.singleTitle`)}
+            accessibilityLabel={t(`${keyPrefix}.${mode}.singleTitle`)}
             className="h-auto flex-row items-start justify-start gap-3 border border-input bg-background p-4 active:bg-accent"
             onPress={() => onConfirm("single")}
           >
@@ -60,34 +68,34 @@ export function ClassScopeDialog({
             />
             <View className="flex-1 gap-0.5">
               <Text className="font-medium text-foreground">
-                {t(`calendar.scope.${mode}.singleTitle`)}
+                {t(`${keyPrefix}.${mode}.singleTitle`)}
               </Text>
               <Text className="text-sm text-muted-foreground">
-                {t(`calendar.scope.${mode}.singleDescription`)}
+                {t(`${keyPrefix}.${mode}.singleDescription`)}
               </Text>
             </View>
           </AlertDialogAction>
 
           <AlertDialogAction
             testID="class-scope-future"
-            accessibilityLabel={t(`calendar.scope.${mode}.futureTitle`)}
+            accessibilityLabel={t(`${keyPrefix}.${mode}.futureTitle`)}
             className="h-auto flex-row items-start justify-start gap-3 border border-input bg-background p-4 active:bg-accent"
             onPress={() => onConfirm("future")}
           >
             <Ionicons name="repeat" size={20} color={lightTheme.foreground} />
             <View className="flex-1 gap-0.5">
               <Text className="font-medium text-foreground">
-                {t(`calendar.scope.${mode}.futureTitle`)}
+                {t(`${keyPrefix}.${mode}.futureTitle`)}
               </Text>
               <Text className="text-sm text-muted-foreground">
-                {t(`calendar.scope.${mode}.futureDescription`)}
+                {t(`${keyPrefix}.${mode}.futureDescription`)}
               </Text>
             </View>
           </AlertDialogAction>
         </View>
 
         <AlertDialogFooter>
-          <AlertDialogCancel accessibilityLabel={t("calendar.scope.cancel")}>
+          <AlertDialogCancel accessibilityLabel={t(`${keyPrefix}.cancel`)}>
             <Text>{t("common.cancel")}</Text>
           </AlertDialogCancel>
         </AlertDialogFooter>
