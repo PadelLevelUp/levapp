@@ -1,0 +1,17 @@
+id: audit
+label: Technical audit report
+classification:
+  extensions: [.html, .md, .pdf]
+  hints:
+    - "Audit"
+    - "findings"
+    - "Severity"
+    - "Fix cost"
+  explicit: true
+extraction:
+  strategy: generic
+  outputs:
+    - kind: summary
+      path: extracted/summary.md
+    - kind: findings
+      path: extracted/findings.md
