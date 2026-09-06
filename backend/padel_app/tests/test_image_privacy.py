@@ -98,3 +98,40 @@ def test_signed_urls_outlive_a_render():
     from padel_app import model
 
     assert model.SIGNED_URL_MINUTES >= 30
+
+
+def test_signed_url_falls_back_to_iam_signing_without_a_private_key():
+    """The VM's compute credentials hold a token and no signer.
+
+    `generate_signed_url` raises AttributeError there instead of degrading, so
+    the fallback has to name the service account and pass an access token — the
+    path that `roles/iam.serviceAccountTokenCreator` exists to allow. Verified
+    against the real container before this shipped; pinned here so a refactor
+    cannot quietly restore the crashing form.
+    """
+    from types import SimpleNamespace
+
+    from padel_app import model
+
+    blob = SimpleNamespace(calls=[])
+
+    def generate_signed_url(**kwargs):
+        blob.calls.append(kwargs)
+        if "access_token" not in kwargs:
+            raise AttributeError("you need a private key to sign credentials")
+        return "https://signed-via-iam"
+
+    blob.generate_signed_url = generate_signed_url
+    creds = SimpleNamespace(
+        valid=True, token="tok", service_account_email="vm-sa@example.com"
+    )
+
+    img = model.Image(object_key="images/user/x.jpg")
+    with patch.object(model.Image, "_blob", return_value=blob), patch.object(
+        model, "_signing_credentials", return_value=creds
+    ):
+        assert img.signed_url() == "https://signed-via-iam"
+
+    assert len(blob.calls) == 2, "should retry once, via IAM"
+    assert blob.calls[1]["service_account_email"] == "vm-sa@example.com"
+    assert blob.calls[1]["access_token"] == "tok"

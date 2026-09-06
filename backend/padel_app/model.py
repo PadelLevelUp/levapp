@@ -3,6 +3,8 @@ import os
 from datetime import timedelta, datetime
 
 from flask import url_for
+import google.auth
+from google.auth.transport import requests as google_auth_requests
 from google.cloud import storage
 from sqlalchemy import (
     BigInteger,
@@ -45,6 +47,23 @@ def _reset_storage_client():
     """Tests only: forget the cached client."""
     global _STORAGE_CLIENT
     _STORAGE_CLIENT = None
+
+
+_SIGNING_CREDENTIALS = None
+
+
+def _signing_credentials():
+    """Ambient credentials, refreshed only when the token has actually expired.
+
+    Cached because every image URL in a response would otherwise re-resolve ADC
+    and re-mint a token.
+    """
+    global _SIGNING_CREDENTIALS
+    if _SIGNING_CREDENTIALS is None:
+        _SIGNING_CREDENTIALS, _ = google.auth.default()
+    if not _SIGNING_CREDENTIALS.valid:
+        _SIGNING_CREDENTIALS.refresh(google_auth_requests.Request())
+    return _SIGNING_CREDENTIALS
 
 
 class Model:
@@ -398,9 +417,31 @@ class Image(db.Model):
         return f"{PUBLIC_BASE}/{self.object_key}"
 
     def signed_url(self, minutes=SIGNED_URL_MINUTES, method="GET"):
-        return self._blob().generate_signed_url(
-            version="v4", expiration=timedelta(minutes=minutes), method=method
-        )
+        """A V4 signed URL for this object.
+
+        On the VM the app runs under compute-engine credentials, which carry a
+        token and no private key — `generate_signed_url` raises outright there
+        rather than falling back on its own. Signing has to be routed through
+        the IAM `signBlob` API by naming the service account and passing a live
+        access token, which is why `vm_sa` holds
+        `roles/iam.serviceAccountTokenCreator` on itself (B-015). Locally, where
+        credentials do have a signer, the plain call already works.
+        """
+        blob = self._blob()
+        expiration = timedelta(minutes=minutes)
+        try:
+            return blob.generate_signed_url(
+                version="v4", expiration=expiration, method=method
+            )
+        except AttributeError:
+            credentials = _signing_credentials()
+            return blob.generate_signed_url(
+                version="v4",
+                expiration=expiration,
+                method=method,
+                service_account_email=credentials.service_account_email,
+                access_token=credentials.token,
+            )
 
     def url(self):
         """The URL a client may load this image from, or None.
