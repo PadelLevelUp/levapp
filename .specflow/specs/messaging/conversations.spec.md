@@ -13,8 +13,13 @@ governed_by: []
 Manage conversations between users (1:1 or group chats).
 
 ### Entities
-- **Conversation** (`conversations`): group_name, is_group (bool), participant_key (unique, indexed)
-- **ConversationParticipant** (`conversation_participants`): conversation_id, user_id, joined_at, last_read_at
+- **Conversation** (`conversations`): group_name, is_group (bool), participant_key (unique,
+  indexed), last_message_at (nullable datetime), last_message_id (nullable FK → `messages.id`,
+  `ON DELETE SET NULL`)
+- **ConversationParticipant** (`conversation_participants`): conversation_id, user_id, joined_at,
+  last_read_at — unique on (conversation_id, user_id), indexed on user_id
+- **Message** (`messages`): indexed on (conversation_id, sent_at) and on sender_id — the access
+  paths the conversation list and the unread query take
 
 ### Rules
 1. `participant_key` = comma-separated sorted user IDs (e.g., "1,5,12") — ensures idempotent lookup
@@ -35,6 +40,27 @@ Manage conversations between users (1:1 or group chats).
    localized "Deleted user" label from the flag — the server sends no display string, because
    there is no server-side i18n for serializer output. `serialize_conversation_detail`
    degrades identically (B-019)
+11. `conversations.last_message_at` and `conversations.last_message_id` are the denormalised
+    pointer to the most recent message in the thread. They are written **in the same
+    transaction as the message insert itself** — every path that creates a `messages` row
+    (a user sending one, and every system/notification message the engine writes) maintains
+    them, with no path exempt. A message whose `sent_at` is not newer than the stored
+    `last_message_at` does not move the pointer, so a back-dated or replayed insert cannot
+    rewind the thread. `GET /api/app/conversations` is ordered by `last_message_at`
+    descending, nulls last; a conversation with no messages sorts to the end
+12. The conversation list is computed **without loading message bodies**. The last-message
+    text and timestamp come from the denormalised columns of rule 11, never from hydrating
+    `conversation.messages`; the unread count for every listed conversation comes from a
+    **single grouped query** over `messages.sent_at > coalesce(last_read_at, epoch)` for the
+    caller, not one query (or one Python scan) per conversation. Consequently the number of
+    SQL statements the endpoint issues is a constant — it does not grow with the number of
+    messages in the listed conversations, nor with the page size. A message the sender has
+    soft-deleted (R-016) is not unread: the per-conversation counts use the same predicate as
+    the app-wide badge (`get_unread_count`), so the badge total and the sum of the listed
+    counts agree
+13. A user appears **at most once** in a conversation. `(conversation_id, user_id)` is unique
+    on `conversation_participants` and enforced by the database, not only by the code that
+    builds the participant list — a second insert for the same pair is rejected
 
 ### Acceptance Criteria
 
@@ -69,3 +95,41 @@ Manage conversations between users (1:1 or group chats).
 - **When** it is serialized for user 1
 - **Then** serialization succeeds and `unreadCount` is computed as if user 1 had never read
   it, rather than raising
+
+#### Ordered by the denormalised last message (PAD-204)
+- **Given** user 1 is in conversations A, B and C, whose newest messages were sent at 10:00,
+  12:00 and 09:00 respectively, and in conversation D which has no messages at all
+- **When** user 1 GETs `/api/app/conversations`
+- **Then** the order is B, A, C, D — `last_message_at` descending with the empty conversation last
+- **And** each entry's `lastMessage` and `lastMessageAt` come from `last_message_id` /
+  `last_message_at`, matching the newest message of that thread
+
+#### A system message moves the thread to the top (PAD-204)
+- **Given** conversation A's newest message is from 10:00 and conversation B's is from 12:00
+- **When** the notification engine writes a system message into conversation A at 13:00
+- **Then** conversation A's `last_message_at` is 13:00 and it now sorts above B
+- **And** a message inserted with an older `sent_at` than the stored `last_message_at` leaves
+  both denormalised columns untouched
+
+#### The list costs the same at 3 conversations as at 20 (PAD-204)
+- **Given** user 1 has 3 conversations of one message each
+- **And** the same user after 17 more conversations exist, and again after 300 messages have
+  been added behind the original 3
+- **When** user 1 GETs `/api/app/conversations` in each case
+- **Then** the endpoint issues the same number of SQL statements in all three cases — the
+  count grows with neither the page size nor the length of the threads on it
+- **And** serializing the page leaves `Conversation.messages` unloaded on every row: at most
+  one `messages` row per conversation is fetched, the one `last_message_id` points at
+
+#### Per-conversation unread agrees with the badge (PAD-204)
+- **Given** user 1 has conversation A with 2 unread messages from the other party, and
+  conversation B with 3, one of which the sender has since soft-deleted
+- **When** user 1 GETs `/api/app/conversations`
+- **Then** the `unreadCount` values are 2 for A and 2 for B
+- **And** their sum equals `get_unread_count(1)`, the number the app badge shows
+
+#### A duplicate participant row is rejected (PAD-204)
+- **Given** a conversation that already has a `ConversationParticipant` row for user 5
+- **When** a second row for conversation and user 5 is inserted
+- **Then** the database rejects it with an integrity error
+- **And** the conversation still has exactly one participant row for user 5
