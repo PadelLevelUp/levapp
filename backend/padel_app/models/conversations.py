@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -23,10 +23,45 @@ class Conversation(db.Model, model.Model):
         index=True,
     )
 
+    # PAD-204: the denormalised pointer to the newest message in the thread
+    # (messaging.conversations rule 11). Before it, listing conversations meant
+    # sorting `conversation.messages` in Python — the whole history of every
+    # listed thread pulled into the identity map — and ordering the list by a
+    # correlated `MAX(sent_at)` subquery over an unindexed column.
+    #
+    # Maintained by the `after_insert` listener on `Message`, so it is written
+    # in the same transaction as the insert and no writer can forget it. Nothing
+    # in the app should set these two by hand.
+    last_message_at = Column(DateTime, nullable=True)
+
+    # `use_alter` + a named constraint: `conversations.last_message_id` points at
+    # `messages.id` while `messages.conversation_id` points back here, so the two
+    # tables form a dependency cycle. Without deferring this constraint,
+    # `create_all` (which is how the test suite builds its SQLite schema) cannot
+    # order the CREATE TABLEs. The migration adds the real constraint separately
+    # for the same reason.
+    last_message_id = Column(
+        Integer,
+        ForeignKey(
+            "messages.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_conversations_last_message_id",
+        ),
+        nullable=True,
+    )
+
     messages = relationship(
         "Message",
         back_populates="conversation",
         cascade="all, delete-orphan",
+        # PAD-204: `last_message_id` above is a second foreign key between these
+        # two tables, so neither side can infer the join any more. This is the
+        # thread; `last_message_id` is a pointer into it and is deliberately NOT
+        # given a relationship — one would need `post_update` to co-exist with
+        # this delete-orphan cascade, and the service reads the pointed-at rows
+        # in a single `id IN (...)` query instead.
+        foreign_keys="Message.conversation_id",
     )
 
     participants = relationship(

@@ -15,7 +15,12 @@
       "attended": "Presenças",
       "missed": "Faltas",
       "upcomingLessons": "Próximas aulas",
-      "invites": "Convites"
+      "invites": "Convites",
+      "eyebrow": "O TEU REGISTO",
+      "ofLessons_one": "de {{count}} aula",
+      "ofLessons_other": "de {{count}} aulas",
+      "next30Days": "próximos 30 dias",
+      "toConfirm": "por confirmar"
     },
     "list": {
       "upcomingClasses": "Próximas aulas",
@@ -68,6 +73,11 @@
         "detail_one": "De {{count}} aula na semana passada",
         "detail_other": "De {{count}} aulas na semana passada",
         "review": "Rever"
+      },
+      "invite": {
+        "title": "Estás convidado para {{class}}",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
+        "open": "Abrir"
       }
     },
     "schedule": {

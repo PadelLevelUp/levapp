@@ -795,7 +795,11 @@ export default function ClassDetailScreen() {
           {/* Participants + attendance */}
           <View className="gap-2">
             <Text className="text-sm font-semibold">
-              Participants ({participants.length}/{maxPlayers || "—"})
+              {t("calendar.detail.participantsCount", {
+                label: t("calendar.detail.participants"),
+                current: participants.length,
+                max: maxPlayers || "—",
+              })}
             </Text>
             {participants.length === 0 ? (
               <Text className="text-sm text-muted-foreground">

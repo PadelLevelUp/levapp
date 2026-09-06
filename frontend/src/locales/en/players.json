@@ -152,6 +152,7 @@
     "filterMissingLevelAria": "Filter players without level",
     "filterMissingSideAria": "Filter players without playing side",
     "createFailed": "Failed to create player. Please try again.",
+    "createInviteFailed": "Failed to create the invite. Please try again.",
     "noStrengthsYet": "No strengths noted yet.",
     "noWeaknessesYet": "No weaknesses noted yet.",
     "deleteNoteAria": "Delete note {{text}}",

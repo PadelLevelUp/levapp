@@ -299,11 +299,20 @@ export interface Message {
 
 export interface Conversation {
   id: string;
-  participantId: string;
-  participantName: string;
+  /**
+   * Null when the other participant is gone (PAD-203 / messaging.conversations
+   * rule 10) — a hard-deleted user, or a conversation whose participant row was
+   * lost. The conversation is still listed; the server sends no display string
+   * because it has no i18n, so render `messages.deletedUser` off
+   * `participantDeleted`.
+   */
+  participantId: string | null;
+  participantName: string | null;
   participantAvatar?: string;
   /** Role of the other participant, e.g. "coach" or "player" */
-  participantRole?: string;
+  participantRole?: string | null;
+  /** True when there is no other participant left to describe */
+  participantDeleted?: boolean;
   /** True when the other participant is the platform assistant (one-way channel) */
   isAssistant?: boolean;
 
@@ -324,16 +333,25 @@ export type DashboardIcon =
   | "x_circle"
   | "mail";
 
+/**
+ * One "home" vocabulary for both roles (dashboard.blocks rule 3). The coach
+ * gets next_class / needs_you / schedule_7d / week_pulse; the student gets
+ * next_class / needs_you / schedule_7d / kpi_grid. `messages_overview` is
+ * emitted for both and rendered by neither — the layout's unread badge reads
+ * it. Which home a payload is comes from `DashboardDefinition.id`, never from
+ * sniffing block types (rule 3b). PAD-202 removed `class_list` and `grid`.
+ */
 export type DashboardBlock =
   | DashboardMessagesOverviewBlock
   | DashboardKpiGridBlock
-  | DashboardClassListBlock
-  | DashboardGridBlock
-  // Coach home. The player dashboard still emits the blocks above.
   | DashboardNextClassBlock
   | DashboardNeedsYouBlock
   | DashboardSchedule7dBlock
   | DashboardWeekPulseBlock;
+
+/** Payload ids — the client's switch between the two homes. */
+export const COACH_DASHBOARD_ID = "coach_default_v1";
+export const PLAYER_DASHBOARD_ID = "player_default_v1";
 
 /**
  * Hero: the class about to start.
@@ -393,6 +411,22 @@ export interface DashboardNeedsYouReply {
   href: string;
 }
 
+/**
+ * PAD-202: a class the student was invited to and has neither confirmed nor
+ * declined. Read from `Presence` — the same rows the Invites KPI counts.
+ */
+export interface DashboardNeedsYouInvite {
+  kind: "invite";
+  id: string;
+  classTitle: string;
+  /** ISO date, `YYYY-MM-DD`. */
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
+  href: string;
+}
+
 /** Attendances awaiting validation, scoped to classes that ended last week. */
 export interface DashboardNeedsYouValidation {
   kind: "validation";
@@ -404,6 +438,7 @@ export interface DashboardNeedsYouValidation {
 
 export type DashboardNeedsYouItem =
   | DashboardNeedsYouEmptySeats
+  | DashboardNeedsYouInvite
   | DashboardNeedsYouReply
   | DashboardNeedsYouValidation;
 
@@ -488,18 +523,6 @@ export interface DashboardMessagesOverviewBlock {
   };
 }
 
-export interface DashboardGridBlock {
-  id: string;
-  type: "grid";
-  data: {
-    cols: {
-      base: number;
-      lg?: number;
-    };
-    children: DashboardBlock[];
-  };
-}
-
 export interface DashboardKpiGridBlock {
   id: string;
   type: "kpi_grid";
@@ -510,31 +533,17 @@ export interface DashboardKpiGridBlock {
       prefix?: string;
       icon: DashboardIcon;
       /**
+       * PAD-202: the denominator that gives the number meaning — for
+       * Attended/Missed, all recorded lessons. Absent on KPIs whose context is
+       * fixed copy ("next 30 days", "to confirm").
+       */
+      total?: number;
+      /**
        * Optional: only set when a matching frontend route exists. Items without
        * an href render as non-interactive cards (PAD-76 — a missing page must
        * not send the user to the 404 route).
        */
       href?: string;
-    }>;
-  };
-}
-
-export interface DashboardClassListBlock {
-  id: string;
-  type: "class_list";
-  data: {
-    title: string;
-    icon?: DashboardIcon;
-    emptyText?: string;
-    items: Array<{
-      id: string;
-      title: string;
-      dateLabel: string;
-      timeLabel: string;
-      color?: string;
-      rightLabel?: string;
-      badge?: string;
-      href: string;
     }>;
   };
 }

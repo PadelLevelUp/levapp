@@ -38,6 +38,11 @@ export function ChatThread({
   const participantId = conversation.participantId;
   const isBlocked = blockedUserIds.has(String(participantId));
 
+  // PAD-203: null when the counterpart is gone (messaging.conversations
+  // rule 10). Resolved once here so every child gets a real string.
+  const participantName =
+    conversation.participantName ?? t('messages.deletedUser');
+
   useEffect(() => {
     let cancelled = false;
     getBlockedUsers()
@@ -115,7 +120,7 @@ export function ChatThread({
       <MessageList
         messages={conversation.messages ?? []}
         userId={user_id}
-        participantName={conversation.participantName}
+        participantName={participantName}
         onReply={handleReply}
         onEdit={handleEdit}
         onDelete={onDeleteMessage}
@@ -130,7 +135,7 @@ export function ChatThread({
           editingMessage={editingMessage}
           replyingTo={replyingTo}
           userId={user_id}
-          participantName={conversation.participantName}
+          participantName={participantName}
           isMobile={isMobile}
           onCancelEdit={() => setEditingMessage(null)}
           onCancelReply={() => setReplyingTo(null)}

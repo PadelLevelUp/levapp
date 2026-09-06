@@ -37,10 +37,22 @@ function badgeFor(row: Row, t: (k: string, o?: Record<string, unknown>) => strin
   );
 }
 
-export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
+/**
+ * `role` (PAD-202): a student's week is the same rows, minus everything that is
+ * the coach's job — no capacity badge, no invite button, and a fill count that
+ * never goes amber. Seats are information to a student, not a problem.
+ */
+export function Schedule7Days({
+  block,
+  role = "coach",
+}: {
+  block: DashboardSchedule7dBlock;
+  role?: "coach" | "student";
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { items, totalCount, calendarHref } = block.data;
+  const student = role === "student";
 
   return (
     <section className="flex flex-col gap-2.5" data-testid="dashboard-schedule">
@@ -97,18 +109,21 @@ export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 lg:order-3 lg:w-24 lg:shrink-0">
-                    <FillBar filled={row.filled} capacity={row.capacity} />
-                    <FillCount filled={row.filled} capacity={row.capacity} />
+                    <FillBar filled={row.filled} capacity={row.capacity} neutral={student} />
+                    <FillCount filled={row.filled} capacity={row.capacity} neutral={student} />
                   </div>
                 </div>
 
                 {/* Fixed-width so rows with and without a badge stay aligned. */}
-                <div className="flex w-auto shrink-0 justify-end lg:w-20">
-                  {badgeFor(row, t)}
-                </div>
+                {!student && (
+                  <div className="flex w-auto shrink-0 justify-end lg:w-20">
+                    {badgeFor(row, t)}
+                  </div>
+                )}
 
                 {/* Desktop-only action column. Rows that don't need it render an
                     empty cell so the grid never shifts. */}
+                {!student && (
                 <div className="hidden w-20 shrink-0 justify-end lg:flex">
                   {short && (
                     <Button
@@ -123,6 +138,7 @@ export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
                     </Button>
                   )}
                 </div>
+                )}
               </div>
             );
           })}

@@ -53,7 +53,14 @@ export function ChatHeader({ conversation, onBack, showBack, isBlocked, onConfir
   const [submitting, setSubmitting] = useState(false);
 
   // Assistant conversations aren't a real user — nothing to block/report.
-  const showModeration = !conversation.isAssistant;
+  // PAD-203: neither is a conversation whose counterpart is gone — there is no
+  // one left to block or report (messaging.conversations rule 10).
+  const showModeration = !conversation.isAssistant && !conversation.participantDeleted;
+
+  // The server sends `participantName: null` rather than a display string when
+  // the counterpart is gone; it has no i18n, so the label is resolved here.
+  const participantName =
+    conversation.participantName ?? t('messages.deletedUser');
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -80,12 +87,12 @@ export function ChatHeader({ conversation, onBack, showBack, isBlocked, onConfir
       <Avatar className="w-9 h-9 flex-shrink-0">
         <AvatarImage src={conversation.participantAvatar} />
         <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-          {getInitials(conversation.participantName)}
+          {getInitials(participantName)}
         </AvatarFallback>
       </Avatar>
 
       <div className="flex-1 min-w-0">
-        <h2 className="text-sm font-semibold text-foreground truncate">{conversation.participantName}</h2>
+        <h2 className="text-sm font-semibold text-foreground truncate">{participantName}</h2>
         {getRoleLabel(conversation, t) && (
           <p className="text-xs text-muted-foreground">{getRoleLabel(conversation, t)}</p>
         )}

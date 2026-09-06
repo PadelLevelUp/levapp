@@ -1,8 +1,14 @@
-"""Blocks for the rebuilt coach dashboard.
+"""Blocks for the rebuilt coach dashboard — and the home vocabulary both roles share.
 
 The screen answers one question — *what needs me right now?* — so the payload is
 four blocks in priority order: the class about to start, a queue of things that
 can be resolved, the week ahead, and two health metrics.
+
+PAD-202: the student home speaks the same vocabulary (``next_class``,
+``needs_you``, ``schedule_7d``), so the role-agnostic halves live here as public
+helpers — ``load_events``, ``next_class_block``, ``schedule_block``,
+``reply_items``, ``class_href``, ``fill`` — and ``player_home.py`` composes them
+for a player. Only the loading differs by role; the block shapes never do.
 
 Every number here ships with its denominator. A bare count (52 players, 19
 classes) tells a coach nothing about whether anything is wrong, which is why the
@@ -43,12 +49,15 @@ from padel_app.helpers.calendar_helpers import (
     build_lesson_events,
     load_lessons_for_coach,
     load_lesson_instances_for_coach,
+    load_lessons_for_player,
+    load_lesson_instances_for_player,
 )
 from padel_app.tools.tools import _safe_int
 from padel_app.utils.dates import utcnow_naive
 
 # How far ahead the hero and the queue look.
 HERO_SOON_MINUTES = 120
+HERO_LOOKAHEAD_DAYS = 90
 SCHEDULE_DAYS = 7
 SCHEDULE_ROWS = 5
 QUEUE_REPLY_LIMIT = 3
@@ -65,16 +74,32 @@ _EPOCH = datetime(1970, 1, 1)
 # ── shared event loading ───────────────────────────────────────────────────
 
 
-def _load_events(*, coach_id: int, start: datetime, end: datetime) -> List[Dict[str, Any]]:
-    """Coach classes overlapping a window, earliest first.
+def load_events(
+    *,
+    start: datetime,
+    end: datetime,
+    coach_id: Optional[int] = None,
+    player_id: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Classes overlapping a window for exactly one of a coach or a player, earliest first.
 
     Deliberately ignores the serialized ``status``: that field is computed
     against ``utcnow_naive()`` inside the serializer, so it would silently
     override an injected ``now`` and make every time-dependent test here a lie.
     The window bounds are the only thing deciding what is in range.
+
+    A player's instances come off their ``Presence`` rows as well as the
+    sign-up association, so an invited-but-unanswered class is on their
+    schedule — it is on their calendar too.
     """
-    lessons = load_lessons_for_coach(coach_id, start, end)
-    instances = load_lesson_instances_for_coach(coach_id, start, end)
+    if (coach_id is None) == (player_id is None):
+        raise ValueError("Provide exactly one of coach_id or player_id")
+    if coach_id is not None:
+        lessons = load_lessons_for_coach(coach_id, start, end)
+        instances = load_lesson_instances_for_coach(coach_id, start, end)
+    else:
+        lessons = load_lessons_for_player(player_id, start, end)
+        instances = load_lesson_instances_for_player(player_id, start, end)
     events = build_lesson_events(lessons, instances, start, end)
 
     in_window = [
@@ -100,7 +125,7 @@ def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> da
         return fallback
 
 
-def _class_href(event: Dict[str, Any]) -> str:
+def class_href(event: Dict[str, Any]) -> str:
     """Deep link that opens this one occurrence in the calendar.
 
     Both params are required — a materialized id is just ``lessoninstance-<pk>``,
@@ -112,7 +137,7 @@ def _class_href(event: Dict[str, Any]) -> str:
     )
 
 
-def _fill(event: Dict[str, Any]) -> Tuple[int, int]:
+def fill(event: Dict[str, Any]) -> Tuple[int, int]:
     return _safe_int(event.get("participantCount"), 0), _safe_int(event.get("maxPlayers"), 0)
 
 
@@ -135,13 +160,18 @@ def build_next_class_block(*, coach_id: int, now: Optional[datetime] = None) -> 
     on the screen saying nothing, which is the flaw this redesign removes.
     """
     now = now or utcnow_naive()
-    events = _load_events(coach_id=coach_id, start=now, end=now + timedelta(days=90))
+    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
+    return next_class_block(events, now=now)
+
+
+def next_class_block(events: Sequence[Dict[str, Any]], *, now: datetime) -> Optional[Dict[str, Any]]:
+    """The ``next_class`` block for the earliest of ``events``; ``None`` for none."""
     if not events:
         return None
 
     event = events[0]
     start = _event_start(event)
-    filled, capacity = _fill(event)
+    filled, capacity = fill(event)
     is_today = start.date() == now.date()
     minutes_until = int((start - now).total_seconds() // 60)
 
@@ -164,7 +194,7 @@ def build_next_class_block(*, coach_id: int, now: Optional[datetime] = None) -> 
             "filled": filled,
             "capacity": capacity,
             "players": _roster(event, limit=HERO_AVATAR_LIMIT),
-            "href": _class_href(event),
+            "href": class_href(event),
         },
     }
 
@@ -214,7 +244,7 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
 
     items: List[Dict[str, Any]] = []
     items.extend(_empty_seat_items(coach_id=coach_id, now=now))
-    items.extend(_reply_items(user_id=user_id))
+    items.extend(reply_items(user_id=user_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
     if validation:
@@ -228,10 +258,10 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
 
 
 def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
-    events = _load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     out: List[Dict[str, Any]] = []
     for event in events:
-        filled, capacity = _fill(event)
+        filled, capacity = fill(event)
         if not capacity or filled >= capacity:
             continue
         out.append(
@@ -244,13 +274,13 @@ def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
                 "timeLabel": event.get("startTime"),
                 "filled": filled,
                 "capacity": capacity,
-                "href": _class_href(event),
+                "href": class_href(event),
             }
         )
     return out
 
 
-def _reply_items(*, user_id: int) -> List[Dict[str, Any]]:
+def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
     """Unread inbound messages, most recent first, one per conversation."""
     rows = (
         db.session.query(Message, User, ConversationParticipant.conversation_id)
@@ -322,12 +352,16 @@ def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]
 def build_schedule_block(*, coach_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     """The week ahead. Shows the first few rows and links out for the rest."""
     now = now or utcnow_naive()
-    events = _load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    return schedule_block(events)
 
+
+def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """The ``schedule_7d`` block for ``events`` already cut to the 7-day window."""
     items = []
     for event in events[:SCHEDULE_ROWS]:
         start = _event_start(event)
-        filled, capacity = _fill(event)
+        filled, capacity = fill(event)
         items.append(
             {
                 "id": str(event.get("id") or ""),
@@ -339,7 +373,7 @@ def build_schedule_block(*, coach_id: int, now: Optional[datetime] = None) -> Di
                 "timeLabel": event.get("startTime"),
                 "filled": filled,
                 "capacity": capacity,
-                "href": _class_href(event),
+                "href": class_href(event),
             }
         )
 
@@ -407,9 +441,9 @@ def _pct(part: int, whole: int) -> int:
 
 
 def _seats_in_window(*, coach_id: int, start: datetime, end: datetime) -> Tuple[int, int]:
-    events = _load_events(coach_id=coach_id, start=start, end=end)
-    filled = sum(_fill(e)[0] for e in events)
-    total = sum(_fill(e)[1] for e in events)
+    events = load_events(coach_id=coach_id, start=start, end=end)
+    filled = sum(fill(e)[0] for e in events)
+    total = sum(fill(e)[1] for e in events)
     return filled, total
 
 

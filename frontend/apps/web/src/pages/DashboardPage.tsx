@@ -2,8 +2,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingDashboard } from "@/components/ui/loading-skeleton";
 import { useEffect, useState } from "react";
 import type { DashboardDefinition } from "@/types";
-import { DashboardRenderer } from "@/components/dashboard/DashboardRenderer";
+import { COACH_DASHBOARD_ID } from "@/types";
 import { CoachDashboard } from "@/components/dashboard/CoachDashboard";
+import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { getDashboard } from "@/api/dashboard";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
@@ -26,13 +27,11 @@ export default function DashboardPage() {
 
         const data = await getDashboard({ from, to });
         setDashboard(data);
+        // Neither home renders this block; the layout's unread badge reads it.
         const messagesBlock = data.blocks.find((b) => b.type === "messages_overview");
         if (messagesBlock?.type === "messages_overview") {
           setUnreadCount(messagesBlock.data.unreadMessages);
           setLatestMessage(messagesBlock.data.latest ?? null);
-        }
-        if (messagesBlock?.type === "messages_overview") {
-          setUnreadCount(messagesBlock.data.unreadMessages);
         }
       } finally {
         setLoading(false);
@@ -58,31 +57,16 @@ export default function DashboardPage() {
     );
   }
 
-  // The coach payload carries the rebuilt blocks; the player dashboard still
-  // ships the older ones and keeps the generic renderer.
-  const isCoachDashboard = dashboard.blocks.some(
-    (b) => b.type === "needs_you" || b.type === "next_class" || b.type === "week_pulse",
-  );
-
-  if (isCoachDashboard) {
-    return (
-      <AppLayout>
-        {/* No in-page "Dashboard" heading — the word belongs to the navigation
-            alone. The greeting is the page's orientation instead. */}
-        <CoachDashboard
-          blocks={dashboard.blocks}
-          firstName={(user?.name ?? "").trim().split(" ")[0] ?? ""}
-        />
-      </AppLayout>
-    );
-  }
+  // The payload id is the switch (dashboard.blocks rule 3b): both homes share
+  // block types now, so sniffing them would tell the two apart by accident.
+  const firstName = (user?.name ?? "").trim().split(" ")[0] ?? "";
+  const Home = dashboard.id === COACH_DASHBOARD_ID ? CoachDashboard : StudentDashboard;
 
   return (
     <AppLayout>
-      <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-bold">{t("dashboard.title")}</h1>
-        <DashboardRenderer blocks={dashboard.blocks} />
-      </div>
+      {/* No in-page "Dashboard" heading — the word belongs to the navigation
+          alone. The greeting is the page's orientation instead. */}
+      <Home blocks={dashboard.blocks} firstName={firstName} />
     </AppLayout>
   );
 }

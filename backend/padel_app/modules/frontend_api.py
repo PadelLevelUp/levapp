@@ -19,7 +19,10 @@ from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.serializers.presence import serialize_presence
 from padel_app.serializers.calendar import serialize_calendar_block
 from padel_app.serializers.message import serialize_message
-from padel_app.serializers.conversation import serialize_conversation_detail, serialize_conversation
+from padel_app.serializers.conversation import (
+    serialize_conversation_detail,
+    serialize_conversations,
+)
 from padel_app.serializers.coach_level import serialize_coach_level
 from padel_app.serializers.season import serialize_season
 from padel_app.services.season_service import (
@@ -98,6 +101,7 @@ from padel_app.services.messaging_service import (
     delete_message_service,
     toggle_reaction_service,
     get_user_conversations,
+    get_conversation_for_detail,
     create_conversation_service,
     mark_conversation_read_service,
     block_user_service,
@@ -437,13 +441,20 @@ def require_owned_training_target(coach, class_instance_data):
 @bp.route("/events")
 @jwt_required(locations=["query_string"])
 def events():
+    # Read the identity HERE, in the request context — not inside the generator.
+    # The generator body runs after this request context has popped, so
+    # get_jwt_identity() there would raise. This id is what scopes the stream:
+    # the queue is registered under it and only events addressed to this user
+    # are delivered to it (messaging.sse-realtime rule 7, B-004).
+    subscriber_id = int(get_jwt_identity())
+
     def stream():
         # Each connected client pins one gunicorn thread for the lifetime of
         # this generator. A disconnect is only detected when a write fails, so
         # q.get() must time out and emit a keep-alive: otherwise a closed tab
         # whose queue never receives an event leaks its thread forever and the
         # worker pool eventually starves (prod outage 2026-06-10/11).
-        q = subscribe()
+        q = subscribe(subscriber_id)
         try:
             while True:
                 try:
@@ -453,7 +464,7 @@ def events():
                     continue
                 yield f"data: {json.dumps(event)}\n\n"
         finally:
-            unsubscribe(q)
+            unsubscribe(subscriber_id, q)
 
     return Response(
         stream(),
@@ -568,7 +579,10 @@ def get_conversations():
     limit = min(request.args.get("limit", default=20, type=int), 50)
     result = get_user_conversations(user, page=page, limit=limit)
     return jsonify({
-        "conversations": [serialize_conversation(c, user.id) for c in result["conversations"]],
+        # PAD-204: the whole page at once. Serializing conversation by
+        # conversation meant a lazy load of every thread's messages
+        # (messaging.conversations rule 12).
+        "conversations": serialize_conversations(result["conversations"], user.id),
         "hasMore": result["has_more"],
     })
 
@@ -577,7 +591,7 @@ def get_conversations():
 @jwt_required()
 def conversation_detail(conversation_id):
     user = current_user()
-    conversation = Conversation.query.get_or_404(conversation_id)
+    conversation = get_conversation_for_detail(conversation_id)
     is_participant = any(p.user_id == user.id for p in conversation.participants)
     if not is_participant:
         abort(403, "Not a participant of this conversation")
@@ -1255,7 +1269,11 @@ def put_calendar_block(block_id):
 @bp.delete("/calendar_block/<int:block_id>")
 @jwt_required()
 def delete_calendar_block(block_id):
-    data = request.get_json() or {}
+    # PAD-160 / bug B-021: a DELETE has nothing to say for a non-recurring block,
+    # so clients legitimately send no body. `request.get_json()` raises 415 on a
+    # bodyless request (the `or {}` never runs), which killed the one-off delete.
+    # `silent=True` makes the body optional, as it always was in intent.
+    data = request.get_json(silent=True) or {}
     remove_block_service(block_id, current_user().id, data.get('occDate'), data.get('scope', 'all'))
     return "", 204
 

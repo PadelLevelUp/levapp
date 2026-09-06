@@ -34,8 +34,9 @@ async function waitForDashboardPayload(page: Page): Promise<DashboardPayload> {
 }
 
 /** Flattens nested `grid` blocks so every class-carrying block is reachable.
- * The coach payload now ships upcoming classes as `schedule_7d`; the student
- * payload still uses `class_list`. Both item shapes carry `id` + `href`. */
+ * Both homes ship upcoming classes as `schedule_7d` since PAD-202; `grid` and
+ * `class_list` are kept here only so a stale payload still fails loudly on the
+ * href assertion rather than on an empty list. */
 function collectClassListItems(blocks: DashboardBlock[] | undefined): ClassListItem[] {
   const items: ClassListItem[] = [];
 

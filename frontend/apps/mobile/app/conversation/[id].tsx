@@ -28,7 +28,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -138,6 +137,15 @@ export default function ConversationScreen() {
     ? String(conversation.participantId)
     : null;
   const isBlocked = participantId ? blockedUserIds.has(participantId) : false;
+
+  // PAD-203: `participantName` is null once the counterpart is gone
+  // (messaging.conversations rule 10) — a different thing from "not loaded
+  // yet", which is what `conversationFallback` means. The server sends no
+  // display string because it has no i18n, so the label is resolved here.
+  // Mirrors web's ChatThread/ChatHeader.
+  const participantName = conversation
+    ? conversation.participantName ?? t("messages.deletedUser")
+    : t("messages.conversationFallback");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -589,6 +597,13 @@ export default function ConversationScreen() {
 
   const isTempId = (id: string | number) => String(id).startsWith("temp-");
 
+  // The badge shows the role to the eye and to VoiceOver, so both must resolve
+  // through the same key. An unknown role has no key and falls back to the raw
+  // value with `capitalize` — the same behaviour as `ConversationItem` and
+  // web's `getRoleLabel`.
+  const roleKey = roleLabelKey(conversation?.participantRole);
+  const roleLabel = roleKey ? t(roleKey) : conversation?.participantRole;
+
   return (
     <View className="flex-1 bg-background">
       {/* Custom header: navy chrome, our colours, and the name and role chip
@@ -613,19 +628,24 @@ export default function ConversationScreen() {
               className="shrink text-base font-bold"
               style={{ color: lightTheme.sidebarForeground }}
             >
-              {conversation?.participantName ?? t("messages.conversationFallback")}
+              {participantName}
             </Text>
             {conversation?.participantRole ? (
               <View
                 testID="chat-header-role"
+                accessibilityLabel={t("messages.roleLabel", { role: roleLabel })}
                 className="shrink-0 rounded-md px-2 py-0.5"
                 style={{ backgroundColor: lightTheme.sidebarAccent }}
               >
                 <Text
-                  className="text-[11px] font-semibold capitalize"
+                  className={
+                    roleKey
+                      ? "text-[11px] font-semibold"
+                      : "text-[11px] font-semibold capitalize"
+                  }
                   style={{ color: lightTheme.sidebarPrimary }}
                 >
-                  {conversation.participantRole}
+                  {roleLabel}
                 </Text>
               </View>
             ) : null}
@@ -656,63 +676,12 @@ export default function ConversationScreen() {
           // translucent glass capsule, which is the grey pill behind the back
           // and options controls. A custom header keeps the navy chrome and
           // the design's colours instead of the platform's.
+          // Nothing else belongs here: with the header hidden, `headerTitle`
+          // and `headerRight` are never mounted. A previous fix to the role
+          // badge landed on that dead `headerTitle` and shipped invisible
+          // (PAD-158 / B-019) — the title, the role badge and the options
+          // button all live in the custom header above.
           headerShown: false,
-          headerBackButtonDisplayMode: "minimal",
-          headerStyle: { backgroundColor: lightTheme.sidebarBackground },
-          headerTintColor: lightTheme.sidebarForeground,
-          headerTitle: () => {
-            // The badge shows the role to the eye and to VoiceOver, so both
-            // must resolve through the same key. An unknown role has no key
-            // and falls back to the raw value with `capitalize` — the same
-            // behaviour as `ConversationItem` and web's `getRoleLabel`.
-            const roleKey = roleLabelKey(conversation?.participantRole);
-            const roleLabel = roleKey
-              ? t(roleKey)
-              : conversation?.participantRole;
-            return (
-              <View className="flex-row items-center gap-2">
-                <Text
-                  numberOfLines={1}
-                  className="text-base font-bold"
-                  style={{ color: lightTheme.sidebarForeground }}
-                >
-                  {conversation?.participantName ??
-                    t("messages.conversationFallback")}
-                </Text>
-                {conversation?.participantRole ? (
-                  <Badge
-                    variant="secondary"
-                    testID="chat-header-role"
-                    accessibilityLabel={t("messages.roleLabel", {
-                      role: roleLabel,
-                    })}
-                  >
-                    <Text className={roleKey ? undefined : "capitalize"}>
-                      {roleLabel}
-                    </Text>
-                  </Badge>
-                ) : null}
-              </View>
-            );
-          },
-          headerRight: conversation
-            ? () => (
-                <Pressable
-                  testID="chat-more-options"
-                  accessibilityLabel={t("messages.moreOptions")}
-                  role="button"
-                  hitSlop={8}
-                  onPress={() => setMoreMenuOpen(true)}
-                  className="p-1.5 active:opacity-60"
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={22}
-                    color={lightTheme.sidebarForeground}
-                  />
-                </Pressable>
-              )
-            : undefined,
         }}
       />
 
@@ -772,7 +741,7 @@ export default function ConversationScreen() {
                   message={item}
                   own={own}
                   userId={myId}
-                  participantName={conversation.participantName}
+                  participantName={participantName}
                   replyToMessage={replyToMessage}
                   isHighlighted={highlightedId === item.id}
                   onLongPressMenu={
@@ -865,7 +834,7 @@ export default function ConversationScreen() {
                   <Text className="text-right text-xs font-semibold text-primary">
                     {Number(replyingTo.senderId) === myId
                       ? t("messages.you")
-                      : conversation?.participantName}
+                      : participantName}
                   </Text>
                   <Text
                     numberOfLines={1}

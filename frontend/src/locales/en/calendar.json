@@ -209,6 +209,25 @@
         "futureDescription": "Applies changes to this class and all following ones"
       }
     },
+    "eventScope": {
+      "cancel": "Cancel",
+      "delete": {
+        "title": "Delete event",
+        "description": "Which events would you like to delete?",
+        "singleTitle": "Only this event",
+        "singleDescription": "Deletes only this occurrence",
+        "futureTitle": "This and all future events",
+        "futureDescription": "Deletes this event and all following ones in the series"
+      },
+      "edit": {
+        "title": "Edit event",
+        "description": "Where should these changes be applied?",
+        "singleTitle": "Only this event",
+        "singleDescription": "Applies changes only to this occurrence",
+        "futureTitle": "This and all future events",
+        "futureDescription": "Applies changes to this event and all following ones"
+      }
+    },
     "deleteDialog": {
       "title": "Delete class",
       "description": "Which classes would you like to delete?",

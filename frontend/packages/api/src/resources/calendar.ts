@@ -20,7 +20,14 @@ export async function deleteCalendarBlock(
   blockId: number,
   options?: { occDate?: string; scope?: 'single' | 'future' }
 ): Promise<void> {
-  await getApi().delete(`/app/calendar_block/${blockId}`, { data: options });
+  // PAD-160 / bug B-021: `{ data: undefined }` makes axios send no body AND no
+  // `Content-Type`, and Flask's `request.get_json()` answers 415 for that — the
+  // one-off (non-recurring) delete never reached the handler. Always send a JSON
+  // object; `{}` is exactly what the backend already defaults to.
+  await getApi().delete(`/app/calendar_block/${blockId}`, {
+    data: options ?? {},
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export async function rescheduleCalendarBlock(

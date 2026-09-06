@@ -20,6 +20,13 @@ interface ClassScopeDialogProps {
   onClose: () => void;
   onConfirm: (scope: ApplyScope) => void;
   className?: string;
+  /**
+   * i18n namespace the six strings come from. Defaults to the class-worded
+   * `calendar.scope` ("Delete class"); a personal calendar event passes
+   * `calendar.eventScope` so the same dialog reads "Delete event". Same prop,
+   * same default, on the mobile port.
+   */
+  keyPrefix?: string;
 }
 
 export function ClassScopeDialog({
@@ -27,15 +34,16 @@ export function ClassScopeDialog({
   mode,
   onClose,
   onConfirm,
+  keyPrefix = 'calendar.scope',
 }: ClassScopeDialogProps) {
   const { t } = useTranslation();
   const text = {
-    title: t(`calendar.scope.${mode}.title`),
-    description: t(`calendar.scope.${mode}.description`),
-    singleTitle: t(`calendar.scope.${mode}.singleTitle`),
-    singleDescription: t(`calendar.scope.${mode}.singleDescription`),
-    futureTitle: t(`calendar.scope.${mode}.futureTitle`),
-    futureDescription: t(`calendar.scope.${mode}.futureDescription`),
+    title: t(`${keyPrefix}.${mode}.title`),
+    description: t(`${keyPrefix}.${mode}.description`),
+    singleTitle: t(`${keyPrefix}.${mode}.singleTitle`),
+    singleDescription: t(`${keyPrefix}.${mode}.singleDescription`),
+    futureTitle: t(`${keyPrefix}.${mode}.futureTitle`),
+    futureDescription: t(`${keyPrefix}.${mode}.futureDescription`),
   };
 
   return (

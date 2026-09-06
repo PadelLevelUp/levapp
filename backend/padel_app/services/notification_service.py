@@ -60,6 +60,7 @@ from padel_app.models.notification_config import (
     resolve_message_template,
 )
 from padel_app.realtime import publish
+from padel_app.services.conversation_access import message_recipient_ids
 from padel_app.services.level_ladder import (
     get_level_ladder,
     ladder_index,
@@ -1507,10 +1508,11 @@ def _send_system_message(
     )
     msg.create()
 
-    publish({
-        "type": "message_created",
-        "payload": serialize_message(msg, None),
-    })
+    # The coach and the player of the direct conversation, nobody else (B-004).
+    publish(
+        {"type": "message_created", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
 
     send_push_notification(
         user_id=player_user_id,
@@ -1615,10 +1617,10 @@ def _notify_coach_of_cancellation(
     )
     msg.create()
 
-    publish({
-        "type": "message_created",
-        "payload": serialize_message(msg, None),
-    })
+    publish(
+        {"type": "message_created", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
 
     if is_proactive:
         push_title = "Aviso antecipado" if is_pt else "Advance notice"
@@ -1770,6 +1772,24 @@ def _user_id_for_player(player_id: int) -> int | None:
     return player.user_id if player else None
 
 
+def _user_id_for_coach(coach_id: int) -> int | None:
+    from padel_app.models import Coach
+    coach = Coach.query.get(coach_id)
+    return coach.user_id if coach else None
+
+
+def _coach_only(coach_user_id: int | None) -> list[int]:
+    """Recipients for a `notify_sent` / `notification_responded` event.
+
+    These two carry no message body — they tell a coach's class view that
+    invitations went out, or that a player answered one. Both clients already
+    gate their handlers on `isCoach` / `canManage`, so the coach is the whole
+    audience; addressing them to anyone else would only have leaked which
+    classes have unfilled spots (messaging.sse-realtime rule 8).
+    """
+    return [coach_user_id] if coach_user_id else []
+
+
 def _instance_is_over(instance: LessonInstance, now: datetime | None = None) -> bool:
     """True when a class can no longer accept attendance changes or invitations.
 
@@ -1860,7 +1880,10 @@ def _broadcast_spot_filled(
                     "response": "spot_filled",
                 }
                 invite_msg.save()
-                publish({"type": "message_edited", "payload": serialize_message(invite_msg, None)})
+                publish(
+                    {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
+                    message_recipient_ids(invite_msg),
+                )
 
         _send_system_message(
             coach_user_id, other_player_user_id, spot_filled_text,
@@ -1868,14 +1891,17 @@ def _broadcast_spot_filled(
         )
         other_event.status = "expired"
         other_event.save()
-        publish({
-            "type": "notification_responded",
-            "payload": {
-                "lessonInstanceId": instance.id,
-                "notificationEventId": other_event.id,
-                "response": "spot_filled",
+        publish(
+            {
+                "type": "notification_responded",
+                "payload": {
+                    "lessonInstanceId": instance.id,
+                    "notificationEventId": other_event.id,
+                    "response": "spot_filled",
+                },
             },
-        })
+            _coach_only(coach_user_id),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2155,7 +2181,10 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
             ):
                 m.msg_metadata = {**m.msg_metadata, "superseded": True}
                 m.save()
-                publish({"type": "message_edited", "payload": serialize_message(m, None)})
+                publish(
+                    {"type": "message_edited", "payload": serialize_message(m, None)},
+                    message_recipient_ids(m),
+                )
 
         _send_system_message(
             coach_user_id=coach_user_id,
@@ -2219,7 +2248,10 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
         ):
             m.msg_metadata = {**m.msg_metadata, "superseded": True, "expired": True}
             m.save()
-            publish({"type": "message_edited", "payload": serialize_message(m, None)})
+            publish(
+                {"type": "message_edited", "payload": serialize_message(m, None)},
+                message_recipient_ids(m),
+            )
 
 
 def _retire_invite_message(event: NotificationEvent) -> None:
@@ -2242,7 +2274,10 @@ def _retire_invite_message(event: NotificationEvent) -> None:
         return
     msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
     msg.save()
-    publish({"type": "message_edited", "payload": serialize_message(msg, None)})
+    publish(
+        {"type": "message_edited", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
 
 
 def _expire_stale_invitations(instance: LessonInstance) -> int:
@@ -2481,7 +2516,10 @@ def respond_to_reminder(
             "response": action,
         }
         reminder_msg.save()
-        publish({"type": "message_edited", "payload": serialize_message(reminder_msg, None)})
+        publish(
+            {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
+            message_recipient_ids(reminder_msg),
+        )
 
     if action == "yes":
         if presence:
@@ -2817,7 +2855,10 @@ def cancel_attendance(
                 "response": "no",
             }
             reminder_msg.save()
-            publish({"type": "message_edited", "payload": serialize_message(reminder_msg, None)})
+            publish(
+            {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
+            message_recipient_ids(reminder_msg),
+        )
 
     _free_spot_for_declining_player(
         instance,
@@ -3136,14 +3177,17 @@ def trigger_invitations(
         all_notified.extend(notified)
 
     if all_notified:
-        publish({
-            "type": "notify_sent",
-            "payload": {
-                "lessonInstanceId": instance.id,
-                "count": len(all_notified),
-                "type": "auto",
+        publish(
+            {
+                "type": "notify_sent",
+                "payload": {
+                    "lessonInstanceId": instance.id,
+                    "count": len(all_notified),
+                    "type": "auto",
+                },
             },
-        })
+            _coach_only(_user_id_for_coach(coach_id)),
+        )
 
     return all_notified
 
@@ -3265,7 +3309,10 @@ def respond_to_notification(
                 "response": action,
             }
             invite_msg.save()
-            publish({"type": "message_edited", "payload": serialize_message(invite_msg, None)})
+            publish(
+                {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
+                message_recipient_ids(invite_msg),
+            )
 
     instance = event.lesson_instance
     vacancy = event.vacancy
@@ -3288,14 +3335,17 @@ def respond_to_notification(
                 class_instance_id=instance.id,
             )
 
-        publish({
-            "type": "notification_responded",
-            "payload": {
-                "lessonInstanceId": instance.id,
-                "notificationEventId": event.id,
-                "response": "no",
+        publish(
+            {
+                "type": "notification_responded",
+                "payload": {
+                    "lessonInstanceId": instance.id,
+                    "notificationEventId": event.id,
+                    "response": "no",
+                },
             },
-        })
+            _coach_only(coach_user_id),
+        )
         return {"action": "declined"}
 
     elif action == "yes":
@@ -3311,14 +3361,17 @@ def respond_to_notification(
                     class_instance_id=instance.id,
                 )
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
-            publish({
-                "type": "notification_responded",
-                "payload": {
-                    "lessonInstanceId": instance.id,
-                    "notificationEventId": event.id,
-                    "response": "spot_filled",
+            publish(
+                {
+                    "type": "notification_responded",
+                    "payload": {
+                        "lessonInstanceId": instance.id,
+                        "notificationEventId": event.id,
+                        "response": "spot_filled",
+                    },
                 },
-            })
+                _coach_only(coach_user_id),
+            )
             return {"action": "spot_filled_waiting_list_offered"}
 
         # Re-check capacity
@@ -3333,14 +3386,17 @@ def respond_to_notification(
                     class_instance_id=instance.id,
                 )
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
-            publish({
-                "type": "notification_responded",
-                "payload": {
-                    "lessonInstanceId": instance.id,
-                    "notificationEventId": event.id,
-                    "response": "spot_filled",
+            publish(
+                {
+                    "type": "notification_responded",
+                    "payload": {
+                        "lessonInstanceId": instance.id,
+                        "notificationEventId": event.id,
+                        "response": "spot_filled",
+                    },
                 },
-            })
+                _coach_only(coach_user_id),
+            )
             return {"action": "spot_filled_waiting_list_offered"}
 
         # Fill the spot
@@ -3370,14 +3426,17 @@ def respond_to_notification(
                 locale=locale,
             )
 
-        publish({
-            "type": "notification_responded",
-            "payload": {
-                "lessonInstanceId": instance.id,
-                "notificationEventId": event.id,
-                "response": "yes",
+        publish(
+            {
+                "type": "notification_responded",
+                "payload": {
+                    "lessonInstanceId": instance.id,
+                    "notificationEventId": event.id,
+                    "response": "yes",
+                },
             },
-        })
+            _coach_only(coach_user_id),
+        )
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
@@ -3543,14 +3602,17 @@ def send_manual_notifications(
 
         events.append(event)
 
-    publish({
-        "type": "notify_sent",
-        "payload": {
-            "lessonInstanceId": instance_id,
-            "count": len(events),
-            "type": "manual",
+    publish(
+        {
+            "type": "notify_sent",
+            "payload": {
+                "lessonInstanceId": instance_id,
+                "count": len(events),
+                "type": "manual",
+            },
         },
-    })
+        _coach_only(coach_user_id),
+    )
 
     return events
 
@@ -3891,14 +3953,17 @@ def _fill_from_waiting_list(
         class_instance_id=instance.id,
     )
 
-    publish({
-        "type": "notification_responded",
-        "payload": {
-            "lessonInstanceId": instance.id,
-            "vacancyId": vacancy.id,
-            "response": "waiting_list_filled",
+    publish(
+        {
+            "type": "notification_responded",
+            "payload": {
+                "lessonInstanceId": instance.id,
+                "vacancyId": vacancy.id,
+                "response": "waiting_list_filled",
+            },
         },
-    })
+        _coach_only(coach.user_id),
+    )
 
 
 # ---------------------------------------------------------------------------
