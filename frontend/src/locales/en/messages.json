@@ -103,6 +103,7 @@
     "confirmDeleteMessageAria": "Confirm delete message",
     "delete": "Delete",
     "conversationFallback": "Conversation",
+    "deletedUser": "Deleted user",
     "noMessagesSayHi": "No messages yet. Say hi!",
     "reactWith": "React with {{emoji}}",
     "roleLabel": "Role: {{role}}",

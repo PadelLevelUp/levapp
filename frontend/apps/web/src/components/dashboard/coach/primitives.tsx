@@ -41,13 +41,16 @@ export function FillBar({
   filled,
   capacity,
   className,
+  neutral = false,
 }: {
   filled: number;
   capacity: number;
   className?: string;
+  /** PAD-202: a student's rows never go amber — seats are the coach's problem. */
+  neutral?: boolean;
 }) {
   const pct = capacity > 0 ? Math.min(100, (filled / capacity) * 100) : 0;
-  const short = capacity > 0 && filled < capacity;
+  const short = !neutral && capacity > 0 && filled < capacity;
 
   return (
     <span
@@ -66,8 +69,16 @@ export function FillBar({
 }
 
 /** `2/6`, coloured amber only when short. Always tabular. */
-export function FillCount({ filled, capacity }: { filled: number; capacity: number }) {
-  const short = capacity > 0 && filled < capacity;
+export function FillCount({
+  filled,
+  capacity,
+  neutral = false,
+}: {
+  filled: number;
+  capacity: number;
+  neutral?: boolean;
+}) {
+  const short = !neutral && capacity > 0 && filled < capacity;
   return (
     <span
       className={cn(
@@ -168,16 +179,19 @@ export function ActionCard({
   className,
   children,
   onClick,
+  testId,
 }: {
   accent?: "attention" | "accent";
   className?: string;
   children: ReactNode;
   onClick?: () => void;
+  testId?: string;
 }) {
   const interactive = typeof onClick === "function";
 
   return (
     <div
+      data-testid={testId}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={onClick}

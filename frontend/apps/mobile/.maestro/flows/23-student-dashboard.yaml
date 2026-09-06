@@ -1,0 +1,57 @@
+# PAD-202 — the student dashboard on iOS speaks the coach home's language.
+# Mirrors: apps/web/e2e/dashboard/student-dashboard-home.spec.ts
+# - the greeting lives in the navy app bar (no in-screen "Dashboard" title)
+# - hero, needs-you queue and next-7-days render under the student root
+# - the seeded invite ("E2E Academy Class") is a queue card
+# - the KPI tiles keep their ids; Attended still opens the history screen
+#
+# NOTE: written but NOT run — Maestro cannot launch on the pinned simulator
+# (simctl privacy grant hangs; see the QA report of 2026-08-30).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-student.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 30000
+
+# ── The same sections the coach home exposes ──
+- assertVisible:
+    id: "dashboard-next-class"
+- assertVisible:
+    id: "dashboard-needs-you"
+- assertVisible:
+    id: "dashboard-queue-invite"
+- assertVisible:
+    text: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "dashboard-schedule"
+    direction: DOWN
+    timeout: 20000
+
+# ── KPI tiles keep their ids and their destinations ──
+- scrollUntilVisible:
+    element:
+      id: "dashboard-kpi-attended"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "dashboard-kpi-missed"
+- assertVisible:
+    id: "dashboard-kpi-upcoming-lessons"
+- assertVisible:
+    id: "dashboard-kpi-invites"
+- tapOn:
+    id: "dashboard-kpi-attended"
+- extendedWaitUntil:
+    visible:
+      id: "attendance"
+    timeout: 20000
+- tapOn:
+    id: "attendance-back"
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 20000

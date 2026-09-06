@@ -1,4 +1,5 @@
 import { useDashboard } from "@levelup/hooks";
+import { COACH_DASHBOARD_ID } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshControl, ScrollView, View } from "react-native";
@@ -6,11 +7,8 @@ import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
-import {
-  CoachDashboard,
-  isCoachDashboard,
-} from "@/features/dashboard/CoachDashboard";
-import { DashboardBlocks } from "@/features/dashboard/DashboardBlocks";
+import { CoachDashboard } from "@/features/dashboard/CoachDashboard";
+import { StudentDashboard } from "@/features/dashboard/StudentDashboard";
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
@@ -58,11 +56,12 @@ export default function DashboardScreen() {
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-40 w-full" />
           </View>
-        ) : isCoachDashboard(data?.blocks ?? []) ? (
-          <CoachDashboard blocks={data?.blocks ?? []} />
+        ) : data?.id === COACH_DASHBOARD_ID ? (
+          // The payload id is the switch (dashboard.blocks rule 3b): both
+          // homes share block types, so sniffing them would be a guess.
+          <CoachDashboard blocks={data.blocks} />
         ) : (
-          // The player dashboard still ships the older block types.
-          <DashboardBlocks blocks={data?.blocks ?? []} />
+          <StudentDashboard blocks={data?.blocks ?? []} />
         )}
       </ScrollView>
     </Screen>
