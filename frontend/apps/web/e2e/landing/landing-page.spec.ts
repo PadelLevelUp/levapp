@@ -63,6 +63,67 @@ test.describe("landing page", () => {
     await page.getByRole("link", { name: /^termos$/i }).click();
     await page.waitForURL("**/terms");
   });
+
+  test("the audience tabs swap the whole page without navigating", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const tabs = page.getByRole("tablist");
+    await expect(tabs.getByRole("tab", { name: /para treinadores/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await tabs.getByRole("tab", { name: /para alunos/i }).click();
+    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toHaveCount(0);
+    await expect(tabs.getByRole("tab", { name: /para alunos/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page).toHaveURL(/\/$/);
+
+    await tabs.getByRole("tab", { name: /^outros$/i }).click();
+    await expect(
+      page.getByRole("heading", { name: /novidades a caminho/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /ideias que nos entusiasmam/i }),
+    ).toBeVisible();
+    // "Others" has no benefits / how / results sections.
+    await expect(page.locator("#como-funciona")).toHaveCount(0);
+    await expect(page.locator("#resultados")).toHaveCount(0);
+  });
+
+  test("?audience= opens the page on that audience", async ({ page }) => {
+    await page.goto("/?audience=alunos");
+    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
+    await expect(
+      page.getByRole("tablist").getByRole("tab", { name: /para alunos/i }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await page.goto("/?audience=players");
+    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
+
+    // Anything unknown falls back to coaches.
+    await page.goto("/?audience=nope");
+    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toBeVisible();
+  });
+
+  test("the final CTA rotates through the audiences", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /^sou aluno$/i }).click();
+    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /^sou treinador$/i }).click();
+    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toBeVisible();
+  });
+
+  test("the player audience sends a lost invite to support", async ({ page }) => {
+    await page.goto("/?audience=alunos");
+    await page.getByRole("link", { name: /recebi um convite/i }).click();
+    await page.waitForURL("**/support");
+  });
 });
 
 test.describe("login loader", () => {

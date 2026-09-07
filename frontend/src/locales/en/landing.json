@@ -1,63 +1,240 @@
 {
   "landing": {
     "nav": {
+      "benefits": "Benefits",
       "how": "How it works",
-      "academies": "For academies",
-      "players": "For players",
+      "results": "Results",
       "login": "Log in",
       "demo": "Request a demo",
       "openMenu": "Open menu",
       "closeMenu": "Close menu"
     },
+    "mail": {
+      "demoSubject": "Request a demo",
+      "ideaSubject": "Idea for LevApp"
+    },
+    "audience": {
+      "label": "Pick your profile",
+      "coaches": "For coaches",
+      "players": "For players",
+      "others": "Others"
+    },
     "hero": {
-      "eyebrow": "For padel and tennis academies",
-      "titleLine1": "Fill your classes.",
-      "titleLine2": "Talk to your players.",
-      "subtitle": "LevApp handles the invitations, the follow-ups and the reminders. You handle the coaching.",
-      "primary": "Request a demo",
-      "secondary": "See how it works"
-    },
-    "preview": {
-      "date": "Tuesday, 4 August",
-      "title": "Needs attention",
-      "initials": "BT",
-      "nextEyebrow": "UP NEXT · 10:30",
-      "nextIn": "in 45 min",
-      "nextClass": "Class 5",
-      "nextMeta": "Level 3 · Court 2",
-      "nextCount": "12/16",
-      "gapTitle": "Class 12 has 9 spots open",
-      "gapMeta": "Thursday · 10:30 · Level 4- · 7/16",
-      "gapPrimary": "Invite 12 players",
-      "gapSecondary": "Later",
-      "replyInitials": "IN",
-      "replyTitle": "Inês Neuparth replied",
-      "replyBody": "“Yes, Wednesday works for me”"
-    },
-    "values": {
-      "eyebrow": "WHAT CHANGES",
-      "title": "Three things that stop eating your day",
-      "full": {
-        "title": "Full classes",
-        "body": "You see the empty spots before they become a problem. LevApp suggests who has the right level and is free."
+      "coaches": {
+        "badge": "For padel and tennis coaches",
+        "title1": "Fill your classes.",
+        "title2": "Save hours every day.",
+        "lead": "Forget the messages, the confirmations and the headaches. LevApp handles reminders, attendance and invitations automatically. You handle the coaching.",
+        "primary": "Request a demo",
+        "secondary": "See how it works",
+        "proof1": "No manual messages",
+        "proof2": "Spots fill themselves",
+        "proof3": "Classes by level"
       },
-      "invites": {
-        "title": "Automatic invitations",
-        "body": "Invitation, follow-up and reminder go out on their own. You only step in when someone says something that needs you.",
-        "accepted": "22 accepted",
-        "pending": "9 awaiting reply"
+      "players": {
+        "badge": "For students and players",
+        "title1": "Play more.",
+        "title2": "Find the right class.",
+        "lead": "Last-minute spots at your academy, classes that match your level and one-tap confirmations. No endless WhatsApp groups.",
+        "primary": "Log in",
+        "secondary": "I have an invitation",
+        "proof1": "Last-minute spots",
+        "proof2": "Classes at your level",
+        "proof3": "Confirm in one tap"
       },
-      "progress": {
-        "title": "Progress that counts",
-        "body": "Level, attendance and evaluations for every player in one place — and visible to them."
+      "others": {
+        "badge": "For clubs, academies and partners",
+        "title1": "News on the way.",
+        "title2": "Talk to us.",
+        "lead": "We are still preparing a few surprises for you. If buying a house in Portugal is what it is, imagine building software from scratch. We would love to hear your ideas: admin@levapp.pt.",
+        "primary": "Send an idea",
+        "secondary": "See it for coaches",
+        "proof1": "Tailored integrations",
+        "proof2": "White-label",
+        "proof3": "API available"
       }
     },
-    "players": {
-      "eyebrow": "ARE YOU A PLAYER?",
-      "title": "Does your academy already use LevApp?",
-      "body": "Log in to see your classes, confirm attendance and follow your level.",
-      "primary": "Log in",
-      "secondary": "I got an invitation"
+    "watch": {
+      "label": "Apple Watch notification: {{text}}",
+      "now": "now",
+      "filled": {
+        "title": "The last spot in the 11:00 class has been filled.",
+        "meta": "Class full · 4/4"
+      },
+      "invite": {
+        "title": "A spot opened up today at 18:00. Want to come?",
+        "meta": "New spot · today at 18:00"
+      }
+    },
+    "alt": {
+      "calendar": "LevApp weekly calendar with classes and filled spots",
+      "mobileDashboardCoach": "Coach dashboard in the LevApp mobile app with spots to fill",
+      "mobileDashboard": "Student dashboard in the LevApp mobile app",
+      "mobileDashboardSteps": "Student dashboard with attendance and upcoming classes in LevApp",
+      "messages": "LevApp automatic messages filling spots with students",
+      "mobileMessages": "Messages in the coach's LevApp mobile app",
+      "mobilePresences": "Student attendance and progress in the LevApp app",
+      "mobilePresencesStats": "Student attendance statistics in the LevApp app",
+      "presences": "Attendance and player statistics in LevApp",
+      "mobilePresencesCoach": "Attendance and players in the coach's LevApp mobile app",
+      "training": "Building drills with a court diagram in LevApp"
+    },
+    "benefits": {
+      "coaches": {
+        "eyebrow": "Why coaches switch",
+        "title": "Less admin.",
+        "items": {
+          "time": {
+            "title": "Save hours every day",
+            "text": "Forget the messages, the confirmations and the headaches. LevApp does it all for you.",
+            "bullet1": "Automatic invitations and follow-ups",
+            "bullet2": "Reminders before every class",
+            "bullet3": "You only step in when needed"
+          },
+          "money": {
+            "title": "Earn more",
+            "text": "Know who is going to miss and fill every spot automatically. And find students looking for classes.",
+            "bullet1": "Absences caught early",
+            "bullet2": "Spots fill themselves",
+            "bullet3": "New students from your area"
+          },
+          "competitive": {
+            "title": "More competitive classes",
+            "text": "LevApp finds the right student for the right spot: same level, same side of the court — or whatever criteria you set.",
+            "bullet1": "Matching by level",
+            "bullet2": "Left / right side",
+            "bullet3": "Criteria tailored to you"
+          }
+        }
+      },
+      "players": {
+        "eyebrow": "What you get",
+        "title": "More play, fewer messages.",
+        "items": {
+          "lastMinute": {
+            "title": "Last-minute spots",
+            "text": "Someone dropped out? You get the spot on your phone and accept in one tap, before it goes to someone else.",
+            "bullet1": "Real-time alerts",
+            "bullet2": "Accept in one tap",
+            "bullet3": "Extra classes when you want"
+          },
+          "connect": {
+            "title": "Connect with more players",
+            "text": "Play with people at your level inside and outside the academy. More partners, more games.",
+            "bullet1": "Players at your level",
+            "bullet2": "Classes that fit you",
+            "bullet3": "Academy community"
+          },
+          "confirm": {
+            "title": "Simple confirmations",
+            "text": "Yes or no, one button. No WhatsApp groups, no asking twice.",
+            "bullet1": "One tap to confirm",
+            "bullet2": "Attendance history",
+            "bullet3": "Reminders at the right time"
+          },
+          "competitive": {
+            "title": "More competitive classes",
+            "text": "You stay in classes at your level and see real progress, class after class.",
+            "bullet1": "Level always up to date",
+            "bullet2": "Coach evaluations",
+            "bullet3": "Visible progress"
+          }
+        }
+      }
+    },
+    "how": {
+      "eyebrow": "How it works",
+      "cta": "Talk to us",
+      "coaches": {
+        "title": "LevApp adapts to your academy",
+        "lead": "You don't need to be technical or change everything you already have. LevApp fits into your workflow.",
+        "step1": {
+          "title": "Set-up done by our team",
+          "text": "A LevApp team does the set-up for you. Just ask."
+        },
+        "step2": {
+          "title": "Understands your calendar and students",
+          "text": "An app that understands your calendar and student base if you send it the usual spreadsheets you work with."
+        },
+        "step3": {
+          "title": "Simple or advanced, your call",
+          "text": "A system as simple as you want, as complex as you need."
+        }
+      },
+      "players": {
+        "title": "Start training in 3 steps",
+        "lead": "Join with your academy's invitation and keep everything on your phone: classes, spots and your progress.",
+        "step1": {
+          "title": "Create your account",
+          "text": "Sign up in seconds with your email or Google account."
+        },
+        "step2": {
+          "title": "Connect with your coaches",
+          "text": "Accept the academy's invitation and see the classes available to you."
+        },
+        "step3": {
+          "title": "Start training",
+          "text": "Confirm attendance in one tap, grab last-minute spots and track your progress."
+        }
+      }
+    },
+    "results": {
+      "eyebrow": "Results",
+      "coaches": {
+        "title": "Time goes back to the court.",
+        "stat1": { "value": "+6h", "label": "saved per week on messages" },
+        "stat2": { "value": "3×", "label": "fewer no-shows without notice" },
+        "stat3": { "value": "+30%", "label": "class occupancy" },
+        "quote": "“I used to spend the evening sending messages to close the next day's classes. Now I open the app, see what's missing and it's sorted.”",
+        "initials": "BT",
+        "name": "Bernardo T.",
+        "role": "Padel coach, Porto"
+      },
+      "players": {
+        "title": "Less waiting. More play.",
+        "stat1": { "value": "1 click", "label": "to confirm attendance" },
+        "stat2": { "value": "< 5 min", "label": "for a spot to reach you" },
+        "stat3": { "value": "100%", "label": "of your progress visible" },
+        "quote": "“Now I can join several classes as a guest, at a much more affordable price.”",
+        "initials": "PP",
+        "name": "Pedro P.",
+        "role": "Padel student, Porto"
+      }
+    },
+    "others": {
+      "eyebrow": "Others",
+      "title": "We are still preparing a few surprises for you.",
+      "body": "If buying a house in Portugal is what it is, imagine building software from scratch. We would love to hear your ideas:",
+      "primary": "Send an idea",
+      "secondary": "See it for coaches",
+      "ideasTitle": "Ideas that excite us",
+      "idea1": "Integration with your current booking software",
+      "idea2": "White-label for your academy or club",
+      "idea3": "API to connect other tools",
+      "idea4": "Custom reports and dashboards",
+      "idea5": "Automations specific to your workflow",
+      "mockupTitle": "Under construction",
+      "mockupBody": "We are designing something tailored for you. In the meantime, tell us what you need."
+    },
+    "cta": {
+      "coaches": {
+        "title": "Shall we fill your classes?",
+        "body": "We show you LevApp with your academy's real schedule. 20 minutes, no commitment.",
+        "primary": "Request a demo",
+        "switch": "I'm a student"
+      },
+      "players": {
+        "title": "Does your academy already use LevApp?",
+        "body": "Log in to see your classes, confirm attendance and grab last-minute spots.",
+        "primary": "Log in",
+        "switch": "I'm a coach"
+      },
+      "others": {
+        "title": "Got an idea?",
+        "body": "Tell us what you need. We love figuring out how LevApp can fit your project.",
+        "primary": "Send an idea",
+        "switch": "See it for coaches"
+      }
     },
     "footer": {
       "contact": "Contact",
@@ -65,7 +242,7 @@
       "terms": "Terms"
     },
     "loader": {
-      "label": "Signing you in…"
+      "label": "Signing in…"
     }
   }
 }
