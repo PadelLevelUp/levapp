@@ -1,0 +1,90 @@
+# Mirrors: apps/web/e2e/messaging/unknown-sender-banner.spec.ts (PAD-215,
+# messaging.block-and-report rules 7–10)
+# - e2e-student messages e2e-student-3 (no coach, no club) by username
+# - e2e-student-3 opens the thread → unknown-sender banner with Block / Report
+# - Report → preset "unsolicited" → Report and block → blocked composer note
+# - Settings → Account → Blocked users lists the sender → Unblock
+# The recipient signs in through the generic login.yaml subflow with the
+# seeded e2e-student-3 credentials (no coach, no club — see seed.py).
+appId: com.padellevelup.app
+---
+# ── Sender: e2e-student → e2e-student-3 by username ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    id: "messages-new"
+- extendedWaitUntil:
+    visible:
+      id: "message-by-username"
+    timeout: 20000
+- tapOn:
+    id: "message-by-username-input"
+- inputText: "e2e-student-3"
+- tapOn:
+    id: "message-by-username-submit"
+- extendedWaitUntil:
+    visible:
+      id: "message-input"
+    timeout: 20000
+- tapOn:
+    id: "message-input"
+- inputText: "Maestro unknown sender"
+- tapOn:
+    id: "message-send"
+- extendedWaitUntil:
+    visible:
+      text: "Maestro unknown sender"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+
+# ── Recipient: e2e-student-3 sees the banner ──
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    text: "Maestro unknown sender"
+- extendedWaitUntil:
+    visible:
+      id: "unknown-sender-banner"
+    timeout: 20000
+- assertVisible:
+    id: "unknown-sender-block"
+
+# ── Report and block from the banner ──
+- tapOn:
+    id: "unknown-sender-report"
+- extendedWaitUntil:
+    visible:
+      id: "report-reason-unsolicited"
+    timeout: 10000
+- tapOn:
+    id: "report-and-block"
+- extendedWaitUntil:
+    visible:
+      id: "chat-blocked-note"
+    timeout: 15000
+- assertNotVisible:
+    id: "unknown-sender-banner"
+
+# ── Settings → Account → Blocked users → Unblock ──
+- tapOn:
+    id: "header-account"
+- tapOn:
+    id: "settings-nav-account"
+- extendedWaitUntil:
+    visible:
+      id: "blocked-users"
+    timeout: 15000
+- assertVisible:
+    text: "E2E Student"
+- tapOn:
+    id: "blocked-user-unblock-.*"
+- extendedWaitUntil:
+    visible:
+      id: "blocked-users-empty"
+    timeout: 15000

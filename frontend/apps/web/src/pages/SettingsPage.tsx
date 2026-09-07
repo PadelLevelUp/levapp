@@ -41,6 +41,7 @@ import { ImportHistorySection } from "@/components/settings/ImportHistorySection
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
+import { BlockedUsersSection } from "@/components/settings/BlockedUsersSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 import { TutorialsSection } from "@/components/settings/TutorialsSection";
 import { AdminSection } from "@/components/settings/AdminSection";
@@ -596,6 +597,8 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <BlockedUsersSection />
+                  <Separator />
                   <AccountSection />
                   <Separator />
                   <p className="text-xs text-muted-foreground">

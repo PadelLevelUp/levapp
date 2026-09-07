@@ -153,7 +153,16 @@
       "deleteConfirm": "Delete account",
       "deleting": "Deleting...",
       "deleteSuccess": "Your account has been deleted.",
-      "deleteFailed": "Failed to delete your account. Please try again."
+      "deleteFailed": "Failed to delete your account. Please try again.",
+      "blockedUsers": {
+        "title": "Blocked users",
+        "description": "People you've blocked can't message you, and you can't message them. Unblock to allow messages again.",
+        "empty": "You haven't blocked anyone.",
+        "unblock": "Unblock",
+        "unblocked": "{{name}} unblocked",
+        "loadFailed": "Could not load blocked users.",
+        "unblockFailed": "Couldn't unblock this user. Please try again."
+      }
     },
     "import": {
       "title": "Import Data",

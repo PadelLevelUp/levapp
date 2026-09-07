@@ -153,7 +153,16 @@
       "deleteConfirm": "Eliminar conta",
       "deleting": "A eliminar...",
       "deleteSuccess": "A tua conta foi eliminada.",
-      "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente."
+      "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente.",
+      "blockedUsers": {
+        "title": "Utilizadores bloqueados",
+        "description": "As pessoas que bloqueaste não te podem enviar mensagens, nem tu a elas. Desbloqueia para voltar a permitir mensagens.",
+        "empty": "Não bloqueaste ninguém.",
+        "unblock": "Desbloquear",
+        "unblocked": "{{name}} desbloqueado",
+        "loadFailed": "Não foi possível carregar os utilizadores bloqueados.",
+        "unblockFailed": "Não foi possível desbloquear este utilizador. Tenta novamente."
+      }
     },
     "import": {
       "title": "Importar dados",

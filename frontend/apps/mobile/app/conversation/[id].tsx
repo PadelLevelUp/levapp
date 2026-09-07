@@ -40,6 +40,7 @@ import {
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
+import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
@@ -109,6 +110,14 @@ export default function ConversationScreen() {
   const [reportMessageId, setReportMessageId] = React.useState<
     string | number | null
   >(null);
+  // messaging.block-and-report rules 7–9 (PAD-215): banner state. `repliedLocally`
+  // hides the banner as soon as the viewer sends something, without a refetch.
+  const [reportFromBanner, setReportFromBanner] = React.useState(false);
+  const [repliedLocally, setRepliedLocally] = React.useState(false);
+  React.useEffect(() => {
+    setRepliedLocally(false);
+    setReportFromBanner(false);
+  }, [conversationId]);
   const [highlightedId, setHighlightedId] = React.useState<
     string | number | null
   >(null);
@@ -138,6 +147,19 @@ export default function ConversationScreen() {
     ? String(conversation.participantId)
     : null;
   const isBlocked = participantId ? blockedUserIds.has(participantId) : false;
+  const showUnknownSender =
+    !!conversation &&
+    conversation.isKnownContact === false &&
+    !repliedLocally &&
+    !isBlocked &&
+    !conversation.isAssistant &&
+    !!participantId;
+
+  const blockFromBanner = async () => {
+    if (!participantId) return;
+    await messagesApi.blockUser(participantId);
+    setBlockedUserIds((prev) => new Set(prev).add(participantId));
+  };
 
   // PAD-203: `participantName` is null once the counterpart is gone
   // (messaging.conversations rule 10) — a different thing from "not loaded
@@ -316,6 +338,7 @@ export default function ConversationScreen() {
         content,
         replyToId,
       });
+      setRepliedLocally(true);
       updateConversationCache(queryClient, conversationId, (c) => {
         // SSE may already have delivered the saved message — drop the temp.
         const alreadyDelivered = c.messages.some(
@@ -745,6 +768,19 @@ export default function ConversationScreen() {
             onRetry={() => void refetch()}
           />
         ) : (
+          <>
+          {showUnknownSender ? (
+            <UnknownSenderBanner
+              participantName={
+                conversation.participantName ?? t("messages.deletedUser")
+              }
+              onBlock={() => setConfirmingToggleBlock(true)}
+              onReport={() => {
+                setReportFromBanner(true);
+                setReportMessageId(lastParticipantMessageId);
+              }}
+            />
+          ) : null}
           <FlatList
             ref={listRef}
             data={conversation.messages}
@@ -820,6 +856,7 @@ export default function ConversationScreen() {
               </View>
             }
           />
+          </>
         )}
 
         {/* Composer / edit composer */}
@@ -1006,9 +1043,14 @@ export default function ConversationScreen() {
       <ReportMessageDialog
         open={reportMessageId !== null}
         onOpenChange={(open) => {
-          if (!open) setReportMessageId(null);
+          if (!open) {
+            setReportMessageId(null);
+            setReportFromBanner(false);
+          }
         }}
         messageId={reportMessageId}
+        presetReason={reportFromBanner ? "unsolicited" : "spam"}
+        onReportAndBlock={reportFromBanner ? blockFromBanner : undefined}
       />
 
       {/* Long-press context menu: quick reactions + Edit/Delete (own only) */}

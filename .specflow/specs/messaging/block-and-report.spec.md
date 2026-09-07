@@ -1,6 +1,6 @@
 ---
 id: messaging.block-and-report
-status: implementing
+status: implemented
 depends_on: [messaging.conversations, messaging.messages, messaging.conversation-detail]
 implements: ../../specs-business/messaging/student-reaches-out-and-stays-safe.business.md
 governed_by: []
