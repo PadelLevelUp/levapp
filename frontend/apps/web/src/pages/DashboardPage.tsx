@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingDashboard } from "@/components/ui/loading-skeleton";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DashboardDefinition } from "@/types";
 import { COACH_DASHBOARD_ID } from "@/types";
 import { CoachDashboard } from "@/components/dashboard/CoachDashboard";
@@ -17,29 +17,36 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  useEffect(() => {
-    async function load() {
+  // `silent` keeps the page in place: a refetch after the student answers a
+  // reminder must swap the payload, not flash the skeleton.
+  const load = useCallback(
+    async (silent = false) => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         const from = new Date().toISOString();
         const to = new Date(Date.now() + 30 * 86400000).toISOString();
 
         const data = await getDashboard({ from, to });
         setDashboard(data);
-        // Neither home renders this block; the layout's unread badge reads it.
+        // Neither home renders this block; the layout's unread badge reads it —
+        // which is how answering a reminder here also lowers the badge.
         const messagesBlock = data.blocks.find((b) => b.type === "messages_overview");
         if (messagesBlock?.type === "messages_overview") {
           setUnreadCount(messagesBlock.data.unreadMessages);
           setLatestMessage(messagesBlock.data.latest ?? null);
         }
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    }
+    },
+    [setUnreadCount, setLatestMessage],
+  );
 
+  useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+  const refresh = useCallback(() => load(true), [load]);
 
   if (loading) {
     return (
@@ -66,7 +73,7 @@ export default function DashboardPage() {
     <AppLayout>
       {/* No in-page "Dashboard" heading — the word belongs to the navigation
           alone. The greeting is the page's orientation instead. */}
-      <Home blocks={dashboard.blocks} firstName={firstName} />
+      <Home blocks={dashboard.blocks} firstName={firstName} onRefresh={refresh} />
     </AppLayout>
   );
 }

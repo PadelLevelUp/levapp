@@ -73,10 +73,14 @@ test.describe("PAD-202: student dashboard home", () => {
     await expect(home.getByTestId("dashboard-needs-you")).toBeVisible();
     await expect(home.getByTestId("dashboard-schedule")).toBeVisible();
     await expect(home.getByText(/NEEDS YOU/)).toBeVisible();
-    await expect(home.getByText(/NEXT 7 DAYS/)).toBeVisible();
+    // PAD-202 correction: a student's list is the next 30 days, not the week.
+    await expect(home.getByText(/UPCOMING ·/)).toBeVisible();
 
-    // The hero is the seeded class.
-    await expect(home.getByTestId("dashboard-next-class")).toContainText(SEEDED_CLASS);
+    // The hero is the soonest class — whichever the seed puts first today.
+    const firstRow = home.getByTestId("dashboard-schedule-row").first();
+    const firstTitle = (await firstRow.locator("span.truncate").first().textContent())?.trim() ?? "";
+    expect(firstTitle.length).toBeGreaterThan(0);
+    await expect(home.getByTestId("dashboard-next-class")).toContainText(firstTitle);
 
     // KPI tiles keep their ids and link policy, and now carry a denominator.
     const attended = home.getByTestId("dashboard-kpi-attended");
@@ -135,5 +139,114 @@ test.describe("PAD-202: student dashboard home", () => {
     const sheet = page.locator('[role="dialog"]').first();
     await expect(sheet).toBeVisible({ timeout: 10_000 });
     await expect(sheet.getByText(SEEDED_CLASS).first()).toBeVisible();
+  });
+});
+
+/**
+ * PAD-202 correction — a student answers a reminder where they see the class.
+ *
+ * Spec: dashboard.blocks rule 3a (Yes/No on a pending row) and
+ * notifications.reminders rule 13 (answering marks the reminder read).
+ *
+ * The debug endpoint creates a class two days out with e2e-student enrolled and
+ * fires the real reminder job a few seconds later, so the row, the buttons and
+ * the unread badge are all driven by a genuine reminder message.
+ */
+import { API_ROOT } from "../helpers/api";
+import {
+  COACH_PASSWORD,
+  COACH_USERNAME,
+  STUDENT_PASSWORD,
+  STUDENT_USERNAME,
+} from "../helpers/auth";
+
+type Row = { title: string; lessonInstanceId: number | null; pendingConfirmation: boolean };
+type Overview = { unreadMessages: number };
+
+async function token(request: import("@playwright/test").APIRequestContext, username: string, password: string) {
+  const res = await request.post(`${API_ROOT}/auth/login`, { data: { username, password } });
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+  return (json.accessToken ?? json.access_token) as string;
+}
+
+async function studentDashboard(request: import("@playwright/test").APIRequestContext, jwt: string) {
+  const res = await request.get(`${API_ROOT}/app/dashboard`, { headers: { Authorization: `Bearer ${jwt}` } });
+  expect(res.ok()).toBeTruthy();
+  const payload = await res.json();
+  const blocks = (payload.blocks ?? []) as Array<{ type: string; data: Record<string, unknown> }>;
+  const rows = (blocks.find((b) => b.type === "schedule_7d")?.data.items ?? []) as Row[];
+  const overview = blocks.find((b) => b.type === "messages_overview")?.data as Overview | undefined;
+  return { rows, unread: overview?.unreadMessages ?? 0 };
+}
+
+test.describe("PAD-202: answering a reminder on the dashboard", () => {
+  test("PAD-202: Yes on the class row confirms, clears the buttons and drops the unread count", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const coachJwt = await token(request, COACH_USERNAME, COACH_PASSWORD);
+    // The debug class starts 48h + 5s from now; the reminder fires "48h before",
+    // i.e. in 5 seconds — only if the coach's config says 48h (default is 24h).
+    const cfg = await request.post(`${API_ROOT}/app/notify/config`, {
+      headers: { Authorization: `Bearer ${coachJwt}` },
+      data: {
+        autoNotifyEnabled: true,
+        reminderTiming: {
+          firstReminder: { type: "hours_before", value: 48 },
+          reminderCount: 1,
+          hoursBetweenReminders: 24,
+          invitationStart: { type: "hours_before", value: 24 },
+        },
+      },
+    });
+    expect(cfg.ok(), `config ${cfg.status()}`).toBeTruthy();
+    const scheduled = await request.post(`${API_ROOT}/app/notify/debug/schedule_reminder_test`, {
+      headers: { Authorization: `Bearer ${coachJwt}` },
+      data: { secondsUntilReminderFires: 5 },
+    });
+    expect(scheduled.ok(), `debug endpoint ${scheduled.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
+    const { instanceId } = (await scheduled.json()) as { instanceId: number };
+
+    // Wait for the real reminder job to fire. The debug endpoint may already
+    // leave the presence pending; the signal that the REMINDER MESSAGE exists is
+    // the unread count rising above its pre-schedule baseline.
+    const studentJwt = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+    const baseline = (await studentDashboard(request, studentJwt)).unread;
+    let before = await studentDashboard(request, studentJwt);
+    await expect
+      .poll(
+        async () => {
+          before = await studentDashboard(request, studentJwt);
+          const pending = before.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation ?? false;
+          return pending && before.unread > baseline;
+        },
+        { timeout: 60_000, intervals: [2_000] }
+      )
+      .toBe(true);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await loginAsStudent(page);
+    await loadDashboard(page);
+
+    const row = page.getByTestId("dashboard-schedule-row").filter({ hasText: "E2E Auto-Reminder Test" }).first();
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    const yes = row.getByTestId("dashboard-confirm-yes");
+    await expect(yes).toBeVisible();
+    await expect(row.getByTestId("dashboard-confirm-no")).toBeVisible();
+
+    const refetch = page.waitForResponse(
+      (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
+      { timeout: 15_000 }
+    );
+    await yes.click();
+    await refetch;
+
+    await expect(row.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
+
+    const after = await studentDashboard(request, studentJwt);
+    expect(after.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation).toBe(false);
+    expect(after.unread).toBeLessThan(before.unread);
   });
 });
