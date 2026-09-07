@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { postLoginRoute } from "@/auth/postLoginRoute";
+import { consumePendingJoin } from "@/auth/pendingJoin";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 
 type FieldErrors = { username?: string; password?: string };
@@ -63,7 +64,11 @@ export default function LoginScreen() {
       await login(res.data.accessToken);
       // auth.register rule 11: route by approval / club state, not straight
       // to the tabs.
-      router.replace(postLoginRoute(await refreshUser()));
+      // players.join-token rule 9: a join link opened without a session comes
+      // first, once the account is one that can use it.
+      const route = postLoginRoute(await refreshUser());
+      const pending = consumePendingJoin();
+      router.replace(pending && route === "/(tabs)/dashboard" ? `/join/coach/${pending}` : route);
     } catch (err: any) {
       // No `response` means the request never got a reply from the server —
       // network failure, timeout, DNS/connection error, wrong API host,

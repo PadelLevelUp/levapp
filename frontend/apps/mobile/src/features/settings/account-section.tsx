@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { useTranslation } from "react-i18next";
+import { router } from "expo-router";
 import { Linking, Pressable, View } from "react-native";
+import { useAuth } from "@/auth/AuthContext";
 import {
   Card,
   CardContent,
@@ -50,9 +52,29 @@ function LegalLinkRow({
  */
 export function AccountSection() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isCoach = user?.roles?.includes("coach") ?? false;
 
   return (
     <View className="gap-4">
+      {!isCoach ? (
+        /* players.join-token rule 8: Settings → Account is one of the three
+           ways a student reaches "Connect with a coach". */
+        <Card testID="settings-connect-coach-card">
+          <CardContent className="pt-4">
+            <Pressable
+              testID="settings-connect-coach"
+              accessibilityRole="button"
+              accessibilityLabel={t("players.connect.settingsLink")}
+              onPress={() => router.push("/connect")}
+              className="flex-row items-center justify-between rounded-lg border border-border p-3 active:bg-accent"
+            >
+              <Text className="flex-1 text-base">{t("players.connect.settingsLink")}</Text>
+              <Ionicons name="chevron-forward" size={18} color={lightTheme.mutedForeground} />
+            </Pressable>
+          </CardContent>
+        </Card>
+      ) : null}
       <Card testID="settings-legal">
         <CardHeader>
           <CardTitle>{t("settings.legal.title")}</CardTitle>
