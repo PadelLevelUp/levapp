@@ -55,3 +55,18 @@ appId: com.padellevelup.app
     visible:
       id: "student-dashboard"
     timeout: 20000
+
+# ── PAD-202 correction: a class the student was asked to confirm carries
+#    Yes / No right on its row (and on the hero). The seed leaves e2e-student
+#    invited-but-unanswered on "E2E Academy Class", so the buttons must be
+#    there. Not tapped: answering would change the seed the calendar flows
+#    (14-student-calendar) rely on. ──
+- scrollUntilVisible:
+    element:
+      id: "dashboard-schedule"
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    id: "dashboard-confirm-yes"
+- assertVisible:
+    id: "dashboard-confirm-no"

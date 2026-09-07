@@ -14,7 +14,7 @@ The messaging domain.
 - `messaging.push-notifications` — implemented
 - `messaging.conversation-detail` — implemented
 - `messaging.block-and-report` — implementing (block/report built, never specced; unknown-sender banner draft)
-- `messaging.direct-by-username` — draft (student→student by exact username)
+- `messaging.direct-by-username` — implemented (student→student by exact username; PAD-214)
 
 ## Why it's grouped this way
 

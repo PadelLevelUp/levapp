@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { register, type RegisterPayload } from "@/api/auth";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginPath } from "@/auth/postLoginPath";
+import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
 
@@ -115,7 +116,9 @@ const SignUpPage = () => {
       // coach" regardless of what postLoginPath knows about them; a coach is
       // routed by approval state (pending, on a fresh signup).
       if (role === "student") {
-        navigate("/connect", { replace: true });
+        // players.join-token rule 9: a student who arrived from a join link
+        // goes straight back to it instead of the generic "Connect" screen.
+        navigate(consumePostAuthRedirect() ?? "/connect", { replace: true });
       } else {
         // `login()` already loaded the user; re-read it through the same
         // helper the guards use so the two can never disagree.

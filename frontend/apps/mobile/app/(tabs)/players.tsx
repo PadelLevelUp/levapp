@@ -21,6 +21,7 @@ import {
   type Option,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AddByQrSheet } from "@/features/players/add-by-qr-sheet";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ export default function PlayersScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [search, setSearch] = React.useState("");
+  const [qrOpen, setQrOpen] = React.useState(false);
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [sortValue, setSortValue] = React.useState<SortValue>("name-asc");
@@ -221,6 +223,15 @@ export default function PlayersScreen() {
           />
           <Button
             size="icon"
+            variant="outline"
+            testID="players-add-by-qr"
+            accessibilityLabel={t("players.addByQr.button")}
+            onPress={() => setQrOpen(true)}
+          >
+            <Ionicons name="qr-code-outline" size={22} color={lightTheme.primary} />
+          </Button>
+          <Button
+            size="icon"
             testID="players-add"
             accessibilityLabel={t("players.addPlayer")}
             onPress={() => router.push("/player/new")}
@@ -350,6 +361,7 @@ export default function PlayersScreen() {
           </Button>
         </View>
       </View>
+      <AddByQrSheet open={qrOpen} onOpenChange={setQrOpen} />
     </View>
   );
 }

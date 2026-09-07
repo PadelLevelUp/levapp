@@ -95,6 +95,12 @@ from padel_app.services.player_invitation_service import (
     accept_player_invitation_service,
     revoke_player_invitation_service,
 )
+from padel_app.services.player_join_service import (
+    mint_join_token_service,
+    get_active_join_token_service,
+    get_join_token_preview_service,
+    accept_join_token_service,
+)
 from padel_app.services.coach_service import (
     upsert_coach_levels,
     upsert_evaluation_categories,
@@ -1588,6 +1594,41 @@ def revoke_player_invitation(token):
     coach = require_coach()
     revoke_player_invitation_service(token, coach)
     return jsonify({"success": True})
+
+
+# ---------------------------------------------------------------------------
+# players.join-token (PAD-212): a coach's reusable QR / link a signed-in
+# student redeems. Coach side needs an approved coach with a club; the preview
+# is public; accept takes the acting player from the JWT and nothing else.
+# ---------------------------------------------------------------------------
+
+@bp.post("/coach/join-token")
+@jwt_required()
+def mint_join_token():
+    coach = require_coach()
+    club = require_club()  # 409 NO_CLUB, never a 500
+    return jsonify(mint_join_token_service(coach, club)), 201
+
+
+@bp.get("/coach/join-token")
+@jwt_required()
+def get_join_token():
+    coach = require_coach()
+    return jsonify(get_active_join_token_service(coach))
+
+
+@bp.get("/join-tokens/<token>")
+def preview_join_token(token):
+    return jsonify(get_join_token_preview_service(token))
+
+
+@bp.post("/join-tokens/<token>/accept")
+@jwt_required()
+def accept_join_token(token):
+    # players.join-token rule 5: the acting player is the JWT identity. The
+    # body is deliberately ignored so a caller cannot enrol somebody else.
+    user = current_user()
+    return jsonify(accept_join_token_service(token, user))
 
 
 # PAD-92: `POST /lesson/<id>` and `POST /calendar_block/<id>` were

@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
+import { consumePendingJoin } from "@/auth/pendingJoin";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,7 +106,10 @@ export default function SignUpScreen() {
         password: form.password,
       });
       if (role === "student") {
-        router.replace("/connect");
+        // players.join-token rule 9: back to the join link if that is where
+        // the student came from, else the generic "Connect" screen.
+        const pending = consumePendingJoin();
+        router.replace(pending ? `/join/coach/${pending}` : "/connect");
       } else {
         router.replace(postLoginRoute(me));
       }

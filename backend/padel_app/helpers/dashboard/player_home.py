@@ -23,7 +23,6 @@ from padel_app.utils.dates import utcnow_naive
 
 from padel_app.helpers.dashboard.coach_home import (
     HERO_LOOKAHEAD_DAYS,
-    SCHEDULE_DAYS,
     class_href,
     fill,
     load_events,
@@ -34,6 +33,59 @@ from padel_app.helpers.dashboard.coach_home import (
 from padel_app.helpers.dashboard.kpis import compute_player_kpis
 
 QUEUE_INVITE_LIMIT = 5
+# PAD-202 correction: a student's "upcoming" is the next month, not the coach's
+# dense week — a once-a-week student otherwise met an empty section. It is the
+# same window the dashboard fetch already asks for.
+PLAYER_SCHEDULE_DAYS = 30
+
+
+def _instance_id(event: Dict[str, Any]) -> Optional[int]:
+    """The materialised instance behind an event, or ``None`` for a projected occurrence."""
+    if event.get("model") != "LessonInstance":
+        return None
+    try:
+        return int(event.get("originalId"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _pending_instance_ids(player_id: int, instance_ids: List[int]) -> set:
+    """Instances the student was asked to confirm and has not answered.
+
+    Both answers set ``confirmed`` (see respond_to_reminder), so "asked and
+    unanswered" is exactly ``invited and not confirmed``.
+    """
+    if not instance_ids:
+        return set()
+    rows = (
+        db.session.query(Presence.lesson_instance_id)
+        .filter(Presence.player_id == player_id)
+        .filter(Presence.lesson_instance_id.in_(instance_ids))
+        .filter(Presence.invited.is_(True))
+        .filter(Presence.confirmed.is_(False))
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
+def _decorate_with_confirmation(player_id: int, events: List[Dict[str, Any]], items: List[Dict[str, Any]]) -> None:
+    """Add ``lessonInstanceId`` + ``pendingConfirmation`` to rows/hero built from ``events``.
+
+    The shared builders key rows by the calendar event id, so the instance id is
+    recovered from the event list rather than re-queried (rule 3 — the two
+    surfaces always agree on the id).
+    """
+    by_event_id = {str(e.get("id") or ""): e for e in events}
+    instance_ids: Dict[str, Optional[int]] = {}
+    for item in items:
+        key = str(item.get("id") or item.get("classId") or "")
+        instance_ids[key] = _instance_id(by_event_id.get(key, {}))
+    pending = _pending_instance_ids(player_id, [i for i in instance_ids.values() if i is not None])
+    for item in items:
+        key = str(item.get("id") or item.get("classId") or "")
+        iid = instance_ids.get(key)
+        item["lessonInstanceId"] = iid
+        item["pendingConfirmation"] = iid is not None and iid in pending
 
 
 # ── 1. next class hero ─────────────────────────────────────────────────────
@@ -43,7 +95,10 @@ def build_player_next_class_block(*, player_id: int, now: Optional[datetime] = N
     """The student's soonest class, with their classmates. ``None`` when nothing is scheduled."""
     now = now or utcnow_naive()
     events = load_events(player_id=player_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
-    return next_class_block(events, now=now)
+    block = next_class_block(events, now=now)
+    if block is not None:
+        _decorate_with_confirmation(player_id, events, [block["data"]])
+    return block
 
 
 # ── 2. needs-you queue ─────────────────────────────────────────────────────
@@ -91,6 +146,8 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
             {
                 "kind": "invite",
                 "id": str(event.get("id") or ""),
+                # The answer goes through respond_reminder, keyed by instance.
+                "lessonInstanceId": int(instance.id),
                 "classTitle": event.get("title") or "",
                 "date": event.get("date"),
                 "timeLabel": event.get("startTime"),
@@ -107,8 +164,10 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
 
 def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     now = now or utcnow_naive()
-    events = load_events(player_id=player_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(events)
+    events = load_events(player_id=player_id, start=now, end=now + timedelta(days=PLAYER_SCHEDULE_DAYS))
+    block = schedule_block(events)
+    _decorate_with_confirmation(player_id, events, block["data"]["items"])
+    return block
 
 
 # ── 4. KPIs ────────────────────────────────────────────────────────────────

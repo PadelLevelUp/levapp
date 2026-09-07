@@ -15,6 +15,7 @@ export * as dashboardApi from "./resources/dashboard";
 export * as evaluationApi from "./resources/evaluation";
 export * as fieldsApi from "./resources/fields";
 export * as invitationsApi from "./resources/invitations";
+export * as joinTokensApi from "./resources/joinTokens";
 export * as messagesApi from "./resources/messages";
 export * as notificationEngineApi from "./resources/notificationEngine";
 export * as playerInvitationsApi from "./resources/playerInvitations";
