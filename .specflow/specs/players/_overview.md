@@ -14,7 +14,7 @@ The players domain.
 - `players.profile` — implemented
 - `players.remove` — implemented
 - `players.add-existing` — draft, **deprecated** in substance (superseded 2026-09-06 by join-token + claim; not in the build order)
-- `players.join-token` — draft (coach's reusable QR/link; a signed-in student redeems it)
+- `players.join-token` — implemented (coach's reusable QR/link; a signed-in student redeems it; PAD-212)
 - `players.claim` — draft (merge a coach-created placeholder into a student's real account)
 - `players.notes` — implemented
 - `players.level-history` — implemented
