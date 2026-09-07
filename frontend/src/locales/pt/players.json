@@ -235,6 +235,35 @@
       "dashboardPrompt": "Ainda sem treinador?",
       "dashboardLink": "Ligar-me a um treinador",
       "settingsLink": "Ligar-me a um treinador"
+    },
+    "claim": {
+      "linkAction": "Associar a conta existente",
+      "dialogTitle": "Associar a uma conta existente",
+      "dialogDescription": "Se este aluno já criou a sua própria conta LevApp, escreve o username exato. O aluno terá de confirmar antes de os registos serem unidos.",
+      "usernameLabel": "Username do aluno",
+      "usernamePlaceholder": "username exato",
+      "submit": "Enviar pedido de associação",
+      "submitting": "A enviar…",
+      "notFound": "Não existe nenhum utilizador com esse username",
+      "alreadyPending": "Já existe um pedido de associação pendente para este jogador.",
+      "alreadyActivated": "Este registo já foi ativado e não pode ser associado.",
+      "failed": "Não foi possível enviar o pedido. Tenta novamente.",
+      "requestSent": "Pedido de associação enviado",
+      "pending": "Pedido de associação pendente — à espera da confirmação do aluno.",
+      "pendingHint": "O aluno vê o pedido no painel e em Definições → Conta.",
+      "bannerTitle": "Um treinador quer associar um registo à tua conta",
+      "bannerText": "{{coachName}} ({{clubName}}) quer associar o registo '{{placeholderName}}' à tua conta",
+      "bannerTextNoClub": "{{coachName}} quer associar o registo '{{placeholderName}}' à tua conta",
+      "bannerHint": "Ao aceitar, o nível, as presenças e as mensagens desse registo passam para esta conta. Recusar não altera nada.",
+      "accept": "Aceitar",
+      "reject": "Recusar",
+      "working": "A processar…",
+      "accepted": "Registo associado à tua conta",
+      "rejected": "Pedido recusado",
+      "actionFailed": "Não foi possível atualizar o pedido. Tenta novamente.",
+      "settingsTitle": "Pedidos de associação",
+      "settingsDescription": "Treinadores que criaram um registo para ti e o querem associar a esta conta.",
+      "settingsEmpty": "Sem pedidos de associação pendentes."
     }
   }
 }

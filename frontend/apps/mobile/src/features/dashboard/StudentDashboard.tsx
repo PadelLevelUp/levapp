@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { KpiTiles, NeedsYouQueue, NextClassHero, Schedule7Days } from "./blocks";
 import { pick } from "./CoachDashboard";
+import { ClaimRequests } from "@/features/players/claim-requests";
 
 export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   const hero = pick(blocks, "next_class");
@@ -32,6 +33,8 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
 
   return (
     <View className="gap-5" testID="student-dashboard">
+      {/* players.claim rule 4: a coach asks to link a record they created. */}
+      <ClaimRequests variant="banner" />
       {looksUnconnected ? (
         <View
           className="gap-2 rounded-xl border border-dashed border-border p-4"

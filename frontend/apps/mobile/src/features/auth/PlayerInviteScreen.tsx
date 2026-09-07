@@ -2,8 +2,14 @@ import { playerInvitationsApi } from "@levelup/api";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { rememberPendingClaim } from "@/auth/pendingClaim";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { PreAuthShell } from "@/features/auth/AccountSetupScreen";
 import {
   AccountSetupForm,
   AccountSetupLoading,
@@ -12,11 +18,14 @@ import {
 } from "@/features/auth/AccountSetupScreen";
 import {
   playerInviteSchema,
+  statusFromError,
   submitOutcomeForError,
   validateAccountForm,
 } from "@/features/auth/account-setup";
 
 type Status = "loading" | "valid" | "invalid";
+/** players.claim trigger A — the signed-in student takes the record over. */
+type ClaimStatus = "idle" | "claiming" | "claimed";
 
 /**
  * `/invite/player/:token` on iOS — the native twin of web's `PlayerInvitePage`
@@ -34,7 +43,10 @@ type Status = "loading" | "valid" | "invalid";
  */
 export function PlayerInviteScreen({ token }: { token: string | null }) {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated, loading: authLoading } = useAuth();
+  const [claimStatus, setClaimStatus] = React.useState<ClaimStatus>("idle");
+  const [claimError, setClaimError] = React.useState<string | null>(null);
+  const [claimedCoach, setClaimedCoach] = React.useState("");
 
   const [status, setStatus] = React.useState<Status>(
     token ? "loading" : "invalid"
@@ -123,7 +135,37 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
     }
   }, [login, t, token, values]);
 
-  if (status === "loading") {
+  // players.claim rule 3: while signed in, offer to link the record instead
+  // of asking for a new username and password. Twin of web's PlayerInvitePage.
+  const isCoach = user?.roles?.includes("coach") ?? false;
+
+  const handleClaim = React.useCallback(async () => {
+    if (!token) return;
+    setClaimStatus("claiming");
+    setClaimError(null);
+    try {
+      const { coachName } = await playerInvitationsApi.claimPlayerInvitation(token);
+      setClaimedCoach(coachName);
+      setClaimStatus("claimed");
+    } catch (error) {
+      const code = statusFromError(error);
+      setClaimStatus("idle");
+      if (code === 409) {
+        setClaimError(t("auth.playerInvite.claimAlreadyActivated"));
+      } else if (code === 404 || code === 410) {
+        setStatus("invalid");
+      } else {
+        setClaimError(t("auth.playerInvite.genericError"));
+      }
+    }
+  }, [t, token]);
+
+  const goSignInToLink = React.useCallback(() => {
+    if (token) rememberPendingClaim(token);
+    router.replace("/login");
+  }, [token]);
+
+  if (status === "loading" || authLoading) {
     return <AccountSetupLoading testID="player-invite-loading" />;
   }
 
@@ -136,6 +178,70 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
         actionLabel={t("auth.playerInvite.goToLogin")}
         onAction={goToLogin}
       />
+    );
+  }
+
+  if (claimStatus === "claimed") {
+    return (
+      <AccountSetupNotice
+        testID="invite-claim-success"
+        tone="neutral"
+        title={t("auth.playerInvite.claimSuccessTitle")}
+        description={t("auth.playerInvite.claimSuccessDescription", { coachName: claimedCoach })}
+        actionLabel={t("auth.playerInvite.claimGoToDashboard")}
+        onAction={() => router.replace("/(tabs)/dashboard")}
+      />
+    );
+  }
+
+  if (isAuthenticated && isCoach) {
+    return (
+      <AccountSetupNotice
+        testID="invite-claim-is-coach"
+        title={t("auth.playerInvite.claimIsCoachTitle")}
+        description={t("auth.playerInvite.claimIsCoachDescription")}
+        actionLabel={t("auth.playerInvite.claimGoToDashboard")}
+        onAction={() => router.replace("/(tabs)/dashboard")}
+      />
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <PreAuthShell testID="invite-claim">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-center">{t("auth.playerInvite.claimTitle")}</CardTitle>
+            <CardDescription className="text-center">
+              {t("auth.playerInvite.claimDescription", { playerName })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="gap-3">
+            <Text className="text-center text-sm text-muted-foreground">
+              {t("auth.playerInvite.claimSignedInAs", { name: user?.name ?? user?.username ?? "" })}
+            </Text>
+            {claimError ? (
+              <Text className="text-center text-sm text-destructive" testID="invite-claim-error">
+                {claimError}
+              </Text>
+            ) : null}
+            <Button
+              testID="invite-claim-confirm"
+              disabled={claimStatus === "claiming"}
+              onPress={() => void handleClaim()}
+            >
+              <Text>
+                {claimStatus === "claiming"
+                  ? t("auth.playerInvite.claiming")
+                  : t("auth.playerInvite.claimConfirm")}
+              </Text>
+            </Button>
+            <Text className="text-center text-xs text-muted-foreground">
+              {t("auth.playerInvite.claimUseAnotherAccount")}
+            </Text>
+          </CardContent>
+        </Card>
+      </PreAuthShell>
     );
   }
 
@@ -160,7 +266,8 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
   ];
 
   return (
-    <AccountSetupForm
+    <View className="flex-1">
+      <AccountSetupForm
       testID="player-invite"
       title={t("auth.playerInvite.title", { playerName })}
       description={t("auth.playerInvite.description")}
@@ -176,6 +283,22 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       }
       submitting={submitting}
       submitError={submitError}
-    />
+      />
+      {/* players.invite-completion rule 9 / players.claim rule 3: the student
+          may already have an account of their own. */}
+      <View className="absolute inset-x-0 bottom-8 items-center px-6">
+        <Pressable
+          testID="invite-claim-signin"
+          accessibilityRole="button"
+          accessibilityLabel={t("auth.playerInvite.claimSignIn")}
+          onPress={goSignInToLink}
+        >
+          <Text className="text-center text-sm text-muted-foreground">
+            {t("auth.playerInvite.claimSignInPrompt")}{" "}
+            <Text className="text-sm underline">{t("auth.playerInvite.claimSignIn")}</Text>
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }

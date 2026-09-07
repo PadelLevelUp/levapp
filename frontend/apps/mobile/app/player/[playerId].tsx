@@ -39,6 +39,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { AddEvaluationForm } from "@/features/players/add-evaluation-form";
 import { AddToClassesDialog } from "@/features/players/add-to-classes-dialog";
+import { ClaimLinkAction } from "@/features/players/claim-link-dialog";
 import {
   useCoachPlayers,
   useEditPlayer,
@@ -548,6 +549,9 @@ export default function PlayerDetailScreen() {
                       {registerUrl}
                     </Text>
                   </View>
+                  {/* players.claim rule 4: the student may already have their
+                      own account — offer to link this record to it. */}
+                  <ClaimLinkAction player={player} />
                   <Button
                     variant="outline"
                     size="sm"

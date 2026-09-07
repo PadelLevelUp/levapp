@@ -235,6 +235,35 @@
       "dashboardPrompt": "Not connected to a coach yet?",
       "dashboardLink": "Connect with a coach",
       "settingsLink": "Connect with a coach"
+    },
+    "claim": {
+      "linkAction": "Link to existing account",
+      "dialogTitle": "Link to an existing account",
+      "dialogDescription": "If this student already created their own LevApp account, enter their exact username. They will be asked to confirm before the records are merged.",
+      "usernameLabel": "Student's username",
+      "usernamePlaceholder": "exact username",
+      "submit": "Send link request",
+      "submitting": "Sending…",
+      "notFound": "No user with that username",
+      "alreadyPending": "A link request is already pending for this player.",
+      "alreadyActivated": "This record was already activated and cannot be linked.",
+      "failed": "Could not send the link request. Please try again.",
+      "requestSent": "Link request sent",
+      "pending": "Link request pending — waiting for the student to confirm.",
+      "pendingHint": "The student sees the request on their dashboard and under Settings → Account.",
+      "bannerTitle": "A coach wants to link a record to your account",
+      "bannerText": "{{coachName}} ({{clubName}}) wants to link the record '{{placeholderName}}' to your account",
+      "bannerTextNoClub": "{{coachName}} wants to link the record '{{placeholderName}}' to your account",
+      "bannerHint": "Accepting moves that record's level, attendance and messages into this account. Rejecting changes nothing.",
+      "accept": "Accept",
+      "reject": "Reject",
+      "working": "Working…",
+      "accepted": "Record linked to your account",
+      "rejected": "Request rejected",
+      "actionFailed": "Could not update the request. Please try again.",
+      "settingsTitle": "Link requests",
+      "settingsDescription": "Coaches who created a record for you and want to link it to this account.",
+      "settingsEmpty": "No pending link requests."
     }
   }
 }

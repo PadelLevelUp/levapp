@@ -45,6 +45,7 @@ import { BlockedUsersSection } from "@/components/settings/BlockedUsersSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 import { TutorialsSection } from "@/components/settings/TutorialsSection";
 import { AdminSection } from "@/components/settings/AdminSection";
+import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
 
 /**
  * PAD-112 adds `myNotifications` — the STUDENT's own notification block
@@ -614,6 +615,11 @@ export default function SettingsPage() {
                 <CardContent className="space-y-6">
                   <BlockedUsersSection />
                   <Separator />
+                  {!isCoach && (
+                    /* players.claim rule 4: the second place a student can answer a
+                       coach's link request (the first is the dashboard banner). */
+                    <ClaimRequestsList variant="list" />
+                  )}
                   {!isCoach && (
                     /* players.join-token rule 8: Settings → Account is one of the
                        three ways a student reaches "Connect with a coach". */

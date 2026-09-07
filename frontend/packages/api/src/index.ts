@@ -18,6 +18,7 @@ export * as invitationsApi from "./resources/invitations";
 export * as joinTokensApi from "./resources/joinTokens";
 export * as messagesApi from "./resources/messages";
 export * as notificationEngineApi from "./resources/notificationEngine";
+export * as playerClaimsApi from "./resources/playerClaims";
 export * as playerInvitationsApi from "./resources/playerInvitations";
 export * as playersApi from "./resources/players";
 export * as presencesApi from "./resources/presences";

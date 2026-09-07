@@ -1,0 +1,76 @@
+# players.claim (PAD-213) — the coach's "Link to existing account" action on a
+# claimable player, and the student's link-request inbox.
+#
+# Maestro cannot register a second account and approve across sessions in one
+# flow, so this covers the coach half end to end (create a claimable player →
+# open it → link dialog → unknown username is reported inline) and, on the
+# student side, that the Settings → Account inbox renders (empty for the seeded
+# student). The full merge is covered by the web spec
+# players/claim-existing-account.spec.ts and the backend tests.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Claimable"
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-create-and-invite"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-create-and-invite"
+- extendedWaitUntil:
+    visible:
+      id: "player-invite-link"
+    timeout: 20000
+- back
+# Open the player we just created.
+- tapOn:
+    text: "Maestro Claimable"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-claim-link"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-claim-link"
+- assertVisible:
+    id: "player-claim-dialog"
+- tapOn:
+    id: "player-claim-username"
+- inputText: "nobody-has-this-username"
+- tapOn:
+    id: "player-claim-submit"
+- assertVisible:
+    id: "player-claim-error"
+# Student side: the inbox exists under Settings → Account.
+- runFlow: ../subflows/logout.yaml
+- runFlow: ../subflows/login-student.yaml
+- openLink: levelup://settings
+- scrollUntilVisible:
+    element:
+      id: "settings-claim-requests"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "settings-claim-requests"

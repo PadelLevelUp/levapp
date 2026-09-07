@@ -24,8 +24,8 @@ export default function DashboardPage() {
       try {
         if (!silent) setLoading(true);
 
-        const from = new Date().toISOString();
-        const to = new Date(Date.now() + 30 * 86400000).toISOString();
+      const from = new Date().toISOString();
+      const to = new Date(Date.now() + 30 * 86400000).toISOString();
 
         const data = await getDashboard({ from, to });
         setDashboard(data);

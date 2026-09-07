@@ -6,6 +6,17 @@ from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
 
+def _is_claimable_user(user):
+    from padel_app.tools.username_tools import is_placeholder_username
+
+    return bool(
+        user is not None
+        and user.password is None
+        and is_placeholder_username(user.username)
+        and user.status == "inactive"
+    )
+
+
 class Player(db.Model, model.Model):
     __tablename__ = "players"
     __table_args__ = {"extend_existing": True}
@@ -167,4 +178,7 @@ class Player(db.Model, model.Model):
             # self-service registration). Distinct from isActive, which a
             # coach-disabled player would fail while still being validated.
             "validated": self.user.password is not None,
+            # PAD-213: a never-activated placeholder the coach may link to an
+            # existing account (players.claim rule 1).
+            "claimable": _is_claimable_user(self.user),
         }

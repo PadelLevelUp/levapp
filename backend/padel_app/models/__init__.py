@@ -23,6 +23,7 @@ from .coach_invitation import CoachInvitation
 from .club_join_request import ClubJoinRequest
 from .player_invitation import PlayerInvitation
 from .coach_join_token import CoachJoinToken
+from .player_claim_request import PlayerClaimRequest
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
 from .seasons import Season
@@ -74,6 +75,7 @@ MODELS = {
     "clubjoinrequest": ClubJoinRequest,
     "playerinvitation": PlayerInvitation,
     "coachjointoken": CoachJoinToken,
+    "playerclaimrequest": PlayerClaimRequest,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
     "season": Season,

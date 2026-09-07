@@ -6,7 +6,7 @@ The players domain.
 
 ## What it covers
 
-- `players.invite-completion` — implementing (rule 9, the "sign in to link" path, is draft)
+- `players.invite-completion` — implemented (incl. the "sign in to link" path, PAD-213)
 - `players.create` — implemented
 - `players.duplicate-name-check` — implemented
 - `players.edit` — implemented
@@ -15,7 +15,7 @@ The players domain.
 - `players.remove` — implemented
 - `players.add-existing` — draft, **deprecated** in substance (superseded 2026-09-06 by join-token + claim; not in the build order)
 - `players.join-token` — implemented (coach's reusable QR/link; a signed-in student redeems it; PAD-212)
-- `players.claim` — draft (merge a coach-created placeholder into a student's real account)
+- `players.claim` — implemented (merge a coach-created placeholder into a student's real account; PAD-213)
 - `players.notes` — implemented
 - `players.level-history` — implemented
 
