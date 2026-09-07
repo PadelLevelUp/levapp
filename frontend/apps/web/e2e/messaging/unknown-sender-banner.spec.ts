@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   loginAsStudent,
+  loginAsStudent2,
   loginAsStudent3,
   STUDENT_USERNAME,
   STUDENT3_USERNAME,
@@ -24,9 +25,22 @@ async function openNewConversation(page: Page) {
 
 const composer = (page: Page) => page.getByPlaceholder(/type a message|escreve/i);
 
-/** e2e-student messages e2e-student-3 by username and sends `text`. */
-async function studentMessagesStudent3(page: Page, text: string) {
-  await loginAsStudent(page);
+/**
+ * A student messages e2e-student-3 by username and sends `text`. The sender is
+ * parameterised because `isKnownContact` is a property of the conversation: once
+ * student-3 has replied to e2e-student (test 2), that thread is "known" for
+ * good, so the report-and-block test needs a fresh sender (e2e-student-2).
+ */
+async function studentMessagesStudent3(
+  page: Page,
+  text: string,
+  sender: "student" | "student2" = "student"
+) {
+  if (sender === "student2") {
+    await loginAsStudent2(page);
+  } else {
+    await loginAsStudent(page);
+  }
   await openMessages(page);
   await openNewConversation(page);
   await page.getByTestId("message-by-username-input").fill(STUDENT3_USERNAME);
@@ -109,7 +123,7 @@ test("US-215: Report and block from the banner, then Unblock from Settings → A
   page,
 }) => {
   const text = `US-215 report ${Date.now()}`;
-  await studentMessagesStudent3(page, text);
+  await studentMessagesStudent3(page, text, "student2");
 
   await student3OpensThread(page, text);
   await page.getByTestId("unknown-sender-report").click();
