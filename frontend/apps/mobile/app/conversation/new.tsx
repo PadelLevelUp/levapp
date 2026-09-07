@@ -7,6 +7,7 @@ import { router, Stack } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -36,6 +37,35 @@ export default function NewConversationScreen() {
 
   const [search, setSearch] = React.useState("");
   const [creatingId, setCreatingId] = React.useState<string | null>(null);
+
+  // messaging.direct-by-username: students may reach another student by
+  // exact username; coaches only pick from their roster/club list.
+  const isStudent = !(me?.roles ?? []).includes("coach");
+  const [username, setUsername] = React.useState("");
+  const [usernameError, setUsernameError] = React.useState<string | null>(null);
+  const [submittingUsername, setSubmittingUsername] = React.useState(false);
+
+  const handleStartByUsername = async () => {
+    const value = username.trim();
+    if (!value || submittingUsername) return;
+    setSubmittingUsername(true);
+    setUsernameError(null);
+    try {
+      const conversation = await messagesApi.createConversation({
+        otherUsername: value,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      router.replace(`/conversation/${conversation.id}`);
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 404) setUsernameError(t("messages.noUserWithUsername"));
+      else if (status === 403) setUsernameError(t("messages.cannotMessageUser"));
+      else setUsernameError(t("messages.somethingWentWrong"));
+    } finally {
+      setSubmittingUsername(false);
+    }
+  };
 
   const candidates = React.useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -71,6 +101,52 @@ export default function NewConversationScreen() {
       <Stack.Screen
         options={{ ...HEADER_OPTIONS, title: t("messages.newConversation") }}
       />
+
+      {isStudent ? (
+        <View
+          className="gap-2 border-b border-border p-3"
+          testID="message-by-username"
+        >
+          <Text className="text-sm font-medium text-foreground">
+            {t("messages.messageByUsername")}
+          </Text>
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <Input
+                testID="message-by-username-input"
+                accessibilityLabel={t("messages.messageByUsername")}
+                placeholder={t("messages.usernamePlaceholder")}
+                value={username}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={(v) => {
+                  setUsername(v);
+                  if (usernameError) setUsernameError(null);
+                }}
+                onSubmitEditing={() => void handleStartByUsername()}
+              />
+            </View>
+            <Button
+              testID="message-by-username-submit"
+              disabled={!username.trim() || submittingUsername}
+              onPress={() => void handleStartByUsername()}
+            >
+              <Text>{t("messages.usernameSubmit")}</Text>
+            </Button>
+          </View>
+          {usernameError ? (
+            <Text
+              className="text-sm text-destructive"
+              testID="message-by-username-error"
+            >
+              {usernameError}
+            </Text>
+          ) : null}
+          <Text className="text-xs text-muted-foreground">
+            {t("messages.messageByUsernameHint")}
+          </Text>
+        </View>
+      ) : null}
 
       <View className="border-b border-border p-3">
         <Input

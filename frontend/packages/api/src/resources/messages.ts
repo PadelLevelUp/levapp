@@ -49,12 +49,23 @@ export async function toggleReaction(
   await getApi().post(`/app/message/${messageId}/reaction`, { emoji });
 }
 
-export async function createConversation(payload: {
-  otherParticipants: [string];
-}): Promise<Conversation> {
-  const res = await getApi().post("/app/conversation", {
-    otherParticipants: payload.otherParticipants,
-  });
+/**
+ * Either a participant id list (coach → roster/club player, student → coach)
+ * or — messaging.direct-by-username — an exact username a student types.
+ * The two keys are exclusive; the server answers 400 when both are sent.
+ */
+export type CreateConversationPayload =
+  | { otherParticipants: [string]; otherUsername?: never }
+  | { otherUsername: string; otherParticipants?: never };
+
+export async function createConversation(
+  payload: CreateConversationPayload
+): Promise<Conversation> {
+  const body =
+    "otherUsername" in payload && payload.otherUsername !== undefined
+      ? { otherUsername: payload.otherUsername }
+      : { otherParticipants: payload.otherParticipants };
+  const res = await getApi().post("/app/conversation", body);
   return res.data;
 }
 
