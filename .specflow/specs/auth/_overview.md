@@ -14,6 +14,7 @@ The auth domain.
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
 - `auth.mobile-universal-links` — implemented
+- `auth.mobile-account-creation` — implemented
 
 ## Why it's grouped this way
 

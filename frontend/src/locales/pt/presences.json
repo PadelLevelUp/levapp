@@ -92,7 +92,15 @@
       "columns": "Colunas",
       "visibleColumns": "Colunas visíveis",
       "export": "Exportar CSV",
-      "empty": "Nenhum jogador corresponde a estes filtros."
+      "empty": "Nenhum jogador corresponde a estes filtros.",
+      "filters": "Filtros",
+      "sortBy": "Ordenar por",
+      "sortAsc": "crescente",
+      "sortDesc": "decrescente",
+      "apply": "Aplicar",
+      "cancel": "Cancelar",
+      "reset": "Repor",
+      "columnsHint": "Escolha o que aparece em cada jogador e no CSV exportado."
     },
     "charts": {
       "seriesLabel": "Presenças",
@@ -116,7 +124,9 @@
       "validateTitle": "Não foi possível validar",
       "validateBody": "Nada foi guardado. Tente novamente.",
       "undoTitle": "Não foi possível reabrir a aula",
-      "undoBody": "A aula continua validada. Tente novamente."
+      "undoBody": "A aula continua validada. Tente novamente.",
+      "exportTitle": "Não foi possível exportar",
+      "exportBody": "O ficheiro CSV não foi criado. Tente novamente."
     }
   }
 }

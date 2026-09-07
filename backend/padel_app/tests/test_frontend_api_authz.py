@@ -471,22 +471,29 @@ def test_url_map_has_no_unauthenticated_write_routes(app):
 # ---------------------------------------------------------------------------
 
 
-def test_debug_reminder_endpoint_requires_jwt(app, client, world):
+# Every debug route is held to the same two gates. Listed as (path, body) so a
+# new one is one line here rather than a new pair of near-identical tests —
+# PAD-124's `offer_waiting_list` is the second entry.
+_DEBUG_ROUTES = [
+    ("/api/app/notify/debug/schedule_reminder_test", {"secondsUntilReminderFires": 3600}),
+    (
+        "/api/app/notify/debug/offer_waiting_list",
+        {"lessonInstanceId": 1, "username": "e2e-student"},
+    ),
+]
+
+
+@pytest.mark.parametrize("path,body", _DEBUG_ROUTES)
+def test_debug_endpoint_requires_jwt(app, client, world, path, body):
     app.config["E2E_DEBUG_ENDPOINTS"] = "true"
-    res = client.post(
-        "/api/app/notify/debug/schedule_reminder_test",
-        json={"secondsUntilReminderFires": 3600},
-    )
+    res = client.post(path, json=body)
     assert res.status_code == 401
 
 
-def test_debug_reminder_endpoint_404s_when_flag_off(app, client, world):
+@pytest.mark.parametrize("path,body", _DEBUG_ROUTES)
+def test_debug_endpoint_404s_when_flag_off(app, client, world, path, body):
     app.config["E2E_DEBUG_ENDPOINTS"] = None
-    res = client.post(
-        "/api/app/notify/debug/schedule_reminder_test",
-        json={"secondsUntilReminderFires": 3600},
-        headers=_auth_header(app, world["user_a"]),
-    )
+    res = client.post(path, json=body, headers=_auth_header(app, world["user_a"]))
     assert res.status_code == 404
 
 

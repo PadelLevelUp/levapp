@@ -6,7 +6,7 @@ import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
-import { respondToNotification, respondToReminder, cancelAttendance } from '@/api/notificationEngine';
+import { respondToNotification, respondToReminder, cancelAttendance, respondToWaitingList } from '@/api/notificationEngine';
 import { toast } from 'sonner';
 
 function formatTime(iso: string): string {
@@ -48,7 +48,9 @@ export function MessageBubble({
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [reportOpen, setReportOpen] = useState(false);
   const [responding, setResponding] = useState(false);
-  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | null>(null);
+  // PAD-124: 'expired' is set only by the waiting-list offer, whose backend can
+  // reject a late answer (PAD-68) — the invite and reminder branches never see it.
+  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | 'expired' | null>(null);
   // PAD-46: when the cancellation deadline has passed, require an explicit
   // confirmation of the "late cancellation" before cancelling (still allowed).
   const [confirmingLateCancel, setConfirmingLateCancel] = useState(false);
@@ -56,6 +58,10 @@ export function MessageBubble({
   const isInvite = message.messageType === "notification_invite";
   const isReminder = message.messageType === "notification_reminder";
   const isReplacementApproval = message.messageType === "replacement_approval";
+  // PAD-124: the offer sent on the "that spot was just filled" path is the whole
+  // self-service route onto the waiting list, and it rendered as plain text — so
+  // `POST /app/notify/respond_waiting_list` had no caller in either client.
+  const isWaitingListOffer = message.messageType === "waiting_list_offer";
   const alreadyResponded = !!message.metadata?.responded;
 
   const approvalBundle = isReplacementApproval
@@ -102,6 +108,34 @@ export function MessageBubble({
       setResponding(false);
     }
   };
+  // PAD-124: answering the waiting-list offer. Same shape as the reminder, but
+  // the server can also answer "unknown" (the instance has no coach), which
+  // records nothing — so, like PAD-68's "expired", it must not paint a badge.
+  const handleRespondWaitingList = async (action: "yes" | "no") => {
+    const instanceId = message.metadata?.lessonInstanceId;
+    if (!instanceId || responding) return;
+    setResponding(true);
+    try {
+      const result = await respondToWaitingList(instanceId, action);
+      if (result.action === "expired") {
+        toast.error(t("messages.waitingListOfferExpired"));
+        setLocalResponse('expired');
+        return;
+      }
+      if (result.action === "added_to_waiting_list") {
+        setLocalResponse('accepted');
+      } else if (result.action === "declined") {
+        setLocalResponse('declined');
+      } else {
+        toast.error(t("messages.somethingWentWrong"));
+      }
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setResponding(false);
+    }
+  };
+
   const handleCancelAttendance = async () => {
     const instanceId = message.metadata?.lessonInstanceId;
     if (!instanceId || responding) return;
@@ -388,6 +422,66 @@ export function MessageBubble({
                   </button>
                   <button
                     onClick={() => handleRespondReminder("no")}
+                    disabled={responding}
+                    className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                  >
+                    {t("messages.no")}
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Waiting-list offer response area (PAD-124). The coach sees their own
+            offer as "waiting for response"; the student gets the Yes/No that
+            makes `respond_waiting_list` reachable at all. */}
+        {isWaitingListOffer && (() => {
+          const joined =
+            localResponse === 'accepted' ||
+            (localResponse === null && alreadyResponded && message.metadata?.response === "yes");
+          // PAD-68: the class already started, so the offer can no longer be
+          // taken up. The server records "expired" rather than an answer.
+          const expired =
+            localResponse === 'expired' ||
+            (localResponse === null && alreadyResponded && message.metadata?.response === "expired");
+          // Same asymmetry as the reminder: any recorded answer that is neither
+          // "yes" nor "expired" reads as declined, so an unrecognised value
+          // fails safe to "not queued" rather than promising a place on a list.
+          const declined =
+            !joined && !expired &&
+            (localResponse === 'declined' || (localResponse === null && alreadyResponded));
+
+          return (
+            <div className="flex flex-wrap gap-2 mt-1.5 ml-1" data-testid="waiting-list-offer-actions">
+              {joined ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
+                  <Check className="w-3.5 h-3.5" />
+                  {t("messages.waitingListJoined")}
+                </span>
+              ) : declined ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                  <X className="w-3.5 h-3.5" />
+                  {t("messages.declined")}
+                </span>
+              ) : expired ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70">
+                  <Clock className="w-3.5 h-3.5" />
+                  {t("messages.waitingListOfferExpired")}
+                </span>
+              ) : isMine ? (
+                <span className="text-xs text-muted-foreground italic">{t("messages.waitingForResponse")}</span>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleRespondWaitingList("yes")}
+                    disabled={responding}
+                    className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                  >
+                    {responding ? "…" : t("messages.yes")}
+                  </button>
+                  <button
+                    onClick={() => handleRespondWaitingList("no")}
                     disabled={responding}
                     className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
                   >
