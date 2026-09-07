@@ -321,6 +321,13 @@ export interface Conversation {
   participantDeleted?: boolean;
   /** True when the other participant is the platform assistant (one-way channel) */
   isAssistant?: boolean;
+  /**
+   * messaging.block-and-report rule 7 (PAD-215): false when, for the viewer, the
+   * other participant is not one of their coaches, shares no club with them, and
+   * the viewer has never written in this thread. Drives the unknown-sender
+   * banner. Absent on list payloads and on older backends → treat as known.
+   */
+  isKnownContact?: boolean;
 
   lastMessage: string | null;
   lastMessageAt: string | null;

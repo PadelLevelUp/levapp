@@ -87,7 +87,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | attendance | 2 | 5 | partial |
 | levels | 2 | 4 | implemented |
 | evaluations | 2 | 5 | implemented |
-| messaging | 4 | 9 | implemented (block-and-report implementing) |
+| messaging | 4 | 9 | implemented |
 | notifications | 4 | 13 | implemented |
 | training | 2 | 6 | implemented |
 | import | 1 | 4 | implemented |

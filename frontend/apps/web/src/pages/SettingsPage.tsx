@@ -41,6 +41,7 @@ import { ImportHistorySection } from "@/components/settings/ImportHistorySection
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
 import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
+import { BlockedUsersSection } from "@/components/settings/BlockedUsersSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 import { TutorialsSection } from "@/components/settings/TutorialsSection";
 import { AdminSection } from "@/components/settings/AdminSection";
@@ -612,6 +613,8 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <BlockedUsersSection />
+                  <Separator />
                   {!isCoach && (
                     /* players.claim rule 4: the second place a student can answer a
                        coach's link request (the first is the dashboard banner). */

@@ -115,10 +115,18 @@ def serialize_conversation(
     }
 
 def serialize_conversation_detail(conversation, user_id):
+    from padel_app.models import User
+    from padel_app.services.messaging_service import is_known_contact
+
     last_read_at = conversation.last_read_by(user_id)
+    viewer = User.query.get(user_id)
 
     return {
         **serialize_conversation(conversation, user_id),
+        # messaging.block-and-report rule 7: drives the unknown-sender banner.
+        "isKnownContact": (
+            is_known_contact(viewer, conversation) if viewer else True
+        ),
         "messages": [
             serialize_message(m, last_read_at)
             for m in sorted(conversation.messages, key=lambda m: m.sent_at)

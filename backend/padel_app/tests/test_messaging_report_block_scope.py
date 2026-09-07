@@ -185,6 +185,23 @@ def test_blocked_user_prevents_new_message_in_existing_conversation(client, app,
     assert resp.status_code == 403
 
 
+def test_block_prevents_messages_both_ways(client, app, scenario):
+    """messaging.block-and-report rule 2: the blocker is silenced too, not only the blocked."""
+    create_resp = _create_conversation(
+        client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
+    )
+    conversation_id = create_resp.get_json()["id"]
+    _block(client, app, scenario["player1_user_id"], scenario["coach1_user_id"])
+
+    for sender in (scenario["coach1_user_id"], scenario["player1_user_id"]):
+        resp = client.post(
+            "/api/app/message",
+            json={"conversationId": conversation_id, "text": "hello"},
+            headers=_auth_header(app, sender),
+        )
+        assert resp.status_code == 403, sender
+
+
 def test_blocked_users_absent_from_messageable_users(client, app, scenario):
     _block(client, app, scenario["coach1_user_id"], scenario["player1_user_id"])
     resp = client.get(
