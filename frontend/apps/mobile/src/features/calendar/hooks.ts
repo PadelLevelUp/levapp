@@ -21,6 +21,13 @@ const CLASS_DATA_KEYS: QueryKey[] = [
   ["dashboard"],
 ];
 
+/**
+ * PAD-202: answering a reminder marks it read (notifications.reminders rule
+ * 13), so the Messages tab badge and the conversation list refetch as well.
+ * Only the reminder answer touches read state, so only it invalidates these.
+ */
+const REMINDER_ANSWER_KEYS: QueryKey[] = [["messages-unread-count"], ["conversations"]];
+
 /** The key `useCalendarBlock` caches one calendar block under. */
 export function calendarBlockQueryKey(blockId: number | null): QueryKey {
   return ["calendar-block", blockId];
@@ -269,6 +276,7 @@ export function useCancelAttendance() {
 
 /** Student action: answer a class reminder (POST /app/notify/respond_reminder). */
 export function useRespondReminder() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateClassData();
   return useMutation({
     mutationFn: ({
@@ -278,6 +286,9 @@ export function useRespondReminder() {
       lessonInstanceId: number;
       action: "yes" | "no";
     }) => notificationEngineApi.respondToReminder(lessonInstanceId, action),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
   });
 }

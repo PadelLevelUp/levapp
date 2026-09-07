@@ -34,6 +34,8 @@ export function CoachDashboard({
 }: {
   blocks: DashboardBlock[];
   firstName: string;
+  /** Accepted for symmetry with StudentDashboard; nothing here answers in place. */
+  onRefresh?: () => void | Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();

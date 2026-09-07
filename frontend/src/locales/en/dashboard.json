@@ -89,7 +89,11 @@
       "empty": "Empty",
       "seats_one": "{{count}} seat",
       "seats_other": "{{count}} seats",
-      "invite": "Invite"
+      "invite": "Invite",
+      "eyebrowUpcoming_one": "UPCOMING · {{count}} CLASS",
+      "eyebrowUpcoming_other": "UPCOMING · {{count}} CLASSES",
+      "noneUpcoming": "No classes in the next 30 days.",
+      "toConfirm": "Confirm?"
     },
     "pulse": {
       "eyebrow": "THIS WEEK",
@@ -97,6 +101,14 @@
       "seatsFilledSub": "{{filled}} of {{total}}",
       "activePlayers": "Active players",
       "activePlayersSub": "of {{total}} · {{idle}} idle"
+    },
+    "answer": {
+      "yes": "Yes",
+      "no": "No",
+      "confirmed": "You're in — see you there.",
+      "declined": "Noted — your spot has been freed.",
+      "expired": "That class has already started.",
+      "failed": "Could not record your answer. Try again."
     }
   }
 }
