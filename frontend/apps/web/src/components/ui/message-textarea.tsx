@@ -103,8 +103,10 @@ export const MessageTextarea = React.forwardRef<
         rows={1}
         style={{ maxHeight: maxHeightPx, ...style }}
         className={cn(
-          "text-base leading-5",
-          "min-h-[40px] resize-none overflow-auto",
+          // 20px line + 12px padding each side = 44px, the height of the
+          // `icon` button beside it, so a single-line composer is one row.
+          "text-base leading-5 py-3",
+          "min-h-[44px] resize-none overflow-auto",
           className
         )}
         {...props}

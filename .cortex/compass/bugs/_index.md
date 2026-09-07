@@ -9,3 +9,4 @@ whether a failure mode has been seen before.
 **How to navigate:** follow `affects:` to the rule, file, or spec involved; follow
 `related_specs:` to the governing specs. IDs are monotonic and never reused.
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
+- [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
