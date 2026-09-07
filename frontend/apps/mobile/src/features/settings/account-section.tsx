@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { DeleteAccountSection } from "@/features/settings/delete-account-section";
+import { ClaimRequests } from "@/features/players/claim-requests";
 import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
 
 function LegalLinkRow({
@@ -57,6 +58,11 @@ export function AccountSection() {
 
   return (
     <View className="gap-4">
+      {!isCoach ? (
+        /* players.claim rule 4: the second place a student answers a coach's
+           link request (the first is the dashboard banner). */
+        <ClaimRequests variant="list" />
+      ) : null}
       {!isCoach ? (
         /* players.join-token rule 8: Settings → Account is one of the three
            ways a student reaches "Connect with a coach". */

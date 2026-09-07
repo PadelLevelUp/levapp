@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
+import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 
 type FieldErrors = { username?: string; password?: string };
@@ -68,6 +69,12 @@ export default function LoginScreen() {
       // first, once the account is one that can use it.
       const route = postLoginRoute(await refreshUser());
       const pending = consumePendingJoin();
+      // players.claim rule 3: an invite link opened to LINK an existing account.
+      const pendingClaim = consumePendingClaim();
+      if (pendingClaim && route === "/(tabs)/dashboard") {
+        router.replace(`/invite/player/${pendingClaim}`);
+        return;
+      }
       router.replace(pending && route === "/(tabs)/dashboard" ? `/join/coach/${pending}` : route);
     } catch (err: any) {
       // No `response` means the request never got a reply from the server —

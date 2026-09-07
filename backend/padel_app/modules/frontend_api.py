@@ -1532,6 +1532,86 @@ def revoke_player_invitation(token):
 
 
 # ---------------------------------------------------------------------------
+# players.claim (PAD-213): fold a coach-created placeholder into the student's
+# real account. Trigger A: the invite link opened while signed in. Trigger B:
+# the coach asks by exact username and the student accepts.
+# ---------------------------------------------------------------------------
+
+@bp.post("/player-invitations/<token>/claim")
+@jwt_required()
+def claim_player_invitation(token):
+    from padel_app.services.player_invitation_service import (
+        claim_player_invitation_service,
+    )
+
+    user = current_user()
+    return jsonify(claim_player_invitation_service(token, user))
+
+
+@bp.post("/player/<int:player_id>/claim-requests")
+@jwt_required()
+def create_player_claim_request(player_id):
+    from padel_app.services.player_claim_service import (
+        create_claim_request_service,
+        serialize_claim_request,
+    )
+
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    req = create_claim_request_service(player_id, coach, data.get("username"))
+    return jsonify(serialize_claim_request(req)), 201
+
+
+@bp.get("/player-claim-requests")
+@jwt_required()
+def list_my_player_claim_requests():
+    from padel_app.services.player_claim_service import (
+        list_my_claim_requests_service,
+        serialize_claim_request,
+    )
+
+    user = current_user()
+    return jsonify([serialize_claim_request(r) for r in list_my_claim_requests_service(user)])
+
+
+@bp.post("/player-claim-requests/<int:request_id>/accept")
+@jwt_required()
+def accept_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        decide_claim_request_service,
+        serialize_claim_request,
+    )
+
+    req = decide_claim_request_service(request_id, current_user(), accept=True)
+    return jsonify(serialize_claim_request(req))
+
+
+@bp.post("/player-claim-requests/<int:request_id>/reject")
+@jwt_required()
+def reject_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        decide_claim_request_service,
+        serialize_claim_request,
+    )
+
+    req = decide_claim_request_service(request_id, current_user(), accept=False)
+    return jsonify(serialize_claim_request(req))
+
+
+@bp.post("/player-claim-requests/<int:request_id>/revoke")
+@jwt_required()
+def revoke_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        revoke_claim_request_service,
+        serialize_claim_request,
+    )
+
+    coach = require_coach()
+    req = revoke_claim_request_service(request_id, coach)
+    return jsonify(serialize_claim_request(req))
+
+
+# ---------------------------------------------------------------------------
 # players.join-token (PAD-212): a coach's reusable QR / link a signed-in
 # student redeems. Coach side needs an approved coach with a club; the preview
 # is public; accept takes the acting player from the JWT and nothing else.

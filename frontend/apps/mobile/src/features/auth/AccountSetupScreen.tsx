@@ -42,7 +42,7 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
 };
 
-function PreAuthShell({
+export function PreAuthShell({
   children,
   testID,
 }: {

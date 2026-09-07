@@ -1,6 +1,6 @@
 ---
 id: players.claim
-status: draft
+status: implemented
 depends_on: [players.create, players.invite-completion, auth.login, messaging.conversations, attendance.presence]
 implements: ../../specs-business/players/coach-builds-roster.business.md
 governed_by: []

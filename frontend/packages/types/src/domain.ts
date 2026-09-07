@@ -115,6 +115,12 @@ export interface CoachPlayer {
   /** PAD-30: true once the player completed self-service registration (password set). */
   validated: boolean,
   /**
+   * players.claim rule 1 (PAD-213): true while this record is still a
+   * coach-created placeholder (no password, generated username) that a
+   * student who registered on their own can claim. Absent on older payloads.
+   */
+  claimable?: boolean,
+  /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
    * their own username at account activation. Do not render it in coach UI.
