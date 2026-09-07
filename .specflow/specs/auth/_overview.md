@@ -13,6 +13,7 @@ The auth domain.
 - `auth.coach-approval` — implemented (LevApp admin approves self-registered coaches; gate is switchable; PAD-210)
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
+- `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
 - `auth.mobile-universal-links` — implemented
 - `auth.mobile-account-creation` — implemented
 

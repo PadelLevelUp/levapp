@@ -1,63 +1,240 @@
 {
   "landing": {
     "nav": {
+      "benefits": "Vantagens",
       "how": "Como funciona",
-      "academies": "Para academias",
-      "players": "Para jogadores",
+      "results": "Resultados",
       "login": "Entrar",
       "demo": "Pedir demonstração",
       "openMenu": "Abrir menu",
       "closeMenu": "Fechar menu"
     },
+    "mail": {
+      "demoSubject": "Pedir demonstração",
+      "ideaSubject": "Ideia para a LevApp"
+    },
+    "audience": {
+      "label": "Escolhe o teu perfil",
+      "coaches": "Para treinadores",
+      "players": "Para alunos",
+      "others": "Outros"
+    },
     "hero": {
-      "eyebrow": "Para academias de padel e ténis",
-      "titleLine1": "Enche as aulas.",
-      "titleLine2": "Fala com os jogadores.",
-      "subtitle": "O LevApp trata dos convites, dos reenvios e dos lembretes. Tu tratas do treino.",
-      "primary": "Pedir demonstração",
-      "secondary": "Ver como funciona"
-    },
-    "preview": {
-      "date": "terça, 4 agosto",
-      "title": "Por resolver",
-      "initials": "BT",
-      "nextEyebrow": "A SEGUIR · 10:30",
-      "nextIn": "em 45 min",
-      "nextClass": "Aula 5",
-      "nextMeta": "Nível 3 · Campo 2",
-      "nextCount": "12/16",
-      "gapTitle": "Aula 12 tem 9 vagas",
-      "gapMeta": "quinta · 10:30 · Nível 4- · 7/16",
-      "gapPrimary": "Convidar 12 jogadores",
-      "gapSecondary": "Depois",
-      "replyInitials": "IN",
-      "replyTitle": "Inês Neuparth respondeu",
-      "replyBody": "“Sim, consigo ir na quarta”"
-    },
-    "values": {
-      "eyebrow": "O QUE MUDA",
-      "title": "Três coisas que deixam de te ocupar o dia",
-      "full": {
-        "title": "Aulas cheias",
-        "body": "Vês as vagas antes de serem um problema. O LevApp sugere quem tem o nível certo e está livre."
+      "coaches": {
+        "badge": "Para treinadores de padel e ténis",
+        "title1": "Enche as aulas.",
+        "title2": "Poupa horas todos os dias.",
+        "lead": "Esquece as mensagens, as confirmações e as dores de cabeça. A LevApp trata dos lembretes, das presenças e dos convites, automaticamente. Tu tratas do treino.",
+        "primary": "Pedir demonstração",
+        "secondary": "Ver como funciona",
+        "proof1": "Sem mensagens manuais",
+        "proof2": "Vagas preenchidas sozinhas",
+        "proof3": "Aulas por nível"
       },
-      "invites": {
-        "title": "Convites automáticos",
-        "body": "Convite, reenvio e lembrete saem sozinhos. Só entras quando alguém responde alguma coisa que precisa de ti.",
-        "accepted": "22 aceites",
-        "pending": "9 por responder"
+      "players": {
+        "badge": "Para alunos e jogadores",
+        "title1": "Joga mais.",
+        "title2": "Encontra a aula certa.",
+        "lead": "Vagas last minute na tua academia, aulas compatíveis com o teu nível e confirmações num toque. Sem grupos de WhatsApp intermináveis.",
+        "primary": "Entrar",
+        "secondary": "Recebi um convite",
+        "proof1": "Vagas last minute",
+        "proof2": "Aulas ao teu nível",
+        "proof3": "Confirmar num toque"
       },
-      "progress": {
-        "title": "Progresso a sério",
-        "body": "Nível, presenças e avaliações de cada jogador num sítio só — e visíveis para ele."
+      "others": {
+        "badge": "Para clubes, academias e parceiros",
+        "title1": "Novidades a caminho.",
+        "title2": "Fala connosco.",
+        "lead": "Ainda estamos a preparar algumas surpresas para ti. Se comprar casa em Portugal está como está, imagina construir um software do zero. Temos todo o gosto em ouvir as tuas ideias: admin@levapp.pt.",
+        "primary": "Enviar ideia",
+        "secondary": "Ver para treinadores",
+        "proof1": "Integrações à medida",
+        "proof2": "White-label",
+        "proof3": "API disponível"
       }
     },
-    "players": {
-      "eyebrow": "ÉS JOGADOR?",
-      "title": "A tua academia já usa o LevApp?",
-      "body": "Entra para veres as tuas aulas, confirmares presença e acompanhares o teu nível.",
-      "primary": "Entrar",
-      "secondary": "Recebi um convite"
+    "watch": {
+      "label": "Notificação Apple Watch: {{text}}",
+      "now": "agora",
+      "filled": {
+        "title": "A última vaga da turma das 11h foi preenchida.",
+        "meta": "Turma completa · 4/4"
+      },
+      "invite": {
+        "title": "Surgiu uma vaga hoje às 18h. Queres vir?",
+        "meta": "Nova vaga · hoje às 18h"
+      }
+    },
+    "alt": {
+      "calendar": "Calendário semanal da LevApp com aulas e vagas preenchidas",
+      "mobileDashboardCoach": "Painel do treinador na app móvel LevApp com vagas para preencher",
+      "mobileDashboard": "Painel do aluno na app móvel LevApp",
+      "mobileDashboardSteps": "Painel do aluno com presenças e próximas aulas na LevApp",
+      "messages": "Mensagens automáticas da LevApp a preencher vagas com alunos",
+      "mobileMessages": "Mensagens na app móvel LevApp do treinador",
+      "mobilePresences": "Presenças e evolução do aluno na app LevApp",
+      "mobilePresencesStats": "Estatísticas de presenças do aluno na app LevApp",
+      "presences": "Estatísticas de presenças e jogadores na LevApp",
+      "mobilePresencesCoach": "Presenças e jogadores na app móvel LevApp do treinador",
+      "training": "Criação de exercícios com diagrama de campo na LevApp"
+    },
+    "benefits": {
+      "coaches": {
+        "eyebrow": "Porque é que os treinadores mudam",
+        "title": "Menos Burocracia.",
+        "items": {
+          "time": {
+            "title": "Poupa horas todos os dias",
+            "text": "Esquece as mensagens, as confirmações e as dores de cabeça. O LevApp faz tudo por ti.",
+            "bullet1": "Convites e reenvios automáticos",
+            "bullet2": "Lembretes antes de cada aula",
+            "bullet3": "Só entras quando é preciso"
+          },
+          "money": {
+            "title": "Ganha mais dinheiro",
+            "text": "Sabe quem vai faltar e enche todas as vagas de forma automática. E encontra alunos à procura de aulas.",
+            "bullet1": "Faltas detectadas cedo",
+            "bullet2": "Vagas preenchidas sozinhas",
+            "bullet3": "Novos alunos da tua zona"
+          },
+          "competitive": {
+            "title": "Aulas mais competitivas",
+            "text": "O LevApp encontra o aluno certo para a vaga certa: mesmo nível, mesmo lado do campo — ou o critério que definires.",
+            "bullet1": "Emparelhamento por nível",
+            "bullet2": "Lado esquerdo / direito",
+            "bullet3": "Critérios à tua medida"
+          }
+        }
+      },
+      "players": {
+        "eyebrow": "O que ganhas",
+        "title": "Mais jogo, menos mensagens.",
+        "items": {
+          "lastMinute": {
+            "title": "Vagas last minute",
+            "text": "Alguém falhou? Recebes a vaga no telemóvel e aceitas num toque, antes de ir para outra pessoa.",
+            "bullet1": "Avisos em tempo real",
+            "bullet2": "Aceitar num toque",
+            "bullet3": "Aulas extra quando queres"
+          },
+          "connect": {
+            "title": "Conecta com mais jogadores",
+            "text": "Joga com gente do teu nível dentro e fora da academia. Mais parceiros, mais jogos.",
+            "bullet1": "Jogadores do teu nível",
+            "bullet2": "Aulas compatíveis contigo",
+            "bullet3": "Comunidade da academia"
+          },
+          "confirm": {
+            "title": "Confirmações simples",
+            "text": "Sim ou não, num botão. Sem grupos de WhatsApp, sem perguntar duas vezes.",
+            "bullet1": "Um toque para confirmar",
+            "bullet2": "Histórico de presenças",
+            "bullet3": "Lembretes na hora certa"
+          },
+          "competitive": {
+            "title": "Aulas mais competitivas",
+            "text": "Ficas em aulas ao teu nível e vês o teu progresso a sério, aula após aula.",
+            "bullet1": "Nível sempre actualizado",
+            "bullet2": "Avaliações do treinador",
+            "bullet3": "Progresso visível"
+          }
+        }
+      }
+    },
+    "how": {
+      "eyebrow": "Como funciona",
+      "cta": "Falar connosco",
+      "coaches": {
+        "title": "A LevApp adapta-se à tua academia",
+        "lead": "Não precisas de ser técnico nem de mudar tudo o que já tens. A LevApp encaixa no teu workflow.",
+        "step1": {
+          "title": "Set-up feito pela nossa equipa",
+          "text": "Uma equipa da LevApp faz o set-up por ti. É só pedires."
+        },
+        "step2": {
+          "title": "Percebe o teu calendário e alunos",
+          "text": "Uma app que percebe o teu calendário e base de alunos se lhe mandares os típicos Excels com que trabalhas."
+        },
+        "step3": {
+          "title": "Simples ou avançado, à tua medida",
+          "text": "Um sistema tão simples quanto quiseres, tão complexo quanto precisares."
+        }
+      },
+      "players": {
+        "title": "Começa a treinar em 3 passos",
+        "lead": "Entras com o convite da academia e ficas com tudo no telemóvel: aulas, vagas e o teu progresso.",
+        "step1": {
+          "title": "Cria a tua conta",
+          "text": "Regista-te em segundos com o teu email ou conta Google."
+        },
+        "step2": {
+          "title": "Conecta-te aos teus professores",
+          "text": "Aceita o convite da academia e vê as aulas disponíveis para ti."
+        },
+        "step3": {
+          "title": "Começa a treinar",
+          "text": "Confirma presença num toque, apanha vagas last minute e acompanha o teu progresso."
+        }
+      }
+    },
+    "results": {
+      "eyebrow": "Resultados",
+      "coaches": {
+        "title": "O tempo volta para o campo.",
+        "stat1": { "value": "+6h", "label": "poupadas por semana em mensagens" },
+        "stat2": { "value": "3×", "label": "menos faltas sem aviso" },
+        "stat3": { "value": "+30%", "label": "ocupação das aulas" },
+        "quote": "“Antes passava a noite a mandar mensagens para fechar as aulas do dia seguinte. Agora abro a app, vejo o que falta e está resolvido.”",
+        "initials": "BT",
+        "name": "Bernardo T.",
+        "role": "Treinador de padel, Porto"
+      },
+      "players": {
+        "title": "Menos espera. Mais jogo.",
+        "stat1": { "value": "1 click", "label": "para confirmares presença" },
+        "stat2": { "value": "< 5 min", "label": "para uma vaga chegar até ti" },
+        "stat3": { "value": "100%", "label": "do teu progresso visível" },
+        "quote": "“Agora posso ir a várias aulas como convidado, por um preço muito mais acessível.”",
+        "initials": "PP",
+        "name": "Pedro P.",
+        "role": "Aluno de padel, Porto"
+      }
+    },
+    "others": {
+      "eyebrow": "Outros",
+      "title": "Ainda estamos a preparar algumas surpresas para ti.",
+      "body": "Se comprar casa em Portugal está como está, imagina construir um software do zero. Temos todo o gosto em ouvir as tuas ideias:",
+      "primary": "Enviar ideia",
+      "secondary": "Ver para treinadores",
+      "ideasTitle": "Ideias que nos entusiasmam",
+      "idea1": "Integração com o teu software de reservas atual",
+      "idea2": "White-label para a tua academia ou clube",
+      "idea3": "API para ligar a outras ferramentas",
+      "idea4": "Relatórios e dashboards customizados",
+      "idea5": "Automatizações específicas do teu workflow",
+      "mockupTitle": "Em construção",
+      "mockupBody": "Estamos a desenhar algo à medida para ti. Entretanto, partilha connosco o que precisas."
+    },
+    "cta": {
+      "coaches": {
+        "title": "Vamos encher as tuas aulas?",
+        "body": "Mostramos-te o LevApp com o horário real da tua academia. 20 minutos, sem compromisso.",
+        "primary": "Pedir demonstração",
+        "switch": "Sou aluno"
+      },
+      "players": {
+        "title": "A tua academia já usa o LevApp?",
+        "body": "Entra para veres as tuas aulas, confirmares presença e apanhares vagas last minute.",
+        "primary": "Entrar",
+        "switch": "Sou treinador"
+      },
+      "others": {
+        "title": "Tens uma ideia?",
+        "body": "Conta-nos o que precisas. Adoramos perceber como a LevApp pode encaixar no teu projeto.",
+        "primary": "Enviar ideia",
+        "switch": "Ver para treinadores"
+      }
     },
     "footer": {
       "contact": "Contacto",
