@@ -15,12 +15,14 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   loading?: boolean;
   onNewConversation: (userId: string) => void;
+  /** messaging.direct-by-username — students only; rejects with the API error. */
+  onNewConversationByUsername?: (username: string) => Promise<void>;
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
         <NewConversationDialog
           existingParticipantIds={existingParticipantIds}
           onSelectUser={onNewConversation}
+          onStartByUsername={onNewConversationByUsername}
         />
         </div>
       </div>
