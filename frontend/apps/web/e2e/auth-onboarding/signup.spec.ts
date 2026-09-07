@@ -46,6 +46,28 @@ test("US-210: student signs up and lands on Connect with a coach", async ({ page
   await expect(page.getByTestId("connect-with-coach")).toBeVisible();
 });
 
+test("US-225: a too-short username is reported under its field before any request", async ({
+  page,
+}) => {
+  let registerCalls = 0;
+  page.on("request", (req) => {
+    if (/\/api\/auth\/register$/.test(req.url()) && req.method() === "POST") registerCalls += 1;
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/signup");
+  await page.getByTestId("signup-role-student").click();
+  await page.locator("#signup-name").fill("E2E Short");
+  await page.locator("#signup-username").fill("a");
+  await page.locator("#signup-email").fill(`short-${stamp()}@example.com`);
+  await page.locator("#signup-password").fill(PASSWORD);
+  await page.locator("#signup-repeatPassword").fill(PASSWORD);
+  await page.getByTestId("signup-submit").click();
+
+  await expect(page.getByTestId("signup-username-error")).toContainText(/3 characters|3 caracteres/i);
+  await expect(page).toHaveURL(/\/signup$/);
+  expect(registerCalls).toBe(0);
+});
+
 test("US-210: taken username is reported under the field", async ({ page }) => {
   await signUp(page, "student", COACH_USERNAME);
   await expect(page.getByTestId("signup-username-error")).toBeVisible({ timeout: 10_000 });

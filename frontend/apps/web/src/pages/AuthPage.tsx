@@ -16,7 +16,7 @@ import { usernameSchema, passwordSchema } from "@levelup/validation";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { useLaunchOverlay } from "@/components/brand/launch-overlay";
-import { postLoginPath } from "@/auth/postLoginPath";
+import { postLoginLanding } from "@/auth/postLoginPath";
 import { getMe } from "@/api/auth";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 
@@ -75,9 +75,13 @@ const AuthPage = () => {
       // players.join-token rule 9: a join link opened without a session comes
       // first, once the account is usable for it.
       const me = await getMe();
-      const target = postLoginPath(me);
+      const target = postLoginLanding(me);
       const remembered = consumePostAuthRedirect();
-      navigate(remembered && target === "/dashboard" ? remembered : target);
+      // A remembered post-auth path (invite / join link) wins over both the
+      // dashboard and the "connect with a coach" landing — the link IS the
+      // connection the student came for. Coach gates (pending, no club) still win.
+      const gated = target !== "/dashboard" && target !== "/connect";
+      navigate(remembered && !gated ? remembered : target);
       succeed();
       toast({
         title: t("auth.login.welcomeTitle"),

@@ -44,8 +44,10 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    button on iOS, and "Generate new code" (rotate) with a confirm that the old one stops
    working. Web and iOS.
 8. Student UI — "Connect with a coach" screen: reached after student signup (`auth.register`
-   rule 11), from the dashboard empty state when the student has no coach, and from Settings →
-   Account. It explains "scan your coach's QR with your camera, or paste the link here" and
+   rule 11), from the dashboard when the student has no coach, and from Settings → Account. "Has
+   no coach" means `GET /api/auth/me` returns `coaches: []` — never inferred from an empty
+   calendar (a connected student with no classes this week was shown "Not connected to a coach
+   yet?", TestFlight 2026-09-07). It explains "scan your coach's QR with your camera, or paste the link here" and
    accepts a pasted `/join/coach/<token>` URL. Web and iOS.
 9. Join page (`/join/coach/:token`): signed in as a student → preview (rule 4) with "Join
    {coachName} at {clubName}" → accept (rule 5) → success state linking to the calendar. Not
@@ -108,6 +110,12 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 - **When** they choose "Create account", register as a student and submit
 - **Then** they land back on `/join/coach/<token>` showing "Join Maria at Padel Academy"
 - **And** confirming shows the success state and the coach's roster now lists them
+
+#### Connected student is not prompted to connect
+- **Given** student `ana` on coach Maria's roster with no classes in the next 7 days
+- **When** `ana` opens the dashboard on web and on iOS
+- **Then** no "Not connected to a coach yet?" prompt is shown
+- **And** a student with `coaches: []` does see it
 
 #### Coach sees the QR on both platforms
 - **Given** an authenticated coach on the Players tab

@@ -24,7 +24,8 @@ def _auth_header(app, user_id):
 
 @pytest.fixture
 def people(app):
-    """Students ana, bruno, carla (carla has blocked ana), dora (inactive); coach maria."""
+    """Students ana, bruno, carla (carla has blocked ana), dora (inactive); coaches maria, rui;
+    plus a never-activated placeholder account (pending-abc, no password)."""
     from padel_app.models import User, BlockedUser
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
@@ -38,13 +39,18 @@ def people(app):
                 ("carla", "active"),
                 ("dora", "inactive"),
                 ("maria", "active"),
+                ("rui", "active"),
             ]
         }
+        users["pending-abc"] = User(
+            name="Placeholder", username="pending-abc", password=None, status="inactive"
+        )
         db.session.add_all(users.values())
         db.session.flush()
-        for name in ("ana", "bruno", "carla", "dora"):
+        for name in ("ana", "bruno", "carla", "dora", "pending-abc"):
             db.session.add(Player(user_id=users[name].id))
         db.session.add(Coach(user_id=users["maria"].id))
+        db.session.add(Coach(user_id=users["rui"].id))
         db.session.add(BlockedUser(blocker_id=users["carla"].id, blocked_id=users["ana"].id))
         db.session.commit()
         return {name: u.id for name, u in users.items()}
@@ -78,8 +84,17 @@ def test_student_starts_a_conversation_by_exact_username(client, app, people):
     assert conv.id in ids
 
 
-@pytest.mark.parametrize("username", ["nobody", "maria", "ana", "carla", "dora"])
-def test_unknown_coach_self_blocked_and_inactive_usernames_are_indistinguishable(
+@pytest.mark.parametrize(
+    "username",
+    [
+        "nobody",       # unknown
+        "pending-abc",  # never-activated placeholder
+        "ana",          # self
+        "carla",        # target has blocked the caller
+        "dora",         # inactive
+    ],
+)
+def test_unknown_placeholder_self_blocked_and_inactive_usernames_are_indistinguishable(
     client, app, people, username
 ):
     before = _conversation_count(app)
@@ -100,9 +115,29 @@ def test_callers_own_block_is_a_403(client, app, people):
     assert resp.status_code == 403
 
 
-def test_coach_cannot_use_the_username_path(client, app, people):
-    resp = _post(client, app, people["maria"], {"otherUsername": "ana"})
-    assert resp.status_code == 400
+def test_student_reaches_a_coach_and_a_coach_reaches_anyone_by_username(client, app, people):
+    """Amended 2026-09-07: the username path is open to every role and reaches any active user."""
+    from padel_app.models import Conversation
+
+    r1 = _post(client, app, people["ana"], {"otherUsername": "maria"})
+    r2 = _post(client, app, people["rui"], {"otherUsername": "ana"})
+    r3 = _post(client, app, people["rui"], {"otherUsername": "MARIA"})
+    assert (r1.status_code, r2.status_code, r3.status_code) == (201, 201, 201)
+    with app.app_context():
+        keys = {c.participant_key for c in Conversation.query.all()}
+    expected = {
+        Conversation.build_participant_key([people["ana"], people["maria"]]),
+        Conversation.build_participant_key([people["rui"], people["ana"]]),
+        Conversation.build_participant_key([people["rui"], people["maria"]]),
+    }
+    assert expected <= keys
+    assert _conversation_count(app) == 3
+
+
+def test_coach_participant_path_is_still_roster_scoped(client, app, people):
+    """Discovery is unchanged: by id a coach may only reach roster/club players."""
+    resp = _post(client, app, people["rui"], {"otherParticipants": [people["ana"]]})
+    assert resp.status_code == 403
 
 
 def test_both_keys_at_once_is_rejected(client, app, people):

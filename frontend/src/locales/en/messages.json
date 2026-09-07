@@ -115,7 +115,7 @@
     "reactionLabel_one": "{{emoji}} reaction",
     "reactionLabel_other": "{{emoji}} reaction ({{count}})",
     "messageByUsername": "Message by username",
-    "messageByUsernameHint": "Enter another student's exact username. Students are not searchable.",
+    "messageByUsernameHint": "Enter their exact username. People you aren't connected with can't be searched.",
     "usernamePlaceholder": "username",
     "usernameSubmit": "Start",
     "noUserWithUsername": "No user with that username",
@@ -125,6 +125,13 @@
       "description": "This person isn't one of your coaches and isn't in any of your clubs. Reply to keep talking, or block or report them.",
       "block": "Block",
       "report": "Report"
-    }
+    },
+    "searchConnectedPlaceholder": "Search users you're connected with…",
+    "searchConnectedAria": "Search people you're connected with",
+    "noOneMatches": "No one matches",
+    "notConnectedYet": "You're not connected with anyone yet",
+    "notConnectedYetHint": "Join a coach's roster or use a username to start a conversation.",
+    "messageByUsernameExplain": "Know someone's username? Message them directly.",
+    "connectedPeople": "People you're connected with"
   }
 }

@@ -19,6 +19,7 @@ import { Text } from "@/components/ui/text";
 import { KpiTiles, NeedsYouQueue, NextClassHero, Schedule7Days } from "./blocks";
 import { pick } from "./CoachDashboard";
 import { ClaimRequests } from "@/features/players/claim-requests";
+import { useAuth } from "@/auth/AuthContext";
 
 export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   const hero = pick(blocks, "next_class");
@@ -29,7 +30,10 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
 
   // players.join-token rule 8: no next class and an empty week is what a
   // student nobody has picked up yet looks like — offer the Connect screen.
-  const looksUnconnected = !hero && (schedule?.data.items.length ?? 0) === 0;
+  // players.join-token rule 8 (PAD-225): "no coach" comes from `me.coaches`,
+  // never from an empty week.
+  const { user: me } = useAuth();
+  const looksUnconnected = Array.isArray(me?.coaches) && me.coaches.length === 0;
 
   return (
     <View className="gap-5" testID="student-dashboard">

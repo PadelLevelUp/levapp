@@ -14,6 +14,21 @@ type Me = authApi.MeResponse;
  * only a brand-new signup is sent to `/connect` by the signup screen.
  */
 export type PostLoginRoute = "/(tabs)/dashboard" | "/coach-pending" | "/club-onboarding";
+export type PostLoginLanding = PostLoginRoute | "/connect";
+
+/**
+ * Where a user LANDS after login / signup: `postLoginRoute` plus the student
+ * rule — no coach yet (`me.coaches` empty) → Connect with a coach
+ * (players.join-token rule 8, PAD-225). Not used by the tab-layout guard, so a
+ * student can still open Messages or Settings afterwards.
+ */
+export function postLoginLanding(user: Me | null | undefined): PostLoginLanding {
+  const held = postLoginRoute(user);
+  if (held !== "/(tabs)/dashboard") return held;
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  if (!isCoach && Array.isArray(user?.coaches) && user.coaches.length === 0) return "/connect";
+  return "/(tabs)/dashboard";
+}
 
 export function postLoginRoute(user: Me | null | undefined): PostLoginRoute {
   if (!user) return "/(tabs)/dashboard";
