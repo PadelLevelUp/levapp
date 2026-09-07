@@ -47,6 +47,8 @@
     "noMessagesYet": "No messages yet",
     "startConversation": "Start the conversation!",
     "scrollToBottom": "Scroll to bottom",
+    "newMessagesBelow": "New messages",
+    "loadingOlder": "Loading older messages…",
     "newConversation": "New conversation",
     "searchUsersPlaceholder": "Search users...",
     "loadingUsers": "Loading users...",

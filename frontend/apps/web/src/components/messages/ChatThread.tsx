@@ -18,6 +18,12 @@ interface ChatThreadProps {
   onToggleReaction: (messageId: string, emoji: string) => void;
   onBack?: () => void;
   isMobile?: boolean;
+  /** PAD-208 — older messages remain unfetched (messaging.conversation-detail rule 11). */
+  hasMore?: boolean;
+  /** PAD-208 — a page of older messages is in flight. */
+  loadingOlder?: boolean;
+  /** PAD-208 — the reader reached the top of the loaded page. */
+  onLoadOlder?: () => void;
 }
 
 export function ChatThread({
@@ -29,6 +35,9 @@ export function ChatThread({
   onToggleReaction,
   onBack,
   isMobile,
+  hasMore,
+  loadingOlder,
+  onLoadOlder,
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -160,7 +169,11 @@ export function ChatThread({
         />
       )}
 
+      {/* `key`: MessageList holds the scroll anchor for one thread in refs
+          (PAD-208 rules 9 and 11). Switching conversations must start those
+          over, and remounting is how that is guaranteed. */}
       <MessageList
+        key={String(conversation.id)}
         messages={conversation.messages ?? []}
         userId={user_id}
         participantName={participantName}
@@ -168,6 +181,9 @@ export function ChatThread({
         onEdit={handleEdit}
         onDelete={onDeleteMessage}
         onReaction={onToggleReaction}
+        hasMore={hasMore}
+        loadingOlder={loadingOlder}
+        onLoadOlder={onLoadOlder}
       />
 
       {/* Assistant conversations are a one-way channel — no composer */}

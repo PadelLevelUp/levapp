@@ -114,12 +114,33 @@ def serialize_conversation(
         "unreadCount": unread_count,
     }
 
-def serialize_conversation_detail(conversation, user_id):
+def serialize_conversation_detail(
+    conversation, user_id, messages=None, has_more=False
+):
+    """One conversation plus one page of its thread.
+
+    PAD-208 / messaging.conversation-detail rule 1. `messages` is the page the
+    caller already selected — newest-first in SQL, handed here ascending. When
+    it is None the whole thread is rendered from `conversation.messages`, which
+    is the deprecated unpaged branch kept for TestFlight build 8 in the field.
+
+    `hasMore` and `oldestMessageId` are what the client walks backwards with:
+    the next request passes `oldestMessageId` as `before`, and stops asking once
+    `hasMore` is false. Read state is resolved per page from the same
+    `last_read_at` (messaging.read-tracking), so a message's `isRead` does not
+    depend on which page it arrived in.
+
+    `isKnownContact` (PAD-215) is a property of the conversation, not of the
+    page, so it is computed the same way whichever branch produced `messages`.
+    """
     from padel_app.models import User
     from padel_app.services.messaging_service import is_known_contact
 
     last_read_at = conversation.last_read_by(user_id)
     viewer = User.query.get(user_id)
+
+    if messages is None:
+        messages = sorted(conversation.messages, key=lambda m: m.sent_at)
 
     return {
         **serialize_conversation(conversation, user_id),
@@ -127,8 +148,7 @@ def serialize_conversation_detail(conversation, user_id):
         "isKnownContact": (
             is_known_contact(viewer, conversation) if viewer else True
         ),
-        "messages": [
-            serialize_message(m, last_read_at)
-            for m in sorted(conversation.messages, key=lambda m: m.sent_at)
-        ],
+        "messages": [serialize_message(m, last_read_at) for m in messages],
+        "hasMore": has_more,
+        "oldestMessageId": messages[0].id if messages else None,
     }

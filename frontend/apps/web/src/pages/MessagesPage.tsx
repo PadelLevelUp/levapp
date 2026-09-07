@@ -15,6 +15,11 @@ import {
   createConversation,
   markConversationRead,
 } from "@/api/messages";
+import {
+  CONVERSATION_PAGE_SIZE,
+  applyIncomingMessage,
+  mergeOlderPage,
+} from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +57,9 @@ export default function MessagesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
+  // PAD-208 — one page of older messages at a time (conversation-detail rule 11).
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
   const mobileView = id ? "thread" : "list";
   const selectedConversationIdRef = useRef<string | null>(null);
 
@@ -64,7 +72,9 @@ export default function MessagesPage() {
   }, [conversations]);
 
   const ensureConversationExists = async (conversationId: string) => {
-    const convo = await getConversation(conversationId);
+    // Only the summary is wanted here — a row for the sidebar — so ask for the
+    // smallest page there is rather than the thread (PAD-208 rule 1).
+    const convo = await getConversation(conversationId, { limit: 1 });
     setConversations((prev) => {
       if (prev.some((c) => normalizeConversationId(c.id) === normalizeConversationId(convo.id))) {
         return prev;
@@ -132,24 +142,11 @@ export default function MessagesPage() {
 
         setSelectedConversation((prev) => {
           if (!prev || normalizeConversationId(prev.id) !== messageConversationId) return prev;
-
-          if (isOwnMessage) {
-            // Promote the 'sent' optimistic message to 'delivered'
-            return {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                String(m.id) === String(message.id)
-                  ? { ...m, status: "delivered" as const }
-                  : m
-              ),
-            };
-          }
-
-          // Someone else's message — append
-          return {
-            ...prev,
-            messages: [...prev.messages, { ...message, status: "delivered" as const }],
-          };
+          // PAD-208 rule 10 — the arrival goes onto the newest page, which is
+          // the tail of the array; the older pages above it are untouched, and
+          // whether the viewport follows is MessageList's decision, not this
+          // one's. Shared with iOS so the two shells cannot drift on it.
+          return applyIncomingMessage(prev, message);
         });
 
         setConversations((prev) => {
@@ -256,10 +253,49 @@ export default function MessagesPage() {
     return () => setScrollMode("page");
   }, [setScrollMode]);
 
+  /**
+   * PAD-208 rule 11 — fetch the page before the oldest loaded message and
+   * prepend it. The scroll compensation is MessageList's; this only owns the
+   * data. `loadingOlderRef` guards the request because the top sentinel can
+   * fire again before the `loadingOlder` state has re-rendered.
+   */
+  const handleLoadOlder = useCallback(async () => {
+    if (loadingOlderRef.current) return;
+
+    const current = selectedConversation;
+    if (!current || current.hasMore !== true) return;
+    const before = current.oldestMessageId ?? current.messages[0]?.id;
+    if (before == null) return;
+
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const older = await getConversation(String(current.id), {
+        limit: CONVERSATION_PAGE_SIZE,
+        before,
+      });
+      setSelectedConversation((prev) =>
+        // Re-read from state rather than from `current`: a message may have
+        // arrived over SSE while this page was in flight.
+        prev && normalizeConversationId(prev.id) === normalizeConversationId(current.id)
+          ? mergeOlderPage(prev, older)
+          : prev
+      );
+    } catch {
+      // Leave `hasMore` alone — the next scroll to the top retries. A failed
+      // page must not read as the end of the history.
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [selectedConversation]);
+
   const handleSelectConversation = async (conversationId: string) => {
     setThreadLoading(true);
     try {
-      const convo = await getConversation(conversationId);
+      const convo = await getConversation(conversationId, {
+        limit: CONVERSATION_PAGE_SIZE,
+      });
       setSelectedConversation(convo);
       // Awaited, not fire-and-forget: refreshUnreadCount re-queries the
       // server, so firing it alongside an uncommitted mark-read races it and
@@ -507,6 +543,9 @@ export default function MessagesPage() {
                   onToggleReaction={handleToggleReaction}
                   onBack={isMobile ? handleBack : undefined}
                   isMobile={isMobile}
+                  hasMore={selectedConversation.hasMore}
+                  loadingOlder={loadingOlder}
+                  onLoadOlder={handleLoadOlder}
                 />
               )}
             </div>

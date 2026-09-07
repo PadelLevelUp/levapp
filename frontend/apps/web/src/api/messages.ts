@@ -13,15 +13,19 @@ export async function getConversations(page = 1, limit = 20): Promise<{ conversa
 }
 
 export async function getConversation(
-  conversationId: string
+  conversationId: string,
+  params?: { limit?: number; before?: string | number | null }
 ): Promise<Conversation> {
   if (USE_MOCK_DATA) {
     const conv = mockConversations.find((c) => c.id === conversationId);
-    if (conv) return conv;
+    // PAD-208: the mock thread is short enough to be one page, so there is
+    // never anything older behind it — say so rather than leaving `hasMore`
+    // undefined, which would leave the top sentinel armed forever.
+    if (conv) return { ...conv, hasMore: false, oldestMessageId: conv.messages[0]?.id ?? null };
     throw new Error(`Conversation ${conversationId} not found`);
   }
 
-  return messagesApi.getConversation(conversationId);
+  return messagesApi.getConversation(conversationId, params);
 }
 
 export async function getUnreadMessagesCount() {

@@ -10,11 +10,22 @@ governed_by: []
 
 
 ### Intent
-View a single conversation with all its messages and participant info.
+View a single conversation — a page of its messages and its participant info — reading backwards
+through the history without the thread ever moving under the reader.
 
 ### Rules
-1. `GET /api/app/conversation/{id}` returns conversation + messages + participants
-2. Messages ordered by `sent_at` ascending
+1. `GET /api/app/conversation/{id}` returns conversation + messages + participants, and pages the
+   messages. It accepts `limit` (page size) and `before` (a message id, exclusive). With `limit`
+   it returns the **newest** `limit` messages older than `before` — or simply the newest `limit`
+   messages when `before` is absent — still ordered ascending within the page, alongside
+   `hasMore: boolean` (are there older messages beyond this page) and `oldestMessageId` (the id to
+   pass as the next `before`, `null` for an empty page). **Without `limit` the full history is
+   returned unchanged**, with `hasMore: false` and `oldestMessageId` set: clients already in the
+   field talk to prod (TestFlight build 8), and they send no `limit`. That unpaged branch is
+   **deprecated** — it exists only for those builds and must not be used by new callers
+2. Messages ordered by `sent_at` ascending — within a page as well as across the whole history.
+   The page itself is selected newest-first (`sent_at DESC, id DESC`) and then reversed, so
+   `limit` takes the newest messages rather than the oldest
 3. Includes reaction data and reply chains
 4. Frontend renders as scrollable message list with chat bubbles
 5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`. When there is no other participant to derive it from, the payload degrades exactly as `messaging.conversations` rule 10 prescribes — `participantRole: null` alongside `participantDeleted: true` — rather than failing (B-024)
@@ -25,6 +36,22 @@ View a single conversation with all its messages and participant info.
    every message it renders, so an unloaded relationship turns a 200-message thread into 200
    round trips; the detail endpoint eager-loads them up front instead. (`replyTo` is the raw
    `reply_to_id`, so the reply chain costs nothing extra.)
+9. The thread **opens anchored at the newest message**, with no visible scroll animation: the
+   first page is positioned at its bottom before the user sees it, not scrolled there afterwards.
+   A list that renders the history and then travels to the end — once, or once per render batch —
+   violates this rule even when it ends up in the right place (B-027)
+10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
+    bubble's height), **no content change moves it**: not a new incoming message, an edit, a
+    reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
+    messages" affordance appears instead, and tapping it returns to the bottom (web's
+    `showScrollDown` button; the native shell needs the equivalent). While the viewport **is** at
+    the bottom, an incoming message keeps it pinned there. The user's **own** sent message always
+    scrolls to the bottom, wherever they were
+11. Reaching the **top of the loaded messages** fetches the previous page (`before` =
+    `oldestMessageId`) and prepends it with the viewport **anchored to the message that was at the
+    top** — the reader's position over the text does not jump. A small loading indicator shows
+    while the page is in flight, only one page is in flight at a time, and nothing is fetched once
+    `hasMore` is false
 
 ### Acceptance Criteria
 
@@ -45,3 +72,25 @@ View a single conversation with all its messages and participant info.
 - **Then** the reactions for the whole thread are fetched in a single statement
 - **And** the number of SQL statements the endpoint issues does not grow with the number of
   messages in the thread
+
+#### The newest page comes back first, and `before` walks backwards (PAD-208)
+- **Given** a conversation seeded with 60 messages, numbered "msg-1" (oldest) to "msg-60" (newest)
+- **When** a participant GETs `/api/app/conversation/{id}?limit=50`
+- **Then** the response carries 50 messages — "msg-11" through "msg-60", ascending —
+  with `hasMore: true` and `oldestMessageId` equal to the id of "msg-11"
+- **And** when they then GET `/api/app/conversation/{id}?limit=50&before=<that id>`,
+  the response carries the remaining 10 — "msg-1" through "msg-10", ascending — with
+  `hasMore: false`
+- **And** a GET with no `limit` still returns all 60 messages, for clients in the field
+
+#### A scrolled-up viewport does not move when a message arrives (PAD-208)
+- **Given** a participant reading a 60-message thread who has scrolled up, away from the bottom
+- **When** the other participant sends a new message and it arrives over SSE
+- **Then** the scroll position is unchanged (within a few pixels)
+- **And** the "new messages" affordance is shown
+
+#### Scrolling to the top loads older messages and keeps the anchor (PAD-208)
+- **Given** the same participant with 50 of 60 messages loaded, scrolled to the top of them
+- **When** the previous page is fetched and prepended
+- **Then** all 60 messages are loaded
+- **And** the message that was at the top of the viewport is still at the top of the viewport

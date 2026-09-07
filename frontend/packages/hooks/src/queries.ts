@@ -29,7 +29,7 @@ import type { CoachPlayersPageResponse, PlayersQueryParams } from "@levelup/api/
 import type { AvailabilityBlocker } from "@levelup/api/src/resources/availability";
 import { queryKeys } from "./queryKeys";
 
-type QueryOverrides<T> = Omit<UseQueryOptions<T>, "queryKey" | "queryFn">;
+export type QueryOverrides<T> = Omit<UseQueryOptions<T>, "queryKey" | "queryFn">;
 
 // ── Dashboard ──
 
@@ -120,6 +120,13 @@ export function useConversations(
   });
 }
 
+/**
+ * @deprecated PAD-208 — this fetches the entire history in one request
+ * (messaging.conversation-detail rule 1's deprecated unpaged branch). Use
+ * `useConversationThread`, which asks for a page and can walk backwards. Kept
+ * because it populates the same cache entry and is still the plainest way to
+ * read a conversation that is known to be short.
+ */
 export function useConversation(
   conversationId: string | null | undefined,
   options?: QueryOverrides<Conversation>
