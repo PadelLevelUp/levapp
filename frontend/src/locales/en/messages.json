@@ -108,6 +108,12 @@
     "reactWith": "React with {{emoji}}",
     "roleLabel": "Role: {{role}}",
     "reactionLabel_one": "{{emoji}} reaction",
-    "reactionLabel_other": "{{emoji}} reaction ({{count}})"
+    "reactionLabel_other": "{{emoji}} reaction ({{count}})",
+    "messageByUsername": "Message by username",
+    "messageByUsernameHint": "Enter another student's exact username. Students are not searchable.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Start",
+    "noUserWithUsername": "No user with that username",
+    "cannotMessageUser": "You can't message this user"
   }
 }

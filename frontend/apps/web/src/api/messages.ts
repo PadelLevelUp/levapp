@@ -90,14 +90,16 @@ export async function toggleReaction(
   await messagesApi.toggleReaction(messageId, emoji);
 }
 
-export async function createConversation(payload: {
-  otherParticipants: [string];
-}): Promise<Conversation> {
+export type { CreateConversationPayload } from "@levelup/api/src/resources/messages";
+
+export async function createConversation(
+  payload: messagesApi.CreateConversationPayload
+): Promise<Conversation> {
   if (USE_MOCK_DATA) {
     console.log("[mock] createConversation", payload);
     return {
       id: `conv-mock-${Date.now()}`,
-      participantId: payload.otherParticipants[0],
+      participantId: payload.otherParticipants?.[0] ?? `mock-${payload.otherUsername}`,
       participantName: "New Conversation",
       lastMessage: null,
       lastMessageAt: null,

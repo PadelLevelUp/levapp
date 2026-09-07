@@ -108,6 +108,12 @@
     "reactWith": "Reagir com {{emoji}}",
     "roleLabel": "Função: {{role}}",
     "reactionLabel_one": "Reação {{emoji}}",
-    "reactionLabel_other": "Reação {{emoji}} ({{count}})"
+    "reactionLabel_other": "Reação {{emoji}} ({{count}})",
+    "messageByUsername": "Mensagem por username",
+    "messageByUsernameHint": "Escreve o username exato de outro aluno. Os alunos não são pesquisáveis.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Iniciar",
+    "noUserWithUsername": "Não existe nenhum utilizador com esse username",
+    "cannotMessageUser": "Não podes enviar mensagens a este utilizador"
   }
 }

@@ -1,6 +1,6 @@
 ---
 id: messaging.direct-by-username
-status: draft
+status: implemented
 depends_on: [messaging.conversations, messaging.block-and-report, auth.register]
 implements: ../../specs-business/messaging/student-reaches-out-and-stays-safe.business.md
 governed_by: []
