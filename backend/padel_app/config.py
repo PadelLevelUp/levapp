@@ -149,6 +149,10 @@ class Config:
     # Where to email "a coach is waiting for approval". Unset → no email, the
     # Settings → Admin badge is the only signal.
     ADMIN_NOTIFY_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL") or None
+    # players.join-token rule 3 (PAD-212): when set, the coach's join link is
+    # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
+    # build it from their own origin, as they do for player invite links.
+    PUBLIC_WEB_ORIGIN = os.getenv("PUBLIC_WEB_ORIGIN") or None
 
     # Sessions
     SESSION_PERMANENT = False
