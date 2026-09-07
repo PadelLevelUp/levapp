@@ -23,7 +23,9 @@
 #     which has filled up twice — and the copy is skipped when free space is
 #     below MIN_FREE_MB;
 #   * the staging app is stopped and stray connections terminated before the
-#     restore, so `--clean` can drop objects.
+#     restore, and the target's `public` schema is dropped and recreated so
+#     the restore always lands on an empty schema (staging-only tables that
+#     prod does not have would otherwise block `--clean`).
 #
 # Usage:  bash sync-staging-db.sh [/path/to/.env.staging]
 # Env overrides: APP_CONTAINER, PG_CONTAINER, SOURCE_DB, MIN_FREE_MB,
@@ -85,12 +87,24 @@ trap restart_app EXIT
 docker stop "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $APP_CONTAINER"
 pg postgres "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$TARGET_DB' and pid <> pg_backend_pid();" >/dev/null 2>&1 || true
 
-# ── 4. Copy: prod dump streamed into a clean restore of the target ───────────
-# pg_restore exits 1 for non-fatal "errors ignored" (e.g. a DROP on an object
-# that was never there); the restore itself has still completed. Log and go on.
+# ── 4. Copy: prod dump streamed into an EMPTY target schema ─────────────────
+# Wipe the target schema first instead of relying on `pg_restore --clean`.
+# `--clean` only drops objects that exist in the dump, so a table staging has
+# and prod does not yet (a migration ahead of prod — e.g. coach_join_tokens
+# referencing coaches/clubs/users) blocks the DROP of the prod tables it points
+# at: "cannot drop table users because other objects depend on it". The
+# restore then half-applies over the old schema, the entrypoint's
+# `flask db upgrade` trips on objects that already exist, and staging answers
+# 502 (2026-09-07, first deploy after PAD-210..215). Dropping the schema takes
+# every object with it, whatever its origin; prod's dump recreates the schema.
+log "wiping schema public on $TARGET_DB"
+pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null \
+  || log "WARNING: could not wipe schema public on $TARGET_DB"
+# pg_restore exits 1 for non-fatal "errors ignored"; the restore itself has
+# still completed. Log and go on.
 log "copying $SOURCE_DB -> $TARGET_DB (streamed, no dump file)"
 if docker exec "$PG_CONTAINER" sh -c \
-  "pg_dump -U '$PG_USER' -Fc '$SOURCE_DB' | pg_restore -U '$PG_USER' -d '$TARGET_DB' --clean --if-exists --no-owner --no-privileges"; then
+  "pg_dump -U '$PG_USER' -Fc '$SOURCE_DB' | pg_restore -U '$PG_USER' -d '$TARGET_DB' --no-owner --no-privileges"; then
   log "copy finished cleanly"
 else
   log "copy finished with pg_restore exit $? (non-fatal errors are normal with --clean)"
