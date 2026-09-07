@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageSquarePlus, Search } from 'lucide-react';
+import { AtSign, MessageSquarePlus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -25,17 +25,64 @@ interface User {
 interface NewConversationDialogProps {
   existingParticipantIds: string[];
   onSelectUser: (userId: string) => void;
+  /**
+   * messaging.direct-by-username: anyone types another user's exact username.
+   * Rendered for every role; rejects with the API error so the 404 ("No user
+   * with that username") can be shown inline.
+   */
+  onStartByUsername?: (username: string) => Promise<void>;
+}
+
+function errorStatus(error: unknown): number | undefined {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { status?: number } }).response;
+    return response?.status;
+  }
+  return undefined;
 }
 
 export function NewConversationDialog({
   existingParticipantIds,
   onSelectUser,
+  onStartByUsername,
 }: NewConversationDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [submittingUsername, setSubmittingUsername] = useState(false);
+
+  // messaging.direct-by-username rules 1 / 6 (PAD-225): the username path is
+  // for every role — anyone can reach any other user by exact username. The
+  // picker above it stays connection-scoped; that is the only search there is.
+  const showUsernameField = !!onStartByUsername;
+
+  const handleStartByUsername = async () => {
+    const value = username.trim();
+    if (!value || !onStartByUsername || submittingUsername) return;
+    setSubmittingUsername(true);
+    setUsernameError(null);
+    try {
+      await onStartByUsername(value);
+      setOpen(false);
+      setUsername('');
+      setSearchQuery('');
+    } catch (error) {
+      const status = errorStatus(error);
+      if (status === 404) {
+        setUsernameError(t('messages.noUserWithUsername'));
+      } else if (status === 403) {
+        setUsernameError(t('messages.cannotMessageUser'));
+      } else {
+        setUsernameError(t('messages.somethingWentWrong'));
+      }
+    } finally {
+      setSubmittingUsername(false);
+    }
+  };
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -96,7 +143,7 @@ export function NewConversationDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={t("messages.searchUsersPlaceholder")}
+              placeholder={t("messages.searchConnectedPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -146,6 +193,64 @@ export function NewConversationDialog({
               )}
             </div>
           </ScrollArea>
+
+          {showUsernameField && <div className="border-t border-border pt-4" />}
+          {showUsernameField && (
+            <form
+              className="space-y-2"
+              data-testid="message-by-username"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleStartByUsername();
+              }}
+            >
+              <label
+                htmlFor="new-conversation-username"
+                className="text-sm font-medium"
+              >
+                {t('messages.messageByUsername')}
+              </label>
+              <p className="text-xs text-muted-foreground">{t('messages.messageByUsernameExplain')}</p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="new-conversation-username"
+                    data-testid="message-by-username-input"
+                    placeholder={t('messages.usernamePlaceholder')}
+                    value={username}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      if (usernameError) setUsernameError(null);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  data-testid="message-by-username-submit"
+                  disabled={!username.trim() || submittingUsername}
+                >
+                  {t('messages.usernameSubmit')}
+                </Button>
+              </div>
+              {usernameError && (
+                <p
+                  className="text-sm text-destructive"
+                  role="alert"
+                  data-testid="message-by-username-error"
+                >
+                  {usernameError}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t('messages.messageByUsernameHint')}
+              </p>
+            </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>

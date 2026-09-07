@@ -1,0 +1,84 @@
+# PAD-211 — clubs.join-request: an approved coach with no club creates one
+# on the club-onboarding screen, and the Settings → Club section lists join
+# requests for a member to approve or decline.
+#
+# Mirrors: apps/web/e2e/clubs/join-request.spec.ts (the "create a club" half).
+# Prerequisite: a coach account that is APPROVED and has NO club. The E2E seed
+# has none, and the admin approval half lives on web (Settings → Admin), so
+# this flow expects MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD to be provided
+# for an account prepared that way (or approved on web beforehand).
+appId: com.padellevelup.app
+env:
+  MAESTRO_COACH_NOCLUB_USERNAME: ${MAESTRO_COACH_NOCLUB_USERNAME}
+  MAESTRO_COACH_NOCLUB_PASSWORD: ${MAESTRO_COACH_NOCLUB_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- evalScript: ${output.stamp = String(Date.now())}
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 25000
+- tapOn:
+    id: "login-username"
+- inputText: ${MAESTRO_COACH_NOCLUB_USERNAME}
+- tapOn:
+    id: "login-password"
+- inputText: ${MAESTRO_COACH_NOCLUB_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+
+# ── Approved coach with no club lands on club onboarding ──
+- extendedWaitUntil:
+    visible:
+      id: "club-onboarding"
+    timeout: 25000
+- assertVisible:
+    id: "club-onboarding-create"
+- assertVisible:
+    id: "club-onboarding-join"
+
+# ── Join path: search shows results; back out without requesting ──
+- tapOn:
+    id: "club-onboarding-join"
+- tapOn:
+    id: "club-search-input"
+- inputText: "e2e"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "club-search-results"
+    timeout: 15000
+- tapOn:
+    id: "club-onboarding-back"
+
+# ── Create path: a new club → the coach tabs ──
+- tapOn:
+    id: "club-onboarding-create"
+- tapOn:
+    id: "club-create-name"
+- inputText: "Maestro Club ${output.stamp}"
+- hideKeyboard
+- tapOn:
+    id: "club-create-submit"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 25000
+
+# ── Settings → Club shows the join-requests list (empty for a new club) ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "settings-nav-club"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-club"
+- extendedWaitUntil:
+    visible:
+      id: "club-join-requests"
+    timeout: 15000
+- assertVisible:
+    id: "club-join-requests-empty"

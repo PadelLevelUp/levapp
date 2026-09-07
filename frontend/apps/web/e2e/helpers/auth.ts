@@ -9,6 +9,10 @@ export const STUDENT_PASSWORD = "E2eStudent123!";
 export const STUDENT2_USERNAME = "e2e-student-2";
 export const STUDENT2_PASSWORD = "E2eStudent2123!";
 
+// PAD-215: no coach, no club (see seed.py) — the unknown-sender counterpart.
+export const STUDENT3_USERNAME = "e2e-student-3";
+export const STUDENT3_PASSWORD = "E2eStudent3123!";
+
 // Coach with no levels defined — for the empty-levels dropdown case (PAD-29).
 export const COACH_NOLEVELS_USERNAME = "e2e-coach-nolevels";
 export const COACH_NOLEVELS_PASSWORD = "E2eCoach123!";
@@ -52,6 +56,10 @@ export async function loginAsStudent(page: Page) {
 
 export async function loginAsStudent2(page: Page) {
   await login(page, STUDENT2_USERNAME, STUDENT2_PASSWORD);
+}
+
+export async function loginAsStudent3(page: Page) {
+  await login(page, STUDENT3_USERNAME, STUDENT3_PASSWORD);
 }
 
 export async function loginAsCoachNoLevels(page: Page) {

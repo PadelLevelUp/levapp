@@ -52,9 +52,22 @@ async function openPreferences(page: Page) {
 async function selectLanguage(page: Page, option: RegExp) {
   await page.getByLabel(/language|idioma/i).click();
   await page.getByRole("option", { name: option }).click();
+  // Wait for the profile PATCH itself, not for on-screen copy: the
+  // "Preferências" heading already satisfies the text match before the save
+  // request has left the browser, and the very next step navigates away —
+  // which aborts an in-flight PATCH and leaves the shared coach in the wrong
+  // language for every later spec (seen as a 7-spec cascade under load).
+  const saved = page.waitForResponse(
+    (res) =>
+      res.url().includes("/api/auth/me") &&
+      res.request().method() === "PATCH" &&
+      res.ok(),
+    { timeout: 10000 }
+  );
   await page
     .getByRole("button", { name: /save changes|guardar altera/i })
     .click();
+  await saved;
   await expect(
     page.getByText(/settings saved|saved|guardad|preferências/i).first()
   ).toBeVisible({ timeout: 5000 });

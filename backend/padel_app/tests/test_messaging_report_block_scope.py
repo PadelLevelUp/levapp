@@ -2,8 +2,11 @@
 Phase 3 — Report/Block for messaging (Apple 1.2 UGC) + conversation scoping
 + conversation-access IDOR fix.
 
-Scope rule: a coach may only start a conversation with players belonging to
-one of the coach's clubs; a player/student may only start a conversation
+Scope rule: a coach may start a conversation with any player on their roster
+(`coach_in_player`) or in a club they belong to (`player_in_club`) — the union
+of the two, see PAD-205/B-025 and `test_messaging_roster_scope.py`, which pins
+the roster half. The cases below cover the club half and the exclusions. A
+player/student may only start a conversation
 with a coach. Block is bidirectional and prevents both starting a new
 conversation and sending a new message in an existing one. Reporting a
 message requires the reporter to be a participant of that message's
@@ -180,6 +183,23 @@ def test_blocked_user_prevents_new_message_in_existing_conversation(client, app,
         headers=_auth_header(app, scenario["coach1_user_id"]),
     )
     assert resp.status_code == 403
+
+
+def test_block_prevents_messages_both_ways(client, app, scenario):
+    """messaging.block-and-report rule 2: the blocker is silenced too, not only the blocked."""
+    create_resp = _create_conversation(
+        client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
+    )
+    conversation_id = create_resp.get_json()["id"]
+    _block(client, app, scenario["player1_user_id"], scenario["coach1_user_id"])
+
+    for sender in (scenario["coach1_user_id"], scenario["player1_user_id"]):
+        resp = client.post(
+            "/api/app/message",
+            json={"conversationId": conversation_id, "text": "hello"},
+            headers=_auth_header(app, sender),
+        )
+        assert resp.status_code == 403, sender
 
 
 def test_blocked_users_absent_from_messageable_users(client, app, scenario):

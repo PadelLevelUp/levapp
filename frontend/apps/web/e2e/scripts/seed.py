@@ -80,6 +80,19 @@ with app.app_context():
     )
     db.session.add(student2_user)
 
+    # PAD-215: a student with NO coach and NO club — the unknown-sender case
+    # (messaging.block-and-report rule 7). e2e-student / e2e-student-2 share the
+    # seeded coach and club, so a message between them is always "known".
+    student3_user = User(
+        name="E2E Student Three",
+        username="e2e-student-3",
+        email="e2e-student-3@test.com",
+        password=generate_password_hash("E2eStudent3123!"),
+        status="active",
+        language="en",
+    )
+    db.session.add(student3_user)
+
     # Inactive player (no account yet) — for invite-link tests
     ghost_user = User(
         name="Ghost Player",
@@ -116,6 +129,11 @@ with app.app_context():
 
     student2 = Player(user_id=student2_user.id)
     db.session.add(student2)
+
+    # PAD-215: Player row only — deliberately no Association_CoachPlayer and no
+    # Association_PlayerClub.
+    student3 = Player(user_id=student3_user.id)
+    db.session.add(student3)
 
     ghost_player = Player(user_id=ghost_user.id)
     db.session.add(ghost_player)

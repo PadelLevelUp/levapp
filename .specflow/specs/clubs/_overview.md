@@ -9,6 +9,7 @@ The clubs domain.
 - `clubs.crud` — implemented
 - `clubs.membership` — implemented
 - `clubs.coach-invitation` — implemented
+- `clubs.join-request` — implemented (an approved coach creates a club or asks to join one; a member approves; PAD-211)
 
 ## Why it's grouped this way
 

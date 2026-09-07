@@ -1,4 +1,4 @@
-import { Plus, Search } from "lucide-react";
+import { Plus, QrCode, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ interface PlayersToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
   onAddPlayer: () => void;
+  /** players.join-token rule 7 — opens the "Add by QR" dialog. */
+  onAddByQr: () => void;
   sortOption: SortOption;
   onSortChange: (value: SortOption) => void;
 }
@@ -24,6 +26,7 @@ export function PlayersToolbar({
   search,
   onSearchChange,
   onAddPlayer,
+  onAddByQr,
   sortOption,
   onSortChange,
 }: PlayersToolbarProps) {
@@ -57,6 +60,11 @@ export function PlayersToolbar({
             <SelectItem value="level-asc">{t("players.sortLevelAsc")}</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button variant="outline" onClick={onAddByQr} data-testid="players-add-by-qr">
+          <QrCode className="w-4 h-4 mr-2" />
+          {t("players.addByQr.button")}
+        </Button>
 
         <Button onClick={onAddPlayer}>
           <Plus className="w-4 h-4 mr-2" />

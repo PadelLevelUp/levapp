@@ -10,7 +10,7 @@ The attendance domain.
 - `attendance.confirm` — implemented
 - `attendance.stats` — implemented
 - `attendance.history` — implemented
-- `attendance.absences` — draft
+- `attendance.absences` — implemented
 - `attendance.validation` — draft
 
 ## Why it's grouped this way

@@ -703,3 +703,51 @@ def debug_reset_presence():
 
     db.session.commit()
     return jsonify({"ok": True, "playerId": player.id})
+
+
+@bp.post("/debug/offer_waiting_list")
+@jwt_required()
+def debug_offer_waiting_list():
+    """
+    E2E test helper (PAD-124) — only active when E2E_DEBUG_ENDPOINTS is set AND
+    the caller presents a valid JWT.
+
+    Sends a real ``waiting_list_offer`` message to a seeded student for a lesson
+    instance, through the very function the engine uses on the "sorry, that spot
+    was just filled" path (``_offer_waiting_list``). Reaching that path for real
+    takes two students racing for one vacancy; seeding the message this way keeps
+    the spec about the *client wiring* PAD-124 adds, while still producing the
+    production message shape rather than a hand-built row.
+
+    POST body: { "lessonInstanceId": int, "username": str }
+    """
+    if not _debug_endpoints_enabled():
+        abort(404)
+
+    from padel_app.services.notification_service import (
+        _offer_waiting_list,
+        _resolve_locale,
+        get_or_create_config,
+    )
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    lesson_instance_id = int(data.get("lessonInstanceId"))
+    username = data.get("username")
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.player:
+        abort(404, "Seeded user not found")
+
+    instance = LessonInstance.query.get_or_404(lesson_instance_id)
+
+    config = get_or_create_config(coach.id)
+    locale = _resolve_locale(coach)
+    _offer_waiting_list(
+        user.player.id,
+        instance,
+        coach.id,
+        config.get_message_templates(locale),
+        locale,
+    )
+    return jsonify({"ok": True, "playerId": user.player.id})

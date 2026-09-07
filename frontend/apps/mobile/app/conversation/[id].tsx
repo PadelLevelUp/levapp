@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import { queryKeys, useConversation } from "@levelup/hooks";
+import {
+  CONVERSATION_FIRST_PAGE_SIZE,
+  applyIncomingMessage,
+  queryKeys,
+  shouldShowJumpToBottom,
+  useConversationThread,
+} from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -14,6 +20,8 @@ import {
   Platform,
   Pressable,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
@@ -40,8 +48,16 @@ import {
   type ContextMenuAnchor,
 } from "@/features/messages/components/message-context-menu";
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
+import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import {
+  anchorReducer,
+  initialAnchorState,
+  type AnchorEvent,
+} from "@/features/messages/anchor-state";
+import { isAtBottomOf } from "@/features/messages/scroll-position";
+import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
   messageCopyText,
@@ -51,6 +67,21 @@ import {
   updateMessageInCache,
 } from "@/features/messages/utils";
 import { useAppEvents } from "@/lib/sse";
+
+/**
+ * How long the thread may stay hidden waiting to be anchored (PAD-224 rule 9).
+ *
+ * A backstop, not a schedule. It is generous on purpose: an earlier 300ms
+ * version of this constant *pre-empted* the observations it exists to back up.
+ * Instrumenting the reducer on a simulator showed the whole event trace for
+ * opening a 200-message thread as `reset → data(30) → fallback` — the native
+ * `onLayout` and `onContentSizeChange` callbacks had not arrived yet, so the
+ * timer revealed a list still sitting at offset 0 and the thread opened on
+ * message 171 of 200. The real observations land in tens of milliseconds once
+ * the native side reports; the only thing this bound must prevent is a
+ * permanently blank thread when they never do.
+ */
+const ANCHOR_FALLBACK_MS = 2500;
 
 function ChatSkeleton() {
   return (
@@ -84,7 +115,10 @@ export default function ConversationScreen() {
     isLoading,
     isError,
     refetch,
-  } = useConversation(conversationId);
+    hasMore,
+    isLoadingOlder,
+    loadOlder,
+  } = useConversationThread(conversationId);
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -108,6 +142,14 @@ export default function ConversationScreen() {
   const [reportMessageId, setReportMessageId] = React.useState<
     string | number | null
   >(null);
+  // messaging.block-and-report rules 7–9 (PAD-215): banner state. `repliedLocally`
+  // hides the banner as soon as the viewer sends something, without a refetch.
+  const [reportFromBanner, setReportFromBanner] = React.useState(false);
+  const [repliedLocally, setRepliedLocally] = React.useState(false);
+  React.useEffect(() => {
+    setRepliedLocally(false);
+    setReportFromBanner(false);
+  }, [conversationId]);
   const [highlightedId, setHighlightedId] = React.useState<
     string | number | null
   >(null);
@@ -137,6 +179,28 @@ export default function ConversationScreen() {
     ? String(conversation.participantId)
     : null;
   const isBlocked = participantId ? blockedUserIds.has(participantId) : false;
+  const showUnknownSender =
+    !!conversation &&
+    conversation.isKnownContact === false &&
+    !repliedLocally &&
+    !isBlocked &&
+    !conversation.isAssistant &&
+    !!participantId;
+
+  const blockFromBanner = async () => {
+    if (!participantId) return;
+    await messagesApi.blockUser(participantId);
+    setBlockedUserIds((prev) => new Set(prev).add(participantId));
+  };
+
+  // PAD-203: `participantName` is null once the counterpart is gone
+  // (messaging.conversations rule 10) — a different thing from "not loaded
+  // yet", which is what `conversationFallback` means. The server sends no
+  // display string because it has no i18n, so the label is resolved here.
+  // Mirrors web's ChatThread/ChatHeader.
+  const participantName = conversation
+    ? conversation.participantName ?? t("messages.deletedUser")
+    : t("messages.conversationFallback");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -201,28 +265,20 @@ export default function ConversationScreen() {
           const message = evt.payload as Message;
           if (normalizeId(message.conversationId) !== conversationId) return;
           const own = Number(message.senderId) === myId;
-          updateConversationCache(queryClient, conversationId, (c) => {
-            const exists = c.messages.some(
-              (m) => String(m.id) === String(message.id)
-            );
-            if (exists) {
-              return {
-                ...c,
-                messages: c.messages.map((m) =>
-                  String(m.id) === String(message.id)
-                    ? { ...m, status: "delivered" as const }
-                    : m
-                ),
-              };
-            }
-            return {
-              ...c,
-              messages: [
-                ...c.messages,
-                { ...message, status: "delivered" as const },
-              ],
-            };
-          });
+          // PAD-208 rule 10 — the arrival lands on the newest page, which is the
+          // tail of the array; the older pages above it do not move. Shared with
+          // web (`applyIncomingMessage`) so the two shells cannot drift.
+          updateConversationCache(queryClient, conversationId, (c) =>
+            applyIncomingMessage(c, message)
+          );
+          if (!own && !atBottomRef.current) {
+            // Rule 10's unseen flag, which rule 12's control also reads — set
+            // through the helper so the ref, the label and the button's
+            // visibility cannot drift apart.
+            hasNewBelowRef.current = true;
+            setHasNewBelow(true);
+            setShowJumpToBottom(true);
+          }
           if (!own) void messagesApi.markConversationRead(conversationId);
           invalidateMessagesLists(queryClient);
           return;
@@ -299,6 +355,10 @@ export default function ConversationScreen() {
       ...c,
       messages: [...c.messages, optimistic],
     }));
+    // PAD-208 rule 10 — the user's OWN message always takes them to the bottom,
+    // wherever they were reading. This is explicit now that the list no longer
+    // follows content unconditionally.
+    scrollToBottom(true);
 
     try {
       const saved = await messagesApi.sendMessage({
@@ -306,6 +366,7 @@ export default function ConversationScreen() {
         content,
         replyToId,
       });
+      setRepliedLocally(true);
       updateConversationCache(queryClient, conversationId, (c) => {
         // SSE may already have delivered the saved message — drop the temp.
         const alreadyDelivered = c.messages.some(
@@ -420,12 +481,183 @@ export default function ConversationScreen() {
   // NOT an inverted list: on the New Architecture (Fabric), `inverted`
   // FlatLists (scaleY(-1) transforms) report wrong accessibility frames and
   // break hit-testing on iOS — bubbles become untappable for VoiceOver and
-  // UI tests. Instead the list keeps natural (oldest-first) order and stays
-  // anchored to the bottom via scrollToEnd on content-size changes.
+  // UI tests. The list keeps natural (oldest-first) order.
+  //
+  // PAD-208 / B-027 — how it stays anchored, and when it may move at all.
+  // It used to call `scrollToEnd` from `onContentSizeChange` AND `onLayout`,
+  // both unconditional, which is why the thread scrolled visibly through the
+  // whole history on open and snapped back to the bottom whenever anything
+  // changed while the user was reading. Three mechanisms replace that:
+  //
+  //   1. `atBottomRef` — updated from every scroll event. The list follows new
+  //      content only while the reader was already at the bottom (rule 10).
+  //      Away from the bottom, nothing moves the viewport; the "new messages"
+  //      chip appears instead.
+  //   2. `maintainVisibleContentPosition` — the native scroll view keeps the
+  //      visible cell where it is when content is inserted above it, which is
+  //      what makes a prepended older page not jump (rule 11).
+  //   3. PAD-224 / B-028 — the list is HIDDEN until it is anchored. PAD-208
+  //      positioned it with one `scrollToEnd` on the first content-size change
+  //      while it was on screen, which still let the user watch Fabric commit
+  //      rows and the viewport chase the end. `anchor-state.ts` decides when the
+  //      thread is genuinely at the end — from observations, not a delay — and
+  //      only then is it revealed (rule 9).
   const listRef = React.useRef<FlatList<Message>>(null);
-  const scrollToBottom = React.useCallback(() => {
-    listRef.current?.scrollToEnd({ animated: false });
+  const atBottomRef = React.useRef(true);
+  const [hasNewBelow, setHasNewBelow] = React.useState(false);
+  const hasNewBelowRef = React.useRef(false);
+  const [showJumpToBottom, setShowJumpToBottom] = React.useState(false);
+  // Latest scroll geometry, kept in a ref: rule 12's visibility is derived from
+  // it on every frame, and putting the raw numbers in state would re-render the
+  // whole thread at 60fps to change one boolean.
+  const scrollMetricsRef = React.useRef({ distanceFromBottom: 0, viewportHeight: 0 });
+
+  const [anchored, setAnchored] = React.useState(false);
+  const anchorRef = React.useRef(initialAnchorState());
+
+  const dispatchAnchor = React.useCallback((event: AnchorEvent) => {
+    const { state, effect } = anchorReducer(anchorRef.current, event);
+    anchorRef.current = state;
+    if (effect === "scrollToEnd") {
+      // Deferred one frame, deliberately. Called synchronously from inside
+      // `onContentSizeChange`, `scrollToEnd` reads VirtualizedList's own
+      // `_scrollMetrics.contentLength`, which has not been updated with the
+      // size that is being reported — so it scrolls to a stale offset, or to
+      // nowhere. Instrumenting the screen showed the call being issued and the
+      // list simply not moving, which is the mechanical reason PAD-208's
+      // positioning never worked on a device either. The reducer stays pure;
+      // only the execution of its effect waits for the frame in which the new
+      // content length exists.
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+      });
+    } else if (effect === "reveal") {
+      setAnchored(true);
+    }
+    if (event.type === "reset") setAnchored(false);
   }, []);
+
+  const setNewBelow = React.useCallback((value: boolean) => {
+    hasNewBelowRef.current = value;
+    setHasNewBelow(value);
+  }, []);
+
+  /** Rule 12 — recompute the control's visibility from the latest geometry. */
+  const syncJumpToBottom = React.useCallback(() => {
+    const { distanceFromBottom, viewportHeight } = scrollMetricsRef.current;
+    setShowJumpToBottom(
+      shouldShowJumpToBottom({
+        distanceFromBottom,
+        viewportHeight,
+        hasUnseen: hasNewBelowRef.current,
+      })
+    );
+  }, []);
+
+  const scrollToBottom = React.useCallback(
+    (animated = false) => {
+      listRef.current?.scrollToEnd({ animated });
+      atBottomRef.current = true;
+      scrollMetricsRef.current = {
+        ...scrollMetricsRef.current,
+        distanceFromBottom: 0,
+      };
+      setNewBelow(false);
+      setShowJumpToBottom(false);
+    },
+    [setNewBelow]
+  );
+
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const metrics = event.nativeEvent;
+      const distanceFromBottom =
+        metrics.contentSize.height -
+        metrics.contentOffset.y -
+        metrics.layoutMeasurement.height;
+      scrollMetricsRef.current = {
+        distanceFromBottom,
+        viewportHeight: metrics.layoutMeasurement.height,
+      };
+
+      const atBottom = isAtBottomOf(metrics);
+      atBottomRef.current = atBottom;
+      if (atBottom) setNewBelow(false);
+      syncJumpToBottom();
+
+      // Rule 9's second observation: a frame confirming the position took
+      // effect. Ignored once anchored.
+      dispatchAnchor({ type: "scroll", distanceFromBottom });
+    },
+    [dispatchAnchor, setNewBelow, syncJumpToBottom]
+  );
+
+  const handleContentSizeChange = React.useCallback(
+    (_width: number, height: number) => {
+      if (!anchored) {
+        // Rule 9: while hidden, the reducer owns the positioning and decides
+        // when the list has settled at the end.
+        dispatchAnchor({ type: "contentSize", height });
+        return;
+      }
+      // Rule 10: content grew and the reader was at the bottom — stay pinned.
+      // Away from the bottom this is where the snap used to happen, and now it
+      // deliberately does nothing.
+      if (atBottomRef.current) {
+        listRef.current?.scrollToEnd({ animated: false });
+      }
+    },
+    [anchored, dispatchAnchor]
+  );
+
+  // Rule 11: reaching the top asks for the page before the oldest loaded
+  // message. `useConversationThread` holds the one-page-at-a-time guard.
+  const handleStartReached = React.useCallback(() => {
+    // While the thread is still being anchored the list sits at offset 0, so
+    // `onStartReached` fires on mount — which would fetch the page before the
+    // newest one the moment the thread opens, and disturb the anchor rule 9 is
+    // in the middle of establishing.
+    if (!anchored) return;
+    if (!hasMore || isLoadingOlder) return;
+    void loadOlder();
+  }, [anchored, hasMore, isLoadingOlder, loadOlder]);
+
+  // ── Rule 9's lifecycle: reset per conversation, feed data, bound the wait ──
+
+  // A different thread must be anchored from scratch, hidden again in between.
+  React.useEffect(() => {
+    dispatchAnchor({ type: "reset" });
+    atBottomRef.current = true;
+    hasNewBelowRef.current = false;
+    scrollMetricsRef.current = { distanceFromBottom: 0, viewportHeight: 0 };
+    setHasNewBelow(false);
+    setShowJumpToBottom(false);
+  }, [conversationId, dispatchAnchor]);
+
+  // The first page has arrived — the list can start laying out. Later pages
+  // change this count too; the reducer ignores them.
+  const loadedMessageCount = conversation?.messages.length;
+  React.useEffect(() => {
+    if (loadedMessageCount === undefined) return;
+    dispatchAnchor({ type: "data", messageCount: loadedMessageCount });
+  }, [loadedMessageCount, dispatchAnchor]);
+
+  // The bounded fallback rule 9 requires: a measurement that never settles must
+  // reveal an imperfect thread rather than leave a permanently blank one.
+  //
+  // A plain timer, deliberately, and NOT `InteractionManager.runAfterInteractions`
+  // on its own: that fires as soon as no interaction is in flight, which on a
+  // freshly mounted screen is almost immediately, so it would pre-empt the
+  // observations and turn the whole gate back into the timing heuristic this
+  // ticket exists to remove. The observations normally win long before 300ms.
+  React.useEffect(() => {
+    if (anchored || loadedMessageCount === undefined) return;
+    const timer = setTimeout(
+      () => dispatchAnchor({ type: "fallback" }),
+      ANCHOR_FALLBACK_MS
+    );
+    return () => clearTimeout(timer);
+  }, [anchored, loadedMessageCount, conversationId, dispatchAnchor]);
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
   const scrollToMessage = React.useCallback(
@@ -562,6 +794,41 @@ export default function ConversationScreen() {
     }
   };
 
+  // PAD-124: the `waiting_list_offer` message had no response path on either
+  // client, so the endpoint behind it was unreachable. Same shape as the
+  // reminder handler above — the server's action, not the tap, decides what is
+  // written into the cached metadata the bubble renders off.
+  const [respondingWaitingListId, setRespondingWaitingListId] = React.useState<
+    string | number | null
+  >(null);
+
+  const handleRespondToWaitingList = async (
+    message: Message,
+    action: "yes" | "no"
+  ) => {
+    const instanceId = lessonInstanceIdOf(message);
+    if (!instanceId || respondingWaitingListId !== null) return;
+    setRespondingWaitingListId(message.id);
+    try {
+      const result = await notificationEngineApi.respondToWaitingList(
+        instanceId,
+        action
+      );
+      const outcome = waitingListResponseOutcome(result?.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.write === null) return;
+      const response = outcome.write;
+      updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+        ...m,
+        metadata: { ...m.metadata, responded: true, response },
+      }));
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setRespondingWaitingListId(null);
+    }
+  };
+
   // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
     if (!confirmingDelete) return;
@@ -619,7 +886,7 @@ export default function ConversationScreen() {
               className="shrink text-base font-bold"
               style={{ color: lightTheme.sidebarForeground }}
             >
-              {conversation?.participantName ?? t("messages.conversationFallback")}
+              {participantName}
             </Text>
             {conversation?.participantRole ? (
               <View
@@ -700,13 +967,87 @@ export default function ConversationScreen() {
             onRetry={() => void refetch()}
           />
         ) : (
+          <>
+          {showUnknownSender ? (
+            <UnknownSenderBanner
+              participantName={
+                conversation.participantName ?? t("messages.deletedUser")
+              }
+              onBlock={() => setConfirmingToggleBlock(true)}
+              onReport={() => {
+                setReportFromBanner(true);
+                setReportMessageId(lastParticipantMessageId);
+              }}
+            />
+          ) : null}
+          <View
+            className="flex-1"
+            // PAD-224 rule 9 — the thread is not SHOWN until it is anchored.
+            //
+            // It is COVERED, not hidden: the placeholder below is opaque and
+            // painted over this. An earlier version set `opacity: 0` here and
+            // deadlocked — on Fabric a fully transparent subtree is not laid
+            // out, so `onLayout` and `onContentSizeChange` never fired, the
+            // reveal had nothing to observe, and every open fell through to the
+            // fallback with the list still at offset 0. Instrumenting the
+            // reducer on a simulator showed the whole trace as
+            // `reset → data(30) → fallback`. The list must stay laid out to be
+            // anchorable; only the user's view of it is withheld.
+            //
+            // `pointerEvents` still goes off while covered, so a tap that lands
+            // on the placeholder cannot reach a row underneath it.
+            pointerEvents={anchored ? "auto" : "none"}
+            accessibilityElementsHidden={!anchored}
+            importantForAccessibility={anchored ? "auto" : "no-hide-descendants"}
+          >
           <FlatList
             ref={listRef}
             data={conversation.messages}
             keyExtractor={(item) => String(item.id)}
             contentContainerClassName="gap-2 p-4"
-            onContentSizeChange={scrollToBottom}
-            onLayout={scrollToBottom}
+            // PAD-224 rule 9 — the whole first page in the first batch. It is
+            // 30 now rather than 50: fewer rows is a shorter unanchored
+            // interval, and the rest of the history arrives by rule 11.
+            initialNumToRender={CONVERSATION_FIRST_PAGE_SIZE}
+            onContentSizeChange={handleContentSizeChange}
+            onLayout={(event) =>
+              dispatchAnchor({
+                type: "layout",
+                viewportHeight: event.nativeEvent.layout.height,
+              })
+            }
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            // PAD-208 rule 11 — the native scroll view holds the visible cell
+            // in place when a page is inserted above it. `minIndexForVisible: 1`
+            // because index 0 is `ListHeaderComponent`, the loading indicator,
+            // which appears and disappears around exactly this update.
+            //
+            // PAD-224: only ONCE ANCHORED. While the thread is opening, holding
+            // the visible cell in place is precisely wrong — it is what keeps
+            // the list pinned near the top while rows commit, so `scrollToEnd`
+            // never takes and the thread opens on the middle of its first page
+            // (seen on a simulator recording: 200 messages, opened on 171).
+            // Nothing prepends before anchoring anyway: `onStartReached` is
+            // gated on `anchored` too.
+            maintainVisibleContentPosition={
+              anchored ? { minIndexForVisible: 1 } : undefined
+            }
+            onStartReached={handleStartReached}
+            onStartReachedThreshold={0.2}
+            ListHeaderComponent={
+              isLoadingOlder ? (
+                <View
+                  testID="messages-loading-older"
+                  accessibilityRole="progressbar"
+                  className="items-center py-2"
+                >
+                  <Text className="text-xs text-muted-foreground">
+                    {t("messages.loadingOlder")}
+                  </Text>
+                </View>
+              ) : null
+            }
             onScrollToIndexFailed={(info) => {
               // Item not measured yet (variable bubble heights) — retry
               // once layout settles, standard FlatList workaround.
@@ -732,7 +1073,7 @@ export default function ConversationScreen() {
                   message={item}
                   own={own}
                   userId={myId}
-                  participantName={conversation.participantName}
+                  participantName={participantName}
                   replyToMessage={replyToMessage}
                   isHighlighted={highlightedId === item.id}
                   onLongPressMenu={
@@ -752,6 +1093,12 @@ export default function ConversationScreen() {
                     void handleRespondToReminder(item, action)
                   }
                   onCancelAttendance={() => void handleCancelAttendance(item)}
+                  respondingWaitingList={respondingWaitingListId === item.id}
+                  onRespondWaitingList={
+                    isTempId(item.id)
+                      ? undefined
+                      : (action) => void handleRespondToWaitingList(item, action)
+                  }
                   respondingInvite={respondingInviteId === item.id}
                   onRespondInvite={
                     isTempId(item.id)
@@ -769,7 +1116,61 @@ export default function ConversationScreen() {
               </View>
             }
           />
+          </View>
+          </>
         )}
+
+        {/* PAD-224 rule 9 — the neutral placeholder standing in front of the
+            list while it is being anchored. The same skeleton the initial load
+            shows, so opening a thread is one continuous state rather than
+            skeleton → blank → thread. */}
+        {conversation && !isLoading && !isError && !anchored ? (
+          <View
+            testID="messages-anchoring"
+            className="absolute inset-0 bg-background"
+            pointerEvents="none"
+          >
+            <ChatSkeleton />
+          </View>
+        ) : null}
+
+        {/* PAD-224 rule 12 — one control, two reasons to show it. Scrolled more
+            than a screen back, it is a plain jump-to-bottom chevron: the reader
+            asked for a way home from a long scroll and previously had none.
+            With unseen messages it is the same button carrying rule 10's "New
+            messages" label, so the two never appear as competing chips.
+            Mirrors web's MessageList `showScrollDown` control. */}
+        {showJumpToBottom && conversation && anchored ? (
+          <Pressable
+            testID={hasNewBelow ? "messages-new-below" : "messages-jump-to-bottom"}
+            accessibilityLabel={t(
+              hasNewBelow ? "messages.newMessagesBelow" : "messages.jumpToBottom"
+            )}
+            role="button"
+            hitSlop={8}
+            onPress={() => scrollToBottom(true)}
+            className={
+              hasNewBelow
+                ? "absolute bottom-24 self-center flex-row items-center gap-1 rounded-full px-3 py-2 active:opacity-80"
+                : "absolute bottom-24 right-4 h-11 w-11 items-center justify-center rounded-full active:opacity-80"
+            }
+            style={{ backgroundColor: lightTheme.sidebarBackground }}
+          >
+            {hasNewBelow ? (
+              <Text
+                className="text-xs font-semibold"
+                style={{ color: lightTheme.sidebarForeground }}
+              >
+                {t("messages.newMessagesBelow")}
+              </Text>
+            ) : null}
+            <Ionicons
+              name="chevron-down"
+              size={hasNewBelow ? 14 : 22}
+              color={lightTheme.sidebarForeground}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Composer / edit composer */}
         {editing ? (
@@ -825,7 +1226,7 @@ export default function ConversationScreen() {
                   <Text className="text-right text-xs font-semibold text-primary">
                     {Number(replyingTo.senderId) === myId
                       ? t("messages.you")
-                      : conversation?.participantName}
+                      : participantName}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -955,9 +1356,14 @@ export default function ConversationScreen() {
       <ReportMessageDialog
         open={reportMessageId !== null}
         onOpenChange={(open) => {
-          if (!open) setReportMessageId(null);
+          if (!open) {
+            setReportMessageId(null);
+            setReportFromBanner(false);
+          }
         }}
         messageId={reportMessageId}
+        presetReason={reportFromBanner ? "unsolicited" : "spam"}
+        onReportAndBlock={reportFromBanner ? blockFromBanner : undefined}
       />
 
       {/* Long-press context menu: quick reactions + Edit/Delete (own only) */}

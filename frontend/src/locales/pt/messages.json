@@ -34,6 +34,8 @@
     "cancelAttendance": "Cancelar presença",
     "absent": "Ausente",
     "reminderExpired": "Lembrete expirado",
+    "waitingListJoined": "Na lista de espera",
+    "waitingListOfferExpired": "Oferta expirada",
     "spotJustFilled": "Lamentamos, essa vaga acabou de ser preenchida.",
     "somethingWentWrong": "Ocorreu um erro. Por favor tenta novamente.",
     "attendanceCancelled": "Presença cancelada.",
@@ -45,6 +47,9 @@
     "noMessagesYet": "Ainda não há mensagens",
     "startConversation": "Inicia a conversa!",
     "scrollToBottom": "Ir para o fim",
+    "newMessagesBelow": "Novas mensagens",
+    "jumpToBottom": "Ir para as mensagens mais recentes",
+    "loadingOlder": "A carregar mensagens anteriores…",
     "newConversation": "Nova conversa",
     "searchUsersPlaceholder": "Pesquisar utilizadores...",
     "loadingUsers": "A carregar utilizadores...",
@@ -67,6 +72,7 @@
       "action": "Denunciar",
       "dialogTitle": "Denunciar esta mensagem",
       "reasons": {
+        "unsolicited": "Mensagem não solicitada",
         "spam": "Spam",
         "harassment": "Assédio",
         "inappropriate": "Conteúdo inadequado",
@@ -76,7 +82,9 @@
       "submit": "Enviar denúncia",
       "submitting": "A enviar…",
       "success": "Denúncia enviada",
-      "failed": "Não foi possível enviar a denúncia. Tenta novamente."
+      "failed": "Não foi possível enviar a denúncia. Tenta novamente.",
+      "reportAndBlock": "Denunciar e bloquear",
+      "reportAndBlockSuccess": "Denunciado e bloqueado"
     },
     "conversationWithAria": "Conversa com {{name}}",
     "startConversationWithAria": "Iniciar conversa com {{name}}",
@@ -101,10 +109,30 @@
     "confirmDeleteMessageAria": "Confirmar eliminação da mensagem",
     "delete": "Eliminar",
     "conversationFallback": "Conversa",
+    "deletedUser": "Utilizador eliminado",
     "noMessagesSayHi": "Ainda não há mensagens. Diz olá!",
     "reactWith": "Reagir com {{emoji}}",
     "roleLabel": "Função: {{role}}",
     "reactionLabel_one": "Reação {{emoji}}",
-    "reactionLabel_other": "Reação {{emoji}} ({{count}})"
+    "reactionLabel_other": "Reação {{emoji}} ({{count}})",
+    "messageByUsername": "Mensagem por username",
+    "messageByUsernameHint": "Introduz o username exato. Não é possível procurar pessoas com quem não estás ligado.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Iniciar",
+    "noUserWithUsername": "Não existe nenhum utilizador com esse username",
+    "cannotMessageUser": "Não podes enviar mensagens a este utilizador",
+    "unknownSender": {
+      "title": "Não partilhas nenhum clube com {{name}}",
+      "description": "Esta pessoa não é um dos teus treinadores nem está em nenhum dos teus clubes. Responde para continuar a conversa, ou bloqueia ou denuncia.",
+      "block": "Bloquear",
+      "report": "Denunciar"
+    },
+    "searchConnectedPlaceholder": "Procurar utilizadores com quem estás ligado…",
+    "searchConnectedAria": "Procurar pessoas com quem estás ligado",
+    "noOneMatches": "Ninguém corresponde",
+    "notConnectedYet": "Ainda não estás ligado a ninguém",
+    "notConnectedYetHint": "Junta-te ao plantel de um treinador ou usa um username para começar uma conversa.",
+    "messageByUsernameExplain": "Sabes o username de alguém? Envia-lhe mensagem diretamente.",
+    "connectedPeople": "Pessoas com quem estás ligado"
   }
 }

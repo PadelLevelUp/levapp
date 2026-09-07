@@ -6,6 +6,11 @@ export type MeResponse = {
   name: string;
   roles: string[];
   coachId: string | null;
+  /**
+   * PAD-225: a student's coaches (`coach_in_player`), `[]` for a coach. This —
+   * not an empty calendar — is what "not connected to a coach yet" means.
+   */
+  coaches?: { id: number; name: string }[];
   isSuperAdmin: boolean;
   language?: "pt" | "en";
   /** PAD-81: profile fields the Settings profile form is hydrated from. */
@@ -22,7 +27,52 @@ export type MeResponse = {
   blockAllNotifications?: boolean;
   /** Free text the student writes; deliberately visible to their coach. */
   notificationBlockReason?: string;
+  /**
+   * auth.coach-approval: a self-registered coach is `pending` until a LevApp
+   * admin approves them; `null` for students. Existing coaches were backfilled
+   * to `approved`, so an absent value is treated as approved by callers.
+   */
+  coachApproval?: CoachApprovalStatus | null;
+  /** auth.register rule 9: the coach's clubs (empty for a student). */
+  clubs?: ClubSummary[];
+  /** clubs.join-request rule 6: the most recent pending request, or null. */
+  pendingClubJoinRequest?: PendingClubJoinRequest | null;
 };
+
+export type CoachApprovalStatus = "pending" | "approved" | "rejected";
+
+export type ClubSummary = { id: number; name: string };
+
+export type PendingClubJoinRequest = {
+  id: number;
+  clubId: number;
+  clubName: string;
+};
+
+/** auth.register rule 1: the self-service signup body. */
+export type RegisterPayload = {
+  role: "coach" | "student";
+  name: string;
+  username: string;
+  email: string;
+  password: string;
+};
+
+/** Same shape `POST /auth/login` returns, so the client signs in without a second request. */
+export type RegisterResponse = {
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player" };
+};
+
+/**
+ * auth.register: create your own account. 201 on success; 400 (validation) or
+ * 409 (username/email taken) come back as `{error, field?}` on the axios
+ * error's `response.data`.
+ */
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
+  const res = await getApi().post("/auth/register", payload);
+  return res.data;
+}
 
 /**
  * PAD-81: partial update of the signed-in user's own profile. Only the keys

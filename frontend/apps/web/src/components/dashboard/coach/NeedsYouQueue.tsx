@@ -11,6 +11,7 @@
 import type {
   DashboardNeedsYouBlock,
   DashboardNeedsYouEmptySeats,
+  DashboardNeedsYouInvite,
   DashboardNeedsYouItem,
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
@@ -19,9 +20,18 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ActionCard, Eyebrow } from "./primitives";
+import { AnswerButtons } from "./AnswerButtons";
+import { useAnswerReminder } from "./useAnswerReminder";
 import { shortDate } from "@levelup/config";
 
-export function NeedsYouQueue({ block }: { block: DashboardNeedsYouBlock }) {
+export function NeedsYouQueue({
+  block,
+  onAnswered,
+}: {
+  block: DashboardNeedsYouBlock;
+  /** PAD-202 (student): refetch after answering an invite card. */
+  onAnswered?: () => void | Promise<void>;
+}) {
   const { t } = useTranslation();
   const { items, count } = block.data;
 
@@ -40,7 +50,7 @@ export function NeedsYouQueue({ block }: { block: DashboardNeedsYouBlock }) {
       ) : (
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           {items.map((item) => (
-            <QueueItem key={item.id} item={item} />
+            <QueueItem key={item.id} item={item} onAnswered={onAnswered} />
           ))}
         </div>
       )}
@@ -48,10 +58,18 @@ export function NeedsYouQueue({ block }: { block: DashboardNeedsYouBlock }) {
   );
 }
 
-function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
+function QueueItem({
+  item,
+  onAnswered,
+}: {
+  item: DashboardNeedsYouItem;
+  onAnswered?: () => void | Promise<void>;
+}) {
   switch (item.kind) {
     case "empty_seats":
       return <EmptySeatsCard item={item} />;
+    case "invite":
+      return <InviteCard item={item} onAnswered={onAnswered} />;
     case "reply":
       return <ReplyCard item={item} />;
     case "validation":
@@ -89,6 +107,56 @@ function EmptySeatsCard({ item }: { item: DashboardNeedsYouEmptySeats }) {
         </Button>
         <Button variant="outline" className="h-11 lg:h-10">
           {t("dashboard.needsYou.later")}
+        </Button>
+      </div>
+    </ActionCard>
+  );
+}
+
+/**
+ * PAD-202: the student's counterpart of the empty-seats card. Amber because it
+ * is the student's to resolve — and it resolves right here: Yes / No record the
+ * reminder answer (dashboard.blocks rule 3a); "Open" still lands on the class
+ * (dashboard.navigation rule 8) for anyone who wants the detail first.
+ */
+function InviteCard({
+  item,
+  onAnswered,
+}: {
+  item: DashboardNeedsYouInvite;
+  onAnswered?: () => void | Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { answer, busyId } = useAnswerReminder(onAnswered);
+  const canAnswer = typeof item.lessonInstanceId === "number";
+
+  return (
+    <ActionCard accent="attention" className="flex flex-col gap-3.5" testId="dashboard-queue-invite">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold">
+          {t("dashboard.needsYou.invite.title", { class: item.classTitle })}
+        </span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">
+          {t("dashboard.needsYou.invite.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+            filled: item.filled,
+            capacity: item.capacity,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        {canAnswer && (
+          <AnswerButtons
+            className="flex items-center gap-2"
+            busy={busyId === item.lessonInstanceId}
+            onAnswer={(action) => answer(item.lessonInstanceId as number, action)}
+          />
+        )}
+        <span className="flex-1" />
+        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
+          {t("dashboard.needsYou.invite.open")}
         </Button>
       </div>
     </ActionCard>

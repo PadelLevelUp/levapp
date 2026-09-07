@@ -12,9 +12,8 @@ governed_by: []
 ### Intent
 Players can join a waiting list for full classes. Standing waiting list entries with credits get priority.
 
-> **Forward-looking rule:** rule 1's client wiring is **not built** — it is specced ahead of the
-> PAD-124 build, decided 2026-09-04. Everything else in this spec is implemented (rules 3a/4a-4d
-> aside, which are pending PAD-128 as noted inline).
+> Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
+> this spec is implemented (rules 3a/4a-4d aside, which are pending PAD-128 as noted inline).
 
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id)
@@ -29,12 +28,24 @@ Players can join a waiting list for full classes. Standing waiting list entries 
    this message is the entire self-service join path.
    **[DEC 2026-09-04, PAD-124]** the endpoint already existed but neither client rendered the
    offer's Yes/No, so the path above was unreachable in practice (the waiting list was
-   coach-managed only). The decision is to **wire it**: add `waiting_list_offer` as a third
-   actionable message type — alongside `notification_invite` and `replacement_approval` — in both
-   `MessageBubble.tsx` (web) and `message-bubble.tsx` (mobile), calling the endpoint above.
-   **(pending PAD-124 build)** as of this decision the wiring itself is not yet done. This path
-   stays separate from `classes.join-requests` (PAD-130/131), the student-initiated "I want in"
-   flow for a *full* class — the two are not merged
+   coach-managed only). The decision was to **wire it**, and PAD-124 did: `waiting_list_offer` is
+   a third actionable message type — alongside `notification_invite` and `replacement_approval` —
+   in both `MessageBubble.tsx` (web) and `message-bubble.tsx` (mobile). This path stays separate
+   from `classes.join-requests` (PAD-130/131), the student-initiated "I want in" flow for a *full*
+   class — the two are not merged
+1a. **The offer bubble settles like the reminder bubble.** Yes/No render only for the recipient
+   (the coach sees `waitingForResponse` on the copy they sent), and the answer is written back
+   onto the offer message as `metadata.responded = true` plus `metadata.response`, so the settled
+   state survives a reload instead of living only in client state:
+   - `"yes"` → an "on the waiting list" badge
+   - `"no"` → the shared "declined" badge
+   - `"expired"` → a muted "offer expired" badge. This is the PAD-68 refusal: a class that has
+     already started can take no entry, so the server records `expired` rather than the answer
+     and the client must not paint a badge for a place that was never taken
+   - Any other recorded value fails safe to declined — the same asymmetry the reminder uses, so an
+     unrecognised answer never promises a place on a list the student is not on
+   - `{"action": "unknown"}` (the instance has no coach) records nothing and leaves the offer
+     answerable
 2. Standing entries are pre-paid slots (credits system)
    - `credits_total`: total credits purchased
    - `credits_used`: credits consumed
@@ -119,16 +130,25 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   label
 - **And** the remove button on the expired row remains fully visible and clickable
 
-#### Join waiting list via message offer (pending PAD-124 build)
+#### Join waiting list via message offer
 - **Given** a student who received a `waiting_list_offer` message (their spot on a class was just
   filled by someone else)
 - **When** they tap Yes on the message
 - **Then** `POST /api/app/notify/respond_waiting_list` is called with `action=yes`
 - **And** a WaitingListEntry is created (or reactivated) with is_active=True for that instance
 - **And** the student receives the `waiting_list_confirm` reply
-- **Note** as of the 2026-09-04 decision (PAD-124) this criterion is specced but not yet built —
-  neither `MessageBubble` renders the offer's Yes/No yet, so no client can perform the "when".
-  Building the wiring above (no further decision needed) makes this criterion real
+- **And** the offer bubble shows the "on the waiting list" badge in place of the Yes/No
+
+#### The answered offer stays answered across a reload
+- **Given** a student who has answered a `waiting_list_offer`
+- **When** they reopen the conversation
+- **Then** the bubble still shows the badge for the answer they gave, not the Yes/No again
+
+#### Declining the offer queues nobody
+- **Given** a student who received a `waiting_list_offer`
+- **When** they tap No
+- **Then** no WaitingListEntry exists for them on that instance
+- **And** the offer bubble shows the "declined" badge
 
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)
@@ -167,4 +187,9 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   both web and mobile `MessageBubble`s, calling the existing `POST /api/app/notify/respond_waiting_list`.
   Keep it a separate path from `classes.join-requests` (PAD-130/131) rather than folding the two
   together — see rule 1. Recorded so this decision is not lost the way `found_issues.md` #7 was
-  (PAD-171's framing for this whole round of decisions).
+  (PAD-171's framing for this whole round of decisions). **Built 2026-09-06.**
+- **[PAD-124 build]** `respond_to_waiting_list()` did not mark the offer message answered the way
+  `respond_to_reminder()` marks its reminder, so with client-side state alone the Yes/No came back
+  on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
+  derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
+  is not unit-testable there.

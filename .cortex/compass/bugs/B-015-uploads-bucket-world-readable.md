@@ -27,4 +27,18 @@ This covered chat attachments (`Message.attachment`, `messaging.messages` rule 5
 
 **Resolved 2026-09-06:** the `allUsers` grant is removed; `is_public` defaults to `False` and neither upload path sets it; keys gain `secrets.token_urlsafe(16)`; migration `f1a2b3c4d5e6` flips existing rows so they stop pointing at a URL that no longer resolves. Reads now go through `Image.signed_url()` (V4, 60 min). Serving that way needs two IAM bindings the bucket did not have — `roles/storage.objectViewer` for the VM service account (`objectCreator` is write-only) and `roles/iam.serviceAccountTokenCreator` on itself, because `generate_signed_url` under ADC on GCE signs via the IAM API rather than a private key.
 
+**Signing does not fall back on its own (verified on the VM, 2026-09-06).** Granting
+`serviceAccountTokenCreator` is necessary but not sufficient: under compute-engine
+credentials `generate_signed_url` raises
+`AttributeError: you need a private key to sign credentials` rather than routing to the
+IAM API by itself. It must be told to, by passing `service_account_email` and a live
+`access_token`. Caught by testing signing inside the running container before the
+production deploy — the original implementation would have returned 500 for every image.
+`Image.signed_url` now tries the plain call and falls back to the IAM path.
+
+**Staging cannot prove this path.** `GCS_UPLOADS_BUCKET` is unset in the
+`padelapp_staging` container and staging holds no image rows, so image serving is inert
+there. That gap is unrelated to this bug but means a staging deploy is not evidence that
+image changes work; verify against production or fix the staging environment first.
+
 *Found while auditing what the public repo discloses, 2026-09-06.*

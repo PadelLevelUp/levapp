@@ -100,6 +100,33 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     boundary would move a late class into the neighbouring week.
 16. The players table links each row to that player's existing attendance history
     page rather than reimplementing it.
+17. **Both shells carry the reporting surface too** (PAD-166): the three charts
+    (per-player ranking, academy/private split, presences over time), the two
+    numeric filters (minimum total, maximum unjustified), the column chooser and
+    the CSV export. As with rule 12b these are behaviour, and only the
+    presentation differs where the phone forces it:
+    - Filtering, sorting and the CSV are computed **client-side on both shells**
+      from the same roster payload — the endpoint returns one row per roster
+      player, so a round trip per keystroke would be slower and worse.
+    - The exported CSV is **what the screen is showing**: the visible columns in
+      display order, the filtered rows in the current sort order, every field
+      quoted and embedded quotes doubled, named `presences-YYYY-MM-DD.csv`.
+      Identical bytes on both shells for the same state.
+    - The player column is pinned and cannot be hidden, on the list or in the
+      CSV — the other columns are statements about it.
+    - A blank filter field is **no bound**, and `0` is a real bound. Collapsing
+      the two would make clearing a field hide the whole roster.
+    - iOS delivers the CSV through the **share sheet** (`UIActivityViewController`
+      over a `file://` URL in the cache directory), not a download: a phone has
+      no downloads folder. Web keeps its `<a download>`.
+    - iOS has no Recharts and no tooltips. The charts are `react-native-svg`
+      through the app's shared single-series `Chart` primitive, stacked rather
+      than in a row; the academy/private donut becomes two bars of the same
+      measure, and every chart carries a spoken summary because VoiceOver reads
+      an SVG as one opaque image.
+    - Web's toolbar controls and sortable column headings become a compact
+      button row plus two sheets (filters + sort, and the column chooser), which
+      commit on Apply rather than live — the list is behind the sheet.
 
 ### Acceptance Criteria
 
@@ -152,6 +179,30 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   walk-in from the roster picker, and validate the class
 - **And** nothing in the flow requires the web app
 
+#### A coach reads the same reporting from the phone
+- **Given** a roster with presences recorded across several weeks
+- **When** the coach opens the Presences tab on iOS
+- **Then** they see the per-player ranking, the academy/private split and the
+  presences-over-time series, drawn from the same two endpoints web uses
+
+#### Narrowing the roster narrows the export
+- **Given** the coach sets a minimum total and hides two columns
+- **When** they export the CSV
+- **Then** the file contains only the rows that survived the filters, only the
+  visible columns, in the order the list is showing them
+- **And** it arrives through the iOS share sheet rather than as a download
+
+#### A cleared filter is not a zero filter
+- **Given** the coach types `0` into "max unjustified" and then clears the field
+- **When** the list re-renders
+- **Then** the whole roster is shown again, including players with unjustified
+  absences
+
+#### The player column cannot be hidden
+- **Given** the column chooser
+- **When** the coach tries to turn off the player column
+- **Then** it stays on, on the list and in the exported CSV
+
 #### A future class is never listed
 - **Given** a class scheduled for next week
 - **When** the coach opens the Presences tab
@@ -185,3 +236,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   `apps/mobile/src/features/presences/validate-state.ts` as a pure module — the mobile vitest
   project cannot render a React Native tree, so logic left inside the component is logic no
   automated test can reach.
+- **[PAD-166, 2026-09-06]** The reporting half is built; rule 17 records it. The filtering,
+  sorting, column and CSV arithmetic lives in
+  `apps/mobile/src/features/presences/report-state.ts`, split out for the same reason
+  `validate-state.ts` was. The charts go through `apps/mobile/src/components/charts/Chart`
+  (PAD-162), which already named this ticket as a consumer, and reuse PAD-162's
+  `attendanceSeries` for the over-time labels rather than re-deriving them.
+  **No new native module.** `expo-sharing` was considered and rejected: React Native's own
+  `Share` presents the iOS share sheet for a `file://` URL, and `expo-file-system` is already
+  linked into the shipped binary (`apps/mobile/src/lib/api.ts` imports it at startup), so the
+  export needed no native rebuild. This mirrors the trade `app/player/[playerId].tsx` already
+  records for share/clipboard.

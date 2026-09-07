@@ -113,6 +113,28 @@ def accept_player_invitation_service(token, data=None, now=None):
     return user
 
 
+def claim_player_invitation_service(token, user, now=None):
+    """players.claim trigger A: the invitee already has an account.
+
+    Validates the token exactly as ``accept`` does (404 unknown, 410 used /
+    revoked / expired), then folds the coach-created placeholder into the
+    signed-in student's account and marks the invitation accepted. 403 for a
+    coach account or an account with no Player; 409 ALREADY_ACTIVATED if the
+    placeholder was activated meanwhile.
+    """
+    from padel_app.services.player_claim_service import merge_placeholder_player_into
+
+    invitation = get_player_invitation_service(token, now=now)
+    if user is None or user.coach is not None or user.player is None:
+        abort(403, "Only a student account can link a player record")
+
+    coach = invitation.invited_by_coach
+    coach_name = coach.name if coach else None
+    # The merge re-points and accepts this invitation itself (rule 5d).
+    merge_placeholder_player_into(invitation.player, user)
+    return {"merged": True, "coachName": coach_name}
+
+
 def revoke_player_invitation_service(token, coach):
     invitation = PlayerInvitation.query.filter_by(token=token).first()
     if invitation is None:

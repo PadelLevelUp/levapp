@@ -25,6 +25,14 @@ type AuthContextType = {
   loading: boolean;
   /** Persists the token, hydrates the user via GET /auth/me. */
   login: (token: string) => Promise<void>;
+  /**
+   * auth.register: creates the account, then signs in exactly as `login`
+   * does. Resolves with the hydrated user so the caller can route on
+   * `coachApproval` / `clubs` without a second `/auth/me`.
+   */
+  register: (payload: authApi.RegisterPayload) => Promise<AuthUser>;
+  /** Re-reads /auth/me (e.g. after an approval) and updates the session. */
+  refreshUser: () => Promise<AuthUser | null>;
   /** Best-effort server invalidation, clears token + state, routes to login. */
   logout: () => Promise<void>;
 };
@@ -106,6 +114,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const register = useCallback(
+    async (payload: authApi.RegisterPayload) => {
+      const res = await authApi.register(payload);
+      await secureTokenStorage.setToken(res.accessToken);
+      try {
+        const me = await authApi.getMe();
+        setUser(me);
+        void getPushRegistrar().register();
+        return me;
+      } catch (error) {
+        await secureTokenStorage.removeToken().catch(() => undefined);
+        setUser(null);
+        throw error;
+      }
+    },
+    []
+  );
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const me = await authApi.getMe();
+      setUser(me);
+      return me;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     // Best-effort push token cleanup. Fire-and-forget (never awaited, the
     // registrar never throws) but must be kicked off before the token is
@@ -129,6 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isAuthenticated: !loading && !!user,
         login,
+        register,
+        refreshUser,
         logout,
       }}
     >

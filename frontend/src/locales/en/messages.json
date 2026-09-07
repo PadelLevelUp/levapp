@@ -34,6 +34,8 @@
     "cancelAttendance": "Cancel attendance",
     "absent": "Absent",
     "reminderExpired": "Reminder expired",
+    "waitingListJoined": "On the waiting list",
+    "waitingListOfferExpired": "Offer expired",
     "spotJustFilled": "Sorry, that spot was just filled.",
     "somethingWentWrong": "Something went wrong. Please try again.",
     "attendanceCancelled": "Attendance cancelled.",
@@ -45,6 +47,9 @@
     "noMessagesYet": "No messages yet",
     "startConversation": "Start the conversation!",
     "scrollToBottom": "Scroll to bottom",
+    "newMessagesBelow": "New messages",
+    "jumpToBottom": "Jump to the latest messages",
+    "loadingOlder": "Loading older messages…",
     "newConversation": "New conversation",
     "searchUsersPlaceholder": "Search users...",
     "loadingUsers": "Loading users...",
@@ -67,6 +72,7 @@
       "action": "Report",
       "dialogTitle": "Report this message",
       "reasons": {
+        "unsolicited": "Unsolicited message",
         "spam": "Spam",
         "harassment": "Harassment",
         "inappropriate": "Inappropriate content",
@@ -76,7 +82,9 @@
       "submit": "Submit report",
       "submitting": "Submitting…",
       "success": "Reported",
-      "failed": "Couldn't submit the report. Please try again."
+      "failed": "Couldn't submit the report. Please try again.",
+      "reportAndBlock": "Report and block",
+      "reportAndBlockSuccess": "Reported and blocked"
     },
     "conversationWithAria": "Conversation with {{name}}",
     "startConversationWithAria": "Start conversation with {{name}}",
@@ -101,10 +109,30 @@
     "confirmDeleteMessageAria": "Confirm delete message",
     "delete": "Delete",
     "conversationFallback": "Conversation",
+    "deletedUser": "Deleted user",
     "noMessagesSayHi": "No messages yet. Say hi!",
     "reactWith": "React with {{emoji}}",
     "roleLabel": "Role: {{role}}",
     "reactionLabel_one": "{{emoji}} reaction",
-    "reactionLabel_other": "{{emoji}} reaction ({{count}})"
+    "reactionLabel_other": "{{emoji}} reaction ({{count}})",
+    "messageByUsername": "Message by username",
+    "messageByUsernameHint": "Enter their exact username. People you aren't connected with can't be searched.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Start",
+    "noUserWithUsername": "No user with that username",
+    "cannotMessageUser": "You can't message this user",
+    "unknownSender": {
+      "title": "You don't share a club with {{name}}",
+      "description": "This person isn't one of your coaches and isn't in any of your clubs. Reply to keep talking, or block or report them.",
+      "block": "Block",
+      "report": "Report"
+    },
+    "searchConnectedPlaceholder": "Search users you're connected with…",
+    "searchConnectedAria": "Search people you're connected with",
+    "noOneMatches": "No one matches",
+    "notConnectedYet": "You're not connected with anyone yet",
+    "notConnectedYetHint": "Join a coach's roster or use a username to start a conversation.",
+    "messageByUsernameExplain": "Know someone's username? Message them directly.",
+    "connectedPeople": "People you're connected with"
   }
 }

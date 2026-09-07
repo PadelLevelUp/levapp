@@ -27,8 +27,10 @@ the mechanism itself is generic 1:1 (and group) messaging.
 
 1. A student opens the messages tab and starts a conversation with their coach — if one already
    exists between them, it's reused rather than duplicated.
-2. They open the conversation and see every prior message, in order, along with who's on the other
-   end and what role they hold (so the header correctly reads "Coach", not a hardcoded label).
+2. They open the conversation and land on the most recent messages, in order, along with who's on
+   the other end and what role they hold (so the header correctly reads "Coach", not a hardcoded
+   label). Older messages load as they scroll up, a page at a time; reading older messages is
+   never interrupted by new ones arriving.
 3. They type a message and send it. It appears instantly in their own conversation view, and shows
    up live on the coach's screen if they have it open — no refresh needed.
 4. They can reply to a specific earlier message, attach a photo, or react to any message with an
@@ -43,6 +45,9 @@ the mechanism itself is generic 1:1 (and group) messaging.
 
 ## Business Rules
 
+- A coach can always message any student on their own roster — anyone they added, imported, or who
+  accepted their invitation — as well as any student at a club they coach at. Nobody else. A
+  student can message any active coach.
 - A conversation between the same two people is found, not recreated, every time — starting a
   "new" conversation with someone you've already messaged reuses the existing thread.
 - Only the sender of a message can edit or delete it.

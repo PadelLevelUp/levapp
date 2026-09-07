@@ -83,7 +83,9 @@ Not yet measured.
 - **[DEC 2026-09-04, PAD-124]** RESOLVED: a student can self-serve onto the waiting list — by
   answering Yes on the same message they get when a spot was just filled by someone else. That
   answer already worked once tapped, but neither app actually showed a Yes/No on the message, so
-  it was unreachable in practice; the decision is to make the message answerable rather than
-  remove the capability. It remains a separate path from the student-initiated "I want in" flow
+  it was unreachable in practice; the decision was to make the message answerable rather than
+  remove the capability, and it was built on 2026-09-06 — the offer now carries Yes/No in both
+  apps and settles into the answer the student gave. It remains a separate path from the
+  student-initiated "I want in" flow
   for a full class (`classes.join-requests`, PAD-130/131) — the two are not merged. Implementation
   detail: `notifications.waiting-list` rule 1.

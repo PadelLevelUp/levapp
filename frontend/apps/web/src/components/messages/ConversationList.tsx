@@ -15,18 +15,26 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   loading?: boolean;
   onNewConversation: (userId: string) => void;
+  /** messaging.direct-by-username — students only; rejects with the API error. */
+  onNewConversationByUsername?: (username: string) => Promise<void>;
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // PAD-203: `participantName` is null when the counterpart is gone
+  // (messaging.conversations rule 10). The server sends no display string — it
+  // has no i18n — so the label is resolved here.
+  const displayName = (conv: Conversation) =>
+    conv.participantName ?? t('messages.deletedUser');
+
   const filteredConversations = conversations.filter(conv =>
-    conv.participantName.toLowerCase().includes(searchQuery.toLowerCase())
+    displayName(conv).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   useEffect(() => {
@@ -73,6 +81,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
         <NewConversationDialog
           existingParticipantIds={existingParticipantIds}
           onSelectUser={onNewConversation}
+          onStartByUsername={onNewConversationByUsername}
         />
         </div>
       </div>
@@ -103,7 +112,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                 <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={conversation.participantAvatar} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
-                    {getInitials(conversation.participantName)}
+                    {getInitials(displayName(conversation))}
                   </AvatarFallback>
                 </Avatar>
 
@@ -115,7 +124,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                         conversation.unreadCount > 0 && "text-foreground"
                       )}
                     >
-                      {conversation.participantName}
+                      {displayName(conversation)}
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {formatTime(conversation.lastMessageAt)}

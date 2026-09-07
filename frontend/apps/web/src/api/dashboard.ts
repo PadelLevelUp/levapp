@@ -34,7 +34,10 @@ function buildMockDashboard(): DashboardDefinition {
           conversationsToReply,
           latest: latest
             ? {
-                sender: latest.participantName,
+                // PAD-203: null when the counterpart is gone. The dashboard
+                // card has no `t` here, so it falls back to the empty string
+                // and the tile simply shows the preview without a name.
+                sender: latest.participantName ?? "",
                 preview: latest.lastMessage ?? "",
               }
             : undefined,
@@ -75,21 +78,23 @@ function buildMockDashboard(): DashboardDefinition {
         },
       },
       {
-        id: "upcoming-classes",
-        type: "class_list",
+        id: "schedule_7d",
+        type: "schedule_7d",
         data: {
-          title: "Próximas aulas",
-          emptyText: "Sin aulas programadas",
+          totalCount: upcoming.length,
           items: upcoming.map((c) => ({
             id: c.id,
             title: c.name ?? "Aula",
-            dateLabel: c.date,
-            timeLabel: `${c.startTime} - ${c.endTime}`,
-            color: c.color,
-            rightLabel: `${c.participants?.length ?? 0}/${c.maxPlayers}`,
+            date: c.date,
+            weekday: new Date(`${c.date}T00:00:00`).toLocaleDateString("en", { weekday: "long" }),
+            dayOfMonth: Number(c.date.slice(-2)),
+            timeLabel: c.startTime,
+            filled: c.participants?.length ?? 0,
+            capacity: c.maxPlayers,
             // Deep link into that exact occurrence — see dashboard.navigation rule 8.
             href: `/calendar?classId=${encodeURIComponent(c.id)}&date=${c.date}`,
           })),
+          calendarHref: "/calendar",
         },
       },
     ],

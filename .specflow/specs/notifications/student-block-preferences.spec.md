@@ -96,6 +96,17 @@ cut a student off from their coach.
     most students actually have. No toggle, button or shortcut for them appears on the calendar.
 14. All four preference fields are per-user and stay open to a student caller — they must not be
     swept up by the coach-only role check of `settings.role-scope` rule 6.
+15. **(PAD-170 C6) Send-time reporting, on both shells.** Wherever a coach triggers a manual
+    invitation or a reminder — web's `ManualNotificationModal` and `ClassDetailSheet`, iOS's
+    `features/calendar/notify-modal.tsx` and `app/class/[id].tsx` — the `blocked` array from rules
+    6–7 is reported, never discarded. It is split by `cause`, never by `reason` being empty: a
+    `preference` row uses `calendar.notify.blockedByPreference` (naming the students, with their
+    own reasons as the secondary line), and every other row uses `calendar.unavailable.blocked`
+    (`calendar.student-blockers` rule 10). The two are separated because "busy at that hour" and
+    "invitations turned off" are different problems with different fixes. The "sent to N"
+    confirmation is suppressed when `sent` is 0 and anyone was blocked, so the coach is never told
+    a send succeeded to nobody. The split lives in `@levelup/config` (`splitBlockedByCause`) so the
+    four call sites cannot drift.
 
 ### Acceptance Criteria
 
@@ -150,6 +161,20 @@ cut a student off from their coach.
 - **Then** the other two students receive their invitation messages
 - **And** the blocked student receives no message and has no `NotificationEvent`
 - **And** the response reports `sent` = 2 and lists the blocked student with their reason
+
+#### The coach is told who was skipped, and why, on web and on iOS (PAD-170 C6)
+- **Given** a coach sending manual invitations to three students — one unavailable for that slot,
+  one who has turned invitations off with the reason "estou lesionado"
+- **When** the send returns
+- **Then** they see the "cannot send notifications … marked themselves as unavailable" message
+  naming the first student
+- **And** a separate "could not notify … (notifications blocked)" message naming the second, with
+  their reason as the secondary line
+- **And** the confirmation reads "sent to 1", not "sent to 3"
+- **And** the same three messages appear on iOS, from the notify dialog and from the class detail
+  screen's remind action
+- **When** every selected student was blocked
+- **Then** no "sent to 0" confirmation is shown at all — only the blocked messages
 
 #### Blocking everything also silences reminders
 - **Given** an enrolled student whose `blockAllNotifications` is `true` and a class due a reminder

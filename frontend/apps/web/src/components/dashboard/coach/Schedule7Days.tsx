@@ -16,6 +16,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, FillBar, FillCount, StatusBadge } from "./primitives";
+import { AnswerButtons } from "./AnswerButtons";
+import { useAnswerReminder } from "./useAnswerReminder";
 import { weekdayShort } from "@levelup/config";
 
 type Row = DashboardSchedule7dBlock["data"]["items"][number];
@@ -37,16 +39,36 @@ function badgeFor(row: Row, t: (k: string, o?: Record<string, unknown>) => strin
   );
 }
 
-export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
+/**
+ * `role` (PAD-202): a student's list is the same rows, minus everything that is
+ * the coach's job — no capacity badge, no invite button, and a fill count that
+ * never goes amber. Seats are information to a student, not a problem. What a
+ * student's row gains is the one thing that IS their job: Yes / No on a class
+ * they were asked to confirm (`pendingConfirmation`), answered in place.
+ */
+export function Schedule7Days({
+  block,
+  role = "coach",
+  onAnswered,
+}: {
+  block: DashboardSchedule7dBlock;
+  role?: "coach" | "student";
+  /** Refetch the dashboard after a student answers a reminder. */
+  onAnswered?: () => void | Promise<void>;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { items, totalCount, calendarHref } = block.data;
+  const student = role === "student";
+  const { answer, busyId } = useAnswerReminder(onAnswered);
 
   return (
     <section className="flex flex-col gap-2.5" data-testid="dashboard-schedule">
       <div className="flex items-center justify-between px-1">
         <Eyebrow>
-          {t("dashboard.schedule.eyebrow", { count: totalCount })}
+          {t(student ? "dashboard.schedule.eyebrowUpcoming" : "dashboard.schedule.eyebrow", {
+            count: totalCount,
+          })}
         </Eyebrow>
         <Link
           to={calendarHref}
@@ -58,15 +80,17 @@ export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
 
       {items.length === 0 ? (
         <div className="rounded-2xl bg-muted px-4 py-5 text-center text-sm text-muted-foreground">
-          {t("dashboard.schedule.none")}
+          {t(student ? "dashboard.schedule.noneUpcoming" : "dashboard.schedule.none")}
         </div>
       ) : (
         <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border">
           {items.map((row) => {
             const short = row.capacity > 0 && row.filled < row.capacity;
+            const pending = student && row.pendingConfirmation === true && typeof row.lessonInstanceId === "number";
             return (
               <div
                 key={row.id}
+                data-testid="dashboard-schedule-row"
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(row.href)}
@@ -97,18 +121,30 @@ export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 lg:order-3 lg:w-24 lg:shrink-0">
-                    <FillBar filled={row.filled} capacity={row.capacity} />
-                    <FillCount filled={row.filled} capacity={row.capacity} />
+                    <FillBar filled={row.filled} capacity={row.capacity} neutral={student} />
+                    <FillCount filled={row.filled} capacity={row.capacity} neutral={student} />
                   </div>
                 </div>
 
+                {/* The student's one job on this row: answer the reminder here. */}
+                {pending && (
+                  <AnswerButtons
+                    className="flex shrink-0 items-center gap-2"
+                    busy={busyId === row.lessonInstanceId}
+                    onAnswer={(action) => answer(row.lessonInstanceId as number, action)}
+                  />
+                )}
+
                 {/* Fixed-width so rows with and without a badge stay aligned. */}
-                <div className="flex w-auto shrink-0 justify-end lg:w-20">
-                  {badgeFor(row, t)}
-                </div>
+                {!student && (
+                  <div className="flex w-auto shrink-0 justify-end lg:w-20">
+                    {badgeFor(row, t)}
+                  </div>
+                )}
 
                 {/* Desktop-only action column. Rows that don't need it render an
                     empty cell so the grid never shifts. */}
+                {!student && (
                 <div className="hidden w-20 shrink-0 justify-end lg:flex">
                   {short && (
                     <Button
@@ -123,6 +159,7 @@ export function Schedule7Days({ block }: { block: DashboardSchedule7dBlock }) {
                     </Button>
                   )}
                 </div>
+                )}
               </div>
             );
           })}

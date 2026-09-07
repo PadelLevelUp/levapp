@@ -21,7 +21,8 @@
       "import": "Importar dados",
       "club": "Clube",
       "account": "Conta",
-      "myNotifications": "As minhas notificações"
+      "myNotifications": "As minhas notificações",
+      "admin": "Administração"
     },
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
@@ -120,7 +121,6 @@
       "privacyPolicy": "Política de Privacidade",
       "termsOfService": "Termos de Serviço"
     },
-
     "mobile": {
       "logout": "Terminar sessão",
       "username": "Nome de utilizador",
@@ -141,9 +141,9 @@
       "myNotificationsNavDescription": "Escolhe que convites para vagas em aulas queres receber.",
       "importNavDescription": "Rever e reverter importações anteriores.",
       "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
-      "importHistoryEmpty": "Ainda não há importações."
+      "importHistoryEmpty": "Ainda não há importações.",
+      "adminNavDescription": "Aprovar treinadores registados"
     },
-
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",
@@ -153,7 +153,16 @@
       "deleteConfirm": "Eliminar conta",
       "deleting": "A eliminar...",
       "deleteSuccess": "A tua conta foi eliminada.",
-      "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente."
+      "deleteFailed": "Não foi possível eliminar a tua conta. Tenta novamente.",
+      "blockedUsers": {
+        "title": "Utilizadores bloqueados",
+        "description": "As pessoas que bloqueaste não te podem enviar mensagens, nem tu a elas. Desbloqueia para voltar a permitir mensagens.",
+        "empty": "Não bloqueaste ninguém.",
+        "unblock": "Desbloquear",
+        "unblocked": "{{name}} desbloqueado",
+        "loadFailed": "Não foi possível carregar os utilizadores bloqueados.",
+        "unblockFailed": "Não foi possível desbloquear este utilizador. Tenta novamente."
+      }
     },
     "import": {
       "title": "Importar dados",
@@ -273,7 +282,19 @@
       "invitationRevoked": "Convite revogado",
       "revokeFailed": "Não foi possível revogar o convite",
       "createInvitationFailed": "Não foi possível criar o convite",
-      "createInvitationFailedDescription": "Tenta novamente."
+      "createInvitationFailedDescription": "Tenta novamente.",
+      "joinRequests": {
+        "title": "Pedidos de entrada",
+        "description": "Treinadores que pediram para se juntar ao teu clube.",
+        "empty": "Sem pedidos pendentes.",
+        "requestedAt": "Pedido a {{date}}",
+        "approve": "Aprovar",
+        "decline": "Recusar",
+        "approved": "{{name}} juntou-se ao clube.",
+        "declined": "Pedido de {{name}} recusado.",
+        "actionFailed": "Não foi possível concluir a ação.",
+        "loadFailed": "Não foi possível carregar os pedidos."
+      }
     },
     "seasons": {
       "loading": "A carregar épocas…",
@@ -559,6 +580,23 @@
         "greaterThan": "mais de",
         "atLeast": "pelo menos"
       }
+    },
+    "admin": {
+      "title": "Administração",
+      "description": "Ferramentas da equipa LevApp.",
+      "pendingCoaches": "Treinadores a aguardar aprovação",
+      "pendingCoachesDescription": "Contas de treinador criadas por registo próprio. Só depois de aprovadas podem criar ou juntar-se a um clube.",
+      "noPending": "Nenhum treinador a aguardar aprovação.",
+      "approve": "Aprovar",
+      "reject": "Recusar",
+      "approved": "{{name}} aprovado.",
+      "rejected": "Pedido de {{name}} recusado.",
+      "loadFailed": "Não foi possível carregar os pedidos.",
+      "actionFailed": "Não foi possível concluir a ação.",
+      "rejectDialogTitle": "Recusar {{name}}?",
+      "rejectDialogDescription": "O treinador fica sem acesso às funcionalidades de treinador. O motivo é apenas para registo interno.",
+      "reason": "Motivo (opcional)",
+      "reasonPlaceholder": "Ex.: não é treinador"
     }
   }
 }

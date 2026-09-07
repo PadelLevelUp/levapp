@@ -1,0 +1,120 @@
+# PAD-210 — self-service signup (auth.register) and the coach approval gate
+# (auth.coach-approval).
+#
+# Mirrors: apps/web/e2e/auth-onboarding/signup.spec.ts
+# - a student creates an account from the login screen and lands on
+#   "Connect with a coach"
+# - a coach creates an account and lands on "Waiting for approval", with no
+#   club form offered
+#
+# Usernames are unique per run so the server's uniqueness rules never trip.
+# The admin approval half is web-only in this flow: the seeded superadmin
+# (e2e-coach) approves in web Settings → Admin; the mobile Admin section is
+# the same list and is exercised in the parity walk, not here.
+appId: com.padellevelup.app
+---
+- launchApp:
+    clearState: true
+- evalScript: ${output.stamp = String(Date.now())}
+- extendedWaitUntil:
+    visible:
+      id: "login-create-account"
+    timeout: 25000
+
+# ── Student signup ──
+- tapOn:
+    id: "login-create-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-signup"
+    timeout: 15000
+- tapOn:
+    id: "signup-role-student"
+- tapOn:
+    id: "signup-name"
+- inputText: "Maestro Student"
+# ── auth.register rule 10 (PAD-225): a rejected field is named under the input ──
+- tapOn:
+    id: "signup-username"
+- inputText: "a"
+- tapOn:
+    id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "signup-error-username"
+    timeout: 10000
+- tapOn:
+    id: "signup-username"
+- eraseText
+- inputText: "maestro-s-${output.stamp}"
+- tapOn:
+    id: "signup-email"
+- inputText: "maestro-s-${output.stamp}@example.com"
+- tapOn:
+    id: "signup-password"
+- inputText: "Segura1234"
+- tapOn:
+    id: "signup-repeatPassword"
+- inputText: "Segura1234"
+- hideKeyboard
+- tapOn:
+    id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "connect-with-coach"
+    timeout: 25000
+
+# ── Sign out via Settings (header avatar) ──
+- tapOn:
+    id: "connect-go-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 25000
+- runFlow: ../subflows/logout.yaml
+
+# ── Coach signup → pending approval ──
+- tapOn:
+    id: "login-create-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-signup"
+    timeout: 15000
+- tapOn:
+    id: "signup-role-coach"
+- assertVisible:
+    id: "signup-coach-approval-note"
+- tapOn:
+    id: "signup-name"
+- inputText: "Maestro Coach"
+- tapOn:
+    id: "signup-username"
+- inputText: "maestro-c-${output.stamp}"
+- tapOn:
+    id: "signup-email"
+- inputText: "maestro-c-${output.stamp}@example.com"
+- tapOn:
+    id: "signup-password"
+- inputText: "Segura1234"
+- tapOn:
+    id: "signup-repeatPassword"
+- inputText: "Segura1234"
+- hideKeyboard
+- tapOn:
+    id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "coach-pending"
+    timeout: 25000
+- assertNotVisible:
+    id: "club-onboarding"
+- assertNotVisible:
+    id: "tab-players"
+
+# ── Sign out from the holding screen ──
+- tapOn:
+    id: "coach-pending-signout"
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 15000

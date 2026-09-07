@@ -1,6 +1,6 @@
 ---
 id: attendance.absences
-status: draft
+status: implemented
 depends_on: [attendance.presence, attendance.history, classes.instances, players.list, dashboard.navigation]
 implements: ../../specs-business/attendance/student-tracks-attendance-and-absence-history.business.md
 governed_by: []
@@ -54,6 +54,26 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 9. All copy goes through i18n (`src/locales/{pt,en}/`), default locale `pt`. The feature is named
    "Faltas" in Portuguese.
 
+### Mobile (PAD-163)
+
+10. **iOS ships the same surface.** PAD-141 shipped web-only and no PR recorded a decision to do
+    that (PAD-152 parity audit, finding A2); PAD-163 closes it. `apps/mobile/app/absences.tsx` is
+    the single screen behind both entry points, reusing PAD-162's `AttendanceChart`,
+    `AttendanceRangeControls` and `AttendanceHistoryList` primitives unchanged (rule 7's
+    "identical components, not a fork" carries over to the mobile port too).
+11. Expo Router has no `/players/:playerId/absences` path, so the coach variant is the same
+    screen with a query param: `/absences?playerId=<id>` — the same routing shape PAD-162 used
+    for `attendance.history` rule 16. The param is still not authorization; rule 4 is still the
+    whole of it.
+12. Entry points mirror web's:
+    - the student's dashboard "Missed" KPI tile (`href: "/absences"` from the backend, mapped to
+      a mobile route in `DashboardBlocks`, alongside the "Attended" mapping PAD-162 added);
+    - an action on the coach's player-detail screen (`player-absences-link`), placed immediately
+      beside `player-attendance-link`, as web places it immediately beside its counterpart in
+      `PageActions`.
+13. Justification (rule 8) renders as a badge on each row, same rule as web: presentational only,
+    never filters the set.
+
 ### Acceptance Criteria
 
 #### Student sees their own absence history
@@ -98,6 +118,17 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 - **When** they click that class in the list
 - **Then** they land on `/calendar` showing that class's week with its detail sheet open
 
+#### Student sees their own absence history on iOS
+- **Given** a signed-in student on the mobile dashboard
+- **When** they tap the "Missed" KPI tile
+- **Then** the absences screen opens with the chart, the range controls below it, and the missed
+  classes listed underneath with their justification badges
+
+#### Coach reaches a roster player's absences from iOS player detail
+- **Given** a coach on a roster player's detail screen
+- **When** they tap the absences action, next to the attendance action
+- **Then** the same absences screen opens for that player, subtitled with their name
+
 ### Notes
-- Source: ticket PAD-141.
+- Source: ticket PAD-141. iOS parity: PAD-163 (from the PAD-152 parity audit, finding A2).
 - Supersedes `dashboard.navigation`'s previous "Missed stays inert" rule (now 11a).

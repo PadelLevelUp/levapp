@@ -245,8 +245,10 @@ test.describe("PAD-141: absences agree with attendance and the KPI", () => {
     const missedCard = page.getByTestId("dashboard-kpi-missed");
     await expect(missedCard).toBeVisible({ timeout: 15_000 });
 
+    // PAD-202: the tile also carries its denominator ("of 15 lessons"), so read
+    // the value element rather than digit-stripping the whole tile.
     const kpiValue = Number(
-      ((await missedCard.textContent()) ?? "").replace(/\D+/g, "")
+      ((await missedCard.getByTestId("dashboard-kpi-missed-value").textContent()) ?? "").trim()
     );
     expect(kpiValue).toBe(absences.total);
   });

@@ -43,6 +43,11 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
    player is logged in.
 7. Used, revoked, or expired tokens are rejected (410). Unknown tokens are rejected (404).
 8. Username chosen at completion must be unique; a taken username is rejected (409).
+9. *(draft, 2026-09-06)* The completion page also offers **"Already have an account? Sign in to
+   link it"**. A visitor who signs in (or is already signed in as a student) is offered
+   `players.claim` trigger A instead of the completion form: the coach's record is merged into
+   their existing account and the invitation is `accepted`. The two paths are exclusive — a
+   token is consumed by whichever runs first.
 
 ### Acceptance Criteria
 
@@ -74,3 +79,9 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 - **Given** a pending player invitation and an existing user with username "taken"
 - **When** the visitor POSTs to accept with `{"username": "taken", "password": "Pass123!"}`
 - **Then** the response status is 409
+
+#### Invite page offers linking to an existing account
+- **Given** a pending player invitation token
+- **When** a visitor with an active student session opens `/invite/player/<token>`
+- **Then** the page offers "Link this record to my account" instead of asking for a new username and password
+- **And** confirming calls `POST /api/app/player-invitations/<token>/claim` (see `players.claim`)

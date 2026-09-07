@@ -17,14 +17,23 @@ import { toast } from "@/components/ui/toast";
 import { messagesApi } from "@levelup/api";
 import { cn } from "@/lib/utils";
 
-const REPORT_REASONS = ["spam", "harassment", "inappropriate", "other"] as const;
+const REPORT_REASONS = ["unsolicited", "spam", "harassment", "inappropriate", "other"] as const;
 type ReportReason = (typeof REPORT_REASONS)[number];
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   messageId: string | number | null;
+  /** Reason pre-selected when the dialog opens (the unknown-sender banner presets `unsolicited`). */
+  presetReason?: ReportReason;
+  /**
+   * When given, the dialog also offers "Report and block": files the report,
+   * then calls this to block the sender (messaging.block-and-report rule 9).
+   */
+  onReportAndBlock?: () => Promise<void> | void;
 };
+
+export type { ReportReason };
 
 /**
  * Report dialog shared by the message long-press context menu (report a
@@ -33,31 +42,68 @@ type Props = {
  * installed on mobile, so the preset reasons are a plain Pressable list with
  * a manually drawn radio dot — mirrors the pattern in message-context-menu.tsx.
  */
-export function ReportMessageDialog({ open, onOpenChange, messageId }: Props) {
+export function ReportMessageDialog({
+  open,
+  onOpenChange,
+  messageId,
+  presetReason = "spam",
+  onReportAndBlock,
+}: Props) {
   const { t } = useTranslation();
-  const [reason, setReason] = React.useState<ReportReason>("spam");
+  const [reason, setReason] = React.useState<ReportReason>(presetReason);
   const [details, setDetails] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
+  // Re-apply the preset on every open: one instance serves the header's
+  // Report (spam) and the unknown-sender banner's Report (unsolicited).
+  React.useEffect(() => {
+    if (open) setReason(presetReason);
+  }, [open, presetReason]);
+
   const resetAndClose = () => {
-    setReason("spam");
+    setReason(presetReason);
     setDetails("");
     onOpenChange(false);
+  };
+
+  const submitReport = async () => {
+    const label = t(`messages.report.reasons.${reason}`);
+    const combinedReason = details.trim()
+      ? `${label}: ${details.trim()}`
+      : label;
+    await messagesApi.reportMessage(String(messageId), combinedReason);
   };
 
   const handleSubmit = async () => {
     if (!messageId || submitting) return;
     setSubmitting(true);
     try {
-      const label = t(`messages.report.reasons.${reason}`);
-      const combinedReason = details.trim()
-        ? `${label}: ${details.trim()}`
-        : label;
-      await messagesApi.reportMessage(String(messageId), combinedReason);
+      await submitReport();
       toast.success(t("messages.report.success"));
       resetAndClose();
     } catch {
       toast.error(t("messages.report.failed"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReportAndBlock = async () => {
+    if (!messageId || submitting || !onReportAndBlock) return;
+    setSubmitting(true);
+    try {
+      await submitReport();
+    } catch {
+      toast.error(t("messages.report.failed"));
+      setSubmitting(false);
+      return;
+    }
+    try {
+      await onReportAndBlock();
+      toast.success(t("messages.report.reportAndBlockSuccess"));
+      resetAndClose();
+    } catch {
+      toast.error(t("messages.blockFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -122,6 +168,17 @@ export function ReportMessageDialog({ open, onOpenChange, messageId }: Props) {
           >
             <Text>{t("common.cancel")}</Text>
           </Button>
+          {onReportAndBlock ? (
+            <Button
+              variant="destructive"
+              testID="report-and-block"
+              accessibilityLabel={t("messages.report.reportAndBlock")}
+              disabled={submitting || !messageId}
+              onPress={() => void handleReportAndBlock()}
+            >
+              <Text>{t("messages.report.reportAndBlock")}</Text>
+            </Button>
+          ) : null}
           <Button
             testID="message-report-submit"
             accessibilityLabel={t("messages.report.submit")}

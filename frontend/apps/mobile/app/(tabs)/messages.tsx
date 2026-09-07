@@ -71,13 +71,15 @@ export default function MessagesScreen() {
   }, [data?.conversations, extra]);
 
   // Mirrors web's ConversationList.tsx client-side participantName filter.
+  // PAD-203: `participantName` is null for a conversation whose counterpart is
+  // gone, so it falls back to the same label the row renders.
   const filteredConversations = React.useMemo(() => {
     if (!search) return conversations;
     const q = search.toLowerCase();
     return conversations.filter((c) =>
-      c.participantName.toLowerCase().includes(q)
+      (c.participantName ?? t("messages.deletedUser")).toLowerCase().includes(q)
     );
-  }, [conversations, search]);
+  }, [conversations, search, t]);
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;

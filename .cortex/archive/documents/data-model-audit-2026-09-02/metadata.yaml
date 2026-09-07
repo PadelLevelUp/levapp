@@ -1,0 +1,7 @@
+id: archive.data-model-audit-2026-09-02
+kind: audit
+ingested_at: 2026-09-06T15:30:00Z
+version: "2026-09-02"
+status: active
+source_filename: LevApp-Data-Model-Audit.html
+origin: Six-angle audit of the levelup_backend data model at pre-monorepo commit 98d58ca, produced 2026-09-02; the durable artifact is linked from Linear PAD-188, which owns turning findings into tickets. Ingested 2026-09-06 while investigating the messaging-ticket cluster.

@@ -7,6 +7,7 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { blockUser, unblockUser, getBlockedUsers } from '@/api/messages';
+import { UnknownSenderBanner } from './UnknownSenderBanner';
 
 interface ChatThreadProps {
   conversation: Conversation;
@@ -17,6 +18,12 @@ interface ChatThreadProps {
   onToggleReaction: (messageId: string, emoji: string) => void;
   onBack?: () => void;
   isMobile?: boolean;
+  /** PAD-208 — older messages remain unfetched (messaging.conversation-detail rule 11). */
+  hasMore?: boolean;
+  /** PAD-208 — a page of older messages is in flight. */
+  loadingOlder?: boolean;
+  /** PAD-208 — the reader reached the top of the loaded page. */
+  onLoadOlder?: () => void;
 }
 
 export function ChatThread({
@@ -28,15 +35,39 @@ export function ChatThread({
   onToggleReaction,
   onBack,
   isMobile,
+  hasMore,
+  loadingOlder,
+  onLoadOlder,
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [reportOpen, setReportOpen] = useState(false);
+  // messaging.block-and-report rules 7–9 (PAD-215): the server says whether the
+  // other participant is a known contact; sending a reply (or blocking) hides the
+  // banner locally without waiting for a refetch.
+  const [bannerReport, setBannerReport] = useState(false);
+  const [repliedLocally, setRepliedLocally] = useState(false);
 
   const participantId = conversation.participantId;
   const isBlocked = blockedUserIds.has(String(participantId));
+  const showUnknownSender =
+    conversation.isKnownContact === false &&
+    !repliedLocally &&
+    !isBlocked &&
+    !conversation.isAssistant &&
+    participantId != null;
+
+  useEffect(() => {
+    setRepliedLocally(false);
+    setBannerReport(false);
+  }, [conversation.id]);
+
+  // PAD-203: null when the counterpart is gone (messaging.conversations
+  // rule 10). Resolved once here so every child gets a real string.
+  const participantName =
+    conversation.participantName ?? t('messages.deletedUser');
 
   useEffect(() => {
     let cancelled = false;
@@ -82,8 +113,16 @@ export function ChatThread({
   };
 
   const handleSend = (content: string, replyToId?: string) => {
-    void onSendMessage(content, replyToId);
+    void onSendMessage(content, replyToId).then(
+      () => setRepliedLocally(true),
+      () => undefined,
+    );
     setReplyingTo(null);
+  };
+
+  const handleBlockFromBanner = async () => {
+    await blockUser(String(participantId));
+    setBlockedUserIds((prev) => new Set(prev).add(String(participantId)));
   };
 
   const handleEditSave = async (msgId: string, content: string) => {
@@ -112,14 +151,39 @@ export function ChatThread({
         onReport={() => setReportOpen(true)}
       />
 
+      {showUnknownSender && (
+        <UnknownSenderBanner
+          participantName={participantName}
+          onBlock={async () => {
+            try {
+              await handleBlockFromBanner();
+              toast.success(t('messages.blockSuccess'));
+            } catch {
+              toast.error(t('messages.blockFailed'));
+            }
+          }}
+          onReport={() => {
+            setBannerReport(true);
+            setReportOpen(true);
+          }}
+        />
+      )}
+
+      {/* `key`: MessageList holds the scroll anchor for one thread in refs
+          (PAD-208 rules 9 and 11). Switching conversations must start those
+          over, and remounting is how that is guaranteed. */}
       <MessageList
+        key={String(conversation.id)}
         messages={conversation.messages ?? []}
         userId={user_id}
-        participantName={conversation.participantName}
+        participantName={participantName}
         onReply={handleReply}
         onEdit={handleEdit}
         onDelete={onDeleteMessage}
         onReaction={onToggleReaction}
+        hasMore={hasMore}
+        loadingOlder={loadingOlder}
+        onLoadOlder={onLoadOlder}
       />
 
       {/* Assistant conversations are a one-way channel — no composer */}
@@ -130,7 +194,7 @@ export function ChatThread({
           editingMessage={editingMessage}
           replyingTo={replyingTo}
           userId={user_id}
-          participantName={conversation.participantName}
+          participantName={participantName}
           isMobile={isMobile}
           onCancelEdit={() => setEditingMessage(null)}
           onCancelReply={() => setReplyingTo(null)}
@@ -141,8 +205,13 @@ export function ChatThread({
 
       <ReportMessageDialog
         open={reportOpen}
-        onOpenChange={setReportOpen}
+        onOpenChange={(next) => {
+          setReportOpen(next);
+          if (!next) setBannerReport(false);
+        }}
         messageId={lastParticipantMessageId}
+        presetReason={bannerReport ? 'unsolicited' : 'spam'}
+        onReportAndBlock={bannerReport ? handleBlockFromBanner : undefined}
       />
     </div>
   );

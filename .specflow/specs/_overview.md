@@ -7,7 +7,7 @@ behaviour with entities, rules, and Given/When/Then acceptance criteria.
 
 ## What it covers
 
-15 domains, 85 leaf specs, migrated 2026-09-03 from the legacy `specs/` tree (one file per domain).
+15 domains, 91 leaf specs (1 deprecated), migrated 2026-09-03 from the legacy `specs/` tree (one file per domain).
 
 ## Why it's grouped this way
 

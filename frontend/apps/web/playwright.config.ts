@@ -10,6 +10,14 @@ const __dirname = path.dirname(__filename);
    `reuseExistingServer: false` means Playwright can't just adopt whatever is
    there (it would be the wrong app, or the wrong database). */
 const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "5001";
+/* The E2E database and Vite port are overridable for the same reason: several
+   checkouts (worktrees, other sessions) share one Postgres server and one
+   machine. Running two suites against `levelup_test` at once resets the
+   database under the other run. Use e.g. E2E_DB_NAME=levelup_test_pad210
+   E2E_BACKEND_PORT=5011 E2E_WEB_PORT=8090 — and pass the same E2E_DB_NAME to
+   e2e/scripts/reset-test-db.sh. */
+const DB_NAME = process.env.E2E_DB_NAME ?? "levelup_test";
+const WEB_PORT = process.env.E2E_WEB_PORT ?? "8080";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -28,7 +36,7 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
 
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL: `http://localhost:${WEB_PORT}`,
     /* NOTE: `reducedMotion: "reduce"` does NOT belong here. Verified on
        Playwright 1.62.1 in this project: setting it in `use` (config- or
        file-level) leaves `matchMedia("(prefers-reduced-motion: reduce)")`
@@ -63,16 +71,16 @@ export default defineConfig({
         POSTGRES_PORT: process.env.POSTGRES_PORT ?? "5432",
         POSTGRES_USER: "padel_app_user",
         POSTGRES_PW: process.env.POSTGRES_PW ?? "",
-        POSTGRES_DB: "levelup_test",
+        POSTGRES_DB: DB_NAME,
         JWT_SECRET_KEY: "e2e-test-secret",
         E2E_DEBUG_ENDPOINTS: "true",
         TEST_MODE: "true",
       },
     },
     {
-      command: "npm run dev",
+      command: `npm run dev -- --port ${WEB_PORT}`,
       cwd: __dirname,
-      port: 8080,
+      port: Number(WEB_PORT),
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
       env: {

@@ -15,7 +15,12 @@
       "attended": "Presenças",
       "missed": "Faltas",
       "upcomingLessons": "Próximas aulas",
-      "invites": "Convites"
+      "invites": "Convites",
+      "eyebrow": "O TEU REGISTO",
+      "ofLessons_one": "de {{count}} aula",
+      "ofLessons_other": "de {{count}} aulas",
+      "next30Days": "próximos 30 dias",
+      "toConfirm": "por confirmar"
     },
     "list": {
       "upcomingClasses": "Próximas aulas",
@@ -68,6 +73,11 @@
         "detail_one": "De {{count}} aula na semana passada",
         "detail_other": "De {{count}} aulas na semana passada",
         "review": "Rever"
+      },
+      "invite": {
+        "title": "Estás convidado para {{class}}",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
+        "open": "Abrir"
       }
     },
     "schedule": {
@@ -79,7 +89,11 @@
       "empty": "Vazia",
       "seats_one": "{{count}} vaga",
       "seats_other": "{{count}} vagas",
-      "invite": "Convidar"
+      "invite": "Convidar",
+      "eyebrowUpcoming_one": "PRÓXIMAS AULAS · {{count}}",
+      "eyebrowUpcoming_other": "PRÓXIMAS AULAS · {{count}}",
+      "noneUpcoming": "Sem aulas nos próximos 30 dias.",
+      "toConfirm": "Confirmas?"
     },
     "pulse": {
       "eyebrow": "ESTA SEMANA",
@@ -87,6 +101,14 @@
       "seatsFilledSub": "{{filled}} de {{total}}",
       "activePlayers": "Jogadores ativos",
       "activePlayersSub": "de {{total}} · {{idle}} inativos"
+    },
+    "answer": {
+      "yes": "Sim",
+      "no": "Não",
+      "confirmed": "Estás inscrito — até lá.",
+      "declined": "Registado — a tua vaga foi libertada.",
+      "expired": "Essa aula já começou.",
+      "failed": "Não foi possível registar a resposta. Tenta outra vez."
     }
   }
 }

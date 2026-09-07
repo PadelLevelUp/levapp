@@ -71,3 +71,7 @@ engine's ranking logic end-to-end, `attendance.stats` might fit better there ins
 - **[DEC 2026-09-04, PAD-166]** iOS gets full reporting parity with web's Presences tab: the
   attendance charts, CSV export, table filters/column chooser, and the academy/private breakdown
   — decided to build rather than treat as desktop-only. See `attendance.validation` Notes.
+- **[PAD-166, 2026-09-06]** Built. A coach can now read the same three charts, narrow the roster
+  by the same two thresholds, choose the same columns and export the same CSV from the phone.
+  The one behavioural difference is where the file goes: web downloads it, iOS hands it to the
+  share sheet (Mail, Files, Numbers, AirDrop), because a phone has no downloads folder.

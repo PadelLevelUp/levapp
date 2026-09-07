@@ -130,7 +130,8 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     db.session.add(user)
     db.session.flush()
 
-    new_coach = Coach(user_id=user.id)
+    # auth.coach-approval rule 1: an existing club member vouched for them.
+    new_coach = Coach(user_id=user.id, approval_status="approved")
     db.session.add(new_coach)
     db.session.flush()
 
@@ -173,3 +174,138 @@ def list_coach_invitations_service(club_id, coach):
         .order_by(CoachInvitation.created_at.desc())
         .all()
     )
+
+
+# -------------------------------------------------------------------
+# Club join requests (clubs.join-request, PAD-211)
+# -------------------------------------------------------------------
+#
+# The mirror image of coach invitations: there the member acts first, here the
+# newcomer does. Both end in the same `Association_CoachClub` row. Only an
+# *approved* coach reaches these (the routes go through `require_coach()`),
+# so a coach the LevApp admin has not approved cannot even search for a club.
+
+from padel_app.models import ClubJoinRequest  # noqa: E402  (appended section)
+from padel_app.utils.dates import utcnow_naive  # noqa: E402
+
+CLUB_SEARCH_MIN_CHARS = 2
+CLUB_SEARCH_LIMIT = 20
+
+
+def search_clubs_service(term, limit=CLUB_SEARCH_LIMIT):
+    """clubs.join-request rule 1 — name search, no membership information."""
+    term = (term or "").strip()
+    if len(term) < CLUB_SEARCH_MIN_CHARS:
+        return []
+    return (
+        Club.query.filter(Club.name.ilike(f"%{term}%"))
+        .order_by(Club.name.asc())
+        .limit(limit)
+        .all()
+    )
+
+
+def serialize_club_search_result(club):
+    return {
+        "id": club.id,
+        "name": club.name,
+        "location": club.location,
+        "logoUrl": club.logo_url,
+    }
+
+
+def _pending_request(club_id, coach_id):
+    return ClubJoinRequest.query.filter_by(
+        club_id=club_id, coach_id=coach_id, status="pending"
+    ).first()
+
+
+def create_club_join_request_service(club_id, coach, now=None):
+    """Rule 2 — 404 unknown club, 409 already a member or already pending."""
+    Club.query.get_or_404(club_id)
+    if _is_club_member(coach, club_id):
+        abort(409, "Already a member of this club")
+    if _pending_request(club_id, coach.id) is not None:
+        abort(409, "A join request for this club is already pending")
+
+    request_row = ClubJoinRequest(
+        club_id=club_id,
+        coach_id=coach.id,
+        status="pending",
+        requested_at=now or utcnow_naive(),
+    )
+    db.session.add(request_row)
+    db.session.commit()
+    return request_row
+
+
+def list_club_join_requests_service(club_id, coach):
+    """Rule 3 — pending requests, members of the club only."""
+    Club.query.get_or_404(club_id)
+    if coach is None or not _is_club_member(coach, club_id):
+        abort(403, "Only a coach belonging to this club can list join requests")
+    return (
+        ClubJoinRequest.query.filter_by(club_id=club_id, status="pending")
+        .order_by(ClubJoinRequest.requested_at.asc(), ClubJoinRequest.id.asc())
+        .all()
+    )
+
+
+def decide_club_join_request_service(request_id, coach, approve, now=None):
+    """Rule 4 — approve (membership) or reject; members of the club only."""
+    request_row = ClubJoinRequest.query.get_or_404(request_id)
+    if coach is None or not _is_club_member(coach, request_row.club_id):
+        abort(403, "Only a coach belonging to this club can decide join requests")
+    if request_row.status != "pending":
+        abort(410, f"Join request is {request_row.status}")
+
+    if approve:
+        if not _is_club_member(request_row.coach, request_row.club_id):
+            db.session.add(
+                Association_CoachClub(
+                    coach_id=request_row.coach_id, club_id=request_row.club_id
+                )
+            )
+        request_row.status = "approved"
+    else:
+        request_row.status = "rejected"
+    request_row.decided_at = now or utcnow_naive()
+    request_row.decided_by_coach_id = coach.id
+    db.session.commit()
+    return request_row
+
+
+def withdraw_club_join_request_service(request_id, coach, now=None):
+    """Rule 5 — the requesting coach takes it back."""
+    request_row = ClubJoinRequest.query.get_or_404(request_id)
+    if coach is None or coach.id != request_row.coach_id:
+        abort(403, "Only the requesting coach can withdraw this request")
+    if request_row.status != "pending":
+        abort(410, f"Join request is {request_row.status}")
+    request_row.status = "withdrawn"
+    request_row.decided_at = now or utcnow_naive()
+    db.session.commit()
+    return request_row
+
+
+def latest_pending_club_join_request(coach):
+    """Rule 6 — what `/api/auth/me` reports as `pendingClubJoinRequest`."""
+    if coach is None:
+        return None
+    return (
+        ClubJoinRequest.query.filter_by(coach_id=coach.id, status="pending")
+        .order_by(ClubJoinRequest.requested_at.desc(), ClubJoinRequest.id.desc())
+        .first()
+    )
+
+
+def serialize_club_join_request(request_row):
+    return {
+        "id": request_row.id,
+        "clubId": request_row.club_id,
+        "clubName": request_row.club.name if request_row.club else None,
+        "coachId": request_row.coach_id,
+        "coachName": request_row.coach.name if request_row.coach else None,
+        "status": request_row.status,
+        "requestedAt": request_row.requested_at.isoformat() if request_row.requested_at else None,
+    }

@@ -8,7 +8,7 @@ off, and how a coach grows it into a team.
 ## What it covers
 
 - `clubs.coach-runs-a-club-and-its-team` — creating and editing a club, how coach and player membership
-  works, and inviting other coaches to join.
+  works, inviting other coaches to join, and approving coaches who ask to join.
 
 ## Why it's grouped this way
 

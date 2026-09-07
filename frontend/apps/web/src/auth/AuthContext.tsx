@@ -21,6 +21,13 @@ type AuthContextType = {
   login: (token: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  /**
+   * Re-reads /auth/me and updates the session in place — used when something
+   * the router keys on changes without a new login (a club was created, a
+   * join request went pending, the LevApp admin approved the coach). Resolves
+   * with the fresh user, or `null` if the read failed (session left as is).
+   */
+  refreshUser: () => Promise<MeResponse | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,6 +87,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async (): Promise<MeResponse | null> => {
+    try {
+      const userData = await getMe();
+      setUser(userData);
+      applyUserLanguage(userData);
+      return userData;
+    } catch {
+      return null;
+    }
+  };
+
   const logout = () => {
     const currentToken = localStorage.getItem("accessToken");
     if (currentToken && !USE_MOCK_DATA) {
@@ -100,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !loading && !!user,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}
