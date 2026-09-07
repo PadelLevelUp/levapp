@@ -217,6 +217,21 @@ export default function SettingsPage() {
       active = false;
     };
   }, [isSuperAdmin]);
+  // Badge on the Club entry: coaches asking to join (clubs.join-request rule 9).
+  const [pendingJoinCount, setPendingJoinCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isCoach) return;
+    let active = true;
+    import("@/api/clubs")
+      .then((m) => m.listMyClubJoinRequests())
+      .then((rows) => {
+        if (active) setPendingJoinCount(rows.length);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [isCoach]);
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
   const [tab, setTab] = useState<SettingsTab>("preferences");
@@ -354,7 +369,7 @@ export default function SettingsPage() {
                 active={activeTab}
                 onChange={setTab}
                 items={tabs}
-                badges={{ admin: pendingCoachCount ?? 0 }}
+                badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
               />
             </CardContent>
           </Card>
@@ -368,7 +383,7 @@ export default function SettingsPage() {
                   <SettingsNav
                     active={activeTab}
                     items={tabs}
-                    badges={{ admin: pendingCoachCount ?? 0 }}
+                    badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
                     testIdPrefix="settings-mobile-nav"
                     onChange={(id) => {
                       setTab(id);
@@ -563,7 +578,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ClubSection />
+                  <ClubSection onJoinRequestCountChange={setPendingJoinCount} />
                 </CardContent>
               </Card>
             )}

@@ -79,7 +79,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | Domain | Capabilities | Leaf Specs | Status |
 |--------|-------------|------------|--------|
 | auth | 5 | 8 | implemented |
-| clubs | 3 | 4 | implemented (clubs.join-request draft) |
+| clubs | 3 | 4 | implemented |
 | players | 3 | 11 (+1 deprecated) | implemented |
 | classes | 3 | 10 | implemented (classes.join-requests draft) |
 | calendar | 2 | 7 | implemented (calendar.student-blockers partial) |

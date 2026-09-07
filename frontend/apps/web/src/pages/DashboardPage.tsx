@@ -17,29 +17,36 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
+  // `silent` keeps the page in place: a refetch after the student answers a
+  // reminder must swap the payload, not flash the skeleton.
+  const load = useCallback(
+    async (silent = false) => {
+      try {
+        if (!silent) setLoading(true);
 
       const from = new Date().toISOString();
       const to = new Date(Date.now() + 30 * 86400000).toISOString();
 
-      const data = await getDashboard({ from, to });
-      setDashboard(data);
-      // Neither home renders this block; the layout's unread badge reads it.
-      const messagesBlock = data.blocks.find((b) => b.type === "messages_overview");
-      if (messagesBlock?.type === "messages_overview") {
-        setUnreadCount(messagesBlock.data.unreadMessages);
-        setLatestMessage(messagesBlock.data.latest ?? null);
+        const data = await getDashboard({ from, to });
+        setDashboard(data);
+        // Neither home renders this block; the layout's unread badge reads it —
+        // which is how answering a reminder here also lowers the badge.
+        const messagesBlock = data.blocks.find((b) => b.type === "messages_overview");
+        if (messagesBlock?.type === "messages_overview") {
+          setUnreadCount(messagesBlock.data.unreadMessages);
+          setLatestMessage(messagesBlock.data.latest ?? null);
+        }
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [setUnreadCount, setLatestMessage]);
+    },
+    [setUnreadCount, setLatestMessage],
+  );
 
   useEffect(() => {
-    void load();
+    load();
   }, [load]);
+  const refresh = useCallback(() => load(true), [load]);
 
   if (loading) {
     return (
@@ -66,11 +73,7 @@ export default function DashboardPage() {
     <AppLayout>
       {/* No in-page "Dashboard" heading — the word belongs to the navigation
           alone. The greeting is the page's orientation instead. */}
-      {isCoachHome ? (
-        <CoachDashboard blocks={dashboard.blocks} firstName={firstName} />
-      ) : (
-        <StudentDashboard blocks={dashboard.blocks} firstName={firstName} onRefresh={() => void load()} />
-      )}
+      <Home blocks={dashboard.blocks} firstName={firstName} onRefresh={refresh} />
     </AppLayout>
   );
 }

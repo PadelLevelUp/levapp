@@ -26,8 +26,10 @@ Every coach and every student, as the first screen they see on opening the app.
    recent notification activity.
 2. A student opens the app and sees their own version, in the same look and layout as the
    coach's: a greeting, their next class front and centre, a short queue of things waiting on
-   them (invites to confirm, messages to answer), their classes for the coming week, and their
-   own key numbers (lessons attended and missed, each against their total).
+   them (invites to confirm, messages to answer), their upcoming classes for the next month —
+   with a Yes / No right on any class they have been asked to confirm, so answering never means
+   hunting for the message — and their own key numbers (lessons attended and missed, each
+   against their total). Answering on the dashboard also clears that reminder's unread mark.
 3. The coach clicks an unread-messages block and lands directly in Messages.
 4. The coach clicks an upcoming class and lands on the calendar already showing the right week,
    with that exact class's details already open — no hunting through weeks to find it.

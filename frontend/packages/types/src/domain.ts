@@ -391,6 +391,13 @@ export interface DashboardNextClassBlock {
     /** Signed-up players for the avatar stack, already capped by the server. */
     players: Array<{ id: number; name: string; initials: string }>;
     href: string;
+    /**
+     * PAD-202 (student only): the materialised instance behind the class, or
+     * `null` for a projected occurrence; and whether the student has been
+     * asked to confirm and not yet answered — the switch for the Yes/No.
+     */
+    lessonInstanceId?: number | null;
+    pendingConfirmation?: boolean;
   };
 }
 
@@ -424,6 +431,8 @@ export interface DashboardNeedsYouReply {
 export interface DashboardNeedsYouInvite {
   kind: "invite";
   id: string;
+  /** The materialised instance the Yes/No answers for (respond_reminder). */
+  lessonInstanceId: number;
   classTitle: string;
   /** ISO date, `YYYY-MM-DD`. */
   date: string;
@@ -479,6 +488,9 @@ export interface DashboardSchedule7dBlock {
       filled: number;
       capacity: number;
       href: string;
+      /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
+      lessonInstanceId?: number | null;
+      pendingConfirmation?: boolean;
     }>;
     calendarHref: string;
   };

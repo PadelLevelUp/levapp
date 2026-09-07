@@ -35,8 +35,8 @@ export function StudentDashboard({
 }: {
   blocks: DashboardBlock[];
   firstName: string;
-  /** players.claim rule 6: re-read the blocks after a record is merged in. */
-  onRefresh?: () => void;
+  /** Refetch the payload after the student answers a reminder in place. */
+  onRefresh?: () => void | Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -47,9 +47,11 @@ export function StudentDashboard({
   const scheduleBlock = pick(blocks, "schedule_7d");
   const kpiBlock = pick(blocks, "kpi_grid");
 
-  const hero = heroBlock ? <NextClassHero block={heroBlock} /> : null;
-  const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} /> : null;
-  const schedule = scheduleBlock ? <Schedule7Days block={scheduleBlock} role="student" /> : null;
+  const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} /> : null;
+  const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} /> : null;
+  const schedule = scheduleBlock ? (
+    <Schedule7Days block={scheduleBlock} role="student" onAnswered={onRefresh} />
+  ) : null;
   const kpis = kpiBlock ? <KpiTiles block={kpiBlock} /> : null;
 
   // players.join-token rule 8: a student with nothing scheduled and no next

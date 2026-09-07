@@ -273,7 +273,19 @@
       "invitationRevoked": "Invitation revoked",
       "revokeFailed": "Failed to revoke invitation",
       "createInvitationFailed": "Failed to create invitation",
-      "createInvitationFailedDescription": "Please try again."
+      "createInvitationFailedDescription": "Please try again.",
+      "joinRequests": {
+        "title": "Join requests",
+        "description": "Coaches who asked to join your club.",
+        "empty": "No pending requests.",
+        "requestedAt": "Requested on {{date}}",
+        "approve": "Approve",
+        "decline": "Decline",
+        "approved": "{{name}} joined the club.",
+        "declined": "{{name}}'s request declined.",
+        "actionFailed": "Could not complete the action.",
+        "loadFailed": "Could not load the requests."
+      }
     },
     "seasons": {
       "loading": "Loading seasons…",

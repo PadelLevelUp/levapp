@@ -14,6 +14,7 @@ from padel_app.services.registration_service import (
     RegistrationError,
     register_user_service,
 )
+from padel_app.services.club_service import latest_pending_club_join_request
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
@@ -21,14 +22,18 @@ bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 def _serialize_me(user):
     """The payload the app hydrates its session and Settings profile form from."""
     coach = user.coach
+    pending = latest_pending_club_join_request(coach)
     return {
         # auth.register rule 9 / auth.coach-approval: the client routes a coach
         # by `coachApproval` first (pending / rejected screens), then by
         # `clubs` (club onboarding vs dashboard). `pendingClubJoinRequest` is
-        # filled by clubs.join-request (slice B).
+        # the most recent pending request (clubs.join-request rule 6).
         "coachApproval": coach.approval_status if coach else None,
         "clubs": [{"id": c.id, "name": c.name} for c in coach.clubs] if coach else [],
-        "pendingClubJoinRequest": None,
+        "pendingClubJoinRequest": (
+            {"id": pending.id, "clubId": pending.club_id, "clubName": pending.club.name}
+            if pending else None
+        ),
         "id": user.id,
         "username": user.username,
         "name": user.name,
