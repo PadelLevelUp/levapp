@@ -77,7 +77,11 @@ const AuthPage = () => {
       const me = await getMe();
       const target = postLoginLanding(me);
       const remembered = consumePostAuthRedirect();
-      navigate(remembered && target === "/dashboard" ? remembered : target);
+      // A remembered post-auth path (invite / join link) wins over both the
+      // dashboard and the "connect with a coach" landing — the link IS the
+      // connection the student came for. Coach gates (pending, no club) still win.
+      const gated = target !== "/dashboard" && target !== "/connect";
+      navigate(remembered && !gated ? remembered : target);
       succeed();
       toast({
         title: t("auth.login.welcomeTitle"),

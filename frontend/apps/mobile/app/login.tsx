@@ -71,11 +71,11 @@ export default function LoginScreen() {
       const pending = consumePendingJoin();
       // players.claim rule 3: an invite link opened to LINK an existing account.
       const pendingClaim = consumePendingClaim();
-      if (pendingClaim && route === "/(tabs)/dashboard") {
+      if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
         router.replace(`/invite/player/${pendingClaim}`);
         return;
       }
-      router.replace(pending && route === "/(tabs)/dashboard" ? `/join/coach/${pending}` : route);
+      router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
     } catch (err: any) {
       // No `response` means the request never got a reply from the server —
       // network failure, timeout, DNS/connection error, wrong API host,
