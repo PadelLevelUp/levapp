@@ -36,6 +36,8 @@ import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
+import { useRespondReminder } from "@/features/calendar/hooks";
 import { parseDashboardItemId } from "@/features/calendar/params";
 import { cn } from "@/lib/utils";
 
@@ -229,6 +231,62 @@ function ActionCard({
   );
 }
 
+/**
+ * Yes / No for a class the student was asked to confirm (PAD-202 correction,
+ * dashboard.blocks rule 3a). Same endpoint as the chat's reminder message; the
+ * hook's onSuccess invalidates the dashboard (so the buttons disappear because
+ * the payload says so) and the unread-count badge (rule 13).
+ */
+function AnswerButtons({
+  lessonInstanceId,
+  onNavy,
+}: {
+  lessonInstanceId: number;
+  onNavy?: boolean;
+}) {
+  const { t } = useTranslation();
+  const respond = useRespondReminder();
+  const busy = respond.isPending;
+  const answer = (action: "yes" | "no") =>
+    respond.mutate(
+      { lessonInstanceId, action },
+      {
+        onSuccess: (result) => {
+          if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
+          else toast.success(t(result.action === "confirmed" ? "dashboard.answer.confirmed" : "dashboard.answer.declined"));
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  return (
+    <View className="flex-row items-center gap-2" testID="dashboard-confirm">
+      <Button
+        size="sm"
+        disabled={busy}
+        testID="dashboard-confirm-yes"
+        className={cn(onNavy && "bg-sidebar-primary")}
+        onPress={() => answer("yes")}
+      >
+        <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-primary-foreground" : "text-primary-foreground")}>
+          {t("dashboard.answer.yes")}
+        </Text>
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy}
+        testID="dashboard-confirm-no"
+        className={cn(onNavy && "border-sidebar-foreground/30 bg-transparent")}
+        onPress={() => answer("no")}
+      >
+        <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-foreground" : "text-foreground")}>
+          {t("dashboard.answer.no")}
+        </Text>
+      </Button>
+    </View>
+  );
+}
+
 /* ── blocks ──────────────────────────────────────────────────────────────── */
 
 export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
@@ -261,6 +319,15 @@ export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
           {d.startTime} – {d.endTime}
         </Text>
       </View>
+
+      {d.pendingConfirmation === true && typeof d.lessonInstanceId === "number" && (
+        <View className="mt-4 flex-row items-center gap-3">
+          <Text className="text-[13px] font-sans-semibold text-sidebar-foreground/90">
+            {t("dashboard.schedule.toConfirm")}
+          </Text>
+          <AnswerButtons lessonInstanceId={d.lessonInstanceId} onNavy />
+        </View>
+      )}
 
       <View className="mt-4 flex-row items-center gap-3">
         <AvatarStack people={d.players} total={d.filled} onNavy />
@@ -358,12 +425,18 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
             })}
           </Text>
         </View>
-        <View className="mt-3.5 flex-row gap-2">
-          <Button className="flex-1" onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}>
-            <Text className="font-sans-semibold text-primary-foreground">
+        <View className="mt-3.5 flex-row items-center gap-2">
+          <AnswerButtons lessonInstanceId={it.lessonInstanceId} />
+          <View className="flex-1" />
+          <Pressable
+            onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}
+            accessibilityRole="button"
+            className="px-2 py-2"
+          >
+            <Text className="text-[13px] font-sans-semibold text-primary">
               {t("dashboard.needsYou.invite.open")}
             </Text>
-          </Button>
+          </Pressable>
         </View>
       </ActionCard>
     );
@@ -433,7 +506,11 @@ export function Schedule7Days({
   return (
     <View className="gap-2.5" testID="dashboard-schedule">
       <View className="flex-row items-center justify-between">
-        <Eyebrow>{t("dashboard.schedule.eyebrow", { count: totalCount })}</Eyebrow>
+        <Eyebrow>
+          {t(student ? "dashboard.schedule.eyebrowUpcoming" : "dashboard.schedule.eyebrow", {
+            count: totalCount,
+          })}
+        </Eyebrow>
         <Pressable onPress={() => go(calendarHref)} accessibilityRole="button" className="px-1 py-2">
           <Text className="text-[13px] font-sans-semibold text-primary">
             {t("dashboard.schedule.calendar")}
@@ -444,7 +521,7 @@ export function Schedule7Days({
       {items.length === 0 ? (
         <View className="rounded-2xl bg-muted px-4 py-5">
           <Text className="text-center text-sm text-muted-foreground">
-            {t("dashboard.schedule.none")}
+            {t(student ? "dashboard.schedule.noneUpcoming" : "dashboard.schedule.none")}
           </Text>
         </View>
       ) : (
@@ -454,6 +531,8 @@ export function Schedule7Days({
         <View className="gap-px overflow-hidden rounded-2xl border border-border bg-border">
           {items.map((row) => {
             const full = row.capacity > 0 && row.filled >= row.capacity;
+            const pending =
+              student && row.pendingConfirmation === true && typeof row.lessonInstanceId === "number";
             return (
               <Pressable
                 key={row.id}
@@ -477,6 +556,12 @@ export function Schedule7Days({
                     <FillBar filled={row.filled} capacity={row.capacity} neutral={student} />
                     <FillCount filled={row.filled} capacity={row.capacity} neutral={student} />
                   </View>
+                  {/* The student's one job on this row: answer the reminder here. */}
+                  {pending && (
+                    <View className="mt-1">
+                      <AnswerButtons lessonInstanceId={row.lessonInstanceId as number} />
+                    </View>
+                  )}
                 </View>
                 {!student &&
                   row.capacity > 0 &&

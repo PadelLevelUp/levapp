@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { invitationsApi } from "@levelup/api";
+import { clubsApi, invitationsApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -55,6 +55,39 @@ export function ClubSection() {
   );
   const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
   const [inviteUrl, setInviteUrl] = React.useState<string | null>(null);
+  // clubs.join-request rule 9: coaches asking to come in (mirrors web).
+  const [joinRequests, setJoinRequests] = React.useState<clubsApi.ClubJoinRequest[]>([]);
+  const [decidingId, setDecidingId] = React.useState<number | null>(null);
+
+  const refreshJoinRequests = React.useCallback(
+    async (clubId: number) => {
+      try {
+        setJoinRequests(await clubsApi.listClubJoinRequests(clubId));
+      } catch {
+        toast.error(t("settings.club.joinRequests.loadFailed"));
+      }
+    },
+    [t]
+  );
+
+  const handleDecide = async (req: clubsApi.ClubJoinRequest, approve: boolean) => {
+    if (!club) return;
+    setDecidingId(req.id);
+    try {
+      if (approve) {
+        await clubsApi.approveClubJoinRequest(req.id);
+        toast.success(t("settings.club.joinRequests.approved", { name: req.coachName }));
+      } else {
+        await clubsApi.rejectClubJoinRequest(req.id);
+        toast.success(t("settings.club.joinRequests.declined", { name: req.coachName }));
+      }
+      await refreshJoinRequests(club.id);
+    } catch {
+      toast.error(t("settings.club.joinRequests.actionFailed"));
+    } finally {
+      setDecidingId(null);
+    }
+  };
 
   const refreshInvitations = React.useCallback(async (clubId: number) => {
     try {
@@ -73,7 +106,7 @@ export function ClubSection() {
       .then(async (c) => {
         if (cancelled) return;
         setClub(c);
-        if (c) await refreshInvitations(c.id);
+        if (c) await Promise.all([refreshInvitations(c.id), refreshJoinRequests(c.id)]);
       })
       .catch(() => {
         if (!cancelled) setClub(null);
@@ -85,7 +118,7 @@ export function ClubSection() {
     return () => {
       cancelled = true;
     };
-  }, [refreshInvitations]);
+  }, [refreshInvitations, refreshJoinRequests]);
 
   const handleInviteCoach = async () => {
     if (!club) return;
@@ -173,6 +206,64 @@ export function ClubSection() {
                   <Text>{t("settings.club.inviteCoach")}</Text>
                 )}
               </Button>
+            </View>
+
+            <Separator />
+
+            <View className="gap-2" testID="club-join-requests">
+              <Text className="text-sm font-medium">
+                {t("settings.club.joinRequests.title")}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("settings.club.joinRequests.description")}
+              </Text>
+              {joinRequests.length === 0 ? (
+                <Text className="text-sm text-muted-foreground" testID="club-join-requests-empty">
+                  {t("settings.club.joinRequests.empty")}
+                </Text>
+              ) : (
+                joinRequests.map((req) => (
+                  <View
+                    key={req.id}
+                    testID={`club-join-request-${req.id}`}
+                    className="gap-2 rounded-lg border border-border p-3"
+                  >
+                    <Text className="font-medium" numberOfLines={1}>
+                      {req.coachName}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {t("settings.club.joinRequests.requestedAt", {
+                        date: new Date(req.requestedAt).toLocaleDateString(i18n.language),
+                      })}
+                    </Text>
+                    <View className="flex-row gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        testID={`club-join-approve-${req.id}`}
+                        disabled={decidingId === req.id}
+                        onPress={() => void handleDecide(req, true)}
+                      >
+                        {decidingId === req.id ? (
+                          <Spinner size="small" color={lightTheme.primaryForeground} />
+                        ) : (
+                          <Text>{t("settings.club.joinRequests.approve")}</Text>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        testID={`club-join-decline-${req.id}`}
+                        disabled={decidingId === req.id}
+                        onPress={() => void handleDecide(req, false)}
+                      >
+                        <Text>{t("settings.club.joinRequests.decline")}</Text>
+                      </Button>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
 
             <Separator />

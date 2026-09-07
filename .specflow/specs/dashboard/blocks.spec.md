@@ -29,8 +29,15 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
      `confirmed = false` on a `LessonInstance` that has not started, soonest first, capped at 5,
      carrying `classTitle`, ISO `date`, `timeLabel`, `filled`, `capacity` and the calendar deep link.
-   - `schedule_7d`: the next 7 days, first 5 rows plus `totalCount`, each row with ISO `date`,
+   - `schedule_7d`: the upcoming classes, first 5 rows plus `totalCount`, each row with ISO `date`,
      `dayOfMonth`, `timeLabel`, `filled`/`capacity` and a deep link; `calendarHref` links out.
+     The window is role-specific: the coach sees the **next 7 days** (their week is dense); the
+     student sees the **next 30 days** (PAD-202 correction — a student with one class a week
+     otherwise met an empty section), the same window the dashboard fetch already asks for.
+     **Student rows and the student hero also carry `lessonInstanceId` (materialised instances
+     only, else `null`) and `pendingConfirmation`** — `true` when the student's `Presence` on that
+     instance is `invited` and not yet `confirmed`, i.e. they have been asked to confirm and have
+     not answered (both answers set `confirmed`, see `notifications.reminders`).
    - `week_pulse` (coach only): two metrics with denominators — seats filled this week and active
      players — never a third.
    - `kpi_grid` (student only): Attended / Missed / Upcoming lessons / Invites. Every item carries
@@ -63,6 +70,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      "Empty", full rows green "Full", nothing otherwise. A student's schedule rows carry NO
      capacity badge and a never-amber fill count: seats are the coach's problem, not the
      student's.
+   - **(PAD-202 correction) A student answers where they see the class.** A schedule row, the hero
+     and the queue's invite card with `pendingConfirmation` show **Yes / No** (the same two
+     answers the reminder message offers), which call `POST /app/notify/respond_reminder` with the
+     row's `lessonInstanceId`; the answer is recorded exactly as if given in the chat
+     (`notifications.reminders` rules 4–6, 10–12), the dashboard refetches so the buttons
+     disappear and the queue count drops, and the reminder message is marked read
+     (`notifications.reminders` rule 13) so the unread badge falls with it. A row without
+     `pendingConfirmation` has no buttons. Nothing about a *coach's* rows changes.
    - Every number ships with its denominator or context; every time, date and x/y count is
      tabular.
    - 44px touch targets on mobile; `sm` density is desktop-only.
@@ -129,6 +144,18 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the `kpi_grid` Attended item is `{ value: 12, total: 15 }` and Missed is
   `{ value: 3, total: 15 }`, with the `href` values of `dashboard.navigation` rules 11 / 11a
   unchanged
+
+#### Student answers a reminder from the dashboard (PAD-202 correction)
+- **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`
+  invited, not confirmed) and an unread reminder message
+- **When** they open `/` and press **Yes** on that class's row in the upcoming list
+- **Then** their `Presence.confirmed` is `true`, the row shows no Yes/No, the queue count drops by
+  one, and the dashboard's `messages_overview.unreadMessages` is lower than before
+
+#### Student sees classes beyond the coming week (PAD-202 correction)
+- **Given** an authenticated student whose only class is in 12 days
+- **When** they GET `/api/app/dashboard`
+- **Then** `schedule_7d.totalCount` is 1 and the class is listed with `pendingConfirmation: false`
 
 #### Student dashboard renders the shared design language (PAD-202)
 - **Given** the seeded `e2e-student` on a 1280px viewport

@@ -282,7 +282,19 @@
       "invitationRevoked": "Convite revogado",
       "revokeFailed": "Não foi possível revogar o convite",
       "createInvitationFailed": "Não foi possível criar o convite",
-      "createInvitationFailedDescription": "Tenta novamente."
+      "createInvitationFailedDescription": "Tenta novamente.",
+      "joinRequests": {
+        "title": "Pedidos de entrada",
+        "description": "Treinadores que pediram para se juntar ao teu clube.",
+        "empty": "Sem pedidos pendentes.",
+        "requestedAt": "Pedido a {{date}}",
+        "approve": "Aprovar",
+        "decline": "Recusar",
+        "approved": "{{name}} juntou-se ao clube.",
+        "declined": "Pedido de {{name}} recusado.",
+        "actionFailed": "Não foi possível concluir a ação.",
+        "loadFailed": "Não foi possível carregar os pedidos."
+      }
     },
     "seasons": {
       "loading": "A carregar épocas…",

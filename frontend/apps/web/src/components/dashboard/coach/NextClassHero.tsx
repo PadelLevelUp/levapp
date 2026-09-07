@@ -14,12 +14,23 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AvatarStack } from "./primitives";
+import { AnswerButtons } from "./AnswerButtons";
+import { useAnswerReminder } from "./useAnswerReminder";
 import { weekdayLong } from "@levelup/config";
 
-export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
+export function NextClassHero({
+  block,
+  onAnswered,
+}: {
+  block: DashboardNextClassBlock;
+  /** PAD-202 (student): refetch after answering the reminder from the hero. */
+  onAnswered?: () => void | Promise<void>;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const d = block.data;
+  const { answer, busyId } = useAnswerReminder(onAnswered);
+  const pending = d.pendingConfirmation === true && typeof d.lessonInstanceId === "number";
 
   const eyebrow = d.isToday
     ? t("dashboard.hero.upNext", { time: d.startTime })
@@ -49,6 +60,21 @@ export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
           {d.startTime} – {d.endTime}
         </span>
       </div>
+
+      {/* A student asked to confirm answers right here (dashboard.blocks rule 3a). */}
+      {pending && (
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-[13px] font-semibold text-sidebar-foreground/90">
+            {t("dashboard.schedule.toConfirm")}
+          </span>
+          <AnswerButtons
+            className="flex items-center gap-2"
+            onNavy
+            busy={busyId === d.lessonInstanceId}
+            onAnswer={(action) => answer(d.lessonInstanceId as number, action)}
+          />
+        </div>
+      )}
 
       <div className="mt-4 flex items-center gap-3">
         <AvatarStack people={d.players} total={d.filled} onNavy />
