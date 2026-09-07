@@ -9,6 +9,7 @@ export * as attendanceApi from "./resources/attendance";
 export * as availabilityApi from "./resources/availability";
 export * as calendarApi from "./resources/calendar";
 export * as classesApi from "./resources/classes";
+export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";
 export * as dashboardApi from "./resources/dashboard";
 export * as evaluationApi from "./resources/evaluation";

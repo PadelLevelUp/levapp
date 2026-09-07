@@ -37,7 +37,12 @@ const BUILT = path.join(WEB_ROOT, "dist", AASA_RELATIVE);
 const EXPECTED_APP_ID = "9K2J8D2ARR.com.padellevelup.app";
 
 /** The account-creation entry points, as declared in apps/web/src/App.tsx. */
-const EXPECTED_PATHS = ["/invite/player/*", "/invite/coach/*", "/register/*"];
+const EXPECTED_PATHS = [
+  "/invite/player/*",
+  "/invite/coach/*",
+  "/register/*",
+  "/join/coach/*",
+];
 
 type Aasa = {
   applinks?: {
@@ -69,7 +74,7 @@ describe("apple-app-site-association", () => {
     expect(detail?.appIDs).toEqual([EXPECTED_APP_ID]);
   });
 
-  it("claims exactly the three account-creation paths", () => {
+  it("claims exactly the four deep-linked paths", () => {
     const detail = readAasa(SOURCE).applinks?.details?.[0];
     const claimed = (detail?.components ?? []).map((component) => component["/"]);
     expect(claimed).toEqual(EXPECTED_PATHS);
