@@ -43,6 +43,9 @@
       "loggedOutDescription": "A função de terminar sessão está pronta a ligar."
     },
     "profile": {
+      "emailVerified": "Verificado",
+      "emailUnverified": "Por confirmar",
+      "verifyEmail": "Confirmar",
       "title": "Perfil",
       "description": "Informação básica visível para os teus jogadores.",
       "selected": "Selecionado: {{name}}",
@@ -582,6 +585,7 @@
       }
     },
     "admin": {
+      "emailUnverified": "Email por confirmar",
       "title": "Administração",
       "description": "Ferramentas da equipa LevApp.",
       "pendingCoaches": "Treinadores a aguardar aprovação",

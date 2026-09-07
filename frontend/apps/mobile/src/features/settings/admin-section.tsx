@@ -106,6 +106,12 @@ export function AdminSection() {
                 {" · "}
                 {new Date(coach.requestedAt).toLocaleDateString(i18n.language)}
               </Text>
+              {/* auth.email-verification rule 10: nobody can reach this coach yet. */}
+              {coach.email && coach.emailVerified === false ? (
+                <Text className="text-xs text-destructive" testID={`admin-email-unverified-${coach.username}`}>
+                  {t("settings.admin.emailUnverified")}
+                </Text>
+              ) : null}
               <View className="flex-row gap-2">
                 <Button
                   size="sm"

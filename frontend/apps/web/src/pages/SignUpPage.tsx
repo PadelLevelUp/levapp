@@ -13,9 +13,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { register, type RegisterPayload } from "@/api/auth";
+import { getMe, register, type RegisterPayload } from "@/api/auth";
 import { useAuth } from "@/auth/AuthContext";
-import { postLoginPath } from "@/auth/postLoginPath";
+import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
@@ -105,26 +105,29 @@ const SignUpPage = () => {
       // Same persistence as AuthPage: `login(token)` writes localStorage and
       // hydrates the session from /auth/me before we route on it.
       await login(res.accessToken);
+      // `login()` already loaded the user; re-read it through the same
+      // helper the guards use so the two can never disagree.
+      const me = await getMe();
+      const pendingCode = needsEmailVerification(me);
       toast({
         title: t("auth.signup.welcomeTitle"),
-        description:
-          role === "coach"
+        description: pendingCode
+          ? t("auth.verifyEmail.toastDescription")
+          : role === "coach"
             ? t("auth.signup.welcomeCoachDescription")
             : t("auth.signup.welcomeStudentDescription"),
       });
       // auth.register rule 11. A brand-new student goes to "Connect with a
       // coach" regardless of what postLoginPath knows about them; a coach is
       // routed by approval state (pending, on a fresh signup).
-      if (role === "student") {
-        // players.join-token rule 9: a student who arrived from a join link
-        // goes straight back to it instead of the generic "Connect" screen.
-        navigate(consumePostAuthRedirect() ?? "/connect", { replace: true });
-      } else {
-        // `login()` already loaded the user; re-read it through the same
-        // helper the guards use so the two can never disagree.
-        const me = await import("@/api/auth").then((m) => m.getMe());
-        navigate(postLoginPath(me), { replace: true });
-      }
+      // players.join-token rule 9: a student who arrived from a join link
+      // goes straight back to it instead of the generic "Connect" screen.
+      const destination =
+        role === "student" ? (consumePostAuthRedirect() ?? "/connect") : postLoginPath({ ...me, emailVerification: "verified" });
+      // auth.register rule 14: the code screen comes first, then `destination`.
+      navigate(pendingCode ? `/verify-email?next=${encodeURIComponent(destination)}` : destination, {
+        replace: true,
+      });
     } catch (err: unknown) {
       const data = (err as { response?: { status?: number; data?: { error?: string; field?: string } } })
         .response;

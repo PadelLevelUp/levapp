@@ -123,6 +123,13 @@ def register_user_service(data):
         db.session.rollback()
         raise
 
+    # auth.register rule 14 / auth.email-verification rule 6: the first code
+    # goes out inside the signup request, best-effort. Runs before the admin
+    # mail so the admin's "email verified: no" line is accurate either way.
+    from padel_app.services.email_verification_service import begin_verification
+
+    begin_verification(user)
+
     if coach is not None and coach.approval_status == "pending":
         from padel_app.services.coach_approval_service import notify_admin_of_pending_coach
 

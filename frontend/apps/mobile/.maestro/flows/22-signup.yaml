@@ -1,5 +1,7 @@
 # PAD-210 — self-service signup (auth.register) and the coach approval gate
-# (auth.coach-approval).
+# (auth.coach-approval). PAD-234 adds the email code step in between
+# (auth.email-verification): the flag-gated backend captures the mail and
+# `/api/auth/email-verification/debug/last-code?email=` hands the code back.
 #
 # Mirrors: apps/web/e2e/auth-onboarding/signup.spec.ts
 # - a student creates an account from the login screen and lands on
@@ -61,6 +63,14 @@ appId: com.padellevelup.app
     id: "signup-submit"
 - extendedWaitUntil:
     visible:
+      id: "verify-email"
+    timeout: 25000
+- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-s-' + output.stamp + '@example.com').body).code}
+- tapOn:
+    id: "verify-email-code"
+- inputText: ${output.code}
+- extendedWaitUntil:
+    visible:
       id: "connect-with-coach"
     timeout: 25000
 
@@ -102,6 +112,14 @@ appId: com.padellevelup.app
 - hideKeyboard
 - tapOn:
     id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "verify-email"
+    timeout: 25000
+- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-c-' + output.stamp + '@example.com').body).code}
+- tapOn:
+    id: "verify-email-code"
+- inputText: ${output.code}
 - extendedWaitUntil:
     visible:
       id: "coach-pending"

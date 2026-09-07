@@ -37,7 +37,19 @@ export type MeResponse = {
   clubs?: ClubSummary[];
   /** clubs.join-request rule 6: the most recent pending request, or null. */
   pendingClubJoinRequest?: PendingClubJoinRequest | null;
+  /**
+   * auth.email-verification rule 2: `pending` means the person must type the
+   * 6-digit code before anything else opens (self-signup, or a new email
+   * saved in Settings). `unverified` is an email nobody asked them to verify
+   * (coach-typed) — never held. Absent on an older backend: treated as
+   * verified.
+   */
+  emailVerification?: EmailVerificationState;
+  /** Seconds until "Send a new code" is allowed again; 0 when it is. */
+  emailVerificationResendInSeconds?: number;
 };
+
+export type EmailVerificationState = "verified" | "pending" | "unverified";
 
 export type CoachApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -61,7 +73,12 @@ export type RegisterPayload = {
 /** Same shape `POST /auth/login` returns, so the client signs in without a second request. */
 export type RegisterResponse = {
   accessToken: string;
-  user: { id: number; name: string; role: "coach" | "player" };
+  user: {
+    id: number;
+    name: string;
+    role: "coach" | "player";
+    emailVerification?: EmailVerificationState;
+  };
 };
 
 /**
@@ -104,4 +121,32 @@ export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
 /** Soft-deletes the signed-in account and invalidates all sessions server-side (App Store 5.1.1(v)). */
 export async function deleteAccount(): Promise<void> {
   await getApi().delete("/auth/me");
+}
+
+// ── auth.email-verification ────────────────────────────────────────────────
+
+export type SendVerificationCodeResponse = {
+  email: string;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+};
+
+/**
+ * Rule 4: mail a fresh 6-digit code to the signed-in user's own email.
+ * Errors come back as `{error, retryAfterSeconds?}` on `response.data`:
+ * 429 RESEND_TOO_SOON, 409 ALREADY_VERIFIED, 400 NO_EMAIL, 503 MAIL_FAILED.
+ */
+export async function sendEmailVerificationCode(): Promise<SendVerificationCodeResponse> {
+  const res = await getApi().post("/auth/email-verification/send");
+  return res.data;
+}
+
+/**
+ * Rule 5: check the code. 200 answers with the `/auth/me` payload so the
+ * caller can route on it; 400 `{error: "INVALID_CODE", attemptsLeft}`;
+ * 410 `{error: "CODE_EXPIRED"}` — offer "Send a new code".
+ */
+export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
+  const res = await getApi().post("/auth/email-verification/confirm", { code });
+  return res.data;
 }

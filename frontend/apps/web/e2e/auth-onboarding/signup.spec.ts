@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { completeEmailVerification } from "../helpers/emailVerification";
 
 /**
  * auth.register + auth.coach-approval (PAD-210).
@@ -11,7 +12,12 @@ import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const PASSWORD = "Segura1234";
 
-async function signUp(page: Page, role: "coach" | "student", username: string) {
+/**
+ * Fills the form and submits. Unless `verify` is false the email code step
+ * that follows every successful signup (auth.email-verification rule 8) is
+ * completed too, so the caller lands where PAD-210 expected.
+ */
+async function signUp(page: Page, role: "coach" | "student", username: string, verify = true) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/auth");
   await page.getByTestId("auth-create-account").click();
@@ -23,6 +29,7 @@ async function signUp(page: Page, role: "coach" | "student", username: string) {
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   await page.getByTestId("signup-submit").click();
+  if (verify) await completeEmailVerification(page);
 }
 
 async function signIn(page: Page, username: string, password: string) {
@@ -69,7 +76,7 @@ test("US-225: a too-short username is reported under its field before any reques
 });
 
 test("US-210: taken username is reported under the field", async ({ page }) => {
-  await signUp(page, "student", COACH_USERNAME);
+  await signUp(page, "student", COACH_USERNAME, false);
   await expect(page.getByTestId("signup-username-error")).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveURL(/\/signup$/);
 });

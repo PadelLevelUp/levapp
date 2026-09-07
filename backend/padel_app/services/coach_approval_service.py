@@ -27,6 +27,9 @@ def serialize_pending_coach(coach):
         "name": user.name if user else None,
         "username": user.username if user else None,
         "email": user.email if user else None,
+        # auth.email-verification rule 10: the admin should not approve a
+        # coach nobody can reach.
+        "emailVerified": bool(user and user.email_verified_at is not None),
         "requestedAt": coach.created_at.isoformat() + "+00:00" if coach.created_at else None,
     }
 
@@ -61,11 +64,11 @@ def reject_coach_service(coach_id, admin_user, reason=None):
 
 # ── notifications (best-effort) ────────────────────────────────────────────
 
-def _send(subject, recipients, body):
+def _send(subject, recipients, body, html=None):
     from padel_app.tools.email_tools import send_email
 
     try:
-        send_email(subject, recipients, body=body)
+        send_email(subject, recipients, body=body, html=html)
     except Exception as exc:  # noqa: BLE001 — never fail the caller on mail
         current_app.logger.warning(
             "coach-approval mail to %s failed: %s", recipients, exc
@@ -78,20 +81,22 @@ def notify_admin_of_pending_coach(coach):
     if not to:
         return
     user = coach.user
+    verified = "yes" if user.email_verified_at is not None else "no"
     body = (
         f"A coach is waiting for approval.\n\n"
-        f"Name: {user.name}\nUsername: {user.username}\nEmail: {user.email}\n\n"
+        f"Name: {user.name}\nUsername: {user.username}\nEmail: {user.email}\n"
+        f"Email verified: {verified}\n\n"
         f"Approve or reject under Settings → Admin."
     )
     _send("[LevApp] Coach waiting for approval", [to], body)
 
 
 def notify_coach_approved(coach):
+    """Rule 5: branded, in the coach's language, best-effort."""
+    from padel_app.tools.email_templates import render_coach_approved_email
+
     user = coach.user
     if not user or not user.email:
         return
-    body = (
-        f"Hi {user.name},\n\nYour LevApp coach account has been approved. "
-        f"Sign in and create or join your club to get started."
-    )
-    _send("[LevApp] Your coach account is approved", [user.email], body)
+    subject, text, html = render_coach_approved_email(user)
+    _send(subject, [user.email], text, html=html)

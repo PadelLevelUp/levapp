@@ -146,6 +146,13 @@ class Config:
     COACH_APPROVAL_REQUIRED = os.getenv("COACH_APPROVAL_REQUIRED", "1").strip().lower() not in (
         "0", "false", "no", "off", ""
     )
+    # auth.email-verification (PAD-234): a self-registered user must type back
+    # a 6-digit code mailed to them before the app opens. Set to "0"/"false"
+    # where no mail can be sent (staging) — accounts are then treated as
+    # verified at signup and the code screen never shows.
+    EMAIL_VERIFICATION_REQUIRED = os.getenv("EMAIL_VERIFICATION_REQUIRED", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
     # Where to email "a coach is waiting for approval". Unset → no email, the
     # Settings → Admin badge is the only signal.
     ADMIN_NOTIFY_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL") or None
