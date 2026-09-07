@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request, abort, g, Response
+from werkzeug.exceptions import HTTPException
 from datetime import timezone
 from dateutil import parser
 import json
@@ -252,7 +253,43 @@ def require_coach():
     coach = current_coach()
     if coach is None:
         abort(403, "User is not a coach")
+    # auth.coach-approval rule 8: a self-registered coach who has not been
+    # approved by a superadmin has no coach powers yet. Per-user routes
+    # (/api/auth/me etc.) live on another blueprint and are unaffected.
+    if coach.approval_status != "approved":
+        abort(403, "COACH_NOT_APPROVED")
     return coach
+
+
+def require_club():
+    """Return the acting coach's current club, or 409 NO_CLUB.
+
+    clubs.join-request rule 8: an approved coach with no club yet (they have
+    not created one nor been accepted into one) must get a deliberate 409 on
+    club-scoped routes, never a 500 from dereferencing ``None``.
+    """
+    club = current_club()
+    if club is None:
+        abort(409, "NO_CLUB")
+    return club
+
+
+def require_superadmin():
+    """Return the calling ``User``, or 403 unless ``is_superadmin`` (auth.coach-approval)."""
+    user = current_user()
+    if not user.is_superadmin:
+        abort(403, "Superadmin required")
+    return user
+
+
+@bp.errorhandler(HTTPException)
+def _json_http_error(exc):
+    """Every abort() on this blueprint answers JSON ``{"error": <description>}``.
+
+    Clients branch on codes such as ``COACH_NOT_APPROVED`` and ``NO_CLUB``;
+    Flask's default HTML error page would hide them.
+    """
+    return jsonify({"error": exc.description}), exc.code
 
 
 def assert_acting_coach(coach, claimed_coach_id):
@@ -585,7 +622,7 @@ def coach_detail():
 @jwt_required()
 def get_players():
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     player_list = get_players_list(coach, club)
 
     return jsonify([
@@ -1086,6 +1123,72 @@ def class_instance_unvalidate(instance_id):
 # guarding a route nobody uses.
 
 
+@bp.post("/club")
+@jwt_required()
+def create_club():
+    """clubs.crud — an approved coach creates a club and becomes its member.
+
+    The PAD-92 sweep removed the unauthenticated generic ``POST /club``; this
+    is the scoped replacement the club-onboarding screen (clubs.join-request
+    rule 7) uses. The acting coach comes from the JWT.
+    """
+    from padel_app.models import Association_CoachClub, Club
+    from padel_app.sql_db import db
+
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required", "field": "name"}), 400
+    club = Club(
+        name=name,
+        location=(data.get("location") or None),
+        description=(data.get("description") or None),
+    )
+    db.session.add(club)
+    db.session.flush()
+    db.session.add(Association_CoachClub(coach_id=coach.id, club_id=club.id))
+    db.session.commit()
+    return jsonify({"id": club.id, "name": club.name, "location": club.location}), 201
+
+
+# -------------------------------------------------------------------
+# auth.coach-approval — superadmin approves self-registered coaches
+# -------------------------------------------------------------------
+
+@bp.get("/admin/coach-approvals")
+@jwt_required()
+def admin_list_coach_approvals():
+    from padel_app.services.coach_approval_service import (
+        list_pending_coaches_service,
+        serialize_pending_coach,
+    )
+
+    require_superadmin()
+    return jsonify([serialize_pending_coach(c) for c in list_pending_coaches_service()])
+
+
+@bp.post("/admin/coach-approvals/<int:coach_id>/approve")
+@jwt_required()
+def admin_approve_coach(coach_id):
+    from padel_app.services.coach_approval_service import approve_coach_service
+
+    admin = require_superadmin()
+    coach = approve_coach_service(coach_id, admin)
+    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+
+
+@bp.post("/admin/coach-approvals/<int:coach_id>/reject")
+@jwt_required()
+def admin_reject_coach(coach_id):
+    from padel_app.services.coach_approval_service import reject_coach_service
+
+    admin = require_superadmin()
+    data = request.get_json(silent=True) or {}
+    coach = reject_coach_service(coach_id, admin, reason=data.get("reason"))
+    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+
+
 @bp.post("/message")
 @jwt_required()
 def create_message():
@@ -1132,7 +1235,7 @@ def add_class():
 
     data = request.get_json() or {}
     try:
-        lesson = add_class_service(data, current_coach(), current_club())
+        lesson = add_class_service(data, require_coach(), require_club())
     except NoSeasonCoversDateError as e:
         # PAD-90: "recurs until season end" with no covering season is rejected
         # rather than creating an unbounded recurring class.
@@ -1386,6 +1489,7 @@ def create_incomplete_player():
     # assertion — it may not name a different coach.
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
+    require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
     data["coachId"] = coach.id
     invitation = create_incomplete_player_service(data)
     return jsonify({
@@ -1629,6 +1733,7 @@ def add_player():
     # PAD-92: the new player joins the CALLING coach's roster.
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
+    require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
     data["coachId"] = coach.id
     coach_player_info = add_player_service(data)
     return jsonify(coach_player_info)
@@ -1864,7 +1969,7 @@ def import_confirm():
     Drains the shared worker and returns the same results dict as before.
     """
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     data = request.get_json() or {}
 
     final = {}
@@ -1889,7 +1994,7 @@ def import_confirm_stream():
     from flask import stream_with_context
 
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     data = request.get_json() or {}
 
     def gen():

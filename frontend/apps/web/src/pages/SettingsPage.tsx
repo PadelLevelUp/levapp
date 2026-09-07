@@ -28,6 +28,7 @@ import {
   Palette,
   ChevronLeft, Save,
   GraduationCap,
+  ShieldCheck,
   Upload,
   User,
   UserX,
@@ -42,6 +43,7 @@ import { ClubSection } from "@/components/settings/ClubSection";
 import { AccountSection } from "@/components/settings/AccountSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 import { TutorialsSection } from "@/components/settings/TutorialsSection";
+import { AdminSection } from "@/components/settings/AdminSection";
 
 /**
  * PAD-112 adds `myNotifications` — the STUDENT's own notification block
@@ -59,7 +61,8 @@ type SettingsTab =
   | "myNotifications"
   | "import"
   | "club"
-  | "account";
+  | "account"
+  | "admin";
 
 /**
  * PAD-103: Settings is shared by both roles, but most of it is coach
@@ -81,7 +84,13 @@ type SettingsTab =
  * and left "both false" meaning "everyone" only by convention. One field with
  * three values makes every tab's audience a single, total statement.
  */
-type SettingsAudience = "everyone" | "coach" | "student";
+/**
+ * auth.coach-approval rule 7 adds a fourth audience: `superadmin`, the LevApp
+ * admin's own tools. It is orthogonal to the coach/student split — a
+ * superadmin is also one of those — so it is filtered on `isSuperAdmin`, not
+ * on role, and hidden for everyone else.
+ */
+type SettingsAudience = "everyone" | "coach" | "student" | "superadmin";
 
 type SettingsTabDef = {
   id: SettingsTab;
@@ -108,12 +117,15 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, audience: "coach" },
   { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, audience: "coach" },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
+  // auth.coach-approval rule 7: the LevApp admin approves self-registered coaches here.
+  { id: "admin", labelKey: "settings.nav.admin", icon: <ShieldCheck className="w-4 h-4" />, audience: "superadmin" },
 ];
 
-const visibleSettingsTabs = (isCoach: boolean) =>
+const visibleSettingsTabs = (isCoach: boolean, isSuperAdmin: boolean) =>
   SETTINGS_TABS.filter(
     (tab) =>
       tab.audience === "everyone" ||
+      (tab.audience === "superadmin" && isSuperAdmin) ||
       (isCoach ? tab.audience === "coach" : tab.audience === "student"),
   );
 
@@ -139,11 +151,14 @@ function SettingsNav({
   // so the test hooks must be namespaced. Two elements sharing a testid is a
   // strict-mode violation even when one of them is display:none.
   testIdPrefix = "settings-nav",
+  badges = {},
 }: {
   active: SettingsTab;
   onChange: (tab: SettingsTab) => void;
   items: SettingsTabDef[];
   testIdPrefix?: string;
+  /** Count badge per tab id; zero or missing renders nothing. */
+  badges?: Partial<Record<SettingsTab, number>>;
 }) {
   const { t } = useTranslation();
 
@@ -162,7 +177,15 @@ function SettingsNav({
           )}
         >
           {it.icon}
-          <span>{t(it.labelKey)}</span>
+          <span className="flex-1 text-left">{t(it.labelKey)}</span>
+          {(badges[it.id] ?? 0) > 0 && (
+            <span
+              className="ml-auto rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground"
+              data-testid={`${testIdPrefix}-${it.id}-badge`}
+            >
+              {badges[it.id]}
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -176,7 +199,23 @@ export default function SettingsPage() {
   // ["player"]`), so a single flag is enough to decide what this page offers.
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
-  const tabs = visibleSettingsTabs(isCoach);
+  const isSuperAdmin = user?.isSuperAdmin === true;
+  const tabs = visibleSettingsTabs(isCoach, isSuperAdmin);
+  // Badge on the Admin entry: how many coaches are waiting (auth.coach-approval rule 7).
+  const [pendingCoachCount, setPendingCoachCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    let active = true;
+    import("@/api/admin")
+      .then((m) => m.listPendingCoaches())
+      .then((rows) => {
+        if (active) setPendingCoachCount(rows.length);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin]);
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
   const [tab, setTab] = useState<SettingsTab>("preferences");
@@ -310,7 +349,12 @@ export default function SettingsPage() {
               <CardDescription>{t("settings.quickNavigation")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <SettingsNav active={activeTab} onChange={setTab} items={tabs} />
+              <SettingsNav
+                active={activeTab}
+                onChange={setTab}
+                items={tabs}
+                badges={{ admin: pendingCoachCount ?? 0 }}
+              />
             </CardContent>
           </Card>
 
@@ -323,6 +367,7 @@ export default function SettingsPage() {
                   <SettingsNav
                     active={activeTab}
                     items={tabs}
+                    badges={{ admin: pendingCoachCount ?? 0 }}
                     testIdPrefix="settings-mobile-nav"
                     onChange={(id) => {
                       setTab(id);
@@ -518,6 +563,22 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <ClubSection />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ADMIN — auth.coach-approval rule 7: superadmin only. */}
+            {activeTab === "admin" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    {t("settings.admin.title")}
+                  </CardTitle>
+                  <CardDescription>{t("settings.admin.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AdminSection onCountChange={setPendingCoachCount} />
                 </CardContent>
               </Card>
             )}

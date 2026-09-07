@@ -7,8 +7,9 @@ roster.
 
 ## What it covers
 
-- `players.coach-builds-roster` — adding new students, manually or via invite link, with duplicate-name
-  protection.
+- `players.coach-builds-roster` — adding new students: manually (with or without a login), via invite
+  link, via a QR/link the student redeems, or by linking a coach-created record to the student's
+  own account; with duplicate-name protection.
 - `players.coach-browses-and-reviews-roster` — searching the roster and reviewing a student's profile,
   notes, and level history.
 - `players.coach-edits-player-details` — updating a student's details and removing them from the

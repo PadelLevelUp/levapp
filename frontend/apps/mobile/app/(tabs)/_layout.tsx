@@ -7,6 +7,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
@@ -112,6 +113,13 @@ export default function TabsLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
+  }
+
+  // auth.coach-approval rule 6: the tabs are closed to a coach who is not
+  // approved or has no club yet — the server refuses them anyway (rule 8).
+  const route = postLoginRoute(user);
+  if (route !== "/(tabs)/dashboard") {
+    return <Redirect href={route} />;
   }
 
   const isCoach = user?.roles?.includes("coach") ?? false;

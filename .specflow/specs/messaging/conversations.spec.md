@@ -67,6 +67,10 @@ Manage conversations between users (1:1 or group chats).
 13. A user appears **at most once** in a conversation. `(conversation_id, user_id)` is unique
     on `conversation_participants` and enforced by the database, not only by the code that
     builds the participant list — a second insert for the same pair is rejected
+14. Students are never listed: `GET /api/app/messageable-users` for a student returns coaches
+    only; there is no endpoint that lists or searches students by name or username. The
+    student-to-student path by exact username is `messaging.direct-by-username`, and blocks are
+    specified in `messaging.block-and-report`.
 
 ### Acceptance Criteria
 
@@ -155,3 +159,8 @@ Manage conversations between users (1:1 or group chats).
 - **When** a second row for conversation and user 5 is inserted
 - **Then** the database rejects it with an integrity error
 - **And** the conversation still has exactly one participant row for user 5
+
+#### Students are not discoverable
+- **Given** an authenticated student
+- **When** they GET `/api/app/messageable-users`
+- **Then** every entry has role `coach`; no student appears

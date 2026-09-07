@@ -22,8 +22,12 @@ def _jwt_secret(app):
 # -------------------------------------------------------------------
 
 def make_coach(app, username="inviter_coach"):
-    """Create User + Coach. Returns (user_id, coach_id)."""
-    from padel_app.models import User, Coach
+    """Create User + Coach + a club membership. Returns (user_id, coach_id).
+
+    PAD-210 (clubs.join-request rule 8): `/incomplete_player` is club-scoped and
+    answers 409 NO_CLUB for a coach with no club, so the fixture gives them one.
+    """
+    from padel_app.models import Association_CoachClub, Club, Coach, User
 
     with app.app_context():
         user = User(name=username, username=username, password="pw", status="active")
@@ -32,6 +36,12 @@ def make_coach(app, username="inviter_coach"):
 
         coach = Coach(user_id=user.id)
         db.session.add(coach)
+        db.session.flush()
+
+        club = Club(name=f"{username} club")
+        db.session.add(club)
+        db.session.flush()
+        db.session.add(Association_CoachClub(coach_id=coach.id, club_id=club.id))
         db.session.commit()
         return user.id, coach.id
 

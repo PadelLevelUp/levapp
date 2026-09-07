@@ -7,7 +7,9 @@ PGPORT="${POSTGRES_PORT:-5432}"
 PGHOST="${POSTGRES_HOST:-localhost}"
 PGPASSWORD="${POSTGRES_PW:-}"
 export PGPASSWORD
-DB_NAME="levelup_test"
+# Overridable so a worktree/second session can use its own database instead of
+# resetting the shared one under another running suite (see playwright.config.ts).
+DB_NAME="${E2E_DB_NAME:-levelup_test}"
 BACKEND_DIR="$(cd "$(dirname "$0")/../../../../../backend" && pwd)"
 SEED_SCRIPT="$(cd "$(dirname "$0")" && pwd)/seed.py"
 

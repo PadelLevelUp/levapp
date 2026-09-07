@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   View,
 } from "react-native";
@@ -23,13 +24,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 
 type FieldErrors = { username?: string; password?: string };
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [errors, setErrors] = React.useState<FieldErrors>({});
@@ -59,7 +61,9 @@ export default function LoginScreen() {
     try {
       const res = await getApi().post("/auth/login", { username, password });
       await login(res.data.accessToken);
-      router.replace("/(tabs)/dashboard");
+      // auth.register rule 11: route by approval / club state, not straight
+      // to the tabs.
+      router.replace(postLoginRoute(await refreshUser()));
     } catch (err: any) {
       // No `response` means the request never got a reply from the server —
       // network failure, timeout, DNS/connection error, wrong API host,
@@ -195,6 +199,22 @@ export default function LoginScreen() {
                 <Text>{t("auth.login.signIn")}</Text>
               )}
             </Button>
+
+            {/* auth.register rule 10 — the signup entry point lives on the login screen. */}
+            <View className="flex-row items-center justify-center gap-1 pt-1">
+              <Text className="text-sm text-muted-foreground">{t("auth.login.noAccount")}</Text>
+              <Pressable
+                testID="login-create-account"
+                accessibilityRole="link"
+                accessibilityLabel={t("auth.login.createAccount")}
+                onPress={() => router.push("/signup")}
+                disabled={loading}
+              >
+                <Text className="text-sm font-medium text-primary underline">
+                  {t("auth.login.createAccount")}
+                </Text>
+              </Pressable>
+            </View>
           </CardContent>
         </Card>
 

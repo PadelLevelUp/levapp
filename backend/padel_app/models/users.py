@@ -31,7 +31,9 @@ class User(db.Model, model.Model, UserMixin):
     user_image = relationship("Image", foreign_keys=[user_image_id])
     
     player = relationship("Player", back_populates="user", uselist=False)
-    coach = relationship("Coach", back_populates="user", uselist=False)
+    coach = relationship(
+        "Coach", back_populates="user", uselist=False, foreign_keys="Coach.user_id"
+    )
     calendar_blocks = relationship("CalendarBlock", back_populates="user")
 
     # Relationships
