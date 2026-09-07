@@ -22,6 +22,7 @@ import SignUpPage from "./pages/SignUpPage";
 import CoachPendingPage from "./pages/CoachPendingPage";
 import ClubOnboardingPage from "./pages/ClubOnboardingPage";
 import ConnectWithCoachPage from "./pages/ConnectWithCoachPage";
+import JoinCoachPage from "@/pages/JoinCoachPage";
 import LandingPage from "./pages/LandingPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
@@ -68,6 +69,8 @@ const App = () => (
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
+              {/* players.join-token rule 9 — public: the preview needs no session. */}
+              <Route path="/join/coach/:token" element={<JoinCoachPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/support" element={<SupportPage />} />

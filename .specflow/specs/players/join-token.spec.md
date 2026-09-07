@@ -1,6 +1,6 @@
 ---
 id: players.join-token
-status: draft
+status: implemented
 depends_on: [players.create, clubs.membership, auth.register, auth.login]
 implements: ../../specs-business/players/coach-builds-roster.business.md
 governed_by: []

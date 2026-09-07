@@ -14,7 +14,7 @@
  */
 import type { DashboardBlock } from "@levelup/types";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { KpiTiles } from "./coach/KpiTiles";
 import { NeedsYouQueue } from "./coach/NeedsYouQueue";
@@ -48,6 +48,23 @@ export function StudentDashboard({
   const schedule = scheduleBlock ? <Schedule7Days block={scheduleBlock} role="student" /> : null;
   const kpis = kpiBlock ? <KpiTiles block={kpiBlock} /> : null;
 
+  // players.join-token rule 8: a student with nothing scheduled and no next
+  // class is, in practice, a student no coach has picked up yet — the payload
+  // does not say "has a coach" outright, so the empty week is the signal.
+  const looksUnconnected =
+    !heroBlock && (scheduleBlock?.data.items.length ?? 0) === 0;
+  const connectPrompt = looksUnconnected ? (
+    <div
+      className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+      data-testid="student-connect-prompt"
+    >
+      <span className="text-sm text-muted-foreground">{t("players.connect.dashboardPrompt")}</span>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/connect" data-testid="student-connect-link">{t("players.connect.dashboardLink")}</Link>
+      </Button>
+    </div>
+  ) : null;
+
   const greeting = t(`dashboard.greeting.${greetingKey()}`, { name: firstName });
   const today = longDate(todayISO(), i18n.language);
   const needsCount = needsYouBlock?.data.count ?? 0;
@@ -62,6 +79,7 @@ export function StudentDashboard({
             {needsCount > 0 && ` · ${t("dashboard.thingsNeedYou", { count: needsCount })}`}
           </span>
         </div>
+        {connectPrompt}
         {hero}
         {needsYou}
         {schedule}
@@ -93,6 +111,7 @@ export function StudentDashboard({
 
       <div className="grid grid-cols-[minmax(0,1.35fr)_400px] items-start gap-7 p-8">
         <div className="flex min-w-0 flex-col gap-6">
+          {connectPrompt}
           {needsYou}
           {schedule}
         </div>

@@ -18,6 +18,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { useLaunchOverlay } from "@/components/brand/launch-overlay";
 import { postLoginPath } from "@/auth/postLoginPath";
 import { getMe } from "@/api/auth";
+import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 
 const AuthPage = () => {
   const { t } = useTranslation();
@@ -71,7 +72,12 @@ const AuthPage = () => {
       await login(res.data.accessToken)
       // auth.register rule 11: a coach still waiting for approval, or with no
       // club yet, lands on the screen that says so rather than the dashboard.
-      navigate(postLoginPath(await getMe()));
+      // players.join-token rule 9: a join link opened without a session comes
+      // first, once the account is usable for it.
+      const me = await getMe();
+      const target = postLoginPath(me);
+      const remembered = consumePostAuthRedirect();
+      navigate(remembered && target === "/dashboard" ? remembered : target);
       succeed();
       toast({
         title: t("auth.login.welcomeTitle"),

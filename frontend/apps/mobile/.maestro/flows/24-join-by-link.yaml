@@ -1,0 +1,42 @@
+# players.join-token (PAD-212) — the coach's Add by QR sheet, then a student
+# redeeming the link via the /join/coach/<token> route.
+#
+# The token cannot be read back out of the QR by Maestro, so this flow checks
+# the coach side (sheet renders a link, rotate works) and the student side's
+# paste path on the Connect screen with an obviously invalid link (the
+# invalid state). The full redeem is covered by the web spec join-by-qr.spec.ts.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-add-by-qr"
+- assertVisible:
+    id: "add-by-qr-sheet"
+- assertVisible:
+    id: "add-by-qr-url"
+- tapOn:
+    id: "add-by-qr-rotate"
+- tapOn:
+    id: "add-by-qr-rotate-confirm"
+- assertVisible:
+    id: "add-by-qr-url"
+- tapOn:
+    id: "add-by-qr-close"
+# Student side: the Connect screen rejects something that is not a coach link.
+- runFlow: ../subflows/login-student.yaml
+- openLink: levelup://connect
+- assertVisible:
+    id: "connect-with-coach"
+- tapOn:
+    id: "connect-paste-input"
+- inputText: "not a link"
+- tapOn:
+    id: "connect-paste-go"
+- assertVisible:
+    id: "connect-paste-error"

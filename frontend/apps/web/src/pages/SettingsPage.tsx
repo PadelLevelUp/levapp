@@ -599,6 +599,18 @@ export default function SettingsPage() {
                 <CardContent className="space-y-6">
                   <BlockedUsersSection />
                   <Separator />
+                  {!isCoach && (
+                    /* players.join-token rule 8: Settings → Account is one of the
+                       three ways a student reaches "Connect with a coach". */
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <span className="text-sm">{t("players.connect.settingsLink")}</span>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/connect" data-testid="settings-connect-coach">
+                          {t("players.connect.go")}
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                   <AccountSection />
                   <Separator />
                   <p className="text-xs text-muted-foreground">

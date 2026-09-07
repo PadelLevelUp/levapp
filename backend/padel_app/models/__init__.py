@@ -21,6 +21,7 @@ from .conversation_participants import ConversationParticipant
 from .coach_player_note import CoachPlayerNote
 from .coach_invitation import CoachInvitation
 from .player_invitation import PlayerInvitation
+from .coach_join_token import CoachJoinToken
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
 from .seasons import Season
@@ -70,6 +71,7 @@ MODELS = {
     "coachplayernote": CoachPlayerNote,
     "coachinvitation": CoachInvitation,
     "playerinvitation": PlayerInvitation,
+    "coachjointoken": CoachJoinToken,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
     "season": Season,

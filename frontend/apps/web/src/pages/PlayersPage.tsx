@@ -25,6 +25,7 @@ import { createIncompletePlayer } from "@/api/playerInvitations";
 import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
+import { AddByQrDialog } from "@/components/players/AddByQrDialog";
 import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,7 @@ export default function PlayersPage() {
 
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -246,6 +248,7 @@ export default function PlayersPage() {
             search={search}
             onSearchChange={handleSearchChange}
             onAddPlayer={() => setIsAddOpen(true)}
+            onAddByQr={() => setQrDialogOpen(true)}
             sortOption={sortOption}
             onSortChange={handleSortChange}
           />
@@ -264,6 +267,7 @@ export default function PlayersPage() {
           search={search}
           onSearchChange={handleSearchChange}
           onAddPlayer={() => setIsAddOpen(true)}
+            onAddByQr={() => setQrDialogOpen(true)}
           sortOption={sortOption}
           onSortChange={handleSortChange}
         />
@@ -367,6 +371,8 @@ export default function PlayersPage() {
           levels={levels}
           coachId={user?.coachId}
         />
+
+        <AddByQrDialog open={qrDialogOpen} onOpenChange={setQrDialogOpen} />
 
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogContent>
