@@ -20,8 +20,12 @@ import {
 import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
-/** The page size the clients ask for — `CONVERSATION_PAGE_SIZE` in @levelup/hooks. */
-const PAGE_SIZE = 50;
+/**
+ * What the clients ask for — `@levelup/hooks`. PAD-224 rule 9 made the OPEN
+ * smaller than a walk-back page: the first page's row count is how long the
+ * native list stays unanchored and therefore hidden.
+ */
+const FIRST_PAGE_SIZE = 30;
 
 /**
  * The thread under test is the student's conversation with `e2e-coach-nolevels`,
@@ -125,7 +129,7 @@ test.describe("PAD-208 — the conversation thread pages instead of loading ever
     // 60 messages exist in this thread; at most one page may be rendered, and
     // it must be the newest one. Rule 1.
     const rendered = await page.locator("[data-msg-id]").count();
-    expect(rendered).toBe(PAGE_SIZE);
+    expect(rendered).toBe(FIRST_PAGE_SIZE);
 
     // Rule 9 — the thread opens at the newest message, already positioned.
     const newest = page.locator("[data-msg-id]").last();
@@ -145,7 +149,7 @@ test.describe("PAD-208 — the conversation thread pages instead of loading ever
     await openThread(page);
 
     const before = await page.locator("[data-msg-id]").count();
-    expect(before).toBe(PAGE_SIZE);
+    expect(before).toBe(FIRST_PAGE_SIZE);
 
     // The message currently at the top of the loaded page is the anchor: after
     // the prepend it must still be exactly where the reader left it (rule 11).

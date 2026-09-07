@@ -16,6 +16,7 @@ import {
   markConversationRead,
 } from "@/api/messages";
 import {
+  CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
   mergeOlderPage,
@@ -294,7 +295,9 @@ export default function MessagesPage() {
     setThreadLoading(true);
     try {
       const convo = await getConversation(conversationId, {
-        limit: CONVERSATION_PAGE_SIZE,
+        // PAD-224 rule 9 — the open is a smaller page than a walk-back page, so
+        // both shells agree on what "the first page" means.
+        limit: CONVERSATION_FIRST_PAGE_SIZE,
       });
       setSelectedConversation(convo);
       // Awaited, not fire-and-forget: refreshUnreadCount re-queries the
