@@ -58,6 +58,8 @@ export function MessageList({
   // that appeared above the viewport, whatever else changed alongside it (the
   // loading indicator appearing and disappearing, for one).
   const lastMetricsRef = useRef<{ firstId: string | null; scrollHeight: number; scrollTop: number } | null>(null);
+  // PAD-224 rule 12: a jump-to-bottom the user asked for, still outstanding.
+  const jumpRequestedRef = useRef(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [hasNewBelow, setHasNewBelow] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -69,6 +71,12 @@ export function MessageList({
   }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
+    // PAD-224 rule 12 — the user asked to go to the bottom, and that intent
+    // outranks rule 11's prepend compensation. Reaching the top is what makes
+    // an older page load, so "scroll up a long way, then tap jump-to-bottom" is
+    // precisely the case where a page lands mid-jump; without this the
+    // compensation puts the reader back where the prepend wanted them.
+    jumpRequestedRef.current = true;
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
@@ -120,7 +128,14 @@ export function MessageList({
       messages.some((m) => String(m.id) === previous.firstId);
 
     if (isPrepend && previous) {
-      el.scrollTop = previous.scrollTop + (el.scrollHeight - previous.scrollHeight);
+      if (jumpRequestedRef.current) {
+        // Rule 12 beats rule 11 when the reader asked for the bottom: the page
+        // that just landed above them is not a reason to put them back.
+        jumpRequestedRef.current = false;
+        el.scrollTop = el.scrollHeight;
+      } else {
+        el.scrollTop = previous.scrollTop + (el.scrollHeight - previous.scrollHeight);
+      }
       lastMessageIdRef.current = String(last.id);
       remember();
       return;
@@ -200,7 +215,11 @@ export function MessageList({
     const nearBottom = isNearBottom();
     nearBottomRef.current = nearBottom;
     setShowScrollDown(!nearBottom);
-    if (nearBottom) setHasNewBelow(false);
+    if (nearBottom) {
+      setHasNewBelow(false);
+      // The jump landed; a later prepend is an ordinary prepend again.
+      jumpRequestedRef.current = false;
+    }
   };
 
   // Group messages by date

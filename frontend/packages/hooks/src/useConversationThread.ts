@@ -3,7 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as messagesApi from "@levelup/api/src/resources/messages";
 import type { Conversation } from "@levelup/types";
 import { queryKeys } from "./queryKeys";
-import { CONVERSATION_PAGE_SIZE, mergeOlderPage } from "./conversationPaging";
+import {
+  CONVERSATION_FIRST_PAGE_SIZE,
+  CONVERSATION_PAGE_SIZE,
+  mergeOlderPage,
+} from "./conversationPaging";
 import type { QueryOverrides } from "./queries";
 
 /**
@@ -37,7 +41,10 @@ export function useConversationThread(
     queryKey: queryKeys.conversation(conversationId ?? "none"),
     queryFn: () =>
       messagesApi.getConversation(conversationId as string, {
-        limit: CONVERSATION_PAGE_SIZE,
+        // PAD-224 rule 9 — the OPEN is deliberately smaller than a walk-back
+        // page: on the native shell the first page's row count is how long the
+        // thread stays unanchored, and therefore hidden.
+        limit: CONVERSATION_FIRST_PAGE_SIZE,
       }),
     enabled: !!conversationId,
     ...options,

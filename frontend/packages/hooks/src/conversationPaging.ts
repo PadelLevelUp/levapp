@@ -13,11 +13,21 @@ import type { Conversation, Message } from "@levelup/types";
  */
 
 /**
- * How many messages a page carries. 50 is comfortably more than one screenful on
- * either shell, so the common case — opening a thread and reading the recent
- * exchange — never pages at all.
+ * How many messages a page carries when walking back through the history.
  */
 export const CONVERSATION_PAGE_SIZE = 50;
+
+/**
+ * How many messages the thread OPENS with (PAD-224 / rule 9).
+ *
+ * Smaller than a walk-back page on purpose. The native list commits rows
+ * incrementally, so the number of rows in the first page is the length of the
+ * interval during which the thread is not yet anchored and therefore not yet
+ * shown — 30 is a comfortable two-plus screens of context that settles almost
+ * at once, where 50 measurably did not (B-028). Reading further back is a
+ * deliberate act by then, so those pages stay at `CONVERSATION_PAGE_SIZE`.
+ */
+export const CONVERSATION_FIRST_PAGE_SIZE = 30;
 
 /**
  * How close to the bottom counts as "at the bottom" (rule 10). Roughly one
@@ -46,6 +56,29 @@ export function isNearTop(
   threshold: number = AT_BOTTOM_THRESHOLD_PX
 ): boolean {
   return metrics.scrollOffset <= threshold;
+}
+
+/**
+ * Whether the jump-to-bottom control is shown (PAD-224 / rule 12).
+ *
+ * Two reasons, one control. The reader is more than a screen above the bottom —
+ * far enough that scrolling back by hand is a chore — or messages have arrived
+ * that they have not seen (rule 10's affordance, folded in here so the two never
+ * render as two competing buttons). Either way it disappears at the bottom.
+ *
+ * The distance is measured in viewports rather than pixels because "a long way
+ * back" means something different on a phone and on a desktop pane, and a fixed
+ * pixel budget would be one or the other.
+ */
+export function shouldShowJumpToBottom(state: {
+  distanceFromBottom: number;
+  viewportHeight: number;
+  hasUnseen: boolean;
+}): boolean {
+  const atBottom = state.distanceFromBottom < AT_BOTTOM_THRESHOLD_PX;
+  if (atBottom) return false;
+  if (state.hasUnseen) return true;
+  return state.distanceFromBottom > state.viewportHeight;
 }
 
 /**

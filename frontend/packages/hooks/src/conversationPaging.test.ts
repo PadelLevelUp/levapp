@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Conversation, Message } from "@levelup/types";
 import {
   AT_BOTTOM_THRESHOLD_PX,
+  CONVERSATION_FIRST_PAGE_SIZE,
+  CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
   isAtBottom,
   isNearTop,
   mergeOlderPage,
   shouldLoadOlder,
+  shouldShowJumpToBottom,
 } from "./conversationPaging";
 
 /**
@@ -188,5 +191,89 @@ describe("applyIncomingMessage — rule 10's 'newest page only'", () => {
     });
 
     expect(applied.messages).toHaveLength(1);
+  });
+});
+
+/**
+ * PAD-224 / B-028 — messaging.conversation-detail rules 9 and 12.
+ */
+
+describe("the first page is small so the anchor is immediate (rule 9)", () => {
+  it("opens with 30 messages, not a full page", () => {
+    expect(CONVERSATION_FIRST_PAGE_SIZE).toBe(30);
+  });
+
+  it("still walks back in larger pages once the reader is deliberately reading older", () => {
+    expect(CONVERSATION_PAGE_SIZE).toBeGreaterThan(CONVERSATION_FIRST_PAGE_SIZE);
+  });
+});
+
+describe("shouldShowJumpToBottom — rule 12", () => {
+  const viewportHeight = 600;
+
+  it("is shown once the reader is more than a screen above the bottom", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 1800,
+        viewportHeight,
+        hasUnseen: false,
+      })
+    ).toBe(true);
+  });
+
+  it("is NOT conditional on a new message — a plain scroll back is enough", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 601,
+        viewportHeight,
+        hasUnseen: false,
+      })
+    ).toBe(true);
+  });
+
+  it("is hidden within a screen of the bottom when nothing has arrived", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 400,
+        viewportHeight,
+        hasUnseen: false,
+      })
+    ).toBe(false);
+  });
+
+  it("is hidden at the bottom", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 0,
+        viewportHeight,
+        hasUnseen: false,
+      })
+    ).toBe(false);
+  });
+
+  it("is shown for unseen messages even just above the bottom — rule 10 folds into it", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 250,
+        viewportHeight,
+        hasUnseen: true,
+      })
+    ).toBe(true);
+  });
+
+  it("is still hidden at the bottom even with the unseen flag set stale", () => {
+    expect(
+      shouldShowJumpToBottom({
+        distanceFromBottom: 0,
+        viewportHeight,
+        hasUnseen: true,
+      })
+    ).toBe(false);
+  });
+
+  it("scales with the viewport rather than using a fixed pixel budget", () => {
+    const metrics = { distanceFromBottom: 700, hasUnseen: false };
+    expect(shouldShowJumpToBottom({ ...metrics, viewportHeight: 400 })).toBe(true);
+    expect(shouldShowJumpToBottom({ ...metrics, viewportHeight: 1000 })).toBe(false);
   });
 });

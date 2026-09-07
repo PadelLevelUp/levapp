@@ -55,13 +55,44 @@ throughout, which on Fabric still means the user watches it happen.
    DOM and the browser painting, so there is no intermediate painted frame to see. The defect
    is specific to the native list's incremental commit model.
 
-**Reproduction:** **not reproduced locally.** The iOS simulator boots
-(`xcrun simctl boot` on iPhone 17 Pro, iOS 26.5, succeeded — no privacy hang this time), but
-`com.padellevelup.app` is not installed in this worktree and there is no `ios/` directory
-(gitignored), so a recording needs a full `expo run:ios` native build from scratch. One
-bounded attempt was made; see the PR for whether it produced a recording. The diagnosis
-therefore rests on the code reading in (1)–(3) plus two independent field reports on two
-builds (1.1.4 build 8 → B-027, 1.1.7 build 11 → this).
+**Reproduction: YES, on a simulator.** The iPhone 17 Pro (iOS 26.5) booted without the
+simctl privacy hang, `expo run:ios` produced a dev client, and opening a seeded 200-message
+thread reproduced the report exactly: the thread settled showing messages **171–182 of 200**,
+not the newest. Screen recordings before and after the fix are attached to the PR.
+
+**The mechanism, corrected by that reproduction.** The reading above ((1)–(3)) is true but
+was not the whole story, and the fix built from it alone did not work. Instrumenting the
+screen's anchor events on the device gave the decisive trace:
+
+```
+reset → idle
+data(30) → positioning
+layout 665 → positioning
+contentSize 1753.67 → positioning, scrollToEnd    ← issued…
+(no scroll frame ever follows)                     ← …and the list does not move
+fallback → anchored, reveal                        ← revealed still at offset 0
+```
+
+`scrollToEnd` **was being called and was doing nothing**. Called synchronously from inside
+`onContentSizeChange`, it reads VirtualizedList's own `_scrollMetrics.contentLength`, which
+has not yet been updated with the size being reported — so it scrolls to a stale offset, or
+nowhere. Deferring the call by one `requestAnimationFrame` makes it take effect, and the list
+then reports 13.99px from the end (the content container's own bottom padding).
+
+That is the real reason PAD-208's positioning never worked on a device: not that the list was
+visible while it settled, but that **it never settled anywhere** — the one `scrollToEnd` it
+issued was a no-op, and the thread simply stayed where the first batch left it. Hiding the
+list until it is anchored is still required by rule 9, and is what makes the difference
+observable; it is not by itself sufficient.
+
+Two further traps found the same way, both recorded in the code:
+
+- Hiding the list with `opacity: 0` **deadlocks** the gate: on Fabric a fully transparent
+  subtree is not laid out, so `onLayout` and `onContentSizeChange` never fire and there is
+  nothing to observe. The list must be *covered* by an opaque placeholder, not hidden.
+- A 300 ms fallback (the value the ticket suggested) **pre-empts** the observations on a debug
+  build — the native callbacks had not arrived by then. The bound is now 2500 ms, which only
+  ever prevents a permanently blank thread.
 
 **Second, separate gap in the same report:** the user also asked for "a button to jump straight
 to the bottom when you have scrolled up a lot". Rule 10 gives an affordance only when *new
