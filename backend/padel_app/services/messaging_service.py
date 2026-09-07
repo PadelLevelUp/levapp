@@ -455,6 +455,71 @@ def get_user_conversations(user, page=1, limit=20):
     return {"conversations": convs[:limit], "has_more": has_more}
 
 
+def is_known_contact(viewer_user, conversation):
+    """messaging.block-and-report rule 7 — does the viewer already "know" the other side?
+
+    True when the two share a roster row (either is the other's coach), share at
+    least one club (as coach or player), or the viewer has already written in the
+    thread. Group conversations, and a conversation whose counterpart is gone,
+    never carry the unknown-sender banner. This is what the client renders the
+    "You don't share a club with {name}" banner from — a reachability signal
+    for the student-to-student-by-username path (messaging.direct-by-username),
+    never an authorization check.
+    """
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    if conversation.is_group:
+        return True
+
+    other = next(
+        (p for p in conversation.participants if p.user_id != viewer_user.id),
+        None,
+    )
+    other_user = other.user if other else None
+    if other_user is None:
+        return True
+
+    def _roster_link(coach_user, player_user):
+        coach = getattr(coach_user, "coach", None)
+        player = getattr(player_user, "player", None)
+        if not coach or not player:
+            return False
+        return (
+            Association_CoachPlayer.query.filter_by(
+                coach_id=coach.id, player_id=player.id
+            ).first()
+            is not None
+        )
+
+    if _roster_link(other_user, viewer_user) or _roster_link(viewer_user, other_user):
+        return True
+
+    def _club_ids(user):
+        ids = set()
+        coach = getattr(user, "coach", None)
+        player = getattr(user, "player", None)
+        if coach:
+            ids.update(club.id for club in coach.clubs)
+        if player:
+            ids.update(club.id for club in player.clubs)
+        return ids
+
+    if _club_ids(viewer_user) & _club_ids(other_user):
+        return True
+
+    wrote = (
+        db.session.query(Message.id)
+        .filter(
+            Message.conversation_id == conversation.id,
+            Message.sender_id == viewer_user.id,
+            Message.message_type == "text",
+            Message.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    return wrote is not None
+
+
 def get_conversation_for_detail(conversation_id):
     """One conversation, with everything the detail payload reads already loaded.
 
