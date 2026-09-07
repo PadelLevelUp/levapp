@@ -19,6 +19,18 @@ from padel_app.services.club_service import latest_pending_club_join_request
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
 
+def _student_coaches(user):
+    """`[{id, name}]` of the coaches a student is on the roster of; `[]` for a coach."""
+    player = getattr(user, "player", None)
+    if user.coach or player is None:
+        return []
+    coaches = [rel.coach for rel in player.coaches_relations if rel.coach is not None]
+    return [
+        {"id": c.id, "name": c.name}
+        for c in sorted(coaches, key=lambda c: (c.name or "").lower())
+    ]
+
+
 def _serialize_me(user):
     """The payload the app hydrates its session and Settings profile form from."""
     coach = user.coach
@@ -30,6 +42,10 @@ def _serialize_me(user):
         # the most recent pending request (clubs.join-request rule 6).
         "coachApproval": coach.approval_status if coach else None,
         "clubs": [{"id": c.id, "name": c.name} for c in coach.clubs] if coach else [],
+        # auth.register rule 9 / players.join-token rule 8: a student's coaches,
+        # so "not connected to a coach yet" is read from here and never
+        # inferred from an empty calendar (TestFlight feedback 2026-09-07).
+        "coaches": _student_coaches(user),
         "pendingClubJoinRequest": (
             {"id": pending.id, "clubId": pending.club_id, "clubName": pending.club.name}
             if pending else None

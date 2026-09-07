@@ -138,8 +138,16 @@ const SignUpPage = () => {
         setErrors((prev) => ({ ...prev, [data.data!.field as keyof FieldErrors]: data.data?.error }));
       } else if (!data) {
         toast({ variant: "destructive", title: t("auth.signup.failedTitle"), description: t("auth.login.networkError") });
+      } else if (data.status === 404 || data.status === 405) {
+        // The route itself is missing: this server is behind the app (PAD-225).
+        toast({ variant: "destructive", title: t("auth.signup.failedTitle"), description: t("auth.signup.unavailable") });
       } else {
-        toast({ variant: "destructive", title: t("auth.signup.failedTitle"), description: t("auth.signup.failedDescription") });
+        // Field-less rejection: the server's own words, never a generic line alone.
+        toast({
+          variant: "destructive",
+          title: t("auth.signup.failedTitle"),
+          description: data.data?.error ?? t("auth.signup.failedDescription"),
+        });
       }
     } finally {
       setSubmitting(false);

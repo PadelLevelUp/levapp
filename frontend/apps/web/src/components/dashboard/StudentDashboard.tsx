@@ -23,6 +23,7 @@ import { Schedule7Days } from "./coach/Schedule7Days";
 import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
+import { useAuth } from "@/auth/AuthContext";
 
 function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: T) {
   return blocks.find((b): b is Extract<DashboardBlock, { type: T }> => b.type === type);
@@ -57,8 +58,11 @@ export function StudentDashboard({
   // players.join-token rule 8: a student with nothing scheduled and no next
   // class is, in practice, a student no coach has picked up yet — the payload
   // does not say "has a coach" outright, so the empty week is the signal.
-  const looksUnconnected =
-    !heroBlock && (scheduleBlock?.data.items.length ?? 0) === 0;
+  // players.join-token rule 8 (PAD-225): "no coach" is a fact from the session
+  // (`me.coaches` empty), never inferred from an empty week — a connected
+  // student with no classes this week was being told to connect.
+  const { user: me } = useAuth();
+  const looksUnconnected = Array.isArray(me?.coaches) && me.coaches.length === 0;
   const connectPrompt = looksUnconnected ? (
     <div
       className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-4 sm:flex-row sm:items-center sm:justify-between"

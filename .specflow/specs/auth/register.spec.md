@@ -50,11 +50,16 @@ create one, or ask to join an existing one — happens right after approval (`cl
 8. The response is 201 with `{"accessToken", "user": {id, name, role}}` — the same shape as
    `auth.login` — so the client is signed in without a second request.
 9. `GET /api/auth/me` gains `coachApproval: "pending"|"approved"|"rejected"|null` (null for
-   students), `clubs: [{id, name}]` and `pendingClubJoinRequest: {id, clubId, clubName} | null`
-   so clients can route a coach to the pending-approval, club-onboarding or dashboard state.
+   students), `clubs: [{id, name}]`, `pendingClubJoinRequest: {id, clubId, clubName} | null`
+   and, for a student, `coaches: [{id, name}]` (their `coach_in_player` coaches; `[]` for a
+   coach) so clients can route a coach to the pending-approval, club-onboarding or dashboard
+   state and know whether a student is connected to a coach without guessing from the calendar.
 10. Entry points: the web `/auth` page and the iOS login screen both show "Create account"
     (R-024, web and iOS ship together). Web route `/signup`; iOS route `signup`. The form links
-    Privacy Policy and Terms.
+    Privacy Policy and Terms. **Every rejection names the field**: client-side validation shows
+    its message under the offending input, every server 400/409 carries `field` and is shown
+    under that input, and a rejection with no field shows the server's message verbatim — never
+    a generic "check your data" alone (TestFlight feedback 2026-09-07).
 11. After signup: a student lands on the "Connect with a coach" screen (`players.join-token`
     rule 8); a coach lands on the **pending-approval** screen (`auth.coach-approval` rule 6).
     On every later app load the coach is routed by `coachApproval` then `clubs`: pending →
@@ -90,6 +95,13 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Given** coach `rui` with `approval_status = pending`
 - **When** `rui` POSTs `/api/app/club` with `{"name": "Rui Padel"}`, or `/api/app/add_player`, or `/api/app/club/1/join-requests`
 - **Then** each response is 403 with `error: "COACH_NOT_APPROVED"` and nothing is written
+
+#### Every rejection names the field on iOS
+- **Given** the iOS sign-up form filled with username `a` (too short) and an already-taken email
+- **When** the user submits
+- **Then** the username input shows the length message under it before any request is sent
+- **And** after fixing it and submitting, the email input shows "already in use" under it
+- **And** a server rejection without a `field` shows the server's own message, not a generic one
 
 #### Taken username and taken email are 409 with the field named
 - **Given** an existing user with username `ana` and email `ana@example.com`

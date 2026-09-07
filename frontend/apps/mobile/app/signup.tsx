@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
+import { describeApiError } from "@/lib/apiError";
 
 type Role = "coach" | "student";
 type Field = "name" | "username" | "email" | "password" | "repeatPassword";
@@ -73,6 +74,18 @@ export default function SignUpScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const scrollRef = React.useRef<ScrollView>(null);
+  // y offset of each field inside the scroll view, so the first invalid one
+  // can be brought into view (auth.register rule 10: every rejection names
+  // the field, and the user must be able to see it).
+  const fieldOffsets = React.useRef<Partial<Record<Field, number>>>({});
+
+  const FIELD_ORDER: Field[] = ["name", "username", "email", "password", "repeatPassword"];
+  const revealFirstError = (next: FieldErrors) => {
+    const first = FIELD_ORDER.find((f) => next[f]);
+    const y = first ? fieldOffsets.current[first] : undefined;
+    if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+  };
 
   const setField = (field: Field, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -91,6 +104,8 @@ export default function SignUpScreen() {
       if (!next[field]) next[field] = t(`auth.signup.${issue.message}`);
     }
     setErrors(next);
+    setFormError(t("auth.signup.fixHighlighted"));
+    revealFirstError(next);
     return false;
   };
 
@@ -117,21 +132,36 @@ export default function SignUpScreen() {
       } else {
         router.replace(postLoginRoute(me));
       }
-    } catch (err: any) {
-      const status: number | undefined = err?.response?.status;
-      const data = err?.response?.data as { error?: string; field?: string } | undefined;
-      if (status === 409 && (data?.field === "username" || data?.field === "email")) {
-        setErrors((prev) => ({
-          ...prev,
-          [data.field as Field]:
-            data.field === "username" ? t("auth.signup.usernameTaken") : t("auth.signup.emailTaken"),
-        }));
-      } else if (status === 400 && data?.field) {
-        setErrors((prev) => ({ ...prev, [data.field as Field]: data.error }));
-      } else if (!err?.response) {
+    } catch (err: unknown) {
+      const info = describeApiError(err);
+      const isField = (f: string | undefined): f is Field =>
+        !!f && (FIELD_ORDER as string[]).includes(f);
+      if (info.status === 409 && isField(info.field)) {
+        // Server-side uniqueness: under the field it names, in our words.
+        const message =
+          info.field === "username"
+            ? t("auth.signup.usernameTaken")
+            : info.field === "email"
+              ? t("auth.signup.emailTaken")
+              : (info.message ?? t("auth.signup.failedDescription"));
+        const next = { ...errors, [info.field]: message };
+        setErrors(next);
+        setFormError(t("auth.signup.fixHighlighted"));
+        revealFirstError(next);
+      } else if (isField(info.field)) {
+        // Any other rejection that names a field: the server's message, under it.
+        const next = { ...errors, [info.field]: info.message ?? t("auth.signup.failedDescription") };
+        setErrors(next);
+        setFormError(t("auth.signup.fixHighlighted"));
+        revealFirstError(next);
+      } else if (info.network) {
         setFormError(t("auth.login.networkError"));
+      } else if (info.routeMissing) {
+        // The route itself is missing: the server is behind the app.
+        setFormError(t("auth.signup.unavailable"));
       } else {
-        setFormError(t("auth.signup.failedDescription"));
+        // Field-less rejection: the server's own words, never a generic line alone.
+        setFormError(info.message ?? t("auth.signup.failedDescription"));
       }
     } finally {
       setLoading(false);
@@ -173,6 +203,7 @@ export default function SignUpScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -210,7 +241,13 @@ export default function SignUpScreen() {
             </View>
 
             {fields.map(({ field, secure, keyboard, autoComplete }) => (
-              <View className="gap-1.5" key={field}>
+              <View
+                className="gap-1.5"
+                key={field}
+                onLayout={(e) => {
+                  fieldOffsets.current[field] = e.nativeEvent.layout.y;
+                }}
+              >
                 <Label>{t(`auth.signup.${field}`)}</Label>
                 <Input
                   testID={`signup-${field}`}
@@ -223,9 +260,14 @@ export default function SignUpScreen() {
                   autoCorrect={false}
                   autoComplete={autoComplete}
                   editable={!loading}
+                  className={errors[field] ? "border-destructive" : undefined}
                 />
                 {errors[field] ? (
-                  <Text className="text-sm text-destructive" testID={`signup-${field}-error`}>
+                  <Text
+                    className="text-sm text-destructive"
+                    testID={`signup-error-${field}`}
+                    accessibilityLiveRegion="polite"
+                  >
                     {errors[field]}
                   </Text>
                 ) : null}

@@ -18,6 +18,7 @@ from padel_app.models import (
     Coach,
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.realtime import publish
 from padel_app.services.conversation_access import (
     message_recipient_ids,
@@ -85,17 +86,15 @@ def _username_not_found():
 
 
 def _resolve_direct_username(user, username):
-    """Resolve `otherUsername` for a student caller (messaging.direct-by-username).
+    """Resolve `otherUsername` (messaging.direct-by-username, amended 2026-09-07).
 
-    Rule 1: only a caller with a Player row and no Coach row may use the path.
+    Rule 1: any signed-in user may use the path.
     Rule 2: exact, case-insensitive match on `users.username`; the target must
-    be active, have a Player row, have no Coach row, and not be the caller.
-    Rule 3: unknown / inactive / coach / self / target-blocked-caller are one
-    404; caller-blocked-target is the usual 403.
+    be active, may be a coach or a student, and must not be the caller.
+    Placeholder accounts (`pending-…`, never activated) never match.
+    Rule 3: unknown / inactive / placeholder / self / target-blocked-caller are
+    one 404; caller-blocked-target is the usual 403.
     """
-    if getattr(user, "coach", None) is not None or getattr(user, "player", None) is None:
-        abort(400, "otherUsername is only available to students")
-
     if not isinstance(username, str) or not username.strip():
         abort(400, "otherUsername is required")
 
@@ -106,8 +105,8 @@ def _resolve_direct_username(user, username):
         target is None
         or target.id == user.id
         or target.status != "active"
-        or target.player is None
-        or target.coach is not None
+        or is_placeholder_username(target.username)
+        or target.password is None
     ):
         _username_not_found()
 
@@ -618,7 +617,7 @@ def create_conversation_service(data, user):
 
     Two ways to name the other side: `otherParticipants` (ids; coach → roster
     or club, student → any coach, messaging.conversations rule 7) or
-    `otherUsername` (a student reaching another student by exact username,
+    `otherUsername` (anyone reaching any active user by exact username,
     messaging.direct-by-username). Never both.
     """
     by_username = "otherUsername" in data
@@ -641,9 +640,10 @@ def create_conversation_service(data, user):
         for other_id in other_ids:
             if _is_blocked_either_way(user.id, other_id):
                 abort(403, "Cannot start a conversation with a blocked user")
-            # The username path was already scoped and block-checked in
+            # The username path was already block-checked in
             # `_resolve_direct_username`; the coach/club scope of rule 7 does
-            # not apply to it (a student may reach any active student).
+            # not apply to it (knowing the exact username is the consent
+            # signal — discovery stays connection-scoped via the picker).
             if not by_username:
                 _assert_messageable(user, other_id)
 

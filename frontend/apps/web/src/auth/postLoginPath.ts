@@ -11,11 +11,23 @@ import type { MeResponse } from "@/api/auth";
  * before the gate was backfilled to `approved`, and an older backend simply
  * omits the field.
  *
- * TODO(slice C, players.join-token rule 8): a student with no coach should land
- * on `/connect`. Nothing in `/auth/me` says whether a student has a coach yet,
- * so every student goes to the dashboard for now; SignUpPage sends a
- * brand-new student to `/connect` explicitly, which is the case that matters.
+ * A student with no coach lands on `/connect` via `postLoginLanding` (PAD-225).
  */
+/**
+ * Where a user LANDS right after signing in / signing up. Same as
+ * `postLoginPath`, plus one rule that must not apply to the route guards: a
+ * student with no coach yet lands on Connect with a coach (players.join-token
+ * rule 8, PAD-225). It is a landing, not a hold — the student may still open
+ * Messages or Settings afterwards.
+ */
+export function postLoginLanding(user: MeResponse | null | undefined): string {
+  const held = postLoginPath(user);
+  if (held !== "/dashboard") return held;
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  if (!isCoach && Array.isArray(user?.coaches) && user.coaches.length === 0) return "/connect";
+  return "/dashboard";
+}
+
 export function postLoginPath(user: MeResponse | null | undefined): string {
   if (!user) return "/dashboard";
   const isCoach = user.roles?.includes("coach") ?? false;

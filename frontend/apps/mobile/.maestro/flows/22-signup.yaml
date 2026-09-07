@@ -33,8 +33,19 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-name"
 - inputText: "Maestro Student"
+# ── auth.register rule 10 (PAD-225): a rejected field is named under the input ──
 - tapOn:
     id: "signup-username"
+- inputText: "a"
+- tapOn:
+    id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "signup-error-username"
+    timeout: 10000
+- tapOn:
+    id: "signup-username"
+- eraseText
 - inputText: "maestro-s-${output.stamp}"
 - tapOn:
     id: "signup-email"

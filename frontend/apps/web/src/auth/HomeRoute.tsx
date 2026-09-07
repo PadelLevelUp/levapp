@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
-import { postLoginPath } from "@/auth/postLoginPath";
+import { postLoginLanding } from "@/auth/postLoginPath";
 import DashboardPage from "@/pages/DashboardPage";
 import LandingPage from "@/pages/LandingPage";
 
@@ -26,7 +26,7 @@ export function HomeRoute() {
     return <LandingPage />;
   }
 
-  const target = postLoginPath(user);
+  const target = postLoginLanding(user);
   if (target !== "/dashboard") {
     return <Navigate to={target} replace />;
   }

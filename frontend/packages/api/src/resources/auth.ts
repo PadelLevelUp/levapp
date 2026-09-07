@@ -6,6 +6,11 @@ export type MeResponse = {
   name: string;
   roles: string[];
   coachId: string | null;
+  /**
+   * PAD-225: a student's coaches (`coach_in_player`), `[]` for a coach. This —
+   * not an empty calendar — is what "not connected to a coach yet" means.
+   */
+  coaches?: { id: number; name: string }[];
   isSuperAdmin: boolean;
   language?: "pt" | "en";
   /** PAD-81: profile fields the Settings profile form is hydrated from. */

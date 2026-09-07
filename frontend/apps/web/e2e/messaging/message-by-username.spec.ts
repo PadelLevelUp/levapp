@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  COACH_NOLEVELS_USERNAME,
   loginAsCoach,
   loginAsStudent,
   loginAsStudent2,
@@ -86,13 +87,45 @@ test("US-214: an unknown username is reported inline and nothing opens", async (
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
-test("US-214: a coach's New conversation dialog has no username field", async ({
+test("US-225: a coach also has the username field and reaches a student by username", async ({
   page,
 }) => {
   await loginAsCoach(page);
   await openMessages(page);
   await openNewConversation(page);
 
-  await expect(page.getByPlaceholder(/search users|pesquisar/i)).toBeVisible();
-  await expect(usernameForm(page)).toHaveCount(0);
+  // The connected-people search sits above the list; the username section below it.
+  await expect(page.getByPlaceholder(/connected with|ligado/i)).toBeVisible();
+  await expect(usernameForm(page)).toBeVisible();
+
+  await page.getByTestId("message-by-username-input").fill(STUDENT2_USERNAME);
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        /\/api\/app\/conversation(\?|$)/.test(r.url()) &&
+        r.request().method() === "POST" &&
+        r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    page.getByTestId("message-by-username-submit").click(),
+  ]);
+  await expect(page.getByPlaceholder(/type a message|escreve/i)).toBeVisible({ timeout: 5000 });
+});
+
+test("US-225: a student reaches a coach by exact username", async ({ page }) => {
+  await loginAsStudent(page);
+  await openMessages(page);
+  await openNewConversation(page);
+  await page.getByTestId("message-by-username-input").fill(COACH_NOLEVELS_USERNAME);
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        /\/api\/app\/conversation(\?|$)/.test(r.url()) &&
+        r.request().method() === "POST" &&
+        r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    page.getByTestId("message-by-username-submit").click(),
+  ]);
+  await expect(page.getByPlaceholder(/type a message|escreve/i)).toBeVisible({ timeout: 5000 });
 });

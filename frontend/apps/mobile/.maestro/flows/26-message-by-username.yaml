@@ -1,7 +1,7 @@
 # Mirrors: apps/web/e2e/messaging/message-by-username.spec.ts (PAD-214,
 # messaging.direct-by-username)
 # - student opens Messages → New conversation
-# - the "Message by username" field is present (students only)
+# - the connected-people search is on top, the "Message by username" field below it (every role, PAD-225)
 # - an unknown username shows the inline error
 # - e2e-student-2's username opens a conversation; a message is sent
 appId: com.padellevelup.app
@@ -13,8 +13,12 @@ appId: com.padellevelup.app
     id: "messages-new"
 - extendedWaitUntil:
     visible:
-      id: "message-by-username"
+      id: "new-conversation-search"
     timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "message-by-username"
+    direction: DOWN
 
 # ── Unknown username → inline error ──
 - tapOn:

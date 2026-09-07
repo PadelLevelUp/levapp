@@ -43,8 +43,10 @@ from someone they don't recognise; and, indirectly, coaches — who keep their e
 
 ## Business Rules
 
-- A student may message any active coach (as today) and any active student *by exact username*.
-- Students are never listed or searchable by other students.
+- Anyone may message any other active user *by exact username* — student to student, student to
+  a coach who is not theirs, coach to anyone (amended 2026-09-07).
+- Nobody is listed or searchable beyond the people you are already connected with; the picker's
+  search only filters that list.
 - Coaches keep today's reach — the players of their clubs — and are not opened up further by this
   outcome.
 - A conversation is "unknown" to a viewer when the other person is not one of their coaches,

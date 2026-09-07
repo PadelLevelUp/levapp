@@ -24,7 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { postLoginRoute } from "@/auth/postLoginRoute";
+import { postLoginLanding } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
@@ -67,7 +67,7 @@ export default function LoginScreen() {
       // to the tabs.
       // players.join-token rule 9: a join link opened without a session comes
       // first, once the account is one that can use it.
-      const route = postLoginRoute(await refreshUser());
+      const route = postLoginLanding(await refreshUser());
       const pending = consumePendingJoin();
       // players.claim rule 3: an invite link opened to LINK an existing account.
       const pendingClaim = consumePendingClaim();

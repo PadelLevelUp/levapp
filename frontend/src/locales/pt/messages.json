@@ -115,7 +115,7 @@
     "reactionLabel_one": "Reação {{emoji}}",
     "reactionLabel_other": "Reação {{emoji}} ({{count}})",
     "messageByUsername": "Mensagem por username",
-    "messageByUsernameHint": "Escreve o username exato de outro aluno. Os alunos não são pesquisáveis.",
+    "messageByUsernameHint": "Introduz o username exato. Não é possível procurar pessoas com quem não estás ligado.",
     "usernamePlaceholder": "username",
     "usernameSubmit": "Iniciar",
     "noUserWithUsername": "Não existe nenhum utilizador com esse username",
@@ -125,6 +125,13 @@
       "description": "Esta pessoa não é um dos teus treinadores nem está em nenhum dos teus clubes. Responde para continuar a conversa, ou bloqueia ou denuncia.",
       "block": "Bloquear",
       "report": "Denunciar"
-    }
+    },
+    "searchConnectedPlaceholder": "Procurar pessoas com quem estás ligado…",
+    "searchConnectedAria": "Procurar pessoas com quem estás ligado",
+    "noOneMatches": "Ninguém corresponde",
+    "notConnectedYet": "Ainda não estás ligado a ninguém",
+    "notConnectedYetHint": "Junta-te ao plantel de um treinador ou usa um username para começar uma conversa.",
+    "messageByUsernameExplain": "Sabes o username de alguém? Envia-lhe mensagem diretamente.",
+    "connectedPeople": "Pessoas com quem estás ligado"
   }
 }
