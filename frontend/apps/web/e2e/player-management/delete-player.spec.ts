@@ -42,7 +42,9 @@ test.describe("PAD-18: Player deletion with confirmation dialog", () => {
 
     // Verify the player list shows 0 results after searching
     await searchInput.fill("Ghost Player");
-    await expect(page.getByText(/0 players/i)).toBeVisible({ timeout: 5000 });
+    // The pagination footer reads "Page 1 of 1 • 0 players"; anchor on the
+    // bullet so the "N players without level defined" alert can never match too.
+    await expect(page.getByText(/•\s*0 players/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("PAD-18: cancel deletion keeps the player", async ({ page }) => {
