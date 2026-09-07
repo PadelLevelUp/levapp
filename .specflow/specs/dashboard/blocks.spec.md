@@ -29,6 +29,16 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
      `confirmed = false` on a `LessonInstance` that has not started, soonest first, capped at 5,
      carrying `classTitle`, ISO `date`, `timeLabel`, `filled`, `capacity` and the calendar deep link.
+     **(B-029) "Later" on an `empty_seats` card is a real action, not decoration.**
+     `POST /api/app/dashboard/needs-you/<itemId>/snooze` (coach only, else 403; `itemId` must be a
+     queue item id — `lessoninstance-<pk>` or `lesson-<pk>-<date>` — else 400) records a per-coach
+     snooze for that occurrence, **24 hours** from now, and answers `{ itemId, snoozedUntil }`.
+     While a snooze is live the occurrence is left out of `empty_seats` and out of `count`; it is
+     still on `schedule_7d` and the calendar — only the nag is paused. The snooze is stored
+     server-side (`needs_you_snoozes`, unique per coach + item) so web and iOS show the same queue;
+     it lapses on its own and is never swept. Snoozing again restarts the 24 hours rather than
+     stacking. Both shells disable the button while the request is in flight, refetch the
+     dashboard on success (the card leaves because the payload says so), and toast on failure.
    - `schedule_7d`: the upcoming classes, first 5 rows plus `totalCount`, each row with ISO `date`,
      `dayOfMonth`, `timeLabel`, `filled`/`capacity` and a deep link; `calendarHref` links out.
      The window is role-specific: the coach sees the **next 7 days** (their week is dense); the
@@ -110,6 +120,28 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** an authenticated coach with 15 players, 3 classes this week, 2 unread messages
 - **When** they GET `/api/app/dashboard`
 - **Then** the response includes blocks: messages_overview (2 unread), kpi_grid (15 players), class_list (3 classes)
+
+- **Given** an authenticated coach whose queue lists an `empty_seats` item for class B1 (2 of 6
+  seats taken, starting in 45 minutes) and a validation item
+- **When** they POST `/api/app/dashboard/needs-you/<B1 item id>/snooze` and GET `/api/app/dashboard`
+- **Then** the POST answers 200 with `snoozedUntil` 24 hours ahead, and the queue now lists only
+  the validation item with `count` one lower
+
+- **Given** a coach who snoozed an item 23 hours 59 minutes ago
+- **When** the queue is built now, and again two minutes later
+- **Then** the item is absent the first time and present the second
+
+- **Given** a coach who snoozed an item, and a second coach who did not
+- **When** the second coach's queue is built
+- **Then** their `empty_seats` item is unaffected — a snooze is the snoozing coach's own
+
+- **Given** a student, or a coach with an `itemId` that is not a queue item id
+- **When** they POST `/api/app/dashboard/needs-you/<itemId>/snooze`
+- **Then** the student gets 403 and the malformed id gets 400; nothing is stored
+
+- **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class in the next 7 days
+- **When** they press **Later** on that card
+- **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
 
 #### Player dashboard
 - **Given** an authenticated player enrolled in 2 classes this week

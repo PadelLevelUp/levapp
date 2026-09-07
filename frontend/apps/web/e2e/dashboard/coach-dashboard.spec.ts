@@ -54,3 +54,30 @@ test("US-65: notification activity or recent activity section is visible", async
   // the "needs you" queue (always rendered, with an empty state).
   await expect(page.getByTestId("dashboard-needs-you")).toBeVisible({ timeout: 5000 });
 });
+
+// B-029 / dashboard.blocks rule 3c: "Later" on an empty-seats card is a real
+// action. The seed's "E2E Academy Class" (1 of 6 seats) is under capacity, so
+// the coach's queue carries at least one such card whenever it falls inside
+// the 7-day window.
+test("B-029: Later removes an empty-seats card from the needs-you queue", async ({ page }) => {
+  const queue = page.getByTestId("dashboard-needs-you");
+  await expect(queue).toBeVisible({ timeout: 5000 });
+
+  const cards = queue.locator('[data-testid^="needs-you-empty-seats-"]');
+  const before = await cards.count();
+  if (before === 0) {
+    test.skip(true, "No under-capacity class in the next 7 days — nothing to snooze");
+    return;
+  }
+
+  const first = cards.first();
+  const itemId = (await first.getAttribute("data-testid"))!.replace("needs-you-empty-seats-", "");
+  const snoozed = page.waitForResponse(
+    (r) => r.url().includes(`/needs-you/${encodeURIComponent(itemId)}/snooze`) && r.status() === 200,
+  );
+  await first.getByTestId("needs-you-later").click();
+  await snoozed;
+
+  await expect(queue.getByTestId(`needs-you-empty-seats-${itemId}`)).toHaveCount(0, { timeout: 5000 });
+  await expect(cards).toHaveCount(before - 1);
+});
