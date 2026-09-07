@@ -6,10 +6,26 @@ export async function getConversations(page = 1, limit = 20): Promise<{ conversa
   return res.data;
 }
 
+/**
+ * One conversation with a page of its thread.
+ *
+ * PAD-208 / messaging.conversation-detail rule 1: `limit` bounds the page to the
+ * NEWEST messages, `before` (a message id, exclusive — the previous page's
+ * `oldestMessageId`) walks backwards from there. Omitting `limit` asks for the
+ * whole history, which is the deprecated branch kept for builds already in the
+ * field; new callers always pass one.
+ */
 export async function getConversation(
-  conversationId: string
+  conversationId: string,
+  params?: { limit?: number; before?: string | number | null }
 ): Promise<Conversation> {
-  const res = await getApi().get(`/app/conversation/${conversationId}`);
+  const query: Record<string, string | number> = {};
+  if (params?.limit != null) query.limit = params.limit;
+  if (params?.before != null) query.before = params.before;
+
+  const res = await getApi().get(`/app/conversation/${conversationId}`, {
+    params: query,
+  });
   return res.data;
 }
 

@@ -411,7 +411,7 @@ def get_user_conversations(user, page=1, limit=20):
     return {"conversations": convs[:limit], "has_more": has_more}
 
 
-def get_conversation_for_detail(conversation_id):
+def get_conversation_for_detail(conversation_id, with_messages=True):
     """One conversation, with everything the detail payload reads already loaded.
 
     messaging.conversation-detail rule 8. `serialize_message` reads
@@ -419,22 +419,89 @@ def get_conversation_for_detail(conversation_id):
     lazy a 200-message thread cost 200 extra round trips on top of the one that
     fetched the thread. `selectinload` collapses those into a single
     `message_reactions WHERE message_id IN (...)`.
+
+    PAD-208: `with_messages=False` for a paged request. The whole-thread
+    `selectinload` is exactly the O(history) read the paging exists to avoid, so
+    the paged path leaves the collection cold and calls
+    `conversation_messages_page` instead — which eager-loads reactions for its
+    own page, keeping rule 8 intact one page at a time.
     """
+    options = [
+        selectinload(Conversation.participants)
+        .joinedload(ConversationParticipant.user)
+        # `participantRole` reads `User.role`, which is
+        # `'coach' if self.coach else 'player'` — a lazy load per
+        # participant if the relationship is left cold, and the single
+        # largest remaining term in the list's statement count.
+        .joinedload(User.coach),
+    ]
+    if with_messages:
+        options.insert(
+            0, selectinload(Conversation.messages).selectinload(Message.reactions)
+        )
+
     return (
         Conversation.query
-        .options(
-            selectinload(Conversation.messages).selectinload(Message.reactions),
-            selectinload(Conversation.participants)
-            .joinedload(ConversationParticipant.user)
-            # `participantRole` reads `User.role`, which is
-            # `'coach' if self.coach else 'player'` — a lazy load per
-            # participant if the relationship is left cold, and the single
-            # largest remaining term in the list's statement count.
-            .joinedload(User.coach),
-        )
+        .options(*options)
         .filter(Conversation.id == conversation_id)
         .first_or_404()
     )
+
+
+# messaging.conversation-detail rule 1. The client asks for the newest page and
+# then walks backwards; anything larger than this per request is a client bug or
+# an attempt to reinstate the unbounded payload by other means.
+MAX_MESSAGE_PAGE = 100
+
+
+def conversation_messages_page(conversation_id, limit, before=None):
+    """The newest `limit` messages older than `before`, handed back ascending.
+
+    messaging.conversation-detail rules 1 and 2. Selected `sent_at DESC, id DESC`
+    — which is the index the table already carries
+    (`ix_messages_conversation_id_sent_at`) read backwards — with one extra row
+    fetched to answer `hasMore` without a second COUNT, then reversed so the page
+    itself is ascending like the rest of the thread.
+
+    `before` is a message id and is **exclusive**. It is resolved to that row's
+    `(sent_at, id)` rather than compared as a bare id: ids happen to be monotonic
+    today, but the ordering the client sees is `sent_at`, and a page boundary that
+    disagrees with the order it pages through would drop or repeat a message.
+
+    Returns `(messages, has_more)`.
+    """
+    limit = max(1, min(int(limit), MAX_MESSAGE_PAGE))
+
+    query = (
+        Message.query
+        .options(selectinload(Message.reactions))
+        .filter(Message.conversation_id == conversation_id)
+    )
+
+    if before is not None:
+        cursor = Message.query.get(before)
+        if cursor is not None and cursor.conversation_id == conversation_id:
+            query = query.filter(
+                or_(
+                    Message.sent_at < cursor.sent_at,
+                    and_(
+                        Message.sent_at == cursor.sent_at,
+                        Message.id < cursor.id,
+                    ),
+                )
+            )
+
+    rows = (
+        query
+        .order_by(Message.sent_at.desc(), Message.id.desc())
+        .limit(limit + 1)
+        .all()
+    )
+
+    has_more = len(rows) > limit
+    page = rows[:limit]
+    page.reverse()
+    return page, has_more
 
 
 def create_conversation_service(data, user):

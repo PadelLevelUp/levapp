@@ -320,7 +320,21 @@ export interface Conversation {
   lastMessageAt: string | null;
 
   unreadCount: number;
+  /**
+   * One page of the thread, ascending, newest last — or the whole history when
+   * the request carried no `limit` (messaging.conversation-detail rule 1).
+   */
   messages: Message[];
+  /**
+   * PAD-208. True when there are older messages behind `messages[0]`. Absent on
+   * a summary row from the conversation list, which carries no thread at all.
+   */
+  hasMore?: boolean;
+  /**
+   * PAD-208. The id of the oldest loaded message — pass it back as `before` to
+   * fetch the page before it. Null for an empty thread.
+   */
+  oldestMessageId?: string | number | null;
 }
 
 export type DashboardIcon =

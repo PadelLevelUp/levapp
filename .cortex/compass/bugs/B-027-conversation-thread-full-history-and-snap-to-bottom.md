@@ -3,7 +3,7 @@ id: B-027
 title: "The conversation thread loads the whole history and snaps back to the bottom while the user reads"
 type: incomplete-rule
 severity: high
-status: open
+status: resolved
 affects:
   - messaging.conversation-detail
   - frontend/apps/mobile/app/conversation/[id].tsx
@@ -11,6 +11,7 @@ affects:
   - backend/padel_app/serializers/conversation.py
 proposed_fix: "Give messaging.conversation-detail a paging contract on rule 1 and three new rules (9/10/11) for opening anchored at the newest message, holding a scrolled-up viewport, and prepending older pages without a jump; then paginate the endpoint and rewrite both clients' scroll handling against them."
 opened: 2026-09-07T00:00:00Z
+resolved: 2026-09-07T00:00:00Z
 ---
 
 # B-027 — The conversation thread loads the whole history and snaps back to the bottom while the user reads
@@ -116,4 +117,22 @@ ones loading on scroll and reading never interrupted by arrivals.
 
 ### Resolution
 
-Pending — filled in when the change plan above has been executed.
+- Spec changes (commit `940c731`): `.specflow/specs/messaging/conversation-detail.spec.md` —
+  rule 1 rewritten as the paging contract with the unpaged branch kept and marked deprecated;
+  rules 9, 10, 11 added; three acceptance criteria added. Business journey step 2 of
+  `user-and-coach-message-in-real-time.business.md` no longer promises "every prior message".
+- Tests added: `backend/padel_app/tests/test_pad208_conversation_paging.py` (6, four of which
+  failed before the fix), `frontend/packages/hooks/src/conversationPaging.test.ts` (18),
+  `frontend/apps/mobile/src/features/messages/scroll-position.test.ts` (8),
+  `frontend/apps/web/e2e/messaging/conversation-paging.spec.ts` (3 — two failed before the
+  fix, the third guards behaviour web already had).
+- Code changes: `limit` / `before` paging on `GET /api/app/conversation/<id>`
+  (`conversation_messages_page` in `messaging_service.py`, `serialize_conversation_detail`
+  gaining `hasMore` / `oldestMessageId`); the shared paging state in `@levelup/hooks`
+  (`conversationPaging.ts` + `useConversationThread.ts`); web `MessageList` anchoring before
+  paint, prepending with `scrollTop` compensation and asking for older pages from a top
+  sentinel; iOS replacing the unconditional `scrollToEnd` with an at-bottom tracker,
+  `maintainVisibleContentPosition`, a single initial positioning and a "new messages" chip.
+- Not reproduced on a simulator, and not covered by a Maestro flow — see the note under
+  **Reproduction** above and the PR body.
+- Resolved: 2026-09-07 (PAD-208)

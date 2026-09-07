@@ -1,7 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import { queryKeys, useConversation } from "@levelup/hooks";
+import {
+  CONVERSATION_PAGE_SIZE,
+  applyIncomingMessage,
+  queryKeys,
+  useConversationThread,
+} from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -14,6 +19,8 @@ import {
   Platform,
   Pressable,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
@@ -42,6 +49,7 @@ import {
 import { ReportMessageDialog } from "@/features/messages/components/report-message-dialog";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
@@ -85,7 +93,10 @@ export default function ConversationScreen() {
     isLoading,
     isError,
     refetch,
-  } = useConversation(conversationId);
+    hasMore,
+    isLoadingOlder,
+    loadOlder,
+  } = useConversationThread(conversationId);
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -211,28 +222,13 @@ export default function ConversationScreen() {
           const message = evt.payload as Message;
           if (normalizeId(message.conversationId) !== conversationId) return;
           const own = Number(message.senderId) === myId;
-          updateConversationCache(queryClient, conversationId, (c) => {
-            const exists = c.messages.some(
-              (m) => String(m.id) === String(message.id)
-            );
-            if (exists) {
-              return {
-                ...c,
-                messages: c.messages.map((m) =>
-                  String(m.id) === String(message.id)
-                    ? { ...m, status: "delivered" as const }
-                    : m
-                ),
-              };
-            }
-            return {
-              ...c,
-              messages: [
-                ...c.messages,
-                { ...message, status: "delivered" as const },
-              ],
-            };
-          });
+          // PAD-208 rule 10 — the arrival lands on the newest page, which is the
+          // tail of the array; the older pages above it do not move. Shared with
+          // web (`applyIncomingMessage`) so the two shells cannot drift.
+          updateConversationCache(queryClient, conversationId, (c) =>
+            applyIncomingMessage(c, message)
+          );
+          if (!own && !atBottomRef.current) setHasNewBelow(true);
           if (!own) void messagesApi.markConversationRead(conversationId);
           invalidateMessagesLists(queryClient);
           return;
@@ -309,6 +305,10 @@ export default function ConversationScreen() {
       ...c,
       messages: [...c.messages, optimistic],
     }));
+    // PAD-208 rule 10 — the user's OWN message always takes them to the bottom,
+    // wherever they were reading. This is explicit now that the list no longer
+    // follows content unconditionally.
+    scrollToBottom(true);
 
     try {
       const saved = await messagesApi.sendMessage({
@@ -430,12 +430,71 @@ export default function ConversationScreen() {
   // NOT an inverted list: on the New Architecture (Fabric), `inverted`
   // FlatLists (scaleY(-1) transforms) report wrong accessibility frames and
   // break hit-testing on iOS — bubbles become untappable for VoiceOver and
-  // UI tests. Instead the list keeps natural (oldest-first) order and stays
-  // anchored to the bottom via scrollToEnd on content-size changes.
+  // UI tests. The list keeps natural (oldest-first) order.
+  //
+  // PAD-208 / B-027 — how it stays anchored, and when it may move at all.
+  // It used to call `scrollToEnd` from `onContentSizeChange` AND `onLayout`,
+  // both unconditional, which is why the thread scrolled visibly through the
+  // whole history on open and snapped back to the bottom whenever anything
+  // changed while the user was reading. Three mechanisms replace that:
+  //
+  //   1. `atBottomRef` — updated from every scroll event. The list follows new
+  //      content only while the reader was already at the bottom (rule 10).
+  //      Away from the bottom, nothing moves the viewport; the "new messages"
+  //      chip appears instead.
+  //   2. `maintainVisibleContentPosition` — the native scroll view keeps the
+  //      visible cell where it is when content is inserted above it, which is
+  //      what makes a prepended older page not jump (rule 11).
+  //   3. One initial positioning — the first content-size change lands the
+  //      newest message at the bottom with `animated: false`, before the reader
+  //      sees it (rule 9). `initialNumToRender` covers a whole page so that
+  //      settle happens in one step rather than once per render batch.
   const listRef = React.useRef<FlatList<Message>>(null);
-  const scrollToBottom = React.useCallback(() => {
-    listRef.current?.scrollToEnd({ animated: false });
+  const atBottomRef = React.useRef(true);
+  const hasPositionedRef = React.useRef(false);
+  const [hasNewBelow, setHasNewBelow] = React.useState(false);
+
+  const scrollToBottom = React.useCallback((animated = false) => {
+    listRef.current?.scrollToEnd({ animated });
+    atBottomRef.current = true;
+    setHasNewBelow(false);
   }, []);
+
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const metrics = event.nativeEvent;
+      const atBottom = isAtBottomOf(metrics);
+      atBottomRef.current = atBottom;
+      if (atBottom) setHasNewBelow(false);
+    },
+    []
+  );
+
+  const handleContentSizeChange = React.useCallback(() => {
+    if (!hasPositionedRef.current) {
+      hasPositionedRef.current = true;
+      listRef.current?.scrollToEnd({ animated: false });
+      return;
+    }
+    // Rule 10: content grew and the reader was at the bottom — stay pinned.
+    // Away from the bottom this is where the snap used to happen, and now it
+    // deliberately does nothing.
+    if (atBottomRef.current) {
+      listRef.current?.scrollToEnd({ animated: false });
+    }
+  }, []);
+
+  // Rule 11: reaching the top asks for the page before the oldest loaded
+  // message. `useConversationThread` holds the one-page-at-a-time guard.
+  const handleStartReached = React.useCallback(() => {
+    // Before the initial positioning the list is still at offset 0, so
+    // `onStartReached` fires on mount — which would fetch the page before the
+    // newest one the moment the thread opens, and disturb the anchor rule 9
+    // just established. Wait until the list has been put at the bottom.
+    if (!hasPositionedRef.current) return;
+    if (!hasMore || isLoadingOlder) return;
+    void loadOlder();
+  }, [hasMore, isLoadingOlder, loadOlder]);
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
   const scrollToMessage = React.useCallback(
@@ -750,8 +809,33 @@ export default function ConversationScreen() {
             data={conversation.messages}
             keyExtractor={(item) => String(item.id)}
             contentContainerClassName="gap-2 p-4"
-            onContentSizeChange={scrollToBottom}
-            onLayout={scrollToBottom}
+            // PAD-208 rule 9 — a whole page in the first batch, so the initial
+            // positioning is one instant jump rather than one per batch (which
+            // is what the user saw as a fast scroll through the history).
+            initialNumToRender={CONVERSATION_PAGE_SIZE}
+            onContentSizeChange={handleContentSizeChange}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            // PAD-208 rule 11 — the native scroll view holds the visible cell
+            // in place when a page is inserted above it. `minIndexForVisible: 1`
+            // because index 0 is `ListHeaderComponent`, the loading indicator,
+            // which appears and disappears around exactly this update.
+            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+            onStartReached={handleStartReached}
+            onStartReachedThreshold={0.2}
+            ListHeaderComponent={
+              isLoadingOlder ? (
+                <View
+                  testID="messages-loading-older"
+                  accessibilityRole="progressbar"
+                  className="items-center py-2"
+                >
+                  <Text className="text-xs text-muted-foreground">
+                    {t("messages.loadingOlder")}
+                  </Text>
+                </View>
+              ) : null
+            }
             onScrollToIndexFailed={(info) => {
               // Item not measured yet (variable bubble heights) — retry
               // once layout settles, standard FlatList workaround.
@@ -821,6 +905,33 @@ export default function ConversationScreen() {
             }
           />
         )}
+
+        {/* PAD-208 rule 10 — the affordance that replaces moving the viewport.
+            A message arriving while the reader is scrolled up says so here
+            instead of dragging them to the bottom; tapping it takes them
+            there. Mirrors web's MessageList `showScrollDown` chip. */}
+        {hasNewBelow && conversation ? (
+          <Pressable
+            testID="messages-new-below"
+            accessibilityLabel={t("messages.newMessagesBelow")}
+            role="button"
+            onPress={() => scrollToBottom(true)}
+            className="absolute bottom-24 self-center flex-row items-center gap-1 rounded-full px-3 py-2 active:opacity-80"
+            style={{ backgroundColor: lightTheme.sidebarBackground }}
+          >
+            <Text
+              className="text-xs font-semibold"
+              style={{ color: lightTheme.sidebarForeground }}
+            >
+              {t("messages.newMessagesBelow")}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={14}
+              color={lightTheme.sidebarForeground}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Composer / edit composer */}
         {editing ? (

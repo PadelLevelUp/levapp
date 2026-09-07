@@ -100,6 +100,7 @@ from padel_app.services.messaging_service import (
     delete_message_service,
     toggle_reaction_service,
     get_user_conversations,
+    conversation_messages_page,
     get_conversation_for_detail,
     create_conversation_service,
     mark_conversation_read_service,
@@ -554,11 +555,32 @@ def get_conversations():
 @jwt_required()
 def conversation_detail(conversation_id):
     user = current_user()
-    conversation = get_conversation_for_detail(conversation_id)
+
+    # PAD-208 / messaging.conversation-detail rule 1. `limit` absent is the
+    # deprecated unpaged branch: TestFlight build 8 is installed in the field and
+    # sends no paging arguments, and truncating its threads to a page it cannot
+    # scroll past would be worse than the slow load it has today.
+    limit = request.args.get("limit", type=int)
+    before = request.args.get("before", type=int)
+
+    conversation = get_conversation_for_detail(
+        conversation_id, with_messages=limit is None
+    )
     is_participant = any(p.user_id == user.id for p in conversation.participants)
     if not is_participant:
         abort(403, "Not a participant of this conversation")
-    return jsonify(serialize_conversation_detail(conversation, user.id))
+
+    if limit is None:
+        return jsonify(serialize_conversation_detail(conversation, user.id))
+
+    messages, has_more = conversation_messages_page(
+        conversation_id, limit=limit, before=before
+    )
+    return jsonify(
+        serialize_conversation_detail(
+            conversation, user.id, messages=messages, has_more=has_more
+        )
+    )
 
 
 @bp.post("/conversation/<int:conversation_id>/read")
