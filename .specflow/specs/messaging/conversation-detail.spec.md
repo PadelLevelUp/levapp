@@ -36,10 +36,16 @@ through the history without the thread ever moving under the reader.
    every message it renders, so an unloaded relationship turns a 200-message thread into 200
    round trips; the detail endpoint eager-loads them up front instead. (`replyTo` is the raw
    `reply_to_id`, so the reply chain costs nothing extra.)
-9. The thread **opens anchored at the newest message**, with no visible scroll animation: the
-   first page is positioned at its bottom before the user sees it, not scrolled there afterwards.
-   A list that renders the history and then travels to the end — once, or once per render batch —
-   violates this rule even when it ends up in the right place (B-027)
+9. The thread **opens anchored at the newest message**, and **the list is not shown until it
+   is anchored**. Until then the thread area shows a neutral placeholder — a blank surface or a
+   skeleton — and never partially laid-out messages or a viewport in motion. Positioning the
+   list while it is on screen does not satisfy this rule even with no animation and even if it
+   ends at the right place: on the native shell the list commits rows incrementally, so every
+   intermediate layout is something the user watches happen (B-027, then B-028 for the same
+   complaint a second time). The reveal is driven by an **observed** end-of-content state, not
+   by a delay — and carries a bounded fallback, so a measurement that never settles reveals the
+   thread anyway rather than leaving it blank. The first page is small (`limit` 30) so the
+   anchor is reached immediately; the rest of the history arrives by rule 11
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
     bubble's height), **no content change moves it**: not a new incoming message, an edit, a
     reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
@@ -52,6 +58,12 @@ through the history without the thread ever moving under the reader.
     top** — the reader's position over the text does not jump. A small loading indicator shows
     while the page is in flight, only one page is in flight at a time, and nothing is fetched once
     `hasMore` is false
+12. Whenever the viewport is **more than about one screen height above the bottom**, a persistent
+    **jump-to-bottom control** is shown (a chevron); activating it goes to the newest message.
+    It is not conditional on anything having arrived — a reader who has simply scrolled a long
+    way back can always get straight back. When messages *have* arrived unseen meanwhile it is
+    the same control, carrying rule 10's "New messages" label, so the two never appear as two
+    competing buttons. Both shells
 
 ### Acceptance Criteria
 
@@ -94,3 +106,23 @@ through the history without the thread ever moving under the reader.
 - **When** the previous page is fetched and prepended
 - **Then** all 60 messages are loaded
 - **And** the message that was at the top of the viewport is still at the top of the viewport
+
+#### No frame of the open shows the thread anywhere but the bottom (PAD-224)
+- **Given** a conversation seeded with 200 messages
+- **When** a participant opens it
+- **Then** the very first painted frame that contains any message row has the thread scrolled to
+  its maximum offset
+- **And** no frame between the first message row appearing and the thread settling has a scroll
+  offset below that maximum — nothing is ever seen travelling towards the bottom
+
+#### Scrolled a long way up, the jump-to-bottom control returns you (PAD-224)
+- **Given** a participant reading that 200-message thread who has scrolled about three screens
+  up from the bottom, with no new message having arrived
+- **Then** the jump-to-bottom control is visible
+- **When** they activate it
+- **Then** the thread is at the newest message
+
+#### At the bottom there is no jump-to-bottom control (PAD-224)
+- **Given** a participant who has just opened that thread and not scrolled
+- **When** the thread is anchored at the newest message
+- **Then** no jump-to-bottom control is shown
