@@ -67,7 +67,7 @@ export default function DashboardPage() {
   // The payload id is the switch (dashboard.blocks rule 3b): both homes share
   // block types now, so sniffing them would tell the two apart by accident.
   const firstName = (user?.name ?? "").trim().split(" ")[0] ?? "";
-  const isCoachHome = dashboard.id === COACH_DASHBOARD_ID;
+  const Home = dashboard.id === COACH_DASHBOARD_ID ? CoachDashboard : StudentDashboard;
 
   return (
     <AppLayout>
