@@ -12,10 +12,14 @@ rides on.
   deleting, replying, reacting, and seeing it all live on the other side
 - `messaging.user-manages-unread-and-notifications` — unread counts, badges, and push notifications
   outside the app
+- `messaging.student-reaches-out-and-stays-safe` — a student messages another student by exact
+  username; the recipient sees an unknown-sender banner and can block and report
 
 ## Why it's grouped this way
 
-Two outcomes split along how a user experiences them: actively being in a conversation (real-time
+Three outcomes. The first two split along how a user experiences them: actively being in a conversation (real-time
 messaging) versus finding out something's waiting when they're not (unread state and push). They're
 triggered by different moments — sending a message versus not being present when one arrives — and
-can be read, tested and changed independently of each other.
+can be read, tested and changed independently of each other. The third is about *who may reach
+whom* and what the receiving side can do about it — a reachability and safety boundary rather than
+a delivery mechanism.

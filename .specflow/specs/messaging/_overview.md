@@ -13,6 +13,8 @@ The messaging domain.
 - `messaging.sse-realtime` — implemented
 - `messaging.push-notifications` — implemented
 - `messaging.conversation-detail` — implemented
+- `messaging.block-and-report` — implementing (block/report built, never specced; unknown-sender banner draft)
+- `messaging.direct-by-username` — draft (student→student by exact username)
 
 ## Why it's grouped this way
 

@@ -139,6 +139,17 @@ class Config:
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
 
+    # auth.coach-approval: a self-registered coach waits for a superadmin's
+    # approval before anything club-scoped opens up. Set to "0"/"false" to
+    # switch the gate off — new coaches are then approved at signup; no data
+    # change is needed either way (decision 2026-09-06, item 7).
+    COACH_APPROVAL_REQUIRED = os.getenv("COACH_APPROVAL_REQUIRED", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
+    # Where to email "a coach is waiting for approval". Unset → no email, the
+    # Settings → Admin badge is the only signal.
+    ADMIN_NOTIFY_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL") or None
+
     # Sessions
     SESSION_PERMANENT = False
     SESSION_TYPE = "filesystem"

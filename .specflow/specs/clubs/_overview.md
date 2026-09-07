@@ -9,6 +9,7 @@ The clubs domain.
 - `clubs.crud` — implemented
 - `clubs.membership` — implemented
 - `clubs.coach-invitation` — implemented
+- `clubs.join-request` — draft (a self-registered coach asks to join an existing club; a member approves)
 
 ## Why it's grouped this way
 

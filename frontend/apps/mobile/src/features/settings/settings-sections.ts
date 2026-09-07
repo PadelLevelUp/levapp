@@ -26,7 +26,8 @@ export type SettingsSectionId =
   | "tutorials"
   | "import"
   | "club"
-  | "account";
+  | "account"
+  | "admin";
 
 /**
  * PAD-169 replaced the original `COACH_ONLY_SECTIONS` list with an explicit
@@ -37,7 +38,7 @@ export type SettingsSectionId =
  * only by convention. One field with three values makes every section's
  * audience a single, total statement.
  */
-export type SettingsAudience = "everyone" | "coach" | "student";
+export type SettingsAudience = "everyone" | "coach" | "student" | "superadmin";
 
 export interface SettingsSectionDef {
   id: SettingsSectionId;
@@ -123,6 +124,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     icon: "person-remove-outline",
     audience: "everyone",
   },
+  {
+    // auth.coach-approval rule 7: the LevApp admin approves self-registered
+    // coaches. `superadmin` is orthogonal to coach/student — it is filtered
+    // on `isSuperAdmin`, never on role — and hidden for everyone else.
+    id: "admin",
+    labelKey: "settings.nav.admin",
+    descriptionKey: "settings.mobile.adminNavDescription",
+    icon: "shield-checkmark-outline",
+    audience: "superadmin",
+  },
 ];
 
 /**
@@ -134,10 +145,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
  * `isCoach` is the only role signal this app has, so the two audiences are
  * exhaustive: a caller is either a coach or a student.
  */
-export function visibleSections(isCoach: boolean): readonly SettingsSectionDef[] {
+export function visibleSections(
+  isCoach: boolean,
+  isSuperAdmin = false,
+): readonly SettingsSectionDef[] {
   return SETTINGS_SECTIONS.filter(
     (s) =>
       s.audience === "everyone" ||
+      (s.audience === "superadmin" && isSuperAdmin) ||
       (isCoach ? s.audience === "coach" : s.audience === "student"),
   );
 }

@@ -1,3 +1,4 @@
+import { API_AUTH } from "../helpers/api";
 import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
@@ -66,7 +67,7 @@ test.afterEach(async ({ page }) => {
     .catch(() => null);
   if (!token) return;
   await page
-    .request.patch("http://localhost:8080/api/auth/me", {
+    .request.patch(`${API_AUTH}/me`, {
       headers: { Authorization: `Bearer ${token}` },
       data: ORIGINAL,
     })

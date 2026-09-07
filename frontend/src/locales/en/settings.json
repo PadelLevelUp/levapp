@@ -21,7 +21,8 @@
       "import": "Import Data",
       "club": "Club",
       "account": "Account",
-      "myNotifications": "My notifications"
+      "myNotifications": "My notifications",
+      "admin": "Admin"
     },
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
@@ -120,7 +121,6 @@
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service"
     },
-
     "mobile": {
       "logout": "Log out",
       "username": "Username",
@@ -141,9 +141,9 @@
       "myNotificationsNavDescription": "Choose which class-vacancy invitations you want to receive.",
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
-      "importHistoryEmpty": "No imports yet."
+      "importHistoryEmpty": "No imports yet.",
+      "adminNavDescription": "Approve registered coaches"
     },
-
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",
@@ -559,6 +559,23 @@
         "greaterThan": "more than",
         "atLeast": "at least"
       }
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "LevApp team tools.",
+      "pendingCoaches": "Coaches waiting for approval",
+      "pendingCoachesDescription": "Coach accounts created by self-signup. Only once approved can they create or join a club.",
+      "noPending": "No coaches waiting for approval.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "{{name}} approved.",
+      "rejected": "{{name}}'s request rejected.",
+      "loadFailed": "Could not load the requests.",
+      "actionFailed": "Could not complete the action.",
+      "rejectDialogTitle": "Reject {{name}}?",
+      "rejectDialogDescription": "The coach loses access to coach features. The reason is for internal record only.",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "e.g. not a coach"
     }
   }
 }

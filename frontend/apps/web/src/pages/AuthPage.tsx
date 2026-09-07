@@ -16,6 +16,8 @@ import { usernameSchema, passwordSchema } from "@levelup/validation";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { useLaunchOverlay } from "@/components/brand/launch-overlay";
+import { postLoginPath } from "@/auth/postLoginPath";
+import { getMe } from "@/api/auth";
 
 const AuthPage = () => {
   const { t } = useTranslation();
@@ -67,7 +69,9 @@ const AuthPage = () => {
       });
 
       await login(res.data.accessToken)
-      navigate("/dashboard");
+      // auth.register rule 11: a coach still waiting for approval, or with no
+      // club yet, lands on the screen that says so rather than the dashboard.
+      navigate(postLoginPath(await getMe()));
       succeed();
       toast({
         title: t("auth.login.welcomeTitle"),
@@ -157,6 +161,14 @@ const AuthPage = () => {
               {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
             </Button>
           </form>
+
+          {/* auth.register rule 10 — the signup entry point lives on the login screen. */}
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {t("auth.login.noAccount")}{" "}
+            <Link to="/signup" className="underline hover:text-foreground" data-testid="auth-create-account">
+              {t("auth.login.createAccount")}
+            </Link>
+          </p>
         </CardContent>
       </Card>
 

@@ -3,10 +3,18 @@ id: players.add-existing
 status: draft
 depends_on: [players.create]
 implements: ../../specs-business/players/coach-builds-roster.business.md
+deprecated_by: [players.join-token, players.claim]
 governed_by: []
 ---
 
 # players.add-existing
+
+### Deprecated (2026-09-06) — kept `draft` only because the validator has no `deprecated` status
+Superseded by `players.join-token` (the student redeems the coach's QR/link — consent and
+discovery both answered by making the student the actor) and `players.claim` (a coach-created
+record is merged into an existing account). See
+`.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`. Kept as a record;
+not in the build order.
 
 
 ### Intent
