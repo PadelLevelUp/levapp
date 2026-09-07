@@ -138,6 +138,16 @@ class Config:
     MAIL_USE_SSL = True
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    # Recipient guard (auth.email-verification rule 12). Comma-separated exact
+    # addresses and/or `@domain` suffixes; a message to anyone else is dropped
+    # and logged. Empty (prod) allows everyone. Staging holds a copy of prod's
+    # users, so this is what lets it have a real sender without ever mailing
+    # a real coach.
+    MAIL_ALLOWED_RECIPIENTS = tuple(
+        item.strip().lower()
+        for item in os.getenv("MAIL_ALLOWED_RECIPIENTS", "").split(",")
+        if item.strip()
+    )
 
     # auth.coach-approval: a self-registered coach waits for a superadmin's
     # approval before anything club-scoped opens up. Set to "0"/"false" to

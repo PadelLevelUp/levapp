@@ -8,9 +8,12 @@ non-SMTP paths live here and nowhere else:
   appended to the in-process `OUTBOX` and nothing is sent. The debug route
   `GET /api/auth/email-verification/debug/last-code` reads the code back from
   it (auth.email-verification rule 11).
-- No `MAIL_USERNAME` configured (staging, a bare dev box): raise, so callers
-  that are best-effort log it and callers that must know (the "send a new
-  code" route) answer 503 instead of pretending.
+- No `MAIL_USERNAME` configured (a bare dev box): raise, so callers that are
+  best-effort log it and callers that must know (the "send a new code" route)
+  answer 503 instead of pretending.
+- `MAIL_ALLOWED_RECIPIENTS` set (staging): recipients outside the list are
+  dropped and logged; if nobody is left the send raises the same way, because
+  staging's database is a copy of prod's and must never mail a real coach.
 """
 import os
 from collections import deque
@@ -28,6 +31,30 @@ OUTBOX = deque(maxlen=200)
 
 class MailNotConfigured(RuntimeError):
     """No sender is configured: the message was not sent."""
+
+
+class MailRecipientNotAllowed(RuntimeError):
+    """Every recipient is outside MAIL_ALLOWED_RECIPIENTS: nothing was sent."""
+
+
+def allowed_recipients(recipients):
+    """The subset of `recipients` the environment may mail (rule 12).
+
+    Empty `MAIL_ALLOWED_RECIPIENTS` means everyone. An entry starting with `@`
+    matches the whole domain; anything else must match the address exactly.
+    Case-insensitive."""
+    rules = current_app.config.get("MAIL_ALLOWED_RECIPIENTS") or ()
+    if not rules:
+        return list(recipients)
+    kept = []
+    for address in recipients:
+        lowered = (address or "").strip().lower()
+        if any(
+            lowered.endswith(rule) if rule.startswith("@") else lowered == rule
+            for rule in rules
+        ):
+            kept.append(address)
+    return kept
 
 
 def _sender():
@@ -52,7 +79,16 @@ def send_email(subject, recipients, body=None, html=None):
     if not sender:
         raise MailNotConfigured("MAIL_USERNAME is not configured; mail not sent")
 
-    msg = Message(subject, sender=sender, recipients=recipients)
+    kept = allowed_recipients(recipients)
+    dropped = [r for r in recipients if r not in kept]
+    if dropped:
+        current_app.logger.warning(
+            "mail to %s dropped: outside MAIL_ALLOWED_RECIPIENTS (%r)", dropped, subject
+        )
+    if not kept:
+        raise MailRecipientNotAllowed(f"no allowed recipient among {list(recipients)}")
+
+    msg = Message(subject, sender=sender, recipients=kept)
     if body:
         msg.body = body
     if html:

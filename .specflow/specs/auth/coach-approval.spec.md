@@ -115,7 +115,9 @@ it is designed to be switched off later without a data change.
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 7.
 - Mail sender: prod runs `MAIL_USERNAME=padelapp2025@gmail.com` with the `MAIL_PASSWORD` secret
   (`backend/.env.prod`, `deploy-prod.yaml`); `ADMIN_NOTIFY_EMAIL=admin@levapp.app` was added to
-  `.env.prod` on 2026-09-07 (PAD-231). Staging deliberately has no sender.
+  `.env.prod` on 2026-09-07 (PAD-231). Staging has the same sender behind
+  `MAIL_ALLOWED_RECIPIENTS=@levapp.app` (`auth.email-verification` rule 12), so an approval
+  there can only ever reach the team.
 - OPEN: who the LevApp admin is operationally — today the only `is_superadmin` account is the
   owner's. If a second admin is needed, flip the flag in the editor; no UI for that in v1.
 - OPEN: rejected coaches keep an active User. Decide later whether rejection should disable the

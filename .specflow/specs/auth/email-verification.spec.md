@@ -31,8 +31,8 @@ own email in Settings.
    coach types for a player (`players.create`, `auth.activate`) never triggers the step, so a
    coach-created player is not stopped on first sign-in. When the config flag
    `EMAIL_VERIFICATION_REQUIRED` is off (default on), neither path sets the flag and the user
-   is treated as verified at once — staging cannot send mail by design, so it runs with the flag
-   off (`backend/.env.staging`).
+   is treated as verified at once. Every deployed environment keeps it on; the switch exists
+   for a box with no sender at all.
 2. **State on `/api/auth/me`.** `emailVerification` is `"verified"` when `email_verified_at`
    is set, `"pending"` when the user has an email, is required to verify and has not, and
    `"unverified"` otherwise (has an email nobody asked them to verify, or no email at all).
@@ -91,6 +91,12 @@ own email in Settings.
     `?email=` — the Maestro runner holds no token, and the outbox exists only on the flag-gated
     test backend. This is how the E2E suites read the code. `/api/auth/me` also carries
     `emailVerificationResendInSeconds` so the countdown survives a reload.
+12. **Recipient guard.** `MAIL_ALLOWED_RECIPIENTS` (comma-separated exact addresses and `@domain`
+    suffixes, case-insensitive) is enforced inside `email_tools.send_email` for every message the
+    app sends: recipients outside the list are dropped and logged, and a message with nobody left
+    raises like a transport failure (so `send` answers 503 `MAIL_FAILED`, never a silent success).
+    Empty means everyone (prod). Staging runs with a real sender and `@levapp.app` only, because
+    its database is a copy of prod's and it must never mail a real coach.
 
 ### Acceptance Criteria
 
@@ -156,6 +162,14 @@ own email in Settings.
 - **Given** two users with an email and one without, all created before the migration
 - **When** the migration runs
 - **Then** the two with an email have `email_verified_at` set and the third has it null
+
+#### Staging cannot mail anyone outside the allowlist
+- **Given** `MAIL_ALLOWED_RECIPIENTS` is `@levapp.app, tester@gmail.com` and a real sender
+- **When** the app sends to `Ana@LevApp.app`, `tester@gmail.com` and `coach@clubreal.pt`
+- **Then** the message goes to the first two only and the third is logged as dropped
+- **When** the only recipient is `coach@clubreal.pt`, or `ana@levapp.app.evil.com`
+- **Then** nothing is sent and the caller sees a failure; a signup to such an address is still created and its `send` answers 503
+- **And** with the setting empty the same message goes to everyone
 
 #### Gate switched off
 - **Given** `EMAIL_VERIFICATION_REQUIRED` is off

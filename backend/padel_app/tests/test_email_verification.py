@@ -270,6 +270,72 @@ def test_mail_not_configured_is_a_clean_failure(app, monkeypatch):
             send_email("x", ["a@example.com"], body="y")
 
 
+# --- Recipient guard (rule 12): staging may hold a sender but never mail a real coach --
+
+@pytest.fixture
+def smtp(monkeypatch):
+    """Capture what would reach SMTP (recipients per message)."""
+    from padel_app import mail as mail_module
+
+    sent = []
+    monkeypatch.setattr(mail_module.mail, "send", lambda msg: sent.append(list(msg.recipients)))
+    return sent
+
+
+def _configure_sender(app, allowed):
+    app.config["MAIL_USERNAME"] = "sender@example.com"
+    app.config["E2E_DEBUG_ENDPOINTS"] = None
+    app.config["MAIL_ALLOWED_RECIPIENTS"] = allowed
+
+
+def test_allowlist_keeps_domain_and_exact_matches_only(app, smtp):
+    from padel_app.tools.email_tools import MailRecipientNotAllowed, send_email
+
+    with app.app_context():
+        _configure_sender(app, ("@levapp.app", "tester@gmail.com"))
+        send_email("x", ["Ana@LevApp.app", "tester@gmail.com", "coach@clubreal.pt"], body="y")
+        assert smtp == [["Ana@LevApp.app", "tester@gmail.com"]]
+        with pytest.raises(MailRecipientNotAllowed):
+            send_email("x", ["coach@clubreal.pt"], body="y")
+        assert len(smtp) == 1
+        # `@levapp.app` is a domain suffix, not a substring: no lookalike domains.
+        with pytest.raises(MailRecipientNotAllowed):
+            send_email("x", ["ana@levapp.app.evil.com", "levapp.app@gmail.com"], body="y")
+
+
+def test_empty_allowlist_allows_everyone(app, smtp):
+    from padel_app.tools.email_tools import send_email
+
+    with app.app_context():
+        _configure_sender(app, ())
+        send_email("x", ["coach@clubreal.pt"], body="y")
+        assert smtp == [["coach@clubreal.pt"]]
+
+
+def test_allowlist_is_parsed_from_the_environment(monkeypatch):
+    import importlib
+
+    from padel_app import config as config_module
+
+    monkeypatch.setenv("MAIL_ALLOWED_RECIPIENTS", " @levapp.app, Tester@Gmail.com ,,")
+    reloaded = importlib.reload(config_module)
+    try:
+        assert reloaded.Config.MAIL_ALLOWED_RECIPIENTS == ("@levapp.app", "tester@gmail.com")
+    finally:
+        monkeypatch.delenv("MAIL_ALLOWED_RECIPIENTS")
+        importlib.reload(config_module)
+
+
+def test_dropped_verification_mail_is_a_503_not_a_silent_success(client, app, smtp):
+    with app.app_context():
+        _configure_sender(app, ("@levapp.app",))
+    body = _register(client, email="ana@outside.example")  # first mail dropped, account still created
+    assert body["user"]["emailVerification"] == "pending"
+    assert smtp == []
+    res = client.post("/api/auth/email-verification/send", headers=_auth(app, _user(app).id))
+    assert res.status_code == 503 and res.get_json()["error"] == "MAIL_FAILED"
+
+
 # --- Coach-created players are not stopped -----------------------------------------
 
 def test_coach_created_player_is_not_stopped(client, app, outbox):
