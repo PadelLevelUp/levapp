@@ -32,6 +32,16 @@ Automatically send class reminders to enrolled players at a configured time befo
     - "Already on record" means the Presence row still reflects that same answer **and** no un-actioned reminder message is pending for that (player, instance). A newer reminder (rule 9) is a fresh question and is always answerable, even with the same answer.
     - Changing the answer (`yes` → `no`, or `no` → `yes`) is never suppressed.
     - The invitation engine enforces the same guarantee independently: the decline path does not re-trigger invitations when the player's spot already has an open Vacancy with live (`sent`/`queued`/`confirmed`) invitations out for it.
+13. **Answering is reading (PAD-202).** A reminder can be answered from outside the chat — the
+    student dashboard offers Yes/No on the class row (`dashboard.blocks` rule 3a). When
+    `respond_to_reminder()` (or `respond_to_notification()` for an invite) records a **fresh**
+    answer, it advances the player's `ConversationParticipant.last_read_at` in that conversation
+    to the moment of the answer — never backwards. The reminder, everything before it, and the
+    `reminder_confirmed` / `reminder_declined` acknowledgement the answer itself produces (the
+    echo of the player's own action, not news) stop counting as unread; anything sent after the
+    answer still does. A duplicate answer (rule 12) or an expired reminder (rule 10) does not
+    touch the marker. (The read state is one watermark per conversation, so "read up to the
+    answer" is the finest grain the model allows.)
 
 ### Acceptance Criteria
 
@@ -82,6 +92,14 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **And** exactly ONE round of replacement invitations was fanned out (no candidate is invited twice)
 - **And** the same holds for repeated `yes` (one `reminder_confirmed` message)
 - **And** answering `yes` after `no` (a genuine change) is still processed normally
+
+#### Answering from the dashboard marks the reminder read (PAD-202)
+- **Given** a player whose direct conversation with the coach holds an unread reminder for
+  instance 10 and an unread coach message sent after it
+- **When** they respond `yes` through `respond_to_reminder()`
+- **Then** nothing in that conversation counts as unread any more (the reminder, the coach
+  message and the `reminder_confirmed` acknowledgement are all before the answer), and a coach
+  message sent **after** the answer counts as unread again
 
 #### Newer reminder supersedes older reminder buttons (PAD-49)
 - **Given** a player who received a first reminder (with live Yes/No buttons) for instance 10 and has not yet responded

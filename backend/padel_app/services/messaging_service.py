@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from padel_app.utils.dates import utcnow_naive
 
-from flask import abort
+from flask import abort, jsonify, make_response
 from sqlalchemy import func, nullslast, or_, and_
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -73,6 +73,50 @@ def _messageable_target_ids_for(user):
             .all()
         )
     }
+
+
+# messaging.direct-by-username rule 3: every non-match answers the same body,
+# so a block is not detectable from the outside.
+USERNAME_NOT_FOUND = {"error": "No user with that username"}
+
+
+def _username_not_found():
+    abort(make_response(jsonify(USERNAME_NOT_FOUND), 404))
+
+
+def _resolve_direct_username(user, username):
+    """Resolve `otherUsername` for a student caller (messaging.direct-by-username).
+
+    Rule 1: only a caller with a Player row and no Coach row may use the path.
+    Rule 2: exact, case-insensitive match on `users.username`; the target must
+    be active, have a Player row, have no Coach row, and not be the caller.
+    Rule 3: unknown / inactive / coach / self / target-blocked-caller are one
+    404; caller-blocked-target is the usual 403.
+    """
+    if getattr(user, "coach", None) is not None or getattr(user, "player", None) is None:
+        abort(400, "otherUsername is only available to students")
+
+    if not isinstance(username, str) or not username.strip():
+        abort(400, "otherUsername is required")
+
+    target = (
+        User.query.filter(func.lower(User.username) == username.strip().lower()).first()
+    )
+    if (
+        target is None
+        or target.id == user.id
+        or target.status != "active"
+        or target.player is None
+        or target.coach is not None
+    ):
+        _username_not_found()
+
+    if BlockedUser.query.filter_by(blocker_id=target.id, blocked_id=user.id).first():
+        _username_not_found()
+    if BlockedUser.query.filter_by(blocker_id=user.id, blocked_id=target.id).first():
+        abort(403, "Cannot start a conversation with a blocked user")
+
+    return target
 
 
 def _assert_messageable(user, target_id):
@@ -411,6 +455,71 @@ def get_user_conversations(user, page=1, limit=20):
     return {"conversations": convs[:limit], "has_more": has_more}
 
 
+def is_known_contact(viewer_user, conversation):
+    """messaging.block-and-report rule 7 — does the viewer already "know" the other side?
+
+    True when the two share a roster row (either is the other's coach), share at
+    least one club (as coach or player), or the viewer has already written in the
+    thread. Group conversations, and a conversation whose counterpart is gone,
+    never carry the unknown-sender banner. This is what the client renders the
+    "You don't share a club with {name}" banner from — a reachability signal
+    for the student-to-student-by-username path (messaging.direct-by-username),
+    never an authorization check.
+    """
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    if conversation.is_group:
+        return True
+
+    other = next(
+        (p for p in conversation.participants if p.user_id != viewer_user.id),
+        None,
+    )
+    other_user = other.user if other else None
+    if other_user is None:
+        return True
+
+    def _roster_link(coach_user, player_user):
+        coach = getattr(coach_user, "coach", None)
+        player = getattr(player_user, "player", None)
+        if not coach or not player:
+            return False
+        return (
+            Association_CoachPlayer.query.filter_by(
+                coach_id=coach.id, player_id=player.id
+            ).first()
+            is not None
+        )
+
+    if _roster_link(other_user, viewer_user) or _roster_link(viewer_user, other_user):
+        return True
+
+    def _club_ids(user):
+        ids = set()
+        coach = getattr(user, "coach", None)
+        player = getattr(user, "player", None)
+        if coach:
+            ids.update(club.id for club in coach.clubs)
+        if player:
+            ids.update(club.id for club in player.clubs)
+        return ids
+
+    if _club_ids(viewer_user) & _club_ids(other_user):
+        return True
+
+    wrote = (
+        db.session.query(Message.id)
+        .filter(
+            Message.conversation_id == conversation.id,
+            Message.sender_id == viewer_user.id,
+            Message.message_type == "text",
+            Message.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    return wrote is not None
+
+
 def get_conversation_for_detail(conversation_id, with_messages=True):
     """One conversation, with everything the detail payload reads already loaded.
 
@@ -505,8 +614,22 @@ def conversation_messages_page(conversation_id, limit, before=None):
 
 
 def create_conversation_service(data, user):
-    """Finds or creates a conversation for the given participants."""
-    participants = [int(p) for p in data['otherParticipants']]
+    """Finds or creates a conversation for the given participants.
+
+    Two ways to name the other side: `otherParticipants` (ids; coach → roster
+    or club, student → any coach, messaging.conversations rule 7) or
+    `otherUsername` (a student reaching another student by exact username,
+    messaging.direct-by-username). Never both.
+    """
+    by_username = "otherUsername" in data
+    if by_username and "otherParticipants" in data:
+        abort(400, "Send either otherUsername or otherParticipants, not both")
+
+    if by_username:
+        target = _resolve_direct_username(user, data.get("otherUsername"))
+        participants = [target.id]
+    else:
+        participants = [int(p) for p in data['otherParticipants']]
     participants.append(user.id)
 
     key = Conversation.build_participant_key(participants)
@@ -518,7 +641,11 @@ def create_conversation_service(data, user):
         for other_id in other_ids:
             if _is_blocked_either_way(user.id, other_id):
                 abort(403, "Cannot start a conversation with a blocked user")
-            _assert_messageable(user, other_id)
+            # The username path was already scoped and block-checked in
+            # `_resolve_direct_username`; the coach/club scope of rule 7 does
+            # not apply to it (a student may reach any active student).
+            if not by_username:
+                _assert_messageable(user, other_id)
 
         payload = {
             # PAD-93: `participants` always includes the creator, so the old

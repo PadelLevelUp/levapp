@@ -10,13 +10,30 @@ from padel_app.services.user_service import (
     ProfileValidationError,
     update_own_profile_service,
 )
+from padel_app.services.registration_service import (
+    RegistrationError,
+    register_user_service,
+)
+from padel_app.services.club_service import latest_pending_club_join_request
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
 
 def _serialize_me(user):
     """The payload the app hydrates its session and Settings profile form from."""
+    coach = user.coach
+    pending = latest_pending_club_join_request(coach)
     return {
+        # auth.register rule 9 / auth.coach-approval: the client routes a coach
+        # by `coachApproval` first (pending / rejected screens), then by
+        # `clubs` (club onboarding vs dashboard). `pendingClubJoinRequest` is
+        # the most recent pending request (clubs.join-request rule 6).
+        "coachApproval": coach.approval_status if coach else None,
+        "clubs": [{"id": c.id, "name": c.name} for c in coach.clubs] if coach else [],
+        "pendingClubJoinRequest": (
+            {"id": pending.id, "clubId": pending.club_id, "clubName": pending.club.name}
+            if pending else None
+        ),
         "id": user.id,
         "username": user.username,
         "name": user.name,
@@ -37,6 +54,26 @@ def _serialize_me(user):
         "blockAllNotifications": bool(user.notif_block_all),
         "notificationBlockReason": user.notif_block_reason or "",
     }
+
+@bp.post("/register")
+def register():
+    """auth.register — self-service signup for coaches and students."""
+    data = request.get_json(silent=True) or {}
+    try:
+        user = register_user_service(data)
+    except RegistrationError as exc:
+        db.session.rollback()
+        payload = {"error": exc.message}
+        if exc.field:
+            payload["field"] = exc.field
+        return jsonify(payload), exc.status
+
+    access_token = create_access_token(identity=str(user.id))
+    return jsonify({
+        "accessToken": access_token,
+        "user": {"id": user.id, "name": user.name, "role": user.role},
+    }), 201
+
 
 @bp.post("/login")
 def login():

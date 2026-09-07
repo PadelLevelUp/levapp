@@ -124,6 +124,14 @@ def _seed(app, *, now):
             invited=True,
             confirmed=True,
         )
+        # PAD-202 correction: a student's window is 30 days, not the coach's 7.
+        make_class(
+            "Far Class",
+            (now + timedelta(days=12)).replace(hour=18, minute=0),
+            4,
+            invited=True,
+            confirmed=True,
+        )
 
         # Attendance history: two present, one absent — all validated, all past.
         for offset, status in ((10, "present"), (17, "present"), (24, "absent")):
@@ -223,10 +231,43 @@ def test_schedule_lists_the_week_including_the_invite(app):
         block = build_player_schedule_block(player_id=student_id, now=now)
 
     data = block["data"]
-    assert data["totalCount"] == 3
-    assert [i["title"] for i in data["items"]] == ["A1 Class", "Invite Class", "Confirmed Class"]
+    # 30-day window (PAD-202 correction): the class 12 days out is listed too.
+    assert data["totalCount"] == 4
+    assert [i["title"] for i in data["items"]] == [
+        "A1 Class",
+        "Invite Class",
+        "Confirmed Class",
+        "Far Class",
+    ]
     assert data["items"][0]["dayOfMonth"] == 4
     assert data["calendarHref"] == "/calendar"
+
+
+def test_rows_and_hero_say_whether_the_student_still_has_to_answer(app):
+    """`pendingConfirmation` is the switch for the dashboard's Yes/No (rule 3a)."""
+    from padel_app.helpers.dashboard.player_home import (
+        build_player_next_class_block,
+        build_player_schedule_block,
+    )
+
+    now = datetime(2026, 8, 4, 10, 0)
+    student_id, _, soon_id = _seed(app, now=now)
+
+    with app.app_context():
+        hero = build_player_next_class_block(player_id=student_id, now=now)
+        rows = build_player_schedule_block(player_id=student_id, now=now)["data"]["items"]
+
+    by_title = {r["title"]: r for r in rows}
+    # Asked and unanswered → pending, with the instance id the answer needs.
+    assert by_title["Invite Class"]["pendingConfirmation"] is True
+    assert isinstance(by_title["Invite Class"]["lessonInstanceId"], int)
+    # Answered → not pending. Signed up without ever being asked → not pending.
+    assert by_title["Confirmed Class"]["pendingConfirmation"] is False
+    assert by_title["A1 Class"]["pendingConfirmation"] is False
+    assert by_title["A1 Class"]["lessonInstanceId"] == soon_id
+
+    assert hero["data"]["pendingConfirmation"] is False
+    assert hero["data"]["lessonInstanceId"] == soon_id
 
 
 def test_kpis_carry_their_denominator_and_keep_their_links(app):

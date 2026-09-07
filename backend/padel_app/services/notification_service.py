@@ -2390,6 +2390,32 @@ def _pending_reminder_message(
     )
 
 
+def _mark_answered_message_read(message, user_id: int) -> None:
+    """Answering is reading (notifications.reminders rule 13, PAD-202).
+
+    A reminder or invite can be answered from the student dashboard without the
+    chat ever being opened. A fresh answer advances the player's read marker in
+    that conversation to *now* — never backwards — so the question, everything
+    before it, and the system message acknowledging the answer (born a moment
+    earlier, the echo of the player's own action) all stop counting as unread.
+    Anything sent after the answer still does. Call it after the
+    acknowledgement has been sent.
+    """
+    if message is None:
+        return
+    from padel_app.models import ConversationParticipant
+
+    participation = ConversationParticipant.query.filter_by(
+        conversation_id=message.conversation_id, user_id=user_id
+    ).first()
+    if participation is None:
+        return
+    stamp = utcnow_naive()
+    if participation.last_read_at is None or participation.last_read_at < stamp:
+        participation.last_read_at = stamp
+        participation.save()
+
+
 def _recorded_reminder_action(presence: "Presence | None") -> str | None:
     """The reminder answer currently durably recorded on ``presence``.
 
@@ -2533,6 +2559,8 @@ def respond_to_reminder(
                 resolve_message_template(templates, "reminder_confirmed", locale),
                 class_instance_id=instance.id,
             )
+        # Rule 13: the answer may have come from the dashboard — count it as read.
+        _mark_answered_message_read(reminder_msg, acting_user_id)
         return {"action": "confirmed"}
 
     elif action == "no":
@@ -2548,6 +2576,7 @@ def respond_to_reminder(
             locale=locale,
             now=now,
         )
+        _mark_answered_message_read(reminder_msg, acting_user_id)
         return {"action": "declined"}
 
     return {"action": "unknown"}
@@ -3299,6 +3328,7 @@ def respond_to_notification(
     coach_user_id = coach.user_id if coach else None
     player_user_id = acting_user_id
 
+    invite_msg = None
     # Mark original invite message as responded
     if event.message_id:
         invite_msg = Message.query.get(event.message_id)
@@ -3346,6 +3376,7 @@ def respond_to_notification(
             },
             _coach_only(coach_user_id),
         )
+        _mark_answered_message_read(invite_msg, acting_user_id)
         return {"action": "declined"}
 
     elif action == "yes":
@@ -3437,6 +3468,7 @@ def respond_to_notification(
             },
             _coach_only(coach_user_id),
         )
+        _mark_answered_message_read(invite_msg, acting_user_id)
         return {"action": "confirmed"}
 
     return {"action": "unknown"}

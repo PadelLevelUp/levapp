@@ -71,6 +71,7 @@
       "action": "Report",
       "dialogTitle": "Report this message",
       "reasons": {
+        "unsolicited": "Unsolicited message",
         "spam": "Spam",
         "harassment": "Harassment",
         "inappropriate": "Inappropriate content",
@@ -80,7 +81,9 @@
       "submit": "Submit report",
       "submitting": "Submitting…",
       "success": "Reported",
-      "failed": "Couldn't submit the report. Please try again."
+      "failed": "Couldn't submit the report. Please try again.",
+      "reportAndBlock": "Report and block",
+      "reportAndBlockSuccess": "Reported and blocked"
     },
     "conversationWithAria": "Conversation with {{name}}",
     "startConversationWithAria": "Start conversation with {{name}}",
@@ -110,6 +113,18 @@
     "reactWith": "React with {{emoji}}",
     "roleLabel": "Role: {{role}}",
     "reactionLabel_one": "{{emoji}} reaction",
-    "reactionLabel_other": "{{emoji}} reaction ({{count}})"
+    "reactionLabel_other": "{{emoji}} reaction ({{count}})",
+    "messageByUsername": "Message by username",
+    "messageByUsernameHint": "Enter another student's exact username. Students are not searchable.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Start",
+    "noUserWithUsername": "No user with that username",
+    "cannotMessageUser": "You can't message this user",
+    "unknownSender": {
+      "title": "You don't share a club with {{name}}",
+      "description": "This person isn't one of your coaches and isn't in any of your clubs. Reply to keep talking, or block or report them.",
+      "block": "Block",
+      "report": "Report"
+    }
   }
 }

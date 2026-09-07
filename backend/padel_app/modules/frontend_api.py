@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request, abort, g, Response
+from werkzeug.exceptions import HTTPException
 from datetime import timezone
 from dateutil import parser
 import json
@@ -80,12 +81,25 @@ from padel_app.services.club_service import (
     accept_coach_invitation_service,
     revoke_coach_invitation_service,
     list_coach_invitations_service,
+    search_clubs_service,
+    serialize_club_search_result,
+    create_club_join_request_service,
+    list_club_join_requests_service,
+    decide_club_join_request_service,
+    withdraw_club_join_request_service,
+    serialize_club_join_request,
 )
 from padel_app.services.player_invitation_service import (
     create_incomplete_player_service,
     get_player_invitation_service,
     accept_player_invitation_service,
     revoke_player_invitation_service,
+)
+from padel_app.services.player_join_service import (
+    mint_join_token_service,
+    get_active_join_token_service,
+    get_join_token_preview_service,
+    accept_join_token_service,
 )
 from padel_app.services.coach_service import (
     upsert_coach_levels,
@@ -253,7 +267,43 @@ def require_coach():
     coach = current_coach()
     if coach is None:
         abort(403, "User is not a coach")
+    # auth.coach-approval rule 8: a self-registered coach who has not been
+    # approved by a superadmin has no coach powers yet. Per-user routes
+    # (/api/auth/me etc.) live on another blueprint and are unaffected.
+    if coach.approval_status != "approved":
+        abort(403, "COACH_NOT_APPROVED")
     return coach
+
+
+def require_club():
+    """Return the acting coach's current club, or 409 NO_CLUB.
+
+    clubs.join-request rule 8: an approved coach with no club yet (they have
+    not created one nor been accepted into one) must get a deliberate 409 on
+    club-scoped routes, never a 500 from dereferencing ``None``.
+    """
+    club = current_club()
+    if club is None:
+        abort(409, "NO_CLUB")
+    return club
+
+
+def require_superadmin():
+    """Return the calling ``User``, or 403 unless ``is_superadmin`` (auth.coach-approval)."""
+    user = current_user()
+    if not user.is_superadmin:
+        abort(403, "Superadmin required")
+    return user
+
+
+@bp.errorhandler(HTTPException)
+def _json_http_error(exc):
+    """Every abort() on this blueprint answers JSON ``{"error": <description>}``.
+
+    Clients branch on codes such as ``COACH_NOT_APPROVED`` and ``NO_CLUB``;
+    Flask's default HTML error page would hide them.
+    """
+    return jsonify({"error": exc.description}), exc.code
 
 
 def assert_acting_coach(coach, claimed_coach_id):
@@ -607,7 +657,7 @@ def coach_detail():
 @jwt_required()
 def get_players():
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     player_list = get_players_list(coach, club)
 
     return jsonify([
@@ -1108,6 +1158,72 @@ def class_instance_unvalidate(instance_id):
 # guarding a route nobody uses.
 
 
+@bp.post("/club")
+@jwt_required()
+def create_club():
+    """clubs.crud — an approved coach creates a club and becomes its member.
+
+    The PAD-92 sweep removed the unauthenticated generic ``POST /club``; this
+    is the scoped replacement the club-onboarding screen (clubs.join-request
+    rule 7) uses. The acting coach comes from the JWT.
+    """
+    from padel_app.models import Association_CoachClub, Club
+    from padel_app.sql_db import db
+
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required", "field": "name"}), 400
+    club = Club(
+        name=name,
+        location=(data.get("location") or None),
+        description=(data.get("description") or None),
+    )
+    db.session.add(club)
+    db.session.flush()
+    db.session.add(Association_CoachClub(coach_id=coach.id, club_id=club.id))
+    db.session.commit()
+    return jsonify({"id": club.id, "name": club.name, "location": club.location}), 201
+
+
+# -------------------------------------------------------------------
+# auth.coach-approval — superadmin approves self-registered coaches
+# -------------------------------------------------------------------
+
+@bp.get("/admin/coach-approvals")
+@jwt_required()
+def admin_list_coach_approvals():
+    from padel_app.services.coach_approval_service import (
+        list_pending_coaches_service,
+        serialize_pending_coach,
+    )
+
+    require_superadmin()
+    return jsonify([serialize_pending_coach(c) for c in list_pending_coaches_service()])
+
+
+@bp.post("/admin/coach-approvals/<int:coach_id>/approve")
+@jwt_required()
+def admin_approve_coach(coach_id):
+    from padel_app.services.coach_approval_service import approve_coach_service
+
+    admin = require_superadmin()
+    coach = approve_coach_service(coach_id, admin)
+    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+
+
+@bp.post("/admin/coach-approvals/<int:coach_id>/reject")
+@jwt_required()
+def admin_reject_coach(coach_id):
+    from padel_app.services.coach_approval_service import reject_coach_service
+
+    admin = require_superadmin()
+    data = request.get_json(silent=True) or {}
+    coach = reject_coach_service(coach_id, admin, reason=data.get("reason"))
+    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+
+
 @bp.post("/message")
 @jwt_required()
 def create_message():
@@ -1154,7 +1270,7 @@ def add_class():
 
     data = request.get_json() or {}
     try:
-        lesson = add_class_service(data, current_coach(), current_club())
+        lesson = add_class_service(data, require_coach(), require_club())
     except NoSeasonCoversDateError as e:
         # PAD-90: "recurs until season end" with no covering season is rejected
         # rather than creating an unbounded recurring class.
@@ -1357,6 +1473,64 @@ def list_coach_invitations(club_id):
     ])
 
 
+# -------------------------------------------------------------------
+# Club join requests (clubs.join-request, PAD-211)
+# -------------------------------------------------------------------
+# Every route starts with require_coach(): the search and the request are for
+# an *approved* coach picking their club on the onboarding screen (a pending
+# coach is 403 COACH_NOT_APPROVED, a student 403), and deciding is for
+# members of that club (403 otherwise). Never a 500 for the wrong role.
+
+
+@bp.get("/clubs/search")
+@jwt_required()
+def search_clubs():
+    require_coach()
+    term = request.args.get("q", "")
+    clubs = search_clubs_service(term)
+    return jsonify([serialize_club_search_result(c) for c in clubs])
+
+
+@bp.post("/club/<int:club_id>/join-requests")
+@jwt_required()
+def create_club_join_request(club_id):
+    coach = require_coach()
+    request_row = create_club_join_request_service(club_id, coach)
+    return jsonify(serialize_club_join_request(request_row)), 201
+
+
+@bp.get("/club/<int:club_id>/join-requests")
+@jwt_required()
+def list_club_join_requests(club_id):
+    coach = require_coach()
+    rows = list_club_join_requests_service(club_id, coach)
+    return jsonify([serialize_club_join_request(r) for r in rows])
+
+
+@bp.post("/club-join-requests/<int:request_id>/approve")
+@jwt_required()
+def approve_club_join_request(request_id):
+    coach = require_coach()
+    row = decide_club_join_request_service(request_id, coach, approve=True)
+    return jsonify(serialize_club_join_request(row))
+
+
+@bp.post("/club-join-requests/<int:request_id>/reject")
+@jwt_required()
+def reject_club_join_request(request_id):
+    coach = require_coach()
+    row = decide_club_join_request_service(request_id, coach, approve=False)
+    return jsonify(serialize_club_join_request(row))
+
+
+@bp.post("/club-join-requests/<int:request_id>/withdraw")
+@jwt_required()
+def withdraw_club_join_request(request_id):
+    coach = require_coach()
+    row = withdraw_club_join_request_service(request_id, coach)
+    return jsonify(serialize_club_join_request(row))
+
+
 @bp.get("/coach-invitations/<token>")
 def get_coach_invitation(token):
     invitation = get_coach_invitation_service(token)
@@ -1408,6 +1582,7 @@ def create_incomplete_player():
     # assertion — it may not name a different coach.
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
+    require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
     data["coachId"] = coach.id
     invitation = create_incomplete_player_service(data)
     return jsonify({
@@ -1441,6 +1616,121 @@ def revoke_player_invitation(token):
     coach = require_coach()
     revoke_player_invitation_service(token, coach)
     return jsonify({"success": True})
+
+
+# ---------------------------------------------------------------------------
+# players.claim (PAD-213): fold a coach-created placeholder into the student's
+# real account. Trigger A: the invite link opened while signed in. Trigger B:
+# the coach asks by exact username and the student accepts.
+# ---------------------------------------------------------------------------
+
+@bp.post("/player-invitations/<token>/claim")
+@jwt_required()
+def claim_player_invitation(token):
+    from padel_app.services.player_invitation_service import (
+        claim_player_invitation_service,
+    )
+
+    user = current_user()
+    return jsonify(claim_player_invitation_service(token, user))
+
+
+@bp.post("/player/<int:player_id>/claim-requests")
+@jwt_required()
+def create_player_claim_request(player_id):
+    from padel_app.services.player_claim_service import (
+        create_claim_request_service,
+        serialize_claim_request,
+    )
+
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    req = create_claim_request_service(player_id, coach, data.get("username"))
+    return jsonify(serialize_claim_request(req)), 201
+
+
+@bp.get("/player-claim-requests")
+@jwt_required()
+def list_my_player_claim_requests():
+    from padel_app.services.player_claim_service import (
+        list_my_claim_requests_service,
+        serialize_claim_request,
+    )
+
+    user = current_user()
+    return jsonify([serialize_claim_request(r) for r in list_my_claim_requests_service(user)])
+
+
+@bp.post("/player-claim-requests/<int:request_id>/accept")
+@jwt_required()
+def accept_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        decide_claim_request_service,
+        serialize_claim_request,
+    )
+
+    req = decide_claim_request_service(request_id, current_user(), accept=True)
+    return jsonify(serialize_claim_request(req))
+
+
+@bp.post("/player-claim-requests/<int:request_id>/reject")
+@jwt_required()
+def reject_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        decide_claim_request_service,
+        serialize_claim_request,
+    )
+
+    req = decide_claim_request_service(request_id, current_user(), accept=False)
+    return jsonify(serialize_claim_request(req))
+
+
+@bp.post("/player-claim-requests/<int:request_id>/revoke")
+@jwt_required()
+def revoke_player_claim_request(request_id):
+    from padel_app.services.player_claim_service import (
+        revoke_claim_request_service,
+        serialize_claim_request,
+    )
+
+    coach = require_coach()
+    req = revoke_claim_request_service(request_id, coach)
+    return jsonify(serialize_claim_request(req))
+
+
+# ---------------------------------------------------------------------------
+# players.join-token (PAD-212): a coach's reusable QR / link a signed-in
+# student redeems. Coach side needs an approved coach with a club; the preview
+# is public; accept takes the acting player from the JWT and nothing else.
+# ---------------------------------------------------------------------------
+
+@bp.post("/coach/join-token")
+@jwt_required()
+def mint_join_token():
+    coach = require_coach()
+    club = require_club()  # 409 NO_CLUB, never a 500
+    return jsonify(mint_join_token_service(coach, club)), 201
+
+
+@bp.get("/coach/join-token")
+@jwt_required()
+def get_join_token():
+    coach = require_coach()
+    return jsonify(get_active_join_token_service(coach))
+
+
+@bp.get("/join-tokens/<token>")
+def preview_join_token(token):
+    return jsonify(get_join_token_preview_service(token))
+
+
+@bp.post("/join-tokens/<token>/accept")
+@jwt_required()
+def accept_join_token(token):
+    # players.join-token rule 5: the acting player is the JWT identity. The
+    # body is deliberately ignored so a caller cannot enrol somebody else.
+    user = current_user()
+    return jsonify(accept_join_token_service(token, user))
 
 
 # PAD-92: `POST /lesson/<id>` and `POST /calendar_block/<id>` were
@@ -1651,6 +1941,7 @@ def add_player():
     # PAD-92: the new player joins the CALLING coach's roster.
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
+    require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
     data["coachId"] = coach.id
     coach_player_info = add_player_service(data)
     return jsonify(coach_player_info)
@@ -1886,7 +2177,7 @@ def import_confirm():
     Drains the shared worker and returns the same results dict as before.
     """
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     data = request.get_json() or {}
 
     final = {}
@@ -1911,7 +2202,7 @@ def import_confirm_stream():
     from flask import stream_with_context
 
     coach = require_coach()
-    club = current_club()
+    club = require_club()
     data = request.get_json() or {}
 
     def gen():

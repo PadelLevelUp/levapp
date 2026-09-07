@@ -71,6 +71,7 @@
       "action": "Denunciar",
       "dialogTitle": "Denunciar esta mensagem",
       "reasons": {
+        "unsolicited": "Mensagem não solicitada",
         "spam": "Spam",
         "harassment": "Assédio",
         "inappropriate": "Conteúdo inadequado",
@@ -80,7 +81,9 @@
       "submit": "Enviar denúncia",
       "submitting": "A enviar…",
       "success": "Denúncia enviada",
-      "failed": "Não foi possível enviar a denúncia. Tenta novamente."
+      "failed": "Não foi possível enviar a denúncia. Tenta novamente.",
+      "reportAndBlock": "Denunciar e bloquear",
+      "reportAndBlockSuccess": "Denunciado e bloqueado"
     },
     "conversationWithAria": "Conversa com {{name}}",
     "startConversationWithAria": "Iniciar conversa com {{name}}",
@@ -110,6 +113,18 @@
     "reactWith": "Reagir com {{emoji}}",
     "roleLabel": "Função: {{role}}",
     "reactionLabel_one": "Reação {{emoji}}",
-    "reactionLabel_other": "Reação {{emoji}} ({{count}})"
+    "reactionLabel_other": "Reação {{emoji}} ({{count}})",
+    "messageByUsername": "Mensagem por username",
+    "messageByUsernameHint": "Escreve o username exato de outro aluno. Os alunos não são pesquisáveis.",
+    "usernamePlaceholder": "username",
+    "usernameSubmit": "Iniciar",
+    "noUserWithUsername": "Não existe nenhum utilizador com esse username",
+    "cannotMessageUser": "Não podes enviar mensagens a este utilizador",
+    "unknownSender": {
+      "title": "Não partilhas nenhum clube com {{name}}",
+      "description": "Esta pessoa não é um dos teus treinadores nem está em nenhum dos teus clubes. Responde para continuar a conversa, ou bloqueia ou denuncia.",
+      "block": "Bloquear",
+      "report": "Denunciar"
+    }
   }
 }

@@ -110,14 +110,16 @@ test.describe("PAD-77: dashboard i18n consistency", () => {
       ).toBeVisible({ timeout: 10_000 });
       await expect(page.getByRole("heading", { name: /^(Dashboard|Painel)$/ })).toHaveCount(0);
 
-      // Section eyebrows and KPI tiles must be PT.
-      await expect(page.getByText(/PRÓXIMOS 7 DIAS/).first()).toBeVisible();
+      // Section eyebrows and KPI tiles must be PT. (PAD-202 correction: the
+      // student's list is the next 30 days, "PRÓXIMAS AULAS", not the week.)
+      await expect(page.getByText(/PRÓXIMAS AULAS/).first()).toBeVisible();
       await expect(page.getByText(/PRECISA DE TI/).first()).toBeVisible();
       await expect(page.getByTestId("dashboard-kpi-attended")).toContainText("Presenças");
       await expect(page.getByTestId("dashboard-kpi-missed")).toContainText("Faltas");
 
       // No English leftovers anywhere on the dashboard.
       await expect(page.getByText(/NEXT 7 DAYS/)).toHaveCount(0);
+      await expect(page.getByText(/UPCOMING ·/)).toHaveCount(0);
       await expect(page.getByText(/NEEDS YOU/)).toHaveCount(0);
       await expect(page.getByText("Dashboard", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Your upcoming lessons")).toHaveCount(0);

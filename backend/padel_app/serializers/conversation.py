@@ -129,14 +129,25 @@ def serialize_conversation_detail(
     `hasMore` is false. Read state is resolved per page from the same
     `last_read_at` (messaging.read-tracking), so a message's `isRead` does not
     depend on which page it arrived in.
+
+    `isKnownContact` (PAD-215) is a property of the conversation, not of the
+    page, so it is computed the same way whichever branch produced `messages`.
     """
+    from padel_app.models import User
+    from padel_app.services.messaging_service import is_known_contact
+
     last_read_at = conversation.last_read_by(user_id)
+    viewer = User.query.get(user_id)
 
     if messages is None:
         messages = sorted(conversation.messages, key=lambda m: m.sent_at)
 
     return {
         **serialize_conversation(conversation, user_id),
+        # messaging.block-and-report rule 7: drives the unknown-sender banner.
+        "isKnownContact": (
+            is_known_contact(viewer, conversation) if viewer else True
+        ),
         "messages": [serialize_message(m, last_read_at) for m in messages],
         "hasMore": has_more,
         "oldestMessageId": messages[0].id if messages else None,

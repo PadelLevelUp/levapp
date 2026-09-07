@@ -10,6 +10,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { AccountSection } from "@/features/settings/account-section";
+import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { ClubSection } from "@/features/settings/club-section";
 import { ImportSection } from "@/features/settings/import-section";
@@ -93,6 +94,7 @@ export default function SettingsScreen() {
     queryFn: authApi.getMe,
   });
   const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
+  const isSuperAdmin = (me ?? user)?.isSuperAdmin === true;
 
   const [openId, setOpenId] = React.useState<SettingsSectionId | null>(null);
 
@@ -107,7 +109,7 @@ export default function SettingsScreen() {
     }, [])
   );
 
-  const sections = visibleSections(isCoach);
+  const sections = visibleSections(isCoach, isSuperAdmin);
   // Re-derived every render from the role-filtered list, so it collapses back
   // to the list the moment a section stops being allowed.
   const activeSection = sections.find((s) => s.id === openId) ?? null;
@@ -132,6 +134,8 @@ export default function SettingsScreen() {
         return <ClubSection />;
       case "account":
         return <AccountSection />;
+      case "admin":
+        return <AdminSection />;
     }
   };
 

@@ -7,6 +7,7 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { blockUser, unblockUser, getBlockedUsers } from '@/api/messages';
+import { UnknownSenderBanner } from './UnknownSenderBanner';
 
 interface ChatThreadProps {
   conversation: Conversation;
@@ -43,9 +44,25 @@ export function ChatThread({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [reportOpen, setReportOpen] = useState(false);
+  // messaging.block-and-report rules 7–9 (PAD-215): the server says whether the
+  // other participant is a known contact; sending a reply (or blocking) hides the
+  // banner locally without waiting for a refetch.
+  const [bannerReport, setBannerReport] = useState(false);
+  const [repliedLocally, setRepliedLocally] = useState(false);
 
   const participantId = conversation.participantId;
   const isBlocked = blockedUserIds.has(String(participantId));
+  const showUnknownSender =
+    conversation.isKnownContact === false &&
+    !repliedLocally &&
+    !isBlocked &&
+    !conversation.isAssistant &&
+    participantId != null;
+
+  useEffect(() => {
+    setRepliedLocally(false);
+    setBannerReport(false);
+  }, [conversation.id]);
 
   // PAD-203: null when the counterpart is gone (messaging.conversations
   // rule 10). Resolved once here so every child gets a real string.
@@ -96,8 +113,16 @@ export function ChatThread({
   };
 
   const handleSend = (content: string, replyToId?: string) => {
-    void onSendMessage(content, replyToId);
+    void onSendMessage(content, replyToId).then(
+      () => setRepliedLocally(true),
+      () => undefined,
+    );
     setReplyingTo(null);
+  };
+
+  const handleBlockFromBanner = async () => {
+    await blockUser(String(participantId));
+    setBlockedUserIds((prev) => new Set(prev).add(String(participantId)));
   };
 
   const handleEditSave = async (msgId: string, content: string) => {
@@ -125,6 +150,24 @@ export function ChatThread({
         onConfirmToggleBlock={handleConfirmToggleBlock}
         onReport={() => setReportOpen(true)}
       />
+
+      {showUnknownSender && (
+        <UnknownSenderBanner
+          participantName={participantName}
+          onBlock={async () => {
+            try {
+              await handleBlockFromBanner();
+              toast.success(t('messages.blockSuccess'));
+            } catch {
+              toast.error(t('messages.blockFailed'));
+            }
+          }}
+          onReport={() => {
+            setBannerReport(true);
+            setReportOpen(true);
+          }}
+        />
+      )}
 
       {/* `key`: MessageList holds the scroll anchor for one thread in refs
           (PAD-208 rules 9 and 11). Switching conversations must start those
@@ -162,8 +205,13 @@ export function ChatThread({
 
       <ReportMessageDialog
         open={reportOpen}
-        onOpenChange={setReportOpen}
+        onOpenChange={(next) => {
+          setReportOpen(next);
+          if (!next) setBannerReport(false);
+        }}
         messageId={lastParticipantMessageId}
+        presetReason={bannerReport ? 'unsolicited' : 'spam'}
+        onReportAndBlock={bannerReport ? handleBlockFromBanner : undefined}
       />
     </div>
   );

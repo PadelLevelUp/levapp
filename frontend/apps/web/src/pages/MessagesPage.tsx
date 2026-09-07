@@ -446,6 +446,21 @@ export default function MessagesPage() {
     navigate(`/messages/${newConversation.id}`);
   };
 
+  // messaging.direct-by-username: a student reaches another student by exact
+  // username. The server resolves it (find-or-create by participant key), so
+  // an existing thread comes back as-is; errors propagate to the dialog,
+  // which renders the 404 inline.
+  const handleNewConversationByUsername = async (username: string) => {
+    const conversation = await createConversation({ otherUsername: username });
+    setConversations((prev) =>
+      prev.some((c) => c.id === conversation.id)
+        ? prev
+        : [conversation, ...prev]
+    );
+    setSelectedConversation(conversation);
+    navigate(`/messages/${conversation.id}`);
+  };
+
   // -------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------
@@ -488,6 +503,7 @@ export default function MessagesPage() {
                 selectedId={selectedConversation?.id ?? null}
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
+                onNewConversationByUsername={handleNewConversationByUsername}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

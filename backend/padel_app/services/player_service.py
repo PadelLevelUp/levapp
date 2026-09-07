@@ -7,6 +7,7 @@ from padel_app.models import (
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.models.players import _is_claimable_user
 from padel_app.tools.username_tools import unique_placeholder_username
 
 
@@ -137,6 +138,8 @@ def _serialize_coach_player_relation(rel):
         # password, so this is a precise "profile complete" signal that does
         # not conflate with isActive.
         "validated": (user.password is not None) if user else False,
+        # PAD-213: `Player.coach_player_info` carries the same key.
+        "claimable": _is_claimable_user(user),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —

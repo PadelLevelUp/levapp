@@ -14,7 +14,7 @@
  */
 import type { DashboardBlock } from "@levelup/types";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { KpiTiles } from "./coach/KpiTiles";
 import { NeedsYouQueue } from "./coach/NeedsYouQueue";
@@ -22,6 +22,7 @@ import { NextClassHero } from "./coach/NextClassHero";
 import { Schedule7Days } from "./coach/Schedule7Days";
 import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
+import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
 
 function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: T) {
   return blocks.find((b): b is Extract<DashboardBlock, { type: T }> => b.type === type);
@@ -30,9 +31,12 @@ function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: 
 export function StudentDashboard({
   blocks,
   firstName,
+  onRefresh,
 }: {
   blocks: DashboardBlock[];
   firstName: string;
+  /** Refetch the payload after the student answers a reminder in place. */
+  onRefresh?: () => void | Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -43,10 +47,33 @@ export function StudentDashboard({
   const scheduleBlock = pick(blocks, "schedule_7d");
   const kpiBlock = pick(blocks, "kpi_grid");
 
-  const hero = heroBlock ? <NextClassHero block={heroBlock} /> : null;
-  const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} /> : null;
-  const schedule = scheduleBlock ? <Schedule7Days block={scheduleBlock} role="student" /> : null;
+  const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} /> : null;
+  const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} /> : null;
+  const schedule = scheduleBlock ? (
+    <Schedule7Days block={scheduleBlock} role="student" onAnswered={onRefresh} />
+  ) : null;
   const kpis = kpiBlock ? <KpiTiles block={kpiBlock} /> : null;
+
+  // players.join-token rule 8: a student with nothing scheduled and no next
+  // class is, in practice, a student no coach has picked up yet — the payload
+  // does not say "has a coach" outright, so the empty week is the signal.
+  const looksUnconnected =
+    !heroBlock && (scheduleBlock?.data.items.length ?? 0) === 0;
+  const connectPrompt = looksUnconnected ? (
+    <div
+      className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+      data-testid="student-connect-prompt"
+    >
+      <span className="text-sm text-muted-foreground">{t("players.connect.dashboardPrompt")}</span>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/connect" data-testid="student-connect-link">{t("players.connect.dashboardLink")}</Link>
+      </Button>
+    </div>
+  ) : null;
+
+  // players.claim rule 4: a coach created a record for this student and asks
+  // to link it — the dashboard is one of the two places they can answer.
+  const claimRequests = <ClaimRequestsList variant="banner" onAccepted={onRefresh} />;
 
   const greeting = t(`dashboard.greeting.${greetingKey()}`, { name: firstName });
   const today = longDate(todayISO(), i18n.language);
@@ -62,6 +89,8 @@ export function StudentDashboard({
             {needsCount > 0 && ` · ${t("dashboard.thingsNeedYou", { count: needsCount })}`}
           </span>
         </div>
+        {claimRequests}
+        {connectPrompt}
         {hero}
         {needsYou}
         {schedule}
@@ -93,6 +122,8 @@ export function StudentDashboard({
 
       <div className="grid grid-cols-[minmax(0,1.35fr)_400px] items-start gap-7 p-8">
         <div className="flex min-w-0 flex-col gap-6">
+          {claimRequests}
+          {connectPrompt}
           {needsYou}
           {schedule}
         </div>

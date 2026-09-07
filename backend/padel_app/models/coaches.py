@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -15,7 +15,33 @@ class Coach(db.Model, model.Model):
     id = Column(Integer, primary_key=True)
     
     user_id = Column(Integer, ForeignKey("users.id"))
-    user = relationship("User", back_populates="coach")
+    user = relationship("User", back_populates="coach", foreign_keys=[user_id])
+
+    # ── auth.coach-approval ─────────────────────────────────────────────────
+    # A self-registered coach (auth.register) waits for a LevApp superadmin to
+    # approve them before anything club-scoped opens up (`require_coach()`
+    # aborts 403 COACH_NOT_APPROVED otherwise). Every OTHER creation path — a
+    # club invitation, the editor, tests — represents a coach somebody already
+    # vouched for, so the ORM default is "approved" and only
+    # `registration_service` sets "pending" explicitly. The DB server default
+    # stays "pending" so a raw INSERT can never mint an approved coach by
+    # accident.
+    approval_status = Column(
+        Enum("pending", "approved", "rejected", name="coach_approval_status"),
+        nullable=False,
+        server_default="pending",
+        default="approved",
+    )
+    approved_at = Column(DateTime, nullable=True)
+    approved_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_by = relationship("User", foreign_keys=[approved_by_user_id])
+    rejection_reason = Column(Text, nullable=True)
+
+    @property
+    def is_approved(self):
+        return self.approval_status == "approved"
 
     # One-to-many to Club
     clubs_relations = relationship(

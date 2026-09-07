@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LevelLabel } from "@/components/LevelLabel";
+import { ClaimLinkAction } from "@/components/players/detail/ClaimLinkAction";
 
 interface PlayerHeaderProps {
   player: CoachPlayer;
@@ -191,6 +192,11 @@ export function PlayerHeader({
               )}
             </Button>
           </div>
+
+          {/* players.claim rule 4: the student may already have registered on
+              their own — offer to link this record to that account instead of
+              leaving two people in the database. Only while still claimable. */}
+          <ClaimLinkAction player={player} />
         </div>
       )}
     </div>

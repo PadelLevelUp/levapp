@@ -18,6 +18,11 @@ import RegisterPage from "./pages/RegisterPage";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
+import SignUpPage from "./pages/SignUpPage";
+import CoachPendingPage from "./pages/CoachPendingPage";
+import ClubOnboardingPage from "./pages/ClubOnboardingPage";
+import ConnectWithCoachPage from "./pages/ConnectWithCoachPage";
+import JoinCoachPage from "@/pages/JoinCoachPage";
 import LandingPage from "./pages/LandingPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
@@ -59,9 +64,13 @@ const App = () => (
             <LaunchOverlayProvider>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
+              {/* auth.register — self-service signup (PAD-210). */}
+              <Route path="/signup" element={<SignUpPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
+              {/* players.join-token rule 9 — public: the preview needs no session. */}
+              <Route path="/join/coach/:token" element={<JoinCoachPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/support" element={<SupportPage />} />
@@ -69,6 +78,34 @@ const App = () => (
               {/* `/` is the public page when there is no session and the
                   dashboard when there is — see HomeRoute. */}
               <Route path="/" element={<HomeRoute />} />
+
+              {/* Post-signup holding screens (auth.register rule 11). They are
+                  protected (a session is needed) but exempt from the
+                  approved-coach redirect ProtectedRoute applies elsewhere. */}
+              <Route
+                path="/coach-pending"
+                element={
+                  <ProtectedRoute>
+                    <CoachPendingPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/club-onboarding"
+                element={
+                  <ProtectedRoute>
+                    <ClubOnboardingPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/connect"
+                element={
+                  <ProtectedRoute>
+                    <ConnectWithCoachPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/dashboard"

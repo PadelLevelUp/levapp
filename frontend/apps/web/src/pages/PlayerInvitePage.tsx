@@ -16,10 +16,14 @@ import { z } from "zod";
 import {
   getPlayerInvitation,
   acceptPlayerInvitation,
+  claimPlayerInvitation,
 } from "@/api/playerInvitations";
 import { useAuth } from "@/auth/AuthContext";
+import { rememberPostAuthRedirect } from "@/auth/postAuthRedirect";
 
 type InvitationStatus = "loading" | "valid" | "invalid";
+/** players.claim trigger A — the signed-in student takes the record over. */
+type ClaimStatus = "idle" | "claiming" | "claimed";
 
 const acceptSchema = z
   .object({
@@ -36,8 +40,11 @@ const PlayerInvitePage = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated, loading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const [claimStatus, setClaimStatus] = useState<ClaimStatus>("idle");
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimedCoach, setClaimedCoach] = useState("");
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
   const [playerName, setPlayerName] = useState("");
@@ -121,7 +128,38 @@ const PlayerInvitePage = () => {
     }
   };
 
-  if (status === "loading") return null;
+  // players.claim rule 3: while signed in, the page offers to link the record
+  // instead of asking for a new username and password.
+  const isCoach = user?.roles?.includes("coach") ?? false;
+
+  const handleClaim = async () => {
+    if (!token) return;
+    setClaimStatus("claiming");
+    setClaimError(null);
+    try {
+      const { coachName } = await claimPlayerInvitation(token);
+      setClaimedCoach(coachName);
+      setClaimStatus("claimed");
+    } catch (error: any) {
+      const code = error?.response?.status;
+      setClaimStatus("idle");
+      if (code === 409) {
+        setClaimError(t("auth.playerInvite.claimAlreadyActivated"));
+      } else if (code === 404 || code === 410) {
+        setStatus("invalid");
+      } else {
+        setClaimError(t("auth.playerInvite.genericError"));
+      }
+    }
+  };
+
+  const goSignInToLink = () => {
+    // Come back here after login (AuthPage honours the remembered path).
+    rememberPostAuthRedirect(`/invite/player/${token}`);
+    navigate("/auth");
+  };
+
+  if (status === "loading" || authLoading) return null;
 
   if (status === "invalid") {
     return (
@@ -139,6 +177,88 @@ const PlayerInvitePage = () => {
             <Button className="w-full" onClick={() => navigate("/auth")}>
               {t("auth.playerInvite.goToLogin")}
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (claimStatus === "claimed") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md text-center" data-testid="invite-claim-success">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold">
+              {t("auth.playerInvite.claimSuccessTitle")}
+            </CardTitle>
+            <CardDescription>
+              {t("auth.playerInvite.claimSuccessDescription", { coachName: claimedCoach })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" onClick={() => navigate("/dashboard")} data-testid="invite-claim-go-dashboard">
+              {t("auth.playerInvite.claimGoToDashboard")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isAuthenticated && isCoach) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md text-center" data-testid="invite-claim-is-coach">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold">
+              {t("auth.playerInvite.claimIsCoachTitle")}
+            </CardTitle>
+            <CardDescription>{t("auth.playerInvite.claimIsCoachDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/dashboard")}>
+              {t("auth.playerInvite.claimGoToDashboard")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md" data-testid="invite-claim">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">
+              {t("auth.playerInvite.claimTitle")}
+            </CardTitle>
+            <CardDescription className="text-center">
+              {t("auth.playerInvite.claimDescription", { playerName })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-center text-sm text-muted-foreground">
+              {t("auth.playerInvite.claimSignedInAs", { name: user?.name ?? user?.username ?? "" })}
+            </p>
+            {claimError && (
+              <p className="text-sm text-destructive text-center" data-testid="invite-claim-error">
+                {claimError}
+              </p>
+            )}
+            <Button
+              className="w-full"
+              onClick={handleClaim}
+              disabled={claimStatus === "claiming"}
+              data-testid="invite-claim-confirm"
+            >
+              {claimStatus === "claiming"
+                ? t("auth.playerInvite.claiming")
+                : t("auth.playerInvite.claimConfirm")}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              {t("auth.playerInvite.claimUseAnotherAccount")}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -196,6 +316,20 @@ const PlayerInvitePage = () => {
               {submitting ? t("auth.playerInvite.completing") : t("auth.playerInvite.complete")}
             </Button>
           </form>
+
+          {/* players.invite-completion rule 9 / players.claim rule 3: the
+              student may already have an account of their own. */}
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {t("auth.playerInvite.claimSignInPrompt")}{" "}
+            <button
+              type="button"
+              className="underline hover:text-foreground"
+              onClick={goSignInToLink}
+              data-testid="invite-claim-signin"
+            >
+              {t("auth.playerInvite.claimSignIn")}
+            </button>
+          </p>
         </CardContent>
       </Card>
     </div>

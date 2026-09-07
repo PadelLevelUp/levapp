@@ -242,14 +242,6 @@ export function MessageList({
             into view when the reader is genuinely at the top. */}
         <div ref={topSentinelRef} aria-hidden="true" className="h-px" />
 
-        {loadingOlder && (
-          <div className="flex justify-center py-2" role="status" aria-live="polite">
-            <span className="px-3 py-1 rounded-full bg-card/80 text-xs text-muted-foreground shadow-sm">
-              {t('messages.loadingOlder')}
-            </span>
-          </div>
-        )}
-
         {grouped.map(group => (
           <div key={group.date}>
             <div className="flex justify-center my-3">
@@ -288,6 +280,25 @@ export function MessageList({
         ))}
         <div ref={bottomRef} />
       </div>
+
+      {/* PAD-208 rule 11 — the loading indicator is an OVERLAY, not a row in
+          the scroller. Inside the scrolling content it would add its own height
+          above the viewport when it appears and take it away again when the
+          page lands, and the reader would see the thread shift by exactly that
+          much (~40px) either side of the prepend. Out here it changes no
+          scroll geometry at all, so the only height change above the viewport
+          is the prepended page — which the layout effect compensates exactly. */}
+      {loadingOlder && (
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="px-3 py-1 rounded-full bg-card/90 backdrop-blur-sm text-xs text-muted-foreground shadow-sm">
+            {t('messages.loadingOlder')}
+          </span>
+        </div>
+      )}
 
       {showScrollDown && (
         <button
