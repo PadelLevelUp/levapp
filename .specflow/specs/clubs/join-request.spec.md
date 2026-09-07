@@ -1,6 +1,6 @@
 ---
 id: clubs.join-request
-status: draft
+status: implemented
 depends_on: [clubs.crud, clubs.membership, auth.register, auth.coach-approval]
 implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: []

@@ -2,7 +2,9 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["9K2J8D2ARR.com.padellevelup.app"],
+        "appIDs": [
+          "9K2J8D2ARR.com.padellevelup.app"
+        ],
         "components": [
           {
             "/": "/invite/player/*",
@@ -15,6 +17,10 @@
           {
             "/": "/register/*",
             "comment": "Newcomer activates the account a coach created for them."
+          },
+          {
+            "/": "/join/coach/*",
+            "comment": "Student joins a coach's roster from the coach's QR / join link (PAD-212)."
           }
         ]
       }

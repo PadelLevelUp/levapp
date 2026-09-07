@@ -7,6 +7,7 @@ Create Date: 2026-09-07 00:30:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -18,6 +19,18 @@ depends_on = None
 
 club_join_request_status = sa.Enum(
     'pending', 'approved', 'rejected', 'withdrawn', name='club_join_request_status'
+)
+
+
+# Column-level type that never emits CREATE TYPE itself: the type is created once,
+# explicitly, in upgrade() — sa.Enum inside create_table would try to create it a
+# second time on Postgres (DuplicateObject). SQLite ignores both.
+club_join_request_status_col = postgresql.ENUM(
+    'pending', 'approved', 'rejected', 'withdrawn',
+    name='club_join_request_status', create_type=False,
+).with_variant(
+    sa.Enum('pending', 'approved', 'rejected', 'withdrawn', name='club_join_request_status'),
+    'sqlite',
 )
 
 
@@ -38,7 +51,7 @@ def upgrade():
             sa.ForeignKey('coaches.id', ondelete='CASCADE'), nullable=False,
         ),
         sa.Column(
-            'status', club_join_request_status,
+            'status', club_join_request_status_col,
             nullable=False, server_default='pending',
         ),
         sa.Column('requested_at', sa.DateTime(), nullable=False),
