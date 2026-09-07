@@ -81,6 +81,13 @@ from padel_app.services.club_service import (
     accept_coach_invitation_service,
     revoke_coach_invitation_service,
     list_coach_invitations_service,
+    search_clubs_service,
+    serialize_club_search_result,
+    create_club_join_request_service,
+    list_club_join_requests_service,
+    decide_club_join_request_service,
+    withdraw_club_join_request_service,
+    serialize_club_join_request,
 )
 from padel_app.services.player_invitation_service import (
     create_incomplete_player_service,
@@ -1436,6 +1443,64 @@ def list_coach_invitations(club_id):
         }
         for inv in invitations
     ])
+
+
+# -------------------------------------------------------------------
+# Club join requests (clubs.join-request, PAD-211)
+# -------------------------------------------------------------------
+# Every route starts with require_coach(): the search and the request are for
+# an *approved* coach picking their club on the onboarding screen (a pending
+# coach is 403 COACH_NOT_APPROVED, a student 403), and deciding is for
+# members of that club (403 otherwise). Never a 500 for the wrong role.
+
+
+@bp.get("/clubs/search")
+@jwt_required()
+def search_clubs():
+    require_coach()
+    term = request.args.get("q", "")
+    clubs = search_clubs_service(term)
+    return jsonify([serialize_club_search_result(c) for c in clubs])
+
+
+@bp.post("/club/<int:club_id>/join-requests")
+@jwt_required()
+def create_club_join_request(club_id):
+    coach = require_coach()
+    request_row = create_club_join_request_service(club_id, coach)
+    return jsonify(serialize_club_join_request(request_row)), 201
+
+
+@bp.get("/club/<int:club_id>/join-requests")
+@jwt_required()
+def list_club_join_requests(club_id):
+    coach = require_coach()
+    rows = list_club_join_requests_service(club_id, coach)
+    return jsonify([serialize_club_join_request(r) for r in rows])
+
+
+@bp.post("/club-join-requests/<int:request_id>/approve")
+@jwt_required()
+def approve_club_join_request(request_id):
+    coach = require_coach()
+    row = decide_club_join_request_service(request_id, coach, approve=True)
+    return jsonify(serialize_club_join_request(row))
+
+
+@bp.post("/club-join-requests/<int:request_id>/reject")
+@jwt_required()
+def reject_club_join_request(request_id):
+    coach = require_coach()
+    row = decide_club_join_request_service(request_id, coach, approve=False)
+    return jsonify(serialize_club_join_request(row))
+
+
+@bp.post("/club-join-requests/<int:request_id>/withdraw")
+@jwt_required()
+def withdraw_club_join_request(request_id):
+    coach = require_coach()
+    row = withdraw_club_join_request_service(request_id, coach)
+    return jsonify(serialize_club_join_request(row))
 
 
 @bp.get("/coach-invitations/<token>")

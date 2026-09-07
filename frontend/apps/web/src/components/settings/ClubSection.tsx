@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Copy, Loader2, UserPlus, X } from "lucide-react";
+import { Building2, Check, Copy, Loader2, UserPlus, X } from "lucide-react";
 import {
   type CoachClub,
   type PendingCoachInvitation,
@@ -20,10 +20,28 @@ import {
   listCoachInvitations,
   revokeCoachInvitation,
 } from "@/api/invitations";
+import {
+  type ClubJoinRequest,
+  approveClubJoinRequest,
+  listClubJoinRequests,
+  rejectClubJoinRequest,
+} from "@/api/clubs";
 
-export function ClubSection() {
+/**
+ * Coach club section: the current club, co-coach invitations (member acts
+ * first) and — clubs.join-request rule 9 — the join requests from coaches who
+ * asked to come in (newcomer acts first). `onJoinRequestCountChange` feeds the
+ * badge on the Club entry of the Settings nav.
+ */
+export function ClubSection({
+  onJoinRequestCountChange,
+}: {
+  onJoinRequestCountChange?: (n: number) => void;
+}) {
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [joinRequests, setJoinRequests] = useState<ClubJoinRequest[]>([]);
+  const [decidingId, setDecidingId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [club, setClub] = useState<CoachClub | null>(null);
@@ -43,6 +61,19 @@ export function ClubSection() {
     }
   }, []);
 
+  const refreshJoinRequests = useCallback(
+    async (clubId: number) => {
+      try {
+        const rows = await listClubJoinRequests(clubId);
+        setJoinRequests(rows);
+        onJoinRequestCountChange?.(rows.length);
+      } catch {
+        toast({ variant: "destructive", title: t("settings.club.joinRequests.loadFailed") });
+      }
+    },
+    [onJoinRequestCountChange, t, toast]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -51,7 +82,7 @@ export function ClubSection() {
         if (cancelled) return;
         setClub(c);
         if (c) {
-          await refreshInvitations(c.id);
+          await Promise.all([refreshInvitations(c.id), refreshJoinRequests(c.id)]);
         }
       })
       .catch(() => {
@@ -64,7 +95,26 @@ export function ClubSection() {
     return () => {
       cancelled = true;
     };
-  }, [refreshInvitations]);
+  }, [refreshInvitations, refreshJoinRequests]);
+
+  const handleDecide = async (req: ClubJoinRequest, approve: boolean) => {
+    if (!club) return;
+    setDecidingId(req.id);
+    try {
+      if (approve) {
+        await approveClubJoinRequest(req.id);
+        toast({ title: t("settings.club.joinRequests.approved", { name: req.coachName }) });
+      } else {
+        await rejectClubJoinRequest(req.id);
+        toast({ title: t("settings.club.joinRequests.declined", { name: req.coachName }) });
+      }
+      await refreshJoinRequests(club.id);
+    } catch {
+      toast({ variant: "destructive", title: t("settings.club.joinRequests.actionFailed") });
+    } finally {
+      setDecidingId(null);
+    }
+  };
 
   const handleInviteCoach = async () => {
     if (!club) return;
@@ -146,6 +196,67 @@ export function ClubSection() {
           )}
           {t("settings.club.inviteCoach")}
         </Button>
+      </div>
+
+      <Separator />
+
+      {/* clubs.join-request rule 9: coaches asking to come in. */}
+      <div className="space-y-3" data-testid="club-join-requests">
+        <div>
+          <p className="text-sm font-medium">{t("settings.club.joinRequests.title")}</p>
+          <p className="text-xs text-muted-foreground">{t("settings.club.joinRequests.description")}</p>
+        </div>
+        {joinRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="club-join-requests-empty">
+            {t("settings.club.joinRequests.empty")}
+          </p>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {joinRequests.map((req) => (
+              <li
+                key={req.id}
+                className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+                data-testid={`club-join-request-${req.id}`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{req.coachName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.club.joinRequests.requestedAt", {
+                      date: new Date(req.requestedAt).toLocaleDateString(i18n.language),
+                    })}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    disabled={decidingId === req.id}
+                    onClick={() => void handleDecide(req, true)}
+                    data-testid={`club-join-approve-${req.id}`}
+                  >
+                    {decidingId === req.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {t("settings.club.joinRequests.approve")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    disabled={decidingId === req.id}
+                    onClick={() => void handleDecide(req, false)}
+                    data-testid={`club-join-decline-${req.id}`}
+                  >
+                    <X className="h-4 w-4" />
+                    {t("settings.club.joinRequests.decline")}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <Separator />
