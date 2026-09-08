@@ -1,8 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { findNextEventId, lightTheme } from "@levelup/config";
-import { useCalendar, useCalendarEvents, useCoachLevels } from "@levelup/hooks";
+import {
+  useCalendar,
+  useCalendarEvents,
+  useCoachLevels,
+  type CalendarViewMode,
+} from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
-import { addDays, format, isSameDay, isToday } from "date-fns";
+import { addDays, format, isToday } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -12,12 +17,16 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Text } from "@/components/ui/text";
+import { DayHeader } from "@/features/calendar/DayHeader";
+import { DayStrip } from "@/features/calendar/DayStrip";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
-import { WeekStrip } from "@/features/calendar/WeekStrip";
-import { useDateLocale } from "@/lib/date-locale";
+import { ViewModeControl } from "@/features/calendar/ViewModeControl";
 import { cn } from "@/lib/utils";
+import { readViewMode, writeViewMode } from "@/lib/view-mode-store";
+
+/** Modes that have shipped. Semana arrives with PAD-247, Mês with PAD-248. */
+const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day"];
 
 function eventDayKey(event: CalendarEvent): string {
   const date = event.date;
@@ -26,16 +35,48 @@ function eventDayKey(event: CalendarEvent): string {
 }
 
 export default function CalendarScreen() {
+  // The stored mode is read once before the calendar mounts, so the first
+  // render already opens in the remembered mode instead of flashing Dia.
+  const [initialViewMode, setInitialViewMode] = React.useState<CalendarViewMode | null>(
+    null
+  );
+  React.useEffect(() => {
+    let alive = true;
+    readViewMode(ENABLED_VIEW_MODES).then((mode) => {
+      if (alive) setInitialViewMode(mode);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!initialViewMode) {
+    return (
+      <Screen testID="screen-calendar">
+        <View className="gap-3 p-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </View>
+      </Screen>
+    );
+  }
+
+  return <CalendarBody initialViewMode={initialViewMode} />;
+}
+
+function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }) {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
-  const locale = useDateLocale();
 
-  // Week navigation first (pure), then fetch the visible week's events.
-  // PAD-181: `language` localizes the week-range label in WeekStrip. Passing
-  // `i18n.language` from useTranslation() (not a module-level import) is what
-  // re-renders the label when the coach switches language.
-  const calendar = useCalendar([], { language: i18n.language });
+  // Week navigation, the selected day and the view mode all live in the
+  // shared hook (calendar.mobile-views rule 2) — this screen never re-decides
+  // the reselect rule web follows. PAD-181: `language` localizes the labels.
+  const calendar = useCalendar([], {
+    language: i18n.language,
+    initialViewMode,
+    onViewModeChange: writeViewMode,
+  });
   const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
   const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
   const {
@@ -46,21 +87,8 @@ export default function CalendarScreen() {
   } = useCalendarEvents(from, to);
   const { data: levels } = useCoachLevels();
 
-  // Selected day: today when visible, otherwise the first day of the week.
-  const [selectedDay, setSelectedDay] = React.useState<Date>(
-    () => calendar.weekDays.find((d) => isToday(d)) ?? calendar.weekDays[0]
-  );
-  React.useEffect(() => {
-    const stillInWeek = calendar.weekDays.some((d) => isSameDay(d, selectedDay));
-    if (!stillInWeek) {
-      setSelectedDay(
-        calendar.weekDays.find((d) => isToday(d)) ?? calendar.weekDays[0]
-      );
-    }
-  }, [calendar.weekDays, selectedDay]);
-
-  // One pass over the week: the strip needs every day's classes in start-time
-  // order, and the detail list is just one of those buckets.
+  // One pass over the week: the strip needs every day's events in start-time
+  // order for its dots, and the detail list is just one of those buckets.
   const eventsByDay = React.useMemo(() => {
     const byDay: Record<string, CalendarEvent[]> = {};
     for (const event of events ?? []) {
@@ -74,7 +102,7 @@ export default function CalendarScreen() {
     return byDay;
   }, [events]);
 
-  const selectedDayKey = format(selectedDay, "yyyy-MM-dd");
+  const selectedDayKey = format(calendar.selectedDay, "yyyy-MM-dd");
   const dayEvents = eventsByDay[selectedDayKey] ?? [];
 
   const levelCodeById = React.useMemo(
@@ -83,10 +111,7 @@ export default function CalendarScreen() {
   );
 
   // "Next" is a property of the whole visible set, not of one card. The gate is
-  // the WEEK containing today — the same rule the web grid uses. Requiring the
-  // SELECTED DAY to be today (which is what this screen used to imply by having
-  // no highlight at all) meant tapping the day the next class actually falls on
-  // showed nothing.
+  // the WEEK containing today — the same rule the web view uses.
   const nextEventId = React.useMemo(
     () =>
       calendar.weekDays.some((d) => isToday(d))
@@ -96,10 +121,7 @@ export default function CalendarScreen() {
   );
 
   const openEvent = (event: CalendarEvent) => {
-    // PAD-160: non-class events have their own detail screen. Web branches the
-    // same way (CalendarPage checks `event.type === "block"` and opens
-    // EventDetailSheet instead of ClassDetailSheet); iOS used to route
-    // everything to /class/[id], which is why a blocker was unreachable.
+    // PAD-160: non-class events have their own detail screen, as on web.
     if (event.type === "block") {
       router.push({
         pathname: "/event/[id]",
@@ -119,21 +141,18 @@ export default function CalendarScreen() {
 
   return (
     <Screen testID="screen-calendar">
-      {/* SPLIT VIEW: the week's classes across the top, the selected day's
-          detail underneath — mirroring apps/web's MobileCalendarView.
-          `calendar.view` rule 14 (PAD-172): WeekStrip renders a fixed week-nav
-          row plus a `flex-1` day grid, and the detail region below is `flex-1`
-          too, so the two halves split the space under the nav row evenly at
-          any class density. Before this, the strip was content-sized and
-          collapsed to 19% of the screen where web gives it 50%. */}
-      <WeekStrip
+      <ViewModeControl
+        value={calendar.viewMode}
+        onChange={calendar.setViewMode}
+        enabled={ENABLED_VIEW_MODES}
+      />
+
+      <DayStrip
         weekDays={calendar.weekDays}
-        weekLabel={calendar.weekLabel}
-        selectedDay={selectedDay}
-        onSelectDay={setSelectedDay}
-        onPrevWeek={() => calendar.navigateWeek("prev")}
-        onNextWeek={() => calendar.navigateWeek("next")}
-        onToday={calendar.goToToday}
+        selectedDay={calendar.selectedDay}
+        onSelectDay={calendar.selectDay}
+        onPrev={() => calendar.navigateWeek("prev")}
+        onNext={() => calendar.navigateWeek("next")}
         eventsByDay={eventsByDay}
       />
 
@@ -150,46 +169,38 @@ export default function CalendarScreen() {
             <Skeleton className="h-16 w-full" />
           </View>
         ) : (
-          <ScrollView
-            className="flex-1"
-            contentContainerClassName="gap-2 p-4 pb-24"
-          >
-            <View>
-              <Text className="font-semibold">
-                {format(selectedDay, "EEEE, d MMMM", { locale })}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                {t("calendar.mobile.classCount", { count: dayEvents.length })}
-              </Text>
-            </View>
-            {dayEvents.length === 0 ? (
-              <EmptyState
-                icon="calendar-outline"
-                title={t("calendar.mobile.noClasses")}
-                message={t("calendar.mobile.noClassesScheduled")}
-                className="py-12"
-              />
-            ) : (
-              dayEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onPress={openEvent}
-                  isNext={event.id === nextEventId}
-                  levelCode={
-                    event.levelId !== undefined
-                      ? levelCodeById.get(String(event.levelId))
-                      : undefined
-                  }
+          <ScrollView className="flex-1" contentContainerClassName="pb-32">
+            <DayHeader day={calendar.selectedDay} count={dayEvents.length} />
+            <View className="gap-3 px-5 pt-3">
+              {dayEvents.length === 0 ? (
+                <EmptyState
+                  icon="calendar-outline"
+                  title={t("calendar.mobile.noClasses")}
+                  message={t("calendar.mobile.noClassesScheduled")}
+                  className="py-12"
                 />
-              ))
-            )}
+              ) : (
+                dayEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onPress={openEvent}
+                    isNext={event.id === nextEventId}
+                    levelCode={
+                      event.levelId !== undefined
+                        ? levelCodeById.get(String(event.levelId))
+                        : undefined
+                    }
+                  />
+                ))
+              )}
+            </View>
           </ScrollView>
         )}
       </View>
 
-      {/* "Add event" mirrors web's CalendarToolbar: available to every role
-          (coach and student alike), unlike "Add class" which is coach-only. */}
+      {/* Floating add actions (calendar.mobile-views rule 18): "Add event" for
+          every role, "Add class" for coaches only. */}
       <Pressable
         testID="calendar-add-event"
         accessibilityLabel={t("calendar.toolbar.addEvent")}
