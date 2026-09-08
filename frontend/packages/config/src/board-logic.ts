@@ -1,15 +1,26 @@
 /**
  * Pure interaction model for the tactical board (training.tactical-board
- * rules 8–11). A press at a point, with whatever piece was under it, yields
- * the next interaction state and — when something changed — the next
+ * rules 8–11, 14–17). A press at a point, with whatever piece was under it,
+ * yields the next interaction state and — when something changed — the next
  * diagram. Both shells drive this from their own input layer (DOM pointer
  * events on web, a gesture-handler Pan on iOS) so the behaviour cannot drift
  * between them, and iOS gets unit coverage its component layer cannot have.
  */
-import type { CourtDiagramV2, Piece, Point, Step } from "@levelup/types";
-import { HIT_RADIUS, MIN_PATH_LENGTH, ballPathMidpoint, newStep } from "./court-diagram";
+import type { BoardMode, CourtDiagramV2, Piece, PieceColor, Point, Step } from "@levelup/types";
+import {
+  BASKET_START_POSITION,
+  GAME_START_POSITION,
+  HIT_RADIUS,
+  MIN_PATH_LENGTH,
+  addPlayer,
+  ballPathMidpoint,
+  newDiagram,
+  newStep,
+  removePlayer,
+} from "./court-diagram";
 
-export type BoardTool = "select" | "ball" | "movement" | "cone";
+/** Every tool across the three modes; each mode shows its own subset (see `toolsForMode`). */
+export type BoardTool = "select" | "ball" | "movement" | "cone" | "player" | "feeder" | "pen";
 
 /** A path being drawn: first point placed, second one following the pointer. */
 export interface PendingPath {
@@ -23,6 +34,8 @@ export interface BoardState {
   selectedId: string | null;
   pending: PendingPath | null;
   pendingPlayerId: string | null;
+  /** Magnético swatch (rule 16); irrelevant in the other modes. */
+  color: PieceColor;
 }
 
 export const INITIAL_BOARD_STATE: BoardState = {
@@ -30,7 +43,25 @@ export const INITIAL_BOARD_STATE: BoardState = {
   selectedId: null,
   pending: null,
   pendingPlayerId: null,
+  color: "blue",
 };
+
+/** The toolbar of each mode, in canvas order (rules 8, 15, 16). */
+export function toolsForMode(mode: BoardMode): BoardTool[] {
+  switch (mode) {
+    case "basket":
+      return ["select", "ball", "movement", "player", "feeder"];
+    case "magnetic":
+      return ["pen", "select", "cone", "ball", "player"];
+    default:
+      return ["select", "ball", "movement", "cone"];
+  }
+}
+
+/** The tool a mode opens with (Caneta for Magnético, Selecionar elsewhere). */
+export function defaultToolForMode(mode: BoardMode): BoardTool {
+  return mode === "magnetic" ? "pen" : "select";
+}
 
 export interface PressResult {
   state: BoardState;
@@ -91,20 +122,56 @@ export function ballHandleHit(d: CourtDiagramV2, pt: Point, radius = HIT_RADIUS)
   return distance(ballPathMidpoint(ball), pt) <= radius;
 }
 
-/** Cones (and, in later waves, loose balls) can be deleted; players and the feeder are fixed in game mode (rule 7). */
+/**
+ * What can be deleted: cones, loose balls and strokes anywhere; players only in
+ * basket and magnetic mode (down to one in basket, rule 14); the feeder and the
+ * game-mode 2v2 never (rule 7).
+ */
 export function boardDeleteSelected(d: CourtDiagramV2, state: BoardState): { diagram?: CourtDiagramV2; state: BoardState } {
   const id = state.selectedId;
   if (!id) return { state };
   const piece = d.pieces.find((p) => p.id === id);
-  if (!piece || piece.kind === "player" || piece.kind === "feeder") return { state };
+  if (!piece || piece.kind === "feeder") return { state };
+  if (piece.kind === "player") {
+    if (d.mode === "game") return { state };
+    const next = d.mode === "basket" ? removePlayer(d, id) : removeAny(d, id);
+    if (next === d) return { state };
+    return { diagram: next, state: { ...state, selectedId: null } };
+  }
+  return { diagram: removeAny(d, id), state: { ...state, selectedId: null } };
+}
+
+function removeAny(d: CourtDiagramV2, id: string): CourtDiagramV2 {
   return {
-    diagram: {
-      ...d,
-      pieces: d.pieces.filter((p) => p.id !== id),
-      steps: d.steps.map((s) => ({ ...s, movements: s.movements.filter((m) => m.pieceId !== id) })),
-    },
-    state: { ...state, selectedId: null },
+    ...d,
+    pieces: d.pieces.filter((p) => p.id !== id),
+    steps: d.steps.map((s) => ({ ...s, movements: s.movements.filter((m) => m.pieceId !== id) })),
   };
+}
+
+/** True when switching mode would lose something (rule 3). */
+export function boardHasContent(d: CourtDiagramV2): boolean {
+  if (d.steps.some((s) => s.ball || s.movements.length > 0)) return true;
+  const start = d.mode === "basket" ? BASKET_START_POSITION : d.mode === "game" ? GAME_START_POSITION : [];
+  if (d.pieces.length !== start.length) return true;
+  return d.pieces.some((p, i) => {
+    const s = start[i];
+    if (!s || p.kind === "stroke" || s.kind === "stroke") return true;
+    return p.id !== s.id || p.kind !== s.kind || p.x !== s.x || p.y !== s.y;
+  });
+}
+
+/** Switching mode resets the board to that mode's starting position (rule 3). */
+export function boardSwitchMode(_d: CourtDiagramV2, mode: BoardMode): CourtDiagramV2 {
+  return newDiagram(mode);
+}
+
+/** Magnético: a free player's team follows the swatch (rule 16), labelled by placement order. */
+function freePlayer(d: CourtDiagramV2, pt: Point, color: PieceColor): Piece {
+  const team = color === "red" ? "B" : "A";
+  let n = 1;
+  while (d.pieces.some((p) => p.id === `${team.toLowerCase()}${n}`)) n += 1;
+  return { id: `${team.toLowerCase()}${n}`, kind: "player", team, label: `${team}${n}`, x: pt.x, y: pt.y };
 }
 
 /**
@@ -124,6 +191,23 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
       return { state };
     }
     case "ball": {
+      if (d.mode === "magnetic") {
+        // a loose ball piece in the current colour (rule 16)
+        const id = nextIndexedId(d.pieces, "ball");
+        return {
+          state: { ...state, selectedId: id },
+          diagram: { ...d, pieces: [...d.pieces, { id, kind: "ball", x: pt.x, y: pt.y, color: state.color }] },
+        };
+      }
+      if (d.mode === "basket") {
+        // "Alimentação": the ball always leaves the feeder (rule 15)
+        const feeder = d.pieces.find((p) => p.kind === "feeder");
+        if (!feeder || feeder.kind !== "feeder") return { state };
+        return {
+          state: { ...state, pending: null },
+          diagram: withFirstStep(d, (s) => ({ ...s, ball: { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" } })),
+        };
+      }
       const pending = state.pending;
       if (pending && pending.kind === "ball" && distance(pending.from, pt) >= MIN_PATH_LENGTH) {
         return {
@@ -149,10 +233,29 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
     }
     case "cone": {
       const id = nextIndexedId(d.pieces, "cone");
+      const color = d.mode === "magnetic" ? state.color : undefined;
       return {
         state: { ...state, selectedId: id },
-        diagram: { ...d, pieces: [...d.pieces, { id, kind: "cone", x: pt.x, y: pt.y }] },
+        diagram: { ...d, pieces: [...d.pieces, { id, kind: "cone", x: pt.x, y: pt.y, ...(color ? { color } : {}) }] },
       };
     }
+    case "player": {
+      if (d.mode === "magnetic") {
+        const piece = freePlayer(d, pt, state.color);
+        return { state: { ...state, selectedId: piece.id }, diagram: { ...d, pieces: [...d.pieces, piece] } };
+      }
+      const next = addPlayer(d, pt);
+      if (next === d) return { state };
+      const added = next.pieces[next.pieces.length - 1];
+      return { state: { ...state, selectedId: added.id }, diagram: next };
+    }
+    case "feeder": {
+      const feeder = d.pieces.find((p) => p.kind === "feeder");
+      if (!feeder) return { state };
+      return { state, diagram: boardMovePiece(d, feeder.id, pt) };
+    }
+    case "pen":
+      // strokes are captured by the shells' move/up handlers (wave 3); a bare press draws nothing
+      return { state };
   }
 }

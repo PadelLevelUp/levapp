@@ -181,13 +181,25 @@
         "select": "Selecionar",
         "ball": "Bola",
         "movement": "Movimentação",
-        "cone": "Cone"
+        "cone": "Cone",
+        "player": "Jogador",
+        "feeder": "Alimentador",
+        "move": "Mover",
+        "pen": "Caneta"
       },
       "hints": {
         "select": "Toca numa peça para a selecionar (fica com um anel), depois toca no destino para a mover.",
         "ball": "Desenha a trajetória da bola. Toca no ponto a meio da linha para alternar entre plana e lob.",
         "movement": "Toca no jogador e depois no destino — cria o percurso tracejado do movimento.",
-        "cone": "Toca no campo para colocar um cone. Seleciona um cone e prime Delete para o remover."
+        "cone": "Toca no campo para colocar um cone. Seleciona um cone e prime Delete para o remover.",
+        "player": "Toca no campo para colocar o próximo jogador (máximo 4).",
+        "feeder": "Toca no campo para mover o alimentador.",
+        "ballBasket": "Toca onde a bola deve cair — o alimentador lança a partir do cesto.",
+        "movementBasket": "Toca no jogador e depois no destino — cria o percurso tracejado do movimento.",
+        "pen": "Desenha livremente no campo com a cor escolhida.",
+        "ballMagnetic": "Toca no campo para colocar uma bola com a cor escolhida.",
+        "playerMagnetic": "Toca no campo para colocar um jogador (azul = Equipa A, vermelho = Equipa B).",
+        "coneMagnetic": "Toca no campo para colocar um cone com a cor escolhida."
       },
       "undo": "Anular",
       "deleteSelected": "Eliminar selecionado",
@@ -202,7 +214,21 @@
         "teamA": "Equipa A",
         "teamB": "Equipa B"
       },
-      "canvasAria": "Campo de padel — quadro tático"
+      "canvasAria": "Campo de padel — quadro tático",
+      "addPlayers": "Adicionar jogadores",
+      "addPlayersShort": "Jogadores",
+      "switchMode": {
+        "title": "Mudar de modo?",
+        "body": "O quadro é reiniciado para a posição inicial deste modo. As peças e trajetórias atuais perdem-se.",
+        "confirm": "Mudar"
+      },
+      "colors": {
+        "white": "Branco",
+        "green": "Verde",
+        "blue": "Azul",
+        "red": "Vermelho",
+        "amber": "Âmbar"
+      }
     }
   }
 }

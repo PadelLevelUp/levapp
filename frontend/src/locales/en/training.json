@@ -181,13 +181,25 @@
         "select": "Select",
         "ball": "Ball",
         "movement": "Movement",
-        "cone": "Cone"
+        "cone": "Cone",
+        "player": "Player",
+        "feeder": "Feeder",
+        "move": "Move",
+        "pen": "Pen"
       },
       "hints": {
         "select": "Tap a piece to select it (it gets a ring), then tap the destination to move it.",
         "ball": "Draw the ball's path. Tap the midpoint of the line to switch between flat and lob.",
         "movement": "Tap the player and then the destination — this creates the dashed movement path.",
-        "cone": "Tap the court to place a cone. Select a cone and press Delete to remove it."
+        "cone": "Tap the court to place a cone. Select a cone and press Delete to remove it.",
+        "player": "Tap the court to place the next player (max 4).",
+        "feeder": "Tap the court to move the feeder.",
+        "ballBasket": "Tap where the ball should land — the feeder throws it from the basket.",
+        "movementBasket": "Tap the player and then the destination — this creates the dashed movement path.",
+        "pen": "Draw freely on the court in the chosen colour.",
+        "ballMagnetic": "Tap the court to place a ball in the chosen colour.",
+        "playerMagnetic": "Tap the court to place a player (blue = Team A, red = Team B).",
+        "coneMagnetic": "Tap the court to place a cone in the chosen colour."
       },
       "undo": "Undo",
       "deleteSelected": "Delete selected",
@@ -202,7 +214,21 @@
         "teamA": "Team A",
         "teamB": "Team B"
       },
-      "canvasAria": "Padel court — tactical board"
+      "canvasAria": "Padel court — tactical board",
+      "addPlayers": "Add players",
+      "addPlayersShort": "Players",
+      "switchMode": {
+        "title": "Switch mode?",
+        "body": "The board resets to this mode's starting position. The current pieces and paths are lost.",
+        "confirm": "Switch"
+      },
+      "colors": {
+        "white": "White",
+        "green": "Green",
+        "blue": "Blue",
+        "red": "Red",
+        "amber": "Amber"
+      }
     }
   }
 }

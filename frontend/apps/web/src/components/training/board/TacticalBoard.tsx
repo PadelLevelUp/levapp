@@ -1,44 +1,79 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Circle, MousePointer2, Route, Triangle, Undo2 } from "lucide-react";
-import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Piece, Point, Step } from "@/types/training";
+import { ArrowRight, Circle, MousePointer2, Pencil, Route, ShoppingBasket, Trash2, Triangle, Undo2, User, UserPlus } from "lucide-react";
+import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Piece, Point } from "@/types/training";
 import {
-  MIN_PATH_LENGTH,
+  INITIAL_BOARD_STATE,
+  MAX_BASKET_PLAYERS,
+  addPlayer,
+  boardDeleteSelected,
+  boardDragEnd,
+  boardHasContent,
+  boardPress,
+  boardSelectTool,
+  boardSwitchMode,
+  boardToggleBallStyle,
   clampPercent,
   clientToPercent,
-  newStep,
+  defaultToolForMode,
+  playerCount,
+  toolsForMode,
   upgradeCourtDiagram,
+  type BoardState,
+  type BoardTool,
 } from "@levelup/config";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { CourtSurface, type PendingPath } from "./CourtSurface";
+import { CourtSurface } from "./CourtSurface";
 import { useBoardHistory } from "./useBoardHistory";
 
 /**
  * Quadro Tático — the exercise diagram editor (training.tactical-board).
  *
- * Wave 1 ships the board shell and the Situações de jogo mode: a fixed 2v2,
- * one ball path per step (plana/lob), dashed player movements, cones, undo.
- * Basket and magnetic modes (waves 2–3) and the step/playback controls
- * (wave 4) plug into the same shell; tabs for modes that are not shipped are
- * not rendered rather than disabled (rule 2).
- *
- * Controlled: `value` may be a legacy v1 diagram, a v2 diagram or undefined —
- * it is upgraded on read (rule 12) and every mutation calls `onChange` with a
- * v2 diagram. The board keeps only interaction state (tool, selection, the
- * path being drawn, a drag in flight); the diagram itself is the caller's.
+ * The interaction model is the shared `boardPress` reducer in @levelup/config
+ * (the same one the iOS board drives from its gesture layer); this file turns
+ * DOM pointer events into presses, drags and previews, and lays the shell out.
+ * Tabs for modes that are not shipped are not rendered rather than disabled
+ * (rule 2). Controlled: `value` may be a legacy v1 diagram, a v2 diagram or
+ * undefined — it is upgraded on read (rule 12) and every mutation calls
+ * `onChange` with a v2 diagram.
  */
 
-type Tool = "select" | "ball" | "movement" | "cone";
+/** Modes rendered as tabs. Wave 3 appends "magnetic". */
+const SHIPPED_MODES: BoardMode[] = ["game", "basket"];
 
-const GAME_TOOLS: { tool: Tool; icon: typeof MousePointer2 }[] = [
-  { tool: "select", icon: MousePointer2 },
-  { tool: "ball", icon: Circle },
-  { tool: "movement", icon: Route },
-  { tool: "cone", icon: Triangle },
-];
+const TOOL_ICONS: Record<BoardTool, typeof MousePointer2> = {
+  select: MousePointer2,
+  ball: Circle,
+  movement: Route,
+  cone: Triangle,
+  player: User,
+  feeder: ShoppingBasket,
+  pen: Pencil,
+};
 
-/** Modes rendered as tabs. Waves 2 and 3 append "basket" and "magnetic". */
-const SHIPPED_MODES: BoardMode[] = ["game"];
+function toolLabelKey(mode: BoardMode, tool: BoardTool): string {
+  if (tool === "movement" && mode === "basket") return "training.board.tools.move";
+  return `training.board.tools.${tool}`;
+}
+
+function hintKey(mode: BoardMode, tool: BoardTool): string {
+  if (mode === "basket" && tool === "ball") return "training.board.hints.ballBasket";
+  if (mode === "basket" && tool === "movement") return "training.board.hints.movementBasket";
+  if (mode === "magnetic" && tool === "ball") return "training.board.hints.ballMagnetic";
+  if (mode === "magnetic" && tool === "player") return "training.board.hints.playerMagnetic";
+  if (mode === "magnetic" && tool === "cone") return "training.board.hints.coneMagnetic";
+  return `training.board.hints.${tool}`;
+}
 
 interface Props {
   value: AnyCourtDiagram | undefined;
@@ -46,24 +81,7 @@ interface Props {
   className?: string;
 }
 
-/** Ids like `cone-1`, `cone-2` — stable and readable for tests on both platforms. */
-function nextIndexedId(pieces: readonly Piece[], prefix: string): string {
-  let max = 0;
-  for (const p of pieces) {
-    const m = new RegExp(`^${prefix}-(\\d+)$`).exec(p.id);
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `${prefix}-${max + 1}`;
-}
-
-function firstStep(d: CourtDiagramV2): Step {
-  return d.steps[0] ?? newStep();
-}
-
-function withFirstStep(d: CourtDiagramV2, patch: (s: Step) => Step): CourtDiagramV2 {
-  const step = patch(firstStep(d));
-  return { ...d, steps: d.steps.length === 0 ? [step] : [step, ...d.steps.slice(1)] };
-}
+type Drag = { id: string; offset: Point; position: Point; moved: boolean };
 
 function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -75,11 +93,9 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   const diagram = useMemo(() => upgradeCourtDiagram(value), [value]);
   const { commit, undo, canUndo } = useBoardHistory<CourtDiagramV2>(diagram, onChange);
 
-  const [tool, setTool] = useState<Tool>("select");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pending, setPending] = useState<PendingPath | null>(null);
-  const [pendingPlayerId, setPendingPlayerId] = useState<string | null>(null);
-  const [drag, setDrag] = useState<{ id: string; offset: Point; position: Point; moved: boolean } | null>(null);
+  const [state, setState] = useState<BoardState>(INITIAL_BOARD_STATE);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [confirmMode, setConfirmMode] = useState<BoardMode | null>(null);
 
   const pointOf = useCallback((e: { clientX: number; clientY: number }): Point => {
     const svg = svgRef.current;
@@ -87,82 +103,33 @@ export function TacticalBoard({ value, onChange, className }: Props) {
     return clampPercent(clientToPercent(e.clientX, e.clientY, svg.getBoundingClientRect()));
   }, []);
 
-  const selectTool = (next: Tool) => {
-    setTool(next);
-    setPending(null);
-    setPendingPlayerId(null);
-    setSelectedId(null);
+  const apply = (r: { state: BoardState; diagram?: CourtDiagramV2 }) => {
+    setState(r.state);
+    if (r.diagram) commit(r.diagram);
   };
 
-  const movePiece = (id: string, to: Point) =>
-    commit({ ...diagram, pieces: diagram.pieces.map((p) => (p.id === id && p.kind !== "stroke" ? { ...p, x: to.x, y: to.y } : p)) });
-
-  const finishBallPath = (from: Point, to: Point) => {
-    if (distance(from, to) < MIN_PATH_LENGTH) return false;
-    commit(withFirstStep(diagram, (s) => ({ ...s, ball: { from, to, style: "flat" } })));
-    setPending(null);
-    return true;
+  const selectTool = (tool: BoardTool) => {
+    setState((s) => boardSelectTool(s, tool));
+    setDrag(null);
   };
 
-  const toggleBallStyle = () => {
-    const step = diagram.steps[0];
-    if (!step?.ball) return;
-    const style = step.ball.style === "lob" ? "flat" : "lob";
-    commit(withFirstStep(diagram, (s) => ({ ...s, ball: s.ball ? { ...s.ball, style } : s.ball })));
+  const switchMode = (mode: BoardMode) => {
+    commit(boardSwitchMode(diagram, mode));
+    setState((s) => boardSelectTool(s, defaultToolForMode(mode)));
+    setDrag(null);
+    setConfirmMode(null);
   };
 
-  const addMovement = (pieceId: string, to: Point) => {
-    commit(
-      withFirstStep(diagram, (s) => ({
-        ...s,
-        movements: [...s.movements.filter((m) => m.pieceId !== pieceId), { pieceId, to }],
-      }))
-    );
-    setPendingPlayerId(null);
-    setPending(null);
-  };
-
-  const deleteSelected = () => {
-    if (!selectedId) return;
-    const piece = diagram.pieces.find((p) => p.id === selectedId);
-    if (!piece || piece.kind === "player" || piece.kind === "feeder") return; // fixed pieces in game mode (rule 7)
-    commit({
-      ...diagram,
-      pieces: diagram.pieces.filter((p) => p.id !== selectedId),
-      steps: diagram.steps.map((s) => ({ ...s, movements: s.movements.filter((m) => m.pieceId !== selectedId) })),
-    });
-    setSelectedId(null);
+  const requestMode = (mode: BoardMode) => {
+    if (mode === diagram.mode) return;
+    if (boardHasContent(diagram)) setConfirmMode(mode);
+    else switchMode(mode);
   };
 
   // ── court (background) ────────────────────────────────────────────────────
   const onCourtPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
-    const pt = pointOf(e);
-    switch (tool) {
-      case "select": {
-        if (selectedId) {
-          movePiece(selectedId, pt); // tap-to-move (rule 8)
-        }
-        return;
-      }
-      case "ball": {
-        if (pending && pending.kind === "ball") {
-          if (finishBallPath(pending.from, pt)) return;
-        }
-        setPending({ kind: "ball", from: pt });
-        return;
-      }
-      case "movement": {
-        if (pendingPlayerId) addMovement(pendingPlayerId, pt);
-        return;
-      }
-      case "cone": {
-        const id = nextIndexedId(diagram.pieces, "cone");
-        commit({ ...diagram, pieces: [...diagram.pieces, { id, kind: "cone", x: pt.x, y: pt.y }] });
-        setSelectedId(id);
-        return;
-      }
-    }
+    apply(boardPress(diagram, state, pointOf(e), null));
   };
 
   const onCourtPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -173,47 +140,42 @@ export function TacticalBoard({ value, onChange, className }: Props) {
       setDrag({ ...drag, position, moved });
       return;
     }
-    if (pending) {
+    if (state.pending) {
       const pt = pointOf(e);
-      if (distance(pt, pending.from) > 0.5) setPending({ ...pending, to: pt });
+      if (distance(pt, state.pending.from) > 0.5) setState({ ...state, pending: { ...state.pending, to: pt } });
     }
   };
 
   const onCourtPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (drag) {
-      if (drag.moved) movePiece(drag.id, drag.position);
+      if (drag.moved) commit(boardDragEnd(diagram, drag.id, drag.position));
       setDrag(null);
       return;
     }
-    if (pending?.kind === "ball" && pending.to) {
+    if (state.pending?.kind === "ball" && state.pending.to) {
       // drag-to-draw: the path ends where the pointer was released
-      finishBallPath(pending.from, pointOf(e));
+      apply(boardPress(diagram, state, pointOf(e), null));
     }
   };
 
   // ── pieces ────────────────────────────────────────────────────────────────
   const onPiecePointerDown = (piece: Piece, e: React.PointerEvent<SVGGElement>) => {
     if (piece.kind === "stroke") return;
-    if (tool === "select") {
-      e.stopPropagation();
-      const pt = pointOf(e);
-      setSelectedId(piece.id);
+    e.stopPropagation();
+    const pt = pointOf(e);
+    const r = boardPress(diagram, state, pt, piece);
+    apply(r);
+    if (r.dragId) {
       setDrag({ id: piece.id, offset: { x: pt.x - piece.x, y: pt.y - piece.y }, position: { x: piece.x, y: piece.y }, moved: false });
       try {
         svgRef.current?.setPointerCapture?.(e.pointerId);
       } catch {
         /* jsdom */
       }
-      return;
     }
-    if (tool === "movement" && piece.kind === "player") {
-      e.stopPropagation();
-      setPendingPlayerId(piece.id);
-      setPending({ kind: "movement", from: { x: piece.x, y: piece.y } });
-      return;
-    }
-    // ball / cone: a tap on a piece counts as a tap on the court underneath it
   };
+
+  const deleteSelected = () => apply(boardDeleteSelected(diagram, state));
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -227,12 +189,17 @@ export function TacticalBoard({ value, onChange, className }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const hint = t(`training.board.hints.${tool}`);
+  const mode = diagram.mode;
+  const tools = toolsForMode(mode);
+  const selectedPiece = state.selectedId ? diagram.pieces.find((p) => p.id === state.selectedId) : undefined;
+  const canDelete = !!selectedPiece && boardDeleteSelected(diagram, state).diagram !== undefined;
+  const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
 
   return (
     <div
       data-tactical-board
       data-testid="tactical-board"
+      data-mode={mode}
       className={cn("rounded-[20px] bg-sidebar text-sidebar-foreground shadow-lg overflow-hidden", className)}
     >
       {/* header */}
@@ -243,22 +210,23 @@ export function TacticalBoard({ value, onChange, className }: Props) {
 
       {/* mode tabs */}
       <div role="tablist" aria-label={t("training.board.title")} className="flex border-b border-white/10">
-        {SHIPPED_MODES.map((mode) => {
-          const active = diagram.mode === mode || (mode === "game" && !SHIPPED_MODES.includes(diagram.mode));
+        {SHIPPED_MODES.map((m) => {
+          const active = mode === m || (m === "game" && !SHIPPED_MODES.includes(mode));
           return (
             <button
-              key={mode}
+              key={m}
               type="button"
               role="tab"
               aria-selected={active}
-              data-testid={`board-tab-${mode}`}
+              data-testid={`board-tab-${m}`}
+              onClick={() => requestMode(m)}
               className={cn(
                 "flex-1 flex flex-col items-center gap-1 px-3 py-3.5 border-b-2 transition-colors",
                 active ? "border-primary bg-primary/15 text-white" : "border-transparent text-sidebar-foreground/70 hover:text-white"
               )}
             >
-              <span className="text-sm font-bold">{t(`training.board.modes.${mode}.title`)}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] opacity-70">{t(`training.board.modes.${mode}.subtitle`)}</span>
+              <span className="text-sm font-bold">{t(`training.board.modes.${m}.title`)}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] opacity-70">{t(`training.board.modes.${m}.subtitle`)}</span>
             </button>
           );
         })}
@@ -267,33 +235,63 @@ export function TacticalBoard({ value, onChange, className }: Props) {
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-2 px-6 pt-3.5 pb-2">
         <div role="radiogroup" aria-label={t("training.board.title")} className="flex flex-wrap gap-2">
-          {GAME_TOOLS.map(({ tool: tl, icon: Icon }) => {
-            const active = tool === tl;
+          {tools.map((tool) => {
+            const Icon = TOOL_ICONS[tool];
+            const active = state.tool === tool;
+            const label = t(toolLabelKey(mode, tool));
             return (
               <button
-                key={tl}
+                key={tool}
                 type="button"
                 role="radio"
                 aria-checked={active}
-                aria-label={t(`training.board.tools.${tl}`)}
-                data-testid={`board-tool-${tl}`}
-                onClick={() => selectTool(tl)}
+                aria-label={label}
+                data-testid={`board-tool-${tool}`}
+                onClick={() => selectTool(tool)}
                 className={cn(
                   "flex min-w-[58px] flex-col items-center gap-1.5 rounded-[10px] border px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.06em] transition-colors",
                   active ? "border-primary bg-primary/20 text-white" : "border-white/15 text-sidebar-foreground/70 hover:text-white"
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
-                <span>{t(`training.board.tools.${tl}`)}</span>
+                <span>{label}</span>
               </button>
             );
           })}
         </div>
+        {mode === "basket" ? (
+          <>
+            <div className="mx-1 h-6 w-px bg-white/15" aria-hidden />
+            <button
+              type="button"
+              data-testid="board-add-players"
+              disabled={!canAddPlayer}
+              onClick={() => commit(addPlayer(diagram))}
+              className="flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-2 text-xs font-semibold text-sidebar-foreground/70 hover:text-white disabled:opacity-40 disabled:hover:text-sidebar-foreground/70"
+            >
+              <UserPlus className="h-4 w-4" aria-hidden />
+              {t("training.board.addPlayers")}
+            </button>
+          </>
+        ) : null}
         <div className="flex-1" />
+        {canDelete ? (
+          <button
+            type="button"
+            aria-label={t("training.board.deleteSelected")}
+            title={t("training.board.deleteSelected")}
+            data-testid="board-delete"
+            onClick={deleteSelected}
+            className="rounded-full p-2 text-sidebar-foreground/70 hover:text-white"
+          >
+            <Trash2 className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label={t("training.board.undo")}
           title={t("training.board.undo")}
+          data-testid="board-undo"
           disabled={!canUndo}
           onClick={undo}
           className="rounded-full p-2 text-sidebar-foreground/70 hover:text-white disabled:opacity-40 disabled:hover:text-sidebar-foreground/70"
@@ -301,8 +299,8 @@ export function TacticalBoard({ value, onChange, className }: Props) {
           <Undo2 className="h-[18px] w-[18px]" aria-hidden />
         </button>
       </div>
-      <p data-testid={`board-hint-${tool}`} className="px-6 pb-3 text-xs text-sidebar-foreground/70">
-        {hint}
+      <p data-testid={`board-hint-${state.tool}`} className="px-6 pb-3 text-xs text-sidebar-foreground/70">
+        {t(hintKey(mode, state.tool))}
       </p>
 
       {/* court */}
@@ -313,17 +311,17 @@ export function TacticalBoard({ value, onChange, className }: Props) {
           <CourtSurface
             ref={svgRef}
             diagram={diagram}
-            selectedId={selectedId}
+            selectedId={state.selectedId}
             dragOverride={drag ? { id: drag.id, position: drag.position } : null}
-            pending={pending}
+            pending={state.pending}
             ariaLabel={t("training.board.canvasAria")}
             ballHandleLabel={t("training.board.ballStyleToggle")}
-            className={cn(tool === "select" ? "cursor-default" : "cursor-crosshair")}
+            className={cn(state.tool === "select" ? "cursor-default" : "cursor-crosshair")}
             onPointerDown={onCourtPointerDown}
             onPointerMove={onCourtPointerMove}
             onPointerUp={onCourtPointerUp}
             onPiecePointerDown={onPiecePointerDown}
-            onBallHandleClick={toggleBallStyle}
+            onBallHandleClick={() => commit(boardToggleBallStyle(diagram))}
           />
         </div>
       </div>
@@ -340,6 +338,22 @@ export function TacticalBoard({ value, onChange, className }: Props) {
           <span className="ml-2 inline-block h-3 w-3 rounded-full" style={{ background: "#D3453B" }} />{t("training.board.legend.teamB")}
         </span>
       </div>
+
+      {/* mode switch confirmation (rule 3) */}
+      <AlertDialog open={confirmMode !== null} onOpenChange={(open) => !open && setConfirmMode(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("training.board.switchMode.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("training.board.switchMode.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction data-testid="board-switch-confirm" onClick={() => confirmMode && switchMode(confirmMode)}>
+              {t("training.board.switchMode.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

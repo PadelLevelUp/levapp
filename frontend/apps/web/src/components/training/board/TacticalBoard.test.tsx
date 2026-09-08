@@ -171,11 +171,132 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByTestId("piece-e3")).toBeInTheDocument();
     expect(screen.getByText("A1")).toBeInTheDocument();
     expect(screen.queryByTestId("piece-e4")).toBeNull();
-    pickTool("cone");
+    // A coach in the legacy diagram means basket mode, whose toolbar has Jogador, not Cone.
+    pickTool("player");
     tapCourt(50, 40);
     const d = lastDiagram(onChange);
     expect(d.version).toBe(2);
     expect(d.mode).toBe("basket");
     expect(d.pieces.some((p) => p.kind === "feeder")).toBe(true);
+    expect(d.pieces.some((p) => p.kind === "player" && p.label === "A2")).toBe(true);
+  });
+});
+
+// ── Wave 2 — Exercícios de cesto (PAD-243) ───────────────────────────────────
+
+function pickMode(key: string) {
+  fireEvent.click(screen.getByRole("tab", { name: new RegExp(`training\\.board\\.modes\\.${key}\\.title`) }));
+}
+
+describe("TacticalBoard — Exercícios de cesto (training.tactical-board rules 14–15)", () => {
+  it("switches to basket mode without a prompt on a fresh board and feeds from the feeder", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickMode("basket");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    let d = lastDiagram(onChange);
+    expect(d.mode).toBe("basket");
+    expect(screen.getByTestId("piece-feeder")).toBeInTheDocument();
+    expect(screen.getByText("A1")).toBeInTheDocument();
+    expect(screen.queryByText("B1")).toBeNull();
+    expect(screen.getByRole("tab", { name: /modes\.basket\.title/ })).toHaveAttribute("aria-selected", "true");
+
+    pickTool("ball");
+    expect(screen.getByText("training.board.hints.ballBasket")).toBeInTheDocument();
+    tapCourt(30, 18);
+    d = lastDiagram(onChange);
+    expect(d.steps[0].ball?.from).toEqual({ x: 46, y: 55 });
+    expect(d.steps[0].ball?.to.x).toBeCloseTo(30, 0);
+    expect(d.steps[0].ball?.to.y).toBeCloseTo(18, 0);
+  });
+
+  it("Adicionar jogadores adds A3 then A4 and then disables", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickMode("basket");
+    const add = screen.getByRole("button", { name: "training.board.addPlayers" });
+    fireEvent.click(add);
+    fireEvent.click(add);
+    const d = lastDiagram(onChange);
+    expect(d.pieces.filter((p) => p.kind === "player").map((p) => (p as { label: string }).label)).toEqual(["A1", "A2", "A3", "A4"]);
+    expect(screen.getByText("A4")).toBeInTheDocument();
+    expect(add).toBeDisabled();
+  });
+
+  it("Alimentador moves the feeder and Jogador places a player where tapped", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickMode("basket");
+    pickTool("feeder");
+    tapCourt(50, 70);
+    let d = lastDiagram(onChange);
+    const feeder = d.pieces.find((p) => p.kind === "feeder") as { x: number; y: number };
+    expect(feeder.x).toBeCloseTo(50, 0);
+    expect(feeder.y).toBeCloseTo(70, 0);
+    pickTool("player");
+    tapCourt(45, 30);
+    d = lastDiagram(onChange);
+    expect(d.pieces.find((p) => p.id === "a3")).toMatchObject({ label: "A3" });
+  });
+
+  it("switching away from a board with content asks first and resets on confirm", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("cone");
+    tapCourt(50, 40);
+    pickMode("basket");
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(lastDiagram(onChange).mode).toBe("game");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.switchMode.confirm" }));
+    const d = lastDiagram(onChange);
+    expect(d.mode).toBe("basket");
+    expect(d.pieces.some((p) => p.kind === "cone")).toBe(false);
+    expect(d.steps).toEqual([]);
+  });
+});
+
+// ── Wave 3 — Magnético (PAD-244) ─────────────────────────────────────────────
+
+describe("TacticalBoard — Magnético (training.tactical-board rules 16–17)", () => {
+  it("opens with the pen, draws a red stroke, and undo removes it", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickMode("magnetic");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(lastDiagram(onChange).mode).toBe("magnetic");
+    expect(lastDiagram(onChange).pieces).toEqual([]);
+    expect(screen.getByRole("radio", { name: "training.board.tools.pen" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("training.board.hints.pen")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "training.board.colors.red" }));
+    const c = court();
+    fireEvent.pointerDown(c, { ...client(10, 10), button: 0, isPrimary: true });
+    fireEvent.pointerMove(c, { ...client(20, 12), button: 0, isPrimary: true });
+    fireEvent.pointerMove(c, { ...client(30, 30), button: 0, isPrimary: true });
+    fireEvent.pointerUp(c, { ...client(30, 30), button: 0, isPrimary: true });
+    let d = lastDiagram(onChange);
+    const stroke = d.pieces.find((p) => p.kind === "stroke");
+    expect(stroke).toMatchObject({ color: "red" });
+    expect(stroke && stroke.kind === "stroke" ? stroke.points.length : 0).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId("piece-stroke-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "training.board.undo" }));
+    d = lastDiagram(onChange);
+    expect(d.pieces.some((p) => p.kind === "stroke")).toBe(false);
+  });
+
+  it("Jogador with the red swatch places B1; Cone takes the colour", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickMode("magnetic");
+    pickTool("player");
+    fireEvent.click(screen.getByRole("radio", { name: "training.board.colors.red" }));
+    tapCourt(60, 70);
+    expect(lastDiagram(onChange).pieces[0]).toMatchObject({ kind: "player", team: "B", label: "B1" });
+    expect(screen.getByText("B1")).toBeInTheDocument();
+    pickTool("cone");
+    fireEvent.click(screen.getByRole("radio", { name: "training.board.colors.green" }));
+    tapCourt(20, 20);
+    expect(lastDiagram(onChange).pieces.find((p) => p.kind === "cone")).toMatchObject({ color: "green" });
   });
 });

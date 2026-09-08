@@ -230,10 +230,10 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
   through the Maestro flow for that wave
 
 ### Status (2026-09-08, PAD-242)
-`implementing`: wave 1 is built and verified — rules 1–13 and 21–22 (board shell, game mode,
-court, undo, v2 model, legacy migration, thumbnails, iOS parity) are implemented; rules 14–17
-(basket, magnetic) and 18–20 (steps, playback) are `draft` pending PAD-243/244/245. The status
-flips to `implemented` when wave 4 lands.
+`implementing`: waves 1 and 2 are built and verified — rules 1–15 and 21–22 (board shell, game
+mode, court, undo, v2 model, legacy migration, thumbnails, mode switching with confirmation,
+Exercícios de cesto, iOS parity) are implemented; rules 16–17 (magnetic) and 18–20 (steps,
+playback) are `draft` pending PAD-244/245. The status flips to `implemented` when wave 4 lands.
 
 ### Notes
 - Supersedes `training.court-diagram`, which stays `implemented` until wave 1 lands and is

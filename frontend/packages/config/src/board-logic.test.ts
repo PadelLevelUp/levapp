@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { CourtDiagramV2 } from "@levelup/types";
-import { GAME_START_POSITION, newDiagram } from "./court-diagram";
+import {
+  BASKET_START_POSITION,
+  GAME_START_POSITION,
+  MAX_BASKET_PLAYERS,
+  addPlayer,
+  newDiagram,
+  removePlayer,
+  simplifyStroke,
+} from "./court-diagram";
 import {
   INITIAL_BOARD_STATE,
+  boardDeleteSelected,
   boardDragEnd,
+  boardHasContent,
   boardPress,
+  boardSetColor,
+  boardStrokeEnd,
+  boardSwitchMode,
   boardToggleBallStyle,
   type BoardState,
 } from "./board-logic";
@@ -93,5 +106,138 @@ describe("boardPress — Cone", () => {
     expect(r1.state.selectedId).toBe("cone-1");
     const r2 = boardPress(r1.diagram!, r1.state, { x: 60, y: 40 }, null);
     expect(r2.diagram?.pieces.map((p) => p.id)).toContain("cone-2");
+  });
+});
+
+// ── Wave 2 — Exercícios de cesto (rules 14–15, PAD-243) ─────────────────────
+
+const basket = (): CourtDiagramV2 => newDiagram("basket");
+const feeder = () => basket().pieces.find((p) => p.kind === "feeder")!;
+
+describe("basket start position (rule 14)", () => {
+  it("has A1, A2 and one feeder at the canvas coordinates", () => {
+    expect(BASKET_START_POSITION.map((p) => p.id)).toEqual(["a1", "a2", "feeder"]);
+    expect(BASKET_START_POSITION[0]).toMatchObject({ kind: "player", team: "A", label: "A1", x: 30, y: 18 });
+    expect(BASKET_START_POSITION[1]).toMatchObject({ kind: "player", team: "A", label: "A2", x: 60, y: 18 });
+    expect(BASKET_START_POSITION[2]).toMatchObject({ kind: "feeder", x: 46, y: 55 });
+  });
+
+  it("addPlayer appends A3 then A4 on Team A and then refuses", () => {
+    expect(MAX_BASKET_PLAYERS).toBe(4);
+    const d3 = addPlayer(basket());
+    expect(d3.pieces.find((p) => p.id === "a3")).toMatchObject({ kind: "player", team: "A", label: "A3" });
+    const d4 = addPlayer(d3, { x: 20, y: 30 });
+    expect(d4.pieces.find((p) => p.id === "a4")).toMatchObject({ label: "A4", x: 20, y: 30 });
+    expect(addPlayer(d4)).toBe(d4);
+  });
+
+  it("removePlayer goes down to one player and never below", () => {
+    const d1 = removePlayer(basket(), "a2");
+    expect(d1.pieces.filter((p) => p.kind === "player")).toHaveLength(1);
+    expect(removePlayer(d1, "a1")).toBe(d1);
+    expect(removePlayer(basket(), "feeder")).toEqual(basket());
+  });
+});
+
+describe("boardPress — basket tools (rule 15)", () => {
+  it("Bola runs from the feeder to the tapped point in one press", () => {
+    const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "ball" };
+    const r = boardPress(basket(), state, { x: 30, y: 18 }, null);
+    expect(r.diagram?.steps[0].ball).toEqual({ from: { x: feeder().x, y: feeder().y }, to: { x: 30, y: 18 }, style: "flat" });
+    expect(r.state.pending).toBeNull();
+  });
+
+  it("Alimentador moves the feeder to the tapped point", () => {
+    const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "feeder" };
+    const r = boardPress(basket(), state, { x: 50, y: 70 }, null);
+    expect(r.diagram?.pieces.find((p) => p.kind === "feeder")).toMatchObject({ x: 50, y: 70 });
+  });
+
+  it("Jogador places the next player where the coach taps", () => {
+    const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "player" };
+    const r = boardPress(basket(), state, { x: 45, y: 30 }, null);
+    expect(r.diagram?.pieces.find((p) => p.id === "a3")).toMatchObject({ label: "A3", x: 45, y: 30 });
+    expect(r.state.selectedId).toBe("a3");
+  });
+
+  it("a selected player can be deleted in basket mode, the feeder cannot", () => {
+    const d = basket();
+    const r = boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "a2" });
+    expect(r.diagram?.pieces.map((p) => p.id)).toEqual(["a1", "feeder"]);
+    expect(boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "feeder" }).diagram).toBeUndefined();
+    expect(boardDeleteSelected(game(), { ...INITIAL_BOARD_STATE, selectedId: "a2" }).diagram).toBeUndefined();
+  });
+});
+
+describe("mode switching (rules 2–3)", () => {
+  it("a fresh board has no content; a cone or a step counts as content", () => {
+    expect(boardHasContent(game())).toBe(false);
+    const withCone = boardPress(game(), { ...INITIAL_BOARD_STATE, tool: "cone" }, { x: 50, y: 40 }, null).diagram!;
+    expect(boardHasContent(withCone)).toBe(true);
+    expect(boardHasContent(basket())).toBe(false);
+  });
+
+  it("switching resets to the target mode's starting position", () => {
+    const d = boardSwitchMode(game(), "basket");
+    expect(d.mode).toBe("basket");
+    expect(d.pieces).toEqual(BASKET_START_POSITION);
+    expect(d.steps).toEqual([]);
+  });
+});
+
+// ── Wave 3 — Magnético (rules 16–17, PAD-244) ───────────────────────────────
+
+const magnetic = (): CourtDiagramV2 => newDiagram("magnetic");
+
+describe("simplifyStroke (Ramer–Douglas–Peucker)", () => {
+  it("drops collinear points and keeps the corners", () => {
+    const pts = [
+      { x: 10, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 10 }, { x: 40, y: 10.2 }, { x: 50, y: 10 },
+      { x: 50, y: 20 }, { x: 50, y: 30 },
+    ];
+    expect(simplifyStroke(pts, 0.5)).toEqual([{ x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 30 }]);
+  });
+
+  it("keeps a two-point stroke and an empty one as they are", () => {
+    expect(simplifyStroke([{ x: 1, y: 1 }, { x: 5, y: 5 }])).toEqual([{ x: 1, y: 1 }, { x: 5, y: 5 }]);
+    expect(simplifyStroke([])).toEqual([]);
+  });
+});
+
+describe("Magnético pieces (rule 16)", () => {
+  it("a finished pen stroke becomes a stroke piece in the current colour", () => {
+    const state = boardSetColor({ ...INITIAL_BOARD_STATE, tool: "pen" }, "red");
+    expect(state.color).toBe("red");
+    const d = boardStrokeEnd(magnetic(), [{ x: 10, y: 10 }, { x: 20, y: 12 }, { x: 30, y: 30 }], state.color);
+    const stroke = d.pieces.find((p) => p.kind === "stroke");
+    expect(stroke).toMatchObject({ id: "stroke-1", color: "red" });
+    expect(stroke && stroke.kind === "stroke" ? stroke.points.length : 0).toBeGreaterThanOrEqual(2);
+    expect(boardStrokeEnd(d, [{ x: 1, y: 1 }], "blue")).toBe(d);
+  });
+
+  it("Jogador places a free player whose team follows the swatch and whose label counts up", () => {
+    const blue: BoardState = { ...INITIAL_BOARD_STATE, tool: "player", color: "blue" };
+    const r1 = boardPress(magnetic(), blue, { x: 30, y: 30 }, null);
+    expect(r1.diagram?.pieces[0]).toMatchObject({ kind: "player", team: "A", label: "A1" });
+    const red = boardSetColor(r1.state, "red");
+    const r2 = boardPress(r1.diagram!, red, { x: 60, y: 70 }, null);
+    expect(r2.diagram?.pieces[1]).toMatchObject({ kind: "player", team: "B", label: "B1" });
+    const r3 = boardPress(r2.diagram!, boardSetColor(red, "amber"), { x: 50, y: 50 }, null);
+    expect(r3.diagram?.pieces[2]).toMatchObject({ team: "A", label: "A2" });
+  });
+
+  it("Cone and Bola take the selected colour", () => {
+    const amber: BoardState = { ...INITIAL_BOARD_STATE, tool: "cone", color: "amber" };
+    const withCone = boardPress(magnetic(), amber, { x: 20, y: 20 }, null).diagram!;
+    expect(withCone.pieces.find((p) => p.kind === "cone")).toMatchObject({ color: "amber" });
+    const withBall = boardPress(withCone, { ...amber, tool: "ball", color: "white" }, { x: 40, y: 40 }, null).diagram!;
+    expect(withBall.pieces.find((p) => p.kind === "ball")).toMatchObject({ id: "ball-1", color: "white" });
+    expect(withBall.steps).toEqual([]);
+  });
+
+  it("any piece can be deleted in magnetic mode and the board counts as content", () => {
+    const d = boardPress(magnetic(), { ...INITIAL_BOARD_STATE, tool: "player" }, { x: 30, y: 30 }, null).diagram!;
+    expect(boardHasContent(d)).toBe(true);
+    expect(boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "a1" }).diagram?.pieces).toEqual([]);
   });
 });

@@ -2,20 +2,27 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   HIT_RADIUS,
   INITIAL_BOARD_STATE,
+  MAX_BASKET_PLAYERS,
   VIEW_H,
   VIEW_W,
+  addPlayer,
   ballHandleHit,
   boardDeleteSelected,
   boardDragEnd,
+  boardHasContent,
   boardPress,
   boardSelectTool,
+  boardSwitchMode,
   boardToggleBallStyle,
   clampPercent,
   clientToPercent,
+  defaultToolForMode,
   hitTestPiece,
   lightTheme,
+  playerCount,
   popHistory,
   pushHistory,
+  toolsForMode,
   upgradeCourtDiagram,
   type BoardState,
   type BoardTool,
@@ -23,7 +30,7 @@ import {
 import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Point } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
@@ -42,13 +49,31 @@ import { CourtSurface } from "./court-surface";
 
 const NAVY = "#0D1B31";
 const MIN_TOUCH_RADIUS_PT = 22;
-const SHIPPED_MODES: BoardMode[] = ["game"];
-const TOOLS: { tool: BoardTool; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { tool: "select", icon: "hand-left-outline" },
-  { tool: "ball", icon: "ellipse-outline" },
-  { tool: "movement", icon: "footsteps-outline" },
-  { tool: "cone", icon: "triangle-outline" },
-];
+/** Modes rendered as tabs. Wave 3 appends "magnetic". */
+const SHIPPED_MODES: BoardMode[] = ["game", "basket"];
+const TOOL_ICONS: Record<BoardTool, keyof typeof Ionicons.glyphMap> = {
+  select: "hand-left-outline",
+  ball: "ellipse-outline",
+  movement: "footsteps-outline",
+  cone: "triangle-outline",
+  player: "person-outline",
+  feeder: "basket-outline",
+  pen: "pencil-outline",
+};
+
+function toolLabelKey(mode: BoardMode, tool: BoardTool): string {
+  if (tool === "movement" && mode === "basket") return "training.board.tools.move";
+  return `training.board.tools.${tool}`;
+}
+
+function hintKey(mode: BoardMode, tool: BoardTool): string {
+  if (mode === "basket" && tool === "ball") return "training.board.hints.ballBasket";
+  if (mode === "basket" && tool === "movement") return "training.board.hints.movementBasket";
+  if (mode === "magnetic" && tool === "ball") return "training.board.hints.ballMagnetic";
+  if (mode === "magnetic" && tool === "player") return "training.board.hints.playerMagnetic";
+  if (mode === "magnetic" && tool === "cone") return "training.board.hints.coneMagnetic";
+  return `training.board.hints.${tool}`;
+}
 
 type Drag = { id: string; offset: Point; position: Point; moved: boolean };
 
@@ -177,14 +202,34 @@ export function TacticalBoard({ value, onChange }: Props) {
     setDrag(null);
   };
 
+  const switchMode = (mode: BoardMode) => {
+    commit(boardSwitchMode(diagram, mode));
+    setState(boardSelectTool(state, defaultToolForMode(mode)));
+    setDrag(null);
+  };
+
+  const requestMode = (mode: BoardMode) => {
+    if (mode === diagram.mode) return;
+    if (!boardHasContent(diagram)) {
+      switchMode(mode);
+      return;
+    }
+    Alert.alert(t("training.board.switchMode.title"), t("training.board.switchMode.body"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("training.board.switchMode.confirm"), style: "destructive", onPress: () => switchMode(mode) },
+    ]);
+  };
+
   const deleteSelected = () => {
     const r = boardDeleteSelected(diagram, state);
     setState(r.state);
     if (r.diagram) commit(r.diagram);
   };
 
-  const selectedPiece = state.selectedId ? diagram.pieces.find((p) => p.id === state.selectedId) : undefined;
-  const canDelete = !!selectedPiece && selectedPiece.kind !== "player" && selectedPiece.kind !== "feeder";
+  const mode = diagram.mode;
+  const tools = toolsForMode(mode);
+  const canDelete = !!state.selectedId && boardDeleteSelected(diagram, state).diagram !== undefined;
+  const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
   const courtHeight = layout.width > 0 ? (layout.width * VIEW_H) / VIEW_W : 0;
 
   return (
@@ -197,18 +242,19 @@ export function TacticalBoard({ value, onChange }: Props) {
 
       {/* mode tabs */}
       <View className="flex-row border-b border-white/10" accessibilityRole="tablist">
-        {SHIPPED_MODES.map((mode) => {
-          const active = diagram.mode === mode || (mode === "game" && !SHIPPED_MODES.includes(diagram.mode));
+        {SHIPPED_MODES.map((m) => {
+          const active = mode === m || (m === "game" && !SHIPPED_MODES.includes(mode));
           return (
             <Pressable
-              key={mode}
-              testID={`board-tab-${mode}`}
+              key={m}
+              testID={`board-tab-${m}`}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
+              onPress={() => requestMode(m)}
               className={cn("flex-1 items-center gap-1 border-b-2 px-3 py-3", active ? "border-primary bg-primary/15" : "border-transparent")}
             >
-              <Text className={cn("font-sans-bold text-[13px]", active ? "text-white" : "text-white/70")}>{t(`training.board.modes.${mode}.title`)}</Text>
-              <Text className="font-sans-semibold text-[10px] uppercase tracking-[1px] text-white/60">{t(`training.board.modes.${mode}.subtitle`)}</Text>
+              <Text className={cn("font-sans-bold text-[13px]", active ? "text-white" : "text-white/70")}>{t(`training.board.modes.${m}.title`)}</Text>
+              <Text className="font-sans-semibold text-[10px] uppercase tracking-[1px] text-white/60">{t(`training.board.modes.${m}.subtitle`)}</Text>
             </Pressable>
           );
         })}
@@ -216,26 +262,39 @@ export function TacticalBoard({ value, onChange }: Props) {
 
       {/* toolbar */}
       <View className="flex-row items-center px-3 pt-3">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="flex-row gap-2" accessibilityRole="radiogroup">
-          {TOOLS.map(({ tool, icon }) => {
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="flex-row items-center gap-2" accessibilityRole="radiogroup">
+          {tools.map((tool) => {
             const active = state.tool === tool;
+            const label = t(toolLabelKey(mode, tool));
             return (
               <Pressable
                 key={tool}
                 testID={`board-tool-${tool}`}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: active }}
-                accessibilityLabel={t(`training.board.tools.${tool}`)}
+                accessibilityLabel={label}
                 onPress={() => selectTool(tool)}
                 className={cn("min-w-[58px] items-center gap-1 rounded-[10px] border px-3 py-2", active ? "border-primary bg-primary/20" : "border-white/15")}
               >
-                <Ionicons name={icon} size={20} color={active ? "#fff" : "rgba(255,255,255,0.7)"} />
-                <Text className={cn("font-sans-semibold text-[9px] uppercase tracking-[0.5px]", active ? "text-white" : "text-white/70")}>
-                  {t(`training.board.tools.${tool}`)}
-                </Text>
+                <Ionicons name={TOOL_ICONS[tool]} size={20} color={active ? "#fff" : "rgba(255,255,255,0.7)"} />
+                <Text className={cn("font-sans-semibold text-[9px] uppercase tracking-[0.5px]", active ? "text-white" : "text-white/70")}>{label}</Text>
               </Pressable>
             );
           })}
+          {mode === "basket" ? (
+            <Pressable
+              testID="board-add-players"
+              accessibilityRole="button"
+              accessibilityLabel={t("training.board.addPlayers")}
+              accessibilityState={{ disabled: !canAddPlayer }}
+              disabled={!canAddPlayer}
+              onPress={() => commit(addPlayer(diagram))}
+              className={cn("ml-1 h-11 flex-row items-center gap-1.5 rounded-full border border-white/15 px-3", !canAddPlayer && "opacity-40")}
+            >
+              <Ionicons name="person-add-outline" size={16} color="rgba(255,255,255,0.7)" />
+              <Text className="font-sans-semibold text-[11px] text-white/70">{t("training.board.addPlayersShort")}</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
         <View className="ml-2 flex-row items-center gap-1">
           {canDelete ? (
@@ -263,7 +322,7 @@ export function TacticalBoard({ value, onChange }: Props) {
         </View>
       </View>
       <Text testID={`board-hint-${state.tool}`} className="px-4 pb-3 pt-2 text-xs text-white/70">
-        {t(`training.board.hints.${state.tool}`)}
+        {t(hintKey(mode, state.tool))}
       </Text>
 
       {/* court */}

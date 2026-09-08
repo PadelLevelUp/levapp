@@ -3,7 +3,8 @@
 # - a new exercise opens the Quadro Tático in Situações de jogo with the 2v2
 # - picking a tool swaps the hint; Cone + a tap on the court places a cone;
 #   undo removes it again
-# - save → reopen → the board is still there for the saved exercise
+# - wave 2: switch to Exercícios de cesto, add A3/A4, one-tap feed from the feeder
+# - save → reopen → the saved basket board is still there
 #
 # Not observable from Maestro: ball-path drawing needs two taps at specific
 # court points and Maestro's `tapOn` has no element-relative point, so the
@@ -70,6 +71,31 @@ appId: com.padellevelup.app
 - assertNotVisible:
     id: "piece-cone-1"
 
+# ── Wave 2: Exercícios de cesto — a fresh board switches without a prompt ──
+- tapOn:
+    id: "board-tab-basket"
+- assertVisible:
+    id: "piece-feeder"
+- assertNotVisible:
+    id: "piece-b1"
+- tapOn:
+    id: "board-add-players"
+- assertVisible:
+    id: "piece-a3"
+- tapOn:
+    id: "board-add-players"
+- assertVisible:
+    id: "piece-a4"
+# Bola in basket mode: one tap on the court draws the feed from the feeder.
+- tapOn:
+    id: "board-tool-ball"
+- assertVisible:
+    id: "board-hint-ball"
+- tapOn:
+    id: "court-surface"
+- assertVisible:
+    id: "ball-path-flat"
+
 - scrollUntilVisible:
     element:
       id: "exercise-save"
@@ -86,7 +112,7 @@ appId: com.padellevelup.app
       text: ".*Maestro Tactical.*"
     timeout: 15000
 
-# ── Reopen: the board renders for the saved exercise ──
+# ── Reopen: the saved basket board renders with its feeder ──
 - tapOn: ".*Maestro Tactical.*"
 - extendedWaitUntil:
     visible:
@@ -101,8 +127,10 @@ appId: com.padellevelup.app
     id: "exercise-diagram-toggle"
 - extendedWaitUntil:
     visible:
-      id: "piece-a1"
+      id: "piece-feeder"
     timeout: 15000
+- assertVisible:
+    id: "piece-a4"
 
 # ── Delete ──
 - scrollUntilVisible:

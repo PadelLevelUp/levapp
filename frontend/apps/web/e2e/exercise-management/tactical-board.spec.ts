@@ -136,3 +136,52 @@ test("US-63: undo removes the last placed cone", async ({ page }) => {
   await page.getByRole("button", { name: /^undo$/i }).click();
   await expect(page.getByTestId(/^piece-cone/)).toHaveCount(0);
 });
+
+// ── Wave 2 — Exercícios de cesto (PAD-243) ───────────────────────────────────
+
+test("US-64: basket mode feeds from the feeder and is stored as mode basket", async ({ page, request }) => {
+  await openNewExercise(page, "Basket Feed");
+  await page.getByRole("tab", { name: /basket drills/i }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /basket drills/i })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("piece-feeder")).toBeVisible();
+  await expect(page.getByTestId("court-surface").getByText("B1", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await tapCourt(page, 30, 18);
+  await expect(page.getByTestId("ball-path")).toBeVisible();
+
+  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await expect(page.getByText("Basket Feed")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
+  const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });
+  const list = (await res.json()) as Array<{ name: string; diagram?: StoredDiagram & { steps: Array<{ ball: { from: { x: number; y: number } } }> } }>;
+  const saved = list.find((e) => e.name === "Basket Feed");
+  expect(saved?.diagram?.mode).toBe("basket");
+  expect(saved?.diagram?.steps[0].ball.from).toEqual({ x: 46, y: 55 });
+});
+
+test("US-65: adding players in basket mode stops at four", async ({ page }) => {
+  await openNewExercise(page, "Basket Four");
+  await page.getByRole("tab", { name: /basket drills/i }).click();
+  const add = page.getByRole("button", { name: /add players/i });
+  await add.click();
+  await add.click();
+  const court = page.getByTestId("court-surface");
+  await expect(court.getByText("A3", { exact: true })).toBeVisible();
+  await expect(court.getByText("A4", { exact: true })).toBeVisible();
+  await expect(add).toBeDisabled();
+});
+
+test("US-66: switching mode on a board with content asks first", async ({ page }) => {
+  await openNewExercise(page, "Switch Guard");
+  await page.getByRole("radio", { name: /^cone$/i }).click();
+  await tapCourt(page, 50, 40);
+  await page.getByRole("tab", { name: /basket drills/i }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByRole("alertdialog").getByRole("button", { name: /^switch$/i }).click();
+  await expect(page.getByTestId("piece-feeder")).toBeVisible();
+  await expect(page.getByTestId(/^piece-cone/)).toHaveCount(0);
+});

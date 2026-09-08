@@ -80,12 +80,54 @@ export const GAME_START_POSITION: readonly Piece[] = [
   { id: "b2", kind: "player", team: "B", label: "B2", x: 62, y: 70 },
 ];
 
-/** Wave 2 fills this in; until then a basket board starts from the game 2v2 minus Team B plus a feeder. */
+/** Exercícios de cesto (rule 14): two players up front and the feeder at mid-court. */
 export const BASKET_START_POSITION: readonly Piece[] = [
   { id: "a1", kind: "player", team: "A", label: "A1", x: 30, y: 18 },
   { id: "a2", kind: "player", team: "A", label: "A2", x: 60, y: 18 },
   { id: "feeder", kind: "feeder", x: 46, y: 55 },
 ];
+
+/** Basket mode: one to four players, all Team A (rule 14). */
+export const MAX_BASKET_PLAYERS = 4;
+/** Where "Adicionar jogadores" drops A3 and A4 when no point is given. */
+const BASKET_EXTRA_SLOTS: readonly Point[] = [
+  { x: 20, y: 34 },
+  { x: 70, y: 34 },
+];
+
+export function playerCount(d: CourtDiagramV2): number {
+  return d.pieces.filter((p) => p.kind === "player").length;
+}
+
+/**
+ * Add the next Team A player (A3, A4 …) at `at`, or at the next free slot.
+ * Returns the same diagram when the cap is reached.
+ */
+export function addPlayer(d: CourtDiagramV2, at?: Point): CourtDiagramV2 {
+  const count = playerCount(d);
+  if (count >= MAX_BASKET_PLAYERS) return d;
+  // Labels are what the coach sees, so the next free label wins; the id follows it
+  // unless a legacy piece already holds that id (legacy ids are arbitrary).
+  let n = 1;
+  while (d.pieces.some((p) => p.kind === "player" && p.label === `A${n}`)) n += 1;
+  const id = d.pieces.some((p) => p.id === `a${n}`) ? newPieceId("a") : `a${n}`;
+  const slot = at ?? BASKET_EXTRA_SLOTS[Math.max(0, Math.min(count - 2, BASKET_EXTRA_SLOTS.length - 1))];
+  return {
+    ...d,
+    pieces: [...d.pieces, { id, kind: "player", team: "A", label: `A${n}`, x: slot.x, y: slot.y }],
+  };
+}
+
+/** Remove a player, never below one; anything that is not a player is left alone. */
+export function removePlayer(d: CourtDiagramV2, id: string): CourtDiagramV2 {
+  const piece = d.pieces.find((p) => p.id === id);
+  if (!piece || piece.kind !== "player" || playerCount(d) <= 1) return d;
+  return {
+    ...d,
+    pieces: d.pieces.filter((p) => p.id !== id),
+    steps: d.steps.map((s) => ({ ...s, movements: s.movements.filter((m) => m.pieceId !== id) })),
+  };
+}
 
 let idCounter = 0;
 /** Local id generator — no crypto.randomUUID on Hermes. */
