@@ -37,7 +37,7 @@ import type {
 } from "@/types";
 
 
-import { effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
@@ -87,16 +87,8 @@ import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 
-const COLORS = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 type AttendanceRecord = Record<string, AttendanceState>;
 

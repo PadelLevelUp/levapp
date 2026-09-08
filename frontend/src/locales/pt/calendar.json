@@ -7,15 +7,33 @@
       "addEvent": "Adicionar evento",
       "addClass": "Adicionar aula"
     },
+    "views": {
+      "label": "Vista do calendário",
+      "day": "Dia",
+      "week": "Semana",
+      "month": "Mês",
+      "comingSoon": "Em breve"
+    },
     "eventCard": {
       "canceled": "Cancelada",
       "completed": "Concluída",
       "fallbackTitle": "Aula",
-      "fallbackEvent": "Evento"
+      "fallbackEvent": "Evento",
+      "recurring": "Recorrente",
+      "block": "Bloqueio",
+      "blockType": {
+        "personal": "Pessoal",
+        "break": "Pausa",
+        "holiday": "Férias",
+        "off_work": "Folga",
+        "unavailable": "Indisponível"
+      }
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
+      "dayDots_one": "{{count}} evento",
+      "dayDots_other": "{{count}} eventos",
       "noClassesScheduled": "Sem aulas agendadas",
       "noClasses": "Sem aulas",
       "loadFailed": "Não foi possível carregar o calendário."

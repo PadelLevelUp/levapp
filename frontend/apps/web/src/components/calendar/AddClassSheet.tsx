@@ -28,7 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
-import { findOverlappingEvent } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, findOverlappingEvent } from "@levelup/config";
 import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 import { UnavailableStudentDialog } from './UnavailableStudentDialog';
 import { checkAvailabilityConflicts, type BlockedStudent } from '@/api/notificationEngine';
@@ -72,10 +72,8 @@ interface AddClassSheetProps {
   existingEvents?: CalendarEvent[];
 }
 
-const COLORS = [
-  '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316',
-  '#22c55e', '#eab308', '#ef4444', '#6366f1',
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 // Monday..Sunday order (date-fns getDay() values: Mon=1 … Sat=6, Sun=0).
 // Keep this ORDER stable — only the locale-aware initial label changes per language.

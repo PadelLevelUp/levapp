@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { seasonsApi } from "@levelup/api";
 import {
+  CLASS_COLOR_SWATCHES,
   findOverlappingEvent,
   findSeasonCoveringDate,
   lightTheme,
@@ -41,16 +42,8 @@ import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 
-const COLORS = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 // Monday-first, matching the web AddClassSheet. Initials and day names come
 // from availability.dayInitials.<n> / availability.days.<n>, keyed by getDay().

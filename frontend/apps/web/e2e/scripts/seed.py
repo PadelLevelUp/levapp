@@ -446,7 +446,7 @@ with app.app_context():
         type="academy",
         max_players=6,
         club_id=club.id,
-        color="#ef4444",
+        color="#A21CAF",
         status="active",
     )
     db.session.add(pending_lesson)
@@ -632,7 +632,7 @@ with app.app_context():
         type="academy",
         max_players=6,
         club_id=club.id,
-        color="#ef4444",
+        color="#A21CAF",
         status="active",
     )
     db.session.add(missed_lesson)
