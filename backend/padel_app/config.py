@@ -138,12 +138,29 @@ class Config:
     MAIL_USE_SSL = True
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    # Recipient guard (auth.email-verification rule 12). Comma-separated exact
+    # addresses and/or `@domain` suffixes; a message to anyone else is dropped
+    # and logged. Empty (prod) allows everyone. Staging holds a copy of prod's
+    # users, so this is what lets it have a real sender without ever mailing
+    # a real coach.
+    MAIL_ALLOWED_RECIPIENTS = tuple(
+        item.strip().lower()
+        for item in os.getenv("MAIL_ALLOWED_RECIPIENTS", "").split(",")
+        if item.strip()
+    )
 
     # auth.coach-approval: a self-registered coach waits for a superadmin's
     # approval before anything club-scoped opens up. Set to "0"/"false" to
     # switch the gate off — new coaches are then approved at signup; no data
     # change is needed either way (decision 2026-09-06, item 7).
     COACH_APPROVAL_REQUIRED = os.getenv("COACH_APPROVAL_REQUIRED", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
+    # auth.email-verification (PAD-234): a self-registered user must type back
+    # a 6-digit code mailed to them before the app opens. Set to "0"/"false"
+    # where no mail can be sent (staging) — accounts are then treated as
+    # verified at signup and the code screen never shows.
+    EMAIL_VERIFICATION_REQUIRED = os.getenv("EMAIL_VERIFICATION_REQUIRED", "1").strip().lower() not in (
         "0", "false", "no", "off", ""
     )
     # Where to email "a coach is waiting for approval". Unset → no email, the

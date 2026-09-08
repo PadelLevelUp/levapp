@@ -11,6 +11,7 @@ The auth domain.
 - `auth.register` — implemented (rewritten 2026-09-06 as self-service signup for both roles; the old `POST /api/auth/register` never existed, B-023; built in PAD-210)
 - `auth.activate` — implemented
 - `auth.coach-approval` — implemented (LevApp admin approves self-registered coaches; gate is switchable; PAD-210)
+- `auth.email-verification` — draft (6-digit code mailed at self-signup and on a self-service email change; clients hold the person on the code screen; PAD-234)
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
 - `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)

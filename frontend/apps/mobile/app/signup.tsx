@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { z } from "zod";
 import { useAuth } from "@/auth/AuthContext";
-import { postLoginRoute } from "@/auth/postLoginRoute";
+import { needsEmailVerification, postLoginRoute } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -121,17 +121,26 @@ export default function SignUpScreen() {
         email: form.email.trim(),
         password: form.password,
       });
+      let destination: string;
       if (role === "student") {
         // players.join-token rule 9: back to the join link if that is where
         // the student came from, else the generic "Connect" screen.
         const pending = consumePendingJoin();
         const pendingClaim = consumePendingClaim();
-        router.replace(
-          pendingClaim ? `/invite/player/${pendingClaim}` : pending ? `/join/coach/${pending}` : "/connect"
-        );
+        destination = pendingClaim
+          ? `/invite/player/${pendingClaim}`
+          : pending
+            ? `/join/coach/${pending}`
+            : "/connect";
       } else {
-        router.replace(postLoginRoute(me));
+        destination = postLoginRoute({ ...me, emailVerification: "verified" });
       }
+      // auth.register rule 14: the code screen comes first, then `destination`.
+      router.replace(
+        (needsEmailVerification(me)
+          ? `/verify-email?next=${encodeURIComponent(destination)}`
+          : destination) as never
+      );
     } catch (err: unknown) {
       const info = describeApiError(err);
       const isField = (f: string | undefined): f is Field =>

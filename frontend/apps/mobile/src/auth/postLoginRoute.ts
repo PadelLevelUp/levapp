@@ -13,7 +13,16 @@ type Me = authApi.MeResponse;
  * on `/connect`; `/auth/me` does not say yet, so students go to the tabs and
  * only a brand-new signup is sent to `/connect` by the signup screen.
  */
-export type PostLoginRoute = "/(tabs)/dashboard" | "/coach-pending" | "/club-onboarding";
+export type PostLoginRoute = "/(tabs)/dashboard" | "/verify-email" | "/coach-pending" | "/club-onboarding";
+
+/**
+ * auth.email-verification rule 8: a `pending` email (self-signup, or a new
+ * address saved in Settings) holds everyone on the code screen before any
+ * other routing. `unverified` and an absent field never hold.
+ */
+export function needsEmailVerification(user: Me | null | undefined): boolean {
+  return user?.emailVerification === "pending";
+}
 export type PostLoginLanding = PostLoginRoute | "/connect";
 
 /**
@@ -32,6 +41,7 @@ export function postLoginLanding(user: Me | null | undefined): PostLoginLanding 
 
 export function postLoginRoute(user: Me | null | undefined): PostLoginRoute {
   if (!user) return "/(tabs)/dashboard";
+  if (needsEmailVerification(user)) return "/verify-email";
   const isCoach = user.roles?.includes("coach") ?? false;
   if (!isCoach) return "/(tabs)/dashboard";
 

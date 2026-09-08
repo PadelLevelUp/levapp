@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, DateTime, Integer, String, Text, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -55,6 +55,23 @@ class User(db.Model, model.Model, UserMixin):
         nullable=False,
         server_default="pt",
         default="pt",
+    )
+
+    # ── auth.email-verification (PAD-234) ────────────────────────────────────
+    #
+    # `email_verification_required` is set only by self-signup and by a
+    # self-service email change; a coach-typed email never triggers the step,
+    # so a coach-created player is not stopped on first sign-in. The code is
+    # stored as an HMAC (`email_verification_service`), never in clear.
+    email_verification_required = Column(
+        Boolean, nullable=False, server_default="0", default=False,
+    )
+    email_verified_at = Column(DateTime, nullable=True)
+    email_verification_code_hash = Column(String(128), nullable=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
+    email_verification_sent_at = Column(DateTime, nullable=True)
+    email_verification_attempts = Column(
+        Integer, nullable=False, server_default="0", default=0,
     )
 
     # ── PAD-112: the student's standing block preferences ────────────────────
