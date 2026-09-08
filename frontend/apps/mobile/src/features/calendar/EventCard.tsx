@@ -80,7 +80,11 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
   return (
     <Pressable
       testID={`calendar-event-${event.id}`}
-      accessibilityLabel={`${title}, ${timeRange}`}
+      // The label is the bare title: the Maestro `goto-seeded-monday` subflow
+      // (and VoiceOver users) find a class by its exact name. The time range
+      // is the hint, read after the name.
+      accessibilityLabel={title}
+      accessibilityHint={timeRange}
       // PAD-160: only `onPress` gates this — a block card must stay tappable
       // so it can be viewed, edited and deleted from the phone.
       accessibilityState={{ disabled: !onPress }}

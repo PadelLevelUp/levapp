@@ -154,8 +154,10 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     spec reads them in order). New: `calendar-view-day / -week / -month` on the segments,
     `calendar-sheet-handle`, `calendar-grid-column-{yyyy-MM-dd}`,
     `calendar-month-cell-{yyyy-MM-dd}`.
-24. **Cards are buttons.** Every event card and grid block is a real button with an
-    accessible name of `title, time range` (closes PAD-148's calendar half).
+24. **Cards are buttons.** Every event card and grid block is a real button (closes PAD-148's
+    calendar half). On web the accessible name is `title, time range`. On iOS the name is the
+    bare title and the time range is the accessibility hint — Maestro's `goto-seeded-monday`
+    subflow (rule 23) finds a class by its exact title.
 25. **i18n** adds keys only to the existing `calendar` namespace, in both `pt` and `en`, so
     the mobile static-import trap (R-024) cannot bite.
 
