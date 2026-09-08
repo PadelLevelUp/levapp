@@ -58,7 +58,22 @@ def allowed_recipients(recipients):
 
 
 def _sender():
-    return current_app.config.get("MAIL_USERNAME") or os.environ.get("MAIL_USERNAME") or ""
+    """The From address, which is not necessarily the SMTP login.
+
+    Workspace lets one seat send as its aliases, so the app authenticates as a
+    real mailbox (`MAIL_USERNAME`, e.g. admin@levapp.app) and sends as a
+    no-reply alias (`MAIL_DEFAULT_SENDER`, e.g. noreply@levapp.app). Falling
+    back to the login keeps every environment that sets only MAIL_USERNAME
+    working unchanged.
+    """
+    cfg = current_app.config
+    return (
+        cfg.get("MAIL_DEFAULT_SENDER")
+        or os.environ.get("MAIL_DEFAULT_SENDER")
+        or cfg.get("MAIL_USERNAME")
+        or os.environ.get("MAIL_USERNAME")
+        or ""
+    )
 
 
 def send_email(subject, recipients, body=None, html=None):
