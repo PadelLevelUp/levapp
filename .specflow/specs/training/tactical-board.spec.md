@@ -1,6 +1,6 @@
 ---
 id: training.tactical-board
-status: draft
+status: implementing
 depends_on: [training.exercises]
 implements: ../../specs-business/training/coach-builds-exercise-library.business.md
 governed_by: [R-015, R-024, R-025]
@@ -228,6 +228,12 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **When** a coach opens the same exercise
 - **Then** the board renders the same mode, pieces and steps, and each criterion above passes
   through the Maestro flow for that wave
+
+### Status (2026-09-08, PAD-242)
+`implementing`: wave 1 is built and verified — rules 1–13 and 21–22 (board shell, game mode,
+court, undo, v2 model, legacy migration, thumbnails, iOS parity) are implemented; rules 14–17
+(basket, magnetic) and 18–20 (steps, playback) are `draft` pending PAD-243/244/245. The status
+flips to `implemented` when wave 4 lands.
 
 ### Notes
 - Supersedes `training.court-diagram`, which stays `implemented` until wave 1 lands and is

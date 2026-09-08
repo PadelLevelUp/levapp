@@ -155,33 +155,54 @@
       "deleteExerciseAria": "Eliminar exercício {{name}}"
     },
     "diagram": {
-      "label": "Diagrama de Campo",
-      "tools": {
-        "select": "Selecionar",
-        "player1": "Jogador 1",
-        "player2": "Jogador 2",
-        "player3": "Jogador 3",
-        "player4": "Jogador 4",
-        "coach": "Treinador",
-        "cone": "Cone",
-        "blocker": "Bloqueador",
-        "ball": "Bola",
-        "arrow": "Seta",
-        "movement": "Movimento",
-        "eraser": "Borracha"
-      },
-      "deleteSelected": "Eliminar selecionado",
-      "delete": "Eliminar",
-      "clearAll": "Limpar tudo",
-      "clear": "Limpar",
-      "lineLabel": "Etiqueta",
-      "lineLabelPlaceholder": "ex.: Lob, Remate, Drop",
-      "curveHint": "Arraste a pega ● na seta para a curvar",
-      "instructions": "Selecione uma ferramenta e clique no campo. Desenhe setas e depois selecione-as para adicionar uma etiqueta e curva. Prima Delete para remover. Máximo 4 jogadores.",
-      "instructionsTouch": "Toque numa ferramenta e depois toque no campo para a colocar. Toque num elemento para o selecionar — arraste para o mover, ou use o botão eliminar para o remover. Desenhe setas e linhas de movimento arrastando pelo campo e depois selecione-as para adicionar uma etiqueta ou curva. Máximo 4 jogadores."
+      "label": "Diagrama de Campo"
     },
     "exercisesTabAria": "Separador de exercícios",
     "groupsTabAria": "Separador de grupos",
-    "exerciseItem": "Exercício {{name}}"
+    "exerciseItem": "Exercício {{name}}",
+    "board": {
+      "title": "Quadro",
+      "brand": "LEV APP",
+      "modes": {
+        "game": {
+          "title": "Situações de jogo",
+          "subtitle": "Tática · uma bola"
+        },
+        "basket": {
+          "title": "Exercícios de cesto",
+          "subtitle": "Alimentação"
+        },
+        "magnetic": {
+          "title": "Magnético",
+          "subtitle": "Quadro livre"
+        }
+      },
+      "tools": {
+        "select": "Selecionar",
+        "ball": "Bola",
+        "movement": "Movimentação",
+        "cone": "Cone"
+      },
+      "hints": {
+        "select": "Toca numa peça para a selecionar (fica com um anel), depois toca no destino para a mover.",
+        "ball": "Desenha a trajetória da bola. Toca no ponto a meio da linha para alternar entre plana e lob.",
+        "movement": "Toca no jogador e depois no destino — cria o percurso tracejado do movimento.",
+        "cone": "Toca no campo para colocar um cone. Seleciona um cone e prime Delete para o remover."
+      },
+      "undo": "Anular",
+      "deleteSelected": "Eliminar selecionado",
+      "ballStyleToggle": "Alternar plana / lob",
+      "teams": {
+        "a": "EQUIPA A",
+        "b": "EQUIPA B"
+      },
+      "legend": {
+        "ball": "Bola",
+        "movement": "Movimentação",
+        "teamA": "Equipa A",
+        "teamB": "Equipa B"
+      },
+      "canvasAria": "Campo de padel — quadro tático"
+    }
   }
 }
