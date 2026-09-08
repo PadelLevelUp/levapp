@@ -13,8 +13,18 @@ name: Deploy staging
 # blocks the PR forever, because "skipped" is not "success".
 # Staging shares the production VM: its own containers, ports and database
 # (padel_app_staging), memory-capped so it can never starve production. No
-# VAPID / OpenRouter / GCS / mail credentials are passed on purpose, so staging
-# cannot push, spend credit, write to the prod uploads bucket or email coaches.
+# VAPID / OpenRouter / mail credentials are passed on purpose, so staging cannot
+# push, spend credit or email coaches.
+#
+# GCS is the one exception, and it stays isolated: staging gets its OWN bucket
+# (padel-levelup-2026-storage-staging, public access prevention ENFORCED), never
+# the production one, so it can exercise the signed-URL path without being able
+# to write a byte into prod uploads. The bucket name is not a credential — access
+# comes from the VM service account — so it is inlined rather than held as a
+# secret, and it lives in .env.staging so sync-staging-db.sh can read it too.
+# That script seeds a placeholder object for every key the copied database
+# references, so images resolve on staging without a production byte ever
+# leaving its bucket.
 
 on:
   push:
