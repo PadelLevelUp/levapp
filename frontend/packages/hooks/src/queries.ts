@@ -44,6 +44,21 @@ export function useDashboard(
   });
 }
 
+/**
+ * Coach action: "Later" on a needs-you card. On success the dashboard is
+ * invalidated so the card disappears because the payload says so — the
+ * same way a student's reminder answer clears its row.
+ */
+export function useSnoozeNeedsYouItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => dashboardApi.snoozeNeedsYouItem(itemId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 // ── Calendar ──
 
 export function useCalendarEvents(

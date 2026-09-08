@@ -16,9 +16,12 @@ import type {
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
 } from "@levelup/types";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { snoozeNeedsYouItem } from "@levelup/api/src/resources/dashboard";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
@@ -29,7 +32,11 @@ export function NeedsYouQueue({
   onAnswered,
 }: {
   block: DashboardNeedsYouBlock;
-  /** PAD-202 (student): refetch after answering an invite card. */
+  /**
+   * Refetch after an in-place action: a student answering an invite (PAD-202),
+   * a coach pressing "Later" on an empty-seats card (rule 3c). The card leaves
+   * because the new payload says so.
+   */
   onAnswered?: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -67,7 +74,7 @@ function QueueItem({
 }) {
   switch (item.kind) {
     case "empty_seats":
-      return <EmptySeatsCard item={item} />;
+      return <EmptySeatsCard item={item} onSnoozed={onAnswered} />;
     case "invite":
       return <InviteCard item={item} onAnswered={onAnswered} />;
     case "reply":
@@ -79,12 +86,38 @@ function QueueItem({
   }
 }
 
-function EmptySeatsCard({ item }: { item: DashboardNeedsYouEmptySeats }) {
+function EmptySeatsCard({
+  item,
+  onSnoozed,
+}: {
+  item: DashboardNeedsYouEmptySeats;
+  onSnoozed?: () => void | Promise<void>;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [snoozing, setSnoozing] = useState(false);
+
+  // "Later" (dashboard.blocks rule 3c): the server hides this occurrence for
+  // 24 hours on every device; the card goes when the refetched payload says so.
+  const later = async () => {
+    setSnoozing(true);
+    try {
+      await snoozeNeedsYouItem(item.id);
+      await onSnoozed?.();
+    } catch {
+      toast({ description: t("dashboard.needsYou.laterFailed"), variant: "destructive" });
+    } finally {
+      setSnoozing(false);
+    }
+  };
 
   return (
-    <ActionCard accent="attention" className="flex flex-col gap-3.5">
+    <ActionCard
+      accent="attention"
+      className="flex flex-col gap-3.5"
+      testId={`needs-you-empty-seats-${item.id}`}
+    >
       <div className="flex flex-col gap-0.5">
         <span className="text-[15px] font-bold">
           {t("dashboard.needsYou.emptySeats.title", {
@@ -105,7 +138,13 @@ function EmptySeatsCard({ item }: { item: DashboardNeedsYouEmptySeats }) {
         <Button className="h-11 flex-1 lg:h-10" onClick={() => navigate(item.href)}>
           {t("dashboard.needsYou.emptySeats.invite", { count: item.seatsMissing })}
         </Button>
-        <Button variant="outline" className="h-11 lg:h-10">
+        <Button
+          variant="outline"
+          className="h-11 lg:h-10"
+          disabled={snoozing}
+          onClick={later}
+          data-testid="needs-you-later"
+        >
           {t("dashboard.needsYou.later")}
         </Button>
       </div>

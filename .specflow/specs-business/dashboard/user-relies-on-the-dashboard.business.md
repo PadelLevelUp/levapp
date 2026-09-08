@@ -33,6 +33,8 @@ Every coach and every student, as the first screen they see on opening the app.
 3. The coach clicks an unread-messages block and lands directly in Messages.
 4. The coach clicks an upcoming class and lands on the calendar already showing the right week,
    with that exact class's details already open — no hunting through weeks to find it.
+4a. A coach who cannot deal with a half-empty class right now presses "Later" on its card; it
+   drops out of the queue until tomorrow and the queue count follows, so the list stays honest.
 5. A student clicks their "Missed" count and lands on their absence history; clicking "Attended"
    lands on their attendance history.
 6. A card that has nowhere sensible to send them — because no such page exists yet — is shown as a
@@ -46,6 +48,8 @@ Every coach and every student, as the first screen they see on opening the app.
   needs to act on — but in one shared visual language, so the app never looks like two apps
   depending on who signed in.
 - An invite the student has not answered is shown as something to resolve, not merely counted.
+- A coach can push a "class still has room" card back with "Later": it leaves their queue for a
+  day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
   a matching page actually exists to receive the click.
 - Clicking an upcoming class always opens that exact occurrence's details already in view — never a

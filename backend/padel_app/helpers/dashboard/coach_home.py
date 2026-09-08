@@ -52,6 +52,7 @@ from padel_app.helpers.calendar_helpers import (
     load_lessons_for_player,
     load_lesson_instances_for_player,
 )
+from padel_app.helpers.dashboard.snooze import snoozed_item_ids
 from padel_app.tools.tools import _safe_int
 from padel_app.utils.dates import utcnow_naive
 
@@ -259,10 +260,15 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
 
 def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
     events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
+    # snooze lapses. It is still on the schedule — only the nag is paused.
+    snoozed = snoozed_item_ids(coach_id=coach_id, now=now)
     out: List[Dict[str, Any]] = []
     for event in events:
         filled, capacity = fill(event)
         if not capacity or filled >= capacity:
+            continue
+        if str(event.get("id") or "") in snoozed:
             continue
         out.append(
             {

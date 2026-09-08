@@ -2381,3 +2381,19 @@ def notify_pending_confirmations_route():
 
     result = notify_pending_confirmations(coach_id=coach.id)
     return jsonify(result)
+
+
+@bp.post("/dashboard/needs-you/<item_id>/snooze")
+@jwt_required()
+def snooze_needs_you_item_route(item_id):
+    """"Later" on an empty-seats card (dashboard.blocks rule 3c)."""
+    from padel_app.helpers.dashboard.snooze import is_item_id, snooze_item
+
+    coach = current_coach()
+    if coach is None:
+        abort(403, "Only coaches have a needs-you queue")
+    if not is_item_id(item_id):
+        abort(400, "Not a queue item id")
+
+    until = snooze_item(coach_id=coach.id, item_id=item_id)
+    return jsonify({"itemId": item_id, "snoozedUntil": until.isoformat()})
