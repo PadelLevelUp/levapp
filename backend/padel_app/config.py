@@ -138,6 +138,8 @@ class Config:
     MAIL_USE_SSL = True
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    # From address; defaults to the login when unset (see tools/email_tools._sender).
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
     # Recipient guard (auth.email-verification rule 12). Comma-separated exact
     # addresses and/or `@domain` suffixes; a message to anyone else is dropped
     # and logged. Empty (prod) allows everyone. Staging holds a copy of prod's
