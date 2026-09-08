@@ -64,6 +64,8 @@ through the history without the thread ever moving under the reader.
     way back can always get straight back. When messages *have* arrived unseen meanwhile it is
     the same control, carrying rule 10's "New messages" label, so the two never appear as two
     competing buttons. Both shells
+13. The composer row is padded symmetrically: the space below the input equals the space above it. While the keyboard is open the row adds no extra bottom inset (the keyboard already covers the home indicator); while the keyboard is down the row clears the home indicator by the safe-area inset
+14. The send control is an icon button with the same height as the single-line input, the standard button corner radius (not a circle), and the outline paper-plane glyph — identical on web and iOS
 
 ### Acceptance Criteria
 
@@ -77,6 +79,16 @@ through the history without the thread ever moving under the reader.
 - **When** they focus the message input and the keyboard opens
 - **Then** the composer is flush against the top of the keyboard with no empty band between them,
   and the latest message remains visible above it
+
+#### Composer row is symmetric above the keyboard
+- **Given** a user viewing a conversation on the native iOS app with the keyboard open
+- **When** they look at the composer row
+- **Then** the gap between the input and the keyboard equals the gap between the input and the row's top border
+
+#### Send button matches the input
+- **Given** a user viewing a conversation on web or iOS
+- **When** the composer shows a single-line input
+- **Then** the send button is exactly as tall as the input, square with the standard button radius, and shows the outline paper-plane icon
 
 #### Reactions load in one query, not one per message (PAD-204)
 - **Given** a conversation with 30 messages, 10 of which carry a reaction
