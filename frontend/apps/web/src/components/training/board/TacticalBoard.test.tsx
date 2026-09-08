@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useState } from "react";
 import type { AnyCourtDiagram, CourtDiagramV2 } from "@/types/training";
 import { TacticalBoard } from "./TacticalBoard";
@@ -298,5 +298,88 @@ describe("TacticalBoard — Magnético (training.tactical-board rules 16–17)",
     fireEvent.click(screen.getByRole("radio", { name: "training.board.colors.green" }));
     tapCourt(20, 20);
     expect(lastDiagram(onChange).pieces.find((p) => p.kind === "cone")).toMatchObject({ color: "green" });
+  });
+});
+
+// ── Wave 4 — steps and playback (PAD-245) ────────────────────────────────────
+
+function drawMovement(id: string, fromX: number, fromY: number, toX: number, toY: number) {
+  pickTool("movement");
+  tapPiece(id, fromX, fromY);
+  tapCourt(toX, toY);
+}
+
+describe("TacticalBoard — steps and playback (training.tactical-board rules 18–20)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the step indicator, adds a second step that starts from the first step's end", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    expect(screen.getByTestId("board-step-indicator")).toHaveTextContent("training.board.playback.stepOf");
+    drawMovement("a1", 32, 26, 20, 40);
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.addStep" }));
+    let d = lastDiagram(onChange);
+    expect(d.steps).toHaveLength(2);
+    // On step 2 the board shows A1 where step 1 left it.
+    const a1 = screen.getByTestId("piece-a1");
+    expect(a1.getAttribute("transform")).toBe("translate(68 240)");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.prevStep" }));
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(108.8 156)");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.nextStep" }));
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.deleteStep" }));
+    d = lastDiagram(onChange);
+    expect(d.steps).toHaveLength(1);
+  });
+
+  it("Passo steps through the end states and wraps to the start", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    drawMovement("a1", 32, 26, 20, 40);
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.addStep" }));
+    drawMovement("a1", 20, 40, 10, 60);
+    const passo = screen.getByRole("button", { name: "training.board.playback.step" });
+    fireEvent.click(passo);
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(68 240)");
+    fireEvent.click(passo);
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(34 360)");
+    fireEvent.click(passo);
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe("translate(108.8 156)");
+  });
+
+  it("AUTO animates through the steps, reads ■ while playing, and an edit stops it", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("ball");
+    tapCourt(58, 20);
+    tapCourt(40, 80);
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.addStep" }));
+    drawMovement("a1", 32, 26, 10, 60);
+    const auto = screen.getByRole("button", { name: "training.board.playback.auto" });
+    fireEvent.click(auto);
+    expect(screen.getByRole("button", { name: "training.board.playback.stop" })).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    // mid-way through step 1 the ball is between its endpoints
+    const ball = screen.getByTestId("playback-ball");
+    const cx = Number(ball.getAttribute("cx"));
+    expect(cx).toBeGreaterThan(136);
+    expect(cx).toBeLessThan(197.2);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    // step 2 is playing: A1 has left its start
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).not.toBe("translate(108.8 156)");
+    pickTool("cone");
+    tapCourt(50, 40);
+    expect(screen.getByRole("button", { name: "training.board.playback.auto" })).toBeInTheDocument();
+    expect(screen.queryByTestId("playback-ball")).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByRole("button", { name: "training.board.playback.auto" })).toBeInTheDocument();
   });
 });

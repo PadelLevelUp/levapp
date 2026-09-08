@@ -9,6 +9,7 @@ import {
   ballPathD,
   ballPathMidpoint,
   movementPathD,
+  swatchHex as swatch,
   toView,
   type PendingPath,
 } from "@levelup/config";
@@ -43,6 +44,10 @@ export interface CourtSurfaceProps {
   selectedId?: string | null;
   dragOverride?: { id: string; position: Point } | null;
   pending?: PendingPath | null;
+  /** A pen stroke still under the finger (Magnético). */
+  liveStroke?: { color: PieceColor; points: Point[] } | null;
+  /** The ball mid-flight during Passo / ▶ AUTO (rule 20). */
+  playbackBall?: Point | null;
   /** Thumbnail mode: no handle, no endpoint squares, hairline strokes. */
   compact?: boolean;
   width: number;
@@ -54,27 +59,14 @@ const inset = { x: (VIEW_W * BOUNDARY_INSET) / 100, y: (VIEW_H * BOUNDARY_INSET)
 const LABEL_FONT = "PlusJakartaSans_700Bold";
 const CAPTION_FONT = "PlusJakartaSans_600SemiBold";
 
-function swatch(color: PieceColor | undefined): string {
-  switch (color) {
-    case "green":
-      return "#12946B";
-    case "blue":
-      return COURT_COLORS.ballPath;
-    case "red":
-      return COURT_COLORS.teamB;
-    case "amber":
-      return COURT_COLORS.amber;
-    default:
-      return "#FFFFFF";
-  }
-}
-
 export function CourtSurface({
   diagram,
   stepIndex = 0,
   selectedId,
   dragOverride,
   pending,
+  liveStroke,
+  playbackBall,
   compact = false,
   width,
   height,
@@ -130,6 +122,23 @@ export function CourtSurface({
         ) : null
       )}
 
+      {liveStroke && liveStroke.points.length > 1 ? (
+        <Polyline
+          points={liveStroke.points
+            .map((p) => {
+              const v = toView(p);
+              return `${v.x},${v.y}`;
+            })
+            .join(" ")}
+          fill="none"
+          stroke={swatch(liveStroke.color)}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.9}
+        />
+      ) : null}
+
       {step?.movements.map((m) => {
         const piece = pieceById(m.pieceId);
         const from = piece ? position(piece) : null;
@@ -162,6 +171,10 @@ export function CourtSurface({
           <BallDot at={step.ball.from} />
           {!compact ? <BallHandle at={ballPathMidpoint(step.ball)} lob={step.ball.style === "lob"} /> : null}
         </G>
+      ) : null}
+
+      {playbackBall ? (
+        <Circle testID="playback-ball" cx={toView(playbackBall).x} cy={toView(playbackBall).y} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />
       ) : null}
 
       {pending ? (

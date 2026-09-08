@@ -17,6 +17,7 @@ import {
   newDiagram,
   newStep,
   removePlayer,
+  simplifyStroke,
 } from "./court-diagram";
 
 /** Every tool across the three modes; each mode shows its own subset (see `toolsForMode`). */
@@ -36,6 +37,8 @@ export interface BoardState {
   pendingPlayerId: string | null;
   /** Magnético swatch (rule 16); irrelevant in the other modes. */
   color: PieceColor;
+  /** The step being edited (rule 18). A board with no steps edits an implicit step 0. */
+  stepIndex: number;
 }
 
 export const INITIAL_BOARD_STATE: BoardState = {
@@ -44,6 +47,7 @@ export const INITIAL_BOARD_STATE: BoardState = {
   pending: null,
   pendingPlayerId: null,
   color: "blue",
+  stepIndex: 0,
 };
 
 /** The toolbar of each mode, in canvas order (rules 8, 15, 16). */
@@ -91,12 +95,62 @@ export function firstStep(d: CourtDiagramV2): Step {
 }
 
 export function withFirstStep(d: CourtDiagramV2, patch: (s: Step) => Step): CourtDiagramV2 {
-  const step = patch(firstStep(d));
-  return { ...d, steps: d.steps.length === 0 ? [step] : [step, ...d.steps.slice(1)] };
+  return withStep(d, 0, patch);
+}
+
+/** Patch step `index`, materialising the implicit steps up to it. */
+export function withStep(d: CourtDiagramV2, index: number, patch: (s: Step) => Step): CourtDiagramV2 {
+  const steps = [...d.steps];
+  while (steps.length <= index) steps.push(newStep());
+  steps[index] = patch(steps[index]);
+  return { ...d, steps };
+}
+
+/** How many steps the indicator shows: a board with none still edits step 1 of 1. */
+export function stepCount(d: CourtDiagramV2): number {
+  return Math.max(1, d.steps.length);
+}
+
+/** Clamp a requested step to the ones that exist. */
+export function boardSetStep(state: BoardState, d: CourtDiagramV2, index: number): BoardState {
+  const max = Math.max(0, d.steps.length - 1);
+  const stepIndex = Math.min(max, Math.max(0, index));
+  return { ...state, stepIndex, selectedId: null, pending: null, pendingPlayerId: null };
+}
+
+/** Append a step (materialising the implicit first one) and move to it (rule 18). */
+export function boardAddStep(d: CourtDiagramV2, state: BoardState): { diagram: CourtDiagramV2; state: BoardState } {
+  const steps = d.steps.length === 0 ? [newStep(), newStep()] : [...d.steps, newStep()];
+  const diagram = { ...d, steps };
+  return { diagram, state: boardSetStep(state, diagram, steps.length - 1) };
+}
+
+/** Remove the current step; the index clamps to what is left (rule 18). */
+export function boardDeleteStep(d: CourtDiagramV2, state: BoardState): { diagram: CourtDiagramV2; state: BoardState } {
+  if (d.steps.length === 0) return { diagram: d, state };
+  const steps = d.steps.filter((_, i) => i !== state.stepIndex);
+  const diagram = { ...d, steps };
+  return { diagram, state: boardSetStep(state, diagram, state.stepIndex) };
 }
 
 export function boardSelectTool(state: BoardState, tool: BoardTool): BoardState {
   return { ...state, tool, pending: null, pendingPlayerId: null, selectedId: null };
+}
+
+/** Magnético swatch (rule 16). */
+export function boardSetColor(state: BoardState, color: PieceColor): BoardState {
+  return { ...state, color };
+}
+
+/**
+ * A finished pen stroke (rule 16). Points arrive raw from the shell and are
+ * simplified here; anything shorter than two points is ignored.
+ */
+export function boardStrokeEnd(d: CourtDiagramV2, points: readonly Point[], color: PieceColor): CourtDiagramV2 {
+  const simplified = simplifyStroke(points);
+  if (simplified.length < 2) return d;
+  const id = nextIndexedId(d.pieces, "stroke");
+  return { ...d, pieces: [...d.pieces, { id, kind: "stroke", color, points: simplified }] };
 }
 
 export function boardMovePiece(d: CourtDiagramV2, id: string, to: Point): CourtDiagramV2 {
@@ -104,22 +158,38 @@ export function boardMovePiece(d: CourtDiagramV2, id: string, to: Point): CourtD
 }
 
 /** A drag released at `position` — same as a tap-to-move, one history entry. */
-export function boardDragEnd(d: CourtDiagramV2, id: string, position: Point): CourtDiagramV2 {
-  return boardMovePiece(d, id, position);
+export function boardDragEnd(d: CourtDiagramV2, id: string, position: Point, state: BoardState = INITIAL_BOARD_STATE): CourtDiagramV2 {
+  return moveOrRecord(d, state, id, position);
 }
 
-export function boardToggleBallStyle(d: CourtDiagramV2): CourtDiagramV2 {
-  const ball = d.steps[0]?.ball;
+export function boardToggleBallStyle(d: CourtDiagramV2, stepIndex = 0): CourtDiagramV2 {
+  const ball = d.steps[stepIndex]?.ball;
   if (!ball) return d;
   const style = ball.style === "lob" ? "flat" : "lob";
-  return withFirstStep(d, (s) => ({ ...s, ball: s.ball ? { ...s.ball, style } : s.ball }));
+  return withStep(d, stepIndex, (s) => ({ ...s, ball: s.ball ? { ...s.ball, style } : s.ball }));
 }
 
-/** True when `pt` lands on the plana/lob handle of the first step's ball path. */
-export function ballHandleHit(d: CourtDiagramV2, pt: Point, radius = HIT_RADIUS): boolean {
-  const ball = d.steps[0]?.ball;
+/** True when `pt` lands on the plana/lob handle of the step's ball path. */
+export function ballHandleHit(d: CourtDiagramV2, pt: Point, radius = HIT_RADIUS, stepIndex = 0): boolean {
+  const ball = d.steps[stepIndex]?.ball;
   if (!ball) return false;
   return distance(ballPathMidpoint(ball), pt) <= radius;
+}
+
+/**
+ * Moving a player while editing a later step records where it goes in that
+ * step (a movement) rather than shifting the starting position; step 0 and
+ * every other piece move the base position (rule 18).
+ */
+function moveOrRecord(d: CourtDiagramV2, state: BoardState, id: string, to: Point): CourtDiagramV2 {
+  const piece = d.pieces.find((p) => p.id === id);
+  if (state.stepIndex > 0 && piece?.kind === "player") {
+    return withStep(d, state.stepIndex, (s) => ({
+      ...s,
+      movements: [...s.movements.filter((m) => m.pieceId !== id), { pieceId: id, to }],
+    }));
+  }
+  return boardMovePiece(d, id, to);
 }
 
 /**
@@ -186,7 +256,7 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
       }
       if (state.selectedId) {
         // tap-to-move (rule 8): the selection stays so the coach can keep nudging it
-        return { state, diagram: boardMovePiece(d, state.selectedId, pt) };
+        return { state, diagram: moveOrRecord(d, state, state.selectedId, pt) };
       }
       return { state };
     }
@@ -205,14 +275,14 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
         if (!feeder || feeder.kind !== "feeder") return { state };
         return {
           state: { ...state, pending: null },
-          diagram: withFirstStep(d, (s) => ({ ...s, ball: { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" } })),
+          diagram: withStep(d, state.stepIndex, (s) => ({ ...s, ball: { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" } })),
         };
       }
       const pending = state.pending;
       if (pending && pending.kind === "ball" && distance(pending.from, pt) >= MIN_PATH_LENGTH) {
         return {
           state: { ...state, pending: null },
-          diagram: withFirstStep(d, (s) => ({ ...s, ball: { from: pending.from, to: pt, style: "flat" } })),
+          diagram: withStep(d, state.stepIndex, (s) => ({ ...s, ball: { from: pending.from, to: pt, style: "flat" } })),
         };
       }
       return { state: { ...state, pending: { kind: "ball", from: pt } } };
@@ -225,7 +295,7 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
       if (!playerId) return { state };
       return {
         state: { ...state, pendingPlayerId: null, pending: null },
-        diagram: withFirstStep(d, (s) => ({
+        diagram: withStep(d, state.stepIndex, (s) => ({
           ...s,
           movements: [...s.movements.filter((m) => m.pieceId !== playerId), { pieceId: playerId, to: pt }],
         })),

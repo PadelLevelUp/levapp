@@ -185,3 +185,104 @@ test("US-66: switching mode on a board with content asks first", async ({ page }
   await expect(page.getByTestId("piece-feeder")).toBeVisible();
   await expect(page.getByTestId(/^piece-cone/)).toHaveCount(0);
 });
+
+// ── Wave 3 — Magnético (PAD-244) ─────────────────────────────────────────────
+
+test("US-67: a red pen stroke on the magnetic board is saved with the exercise", async ({ page, request }) => {
+  await openNewExercise(page, "Magnetic Pen");
+  await page.getByRole("tab", { name: /magnetic/i }).click();
+  await expect(page.getByRole("radio", { name: /^pen$/i })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: /^red$/i }).click();
+
+  // Raw mouse events do not auto-scroll the way `click` does: bring the court on screen first.
+  const court = page.getByTestId("court-surface");
+  await court.scrollIntoViewIfNeeded();
+  const box = await court.boundingBox();
+  if (!box) throw new Error("court-surface has no bounding box");
+  const at = (x: number, y: number) => [box.x + (box.width * x) / 100, box.y + (box.height * y) / 100] as const;
+  await page.mouse.move(...at(20, 20));
+  await page.mouse.down();
+  await page.mouse.move(...at(40, 30), { steps: 6 });
+  await page.mouse.move(...at(60, 60), { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId("piece-stroke-1")).toBeVisible();
+
+  await page.getByRole("radio", { name: /^player$/i }).click();
+  await tapCourt(page, 70, 75);
+  await expect(court.getByText("B1", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await expect(page.getByText("Magnetic Pen")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
+  const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });
+  const list = (await res.json()) as Array<{ name: string; diagram?: StoredDiagram & { pieces: Array<{ kind: string; color?: string; team?: string }> } }>;
+  const saved = list.find((e) => e.name === "Magnetic Pen");
+  expect(saved?.diagram?.mode).toBe("magnetic");
+  expect(saved?.diagram?.pieces.find((p) => p.kind === "stroke")?.color).toBe("red");
+  expect(saved?.diagram?.pieces.find((p) => p.kind === "player")?.team).toBe("B");
+});
+
+// ── Wave 4 — steps and playback (PAD-245) ────────────────────────────────────
+
+/** A piece's rendered position, in view units, to within half a unit (real clicks land on sub-pixels). */
+async function expectPieceAt(page: Page, pieceId: string, x: number, y: number) {
+  await expect
+    .poll(async () => {
+      const tr = await page.getByTestId(`piece-${pieceId}`).getAttribute("transform");
+      const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(tr ?? "");
+      return !!m && Math.abs(Number(m[1]) - x) < 0.5 && Math.abs(Number(m[2]) - y) < 0.5;
+    }, { message: `piece ${pieceId} near (${x}, ${y})` })
+    .toBe(true);
+}
+
+async function drawMovement(page: Page, pieceId: string, toX: number, toY: number) {
+  await page.getByRole("radio", { name: /^movement$/i }).click();
+  await page.getByTestId(`piece-${pieceId}`).click();
+  await tapCourt(page, toX, toY);
+}
+
+test("US-68: a second step starts where the first one ended and Passo walks the end states", async ({ page, request }) => {
+  await openNewExercise(page, "Two Steps");
+  await drawMovement(page, "a1", 20, 40);
+  await expect(page.getByTestId("board-step-indicator")).toHaveText(/1 of 1/);
+  await page.getByRole("button", { name: /^add step$/i }).click();
+  await expect(page.getByTestId("board-step-indicator")).toHaveText(/2 of 2/);
+  await expectPieceAt(page, "a1", 68, 240);
+  await drawMovement(page, "a1", 10, 60);
+
+  const passo = page.getByRole("button", { name: /^step$/i });
+  await passo.click();
+  await expectPieceAt(page, "a1", 68, 240);
+  await passo.click();
+  await expectPieceAt(page, "a1", 34, 360);
+  await passo.click();
+  await expectPieceAt(page, "a1", 108.8, 156);
+
+  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await expect(page.getByText("Two Steps")).toBeVisible({ timeout: 5000 });
+  const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
+  const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });
+  const list = (await res.json()) as Array<{ name: string; diagram?: StoredDiagram & { steps: Array<{ movements: Array<{ pieceId: string }> }> } }>;
+  const saved = list.find((e) => e.name === "Two Steps");
+  expect(saved?.diagram?.steps).toHaveLength(2);
+  expect(saved?.diagram?.steps[1].movements[0].pieceId).toBe("a1");
+});
+
+test("US-69: AUTO animates the steps, reads stop while playing, and ends back at the start", async ({ page }) => {
+  await openNewExercise(page, "Auto Play");
+  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await tapCourt(page, 58, 20);
+  await tapCourt(page, 40, 80);
+  await page.getByRole("button", { name: /^add step$/i }).click();
+  await drawMovement(page, "a1", 10, 60);
+
+  await page.getByRole("button", { name: /auto/i }).click();
+  await expect(page.getByRole("button", { name: /stop/i })).toBeVisible();
+  await expect(page.getByTestId("playback-ball")).toBeVisible();
+  await expect(page.getByRole("button", { name: /auto/i })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("playback-ball")).toHaveCount(0);
+  // Editing view again: step 2 shows A1 where step 1 left it (no movement in step 1 → start).
+  await expectPieceAt(page, "a1", 108.8, 156);
+});

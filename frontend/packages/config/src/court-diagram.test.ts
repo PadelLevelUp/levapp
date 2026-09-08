@@ -9,6 +9,7 @@ import {
   VIEW_H,
   VIEW_W,
   ballPathD,
+  ballPathMidpoint,
   hitTestPiece,
   legacyToPercent,
   lobControlPoint,
@@ -17,6 +18,9 @@ import {
   toPercent,
   toView,
   upgradeCourtDiagram,
+  interpolateStep,
+  piecesAtStep,
+  positionAfterStep,
 } from "./court-diagram";
 
 // The legacy fixture from training.tactical-board — "Legacy diagram is upgraded on read".
@@ -159,5 +163,52 @@ describe("upgradeCourtDiagram (rule 12)", () => {
   it("an empty legacy diagram becomes the 2v2 start", () => {
     const d = upgradeCourtDiagram({ elements: [] });
     expect(d.pieces).toEqual(GAME_START_POSITION);
+  });
+});
+
+// ── Wave 4 — steps and playback (rules 18–20, PAD-245) ──────────────────────
+
+const TWO_STEPS: CourtDiagramV2 = {
+  version: 2,
+  mode: "game",
+  pieces: GAME_START_POSITION.map((p) => ({ ...p })),
+  steps: [
+    { id: "s1", ball: { from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" }, movements: [{ pieceId: "a1", to: { x: 20, y: 40 } }] },
+    { id: "s2", ball: { from: { x: 40, y: 80 }, to: { x: 60, y: 30 }, style: "lob" }, movements: [{ pieceId: "a1", to: { x: 10, y: 60 } }] },
+  ],
+};
+
+describe("piecesAtStep / positionAfterStep (rule 18)", () => {
+  it("step 0 starts from the starting position and later steps from the previous end", () => {
+    expect(piecesAtStep(TWO_STEPS, 0).find((p) => p.id === "a1")).toMatchObject({ x: 32, y: 26 });
+    expect(piecesAtStep(TWO_STEPS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 20, y: 40 });
+    expect(positionAfterStep(TWO_STEPS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 10, y: 60 });
+    expect(positionAfterStep(TWO_STEPS, 1).find((p) => p.id === "b2")).toMatchObject({ x: 62, y: 70 });
+  });
+
+  it("indexes past the end clamp to the final position", () => {
+    expect(piecesAtStep(TWO_STEPS, 9).find((p) => p.id === "a1")).toMatchObject({ x: 10, y: 60 });
+  });
+});
+
+describe("interpolateStep (rule 20)", () => {
+  it("moves the players along their movement and the ball along a flat path", () => {
+    const mid = interpolateStep(TWO_STEPS, 0, 0.5);
+    expect(mid.pieces.find((p) => p.id === "a1")).toMatchObject({ x: 26, y: 33 });
+    expect(mid.ball).toEqual({ x: 49, y: 50 });
+    expect(interpolateStep(TWO_STEPS, 0, 0).ball).toEqual({ x: 58, y: 20 });
+    expect(interpolateStep(TWO_STEPS, 0, 1).ball).toEqual({ x: 40, y: 80 });
+  });
+
+  it("a lob follows the quadratic through the drawn midpoint", () => {
+    const mid = interpolateStep(TWO_STEPS, 1, 0.5);
+    const expected = ballPathMidpoint(TWO_STEPS.steps[1].ball!);
+    expect(mid.ball?.x).toBeCloseTo(expected.x, 6);
+    expect(mid.ball?.y).toBeCloseTo(expected.y, 6);
+  });
+
+  it("a step without a ball has no ball position", () => {
+    const d: CourtDiagramV2 = { ...TWO_STEPS, steps: [{ id: "s", movements: [] }] };
+    expect(interpolateStep(d, 0, 0.5).ball).toBeUndefined();
   });
 });

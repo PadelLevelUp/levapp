@@ -228,6 +228,17 @@
         "blue": "Azul",
         "red": "Vermelho",
         "amber": "Âmbar"
+      },
+      "playback": {
+        "stepOf": "Passo {{n}} de {{m}}",
+        "addStep": "Adicionar passo",
+        "deleteStep": "Eliminar passo",
+        "prevStep": "Passo anterior",
+        "nextStep": "Passo seguinte",
+        "step": "Passo",
+        "auto": "▶ AUTO",
+        "stop": "■ Parar",
+        "hint": "Cada passo tem uma trajetória de bola e os movimentos dos jogadores. Passo avança um; AUTO anima todos."
       }
     }
   }

@@ -20,6 +20,7 @@ import type {
   CourtDiagramV2,
   CourtElement,
   Piece,
+  PieceColor,
   Point,
   Step,
 } from "@levelup/types";
@@ -70,6 +71,25 @@ export const COURT_COLORS = {
   caption: "rgba(255,255,255,0.32)",
   selection: "#FFFFFF",
 } as const;
+
+/** The five Magnético swatches, in toolbar order (rule 16). */
+export const SWATCHES: readonly PieceColor[] = ["white", "green", "blue", "red", "amber"];
+
+/** Hex for a swatch; pieces without a colour fall through to the caller's default. */
+export function swatchHex(color: PieceColor | undefined): string {
+  switch (color) {
+    case "green":
+      return "#12946B"; // lv-green-600
+    case "blue":
+      return COURT_COLORS.ballPath;
+    case "red":
+      return COURT_COLORS.teamB;
+    case "amber":
+      return COURT_COLORS.amber;
+    default:
+      return "#FFFFFF";
+  }
+}
 
 // ── Starting positions (rule 7) ──────────────────────────────────────────────
 
@@ -231,6 +251,107 @@ export function movementPathD(from: Point, to: Point): string {
   const a = toView(from);
   const b = toView(to);
   return `M${fmt(a.x)},${fmt(a.y)} L${fmt(b.x)},${fmt(b.y)}`;
+}
+
+// ── Steps and playback (rules 18–20) ─────────────────────────────────────────
+
+/** How long one step takes on ▶ AUTO (rule 20). */
+export const STEP_DURATION_MS = 800;
+
+function lerp(a: Point, b: Point, t: number): Point {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+/**
+ * Where every piece stands when step `index` begins: the starting position
+ * with the movements of steps 0..index-1 applied. Indexes past the end give
+ * the final position.
+ */
+export function piecesAtStep(d: CourtDiagramV2, index: number): Piece[] {
+  const upto = Math.min(index, d.steps.length);
+  const pieces = d.pieces.map((p) => ({ ...p }));
+  for (let i = 0; i < upto; i++) {
+    for (const m of d.steps[i].movements) {
+      const piece = pieces.find((p) => p.id === m.pieceId);
+      if (piece && piece.kind !== "stroke") {
+        piece.x = m.to.x;
+        piece.y = m.to.y;
+      }
+    }
+  }
+  return pieces;
+}
+
+/** Where every piece stands once step `index` has played (Passo, rule 19). */
+export function positionAfterStep(d: CourtDiagramV2, index: number): Piece[] {
+  return piecesAtStep(d, index + 1);
+}
+
+/** The ball at parameter t along a path: linear for plana, quadratic for lob. */
+export function pointOnBallPath(path: BallPath, t: number): Point {
+  if (path.style === "lob") {
+    const c = lobControlPoint(path.from, path.to);
+    const mt = 1 - t;
+    return {
+      x: mt * mt * path.from.x + 2 * mt * t * c.x + t * t * path.to.x,
+      y: mt * mt * path.from.y + 2 * mt * t * c.y + t * t * path.to.y,
+    };
+  }
+  return lerp(path.from, path.to, t);
+}
+
+/**
+ * One frame of ▶ AUTO (rule 20): the pieces part-way along their movements and
+ * the ball part-way along its path, t in [0, 1].
+ */
+export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { pieces: Piece[]; ball?: Point } {
+  const step = d.steps[index];
+  const pieces = piecesAtStep(d, index);
+  if (!step) return { pieces };
+  const k = Math.min(1, Math.max(0, t));
+  for (const m of step.movements) {
+    const piece = pieces.find((p) => p.id === m.pieceId);
+    if (piece && piece.kind !== "stroke") {
+      const at = lerp({ x: piece.x, y: piece.y }, m.to, k);
+      piece.x = at.x;
+      piece.y = at.y;
+    }
+  }
+  return { pieces, ball: step.ball ? pointOnBallPath(step.ball, k) : undefined };
+}
+
+// ── Pen strokes (rule 16) ────────────────────────────────────────────────────
+
+function perpendicularDistance(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  return Math.abs(dy * p.x - dx * p.y + b.x * a.y - b.y * a.x) / len;
+}
+
+/**
+ * Ramer–Douglas–Peucker: drop the points of a freehand stroke that sit within
+ * `tolerance` percent of the line through their neighbours, so a saved stroke
+ * stays a few dozen points rather than one per pointer event.
+ */
+export function simplifyStroke(points: readonly Point[], tolerance = 0.5): Point[] {
+  if (points.length < 3) return [...points];
+  const first = points[0];
+  const last = points[points.length - 1];
+  let maxD = 0;
+  let index = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = perpendicularDistance(points[i], first, last);
+    if (d > maxD) {
+      maxD = d;
+      index = i;
+    }
+  }
+  if (maxD <= tolerance) return [first, last];
+  const left = simplifyStroke(points.slice(0, index + 1), tolerance);
+  const right = simplifyStroke(points.slice(index), tolerance);
+  return [...left.slice(0, -1), ...right];
 }
 
 // ── Hit testing ──────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { CourtDiagramV2, Piece, Point } from "@/types/training";
+import type { CourtDiagramV2, Piece, PieceColor, Point } from "@/types/training";
 import {
   BOUNDARY_INSET,
   COURT_COLORS,
@@ -11,6 +11,7 @@ import {
   ballPathD,
   ballPathMidpoint,
   movementPathD,
+  swatchHex as swatch,
   toView,
 } from "@levelup/config";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,10 @@ export interface CourtSurfaceProps {
   /** Live override of a piece position while it is being dragged. */
   dragOverride?: { id: string; position: Point } | null;
   pending?: PendingPath | null;
+  /** A pen stroke still under the pointer (Magnético). */
+  liveStroke?: { color: PieceColor; points: Point[] } | null;
+  /** The ball mid-flight during Passo / ▶ AUTO (rule 20). */
+  playbackBall?: Point | null;
   /** Thumbnail mode: no handle, no endpoint squares, hairline strokes. */
   compact?: boolean;
   className?: string;
@@ -58,6 +63,8 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
     selectedId,
     dragOverride,
     pending,
+    liveStroke,
+    playbackBall,
     compact = false,
     className,
     ariaLabel,
@@ -137,6 +144,23 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
         ) : null
       )}
 
+      {liveStroke && liveStroke.points.length > 1 ? (
+        <polyline
+          data-testid="live-stroke"
+          points={liveStroke.points.map((p) => {
+            const v = toView(p);
+            return `${v.x},${v.y}`;
+          }).join(" ")}
+          fill="none"
+          stroke={swatch(liveStroke.color)}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.9}
+          pointerEvents="none"
+        />
+      ) : null}
+
       {/* movements (dashed) */}
       {step?.movements.map((m) => {
         const piece = pieceById(m.pieceId);
@@ -153,6 +177,10 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
 
       {/* ball path */}
       {step?.ball ? <BallPathLayer path={step.ball} compact={compact} tid={tid} handleLabel={ballHandleLabel} onHandleClick={onBallHandleClick} /> : null}
+
+      {playbackBall ? (
+        <circle data-testid="playback-ball" cx={toView(playbackBall).x} cy={toView(playbackBall).y} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} pointerEvents="none" />
+      ) : null}
 
       {/* pending path preview */}
       {pending ? (
@@ -194,21 +222,6 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
     </svg>
   );
 });
-
-function swatch(color: "white" | "green" | "blue" | "red" | "amber" | undefined): string {
-  switch (color) {
-    case "green":
-      return "#12946B";
-    case "blue":
-      return COURT_COLORS.ballPath;
-    case "red":
-      return COURT_COLORS.teamB;
-    case "amber":
-      return COURT_COLORS.amber;
-    default:
-      return "#FFFFFF";
-  }
-}
 
 function PieceShape({ piece, compact }: { piece: Piece; compact: boolean }) {
   switch (piece.kind) {

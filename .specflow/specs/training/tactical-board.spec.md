@@ -1,6 +1,6 @@
 ---
 id: training.tactical-board
-status: implementing
+status: implemented
 depends_on: [training.exercises]
 implements: ../../specs-business/training/coach-builds-exercise-library.business.md
 governed_by: [R-015, R-024, R-025]
@@ -229,11 +229,12 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Then** the board renders the same mode, pieces and steps, and each criterion above passes
   through the Maestro flow for that wave
 
-### Status (2026-09-08, PAD-242)
-`implementing`: waves 1 and 2 are built and verified — rules 1–15 and 21–22 (board shell, game
-mode, court, undo, v2 model, legacy migration, thumbnails, mode switching with confirmation,
-Exercícios de cesto, iOS parity) are implemented; rules 16–17 (magnetic) and 18–20 (steps,
-playback) are `draft` pending PAD-244/245. The status flips to `implemented` when wave 4 lands.
+### Status (2026-09-08, PAD-242..245)
+`implemented`: all four waves are built and verified on web and iOS — board shell, the three
+modes (Situações de jogo, Exercícios de cesto, Magnético), v2 model, legacy migration,
+thumbnails, mode switching with confirmation, steps with Passo and ▶ AUTO. iOS flows are
+written in Maestro (`28-tactical-board.yaml`) but could not be run on the pinned simulator;
+the shared reducer carries the iOS behaviour coverage in unit tests.
 
 ### Notes
 - Supersedes `training.court-diagram`, which stays `implemented` until wave 1 lands and is
@@ -241,6 +242,8 @@ playback) are `draft` pending PAD-244/245. The status flips to `implemented` whe
 - Delivery is a wave of four tickets (open-questions #10): (1) board shell + court + game
   mode + migration + thumbnail, (2) basket mode, (3) magnetic pen, (4) steps and playback.
   Rules and criteria above are tagged with their wave; untagged ones are wave 1.
+- Playback (rule 20) is driven by a 16 ms interval sampling `interpolateStep` on both shells; iOS
+  did not need Reanimated for four pieces and one ball.
 - OPEN: whether the lob bow should be user-adjustable (drag the handle) as today's curve
   handle allows. Wave 1 ships the toggle only.
 - OPEN: the design-system skill readme still claims the navy redesign is not in production;

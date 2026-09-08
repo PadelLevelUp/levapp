@@ -228,6 +228,17 @@
         "blue": "Blue",
         "red": "Red",
         "amber": "Amber"
+      },
+      "playback": {
+        "stepOf": "Step {{n}} of {{m}}",
+        "addStep": "Add step",
+        "deleteStep": "Delete step",
+        "prevStep": "Previous step",
+        "nextStep": "Next step",
+        "step": "Step",
+        "auto": "▶ AUTO",
+        "stop": "■ Stop",
+        "hint": "Each step holds one ball path and the players' movements. Step advances one; AUTO plays them all."
       }
     }
   }

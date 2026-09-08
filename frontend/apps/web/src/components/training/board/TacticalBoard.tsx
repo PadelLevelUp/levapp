@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Circle, MousePointer2, Pencil, Route, ShoppingBasket, Trash2, Triangle, Undo2, User, UserPlus } from "lucide-react";
-import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Piece, Point } from "@/types/training";
+import { ArrowRight, ChevronLeft, ChevronRight, Circle, MousePointer2, Pencil, Plus, Route, ShoppingBasket, Trash2, Triangle, Undo2, User, UserPlus } from "lucide-react";
+import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Piece, PieceColor, Point } from "@/types/training";
 import {
   INITIAL_BOARD_STATE,
   MAX_BASKET_PLAYERS,
+  STEP_DURATION_MS,
+  SWATCHES,
   addPlayer,
+  boardAddStep,
+  boardDeleteStep,
   boardDeleteSelected,
   boardDragEnd,
   boardHasContent,
   boardPress,
   boardSelectTool,
+  boardSetColor,
+  boardSetStep,
+  boardStrokeEnd,
   boardSwitchMode,
   boardToggleBallStyle,
   clampPercent,
   clientToPercent,
   defaultToolForMode,
+  interpolateStep,
+  piecesAtStep,
   playerCount,
+  stepCount,
+  swatchHex as swatch,
   toolsForMode,
   upgradeCourtDiagram,
   type BoardState,
@@ -48,8 +59,8 @@ import { useBoardHistory } from "./useBoardHistory";
  * `onChange` with a v2 diagram.
  */
 
-/** Modes rendered as tabs. Wave 3 appends "magnetic". */
-const SHIPPED_MODES: BoardMode[] = ["game", "basket"];
+/** Modes rendered as tabs, in canvas order. */
+const SHIPPED_MODES: BoardMode[] = ["magnetic", "game", "basket"];
 
 const TOOL_ICONS: Record<BoardTool, typeof MousePointer2> = {
   select: MousePointer2,
@@ -91,11 +102,78 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   const { t } = useTranslation();
   const svgRef = useRef<SVGSVGElement>(null);
   const diagram = useMemo(() => upgradeCourtDiagram(value), [value]);
-  const { commit, undo, canUndo } = useBoardHistory<CourtDiagramV2>(diagram, onChange);
+  const history = useBoardHistory<CourtDiagramV2>(diagram, onChange);
 
   const [state, setState] = useState<BoardState>(INITIAL_BOARD_STATE);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [stroke, setStroke] = useState<Point[] | null>(null);
   const [confirmMode, setConfirmMode] = useState<BoardMode | null>(null);
+
+  // ── playback (rules 19–20) ────────────────────────────────────────────────
+  const [playback, setPlayback] = useState<{ step: number; t: number } | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPlayback = useCallback(() => {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setPlaying(false);
+    setPlayback(null);
+  }, []);
+
+  useEffect(() => () => {
+    if (timer.current) clearInterval(timer.current);
+  }, []);
+
+  /** Any edit stops playback and returns the board to the editing view (rule 20). */
+  const commit = useCallback(
+    (next: CourtDiagramV2) => {
+      stopPlayback();
+      history.commit(next);
+    },
+    [history, stopPlayback]
+  );
+  const undo = () => {
+    stopPlayback();
+    history.undo();
+  };
+  const canUndo = history.canUndo;
+
+  const startAuto = () => {
+    if (diagram.steps.length === 0) return;
+    stopPlayback();
+    const startedAt = Date.now();
+    const total = diagram.steps.length;
+    setPlaying(true);
+    setPlayback({ step: 0, t: 0 });
+    timer.current = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const step = Math.floor(elapsed / STEP_DURATION_MS);
+      if (step >= total) {
+        stopPlayback();
+        return;
+      }
+      setPlayback({ step, t: (elapsed % STEP_DURATION_MS) / STEP_DURATION_MS });
+    }, 16);
+  };
+
+  /** Passo: the end state of the next step, then the starting position again (rule 19). */
+  const stepForward = () => {
+    if (diagram.steps.length === 0) return;
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setPlaying(false);
+    setPlayback((p) => {
+      if (!p || p.t === 0) return { step: 0, t: 1 };
+      return p.step + 1 < diagram.steps.length ? { step: p.step + 1, t: 1 } : { step: 0, t: 0 };
+    });
+  };
+
+  const goToStep = (index: number) => {
+    stopPlayback();
+    setState((s) => boardSetStep(s, diagram, index));
+    setDrag(null);
+  };
 
   const pointOf = useCallback((e: { clientX: number; clientY: number }): Point => {
     const svg = svgRef.current;
@@ -129,10 +207,24 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   // ── court (background) ────────────────────────────────────────────────────
   const onCourtPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
+    if (state.tool === "pen") {
+      setStroke([pointOf(e)]);
+      try {
+        svgRef.current?.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* jsdom */
+      }
+      return;
+    }
     apply(boardPress(diagram, state, pointOf(e), null));
   };
 
   const onCourtPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (stroke) {
+      const pt = pointOf(e);
+      if (distance(pt, stroke[stroke.length - 1]) > 0.3) setStroke([...stroke, pt]);
+      return;
+    }
     if (drag) {
       const pt = pointOf(e);
       const position = clampPercent({ x: pt.x - drag.offset.x, y: pt.y - drag.offset.y });
@@ -147,8 +239,14 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   };
 
   const onCourtPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (stroke) {
+      const points = [...stroke, pointOf(e)];
+      setStroke(null);
+      commit(boardStrokeEnd(diagram, points, state.color));
+      return;
+    }
     if (drag) {
-      if (drag.moved) commit(boardDragEnd(diagram, drag.id, drag.position));
+      if (drag.moved) commit(boardDragEnd(diagram, drag.id, drag.position, state));
       setDrag(null);
       return;
     }
@@ -161,6 +259,8 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   // ── pieces ────────────────────────────────────────────────────────────────
   const onPiecePointerDown = (piece: Piece, e: React.PointerEvent<SVGGElement>) => {
     if (piece.kind === "stroke") return;
+    if (state.tool === "pen") return; // the court handler starts the stroke underneath
+    if (playback) return; // pieces are not editable mid-playback
     e.stopPropagation();
     const pt = pointOf(e);
     const r = boardPress(diagram, state, pt, piece);
@@ -191,6 +291,11 @@ export function TacticalBoard({ value, onChange, className }: Props) {
 
   const mode = diagram.mode;
   const tools = toolsForMode(mode);
+  // What the court shows: the frame being played back, or the pieces where the current step starts.
+  const stepPieces = useMemo(() => piecesAtStep(diagram, state.stepIndex), [diagram, state.stepIndex]);
+  const frame = playback ? interpolateStep(diagram, playback.step, playback.t) : null;
+  const viewDiagram: CourtDiagramV2 = frame ? { ...diagram, pieces: frame.pieces, steps: [] } : { ...diagram, pieces: stepPieces };
+  const steps = diagram.steps.length;
   const selectedPiece = state.selectedId ? diagram.pieces.find((p) => p.id === state.selectedId) : undefined;
   const canDelete = !!selectedPiece && boardDeleteSelected(diagram, state).diagram !== undefined;
   const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
@@ -259,6 +364,29 @@ export function TacticalBoard({ value, onChange, className }: Props) {
             );
           })}
         </div>
+        {mode === "magnetic" ? (
+          <>
+            <div className="mx-1 h-6 w-px bg-white/15" aria-hidden />
+            <div role="radiogroup" aria-label={t("training.board.colors.blue")} data-testid="board-swatches" className="flex items-center gap-2">
+              {SWATCHES.map((c) => {
+                const active = state.color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={t(`training.board.colors.${c}`)}
+                    data-testid={`board-color-${c}`}
+                    onClick={() => setState((s) => boardSetColor(s, c))}
+                    className={cn("h-5 w-5 rounded-full border-2 transition-shadow", active ? "border-white shadow-[0_0_0_2px_rgba(255,255,255,0.35)]" : "border-white/30")}
+                    style={{ background: swatch(c) }}
+                  />
+                );
+              })}
+            </div>
+          </>
+        ) : null}
         {mode === "basket" ? (
           <>
             <div className="mx-1 h-6 w-px bg-white/15" aria-hidden />
@@ -303,6 +431,33 @@ export function TacticalBoard({ value, onChange, className }: Props) {
         {t(hintKey(mode, state.tool))}
       </p>
 
+      {/* steps + playback (rules 18–20) */}
+      <div data-testid="board-steps" className="flex flex-wrap items-center gap-2 px-6 pb-3">
+        <button type="button" aria-label={t("training.board.playback.prevStep")} data-testid="board-prev-step" disabled={state.stepIndex === 0} onClick={() => goToStep(state.stepIndex - 1)} className="rounded-full p-1.5 text-sidebar-foreground/70 hover:text-white disabled:opacity-40">
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+        </button>
+        <span data-testid="board-step-indicator" className="min-w-[96px] text-center text-xs font-semibold text-white">
+          {t("training.board.playback.stepOf", { n: state.stepIndex + 1, m: stepCount(diagram) })}
+        </span>
+        <button type="button" aria-label={t("training.board.playback.nextStep")} data-testid="board-next-step" disabled={state.stepIndex >= stepCount(diagram) - 1} onClick={() => goToStep(state.stepIndex + 1)} className="rounded-full p-1.5 text-sidebar-foreground/70 hover:text-white disabled:opacity-40">
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </button>
+        <button type="button" aria-label={t("training.board.playback.addStep")} title={t("training.board.playback.addStep")} data-testid="board-add-step" onClick={() => { const r = boardAddStep(diagram, state); commit(r.diagram); setState(r.state); }} className="flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-sidebar-foreground/70 hover:text-white">
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          {t("training.board.playback.addStep")}
+        </button>
+        <button type="button" aria-label={t("training.board.playback.deleteStep")} title={t("training.board.playback.deleteStep")} data-testid="board-delete-step" disabled={steps === 0} onClick={() => { const r = boardDeleteStep(diagram, state); commit(r.diagram); setState(r.state); }} className="rounded-full p-1.5 text-sidebar-foreground/70 hover:text-white disabled:opacity-40">
+          <Trash2 className="h-4 w-4" aria-hidden />
+        </button>
+        <div className="flex-1" />
+        <button type="button" aria-label={t("training.board.playback.step")} data-testid="board-passo" disabled={steps === 0} onClick={stepForward} className="rounded-full bg-secondary px-4 py-2 text-xs font-bold tracking-[0.06em] text-secondary-foreground disabled:opacity-40">
+          {t("training.board.playback.step")}
+        </button>
+        <button type="button" aria-label={playing ? t("training.board.playback.stop") : t("training.board.playback.auto")} aria-pressed={playing} data-testid="board-auto" disabled={steps === 0} onClick={playing ? stopPlayback : startAuto} className="rounded-full bg-primary px-5 py-2 text-xs font-bold tracking-[0.06em] text-primary-foreground disabled:opacity-40">
+          {playing ? t("training.board.playback.stop") : t("training.board.playback.auto")}
+        </button>
+      </div>
+
       {/* court */}
       <div className="flex justify-center px-6 pb-5 pt-1">
         <div className="relative w-full max-w-[340px] rounded-[10px] bg-[#0D1B31] px-4 pt-[22px] pb-[22px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -310,10 +465,13 @@ export function TacticalBoard({ value, onChange, className }: Props) {
           <span className="pointer-events-none absolute left-0 right-0 bottom-1 text-center text-[9px] font-semibold tracking-[0.16em] text-white/30">{t("training.board.teams.b")}</span>
           <CourtSurface
             ref={svgRef}
-            diagram={diagram}
-            selectedId={state.selectedId}
+            diagram={viewDiagram}
+            stepIndex={state.stepIndex}
+            playbackBall={frame?.ball ?? null}
+            selectedId={playback ? null : state.selectedId}
             dragOverride={drag ? { id: drag.id, position: drag.position } : null}
             pending={state.pending}
+            liveStroke={stroke ? { color: state.color as PieceColor, points: stroke } : null}
             ariaLabel={t("training.board.canvasAria")}
             ballHandleLabel={t("training.board.ballStyleToggle")}
             className={cn(state.tool === "select" ? "cursor-default" : "cursor-crosshair")}
@@ -321,7 +479,7 @@ export function TacticalBoard({ value, onChange, className }: Props) {
             onPointerMove={onCourtPointerMove}
             onPointerUp={onCourtPointerUp}
             onPiecePointerDown={onPiecePointerDown}
-            onBallHandleClick={() => commit(boardToggleBallStyle(diagram))}
+            onBallHandleClick={() => commit(boardToggleBallStyle(diagram, state.stepIndex))}
           />
         </div>
       </div>

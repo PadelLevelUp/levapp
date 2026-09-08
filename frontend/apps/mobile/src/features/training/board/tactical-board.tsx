@@ -3,31 +3,42 @@ import {
   HIT_RADIUS,
   INITIAL_BOARD_STATE,
   MAX_BASKET_PLAYERS,
+  STEP_DURATION_MS,
+  SWATCHES,
   VIEW_H,
   VIEW_W,
   addPlayer,
+  boardAddStep,
+  boardDeleteStep,
   ballHandleHit,
   boardDeleteSelected,
   boardDragEnd,
   boardHasContent,
   boardPress,
   boardSelectTool,
+  boardSetColor,
+  boardSetStep,
+  boardStrokeEnd,
   boardSwitchMode,
   boardToggleBallStyle,
   clampPercent,
   clientToPercent,
   defaultToolForMode,
   hitTestPiece,
+  interpolateStep,
   lightTheme,
+  piecesAtStep,
   playerCount,
   popHistory,
   pushHistory,
+  stepCount,
+  swatchHex as swatch,
   toolsForMode,
   upgradeCourtDiagram,
   type BoardState,
   type BoardTool,
 } from "@levelup/config";
-import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Point } from "@levelup/types";
+import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, PieceColor, Point } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, ScrollView, View } from "react-native";
@@ -49,8 +60,8 @@ import { CourtSurface } from "./court-surface";
 
 const NAVY = "#0D1B31";
 const MIN_TOUCH_RADIUS_PT = 22;
-/** Modes rendered as tabs. Wave 3 appends "magnetic". */
-const SHIPPED_MODES: BoardMode[] = ["game", "basket"];
+/** Modes rendered as tabs, in canvas order. */
+const SHIPPED_MODES: BoardMode[] = ["magnetic", "game", "basket"];
 const TOOL_ICONS: Record<BoardTool, keyof typeof Ionicons.glyphMap> = {
   select: "hand-left-outline",
   ball: "ellipse-outline",
@@ -80,11 +91,14 @@ type Drag = { id: string; offset: Point; position: Point; moved: boolean };
 type Live = {
   diagram: CourtDiagramV2;
   state: BoardState;
+  playback: boolean;
   layout: { width: number; height: number };
   drag: Drag | null;
+  stroke: Point[] | null;
   commit: (next: CourtDiagramV2) => void;
   setState: (s: BoardState) => void;
   setDrag: (d: Drag | null) => void;
+  setStroke: (s: Point[] | null) => void;
 };
 
 interface Props {
@@ -101,28 +115,87 @@ export function TacticalBoard({ value, onChange }: Props) {
   const diagram = React.useMemo(() => upgradeCourtDiagram(value), [value]);
   const [state, setState] = React.useState<BoardState>(INITIAL_BOARD_STATE);
   const [drag, setDrag] = React.useState<Drag | null>(null);
+  const [stroke, setStroke] = React.useState<Point[] | null>(null);
   const [layout, setLayout] = React.useState({ width: 0, height: 0 });
   const history = React.useRef<CourtDiagramV2[]>([]);
   const [canUndo, setCanUndo] = React.useState(false);
 
+  // ── playback (rules 19–20) ────────────────────────────────────────────────
+  const [playback, setPlayback] = React.useState<{ step: number; t: number } | null>(null);
+  const [playing, setPlaying] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPlayback = React.useCallback(() => {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setPlaying(false);
+    setPlayback(null);
+  }, []);
+
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearInterval(timer.current);
+    },
+    []
+  );
+
+  /** Any edit stops playback and returns the board to the editing view (rule 20). */
   const commit = React.useCallback(
     (next: CourtDiagramV2) => {
+      stopPlayback();
       history.current = pushHistory(history.current, diagram);
       setCanUndo(true);
       onChange(next);
     },
-    [diagram, onChange]
+    [diagram, onChange, stopPlayback]
   );
 
   const undo = () => {
+    stopPlayback();
     const { stack, value: previous } = popHistory(history.current);
     history.current = stack;
     setCanUndo(stack.length > 0);
     if (previous) onChange(previous);
   };
 
-  const live = React.useRef<Live>({ diagram, state, layout, drag, commit, setState, setDrag });
-  live.current = { diagram, state, layout, drag, commit, setState, setDrag };
+  const startAuto = () => {
+    if (diagram.steps.length === 0) return;
+    stopPlayback();
+    const startedAt = Date.now();
+    const total = diagram.steps.length;
+    setPlaying(true);
+    setPlayback({ step: 0, t: 0 });
+    timer.current = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const step = Math.floor(elapsed / STEP_DURATION_MS);
+      if (step >= total) {
+        stopPlayback();
+        return;
+      }
+      setPlayback({ step, t: (elapsed % STEP_DURATION_MS) / STEP_DURATION_MS });
+    }, 16);
+  };
+
+  /** Passo: the end state of the next step, then the starting position again (rule 19). */
+  const stepForward = () => {
+    if (diagram.steps.length === 0) return;
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setPlaying(false);
+    setPlayback((p) => {
+      if (!p || p.t === 0) return { step: 0, t: 1 };
+      return p.step + 1 < diagram.steps.length ? { step: p.step + 1, t: 1 } : { step: 0, t: 0 };
+    });
+  };
+
+  const goToStep = (index: number) => {
+    stopPlayback();
+    setState(boardSetStep(state, diagram, index));
+    setDrag(null);
+  };
+
+  const live = React.useRef<Live>({ diagram, state, playback: playback !== null, layout, drag, stroke, commit, setState, setDrag, setStroke });
+  live.current = { diagram, state, playback: playback !== null, layout, drag, stroke, commit, setState, setDrag, setStroke };
 
   const toPercent = (x: number, y: number): Point => {
     const { layout: l } = live.current;
@@ -138,14 +211,19 @@ export function TacticalBoard({ value, onChange }: Props) {
   };
 
   const handleDown = React.useCallback((x: number, y: number) => {
-    const { diagram: d, state: s, commit: c, setState: set, setDrag: sd } = live.current;
+    const { diagram: d, state: s, playback: inPlayback, commit: c, setState: set, setDrag: sd, setStroke: ss } = live.current;
+    if (inPlayback) return; // pieces are not editable mid-playback
     const pt = toPercent(x, y);
-    const radius = touchRadius();
-    if (ballHandleHit(d, pt, radius)) {
-      c(boardToggleBallStyle(d));
+    if (s.tool === "pen") {
+      ss([pt]);
       return;
     }
-    const hit = hitTestPiece(d.pieces, pt, radius);
+    const radius = touchRadius();
+    if (ballHandleHit(d, pt, radius, s.stepIndex)) {
+      c(boardToggleBallStyle(d, s.stepIndex));
+      return;
+    }
+    const hit = hitTestPiece(piecesAtStep(d, s.stepIndex), pt, radius);
     const result = boardPress(d, s, pt, hit);
     set(result.state);
     if (result.diagram) c(result.diagram);
@@ -156,8 +234,12 @@ export function TacticalBoard({ value, onChange }: Props) {
   }, []);
 
   const handleMove = React.useCallback((x: number, y: number) => {
-    const { drag: dr, state: s, setState: set, setDrag: sd } = live.current;
+    const { drag: dr, state: s, stroke: st, setState: set, setDrag: sd, setStroke: ss } = live.current;
     const pt = toPercent(x, y);
+    if (st) {
+      if (distance(pt, st[st.length - 1]) > 0.3) ss([...st, pt]);
+      return;
+    }
     if (dr) {
       const position = clampPercent({ x: pt.x - dr.offset.x, y: pt.y - dr.offset.y });
       const moved = dr.moved || distance(position, dr.position) > 0.5;
@@ -171,9 +253,14 @@ export function TacticalBoard({ value, onChange }: Props) {
   }, []);
 
   const handleUp = React.useCallback((x: number, y: number) => {
-    const { diagram: d, drag: dr, state: s, commit: c, setState: set, setDrag: sd } = live.current;
+    const { diagram: d, drag: dr, state: s, stroke: st, commit: c, setState: set, setDrag: sd, setStroke: ss } = live.current;
+    if (st) {
+      ss(null);
+      c(boardStrokeEnd(d, [...st, toPercent(x, y)], s.color));
+      return;
+    }
     if (dr) {
-      if (dr.moved) c(boardDragEnd(d, dr.id, dr.position));
+      if (dr.moved) c(boardDragEnd(d, dr.id, dr.position, s));
       sd(null);
       return;
     }
@@ -228,6 +315,10 @@ export function TacticalBoard({ value, onChange }: Props) {
 
   const mode = diagram.mode;
   const tools = toolsForMode(mode);
+  const stepPieces = React.useMemo(() => piecesAtStep(diagram, state.stepIndex), [diagram, state.stepIndex]);
+  const frame = playback ? interpolateStep(diagram, playback.step, playback.t) : null;
+  const viewDiagram: CourtDiagramV2 = frame ? { ...diagram, pieces: frame.pieces, steps: [] } : { ...diagram, pieces: stepPieces };
+  const steps = diagram.steps.length;
   const canDelete = !!state.selectedId && boardDeleteSelected(diagram, state).diagram !== undefined;
   const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
   const courtHeight = layout.width > 0 ? (layout.width * VIEW_H) / VIEW_W : 0;
@@ -281,6 +372,26 @@ export function TacticalBoard({ value, onChange }: Props) {
               </Pressable>
             );
           })}
+          {mode === "magnetic" ? (
+            <View className="ml-1 flex-row items-center gap-2" accessibilityRole="radiogroup" testID="board-swatches">
+              {SWATCHES.map((c) => {
+                const active = state.color === c;
+                return (
+                  <Pressable
+                    key={c}
+                    testID={`board-color-${c}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    accessibilityLabel={t(`training.board.colors.${c}`)}
+                    onPress={() => setState(boardSetColor(state, c as PieceColor))}
+                    className="h-11 w-8 items-center justify-center"
+                  >
+                    <View className={cn("h-5 w-5 rounded-full border-2", active ? "border-white" : "border-white/30")} style={{ backgroundColor: swatch(c) }} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
           {mode === "basket" ? (
             <Pressable
               testID="board-add-players"
@@ -325,6 +436,32 @@ export function TacticalBoard({ value, onChange }: Props) {
         {t(hintKey(mode, state.tool))}
       </Text>
 
+      {/* steps + playback (rules 18–20) */}
+      <View testID="board-steps" className="flex-row flex-wrap items-center gap-1 px-3 pb-3">
+        <Pressable testID="board-prev-step" accessibilityRole="button" accessibilityLabel={t("training.board.playback.prevStep")} disabled={state.stepIndex === 0} onPress={() => goToStep(state.stepIndex - 1)} className={cn("h-11 w-9 items-center justify-center", state.stepIndex === 0 && "opacity-40")}>
+          <Ionicons name="chevron-back" size={18} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+        <Text testID="board-step-indicator" className="min-w-[88px] text-center font-sans-semibold text-xs text-white">
+          {t("training.board.playback.stepOf", { n: state.stepIndex + 1, m: stepCount(diagram) })}
+        </Text>
+        <Pressable testID="board-next-step" accessibilityRole="button" accessibilityLabel={t("training.board.playback.nextStep")} disabled={state.stepIndex >= stepCount(diagram) - 1} onPress={() => goToStep(state.stepIndex + 1)} className={cn("h-11 w-9 items-center justify-center", state.stepIndex >= stepCount(diagram) - 1 && "opacity-40")}>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+        <Pressable testID="board-add-step" accessibilityRole="button" accessibilityLabel={t("training.board.playback.addStep")} onPress={() => { const r = boardAddStep(diagram, state); commit(r.diagram); setState(r.state); }} className="h-11 w-11 items-center justify-center rounded-full border border-white/15">
+          <Ionicons name="add" size={18} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+        <Pressable testID="board-delete-step" accessibilityRole="button" accessibilityLabel={t("training.board.playback.deleteStep")} disabled={steps === 0} onPress={() => { const r = boardDeleteStep(diagram, state); commit(r.diagram); setState(r.state); }} className={cn("h-11 w-9 items-center justify-center", steps === 0 && "opacity-40")}>
+          <Ionicons name="trash-outline" size={16} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+        <View className="flex-1" />
+        <Pressable testID="board-passo" accessibilityRole="button" accessibilityLabel={t("training.board.playback.step")} disabled={steps === 0} onPress={stepForward} className={cn("h-10 justify-center rounded-full bg-secondary px-4", steps === 0 && "opacity-40")}>
+          <Text className="font-sans-bold text-xs text-secondary-foreground">{t("training.board.playback.step")}</Text>
+        </Pressable>
+        <Pressable testID="board-auto" accessibilityRole="button" accessibilityLabel={playing ? t("training.board.playback.stop") : t("training.board.playback.auto")} accessibilityState={{ selected: playing }} disabled={steps === 0} onPress={playing ? stopPlayback : startAuto} className={cn("ml-1 h-10 justify-center rounded-full bg-primary px-4", steps === 0 && "opacity-40")}>
+          <Text className="font-sans-bold text-xs text-primary-foreground">{playing ? t("training.board.playback.stop") : t("training.board.playback.auto")}</Text>
+        </Pressable>
+      </View>
+
       {/* court */}
       <View className="items-center px-4 pb-4">
         <View className="relative w-full max-w-[340px] rounded-[10px] px-4 py-[22px]" style={{ backgroundColor: NAVY }}>
@@ -342,10 +479,13 @@ export function TacticalBoard({ value, onChange }: Props) {
             >
               {layout.width > 0 ? (
                 <CourtSurface
-                  diagram={diagram}
-                  selectedId={state.selectedId}
+                  diagram={viewDiagram}
+                  stepIndex={state.stepIndex}
+                  playbackBall={frame?.ball ?? null}
+                  selectedId={playback ? null : state.selectedId}
                   dragOverride={drag ? { id: drag.id, position: drag.position } : null}
                   pending={state.pending}
+                  liveStroke={stroke ? { color: state.color, points: stroke } : null}
                   width={layout.width}
                   height={layout.height}
                 />

@@ -3,6 +3,8 @@
 # - a new exercise opens the Quadro Tático in Situações de jogo with the 2v2
 # - picking a tool swaps the hint; Cone + a tap on the court places a cone;
 #   undo removes it again
+# - wave 4: add a step, Passo, AUTO plays the ball, delete the step
+# - wave 3: Magnético pen stroke by swipe (red), undo, back to game
 # - wave 2: switch to Exercícios de cesto, add A3/A4, one-tap feed from the feeder
 # - save → reopen → the saved basket board is still there
 #
@@ -70,6 +72,51 @@ appId: com.padellevelup.app
     id: "board-undo"
 - assertNotVisible:
     id: "piece-cone-1"
+
+# ── Wave 4: steps and playback — add a step, Passo, AUTO ──
+- assertVisible:
+    id: "board-step-indicator"
+- tapOn:
+    id: "board-add-step"
+- assertVisible:
+    text: ".*2 de 2.*"
+- tapOn:
+    id: "board-passo"
+- tapOn:
+    id: "board-auto"
+- assertVisible:
+    id: "playback-ball"
+- extendedWaitUntil:
+    notVisible:
+      id: "playback-ball"
+    timeout: 10000
+- tapOn:
+    id: "board-delete-step"
+- assertVisible:
+    text: ".*1 de 1.*"
+
+# ── Wave 3: Magnético — pen stroke by swiping the court, then back to game ──
+# (the fresh game board has no content after the undo, so no prompt appears)
+- tapOn:
+    id: "board-tab-magnetic"
+- assertVisible:
+    id: "board-hint-pen"
+- tapOn:
+    id: "board-color-red"
+- swipe:
+    start: "40%, 45%"
+    end: "60%, 55%"
+    duration: 600
+- assertVisible:
+    id: "piece-stroke-1"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "piece-stroke-1"
+- tapOn:
+    id: "board-tab-game"
+- assertVisible:
+    id: "piece-b2"
 
 # ── Wave 2: Exercícios de cesto — a fresh board switches without a prompt ──
 - tapOn:

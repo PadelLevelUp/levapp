@@ -11,11 +11,14 @@ import {
 } from "./court-diagram";
 import {
   INITIAL_BOARD_STATE,
+  boardAddStep,
+  boardDeleteStep,
   boardDeleteSelected,
   boardDragEnd,
   boardHasContent,
   boardPress,
   boardSetColor,
+  boardSetStep,
   boardStrokeEnd,
   boardSwitchMode,
   boardToggleBallStyle,
@@ -239,5 +242,46 @@ describe("Magnético pieces (rule 16)", () => {
     const d = boardPress(magnetic(), { ...INITIAL_BOARD_STATE, tool: "player" }, { x: 30, y: 30 }, null).diagram!;
     expect(boardHasContent(d)).toBe(true);
     expect(boardDeleteSelected(d, { ...INITIAL_BOARD_STATE, selectedId: "a1" }).diagram?.pieces).toEqual([]);
+  });
+});
+
+// ── Wave 4 — steps (rule 18, PAD-245) ───────────────────────────────────────
+
+describe("step management (rule 18)", () => {
+  it("a new board is on step 0; adding a step appends one and moves to it", () => {
+    expect(INITIAL_BOARD_STATE.stepIndex).toBe(0);
+    const r = boardAddStep(game(), INITIAL_BOARD_STATE);
+    expect(r.diagram.steps).toHaveLength(2);
+    expect(r.state.stepIndex).toBe(1);
+    expect(r.state.selectedId).toBeNull();
+  });
+
+  it("presses write to the current step, and movements start from the previous step's end", () => {
+    const s0 = { ...INITIAL_BOARD_STATE, tool: "movement" as const };
+    const d1 = boardPress(game(), boardPress(game(), s0, { x: 32, y: 26 }, a1).state, { x: 20, y: 40 }, null).diagram!;
+    const added = boardAddStep(d1, s0);
+    const s1 = { ...added.state, tool: "ball" as const };
+    const r1 = boardPress(added.diagram, s1, { x: 20, y: 40 }, null);
+    const r2 = boardPress(added.diagram, r1.state, { x: 60, y: 60 }, null);
+    expect(r2.diagram?.steps[1].ball).toEqual({ from: { x: 20, y: 40 }, to: { x: 60, y: 60 }, style: "flat" });
+    expect(r2.diagram?.steps[0].ball).toBeUndefined();
+    expect(boardToggleBallStyle(r2.diagram!, 1).steps[1].ball?.style).toBe("lob");
+    expect(boardToggleBallStyle(r2.diagram!, 0)).toBe(r2.diagram);
+  });
+
+  it("deleting the current step removes it and clamps the index", () => {
+    const two = boardAddStep(game(), INITIAL_BOARD_STATE);
+    const r = boardDeleteStep(two.diagram, two.state);
+    expect(r.diagram.steps).toHaveLength(1);
+    expect(r.state.stepIndex).toBe(0);
+    const none = boardDeleteStep(r.diagram, r.state);
+    expect(none.diagram.steps).toHaveLength(0);
+    expect(none.state.stepIndex).toBe(0);
+  });
+
+  it("boardSetStep clamps to the existing steps", () => {
+    const two = boardAddStep(game(), INITIAL_BOARD_STATE);
+    expect(boardSetStep(two.state, two.diagram, 5).stepIndex).toBe(1);
+    expect(boardSetStep(two.state, two.diagram, -1).stepIndex).toBe(0);
   });
 });
