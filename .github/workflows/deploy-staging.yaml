@@ -110,6 +110,7 @@ jobs:
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
         script: |
+          set -euo pipefail
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           docker stop padelapp_staging || true && docker rm padelapp_staging || true
@@ -118,10 +119,10 @@ jobs:
             --network levelup_net \
             --memory 400m \
             --env-file /home/${{ secrets.GCE_USER }}/.env.staging \
-            -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
-            -e FLASK_SECRET_KEY=${{ secrets.STAGING_FLASK_SECRET_KEY }} \
-            -e JWT_SECRET_KEY=${{ secrets.STAGING_JWT_SECRET_KEY }} \
-            -e MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} \
+            -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
+            -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
+            -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+            -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
