@@ -26,17 +26,22 @@ it is designed to be switched off later without a data change.
    club member vouched for them. Coaches created in the backend editor are `approved`.
 2. `GET /api/app/admin/coach-approvals` — caller must be `is_superadmin` (403 otherwise,
    including for ordinary coaches). Lists coaches with `approval_status = pending` as
-   `{coachId, userId, name, username, email, requestedAt}`, oldest first.
+   `{coachId, userId, name, username, email, emailVerified, requestedAt}`, oldest first
+   (`emailVerified` per `auth.email-verification` rule 10).
 3. `POST /api/app/admin/coach-approvals/<coach_id>/approve` and `.../reject` `{reason?}` —
    superadmin only. Approve sets `approved`, `approved_at`, `approved_by_user_id`. Reject sets
    `rejected` and stores the reason (never shown to the coach in v1). A coach that is not
    `pending` is 410. Both are idempotent for the same target state.
 4. On signup, if `ADMIN_NOTIFY_EMAIL` is configured, one email is sent to it via
-   `email_tools.send_email` with the coach's name, username, email and a link to the admin
-   screen; if not configured, nothing is sent and the badge (rule 7) is the only signal. Sending
-   failure is logged and never fails the signup.
+   `email_tools.send_email` with the coach's name, username, email, whether that email is
+   verified, and a link to the admin screen; if not configured, nothing is sent and the badge
+   (rule 7) is the only signal. Sending failure is logged and never fails the signup.
 5. On approval, if the coach has an email, one email tells them they can start (best-effort, same
-   failure rule). Nothing is sent on rejection in v1.
+   failure rule). It is rendered by `padel_app/tools/email_templates.py` in the coach's
+   `language`: subject `A tua conta de treinador foi aprovada` / `Your coach account is
+   approved`, branded HTML (LevApp mark, one primary button "Abrir a LevApp" pointing at
+   `PUBLIC_WEB_ORIGIN` or `https://levapp.app`, what happens next: create or join your club) and a
+   plain-text alternative. Nothing is sent on rejection in v1.
 6. **Coach-side screens** (web and iOS): `pending` → "Waiting for LevApp approval" (name of the
    account, what happens next, Sign out); `rejected` → "Your request was not approved" with the
    support link (`/support`) and Sign out. Neither screen offers any club or roster action. The
@@ -95,6 +100,12 @@ it is designed to be switched off later without a data change.
 - **And** approving removes the row; the section is absent for a non-superadmin
 - **And** the same section exists on iOS
 
+#### Approval email is branded and in the coach's language
+- **Given** pending coach `rui` with `language = pt` and a captured mail transport
+- **When** `admin` approves `rui`
+- **Then** one mail goes to `rui@example.com` with subject `A tua conta de treinador foi aprovada`, an HTML part that contains the LevApp mark and a link to the web origin, and a text part
+- **And** for a coach with `language = en` the subject is `Your coach account is approved`
+
 #### Approval email is best-effort
 - **Given** the mail transport raises
 - **When** `admin` approves `rui`
@@ -102,6 +113,11 @@ it is designed to be switched off later without a data change.
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 7.
+- Mail sender: prod runs `MAIL_USERNAME=padelapp2025@gmail.com` with the `MAIL_PASSWORD` secret
+  (`backend/.env.prod`, `deploy-prod.yaml`); `ADMIN_NOTIFY_EMAIL=admin@levapp.app` was added to
+  `.env.prod` on 2026-09-07 (PAD-231). Staging has the same sender behind
+  `MAIL_ALLOWED_RECIPIENTS=@levapp.app` (`auth.email-verification` rule 12), so an approval
+  there can only ever reach the team.
 - OPEN: who the LevApp admin is operationally — today the only `is_superadmin` account is the
   owner's. If a second admin is needed, flip the flag in the editor; no UI for that in v1.
 - OPEN: rejected coaches keep an active User. Decide later whether rejection should disable the

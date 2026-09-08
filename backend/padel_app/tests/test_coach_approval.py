@@ -261,13 +261,17 @@ def test_admin_notified_on_signup_only_when_configured(client, app, monkeypatch)
     sent = []
     monkeypatch.setattr(email_tools, "send_email", lambda subject, recipients, body=None, html=None: sent.append(recipients))
 
+    # PAD-234: signup also mails the coach their verification code, so only
+    # the admin's recipient list is what this test is about.
+    admin_mail = lambda: [r for r in sent if r == ["admin@levapp.app"]]  # noqa: E731
+
     app.config["ADMIN_NOTIFY_EMAIL"] = None
     _register_coach(client, "one", "one@example.com")
-    assert sent == []
+    assert admin_mail() == []
 
     app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
     _register_coach(client, "two", "two@example.com")
-    assert sent == [["admin@levapp.app"]]
+    assert admin_mail() == [["admin@levapp.app"]]
 
 
 def test_coach_is_emailed_on_approval(client, app, monkeypatch):
@@ -307,3 +311,46 @@ def test_approved_coach_creates_a_club(client, app):
         assert Association_CoachClub.query.filter_by(coach_id=coach_id, club_id=club.id).count() == 1
         me = client.get("/api/auth/me", headers=_auth(app, rui_id)).get_json()
     assert me["clubs"] == [{"id": club.id, "name": "Rui Padel"}]
+
+
+# --- Approval email is branded and in the coach's language (PAD-234) --------
+
+def test_approval_email_is_branded_and_localised(client, app, monkeypatch):
+    from padel_app.models import Coach, User
+    from padel_app.tools import email_tools
+
+    sent = []
+    monkeypatch.setattr(
+        email_tools,
+        "send_email",
+        lambda subject, recipients, body=None, html=None: sent.append((subject, recipients, body, html)),
+    )
+    app.config["PUBLIC_WEB_ORIGIN"] = "https://staging.levapp.app"
+    admin_id = _make_user(app, "admin", superadmin=True)
+    _register_coach(client)
+    sent.clear()  # drop the verification-code mail
+
+    with app.app_context():
+        rui = User.query.filter_by(username="rui").first()
+        rui.language = "pt"
+        db.session.commit()
+        coach_id = rui.coach.id
+    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id))
+    assert res.status_code == 200
+    assert len(sent) == 1
+    subject, recipients, body, html = sent[0]
+    assert recipients == ["rui@example.com"]
+    assert subject == "A tua conta de treinador foi aprovada"
+    assert "LevApp" in html and "https://staging.levapp.app" in html
+    assert body and "https://staging.levapp.app" in body
+
+    # English coach, English mail.
+    _register_coach(client, username="john", email="john@example.com")
+    sent.clear()
+    with app.app_context():
+        john = User.query.filter_by(username="john").first()
+        john.language = "en"
+        db.session.commit()
+        john_coach_id = john.coach.id
+    client.post(f"/api/app/admin/coach-approvals/{john_coach_id}/approve", headers=_auth(app, admin_id))
+    assert sent[0][0] == "Your coach account is approved"

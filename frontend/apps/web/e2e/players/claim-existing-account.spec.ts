@@ -1,5 +1,6 @@
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { completeEmailVerification } from "../helpers/emailVerification";
 import { openPlayers } from "../helpers/navigation";
 
 /**
@@ -35,6 +36,9 @@ async function signUpStudent(page: Page) {
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   await page.getByTestId("signup-submit").click();
+  // PAD-234: sign-up now routes through email verification before the
+  // destination below. The debug outbox hands back the real code.
+  await completeEmailVerification(page);
   await expect(page).toHaveURL(/\/connect$/, { timeout: 15_000 });
   return { username, displayName };
 }

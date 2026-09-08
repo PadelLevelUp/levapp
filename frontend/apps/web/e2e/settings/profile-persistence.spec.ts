@@ -1,6 +1,7 @@
 import { API_AUTH } from "../helpers/api";
 import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { completeEmailVerification } from "../helpers/emailVerification";
 import { openSettings } from "../helpers/navigation";
 
 /**
@@ -72,6 +73,20 @@ test.afterEach(async ({ page }) => {
       data: ORIGINAL,
     })
     .catch(() => undefined);
+
+  // PAD-234: restoring the address is itself an email change, so it re-arms
+  // verification and would leave the shared seeded coach stuck on the code
+  // screen for every later spec. Clear it through the same debug outbox the
+  // UI helper uses, so the coach is handed back verified.
+  const auth = { Authorization: `Bearer ${token}` };
+  const codeRes = await page.request
+    .get(`${API_AUTH}/email-verification/debug/last-code`, { headers: auth })
+    .catch(() => null);
+  if (!codeRes?.ok()) return;
+  const { code } = (await codeRes.json()) as { code: string };
+  await page.request
+    .post(`${API_AUTH}/email-verification/confirm`, { headers: auth, data: { code } })
+    .catch(() => undefined);
 });
 
 // The form must be hydrated from the server, not from hardcoded defaults.
@@ -105,6 +120,12 @@ test("PAD-81: saved profile changes persist after a reload", async ({
   await expect(page.getByText(/settings saved/i).first()).toBeVisible({
     timeout: 5000,
   });
+
+  // PAD-234: changing the address re-verifies it (auth.email-verification
+  // rule 3 / settings.profile rule 9), so the app sends the coach to the code
+  // screen. Clear it here, both so the reload below lands on the profile and
+  // so the shared seeded coach is left verified for the tests that follow.
+  await completeEmailVerification(page);
 
   // The whole point of the ticket: the values survive a reload.
   await page.reload();

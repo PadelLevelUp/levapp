@@ -25,3 +25,18 @@ export async function notifyPendingConfirmations(): Promise<{
   const res = await getApi().post("/app/dashboard/pending-confirmations/notify");
   return res.data;
 }
+
+/**
+ * "Later" on an empty-seats card (dashboard.blocks rule 3c). The item leaves
+ * the coach's needs-you queue for 24 hours, on every device, then comes back
+ * on its own. Returns the deadline.
+ */
+export async function snoozeNeedsYouItem(itemId: string): Promise<{
+  itemId: string;
+  snoozedUntil: string;
+}> {
+  const res = await getApi().post(
+    `/app/dashboard/needs-you/${encodeURIComponent(itemId)}/snooze`,
+  );
+  return res.data;
+}

@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+import re
+
+from flask import Blueprint, abort, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
 
@@ -15,6 +17,14 @@ from padel_app.services.registration_service import (
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
+from padel_app.services.email_verification_service import (
+    EmailVerificationError,
+    confirm_code,
+    resend_available_in,
+    send_code,
+    verification_state,
+)
+from padel_app.utils.debug_flags import debug_endpoints_enabled
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
@@ -62,6 +72,10 @@ def _serialize_me(user):
         "abbreviation": user.abbreviation_display,
         "email": user.email,
         "phone": user.phone,
+        # auth.email-verification rule 2: "verified" | "pending" | "unverified".
+        # Clients hold a `pending` user on the code screen; nothing else.
+        "emailVerification": verification_state(user),
+        "emailVerificationResendInSeconds": resend_available_in(user),
         # PAD-112: the student's standing class-invitation block preferences.
         # Per-user, so they ride on this route rather than on a coach-scoped one
         # (settings.role-scope rule 8 keeps /auth/me open to both roles).
@@ -87,8 +101,67 @@ def register():
     access_token = create_access_token(identity=str(user.id))
     return jsonify({
         "accessToken": access_token,
-        "user": {"id": user.id, "name": user.name, "role": user.role},
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "role": user.role,
+            "emailVerification": verification_state(user),
+        },
     }), 201
+
+
+# ── auth.email-verification ────────────────────────────────────────────────
+
+@bp.post("/email-verification/send")
+@jwt_required()
+def email_verification_send():
+    """Rule 4: mail a fresh 6-digit code to the caller's own email."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    try:
+        body = send_code(user)
+    except EmailVerificationError as exc:
+        db.session.rollback()
+        return jsonify(exc.payload()), exc.status
+    return jsonify(body), 200
+
+
+@bp.post("/email-verification/confirm")
+@jwt_required()
+def email_verification_confirm():
+    """Rule 5: check the code; on success answer with the /me payload."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    data = request.get_json(silent=True) or {}
+    try:
+        confirm_code(user, data.get("code"))
+    except EmailVerificationError as exc:
+        return jsonify(exc.payload()), exc.status
+    return jsonify(_serialize_me(user)), 200
+
+
+@bp.get("/email-verification/debug/last-code")
+@jwt_required(optional=True)
+def email_verification_debug_last_code():
+    """Rule 11 — E2E only. 404 unless E2E_DEBUG_ENDPOINTS is on. Returns the
+    code from the newest captured mail addressed to the caller's own email,
+    or to `?email=` — the Maestro runner holds no token, and the outbox only
+    exists on the flag-gated test backend, so there is nothing to protect."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    from padel_app.tools.email_tools import last_captured_for
+
+    email = (request.args.get("email") or "").strip()
+    if not email:
+        identity = get_jwt_identity()
+        if identity is None:
+            return jsonify({"error": "NO_EMAIL"}), 401
+        email = User.query.get_or_404(int(identity)).email
+    msg = last_captured_for(email)
+    if msg is None:
+        return jsonify({"error": "NO_MAIL"}), 404
+    match = re.search(r"\b(\d{6})\b", msg.get("body") or "")
+    if not match:
+        return jsonify({"error": "NO_CODE"}), 404
+    return jsonify({"code": match.group(1), "subject": msg["subject"]}), 200
 
 
 @bp.post("/login")

@@ -1,8 +1,9 @@
 import { authApi } from "@levelup/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,6 +107,10 @@ export function ProfileSection() {
       setSaved(confirmed);
       dirtyRef.current = false;
       setStatus(t("settings.mobile.profileSaved"));
+      // settings.profile rule 9: a new address is verified right away.
+      if (payload.email !== undefined && updated.emailVerification === "pending") {
+        router.push("/verify-email?next=/settings" as never);
+      }
     } catch {
       setStatus(t("settings.mobile.profileSaveFailed"));
     } finally {
@@ -173,9 +178,27 @@ export function ProfileSection() {
         </View>
 
         <View className="gap-1.5">
-          <Label>
-            {t("settings.profile.email")}
-          </Label>
+          <View className="flex-row items-center justify-between gap-3">
+            <Label>
+              {t("settings.profile.email")}
+            </Label>
+            {/* auth.email-verification rule 9: the state of the STORED address. */}
+            {saved.email && me?.emailVerification === "verified" ? (
+              <Text className="text-xs text-success-strong" testID="profile-email-verified">
+                {t("settings.profile.emailVerified")}
+              </Text>
+            ) : saved.email && me?.emailVerification ? (
+              <Pressable
+                accessibilityRole="link"
+                testID="profile-email-verify"
+                onPress={() => router.push("/verify-email?next=/settings" as never)}
+              >
+                <Text className="text-xs text-primary underline">
+                  {t("settings.profile.emailUnverified")} · {t("settings.profile.verifyEmail")}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
           <Input
             testID="settings-profile-email"
             accessibilityLabel={t("settings.profile.email")}

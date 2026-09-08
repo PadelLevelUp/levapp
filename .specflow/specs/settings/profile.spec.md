@@ -45,6 +45,12 @@ out of scope (no backend support exists for them).
    error notification and never a success one — no optimistic success toast.
 8. After a successful save, a reload of the Settings screen shows the newly saved values (the form is
    hydrated from `GET /api/auth/me`, not from local defaults).
+9. Saving an `email` that differs from the stored one (case-insensitively) clears `email_verified_at`,
+   marks the account as needing verification and mails a 6-digit code to the new address, best-effort
+   (`auth.email-verification` rules 1, 3 and 6). The response's `emailVerification` is `"pending"`
+   and the client opens the code screen right after the save. Saving the same address, or clearing it,
+   does not touch the verification state. The state is shown next to the field on web and iOS
+   (`auth.email-verification` rule 9).
 
 ### Acceptance Criteria
 
@@ -77,6 +83,12 @@ out of scope (no backend support exists for them).
 - **When** user A PATCHes `/api/auth/me` with `{"email": "taken@example.com"}`
 - **Then** the response status is 409
 - **And** user A's stored email is unchanged
+
+#### New email must be verified again
+- **Given** an authenticated coach whose email `ana@example.com` is verified
+- **When** they PATCH `/api/auth/me` with `{"email": "ana.silva@example.com"}`
+- **Then** the response is 200 with `emailVerification: "pending"` and a code is mailed to `ana.silva@example.com`
+- **And** PATCHing `{"email": "ANA.silva@example.com"}` afterwards leaves the state `"pending"` and sends no second mail
 
 #### Abbreviation falls back to initials
 - **Given** an authenticated coach named "Ana Beatriz Costa" with no stored abbreviation

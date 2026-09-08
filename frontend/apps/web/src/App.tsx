@@ -20,6 +20,7 @@ import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SignUpPage from "./pages/SignUpPage";
 import CoachPendingPage from "./pages/CoachPendingPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ClubOnboardingPage from "./pages/ClubOnboardingPage";
 import ConnectWithCoachPage from "./pages/ConnectWithCoachPage";
 import JoinCoachPage from "@/pages/JoinCoachPage";
@@ -82,6 +83,14 @@ const App = () => (
               {/* Post-signup holding screens (auth.register rule 11). They are
                   protected (a session is needed) but exempt from the
                   approved-coach redirect ProtectedRoute applies elsewhere. */}
+              <Route
+                path="/verify-email"
+                element={
+                  <ProtectedRoute>
+                    <VerifyEmailPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/coach-pending"
                 element={
