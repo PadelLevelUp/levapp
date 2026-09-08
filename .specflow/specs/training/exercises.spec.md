@@ -21,8 +21,12 @@ Coaches create and manage a library of padel exercises with types, difficulty, c
 2. `custom_type` used when type is "custom"
 3. Difficulty: 1 (Beginner) to 5 (Expert)
 4. `level_ids`: JSON array of CoachLevel IDs this exercise targets
-5. `diagram`: Full CourtDiagram JSON (`{elements: [{id, type, x, y, endX, endY, label, curve, rotation}]}`)
-6. Element types: player_1, player_2, player_3, player_4, coach, cone, blocker, ball, arrow, movement
+5. `diagram`: opaque JSON owned by the board spec. Two shapes exist: legacy v1
+   `{elements: [{id, type, x, y, endX, endY, label, curve, rotation}]}` (`training.court-diagram`)
+   and v2 `{version: 2, mode, pieces, steps}` (`training.tactical-board`). The backend stores and
+   returns whichever it receives; the frontend upgrades v1 to v2 on read and writes v2.
+6. v1 element types: player_1, player_2, player_3, player_4, coach, cone, blocker, ball, arrow,
+   movement. v2 piece kinds and step shape: see `training.tactical-board`.
 7. Owner coach has full CRUD; follower coaches have read access
 8. CRUD: GET/POST/PUT/DELETE `/api/app/exercises/{id}`
 9. Every exercise endpoint is **coach-only** and returns **403** to a caller with no coach profile.
