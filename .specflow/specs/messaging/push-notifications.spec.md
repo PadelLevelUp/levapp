@@ -20,7 +20,12 @@ Send browser push notifications when a new message arrives and the recipient isn
 5. Native (Expo) message pushes carry `badge` = the recipient's unread message
    total at send time, so the iOS home-screen icon badge matches the in-app
    unread count. The count is the recipient's real total, not an increment, so
-   the badge self-corrects after an undelivered push
+   the badge self-corrects after an undelivered push. **This covers every
+   message-backed push** (PAD-147): the notification engine's system messages
+   (invitations, reminders, spot filled, waiting-list offers) and the
+   cancellation notice to the coach are unread `Message` rows exactly like a
+   direct message, so their pushes carry the same `badge`; a push without it
+   leaves the icon under-counting until the app is next opened
 6. Both clients keep the app-icon badge in sync with the unread count while
    running — iOS via `setBadgeCountAsync`, installed web via the Badging API —
    and clear it on logout. A notification payload is never the only writer of
