@@ -1,7 +1,7 @@
 """add password recovery columns (auth.password-recovery, PAD-139)
 
 Revision ID: f24a01a6e108
-Revises: c0f7ac795cbd
+Revises: ad97ec649746
 Create Date: 2026-09-09 16:30:00.000000
 
 Every DDL statement is guarded: prod carries unmigrated hand-made schema and
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'f24a01a6e108'
-down_revision = 'c0f7ac795cbd'
+down_revision = 'ad97ec649746'
 branch_labels = None
 depends_on = None
 
