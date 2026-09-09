@@ -345,6 +345,14 @@ def create_claim_request_service(player_id, coach, username):
     )
     db.session.add(req)
     db.session.commit()
+    # PAD-232: the invited account hears about it — best-effort.
+    from padel_app.services.request_alert_service import notify_request_event
+    notify_request_event(
+        "claim.received",
+        [target],
+        actor=coach.user.name if coach.user else "",
+        player=player.user.name if player.user else "",
+    )
     return req
 
 
@@ -367,12 +375,25 @@ def decide_claim_request_service(request_id, user, accept):
     req = _get_pending(request_id)
     if user is None or req.target_user_id != user.id:
         abort(403, "Only the invited account can decide this request")
+    # PAD-232: capture what the coach must be told before the merge retires
+    # the placeholder's name.
+    coach_user = req.requested_by_coach.user if req.requested_by_coach else None
+    placeholder_name = req.player.user.name if req.player and req.player.user else ""
+    from padel_app.services.request_alert_service import notify_request_event
     if accept:
         merge_placeholder_player_into(req.player, user)   # marks the request accepted
+        notify_request_event(
+            "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+            decision="approved",
+        )
         return PlayerClaimRequest.query.get(request_id)
     req.status = "rejected"
     req.decided_at = utcnow_naive()
     db.session.commit()
+    notify_request_event(
+        "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+        decision="rejected",
+    )
     return req
 
 

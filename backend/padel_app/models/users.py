@@ -99,6 +99,12 @@ class User(db.Model, model.Model, UserMixin):
     #: the player record — the opposite privacy posture to an availability
     #: blocker's title/description, which the coach must never see (PAD-107).
     notif_block_reason = Column(Text, nullable=True)
+    #: PAD-232: push + email when a request needs this user (club join, claim,
+    #: coach approval) and when their own request is decided. Default on; the
+    #: in-app badges never depend on it (notifications.request-alerts rule 3).
+    notif_request_alerts = Column(
+        Boolean, nullable=False, server_default="1", default=True,
+    )
 
     @property
     def notifications_blocked(self):

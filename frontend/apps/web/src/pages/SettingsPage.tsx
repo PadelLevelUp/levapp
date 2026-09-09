@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -262,6 +263,10 @@ export default function SettingsPage() {
   const profileDirty = useRef(false);
   // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
   const { theme, setTheme } = useTheme();
+  // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
+  // `undefined` until /me answers, so the switch never flashes the default
+  // before the server value lands.
+  const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -286,6 +291,7 @@ export default function SettingsPage() {
         };
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
+        setRequestAlerts(me.requestAlerts !== false);
         if (!profileDirty.current) setProfile(loaded);
       })
       .catch(() => {
@@ -295,6 +301,22 @@ export default function SettingsPage() {
       active = false;
     };
   }, []);
+
+  const handleRequestAlertsChange = async (checked: boolean) => {
+    const previous = requestAlerts;
+    setRequestAlerts(checked);
+    try {
+      await updateMe({ requestAlerts: checked });
+      toast({ title: t("settings.preferences.requestAlertsSaved") });
+    } catch {
+      setRequestAlerts(previous);
+      toast({
+        title: t("settings.toast.couldNotSaveTitle"),
+        description: t("settings.preferences.requestAlertsSaveFailed"),
+        variant: "destructive",
+      });
+    }
+  };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
     profileDirty.current = true;
@@ -547,6 +569,28 @@ export default function SettingsPage() {
                         <SelectItem value="dark">{t("settings.preferences.themeDark")}</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* PAD-232: request alerts, for every role — a student is
+                      asked to link accounts, a coach hears about club join
+                      requests, an admin about approvals. */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="request-alerts-switch">
+                        {t("settings.preferences.requestAlerts")}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.preferences.requestAlertsDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="request-alerts-switch"
+                      data-testid="settings-request-alerts"
+                      aria-label={t("settings.preferences.requestAlerts")}
+                      checked={requestAlerts ?? true}
+                      disabled={requestAlerts === undefined}
+                      onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
+                    />
                   </div>
 
                   {/* PAD-103: language + theme are per-user and stay for both

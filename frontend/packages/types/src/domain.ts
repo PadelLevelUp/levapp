@@ -146,6 +146,8 @@ export interface CoachPlayer {
   blockAllNotifications?: boolean;
   /** Written by the student, read-only for the coach. */
   notificationBlockReason?: string;
+  /** PAD-232: push + email for requests that need you / decisions on yours. */
+  requestAlerts?: boolean;
 }
 
 export interface RecurrenceRule {

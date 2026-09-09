@@ -236,6 +236,17 @@ def create_club_join_request_service(club_id, coach, now=None):
     )
     db.session.add(request_row)
     db.session.commit()
+    # PAD-232: tell the club's coaches (never the requester) — best-effort.
+    from padel_app.services.request_alert_service import (
+        club_member_users, notify_request_event,
+    )
+    club = Club.query.get(club_id)
+    notify_request_event(
+        "club_join.received",
+        club_member_users(club_id, exclude_coach_id=coach.id),
+        actor=coach.user.name if coach.user else "",
+        club=club.name if club else "",
+    )
     return request_row
 
 
@@ -272,6 +283,16 @@ def decide_club_join_request_service(request_id, coach, approve, now=None):
     request_row.decided_at = now or utcnow_naive()
     request_row.decided_by_coach_id = coach.id
     db.session.commit()
+    # PAD-232: the requester hears the decision.
+    from padel_app.services.request_alert_service import notify_request_event
+    requester = request_row.coach.user if request_row.coach else None
+    club = Club.query.get(request_row.club_id)
+    notify_request_event(
+        "club_join.decided",
+        [requester],
+        club=club.name if club else "",
+        decision=request_row.status,
+    )
     return request_row
 
 

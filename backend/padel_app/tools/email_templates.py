@@ -160,3 +160,20 @@ def render_coach_approved_email(user):
     text = "\n\n".join([t["title"], intro, t["next"], f"{t['button']}: {href}"])
     html = _layout(subject, [_h1(t["title"]), _p(intro), _p(t["next"]), _button(t["button"], href)], t["footer"])
     return subject, text, html
+
+
+def render_request_alert_email(user, title, body, path):
+    """PAD-232 — one branded email for any request alert (notifications.request-alerts
+    rule 2): the same title/body the pushes carry, one button into the web app."""
+    lang = _lang(user)
+    label = "Abrir a LevApp" if lang == "pt" else "Open LevApp"
+    href = web_origin() + path
+    blocks = [_h1(title), _p(body), _button(label, href)]
+    footer = (
+        "Podes desativar estes alertas em Definições → Preferências."
+        if lang == "pt"
+        else "You can turn these alerts off under Settings → Preferences."
+    )
+    html = _layout(title, blocks, footer)
+    text = f"{title}\n\n{body}\n\n{label}: {href}\n\n{footer}\n"
+    return f"[LevApp] {title}", text, html
