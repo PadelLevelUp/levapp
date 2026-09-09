@@ -19,6 +19,7 @@ import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SignUpPage from "./pages/SignUpPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import CoachPendingPage from "./pages/CoachPendingPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ClubOnboardingPage from "./pages/ClubOnboardingPage";
@@ -67,6 +68,8 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
               <Route path="/signup" element={<SignUpPage />} />
+              {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />

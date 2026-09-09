@@ -152,7 +152,7 @@ back at all.
 - **When** she POSTs `request` at 10:00:30
 - **Then** the response is 200 with the standard body and no second mail is sent, and the first code still confirms
 - **When** she POSTs `request` at 10:01:00
-- **Then** a second mail is sent, the first code is 410 and the new one confirms
+- **Then** a second mail is sent, the first code is now a wrong code (400 `INVALID_CODE`) and the new one confirms
 
 #### Mail failure still answers 200 and leaves no code
 - **Given** `send_email` raises

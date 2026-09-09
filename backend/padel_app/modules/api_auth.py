@@ -24,6 +24,11 @@ from padel_app.services.email_verification_service import (
     send_code,
     verification_state,
 )
+from padel_app.services.password_recovery_service import (
+    PasswordRecoveryError,
+    confirm_recovery,
+    request_recovery,
+)
 from padel_app.utils.debug_flags import debug_endpoints_enabled
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
@@ -162,6 +167,31 @@ def email_verification_debug_last_code():
     if not match:
         return jsonify({"error": "NO_CODE"}), 404
     return jsonify({"code": match.group(1), "subject": msg["subject"]}), 200
+
+
+# ── auth.password-recovery ─────────────────────────────────────────────────
+
+@bp.post("/password-recovery/request")
+def password_recovery_request():
+    """Rule 2: always the same 200, whether or not the email has an account."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body = request_recovery(data.get("email"))
+    except PasswordRecoveryError as exc:
+        db.session.rollback()
+        return jsonify(exc.payload()), exc.status
+    return jsonify(body), 200
+
+
+@bp.post("/password-recovery/confirm")
+def password_recovery_confirm():
+    """Rule 6: code + new password; answers with the login body."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body = confirm_recovery(data.get("email"), data.get("code"), data.get("newPassword"))
+    except PasswordRecoveryError as exc:
+        return jsonify(exc.payload()), exc.status
+    return jsonify(body), 200
 
 
 @bp.post("/login")

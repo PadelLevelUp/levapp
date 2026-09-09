@@ -74,6 +74,18 @@ class User(db.Model, model.Model, UserMixin):
         Integer, nullable=False, server_default="0", default=0,
     )
 
+    # ── auth.password-recovery (PAD-139) ─────────────────────────────────────
+    #
+    # Same shape as the verification code: an HMAC, never the code, 15-minute
+    # expiry, 5 attempts, single-use. Replaces the legacy plaintext
+    # `generated_code`, which no route reads or writes any more.
+    password_reset_code_hash = Column(String(128), nullable=True)
+    password_reset_expires_at = Column(DateTime, nullable=True)
+    password_reset_sent_at = Column(DateTime, nullable=True)
+    password_reset_attempts = Column(
+        Integer, nullable=False, server_default="0", default=0,
+    )
+
     # ── PAD-112: the student's standing block preferences ────────────────────
     #
     # Distinct from the per-window availability blockers of PAD-28/PAD-107

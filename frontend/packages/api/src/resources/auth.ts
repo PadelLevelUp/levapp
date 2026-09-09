@@ -150,3 +150,44 @@ export async function confirmEmailVerificationCode(code: string): Promise<MeResp
   const res = await getApi().post("/auth/email-verification/confirm", { code });
   return res.data;
 }
+
+// ── auth.password-recovery (PAD-139) ────────────────────────────────────────
+
+export type PasswordRecoveryRequestResponse = {
+  ok: true;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+};
+
+export type PasswordRecoveryConfirmPayload = {
+  email: string;
+  code: string;
+  newPassword: string;
+};
+
+export type PasswordRecoveryConfirmResponse = {
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player" };
+};
+
+/**
+ * Rule 2: mail the username and a 6-digit code to the account with this
+ * email. Always 200 with the same body, whether or not the email has an
+ * account; the only error is 400 `INVALID_EMAIL`. No session needed.
+ */
+export async function requestPasswordRecovery(email: string): Promise<PasswordRecoveryRequestResponse> {
+  const res = await getApi().post("/auth/password-recovery/request", { email });
+  return res.data;
+}
+
+/**
+ * Rule 6: code + new password. 200 answers with the login body (token +
+ * user); 400 `{error: "INVALID_CODE", attemptsLeft}` or `WEAK_PASSWORD`;
+ * 410 `{error: "CODE_EXPIRED"}` — offer "Send a new code".
+ */
+export async function confirmPasswordRecovery(
+  payload: PasswordRecoveryConfirmPayload,
+): Promise<PasswordRecoveryConfirmResponse> {
+  const res = await getApi().post("/auth/password-recovery/confirm", payload);
+  return res.data;
+}
