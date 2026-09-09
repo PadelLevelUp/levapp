@@ -24,6 +24,13 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 5. Token contains user identity (user_id)
 6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
 7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. Account lockout after repeated failures (B-002) stays out of scope.
+8. **The launch animation plays only on success (PAD-186).** On web, the mark-forming overlay
+   (`LaunchOverlayProvider` / `launch-loader`) is started only after `POST /api/auth/login` has
+   answered 200 — never before the request goes out — so a wrong password, a throttled attempt or
+   a network error shows the error toast on the untouched form and the loader never mounts. The
+   session hydration and `/api/auth/me` still run behind the overlay. Web-only: the iOS app has no
+   sign-in animation (its launch animation runs at app start, `app/_layout.tsx`, not on login), so
+   there is nothing to port (R-024 exception recorded here and in the PR).
 
 ### Acceptance Criteria
 
@@ -44,6 +51,13 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Then** the first three are processed and the fourth is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header
 - **And** a POST from `203.0.113.8` in the same minute is processed
 - **And** once the window has passed the first IP is processed again
+
+#### A failed login never shows the launch animation (PAD-186)
+- **Given** the web login form and a `/api/auth/login` that answers 401 after a delay
+- **When** the user submits a wrong password
+- **Then** while the request is in flight and after the error toast appears, no `launch-loader` element exists on the page
+- **When** the user submits the right password
+- **Then** the loader mounts after the 200 and the dashboard is revealed behind it
 
 #### Inactive user login
 - **Given** a user with status `inactive`
