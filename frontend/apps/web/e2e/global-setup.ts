@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /** True when something already accepts TCP connections on `port` (localhost). */
-export function isListening(port: number, host = "127.0.0.1"): Promise<boolean> {
+function probe(port: number, host: string): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.connect({ port, host });
     const done = (result: boolean) => {
@@ -20,6 +20,19 @@ export function isListening(port: number, host = "127.0.0.1"): Promise<boolean> 
     socket.once("error", () => done(false));
     socket.setTimeout(500, () => done(false));
   });
+}
+
+/**
+ * Listening on `port`, re-checked a few times over ~3 s: a backend from a run
+ * that just ended can still be accepting for a moment while it shuts down,
+ * and refusing on that would be a false alarm — a live run stays live.
+ */
+export async function isListening(port: number, host = "127.0.0.1"): Promise<boolean> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (!(await probe(port, host))) return false;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return true;
 }
 
 function whoHolds(port: string): string {
