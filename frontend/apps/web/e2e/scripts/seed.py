@@ -818,17 +818,24 @@ with app.app_context():
     )
     db.session.add(student_msg)
 
-    # ── Older conversation (coach <-> student 2), last message YESTERDAY ──────
+    # ── Older conversation (coach <-> student 3), last message YESTERDAY ──────
     # PAD-98: the chat list must show the day (not only the time). This
     # conversation's last message is dated to yesterday (midday UTC — safe from
     # midnight/timezone drift) so the list renders a "Yesterday" day label.
     # It is fully read (last_read_at = now) so it does not affect unread badges.
+    #
+    # Uses student 3, not student 2 (2026-09-09, test-health): student 2 is the
+    # notification-engine suite's reminder/invite test subject, so its coach
+    # conversation keeps getting a real message mid-run, bumping last_message_at
+    # to "today" and failing this test's "Yesterday" assertion whenever those
+    # specs happen to run first. Student 3 has no coach/club (PAD-215 fixture)
+    # so nothing else ever writes into this conversation.
     yesterday_noon = (_utcnow_naive() - timedelta(days=1)).replace(
         hour=12, minute=0, second=0, microsecond=0
     )
     conversation2 = Conversation(
         is_group=False,
-        participant_key=Conversation.build_participant_key([coach_user.id, student2_user.id]),
+        participant_key=Conversation.build_participant_key([coach_user.id, student3_user.id]),
     )
     db.session.add(conversation2)
     db.session.flush()
@@ -839,13 +846,13 @@ with app.app_context():
     ))
     db.session.add(ConversationParticipant(
         conversation_id=conversation2.id,
-        user_id=student2_user.id,
+        user_id=student3_user.id,
         last_read_at=_utcnow_naive(),
     ))
     db.session.flush()
     db.session.add(Message(
         conversation_id=conversation2.id,
-        sender_id=student2_user.id,
+        sender_id=student3_user.id,
         text="See you next week!",
         sent_at=yesterday_noon,
     ))
@@ -861,7 +868,7 @@ with app.app_context():
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
-    print(f"  Conversation {conversation2.id} (coach<->student2) last message yesterday (read)")
+    print(f"  Conversation {conversation2.id} (coach<->student3) last message yesterday (read)")
     print(
         f"  Attended history (PAD-114): {len(attended_instances)} past instances of "
         f"'{attended_lesson.title}' with presence status=present for {student_user.username}"
