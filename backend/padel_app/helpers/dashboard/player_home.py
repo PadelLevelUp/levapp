@@ -162,9 +162,20 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
 
 
+def _upcoming_events(player_id: int, now: datetime) -> List[Dict[str, Any]]:
+    """The student's scheduled classes over the 30-day window.
+
+    One loader for the schedule block AND the "Upcoming lessons" tile (PAD-235,
+    B-032): the tile used to count confirmed presences while the list counted
+    enrolments, so a student with unanswered reminders read "0 upcoming" above
+    three upcoming classes.
+    """
+    return load_events(player_id=player_id, start=now, end=now + timedelta(days=PLAYER_SCHEDULE_DAYS))
+
+
 def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     now = now or utcnow_naive()
-    events = load_events(player_id=player_id, start=now, end=now + timedelta(days=PLAYER_SCHEDULE_DAYS))
+    events = _upcoming_events(player_id, now)
     block = schedule_block(events)
     _decorate_with_confirmation(player_id, events, block["data"]["items"])
     return block
@@ -173,14 +184,19 @@ def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = Non
 # ── 4. KPIs ────────────────────────────────────────────────────────────────
 
 
-def build_player_kpi_block(*, player_id: int) -> Dict[str, Any]:
+def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     """Attended / Missed / Upcoming / Invites, each with the context that makes it readable.
 
     ``href`` policy is unchanged (dashboard.navigation rules 6, 7, 11, 11a):
     a KPI links out only where a page exists, so Invites ships without one.
+
+    "Upcoming lessons" is ``len(_upcoming_events(...))`` — the schedule's own
+    number (dashboard.blocks rule 3, PAD-235).
     """
+    now = now or utcnow_naive()
     kpis = compute_player_kpis(player_id=player_id)
     total = int(kpis.lessons_attended) + int(kpis.lessons_missed)
+    upcoming = len(_upcoming_events(player_id, now))
 
     return {
         "id": "kpis",
@@ -203,7 +219,7 @@ def build_player_kpi_block(*, player_id: int) -> Dict[str, Any]:
                 },
                 {
                     "label": "Upcoming lessons",
-                    "value": int(kpis.upcoming_lessons),
+                    "value": upcoming,
                     "icon": "calendar",
                     "href": "/calendar",
                 },
