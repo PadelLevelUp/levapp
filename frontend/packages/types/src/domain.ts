@@ -207,9 +207,20 @@ export interface Presence {
   status?: 'present' | 'absent';
   justification?: 'justified' | 'unjustified';
 
+  /**
+   * Roster membership, NOT a messaging signal: materialisation sets it for
+   * every enrolled player before any notification exists (B-017). Never
+   * render "reminder sent" off this — use `reminderSentAt`.
+   */
   invited: boolean;
   confirmed: boolean;
   validated: boolean;
+  /**
+   * PAD-199: when the last reminder or invitation message actually reached
+   * this player for this instance (ISO), or `null` when none ever did. Derived
+   * server-side from the messages themselves (`attendance.presence` rule 1a).
+   */
+  reminderSentAt?: string | null;
 
   player?: Player;
 }
