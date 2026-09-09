@@ -1,6 +1,6 @@
 ---
 id: calendar.student-blockers
-status: implementing
+status: implemented
 depends_on: [calendar.blocks, notifications.invitations]
 implements: ../../specs-business/calendar/student-controls-invitation-availability.business.md
 governed_by: []
