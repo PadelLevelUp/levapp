@@ -198,15 +198,40 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
     await page.goto("/presences");
     await openQueueAtFixtureWeek(page);
 
+    // Earlier tests in this file may already have validated the fixture's
+    // ready class; reopen anything validated so the run has N = 2 again
+    // (spec rule 9: undo keeps the record, so the class comes back ready).
+    const undo = page.getByRole("button", { name: /^(undo|anular)$/i });
+    while ((await undo.count()) > 0) {
+      const before = await page.locator('[data-testid="presences-class-card"]').count();
+      await undo.first().click();
+      await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(before + 1, {
+        timeout: 15_000,
+      });
+    }
+
+    // Decide every silent player so both classes are ready to confirm: press
+    // the first not-yet-pressed "Present" in each not-ready card until none
+    // is left (capped, so a stuck card fails loudly instead of looping).
     const notReady = page.locator('[data-testid="presences-class-card"][data-ready="false"]');
-    await expect(notReady.first()).toBeVisible();
-    await notReady.first().getByTestId("presence-mark-present").last().click();
+    for (let i = 0; i < 12 && (await notReady.count()) > 0; i++) {
+      await notReady
+        .first()
+        .locator('[data-testid="presence-mark-present"][aria-pressed="false"]')
+        .first()
+        .click();
+    }
+    await expect(notReady).toHaveCount(0);
+    // N ≥ 2: the fixture's two validation classes, plus whatever else the
+    // seed left in that week (an attended-history instance lands there when
+    // the suite runs early in the week).
     const readyCards = page.locator('[data-testid="presences-class-card"][data-ready="true"]');
-    await expect(readyCards).toHaveCount(2);
+    const n = await readyCards.count();
+    expect(n).toBeGreaterThanOrEqual(2);
 
     await page.getByRole("button", { name: /select all ready|selecionar as prontas/i }).click();
     const bulk = page.getByTestId("presences-validate-selected");
-    await expect(bulk).toContainText("2");
+    await expect(bulk).toContainText(String(n));
 
     // Hold every confirm for a moment so the run is observable mid-flight.
     await page.route("**/api/app/class_instance/presences/confirm", async (route) => {
@@ -218,7 +243,7 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
     // During the run: bulk button and BOTH per-class buttons are disabled.
     await expect(bulk).toBeDisabled();
     const validateButtons = page.getByTestId("presences-validate-class");
-    await expect(validateButtons).toHaveCount(2);
+    await expect(validateButtons).toHaveCount(n);
     for (const button of await validateButtons.all()) {
       await expect(button).toBeDisabled();
     }
