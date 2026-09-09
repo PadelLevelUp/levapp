@@ -205,7 +205,7 @@ test.describe("PAD-192: charts follow the table filters", () => {
       (r) => /\/api\/app\/presence_trend\?.*playerIds=\d+/.test(r.url()),
       { timeout: 10_000 }
     );
-    await page.getByPlaceholder(/search player|procurar jogador/i).fill("E2E Student 2");
+    await page.getByPlaceholder(/search player|procurar jogador/i).fill("E2E Student Two");
     await expect(page.getByTestId("presences-player-row")).toHaveCount(1);
     const request = await trendRequest;
     expect(new URL(request.url()).searchParams.get("playerIds")).toMatch(/^\d+$/);
