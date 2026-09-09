@@ -213,7 +213,7 @@ try:
         "description": "Treino avançado",
         "type": "academy",
         "status": "active",
-        "color": "#22c55e",
+        "color": "#0D9488",
         "max_players": 6,
         "default_level": levels["advanced"]["id"],
         "club": CLUB_ID,

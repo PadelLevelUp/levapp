@@ -10,6 +10,15 @@ const config = getDefaultConfig(projectRoot);
 // Monorepo: watch the whole workspace so @levelup/* raw-TS packages resolve
 // and hot-reload, and resolve modules from the app first, then the root.
 config.watchFolders = [workspaceRoot];
+// A git worktree borrows another checkout's node_modules through symlinks.
+// Metro only resolves through symlinks whose targets sit inside a watched
+// folder, so a worktree passes the lender's directories here (colon-separated)
+// instead of copying gigabytes of dependencies. Unset in normal checkouts.
+if (process.env.METRO_EXTRA_WATCH_FOLDERS) {
+  config.watchFolders.push(
+    ...process.env.METRO_EXTRA_WATCH_FOLDERS.split(":").filter(Boolean)
+  );
+}
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules"),

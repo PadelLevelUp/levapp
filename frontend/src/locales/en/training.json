@@ -155,33 +155,91 @@
       "deleteExerciseAria": "Delete exercise {{name}}"
     },
     "diagram": {
-      "label": "Court Diagram",
-      "tools": {
-        "select": "Select",
-        "player1": "Player 1",
-        "player2": "Player 2",
-        "player3": "Player 3",
-        "player4": "Player 4",
-        "coach": "Coach",
-        "cone": "Cone",
-        "blocker": "Blocker",
-        "ball": "Ball",
-        "arrow": "Arrow",
-        "movement": "Movement",
-        "eraser": "Eraser"
-      },
-      "deleteSelected": "Delete selected",
-      "delete": "Delete",
-      "clearAll": "Clear all",
-      "clear": "Clear",
-      "lineLabel": "Label",
-      "lineLabelPlaceholder": "e.g. Lob, Smash, Drop",
-      "curveHint": "Drag the ● handle on the arrow to curve it",
-      "instructions": "Select a tool and click on the court. Draw arrows then select them to add a label and curve. Press Delete to remove. Max 4 players.",
-      "instructionsTouch": "Tap a tool, then tap the court to place it. Tap an element to select it — drag to move it, or use the delete button to remove it. Draw arrows and movement lines by dragging across the court, then select them to add a label or curve. Max 4 players."
+      "label": "Court Diagram"
     },
     "exercisesTabAria": "Exercises tab",
     "groupsTabAria": "Groups tab",
-    "exerciseItem": "Exercise {{name}}"
+    "exerciseItem": "Exercise {{name}}",
+    "board": {
+      "title": "Board",
+      "brand": "LEV APP",
+      "modes": {
+        "game": {
+          "title": "Game situations",
+          "subtitle": "Tactics · one ball"
+        },
+        "basket": {
+          "title": "Basket drills",
+          "subtitle": "Feeding"
+        },
+        "magnetic": {
+          "title": "Magnetic",
+          "subtitle": "Free board"
+        }
+      },
+      "tools": {
+        "select": "Select",
+        "ball": "Ball",
+        "movement": "Movement",
+        "cone": "Cone",
+        "player": "Player",
+        "feeder": "Feeder",
+        "move": "Move",
+        "pen": "Pen"
+      },
+      "hints": {
+        "select": "Tap a piece to select it (it gets a ring), then tap the destination to move it.",
+        "ball": "Draw the ball's path. Tap the midpoint of the line to switch between flat and lob.",
+        "movement": "Tap the player and then the destination — this creates the dashed movement path.",
+        "cone": "Tap the court to place a cone. Select a cone and press Delete to remove it.",
+        "player": "Tap the court to place the next player (max 4).",
+        "feeder": "Tap the court to move the feeder.",
+        "ballBasket": "Tap where the ball should land — the feeder throws it from the basket.",
+        "movementBasket": "Tap the player and then the destination — this creates the dashed movement path.",
+        "pen": "Draw freely on the court in the chosen colour.",
+        "ballMagnetic": "Tap the court to place a ball in the chosen colour.",
+        "playerMagnetic": "Tap the court to place a player (blue = Team A, red = Team B).",
+        "coneMagnetic": "Tap the court to place a cone in the chosen colour."
+      },
+      "undo": "Undo",
+      "deleteSelected": "Delete selected",
+      "ballStyleToggle": "Toggle flat / lob",
+      "teams": {
+        "a": "TEAM A",
+        "b": "TEAM B"
+      },
+      "legend": {
+        "ball": "Ball",
+        "movement": "Movement",
+        "teamA": "Team A",
+        "teamB": "Team B"
+      },
+      "canvasAria": "Padel court — tactical board",
+      "addPlayers": "Add players",
+      "addPlayersShort": "Players",
+      "switchMode": {
+        "title": "Switch mode?",
+        "body": "The board resets to this mode's starting position. The current pieces and paths are lost.",
+        "confirm": "Switch"
+      },
+      "colors": {
+        "white": "White",
+        "green": "Green",
+        "blue": "Blue",
+        "red": "Red",
+        "amber": "Amber"
+      },
+      "playback": {
+        "stepOf": "Step {{n}} of {{m}}",
+        "addStep": "Add step",
+        "deleteStep": "Delete step",
+        "prevStep": "Previous step",
+        "nextStep": "Next step",
+        "step": "Step",
+        "auto": "▶ AUTO",
+        "stop": "■ Stop",
+        "hint": "Each step holds one ball path and the players' movements. Step advances one; AUTO plays them all."
+      }
+    }
   }
 }
