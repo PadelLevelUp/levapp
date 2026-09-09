@@ -66,20 +66,27 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
   await expect(page.getByRole("main").getByText(title)).not.toBeVisible({ timeout: 3000 });
 });
 
-// PAD-58: the mobile calendar header week-range label must be compact enough to
-// stay on one line at 375px (no stray "de" literal, no 3-line wrap).
-test("PAD-58: mobile calendar header week label is compact at 375px", async ({ page }) => {
+// PAD-58: the phone calendar header must stay compact at 375px (no stray "de"
+// literal, no 3-line wrap). PAD-246 (calendar.mobile-views rule 10) removed the
+// week-range label from the phone's Dia view — the range returns on the Semana
+// nav row in PAD-247, which must re-assert its compactness there. What the
+// phone header shows today is the selected day spelled out, so that is what
+// is held to the one-line rule now.
+test("PAD-58: mobile calendar header stays compact at 375px", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openCalendar(page);
 
-  const label = page.getByRole("heading", { level: 2 }).first();
+  // No toolbar heading on a phone any more.
+  await expect(page.getByTestId("calendar-view-day")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+
+  const label = page.getByRole("heading", { level: 3 }).first();
   await expect(label).toBeVisible({ timeout: 5000 });
   const text = (await label.textContent())?.trim() ?? "";
 
-  // Compact range like "6–13 Jul" or "28 Jun–4 Jul" — short month abbreviations,
-  // no Portuguese "de" literal leaking into the English UI.
+  // "Tuesday, 8 September" — no Portuguese "de" literal leaking into the
+  // English UI (the PAD-52 regression this guards against).
   expect(text).not.toMatch(/\bde\b/i);
-  expect(text.length).toBeLessThanOrEqual(16);
 
   // The label must render on a single line (height ≈ one text line, not three).
   const box = await label.boundingBox();

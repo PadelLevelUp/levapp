@@ -76,12 +76,9 @@ test.describe("PAD-25: Calendar day click should pre-populate class date field",
     await expect(wednesdayBtn).toBeVisible({ timeout: 5000 });
     await wednesdayBtn.click();
 
-    // On mobile, toolbar buttons are icon-only. The "Add class" button is the last button
-    // in the toolbar (Plus icon). It's the second icon button after "Add event".
-    // Both are unlabelled, so target the last button in the toolbar actions area.
-    const toolbarButtons = page.locator(".flex.items-center.gap-2").last().locator("button");
-    const addClassBtn = toolbarButtons.last();
-    await addClassBtn.click();
+    // PAD-246 (calendar.mobile-views rule 18): on a phone "Add class" is a
+    // floating action button, not a toolbar icon.
+    await page.getByTestId("calendar-add-class").click();
 
     // The date field should have Wednesday's date
     const dateInput = page.locator('input[type="date"]').first();

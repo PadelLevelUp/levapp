@@ -13,6 +13,8 @@ The calendar domain.
 - `calendar.event-detail` — implemented
 - `calendar.slot-click` — implemented
 - `calendar.seasons` — implemented
+- `calendar.mobile-views` — draft (Dia / Semana / Mês phone calendar on web and iOS, from the
+  2026-09-08 design canvas; supersedes the phone parts of `calendar.view`)
 
 ## Why it's grouped this way
 

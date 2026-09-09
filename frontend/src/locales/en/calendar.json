@@ -7,15 +7,33 @@
       "addEvent": "Add event",
       "addClass": "Add class"
     },
+    "views": {
+      "label": "Calendar view",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "comingSoon": "Coming soon"
+    },
     "eventCard": {
       "canceled": "Canceled",
       "completed": "Completed",
       "fallbackTitle": "Class",
-      "fallbackEvent": "Event"
+      "fallbackEvent": "Event",
+      "recurring": "Recurring",
+      "block": "Block",
+      "blockType": {
+        "personal": "Personal",
+        "break": "Break",
+        "holiday": "Holiday",
+        "off_work": "Off work",
+        "unavailable": "Unavailable"
+      }
     },
     "mobile": {
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
+      "dayDots_one": "{{count}} event",
+      "dayDots_other": "{{count}} events",
       "noClassesScheduled": "No classes scheduled",
       "noClasses": "No classes",
       "loadFailed": "Could not load the calendar."
