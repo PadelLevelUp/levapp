@@ -101,7 +101,7 @@ test.describe("PAD-103: student settings surface", () => {
     await expect(
       page.getByRole("heading", { name: /evaluation categories/i }),
     ).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /^seasons$/i })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /^season$/i })).toHaveCount(0);
   });
 });
 
@@ -133,7 +133,7 @@ test.describe("PAD-103: coach settings surface is unchanged", () => {
 
     await page.getByTestId("settings-nav-calendar").click();
     await expect(
-      page.getByRole("heading", { name: /^seasons$/i }),
+      page.getByRole("heading", { name: /^season$/i }),
     ).toBeVisible({ timeout: 10_000 });
   });
 });
@@ -217,18 +217,14 @@ const COACH_ONLY_ENDPOINTS: Array<{
     path: "/add_evaluation_categories",
     body: [{ name: "Injected", scaleMin: 1, scaleMax: 5 }],
   },
+  { label: "read the season definition", method: "get", path: "/season" },
   {
-    label: "write seasons",
-    method: "post",
-    path: "/add_seasons",
-    body: [{ name: "Injected", startDate: "2031-01-01", endDate: "2031-06-30" }],
+    label: "write the season definition",
+    method: "put",
+    path: "/season",
+    body: { label: "Injected", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 },
   },
-  {
-    label: "delete a season",
-    method: "post",
-    path: "/delete/season",
-    body: { id: 1 },
-  },
+  { label: "delete the season definition", method: "delete", path: "/season" },
   {
     label: "delete a skill level",
     method: "post",
@@ -263,10 +259,12 @@ test.describe("PAD-103: coach-only endpoints reject a student", () => {
       const res =
         ep.method === "get"
           ? await request.get(`${API_BASE}${ep.path}`, { headers: bearer(token) })
-          : await request.post(`${API_BASE}${ep.path}`, {
-              headers: bearer(token),
-              data: ep.body ?? {},
-            });
+          : ep.method === "delete"
+            ? await request.delete(`${API_BASE}${ep.path}`, { headers: bearer(token) })
+            : await request[ep.method](`${API_BASE}${ep.path}`, {
+                headers: bearer(token),
+                data: ep.body ?? {},
+              });
 
       expect(
         res.status(),

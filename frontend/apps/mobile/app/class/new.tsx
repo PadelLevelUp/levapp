@@ -3,7 +3,7 @@ import { seasonsApi } from "@levelup/api";
 import {
   CLASS_COLOR_SWATCHES,
   findOverlappingEvent,
-  findSeasonCoveringDate,
+  seasonOccurrenceContaining,
   lightTheme,
 } from "@levelup/config";
 import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
@@ -123,19 +123,20 @@ export default function NewClassScreen() {
   // that no season covers this date. Web only learns that from the backend's
   // rejection; asking here costs one cached request and turns a failed create
   // into a hint next to the toggle that caused it.
-  const { data: seasons } = useQuery({
-    queryKey: ["seasons"],
-    queryFn: seasonsApi.getSeasons,
+  const { data: season } = useQuery({
+    queryKey: ["season"],
+    queryFn: seasonsApi.getSeason,
   });
 
-  // A hint, never a gate: the phone's season list can be stale and the backend
-  // stays the authority (`calendar.seasons` rule 8 fails closed either way).
-  const coveringSeason = findSeasonCoveringDate(date, seasons);
+  // A hint, never a gate: the phone's copy of the definition can be stale and
+  // the backend stays the authority (`calendar.seasons` rule 9 fails closed
+  // either way). `season === null` is "no definition": warn too.
+  const coveringOccurrence = seasonOccurrenceContaining(date, season);
   const showNoSeasonWarning =
     isRecurring &&
     recursUntilSeasonEnd &&
     (rejection === NO_SEASON_COVERS_DATE ||
-      (seasons != null && coveringSeason == null));
+      (season !== undefined && coveringOccurrence == null));
 
   // When recurring turns on, pre-select the weekday of the chosen date (web parity).
   React.useEffect(() => {

@@ -97,11 +97,39 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
-export interface Season {
-  id: string;
-  name: string;
+/**
+ * calendar.seasons (PAD-82): the coach's single recurring day/month season, as
+ * `GET /app/season` answers it (null when none is defined).
+ */
+export interface SeasonOccurrence {
+  /** Inclusive first day, "YYYY-MM-DD". */
   startDate: string;
+  /** Inclusive last day, "YYYY-MM-DD". */
   endDate: string;
+  label: string;
+}
+
+export interface SeasonDefinition {
+  label: string | null;
+  startDay: number;
+  startMonth: number;
+  endDay: number;
+  endMonth: number;
+  wrapsYear: boolean;
+  needsReview: boolean;
+  /** The occurrence containing today, or null in the gap. */
+  current: SeasonOccurrence | null;
+  /** The next occurrence starting after today. */
+  upcoming: SeasonOccurrence | null;
+}
+
+/** The fields the coach edits; `PUT /app/season` body. */
+export interface SeasonDefinitionInput {
+  label?: string | null;
+  startDay: number;
+  startMonth: number;
+  endDay: number;
+  endMonth: number;
 }
 
 export interface CoachPlayer {
