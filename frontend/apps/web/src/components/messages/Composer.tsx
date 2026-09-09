@@ -100,9 +100,11 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
           disabled={disabled}
         />
         <Button
+          size="icon"
           onPointerDown={(e) => e.preventDefault()}
           onClick={handleSend}
           disabled={!text.trim() || disabled}
+          aria-label={t("messages.sendMessageAria")}
           className="shrink-0"
         >
           <Send className="w-4 h-4" />

@@ -13,6 +13,7 @@ interface ProtectedRouteProps {
  * `/coach-pending` and itself.
  */
 const ONBOARDING_PATHS = new Set(["/coach-pending", "/club-onboarding", "/connect"]);
+const VERIFY_EMAIL_PATH = "/verify-email";
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user } = useAuth();
@@ -30,6 +31,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // approved, or approved with no club, is held on the matching screen from
   // every other coach route. Students are never redirected here.
   const target = postLoginPath(user);
+  // auth.email-verification rule 8: the code screen wins over every other
+  // hold — a pending user may not sit on /connect or /coach-pending either.
+  if (target === VERIFY_EMAIL_PATH) {
+    return location.pathname === VERIFY_EMAIL_PATH ? children : <Navigate to={target} replace />;
+  }
   if (target !== "/dashboard" && !ONBOARDING_PATHS.has(location.pathname)) {
     return <Navigate to={target} replace />;
   }

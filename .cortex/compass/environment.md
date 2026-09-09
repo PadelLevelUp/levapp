@@ -4,6 +4,12 @@ Operational pointers only — aliases, profile names, tool locations. **Never se
 
 - **Repo**: `PadelLevelUp/levapp` (public). Local checkout `~/Documents/Projetos/padel_app/levapp` — open sessions HERE. `~/Documents/Projetos/padel_app/levelup/` is the archived pre-monorepo layout.
 - **Branches**: `staging` → staging.levapp.app · `main` → levapp.app + padellevelup.com. Both ruleset-protected; PRs only; `main` only from `staging`.
+- **Canonical domain**: `levapp.app` (2026-09). The product is LevApp, so every new
+  reference — app config, links, mail, docs — points there. `padellevelup.com` is
+  **legacy but fully live**: it still serves prod and is still claimed for universal
+  links, because App Store binaries already shipped hardcode it. Do not repoint or
+  retire it, and never make it a staging hostname (see the staging-gated-release-flow
+  decision). Retiring it would need an iOS release plus a deprecation window.
 - **Prod VM**: GCE `levelup-instance`, project `padel-levelup-2026`, zone `europe-west1-b`, IP `34.78.247.45`; `gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026`. Host nginx vhosts in `/etc/nginx/sites-available/`; containers `padelapp` (:5000), `levelup_frontend` (:3000), `padelapp_staging` (:5100), `levelup_frontend_staging` (:3100), `postgres` (:5432, DBs `padel_app` and `padel_app_staging`), `issue-bot`.
 - **Staging data (PAD-200)**: every staging deploy refreshes `padel_app_staging` from `padel_app` (full replace, no anonymisation) via `backend/scripts/sync-staging-db.sh` on the VM, best-effort — a failed copy never fails the deploy. After the copy the script scrubs every outbound channel: `push_subscriptions` and `device_tokens` are emptied and every `users.email` is rewritten to `user<id>@staging.invalid`, so staging can never push or mail a real person even if it later gains the credentials. Prod usernames and passwords therefore work on staging.levapp.app (login is by username); anything created on staging is lost at the next deploy.
 - **Health**: `https://levapp.app/api/app/healthz`, `https://staging.levapp.app/api/app/healthz`. Deploy watcher: `.claude/skills/batch-merge-prs/scripts/watch_deploy.sh <prod|staging> <sha>`.

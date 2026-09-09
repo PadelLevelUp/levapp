@@ -43,6 +43,9 @@
       "loggedOutDescription": "Logout hook is ready to connect."
     },
     "profile": {
+      "emailVerified": "Verified",
+      "emailUnverified": "Not verified",
+      "verifyEmail": "Verify",
       "title": "Profile",
       "description": "Basic info visible to your players.",
       "selected": "Selected: {{name}}",
@@ -582,6 +585,7 @@
       }
     },
     "admin": {
+      "emailUnverified": "Email not verified",
       "title": "Admin",
       "description": "LevApp team tools.",
       "pendingCoaches": "Coaches waiting for approval",

@@ -28,8 +28,19 @@ export function postLoginLanding(user: MeResponse | null | undefined): string {
   return "/dashboard";
 }
 
+/**
+ * auth.email-verification rule 8: a `pending` email (self-signup, or a new
+ * address saved in Settings) holds everyone — both roles — on the code
+ * screen before any other routing. `unverified` (a coach-typed email) and an
+ * absent field (older backend) never hold.
+ */
+export function needsEmailVerification(user: MeResponse | null | undefined): boolean {
+  return user?.emailVerification === "pending";
+}
+
 export function postLoginPath(user: MeResponse | null | undefined): string {
   if (!user) return "/dashboard";
+  if (needsEmailVerification(user)) return "/verify-email";
   const isCoach = user.roles?.includes("coach") ?? false;
   if (!isCoach) return "/dashboard";
 

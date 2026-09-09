@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
-import { getMe, updateMe, type MeResponse, type UpdateMePayload } from "@/api/auth";
+import {
+  getMe,
+  updateMe,
+  type EmailVerificationState,
+  type MeResponse,
+  type UpdateMePayload,
+} from "@/api/auth";
 import { useAuth } from "@/auth/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,6 +38,8 @@ import {
   Upload,
   User,
   UserX,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
@@ -246,6 +254,8 @@ export default function SettingsPage() {
   // last server-confirmed values so we only PATCH what actually changed.
   const [profile, setProfile] = useState<ProfileForm>(EMPTY_PROFILE);
   const [savedProfile, setSavedProfile] = useState<ProfileForm>(EMPTY_PROFILE);
+  const [emailState, setEmailState] = useState<EmailVerificationState | undefined>(undefined);
+  const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   // Set as soon as the coach edits a field, so a late `getMe()` response can
   // refresh the "what's on the server" baseline without wiping what they typed.
@@ -275,6 +285,7 @@ export default function SettingsPage() {
           phone: me.phone ?? "",
         };
         setSavedProfile(loaded);
+        setEmailState(me.emailVerification);
         if (!profileDirty.current) setProfile(loaded);
       })
       .catch(() => {
@@ -328,12 +339,18 @@ export default function SettingsPage() {
     };
     setProfile(confirmed);
     setSavedProfile(confirmed);
+    setEmailState(updated.emailVerification);
     profileDirty.current = false;
 
     toast({
       title: t("settings.toast.settingsSavedTitle"),
       description: t("settings.toast.settingsSavedDescription"),
     });
+
+    // settings.profile rule 9: a new address is verified right away.
+    if (payload.email !== undefined && updated.emailVerification === "pending") {
+      navigate("/verify-email?next=/settings");
+    }
   };
 
   return (
@@ -446,7 +463,29 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="profile-email">{t("settings.profile.email")}</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="profile-email">{t("settings.profile.email")}</Label>
+                      {/* auth.email-verification rule 9: the state of the STORED address. */}
+                      {savedProfile.email && emailState === "verified" && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs text-success-strong"
+                          data-testid="profile-email-verified"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t("settings.profile.emailVerified")}
+                        </span>
+                      )}
+                      {savedProfile.email && emailState && emailState !== "verified" && (
+                        <Link
+                          to="/verify-email?next=/settings"
+                          className="inline-flex items-center gap-1 text-xs text-primary underline"
+                          data-testid="profile-email-verify"
+                        >
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          {t("settings.profile.emailUnverified")} · {t("settings.profile.verifyEmail")}
+                        </Link>
+                      )}
+                    </div>
                     <Input
                       id="profile-email"
                       type="email"

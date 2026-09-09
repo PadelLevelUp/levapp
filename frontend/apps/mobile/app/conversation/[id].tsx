@@ -57,6 +57,7 @@ import {
   type AnchorEvent,
 } from "@/features/messages/anchor-state";
 import { isAtBottomOf } from "@/features/messages/scroll-position";
+import { composerBottomPadding } from "@/features/messages/composer-padding";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
@@ -98,12 +99,14 @@ export default function ConversationScreen() {
   const { t } = useTranslation();
   // Pushed route (no tab bar): the composer must clear the home indicator —
   // but only while the keyboard is down. An open keyboard already covers that
-  // area, so keeping the inset leaves a visible band above it (PAD-145).
+  // area, so keeping the inset leaves a visible band above it (PAD-145). The
+  // row's own 12pt padding is symmetric; this is only the extra inset under it.
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
-  const composerPaddingBottom = keyboardVisible
-    ? 12
-    : Math.max(insets.bottom, 12);
+  const composerPaddingBottom = composerBottomPadding(
+    keyboardVisible,
+    insets.bottom
+  );
   const params = useLocalSearchParams<{ id: string }>();
   const conversationId = String(params.id);
   const { user } = useAuth();
@@ -1176,7 +1179,7 @@ export default function ConversationScreen() {
         {editing ? (
           <View
             style={{ paddingBottom: composerPaddingBottom }}
-            className="flex-row items-center gap-2 border-t border-border bg-card px-3 pt-3"
+            className="flex-row items-center gap-2 border-t border-border bg-card p-3"
           >
             <Pressable
               accessibilityLabel={t("messages.cancelEditingAria")}
@@ -1276,12 +1279,12 @@ export default function ConversationScreen() {
                 role="button"
                 disabled={!draft.trim() || sending || !conversation || isBlocked}
                 onPress={() => void handleSend()}
-                className={`h-12 w-12 items-center justify-center rounded-full bg-primary active:opacity-90 ${
+                className={`h-12 w-12 items-center justify-center rounded-md bg-primary active:opacity-90 ${
                   !draft.trim() || sending || isBlocked ? "opacity-50" : ""
                 }`}
               >
                 <Ionicons
-                  name="send"
+                  name="paper-plane-outline"
                   size={20}
                   color={lightTheme.primaryForeground}
                 />

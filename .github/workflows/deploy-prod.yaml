@@ -90,6 +90,7 @@ jobs:
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
         script: |
+          set -euo pipefail
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
           docker stop padelapp || true && docker rm padelapp || true
@@ -97,15 +98,15 @@ jobs:
             --restart unless-stopped \
             --network levelup_net \
             --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
-            -e POSTGRES_PW=${{ secrets.POSTGRES_PW }} \
-            -e FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }} \
-            -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
-            -e MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} \
-            -e GCS_UPLOADS_BUCKET=${{ secrets.GCS_UPLOADS_BUCKET }} \
-            -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
-            -e VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }} \
-            -e VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }} \
-            -e VAPID_CLAIMS_EMAIL=${{ secrets.VAPID_CLAIMS_EMAIL }} \
+            -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
+            -e FLASK_SECRET_KEY="${{ secrets.FLASK_SECRET_KEY }}" \
+            -e JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+            -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
+            -e GCS_UPLOADS_BUCKET="${{ secrets.GCS_UPLOADS_BUCKET }}" \
+            -e OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
+            -e VAPID_PUBLIC_KEY="${{ secrets.VAPID_PUBLIC_KEY }}" \
+            -e VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}" \
+            -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.

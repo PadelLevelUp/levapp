@@ -37,6 +37,7 @@ import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { useSnoozeNeedsYouItem } from "@levelup/hooks";
 import { useRespondReminder } from "@/features/calendar/hooks";
 import { parseDashboardItemId } from "@/features/calendar/params";
 import { cn } from "@/lib/utils";
@@ -366,43 +367,59 @@ export function NeedsYouQueue({ block }: { block: DashboardNeedsYouBlock }) {
   );
 }
 
+/**
+ * "Later" (dashboard.blocks rule 3c): the server hides this occurrence for 24
+ * hours on every device; the card goes when the invalidated dashboard query
+ * refetches and the payload no longer carries it.
+ */
+function EmptySeatsCard({ item: it }: { item: DashboardNeedsYouEmptySeats }) {
+  const { t, i18n } = useTranslation();
+  const snooze = useSnoozeNeedsYouItem();
+  const later = () =>
+    snooze.mutate(it.id, {
+      onError: () => toast.error(t("dashboard.needsYou.laterFailed")),
+    });
+
+  return (
+    <ActionCard accent="attention" testID={`needs-you-empty-seats-${it.id}`}>
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">
+          {t("dashboard.needsYou.emptySeats.title", {
+            class: it.classTitle,
+            count: it.seatsMissing,
+          })}
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {t("dashboard.needsYou.emptySeats.detail", {
+            date: shortDate(it.date, i18n.language),
+            time: it.timeLabel,
+            filled: it.filled,
+            capacity: it.capacity,
+          })}
+        </Text>
+      </View>
+      <View className="mt-3.5 flex-row gap-2">
+        <Button className="flex-1" onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}>
+          <Text className="font-sans-semibold text-primary-foreground">
+            {t("dashboard.needsYou.emptySeats.invite", { count: it.seatsMissing })}
+          </Text>
+        </Button>
+        <Button variant="outline" disabled={snooze.isPending} onPress={later} testID="needs-you-later">
+          <Text className="font-sans-semibold text-foreground">
+            {t("dashboard.needsYou.later")}
+          </Text>
+        </Button>
+      </View>
+    </ActionCard>
+  );
+}
+
 function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   const { t, i18n } = useTranslation();
 
   if (item.kind === "empty_seats") {
     const it = item as DashboardNeedsYouEmptySeats;
-    return (
-      <ActionCard accent="attention">
-        <View className="gap-0.5">
-          <Text className="text-[15px] font-sans-bold text-foreground">
-            {t("dashboard.needsYou.emptySeats.title", {
-              class: it.classTitle,
-              count: it.seatsMissing,
-            })}
-          </Text>
-          <Text className="text-[13px] text-muted-foreground">
-            {t("dashboard.needsYou.emptySeats.detail", {
-              date: shortDate(it.date, i18n.language),
-              time: it.timeLabel,
-              filled: it.filled,
-              capacity: it.capacity,
-            })}
-          </Text>
-        </View>
-        <View className="mt-3.5 flex-row gap-2">
-          <Button className="flex-1" onPress={() => go(it.href, { title: it.classTitle, timeLabel: it.timeLabel })}>
-            <Text className="font-sans-semibold text-primary-foreground">
-              {t("dashboard.needsYou.emptySeats.invite", { count: it.seatsMissing })}
-            </Text>
-          </Button>
-          <Button variant="outline">
-            <Text className="font-sans-semibold text-foreground">
-              {t("dashboard.needsYou.later")}
-            </Text>
-          </Button>
-        </View>
-      </ActionCard>
-    );
+    return <EmptySeatsCard item={it} />;
   }
 
   if (item.kind === "invite") {

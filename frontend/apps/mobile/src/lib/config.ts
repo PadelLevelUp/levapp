@@ -1,6 +1,10 @@
 /**
  * API base URL.
  *
+ * The default is levapp.app, the canonical domain from 2026-09. Builds already
+ * shipped hardcode padellevelup.com, which keeps serving prod for exactly that
+ * reason — this changes where NEW binaries point, nothing that is live.
+ *
  * Production builds must ALWAYS default to the hosted production API,
  * regardless of how the app was archived (raw `xcodebuild archive`,
  * `expo run:ios --configuration Release`, or a future EAS build) and
@@ -22,7 +26,7 @@
  * dev backend on :5000, or a LAN IP for a physical device) — it must never
  * be the sole source of truth for what a production build talks to.
  */
-const PRODUCTION_API_URL = "https://padellevelup.com/api";
+const PRODUCTION_API_URL = "https://levapp.app/api";
 const DEV_API_URL = "http://localhost:5001/api";
 
 export const API_URL =
@@ -40,10 +44,12 @@ export const API_URL =
  * EXPO_PUBLIC_WEB_URL — before App Store submission, since Apple requires a
  * working, publicly reachable privacy policy URL.
  */
-// Public domain confirmed by product owner (2026-07): padellevelup.com.
-// Resolves only if apps/web (owner of /privacy + /terms) is served here with
-// SPA fallback; override via EXPO_PUBLIC_WEB_URL for a different subdomain.
-export const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://www.padellevelup.com";
+// levapp.app is the canonical domain (2026-09): the product is LevApp, and new
+// references point here. padellevelup.com is NOT retired — it still serves prod
+// and is still claimed for universal links, because binaries already in the
+// App Store hardcode it and must keep working. Verified serving /privacy and
+// /terms (200, SPA fallback). Override via EXPO_PUBLIC_WEB_URL for a subdomain.
+export const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://levapp.app";
 export const PRIVACY_POLICY_URL = `${WEB_APP_URL}/privacy`;
 export const TERMS_URL = `${WEB_APP_URL}/terms`;
 /** auth.coach-approval rule 6: where a rejected coach is sent. */

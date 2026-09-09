@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { completeEmailVerification } from "../helpers/emailVerification";
 import { openPlayers } from "../helpers/navigation";
 
 /**
@@ -47,6 +48,9 @@ test("US-212: a new student opens the coach's link, signs up, and lands on the r
   await student.locator("#signup-password").fill(PASSWORD);
   await student.locator("#signup-repeatPassword").fill(PASSWORD);
   await student.getByTestId("signup-submit").click();
+  // PAD-234: sign-up now routes through email verification before the
+  // destination below. The debug outbox hands back the real code.
+  await completeEmailVerification(student);
 
   // Back on the join page, now signed in — preview, confirm, success.
   await expect(student).toHaveURL(new RegExp(`${joinPath}$`), { timeout: 15_000 });

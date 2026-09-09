@@ -31,10 +31,11 @@ function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: 
 export function CoachDashboard({
   blocks,
   firstName,
+  onRefresh,
 }: {
   blocks: DashboardBlock[];
   firstName: string;
-  /** Accepted for symmetry with StudentDashboard; nothing here answers in place. */
+  /** Refetch after an in-place action — "Later" on a needs-you card. */
   onRefresh?: () => void | Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
@@ -48,7 +49,9 @@ export function CoachDashboard({
 
   // Rendered once each, then placed by the branch below.
   const hero = heroBlock ? <NextClassHero block={heroBlock} /> : null;
-  const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} /> : null;
+  const needsYou = needsYouBlock ? (
+    <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} />
+  ) : null;
   const schedule = scheduleBlock ? <Schedule7Days block={scheduleBlock} /> : null;
   const pulse = pulseBlock ? <WeekPulse block={pulseBlock} /> : null;
 

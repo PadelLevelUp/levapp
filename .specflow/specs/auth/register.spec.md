@@ -68,6 +68,10 @@ create one, or ask to join an existing one — happens right after approval (`cl
 12. The whole registration is one DB transaction: a failure after the User insert leaves no
     orphan User, Coach or Player.
 13. Signup notifies the LevApp admin that a coach is waiting (`auth.coach-approval` rule 4).
+14. Signup marks the email as needing verification and sends the first 6-digit code inside the
+    same request, best-effort (`auth.email-verification` rules 1 and 6). The 201 body's `user`
+    carries `emailVerification: "pending"` (or `"verified"` when the gate is off), and the
+    client shows the **Verify your email** screen before any of the destinations in rule 11.
 
 ### Acceptance Criteria
 
@@ -115,13 +119,13 @@ create one, or ask to join an existing one — happens right after approval (`cl
 
 #### Signed-in student lands on Connect with a coach
 - **Given** a visitor on the web `/auth` page
-- **When** they click "Create account", choose Student, fill the form and submit
+- **When** they click "Create account", choose Student, fill the form, submit and verify the email code
 - **Then** they are signed in and the "Connect with a coach" screen is shown
 - **And** the same flow exists on iOS from the login screen
 
 #### New coach lands on the pending-approval screen
 - **Given** a visitor on the web `/auth` page
-- **When** they click "Create account", choose Coach, fill the form and submit
+- **When** they click "Create account", choose Coach, fill the form, submit and verify the email code
 - **Then** they are signed in and the "Waiting for LevApp approval" screen is shown, with no club form
 - **And** signing out and back in shows the same screen while still pending
 - **And** the same flow exists on iOS
@@ -136,6 +140,6 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2
   and 7 (admin approval of coaches, added the same day).
 - OPEN: no rate limiting on this route (same gap as B-001 on login).
-- OPEN: no email verification in v1.
+- Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
 - PAD-198 will add `birthDate` + `country` to this body and gate activation for minors; leave
   room in the service for a post-create hook rather than branching inside the route.

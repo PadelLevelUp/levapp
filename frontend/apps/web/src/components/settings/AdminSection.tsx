@@ -117,6 +117,12 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
                   {" · "}
                   {new Date(coach.requestedAt).toLocaleDateString(i18n.language)}
                 </p>
+                {/* auth.email-verification rule 10: nobody can reach this coach yet. */}
+                {coach.email && coach.emailVerified === false && (
+                  <p className="text-xs text-destructive" data-testid={`admin-email-unverified-${coach.username}`}>
+                    {t("settings.admin.emailUnverified")}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button

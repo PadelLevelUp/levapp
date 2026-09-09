@@ -9,8 +9,16 @@ export type {
   RegisterPayload,
   RegisterResponse,
   CoachApprovalStatus,
+  EmailVerificationState,
+  SendVerificationCodeResponse,
 } from "@levelup/api/src/resources/auth";
-import type { MeResponse, UpdateMePayload, RegisterPayload, RegisterResponse } from "@levelup/api/src/resources/auth";
+import type {
+  MeResponse,
+  UpdateMePayload,
+  RegisterPayload,
+  RegisterResponse,
+  SendVerificationCodeResponse,
+} from "@levelup/api/src/resources/auth";
 
 export async function getMe(): Promise<MeResponse> {
   if (USE_MOCK_DATA) {
@@ -32,6 +40,8 @@ export async function getMe(): Promise<MeResponse> {
       coachApproval: "approved",
       clubs: [{ id: 1, name: "Padel Academy" }],
       pendingClubJoinRequest: null,
+      emailVerification: "verified",
+      emailVerificationResendInSeconds: 0,
     };
   }
 
@@ -51,4 +61,14 @@ export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
 export async function deleteAccount(): Promise<void> {
   if (USE_MOCK_DATA) return;
   return authApi.deleteAccount();
+}
+
+/** auth.email-verification rule 4. Not mockable — it sends a real mail. */
+export async function sendEmailVerificationCode(): Promise<SendVerificationCodeResponse> {
+  return authApi.sendEmailVerificationCode();
+}
+
+/** auth.email-verification rule 5. Resolves with the fresh /auth/me payload. */
+export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
+  return authApi.confirmEmailVerificationCode(code);
 }

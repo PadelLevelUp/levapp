@@ -19,12 +19,36 @@ The type is **converted to vector paths** — real Poppins Bold letterforms at
 `letter-spacing: -0.02em`, drawn from the font's own outlines. There is no live text, no
 `@font-face`, and no font dependency of any kind.
 
-They render identically everywhere: as `<img src>`, inlined in HTML, in email, in
+They render identically wherever SVG renders at all: as `<img src>`, inlined in HTML, in
 Figma, in Illustrator, in print, offline. Nothing to install.
 
 The consequence of outlining: **the text is no longer editable.** To change the wording,
 set it fresh in Poppins&nbsp;700 at `-0.02em` and outline again — don't try to edit the
 paths.
+
+## Email needs a raster — this directory ships SVG only
+
+**Every file here is SVG** (verified 2026-09-09: `assets/logo/` contains eight `.svg` and
+nothing else). That is a problem for exactly one destination: **Gmail strips `<svg>`
+entirely**, and several other clients (Outlook desktop's Word renderer among them) do not
+render it either. An email using any mark from this directory shows nothing at all — not a
+broken-image icon, nothing.
+
+So anything targeting email needs a **rasterised PNG**, served over HTTPS from a stable
+URL, referenced as `<img src>` with explicit `width`/`height` and real `alt` text. The web
+app's `frontend/apps/web/public/brand/` directory already serves the SVG marks at
+`/brand/*.svg` and is the right home for the PNG beside them.
+
+The lockup is `546 × 140` (3.9:1), so a 2x asset for a 148px-wide header is 296px:
+
+```
+rsvg-convert -w 296 levapp-lockup-on-light.svg -o levapp-lockup-on-light.png
+```
+
+Light-background lockup, because email clients invert unpredictably and a dark-surface mark
+on a client-forced white background disappears. *Not verified: at `origin/staging` `faab7eb`
+(2026-09-09) no `.png` exists in `frontend/apps/web/public/brand/` — if you need one,
+confirm whether it has landed since before generating a duplicate.*
 
 ## Rules
 - Clear space on all sides equals the height of the A's crossbar (~1/6 of the mark's height).

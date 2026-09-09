@@ -123,6 +123,7 @@ def update_own_profile_service(user_id, data):
     `language`, which is what made the UI report a save that never happened.
     """
     user = User.query.get_or_404(user_id)
+    email_changed = False
 
     if "name" in data:
         name = (data.get("name") or "").strip()
@@ -146,6 +147,9 @@ def update_own_profile_service(user_id, data):
             )
             if taken is not None:
                 raise ProfileValidationError("Email already in use", status=409)
+            # settings.profile rule 9: a NEW address must be verified again;
+            # re-saving the one already stored (any case) changes nothing.
+            email_changed = (user.email or "").lower() != email
             user.email = email
 
     if "phone" in data:
@@ -171,6 +175,11 @@ def update_own_profile_service(user_id, data):
         user.notif_block_reason = reason[:NOTIFICATION_BLOCK_REASON_MAX_LENGTH] or None
 
     db.session.commit()
+
+    if email_changed:
+        from padel_app.services.email_verification_service import begin_verification
+
+        begin_verification(user)
     return user
 
 

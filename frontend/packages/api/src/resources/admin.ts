@@ -12,6 +12,8 @@ export type PendingCoach = {
   name: string;
   username: string;
   email: string | null;
+  /** auth.email-verification rule 10: false means nobody can reach this coach yet. */
+  emailVerified?: boolean;
   requestedAt: string;
 };
 

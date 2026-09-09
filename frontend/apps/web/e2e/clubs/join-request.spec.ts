@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { completeEmailVerification } from "../helpers/emailVerification";
 
 /**
  * clubs.join-request (PAD-211).
@@ -26,6 +27,9 @@ async function signUpCoach(page: Page, username: string) {
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   await page.getByTestId("signup-submit").click();
+  // PAD-234: sign-up now routes through email verification before the
+  // destination below. The debug outbox hands back the real code.
+  await completeEmailVerification(page);
   await expect(page).toHaveURL(/\/coach-pending$/, { timeout: 15_000 });
   await page.getByTestId("coach-pending-signout").click();
   await expect(page).toHaveURL(/\/auth$/);

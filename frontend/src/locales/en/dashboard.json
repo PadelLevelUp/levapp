@@ -56,6 +56,7 @@
       "eyebrow": "NEEDS YOU · {{count}}",
       "empty": "Nothing needs you right now.",
       "later": "Later",
+      "laterFailed": "Couldn't snooze this. Try again.",
       "emptySeats": {
         "title_one": "{{class}} has {{count}} empty seat",
         "title_other": "{{class}} has {{count}} empty seats",

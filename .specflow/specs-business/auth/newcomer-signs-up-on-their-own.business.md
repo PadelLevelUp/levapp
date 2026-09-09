@@ -4,6 +4,7 @@ status: draft
 implemented_by:
   - ../../specs/auth/register.spec.md
   - ../../specs/auth/coach-approval.spec.md
+  - ../../specs/auth/email-verification.spec.md
   - ../../specs/clubs/join-request.spec.md
 ---
 
@@ -33,20 +34,26 @@ without their knowledge (that case is picked up in
 2. They enter their name, a username, an email address and a password. The username is theirs
    to choose and must be free; the email is required (it is how they will recover the account
    later) and must not already belong to someone else.
-3. **A coach** is signed in but sees "Waiting for LevApp approval". The LevApp admin is told a
-   coach is waiting (email, when configured, and a badge in the admin's Settings), checks them,
-   and approves or rejects. A rejected coach sees that their request was not approved and how
-   to reach support.
-4. **An approved coach**, on their next app load, picks their club: either create a new one
+3. **Everyone** first proves the email is theirs: a 6-digit code arrives in their inbox and they
+   type it into the app (the phone offers to fill it in from the mail). A wrong address can be
+   corrected on the spot, and a new code requested after a minute. Nothing else in the app opens
+   until the code is in. Changing the email later in Settings runs the same step again, and
+   Settings always shows whether the current address is verified.
+4. **A coach** is then signed in but sees "Waiting for LevApp approval". The LevApp admin is told a
+   coach is waiting (email, when configured, and a badge in the admin's Settings), can see whether
+   the coach's email is verified, checks them, and approves or rejects. An approved coach gets an
+   email in their language saying they can start; a rejected coach sees that their request was not
+   approved and how to reach support.
+5. **An approved coach**, on their next app load, picks their club: either create a new one
    (name, optionally location), or search existing clubs by name and ask to join one. Creating
    is instant — they are a member of the new club and can start adding players and classes.
    Asking to join puts them in a second "waiting for approval" state, this time for that club: a
    coach already in it sees the request under Settings → Club and approves or declines it. While
    waiting, the coach can change their mind and create their own club instead.
-5. **A student** is signed in immediately and sees the "Connect with a coach" screen: open the
+6. **A student** is signed in immediately and sees the "Connect with a coach" screen: open the
    link or QR your coach gave you, or wait for your coach to add you. Their calendar, attendance
    and messages fill in as soon as a coach connection exists.
-6. Either way, the login works right away — there is no separate activation email or link,
+7. Either way, the login works right away — there is no separate activation email or link,
    because the person who set the password is the person who owns the account. What a coach can
    *do* with it waits for the admin.
 
@@ -59,7 +66,9 @@ without their knowledge (that case is picked up in
   [[auth.newcomer-creates-and-activates-an-account]]).
 - Username and email must each be unique across the whole app. A username that looks like a
   system-generated placeholder is never accepted as a chosen one.
-- Email is mandatory at self-signup. It stays optional for players a coach creates.
+- Email is mandatory at self-signup, and it must be verified with a code before the person can
+  go on; a coach-created player's email is not put through that step. It stays optional for
+  players a coach creates.
 - For now, every self-registered coach must be approved by the LevApp admin before they can
   create a club, join one, or touch any roster. A coach who arrives through a club's invitation
   link is trusted by that club and needs no admin approval. The gate can be switched off later
