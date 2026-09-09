@@ -767,6 +767,13 @@ def _ensure_date(payload, date_obj):
     return payload
 
 
+def _normalize_eligibility_override(value):
+    """A tier's incoming bar: ``None`` clears the tier; a list is stored as-is
+    (``[]`` = everyone); anything else is treated as "clear" rather than
+    letting a malformed payload lock a class."""
+    return value if isinstance(value, list) else None
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
@@ -777,6 +784,10 @@ def edit_class_service(data):
         return {"error": "Invalid payload"}, 400
 
     notifications_enabled = updates.get("notificationsEnabled")
+    # PAD-129 (eligibility.cascade rules 5, 8): absent = untouched, None = clear
+    # this tier, [] = everyone, a list = that bar. `scope` picks the tier.
+    eligibility_touched = "eligibilityRules" in updates
+    eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
@@ -806,6 +817,9 @@ def edit_class_service(data):
             edit_lesson_instance_helper(payload, instance)
             if notifications_enabled is not None:
                 instance.notifications_enabled = notifications_enabled
+                instance.save()
+            if eligibility_touched:
+                instance.eligibility_rules = eligibility_rules
                 instance.save()
             return {"id": instance.id}, 200
 
@@ -841,6 +855,11 @@ def edit_class_service(data):
             if notifications_enabled is not None:
                 lesson_to_edit.notifications_enabled = notifications_enabled
                 lesson_to_edit.save()
+            if eligibility_touched:
+                # The series tier — on the forked master when the edit started
+                # mid-series (rule 6), so earlier occurrences keep the old bar.
+                lesson_to_edit.eligibility_rules = eligibility_rules
+                lesson_to_edit.save()
             # A "this and future" edit off a materialized occurrence splits the
             # series into a *new* Lesson (duplicate_lesson_helper). Without this
             # the new lesson carries no reminder jobs at all, so its classes
@@ -873,6 +892,9 @@ def edit_class_service(data):
         if notifications_enabled is not None:
             instance.notifications_enabled = notifications_enabled
             instance.save()
+        if eligibility_touched:
+            instance.eligibility_rules = eligibility_rules
+            instance.save()
         # Schedule reminder/invite jobs for this newly materialized instance
         from padel_app.scheduler import _maybe_schedule_instance
         _maybe_schedule_instance(instance)
@@ -893,6 +915,9 @@ def edit_class_service(data):
         )
         if notifications_enabled is not None:
             lesson_to_edit.notifications_enabled = notifications_enabled
+            lesson_to_edit.save()
+        if eligibility_touched:
+            lesson_to_edit.eligibility_rules = eligibility_rules
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:

@@ -351,6 +351,22 @@
       "done": "Finished",
       "event": "Event / not a class",
       "fill": "Confirmed / awaiting / free"
+    },
+    "eligibility": {
+      "title": "Eligibility",
+      "hint": "Who may join this class. The standard bar applies unless you override it here.",
+      "source": {
+        "coach": "Standard bar",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "standard": "Standard bar",
+        "everyone": "Everyone",
+        "custom": "Custom rules"
+      },
+      "everyoneHint": "No rules for this class — every one of your students may join.",
+      "standardHint": "Uses your standard eligibility from Settings → Notifications."
     }
   }
 }

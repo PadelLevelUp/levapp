@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, DateTime, Boolean, Enum
+from sqlalchemy import JSON, Column, Integer, String, Text, ForeignKey, Date, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -37,6 +37,9 @@ class Lesson(db.Model, model.Model):
     color = Column(String(10))
     status = Column(Enum("active", "ended", name="lesson_status"), default="active")
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
+    # PAD-129 (eligibility.cascade): the series tier. NULL = no override here;
+    # [] = a deliberate "everyone"; a list = the bar for this series.
+    eligibility_rules = Column(JSON, nullable=True)
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(

@@ -351,6 +351,22 @@
       "done": "Concluída",
       "event": "Evento / não é aula",
       "fill": "Confirmados / à espera / livres"
+    },
+    "eligibility": {
+      "title": "Elegibilidade",
+      "hint": "Quem pode entrar nesta aula. Aplica-se a fasquia padrão, a não ser que a substituas aqui.",
+      "source": {
+        "coach": "Fasquia padrão",
+        "lesson": "Definida para esta série",
+        "instance": "Definida para esta aula"
+      },
+      "mode": {
+        "standard": "Fasquia padrão",
+        "everyone": "Toda a gente",
+        "custom": "Regras próprias"
+      },
+      "everyoneHint": "Sem regras nesta aula — todos os teus alunos podem entrar.",
+      "standardHint": "Usa a tua elegibilidade padrão em Definições → Notificações."
     }
   }
 }

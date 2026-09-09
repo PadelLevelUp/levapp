@@ -86,6 +86,7 @@ import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
+import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
@@ -441,6 +442,8 @@ export function ClassDetailSheet({
     "levelId",
     "recurrenceEnd",
     "notificationsEnabled",
+    // PAD-129: the eligibility tier this sheet addresses (null / [] / rules).
+    "eligibilityRules",
   ] as const;
 
   const commitEdit = (scope: ApplyScope) => {
@@ -851,6 +854,19 @@ export function ClassDetailSheet({
             </div>
           )}
 
+          {/* PAD-129: which eligibility tier applies, and the override editor in edit mode */}
+          {canManage && event?.type === "class" && active && (
+            <ClassEligibilityBlock
+              current={active.eligibilityRules ?? null}
+              effective={active.effectiveEligibilityRules ?? null}
+              source={active.eligibilitySource ?? "coach"}
+              editing={isEditing}
+              onChange={(eligibilityRules) =>
+                setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+            />
+          )}
+
           {/* Color — only in edit mode */}
           {isEditing && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
@@ -1157,6 +1173,7 @@ export function ClassDetailSheet({
                   <Button
                     variant="outline"
                     className="flex-1"
+                    data-testid="class-edit"
                     onClick={startEdit}
                     disabled={isValidating}
                   >

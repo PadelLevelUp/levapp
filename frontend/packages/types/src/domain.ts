@@ -183,6 +183,16 @@ export interface ClassInstance {
   participants?: Player[];
   presences?: Presence[];
   notificationsEnabled?: boolean;
+  /**
+   * PAD-129 (eligibility.cascade rule 8). `eligibilityRules` is the bar stored
+   * at the tier this payload addresses (`null` = no override there);
+   * `effectiveEligibilityRules` is what resolved; `eligibilitySource` says
+   * from which tier. Sending `eligibilityRules` on an edit writes the tier the
+   * edit scope selects: `null` clears it, `[]` means everyone.
+   */
+  eligibilityRules?: GroupRule[] | null;
+  effectiveEligibilityRules?: GroupRule[] | null;
+  eligibilitySource?: "instance" | "lesson" | "coach";
   invitations?: ClassInvitation[];
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so

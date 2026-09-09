@@ -67,6 +67,7 @@ import {
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import {
   diffInstance,
   EDITABLE_CLASS_FIELDS,
@@ -816,6 +817,19 @@ export default function ClassDetailScreen() {
                 />
               </View>
             </View>
+          ) : null}
+
+          {/* PAD-129: which eligibility tier applies, and the override editor in edit mode */}
+          {isCoach && event?.type === "class" && active ? (
+            <ClassEligibilityBlock
+              current={active.eligibilityRules ?? null}
+              effective={active.effectiveEligibilityRules ?? null}
+              source={active.eligibilitySource ?? "coach"}
+              editing={isEditing}
+              onChange={(eligibilityRules) =>
+                setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+            />
           ) : null}
 
           {/* Color — only in edit mode (mirrors web) */}
