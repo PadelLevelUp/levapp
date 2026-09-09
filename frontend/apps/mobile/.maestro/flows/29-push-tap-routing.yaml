@@ -16,6 +16,12 @@
 # needs the wrapper script — run it via `bash scripts/push-tap-flow.sh`.
 appId: com.padellevelup.app
 ---
+# Notification permission first: the registrar asks for it on the simulator
+# too (token fetch stays device-only), and Maestro answers the system dialog.
+# Without permission iOS drops the simulated push silently.
+- launchApp:
+    permissions:
+      notifications: allow
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
     id: "tab-messages"
