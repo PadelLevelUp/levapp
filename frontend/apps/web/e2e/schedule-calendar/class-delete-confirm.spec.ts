@@ -40,7 +40,7 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
 
   // Open the class detail sheet.
   await page.getByText(title).first().click();
-  const deleteBtn = page.getByRole("button", { name: /delete class/i }).first();
+  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first();
   await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 
   // Clicking Delete opens a confirmation dialog — it must NOT delete immediately.

@@ -40,7 +40,7 @@ test("PAD-10: deleting a non-recurring class shows success toast and updates UI"
   await page.getByText(title).first().click();
 
   // Wait for the detail sheet to open
-  const deleteBtn = page.getByRole("button", { name: /delete class/i }).first();
+  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first();
   await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 
   // Click delete — non-recurring class shows a confirm dialog (PAD-58).
@@ -67,7 +67,7 @@ test("PAD-10: deleting a single occurrence of recurring class shows success toas
   await page.getByText(title).first().click();
 
   // Wait for the detail sheet to open
-  const deleteBtn = page.getByRole("button", { name: /delete class/i }).first();
+  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first();
   await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 
   // Click delete — recurring class shows scope dialog
