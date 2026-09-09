@@ -22,7 +22,7 @@ governing leaf spec and its dependencies before touching code.
 - `notifications/` — Notification Engine (13 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (4 leaves)
-- `training/` — Exercise Library & Training Planning (5 leaves)
+- `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest
 - **Backend**: Flask 2.3 + SQLAlchemy 1.4 + PostgreSQL

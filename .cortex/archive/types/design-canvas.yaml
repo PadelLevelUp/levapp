@@ -1,0 +1,19 @@
+id: design-canvas
+label: Design canvas (Claude Design .dc.html artboard)
+classification:
+  extensions: [.html]
+  hints:
+    - "<x-dc>"
+    - "DCLogic"
+    - "Protótipo visual"
+    - "levelup-design-system"
+  explicit: true
+extraction:
+  strategy: generic
+  outputs:
+    - kind: summary
+      path: extracted/summary.md
+    - kind: requirements
+      path: extracted/requirements.md
+    - kind: open-questions
+      path: extracted/open-questions.md

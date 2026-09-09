@@ -43,6 +43,7 @@ export type CourtElementType =
   | "arrow"
   | "movement";
 
+/** Legacy (v1) diagram element — kept readable, never written by the tactical board. */
 export interface CourtElement {
   id: string;
   type: CourtElementType;
@@ -59,8 +60,73 @@ export interface CourtElement {
   rotation?: number;
 }
 
-export interface CourtDiagram {
+/**
+ * Legacy (v1) diagram shape: a flat element list in the old 280×520 viewBox
+ * (20-unit padding). `upgradeCourtDiagram()` in @levelup/config turns it into
+ * a `CourtDiagramV2` on read (training.tactical-board rule 12).
+ */
+export interface CourtDiagramV1 {
   elements: CourtElement[];
+}
+
+/** @deprecated alias for the legacy shape — new code uses `CourtDiagramV2` / `AnyCourtDiagram`. */
+export type CourtDiagram = CourtDiagramV1;
+
+// ── Tactical board (v2) — training.tactical-board ───────────────────────────
+// Coordinates are percent of the playing surface, 0..100 on both axes, so web
+// and iOS render the same JSON identically whatever the pixel size.
+
+export type Team = "A" | "B";
+/** Situações de jogo | Exercícios de cesto | Magnético */
+export type BoardMode = "game" | "basket" | "magnetic";
+export interface Point {
+  x: number;
+  y: number;
+}
+/** The five colour swatches of the Magnético toolbar. */
+export type PieceColor = "white" | "green" | "blue" | "red" | "amber";
+
+export type Piece =
+  | { id: string; kind: "player"; team: Team; label: string; x: number; y: number }
+  | { id: string; kind: "feeder"; x: number; y: number }
+  | { id: string; kind: "cone"; x: number; y: number; color?: PieceColor }
+  | { id: string; kind: "ball"; x: number; y: number; color?: PieceColor }
+  | { id: string; kind: "stroke"; color: PieceColor; points: Point[] };
+
+export type PieceKind = Piece["kind"];
+
+/** One ball trajectory: plana (straight) or lob (quadratic curve). */
+export interface BallPath {
+  from: Point;
+  to: Point;
+  style: "flat" | "lob";
+}
+
+/** A player's dashed movement path within a step. */
+export interface Movement {
+  pieceId: string;
+  to: Point;
+}
+
+export interface Step {
+  id: string;
+  ball?: BallPath;
+  movements: Movement[];
+}
+
+export interface CourtDiagramV2 {
+  version: 2;
+  mode: BoardMode;
+  /** The starting position. */
+  pieces: Piece[];
+  /** Ordered; may be empty for a purely static board. */
+  steps: Step[];
+}
+
+export type AnyCourtDiagram = CourtDiagramV1 | CourtDiagramV2;
+
+export function isCourtDiagramV2(d: AnyCourtDiagram | null | undefined): d is CourtDiagramV2 {
+  return !!d && (d as CourtDiagramV2).version === 2;
 }
 
 export interface Exercise {
@@ -71,7 +137,7 @@ export interface Exercise {
   customType?: string;
   difficulty: Difficulty;
   levelIds: string[];
-  diagram?: CourtDiagram;
+  diagram?: AnyCourtDiagram;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -84,7 +150,7 @@ export interface ExercisePayload {
   customType?: string;
   difficulty: Difficulty;
   levelIds: string[];
-  diagram?: CourtDiagram;
+  diagram?: AnyCourtDiagram;
   notes?: string;
 }
 

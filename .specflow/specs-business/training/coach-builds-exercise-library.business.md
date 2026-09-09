@@ -6,6 +6,9 @@ implemented_by:
   - ../../specs/training/groups.spec.md
   - ../../specs/training/court-diagram.spec.md
   - ../../specs/training/exercise-view.spec.md
+  - ../../specs/training/tactical-board.spec.md
+provenance:
+  - derives_from: archive/documents/treino-quadro-tatico-2026-09-08/extracted/requirements.md
 ---
 
 # Coach Builds Exercise Library
@@ -24,8 +27,11 @@ Coaches building and maintaining their own exercise library.
 
 1. The coach creates an exercise: a name, type (attack, defense, serve, etc.), difficulty from
    beginner to expert, and which player levels it targets.
-2. Using a visual court editor, the coach places players, cones, balls, and movement arrows to
-   diagram exactly how the exercise works.
+2. On the tactical board ("Quadro Tático") the coach picks the kind of drill — a 2v2 game
+   situation, a basket-feeding drill, or a free magnetic board — places players and cones,
+   draws the ball's path (flat or lob) and each player's movement, and can add further steps
+   so the drill plays back step by step or as an animation. Web and the iOS app show the same
+   board.
 3. The coach browses and filters their exercise library by type and difficulty.
 4. Related exercises get organized into a named group — e.g. "Warm-Up Routine" — for quick reuse
    across lessons.
@@ -36,8 +42,10 @@ Coaches building and maintaining their own exercise library.
 
 - Every exercise and group has one owning coach; other coaches can be given read-only
   ("follower") access.
-- An exercise's court diagram is a set of placed elements (players, cones, balls, arrows) with
-  position and, for arrows, an end point.
+- An exercise's court diagram is a starting position (players in Team A / Team B, a feeder, cones,
+  loose balls, pen strokes) plus an ordered list of steps; each step has at most one ball path and
+  any number of player movements. Diagrams drawn before the tactical board keep working and are
+  upgraded silently the next time they are edited.
 - An exercise can belong to more than one group at once.
 - Exercise and group management is coach-only — a student gets rejected outright, never a server
   error.
@@ -52,4 +60,6 @@ Using exercises within a specific class (`training.coach-plans-training-for-a-cl
 
 ## Notes
 
-None.
+- Visual source for the board: archive document `treino-quadro-tatico-2026-09-08`
+  (Claude Design canvas, 2026-09-08). Delivered as a four-ticket wave; see
+  `training.tactical-board` for the wave tags.
