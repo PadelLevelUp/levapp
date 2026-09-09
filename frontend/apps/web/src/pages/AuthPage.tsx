@@ -90,10 +90,15 @@ const AuthPage = () => {
     } catch (err) {
       // Take the overlay away at once; the error toast is behind it.
       cancel();
+      // auth.login rule 7 (PAD-228): a throttled attempt says when to retry.
+      const res = (err as { response?: { status?: number; data?: { retryAfterSeconds?: number } } }).response;
       toast({
         variant: "destructive",
         title: t("auth.login.failedTitle"),
-        description: t("auth.login.failedDescription"),
+        description:
+          res?.status === 429
+            ? t("auth.login.rateLimited", { seconds: res.data?.retryAfterSeconds ?? 60 })
+            : t("auth.login.failedDescription"),
       });
     } finally {
       setLoading(false);

@@ -71,7 +71,7 @@ Full details, flow ordering, and gotchas: [`.maestro/README.md`](.maestro/README
    source .venv/bin/activate && \
    FLASK_APP=padel_app FLASK_ENV=development POSTGRES_HOST=localhost \
    POSTGRES_PORT=5432 POSTGRES_USER=padel_app_user POSTGRES_DB=levelup_test \
-   JWT_SECRET_KEY=e2e-test-secret E2E_DEBUG_ENDPOINTS=true TEST_MODE=true \
+   JWT_SECRET_KEY=e2e-test-secret E2E_DEBUG_ENDPOINTS=true TEST_MODE=true AUTH_RATE_LIMIT_ENABLED=0 \
    flask run --host 127.0.0.1 --port 5001 --no-reload
    ```
 

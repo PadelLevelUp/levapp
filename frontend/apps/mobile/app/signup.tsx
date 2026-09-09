@@ -163,6 +163,10 @@ export default function SignUpScreen() {
         setErrors(next);
         setFormError(t("auth.signup.fixHighlighted"));
         revealFirstError(next);
+      } else if (info.status === 429) {
+        // auth.register rule 15 (PAD-228).
+        const seconds = (err as { response?: { data?: { retryAfterSeconds?: number } } }).response?.data?.retryAfterSeconds ?? 60;
+        setFormError(t("auth.login.rateLimited", { seconds }));
       } else if (info.network) {
         setFormError(t("auth.login.networkError"));
       } else if (info.routeMissing) {

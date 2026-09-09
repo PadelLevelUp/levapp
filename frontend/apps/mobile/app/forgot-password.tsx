@@ -43,7 +43,7 @@ const CODE_LENGTH = 6;
 const PASSWORD_MIN = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-type ErrData = { error?: string; attemptsLeft?: number };
+type ErrData = { error?: string; attemptsLeft?: number; retryAfterSeconds?: number };
 type ApiErr = { response?: { status?: number; data?: ErrData } };
 
 export default function ForgotPasswordScreen() {
@@ -85,8 +85,14 @@ export default function ForgotPasswordScreen() {
       setCode("");
       setStep("code");
     } catch (err) {
-      const status = (err as ApiErr).response?.status;
-      setEmailError(status === 400 ? t("auth.recovery.invalidEmail") : t("auth.login.networkError"));
+      const res = (err as ApiErr).response;
+      setEmailError(
+        res?.status === 429
+          ? t("auth.login.rateLimited", { seconds: res.data?.retryAfterSeconds ?? 60 })
+          : res?.status === 400
+            ? t("auth.recovery.invalidEmail")
+            : t("auth.login.networkError")
+      );
     } finally {
       setSending(false);
     }
@@ -127,6 +133,9 @@ export default function ForgotPasswordScreen() {
       } else if (status === 410) {
         setCode("");
         setCodeError(t("auth.verifyEmail.expired"));
+      } else if (status === 429) {
+        // auth.password-recovery rule 10 (PAD-228).
+        setCodeError(t("auth.login.rateLimited", { seconds: data?.retryAfterSeconds ?? 60 }));
       } else {
         setCodeError(t("auth.login.networkError"));
       }

@@ -83,8 +83,11 @@ export default function LoginScreen() {
       // misconfigured/unreachable API doesn't masquerade as bad credentials
       // (see 2026-07-24 App Store rejection: "Could not sign in" screenshot
       // was actually a build pointed at an unreachable API URL).
+      // auth.login rule 7 (PAD-228): a throttled attempt says when to retry.
       const message =
-        err?.response?.data?.message ??
+        err?.response?.status === 429
+          ? t("auth.login.rateLimited", { seconds: err.response?.data?.retryAfterSeconds ?? 60 })
+          : err?.response?.data?.message ??
         err?.response?.data?.error ??
         (!err?.response
           ? t("auth.login.networkError")

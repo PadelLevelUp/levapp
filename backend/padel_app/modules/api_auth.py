@@ -30,6 +30,7 @@ from padel_app.services.password_recovery_service import (
     request_recovery,
 )
 from padel_app.utils.debug_flags import debug_endpoints_enabled
+from padel_app.utils.rate_limit import rate_limited
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
@@ -91,6 +92,7 @@ def _serialize_me(user):
     }
 
 @bp.post("/register")
+@rate_limited("register")
 def register():
     """auth.register — self-service signup for coaches and students."""
     data = request.get_json(silent=True) or {}
@@ -172,6 +174,7 @@ def email_verification_debug_last_code():
 # ── auth.password-recovery ─────────────────────────────────────────────────
 
 @bp.post("/password-recovery/request")
+@rate_limited("recovery")
 def password_recovery_request():
     """Rule 2: always the same 200, whether or not the email has an account."""
     data = request.get_json(silent=True) or {}
@@ -184,6 +187,7 @@ def password_recovery_request():
 
 
 @bp.post("/password-recovery/confirm")
+@rate_limited("recovery")
 def password_recovery_confirm():
     """Rule 6: code + new password; answers with the login body."""
     data = request.get_json(silent=True) or {}
@@ -195,6 +199,7 @@ def password_recovery_confirm():
 
 
 @bp.post("/login")
+@rate_limited("login")
 def login():
     data = request.get_json() or {}
 
