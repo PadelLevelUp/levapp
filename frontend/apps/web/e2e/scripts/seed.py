@@ -36,8 +36,17 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta, timezone
 
 
+from seed_dates import seed_dates, seed_today  # noqa: E402  (same directory)
+
+
 def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+# PAD-223: every fixture date comes from one pure function so no two fixtures
+# can collide on any weekday — `test_seed_dates.py` walks all seven. Pin the
+# anchor with E2E_SEED_TODAY=YYYY-MM-DD to reproduce a run on another weekday.
+DATES = seed_dates(seed_today())
 
 app = create_app()
 
@@ -238,12 +247,11 @@ with app.app_context():
     db.session.flush()
 
     # ── Lesson + LessonInstance ───────────────────────────────────────────────
-    # Future class (next Monday) — naive UTC to match the backend's datetime contract
-    today = _utcnow_naive().replace(hour=0, minute=0, second=0, microsecond=0)
-    days_until_monday = (7 - today.weekday()) % 7 or 7
-    next_monday = today + timedelta(days=days_until_monday)
-    class_start = next_monday.replace(hour=10, minute=0)
-    class_end = next_monday.replace(hour=11, minute=0)
+    # Future class (next Monday 10:00) — naive UTC to match the backend's
+    # datetime contract. Dates come from seed_dates.py (PAD-223).
+    today = DATES.today
+    class_start = DATES.academy_start
+    class_end = DATES.academy_end
 
     lesson = Lesson(
         title="E2E Academy Class",
@@ -312,10 +320,8 @@ with app.app_context():
     # the class-detail "capacity" field must BOTH show 1/4 — declined students do
     # not occupy a spot. Uses filler players (only referenced by pagination /
     # search specs) so no other spec's fixtures shift.
-    days_until_thursday = (3 - today.weekday()) % 7 or 7
-    next_thursday = today + timedelta(days=days_until_thursday)
-    declined_start = next_thursday.replace(hour=16, minute=0)
-    declined_end = next_thursday.replace(hour=17, minute=0)
+    declined_start = DATES.declined_start
+    declined_end = DATES.declined_end
 
     declined_lesson = Lesson(
         title="E2E Declined Count Class",
@@ -375,22 +381,22 @@ with app.app_context():
         )
 
     # ── Recurring Lesson (no materialized instance) ────────────────────────────
-    # Weekly recurring class on Tuesdays, starting next Tuesday
-    days_until_tuesday = (1 - today.weekday()) % 7 or 7
-    next_tuesday = today + timedelta(days=days_until_tuesday)
-    recurring_start = next_tuesday.replace(hour=14, minute=0)
-    recurring_end = next_tuesday.replace(hour=15, minute=0)
-    recurrence_end_date = (next_tuesday + timedelta(weeks=8)).date()
+    # Weekly recurring class on Tuesdays. PAD-223: it starts on the Tuesday
+    # AFTER the academy class's Monday, so on a Monday run it is not
+    # "tomorrow" and the academy class stays the student's soonest class.
+    recurring_start = DATES.recurring_start
+    recurring_end = DATES.recurring_end
+    recurrence_end_date = DATES.recurring_end_date
 
     recurring_lesson = Lesson(
         title="E2E Recurring Class",
         start_datetime=recurring_start,
         end_datetime=recurring_end,
         is_recurring=True,
-        # Convert Python weekday() (Mon=0, Tue=1) to the app's canonical JS
-        # getDay() convention (Sun=0, Mon=1, Tue=2) so Tuesday materializes on
-        # Tuesday. See packages/types/src/domain.ts and backend WEEKDAY_MAP.
-        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [(next_tuesday.weekday() + 1) % 7]}),
+        # Python weekday() (Mon=0, Tue=1) → the app's canonical JS getDay()
+        # convention (Sun=0, Mon=1, Tue=2), built in seed_dates.py so Tuesday
+        # materializes on Tuesday. See packages/types/src/domain.ts and WEEKDAY_MAP.
+        recurrence_rule=DATES.recurring_rule,
         recurrence_end=recurrence_end_date,
         type="academy",
         max_players=4,
@@ -433,10 +439,13 @@ with app.app_context():
     # actually fires send_manual_notifications, which posts a system message into
     # the coach<->student direct conversation — using the real students would
     # pollute the conversation the messaging specs (US-57..US-64) depend on.
+    #
+    # PAD-223: TOMORROW at 12:00–13:00 (was 18:00). On a Sunday run "tomorrow"
+    # is the first Monday after today — the slot the availability specs
+    # reserve for their 18:00–20:00 blocker — and the two collided.
     pending_students = filler_players[5:7]
-    tomorrow = today + timedelta(days=1)
-    pending_start = tomorrow.replace(hour=18, minute=0)
-    pending_end = tomorrow.replace(hour=19, minute=0)
+    pending_start = DATES.pending_start
+    pending_end = DATES.pending_end
 
     pending_lesson = Lesson(
         title="E2E Pending Confirm Class",
@@ -562,10 +571,7 @@ with app.app_context():
     )
 
     attended_instances = []
-    for days_ago in (8, 15, 45, 120, 250):
-        attended_start = (today - timedelta(days=days_ago)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for attended_start in DATES.attended_starts:
         attended_instance = LessonInstance(
             lesson_id=attended_lesson.id,
             start_datetime=attended_start,
@@ -643,10 +649,7 @@ with app.app_context():
     )
 
     missed_instances = []
-    for days_ago, justification in ((10, "justified"), (20, "unjustified"), (200, "justified")):
-        missed_start = (today - timedelta(days=days_ago)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for missed_start, justification in DATES.missed_starts:
         missed_instance = LessonInstance(
             lesson_id=missed_lesson.id,
             start_datetime=missed_start,
@@ -709,8 +712,8 @@ with app.app_context():
     # correct — they are genuinely pending. No spec asserts an exact value for it.
     validation_lesson = Lesson(
         title="E2E Validation Class",
-        start_datetime=today - timedelta(days=today.weekday() + 5),
-        end_datetime=today - timedelta(days=today.weekday() + 5) + timedelta(hours=1),
+        start_datetime=DATES.validation_lesson_start,
+        end_datetime=DATES.validation_lesson_start + timedelta(hours=1),
         is_recurring=False,
         type="academy",
         max_players=6,
@@ -733,11 +736,7 @@ with app.app_context():
     # Previous week's Wednesday and Thursday at 11:00 UTC: always in the past,
     # always in an earlier week than today whatever weekday the suite runs on,
     # and away from the midnight boundary (PAD-33).
-    prev_monday = today - timedelta(days=today.weekday() + 7)
-    for day_offset, everyone_answered in ((2, True), (3, False)):
-        v_start = (prev_monday + timedelta(days=day_offset)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for v_start, everyone_answered in DATES.validation_starts:
         v_instance = LessonInstance(
             lesson_id=validation_lesson.id,
             start_datetime=v_start,
