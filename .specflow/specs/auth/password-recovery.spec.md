@@ -93,6 +93,8 @@ back at all.
    `GET /api/auth/email-verification/debug/last-code?email=` route (`auth.email-verification`
    rule 11): the recovery mail's text body carries the same 6-digit shape, and the route is
    flag-gated and unauthenticated by design.
+10. **Per-IP throttle (PAD-228).** `POST /api/auth/password-recovery/request` and `/confirm` share one bucket, throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_RECOVERY` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. This is the per-IP layer on top of the
+    per-email cooldown of rule 4, and it caps code guessing across many emails.
 
 ### Acceptance Criteria
 
@@ -164,6 +166,12 @@ back at all.
 - **When** POST `request` for `off@example.com`
 - **Then** the response is 200 and no mail is sent
 
+#### Too many recovery calls from one IP are throttled
+- **Given** `AUTH_RATE_LIMIT_RECOVERY` is `2/600` and `ana` has a valid code
+- **When** IP `203.0.113.7` POSTs `request` once and `confirm` with a wrong code once, then `confirm` with the right code
+- **Then** the third call is 429 `RATE_LIMITED` with `retryAfterSeconds`, the password is unchanged and no attempt was consumed
+- **And** the same `confirm` from `203.0.113.8` is 200
+
 #### The legacy routes are gone
 - **Given** the app
 - **When** GET `/auth/forgot_password`
@@ -202,6 +210,6 @@ back at all.
 - Decision: the legacy routes are removed rather than retargeted — their mail template was
   already missing, nothing linked to them, and keeping two entry points is what the ticket asked
   not to do.
-- OPEN: per-IP throttling of `request` and `confirm` — PAD-228.
+- Per-IP throttling: rule 10 (PAD-228).
 - OPEN: revoking other sessions on password change (JWTs are 30-day and there is no per-user
   blocklist) — not in v1.
