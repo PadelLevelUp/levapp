@@ -42,6 +42,8 @@ import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 const CONVERSATION_PARTNER = "E2E Student";
+/** The seeded coach's display name (e2e/scripts/seed.py). */
+const COACH_NAME = "E2E Coach";
 
 async function apiToken(
   request: APIRequestContext,
@@ -64,10 +66,18 @@ async function seedUnreadForCoach(request: APIRequestContext): Promise<void> {
   expect(convosRes.status(), "student must be able to list conversations").toBe(200);
   const { conversations } = await convosRes.json();
 
-  const withCoach = conversations.find((c: { name?: string; title?: string }) =>
-    `${c.name ?? ""}${c.title ?? ""}`.toLowerCase().includes("coach")
+  // Exact seed name, not a substring match: the student also has a
+  // conversation with "E2E Coach No Levels" once message-by-username.spec.ts
+  // has run, and it sorts first as the most recent one. Seeding the unread
+  // there badges the wrong coach, and this spec then fails on its positive
+  // assertion in a full run while passing alone.
+  // `participantName` is the OTHER participant as serialized by
+  // backend/padel_app/serializers/conversation.py; the list carries no `name`.
+  const withCoach = conversations.find(
+    (c: { participantName?: string | null }) => c.participantName === COACH_NAME
   );
-  const conversationId = String((withCoach ?? conversations[0]).id);
+  expect(withCoach, `student must have a conversation named "${COACH_NAME}"`).toBeTruthy();
+  const conversationId = String(withCoach.id);
 
   const sent = await request.post(`${API_APP}/message`, {
     headers,
