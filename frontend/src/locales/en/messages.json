@@ -1,9 +1,9 @@
 {
   "messages": {
-    "enableNotificationsPrompt": "Enable message notifications",
+    "enableNotificationsPrompt": "Enable browser alerts for messages",
     "enable": "Enable",
-    "notificationsBlocked": "Notifications blocked. Enable them in browser settings.",
-    "notificationsBlockedDevice": "Notifications are off. Turn them on in Settings.",
+    "notificationsBlocked": "Browser alerts are blocked. Messages and the unread badge still arrive here in the app; to get alerts while the app is closed, enable notifications in your browser settings.",
+    "notificationsBlockedDevice": "Device alerts are off. Messages and the badge still arrive in the app; to get alerts while the app is closed, turn notifications on in Settings.",
     "messageCopied": "Message copied",
     "selectConversation": "Select a conversation",
     "selectConversationHint": "Choose a chat from the list to see messages.",

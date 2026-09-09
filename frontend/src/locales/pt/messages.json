@@ -1,9 +1,9 @@
 {
   "messages": {
-    "enableNotificationsPrompt": "Ativar notificações de mensagens",
+    "enableNotificationsPrompt": "Ativar alertas do navegador para mensagens",
     "enable": "Ativar",
-    "notificationsBlocked": "Notificações bloqueadas. Ativa-as nas definições do navegador.",
-    "notificationsBlockedDevice": "Notificações desativadas. Ativa-as nas Definições.",
+    "notificationsBlocked": "Alertas do navegador bloqueados. As mensagens e o contador de não lidas continuam a chegar aqui na app; para receber alertas com a app fechada, ativa as notificações nas definições do navegador.",
+    "notificationsBlockedDevice": "Alertas do dispositivo desativados. As mensagens e o contador continuam a chegar na app; para receber alertas com a app fechada, ativa as notificações nas Definições.",
     "messageCopied": "Mensagem copiada",
     "selectConversation": "Seleciona uma conversa",
     "selectConversationHint": "Escolhe uma conversa da lista para ver as mensagens.",
