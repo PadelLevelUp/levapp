@@ -30,14 +30,21 @@ appId: com.padellevelup.app
       id: "conversation-item-1"
     timeout: 20000
 
-# The wrapper delivers the push while this waits. The foreground handler
-# shows a banner (setNotificationHandler: shouldShowBanner).
+# The wrapper delivers the push as soon as Maestro reports the step above
+# complete. iOS shows it as a SpringBoard banner, which is NOT in the app's
+# accessibility hierarchy (Maestro's iOS driver only sees the app under test),
+# so the banner cannot be asserted or tapped by text. Instead: give the push
+# ~4 s to land (an optional wait on a locator that never appears is the only
+# sleep Maestro has), then tap the banner region at the top of the screen —
+# XCTest coordinate taps are device-level and reach SpringBoard. The proof is
+# what the app does next.
 - extendedWaitUntil:
     visible:
-      text: "PAD-240 push probe"
-    timeout: 45000
+      text: "pad-240-never-appears"
+    timeout: 4000
+    optional: true
 - tapOn:
-    text: "PAD-240 push probe"
+    point: "50%, 7%"
 
 # The tap must land in the thread: header role badge + seeded message, and
 # NOT the class screen's "could not be found" error state.
