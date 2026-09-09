@@ -4,12 +4,14 @@ The design language for **LevApp**, a padel/tennis academy app. Coaches run clas
 empty seats, track player progress and message players; players see their own classes and
 progress.
 
-The product was called **LevelUp** and much of the plumbing still is: the repos
-(`levelup_frontend/`, `levelup_backend/`), the npm scope (`@levelup/*`), the Expo
-`app.json` name and the web `<title>`. The rename is a brand decision, not a refactor —
-write **LevApp** in new user-facing copy, marks, titles and docs, and leave code
-identifiers alone until someone asks for that migration. "LevelUp" below always means the
-old name or the old green product.
+The product was called **LevelUp** and some of the plumbing still is: the GitHub org
+(`PadelLevelUp/levapp`) and the npm scope (`@levelup/*`). The user-facing names have
+already moved — `frontend/apps/mobile/app.json:3` is `"name": "LevApp"` and
+`frontend/apps/web/index.html:6` is `<title>LevApp</title>` (verified 2026-09-09). The two
+repos merged into one monorepo on 2026-09-03: `levelup_frontend/` is now `frontend/`,
+`levelup_backend/` is now `backend/`. Write **LevApp** in new user-facing copy, marks,
+titles and docs, and leave code identifiers alone until someone asks for that migration.
+"LevelUp" below always means the old name or the pre-2026-08-07 green product.
 
 The organising job of the product is **communication with players** — filling classes and
 chasing replies. Every decision below serves that.
@@ -27,48 +29,78 @@ Be honest about where this came from, because it affects how much you should tru
 | `LevelUp Redesign Plan.dc.html` in this project | The palette, type, component language, calendar encoding and dark-mode rules codified here. (Filename keeps the old brand; it is a source artifact.) |
 
 **No Figma file was provided, and nothing in `components/` or `ui_kits/` was read from
-production source** — it was authored from the redesign plan. The codebase *does* exist,
-at `levelup_frontend/` in this umbrella directory, and it does not look like this. Read
-the next section before you write a line of production CSS.
+production source** — it was authored from the redesign plan. That was a warning when this
+system was still a proposal. It no longer is: production adopted the palette wholesale on
+2026-08-07 and now looks like this. The prototype files here lead the code in *vocabulary*,
+not in colour. Read the next section before you write a line of production CSS.
 
 ---
 
-## Production reality — read this before touching `levelup_frontend/`
+## Production reality — verified 2026-09-09
 
-This design system is a **proposal**. As of 2026-08-06 none of it ships: a grep for
-`0B1524`, `1355DC`, `2F8AFF` and `0D1B31` across `packages/` and both apps' `src/`
-returns nothing. The shipping app is still the **green** shadcn system.
+**This section used to say the redesign did not ship. It does.** The claim was accurate
+when written (2026-08-06) and went stale the next day: commits `9e38378` and `b362c58`,
+both 2026-08-07, swapped the shared token layer to LevApp navy/blue and repainted
+typography, primitives and chrome. Re-verified against `origin/staging` (`faab7eb`) on
+2026-09-09.
 
-| | This skill (the redesign) | Production today |
+The old table asserted a green primary and a test naming it "the padel court green".
+Neither exists. What the code says now:
+
+| Was claimed (stale) | Actually true (file:line) |
+|---|---|
+| Identity is green `152 60% 42%` | `frontend/packages/config/src/tokens.ts:78` — `primary: "220 84% 47%", // blue-600 #1355DC` |
+| `tokens.test.ts` asserts primary is green | `frontend/packages/config/src/tokens.test.ts:45-48` asserts it is **blue**; `:55-62` asserts green is `success` and *never* primary |
+| Web ships a green shadcn palette | `frontend/apps/web/src/index.css:31,61` — `--primary: 220 84% 47%`, `--success: 161 78% 33%` |
+| Green is `--primary` *and* `--success` | Green is `--success` only. Rule 3 below now holds in production too. |
+| No navy hex anywhere | `index.css:71` `--sidebar-background: 217 58% 12%` (navy-800); `frontend/apps/web/src/pages/LandingPage.tsx:66` uses the exact hero gradient `linear-gradient(150deg, #16294A 0%, #0B1524 100%)` |
+
+The mapping is essentially 1:1. Converting production's HSL triplets back to hex gives this
+skill's ramp, within the ~1/255 that an HSL round-trip costs:
+
+| Production token | Renders | This skill |
 |---|---|---|
-| Identity colour | Navy `#0B1524` + blue `#1355DC` | Green `152 60% 42%` ("padel court green") |
-| Token form | `--lv-blue-600: #1355DC` — literal hex, consumed as `var(--lv-*)` | HSL triplets `--primary: 152 60% 42%`, consumed as `hsl(var(--primary))` via Tailwind |
-| Token names | `--action-primary`, `--text-tertiary`, `--border-subtle` | shadcn vocabulary: `primary`, `muted-foreground`, `border`, `card`, `destructive`, plus `academy` / `private` / `success` / `warning` / `info` |
-| Source of truth | `tokens/*.css` here | `apps/web/src/index.css` (`@layer base`), mirrored in `packages/config/src/tokens.ts` for mobile via `nativewindTheme()` |
-| Components | Plain `.jsx` in `components/` | shadcn/ui + Tailwind classes in `apps/web/src/components/` |
+| `--primary` `220 84% 47%` | `#1356DD` | `--lv-blue-600 #1355DC` |
+| `--background` `216 29% 93%` | `#E8ECF2` | `--lv-grey-150 #E9EDF3` |
+| `--foreground` `216 52% 13%` | `#101E32` | `--lv-grey-800 #101E33` |
+| `--destructive` `4 63% 53%` | `#D3463C` | `--lv-red-600 #D3453B` |
+| `--success` `161 78% 33%` | `#13966C` | `--lv-green-600 #12946B` |
+| `--warning` `31 72% 50%` | `#DB8324` | `--lv-amber-600 #D98324` |
+| `--private` `249 55% 59%` | `#6E5DD0` | `--lv-violet-600 #6D5BD0` |
+| `--academy` / `--info` `214 100% 59%` | `#2E89FF` | `--lv-blue-500 #2F8AFF` |
+| `--sidebar-background` `217 58% 12%` | `#0D1A30` | `--lv-navy-800 #0D1B31` |
+
+Dark mode matches `tokens/dark.css` value-for-value: `#070E1A` page, `#0F1B2E` card,
+`#17273F` raised, `#1E3453` accent wash, `#5FD3AC` done, `#F0B970` attention, `#B3A6F5`
+progress (`index.css:82-127`).
+
+**What still differs is the vocabulary, and only that:**
+
+| | This skill | Production |
+|---|---|---|
+| Token form | `--lv-blue-600: #1355DC`, read as `var(--lv-*)` | `--primary: 220 84% 47%`, read as `hsl(var(--primary))` or a Tailwind class |
+| Names available | full ramp + `--surface-*` / `--text-*` / `--action-*` / `--status-*` aliases | shadcn set only: `primary`, `muted-foreground`, `border`, `card`, `destructive`, `academy`, `private`, `success`, `warning`, `info`, plus `success-strong` / `warning-strong` |
+| Tints | one token per tint (`--status-done-bg`) | opacity modifiers — `bg-success/15`, `bg-primary/10` |
+| Dark selector | `[data-theme="dark"]` | `.dark` class (`tailwind.config.ts:4`) |
+| Source of truth | `tokens/*.css` here | `frontend/apps/web/src/index.css` (`@layer base`), mirrored in `frontend/packages/config/src/tokens.ts` for mobile via `nativewindTheme()` |
+| Components | plain `.jsx` in `components/` | shadcn/ui + Tailwind in `frontend/apps/web/src/components/ui/` |
 
 **So:**
 
-- **Prototypes, mocks, slides, throwaway artifacts** → use this system freely. That is
-  what it is for.
-- **Production code** → write against the shadcn tokens. `bg-primary`, not
-  `var(--lv-blue-600)`. A component styled from this skill's palette will look like a
-  different app bolted onto the real one.
-- **The principles port; the palette does not.** Borders not shadows, tabular numerals,
-  one primary action per view, no emoji, numbers with denominators, pt-PT addressed as
-  *tu*, nothing bounces — all of that improves production code today, at zero
-  rebrand cost. Take those across freely.
+- **Prototypes, mocks, slides, throwaway artifacts** → use this system freely, `--lv-*`
+  names and all.
+- **Production code** → same colours, different names. `bg-primary`, not
+  `var(--lv-blue-600)`. `bg-success/15 text-success-strong`, not `--status-done-bg`. There
+  is no production token for `--lv-blue-200` or `--surface-sunken`; use the nearest shadcn
+  token or an opacity modifier rather than adding one.
+- **Never hand-copy a hex** from `tokens/colors.css` into production. The rounding above
+  means you would be hardcoding a near-miss of a token that already exists.
 
-**On green.** In the redesign green is demoted to "done" only. In production green is
-`--primary` *and* `--success` — it is the brand. Rule 3 below ("green means done") is a
-rule of the redesign; do not enforce it on production code, and do not read a green
-primary button there as a bug.
-
-**Adopting the redesign is a project, not a styling pass.** The entry point is
-`packages/config/src/tokens.ts`; `tokens.test.ts` asserts
-`lightThemeHsl.primary === "152 60% 42%"` and names it "the padel court green", so any
-change lands with a test change. Web and mobile both read that package, so a partial
-swap desyncs the two apps. Do it only on an explicit request, as its own ticket.
+**Changing a production colour is a two-file edit.** `frontend/packages/config/src/tokens.ts`
+feeds mobile through `nativewindTheme()` (`frontend/apps/mobile/tailwind.config.js:5,13`);
+`frontend/apps/web/src/index.css` feeds the web. Nothing syncs them at runtime — only
+`tokens.test.ts:105-153`, which fails the build on drift and also forbids declaring tokens
+outside `@layer base` (an unlayered `:root` block once silently overrode `--warning`).
 
 ---
 
@@ -79,8 +111,9 @@ current app is kept verbatim: *Painel, Calendário, Jogadores, Treino, Mensagens
 Definições, Aula 5, Nível 4-, Adicionar avaliação*. Never use Brazilian forms.
 
 In **prototypes**, write pt-PT strings inline. In **production**, the app is fully
-i18n'd — strings live in `levelup_frontend/src/locales/{pt,en}/*.json` (the **repo root**
-tree, not `apps/web/src/`; `apps/web/src/i18n.ts` globs `../../../src/locales/*/*.json`)
+i18n'd — strings live in `frontend/src/locales/{pt,en}/*.json` (the **frontend root**
+tree, not `apps/web/src/`; `frontend/apps/web/src/i18n.ts:21` globs
+`../../../src/locales/*/*.json`)
 and go through `t()`. `pt` is both default and fallback (PAD-39), so English *does* exist
 there: add the key to both files, and never hardcode a visible string in a component. The
 rules below are rules for the pt copy, which is the copy that defines the voice.
@@ -118,10 +151,10 @@ encouragement, no exclamation marks.
 
 ## Visual foundations
 
-*Everything in this section describes the **redesign**, and applies as written to
-prototypes and artifacts. In production code the structural rules (space, shape,
-surfaces, motion, interaction states, imagery, layout) still apply; the **palette** does
-not — see Production reality above.*
+*Everything in this section applies as written to prototypes, artifacts **and**
+production — production adopted this palette on 2026-08-07. The only translation needed in
+production code is the token vocabulary (`bg-primary`, not `var(--action-primary)`); see
+Production reality above.*
 
 ### Colour
 The palette comes out of the app icon: a navy field with a blue gradient. Blue carries
@@ -136,8 +169,9 @@ identity **and** every primary action. Tokens in `tokens/colors.css`.
   Amber `#D98324` = needs the coach. Red `#D3453B` = problem/destructive.
   Violet `#6D5BD0` = player-side, level, progress, non-class events.
 
-The old brand green survives only as "done". That demotion is the point: because green
-means one thing, a green badge is now informative. Never pick a status colour for
+The old brand green survives only as "done", in production as well as here — a test
+(`frontend/packages/config/src/tokens.test.ts:55-62`) now enforces it. That demotion is the
+point: because green means one thing, a green badge is informative. Never pick a status colour for
 visual variety, and never colour something by category (class level is a *chip*, not a
 colour).
 
@@ -267,11 +301,12 @@ SKILL.md                   Agent Skills entry point
 The production counterparts, for when you are writing real code:
 
 ```
-levelup_frontend/apps/web/src/index.css           the shipping CSS variables (@layer base)
-levelup_frontend/apps/web/tailwind.config.ts      how those become Tailwind class names
-levelup_frontend/packages/config/src/tokens.ts    same tokens for mobile (nativewindTheme)
-levelup_frontend/apps/web/src/components/ui/      shadcn primitives — reuse, don't re-author
-levelup_frontend/src/locales/{pt,en}/           all user-facing strings (repo-root, NOT apps/web)
+frontend/apps/web/src/index.css            the shipping CSS variables (@layer base)
+frontend/apps/web/tailwind.config.ts       how those become Tailwind class names
+frontend/packages/config/src/tokens.ts     same tokens for mobile (nativewindTheme)
+frontend/packages/config/src/tokens.test.ts the test that keeps those two in step
+frontend/apps/web/src/components/ui/       shadcn primitives — reuse, don't re-author
+frontend/src/locales/{pt,en}/              all user-facing strings (frontend root, NOT apps/web)
 ```
 
 Each component directory holds `<Name>.jsx`, `<Name>.d.ts` (props contract and the
@@ -287,9 +322,10 @@ five-status `ClassBlock`.
 
 ### Not built
 Player-facing screens, the player profile (Progresso / Histórico tabs), the Treino
-library, desktop two-pane layouts, and any slide or marketing surface. In the redesign,
-the player app reuses this system with the light theme and blue accents while coaches get
-the navy chrome — that split is a proposal, not something production does today.
+library, desktop two-pane layouts, and any slide or marketing surface — none of these are
+built *in this kit*. Production has its own versions. The redesign's split — the player app
+on the light theme with blue accents, coaches on the navy chrome — is a proposal about
+this kit; check the real screens before assuming production follows it.
 
 ---
 
@@ -297,13 +333,12 @@ the navy chrome — that split is a proposal, not something production does toda
 
 1. One `primary` button per view.
 2. A number never appears without a denominator or a direction.
-3. Green means done. Amber means you. Nothing else. *(Redesign only — in production
-   green is the brand primary.)*
+3. Green means done. Amber means you. Nothing else.
 4. Cards in a list have borders, not shadows.
 5. Level is a chip, never a colour.
 6. Tabular figures on every time, score and count.
 7. If it needs a decision, put the decision on the card.
 8. Nothing bounces.
 
-All eight hold in prototypes. All but #3 hold in production code as well — apply them
-there through the shadcn token vocabulary, not this system's palette.
+All eight hold in prototypes and in production code alike. In production, apply them
+through the shadcn token vocabulary — same colours, different names.
