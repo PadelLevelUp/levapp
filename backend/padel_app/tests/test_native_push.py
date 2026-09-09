@@ -332,6 +332,12 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
         assert kwargs["data"]["type"] == "message"
         assert kwargs["data"]["conversationId"] in conv_ids
         assert kwargs["data"]["classInstanceId"] == instance_id
+        # PAD-147: a reminder is an unread Message row, so the push carries the
+        # recipient's real unread total as the icon badge (rule 5), exactly
+        # like a direct message. Without it the icon under-counts until the
+        # app is next opened.
+        from padel_app.services.messaging_service import get_unread_count
+        assert kwargs["badge"] == get_unread_count(player_user.id) >= 1
 
 
 def test_coach_cancellation_pushes_expo_with_message_payload(app):
@@ -385,6 +391,8 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
             "conversationId": msg.conversation_id,
             "classInstanceId": instance.id,
         }
+        from padel_app.services.messaging_service import get_unread_count
+        assert kwargs["badge"] == get_unread_count(coach_user.id) >= 1
 
 
 def test_direct_message_pushes_expo_with_message_payload(app):
