@@ -19,7 +19,7 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
-- `notifications/` — Notification Engine (13 leaves)
+- `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (4 leaves)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
