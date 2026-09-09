@@ -18,7 +18,8 @@ import { getMessageableUsers } from '@/api/users';
 interface User {
   id: string;
   name: string;
-  email?: string;
+  /** PAD-227: the picker carries the public shape — username, never email. */
+  username?: string;
   avatarUrl?: string;
 }
 
