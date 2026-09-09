@@ -57,17 +57,21 @@ const AuthPage = () => {
     if (!validateForm()) return;
 
     setLoading(true);
-    // Cover the screen before the request goes out, not after it comes back —
-    // the mark forming IS the wait. The overlay lives above the router
-    // (LaunchOverlayProvider), so the navigate below happens underneath it and
-    // the dashboard is already fetching by the time the reveal plays.
-    begin();
 
     try {
       const res = await api.post("/auth/login", {
         username,
         password,
       });
+
+      // auth.login rule 8 (PAD-186): cover the screen only once the server has
+      // said yes — a wrong password must show its toast on the untouched form,
+      // never the mark forming and then vanishing. The overlay lives above the
+      // router (LaunchOverlayProvider), so the navigate below happens
+      // underneath it and the dashboard is already fetching (session hydration
+      // and /me are what the mark forming now waits on) by the time the reveal
+      // plays.
+      begin();
 
       await login(res.data.accessToken)
       // auth.register rule 11: a coach still waiting for approval, or with no
