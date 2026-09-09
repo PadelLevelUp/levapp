@@ -66,7 +66,9 @@ export default function PresencesPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
-  const [busyClassId, setBusyClassId] = useState<number | null>(null);
+  // PAD-191 (B-033): the SET of classes in flight, not just the first — every
+  // queued class stays disabled for the whole bulk run.
+  const [busyClassIds, setBusyClassIds] = useState<number[]>([]);
 
   const week = useMemo(() => weekBounds(weekOffset), [weekOffset]);
 
@@ -141,7 +143,7 @@ export default function PresencesPage() {
         }>;
       }>
     ) => {
-      setBusyClassId(classes[0]?.lessonInstanceId ?? null);
+      setBusyClassIds(classes.map((c) => c.lessonInstanceId));
       try {
         // Sequential rather than parallel: each call can materialize rows and
         // touch the same instance, and a coach validating a handful of classes
@@ -160,7 +162,7 @@ export default function PresencesPage() {
           variant: "destructive",
         });
       } finally {
-        setBusyClassId(null);
+        setBusyClassIds([]);
       }
     },
     [loadQueue, loadStats, t, toast]
@@ -168,7 +170,7 @@ export default function PresencesPage() {
 
   const handleUnvalidate = useCallback(
     async (lessonInstanceId: number) => {
-      setBusyClassId(lessonInstanceId);
+      setBusyClassIds([lessonInstanceId]);
       try {
         await unvalidateClass(lessonInstanceId);
         await Promise.all([loadQueue(), loadStats()]);
@@ -179,7 +181,7 @@ export default function PresencesPage() {
           variant: "destructive",
         });
       } finally {
-        setBusyClassId(null);
+        setBusyClassIds([]);
       }
     },
     [loadQueue, loadStats, t, toast]
@@ -212,7 +214,7 @@ export default function PresencesPage() {
             roster={roster}
             onValidate={handleValidate}
             onUnvalidate={handleUnvalidate}
-            busyClassId={busyClassId}
+            busyClassIds={busyClassIds}
           />
         </div>
 

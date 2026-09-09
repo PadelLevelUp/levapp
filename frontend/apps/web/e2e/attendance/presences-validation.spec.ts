@@ -186,3 +186,47 @@ test.describe("PAD-140: Presences tab", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+// attendance.validation rule 7a (PAD-191, B-033): a bulk run guards EVERY
+// queued class, not only the first. The fixture's two classes are made ready
+// (the silent student is marked present), both are selected, and the confirm
+// route is slowed down so the in-flight window is observable: while the first
+// POST is pending, the second class's Validate button must already be disabled.
+test.describe("PAD-191: bulk validation guards every queued class", () => {
+  test("classes 2..N are disabled while the run is in flight", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/presences");
+    await openQueueAtFixtureWeek(page);
+
+    const notReady = page.locator('[data-testid="presences-class-card"][data-ready="false"]');
+    await expect(notReady.first()).toBeVisible();
+    await notReady.first().getByTestId("presence-mark-present").last().click();
+    const readyCards = page.locator('[data-testid="presences-class-card"][data-ready="true"]');
+    await expect(readyCards).toHaveCount(2);
+
+    await page.getByRole("button", { name: /select all ready|selecionar as prontas/i }).click();
+    const bulk = page.getByTestId("presences-validate-selected");
+    await expect(bulk).toContainText("2");
+
+    // Hold every confirm for a moment so the run is observable mid-flight.
+    await page.route("**/api/app/class_instance/presences/confirm", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+
+    await bulk.click();
+    // During the run: bulk button and BOTH per-class buttons are disabled.
+    await expect(bulk).toBeDisabled();
+    const validateButtons = page.getByTestId("presences-validate-class");
+    await expect(validateButtons).toHaveCount(2);
+    for (const button of await validateButtons.all()) {
+      await expect(button).toBeDisabled();
+    }
+
+    // After the run: both classes validated, exactly once each.
+    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await page.unroute("**/api/app/class_instance/presences/confirm");
+  });
+});
