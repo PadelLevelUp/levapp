@@ -1,12 +1,19 @@
 /**
  * PAD-218: two checkouts never share a database or a port by default.
  */
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import {
+  liveLock,
+  lockPath,
+  releaseLock,
   resolveE2EIsolation,
   SHARED_BACKEND_PORT,
   SHARED_DB_NAME,
   SHARED_WEB_PORT,
+  writeLock,
 } from "../../e2e/isolation";
 
 const A = "/Users/someone/levapp/frontend/apps/web";
@@ -53,5 +60,29 @@ describe("resolveE2EIsolation", () => {
       webPort: SHARED_WEB_PORT,
       source: "shared",
     });
+  });
+});
+
+describe("run lock", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "levapp-e2e-lock-"));
+
+  it("is live while its pid is alive and stale once it is not", () => {
+    writeLock("levelup_e2e_t", "/checkout/a", dir, 4242);
+    expect(liveLock("levelup_e2e_t", dir, () => true)?.pid).toBe(4242);
+    expect(liveLock("levelup_e2e_t", dir, () => false)).toBeNull();
+    expect(fs.existsSync(lockPath("levelup_e2e_t", dir))).toBe(true);
+  });
+
+  it("is released only by its owner", () => {
+    writeLock("levelup_e2e_u", "/checkout/a", dir, 4242);
+    expect(releaseLock("levelup_e2e_u", dir, 9999)).toBe(false);
+    expect(fs.existsSync(lockPath("levelup_e2e_u", dir))).toBe(true);
+    expect(releaseLock("levelup_e2e_u", dir, 4242)).toBe(true);
+    expect(fs.existsSync(lockPath("levelup_e2e_u", dir))).toBe(false);
+  });
+
+  it("treats garbage as no lock", () => {
+    fs.writeFileSync(lockPath("levelup_e2e_v", dir), "not json");
+    expect(liveLock("levelup_e2e_v", dir, () => true)).toBeNull();
   });
 });

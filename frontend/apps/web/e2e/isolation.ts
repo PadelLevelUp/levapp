@@ -21,6 +21,8 @@
  * global-setup.ts and a unit test can all import it.
  */
 import { createHash } from "crypto";
+import fs from "fs";
+import os from "os";
 import path from "path";
 
 export const SHARED_DB_NAME = "levelup_test";
@@ -77,4 +79,69 @@ export function resolveE2EIsolation(
     source: allExplicit ? "env" : "derived",
     checkoutId: id,
   };
+}
+
+/* ── run lock ────────────────────────────────────────────────────────────────
+   Playwright starts the configured webServers BEFORE globalSetup runs, so "is
+   my backend port busy?" is always true by the time global-setup looks — the
+   run's own Flask is up. Ownership of a database is therefore tracked with a
+   lock file keyed by database name: written by global-setup, released by
+   global-teardown, considered live only while the pid inside it is alive. */
+
+export interface RunLock {
+  pid: number;
+  startedAt: string;
+  checkout: string;
+  dbName: string;
+}
+
+export function lockPath(dbName: string, dir = os.tmpdir()): string {
+  return path.join(dir, `levapp-e2e-${dbName}.lock`);
+}
+
+export function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means it exists but is not ours — still alive.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+export function readLock(file: string): RunLock | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<RunLock>;
+    if (typeof parsed.pid !== "number") return null;
+    return {
+      pid: parsed.pid,
+      startedAt: String(parsed.startedAt ?? ""),
+      checkout: String(parsed.checkout ?? ""),
+      dbName: String(parsed.dbName ?? ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The live lock on `dbName`, or `null` (a lock whose pid is dead is stale, not live). */
+export function liveLock(dbName: string, dir = os.tmpdir(), alive = isPidAlive): RunLock | null {
+  const lock = readLock(lockPath(dbName, dir));
+  if (!lock) return null;
+  return alive(lock.pid) ? lock : null;
+}
+
+export function writeLock(dbName: string, checkout: string, dir = os.tmpdir(), pid = process.pid): RunLock {
+  const lock: RunLock = { pid, startedAt: new Date().toISOString(), checkout, dbName };
+  fs.writeFileSync(lockPath(dbName, dir), JSON.stringify(lock));
+  return lock;
+}
+
+/** Remove the lock only if it is ours — never another run's. */
+export function releaseLock(dbName: string, dir = os.tmpdir(), pid = process.pid): boolean {
+  const file = lockPath(dbName, dir);
+  const lock = readLock(file);
+  if (!lock || lock.pid !== pid) return false;
+  fs.unlinkSync(file);
+  return true;
 }

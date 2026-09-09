@@ -1,80 +1,41 @@
 import { execSync } from "child_process";
-import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
-import { resolveE2EIsolation, SHARED_BACKEND_PORT, SHARED_DB_NAME } from "./isolation";
+import { liveLock, lockPath, resolveE2EIsolation, writeLock } from "./isolation";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** True when something already accepts TCP connections on `port` (localhost). */
-function probe(port: number, host: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.connect({ port, host });
-    const done = (result: boolean) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(result);
-    };
-    socket.once("connect", () => done(true));
-    socket.once("error", () => done(false));
-    socket.setTimeout(500, () => done(false));
-  });
-}
-
 /**
- * Listening on `port`, re-checked a few times over ~3 s: a backend from a run
- * that just ended can still be accepting for a moment while it shuts down,
- * and refusing on that would be a false alarm — a live run stays live.
- */
-export async function isListening(port: number, host = "127.0.0.1"): Promise<boolean> {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    if (!(await probe(port, host))) return false;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  return true;
-}
-
-function whoHolds(port: string): string {
-  try {
-    return execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN 2>/dev/null | tail -n +2`, {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    return "";
-  }
-}
-
-/**
- * PAD-218: resolve the per-checkout database and ports, refuse to touch the
- * shared `levelup_test` while a backend is listening on 5001 (another
- * session's live run), and only then reset the database this run owns.
+ * PAD-218: resolve the per-checkout database and ports, refuse to touch a
+ * database another run holds, take the lock, and only then reset the
+ * database this run owns.
+ *
+ * Why a lock and not a port probe: Playwright launches the configured
+ * webServers BEFORE this hook runs, so the run's own backend is already
+ * listening on its port by now — a port check would always trip on itself.
+ * The lock is released by global-teardown and is live only while its pid is.
  */
 export default async function globalSetup() {
   const scriptsDir = path.resolve(__dirname, "scripts");
-  const isolation = resolveE2EIsolation(process.env, path.resolve(__dirname, ".."));
+  const checkout = path.resolve(__dirname, "..");
+  const isolation = resolveE2EIsolation(process.env, checkout);
 
   console.log(
     `[global-setup] E2E stack: db=${isolation.dbName} backend=:${isolation.backendPort} ` +
       `web=:${isolation.webPort} (${isolation.source}, checkout ${isolation.checkoutId})`
   );
 
-  if (isolation.dbName === SHARED_DB_NAME && (await isListening(Number(SHARED_BACKEND_PORT)))) {
-    const holder = whoHolds(SHARED_BACKEND_PORT);
+  const holder = liveLock(isolation.dbName);
+  if (holder) {
     throw new Error(
-      `[global-setup] Refusing to drop ${SHARED_DB_NAME}: a backend is already listening on ` +
-        `:${SHARED_BACKEND_PORT}${holder ? ` —\n${holder}` : ""}\n` +
-        `Another session's suite is probably mid-run. Run without E2E_SHARED to get a ` +
-        `per-checkout database, or wait for that run to finish.`
+      `[global-setup] Refusing to reset ${isolation.dbName}: another Playwright run holds it ` +
+        `(pid ${holder.pid}, started ${holder.startedAt}, checkout ${holder.checkout}).\n` +
+        `Wait for it to finish, or run with a different E2E_DB_NAME. ` +
+        `Lock: ${lockPath(isolation.dbName)}`
     );
   }
-  if (await isListening(Number(isolation.backendPort))) {
-    const holder = whoHolds(isolation.backendPort);
-    throw new Error(
-      `[global-setup] Port :${isolation.backendPort} is already taken${holder ? ` by\n${holder}` : ""}.\n` +
-        `Not resetting ${isolation.dbName}. Pick another E2E_BACKEND_PORT or stop that process.`
-    );
-  }
+  writeLock(isolation.dbName, checkout);
 
   console.log(`[global-setup] Resetting test database ${isolation.dbName}…`);
   execSync(`bash "${scriptsDir}/reset-test-db.sh"`, {
@@ -84,6 +45,10 @@ export default async function globalSetup() {
       E2E_DB_NAME: isolation.dbName,
       E2E_BACKEND_PORT: isolation.backendPort,
       E2E_WEB_PORT: isolation.webPort,
+      // The lock check above already ran, and the run's own backend is up on
+      // the shared port when E2E_SHARED=1 — the script's bare-run guards would
+      // trip on ourselves.
+      E2E_RESET_FROM_PLAYWRIGHT: "1",
     },
   });
   console.log("[global-setup] Test database ready.");

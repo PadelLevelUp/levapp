@@ -20,6 +20,7 @@ const WEB_PORT = ISOLATION.webPort;
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
 
   /* Serial execution to avoid DB conflicts */
   workers: 1,
