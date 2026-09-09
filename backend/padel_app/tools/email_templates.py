@@ -39,7 +39,8 @@ def _layout(title, blocks, footer):
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:{CARD};border:1px solid {BORDER};border-radius:16px;">
 <tr><td style="padding:28px 28px 8px 28px;">
-<span style="display:inline-block;font-size:20px;font-weight:800;letter-spacing:-0.02em;color:{BRAND_BLUE};">LevApp</span>
+<img src="{web_origin()}/brand/levapp-lockup-on-light.png" width="148" height="38" alt="LevApp"
+ style="display:block;border:0;outline:none;text-decoration:none;height:auto;font-size:20px;font-weight:800;letter-spacing:-0.02em;color:{BRAND_BLUE};">
 </td></tr>
 <tr><td style="padding:8px 28px 28px 28px;">{body}</td></tr>
 </table>
@@ -59,11 +60,22 @@ def _p(text, muted=False):
 
 
 def _code(code):
-    spaced = " ".join(code)
+    """The code block. The digits are rendered verbatim, never space-separated.
+
+    Spacing is done with `letter-spacing` so the block still reads as six
+    separate characters, while selecting it copies exactly "123456". Joining
+    with spaces looked identical and copied "1 2 3 4 5 6", which the code field
+    rejects — the reason people retyped it by hand.
+
+    A real copy button is not possible: no mail client runs JavaScript. Making
+    the value cleanly selectable is the whole of the fix; on iOS a long-press
+    then Copy now yields something that pastes.
+    """
     return (
-        f'<p style="margin:8px 0 20px 0;padding:18px 0;text-align:center;background:{GROUND};border-radius:12px;'
-        f'font-size:36px;line-height:40px;font-weight:700;letter-spacing:0.28em;font-variant-numeric:tabular-nums;'
-        f'font-family:SFMono-Regular,Menlo,Consolas,monospace;color:{FOREGROUND};">{escape(spaced)}</p>'
+        f'<p style="margin:8px 0 8px 0;padding:18px 12px;text-align:center;background:{GROUND};border-radius:12px;'
+        f'font-size:34px;line-height:40px;font-weight:700;letter-spacing:0.22em;text-indent:0.22em;'
+        f'font-variant-numeric:tabular-nums;'
+        f'font-family:SFMono-Regular,Menlo,Consolas,monospace;color:{FOREGROUND};">{escape(code)}</p>'
     )
 
 
