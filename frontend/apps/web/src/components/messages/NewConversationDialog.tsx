@@ -182,9 +182,11 @@ export function NewConversationDialog({
                       <span className="font-medium text-sm">
                         {user.name}
                       </span>
-                      {user.email && (
+                      {/* PAD-227: the picker carries the public shape — the
+                          username, never the email. */}
+                      {user.username && (
                         <p className="text-xs text-muted-foreground truncate">
-                          {user.email}
+                          @{user.username}
                         </p>
                       )}
                     </div>
