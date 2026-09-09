@@ -92,6 +92,13 @@ The host nginx that terminates TLS in front of the frontend container lives in n
 container-level content-type block is in `apps/web/nginx.conf`; the VM-level step, the verification
 commands, and the physical-device test plan are written down in `docs/infra/universal-links.md`.
 
+The same SPA fallback (`try_files … /index.html`) is why a missing `/brand/*` asset used to answer
+**200 `text/html`** — invisible to any check that asserts a 2xx, visible only to a human reading a
+mail with a broken image (PAD-251, B-032). `location /brand/ { try_files $uri =404; }` keeps the
+brand assets that transactional mail loads (`auth.email-verification` rule 7) off the fallback, so a
+missing file is a 404. An availability check on those URLs asserts `Content-Type: image/*`, not
+the status code.
+
 Adding the associated-domains entitlement forces a new provisioning profile at archive time — the
 same class of problem as `aps-environment`, which only flips to production at `-exportArchive`.
 Verify against the exported `.ipa`, not the `.xcarchive`.
