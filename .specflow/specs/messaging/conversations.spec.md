@@ -71,6 +71,13 @@ Manage conversations between users (1:1 or group chats).
     only; there is no endpoint that lists or searches students by name or username. The
     student-to-student path by exact username is `messaging.direct-by-username`, and blocks are
     specified in `messaging.block-and-report`.
+15. **Public user shape (PAD-227, B-031).** `GET /api/app/messageable-users` and
+    `GET /api/app/users` return the *public* user shape only: `id`, `name`, `username`, `role`
+    (`coach`|`player`), `avatarUrl`, `abbreviation`, `isActive`. Never `email`, `phone` or
+    `language`: contact details reach a caller only through their own `/api/auth/me` and
+    `/api/app/coach`, or through a coach's roster payloads (`players.*`), which are scoped to
+    that coach's own players. Any other user-bearing list payload added later uses the same
+    public shape unless its spec says why not.
 
 ### Acceptance Criteria
 
@@ -159,6 +166,13 @@ Manage conversations between users (1:1 or group chats).
 - **When** a second row for conversation and user 5 is inserted
 - **Then** the database rejects it with an integrity error
 - **And** the conversation still has exactly one participant row for user 5
+
+#### The picker never carries contact details (PAD-227)
+- **Given** student S connected to coach C, and coach C with a roster
+- **When** S GETs `/api/app/messageable-users` and `/api/app/users`
+- **Then** every entry has `id`, `name`, `username`, `role`, `avatarUrl`, `abbreviation` and no `email`, `phone` or `language` key
+- **When** C GETs the same two routes
+- **Then** the entries have the same public shape, while `GET /api/app/players` still carries the roster's `email` and `phone` for C
 
 #### Students are not discoverable
 - **Given** an authenticated student

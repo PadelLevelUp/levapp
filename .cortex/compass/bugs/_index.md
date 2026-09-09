@@ -10,4 +10,5 @@ whether a failure mode has been seen before.
 `related_specs:` to the governing specs. IDs are monotonic and never reused.
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
 - [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
+- [B-031](B-031-serialize-user-leaks-contact-fields.md) — the users list, the messageable picker and the public activation lookup returned email and phone to anyone (incomplete-rule, high, resolved in PAD-227)
 - [B-030](B-030-needs-you-later-button-does-nothing.md) — "Mais tarde" on a needs-you empty-seats card did nothing on either shell; now a 24h server-side snooze (incomplete-rule, medium, resolved)
