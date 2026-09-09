@@ -18,6 +18,14 @@ Track player attendance for each class instance, including invitation, confirmat
 
 ### Rules
 1. Presences are auto-created when an instance is materialized (invited=True, confirmed=False)
+1a. **(PAD-199, B-017) `invited` is roster membership, not messaging state.** Because rule 1 sets
+   it for every enrolled player before any notification exists, nothing user-facing may read
+   `invited` as "a reminder/invitation was sent". The messaging signal is derived from the
+   notification layer's own records and served on every presence as `reminderSentAt` (ISO
+   timestamp or `null`): the newest `notification_reminder` message to the player for that
+   instance (`notifications.reminders` rule 7), or the message behind a `NotificationEvent`
+   for that (player, instance) (`notifications.invitations`) — whichever is later. It is
+   derived on read, never stored, so it cannot drift from what was actually sent.
 2. Players confirm attendance via reminders (confirmed=True)
 3. Coach marks final attendance: status=present or status=absent
 4. Absent players can be marked justified or unjustified
@@ -29,6 +37,20 @@ Track player attendance for each class instance, including invitation, confirmat
 - **Given** a class with players Alice and Bob
 - **When** the instance for April 20 is materialized
 - **Then** two Presence records are created with invited=True, confirmed=False, status=null
+
+#### The attendance badge reflects a message that exists (PAD-199)
+- **Given** an instance materialised with two enrolled players, so both hold a
+  `Presence(invited=True, confirmed=False)`, and a reminder sent to only the first
+- **When** the coach reads the class detail (`POST /class_instance`, `GET /lesson_instance/<id>`
+  or `GET /lesson_instance/<id>/presences`)
+- **Then** the first presence carries `reminderSentAt` equal to the reminder's `sent_at` and the
+  second carries `reminderSentAt: null`
+- **And** on web `AttendanceRow` and on iOS `ParticipantRow` only the first row shows the
+  "Reminder sent" badge; a confirmed row shows "Confirmed attendance" either way
+
+- **Given** a player who was invited to fill a vacancy (a `NotificationEvent` with a message)
+- **When** the coach reads the class detail
+- **Then** that presence's `reminderSentAt` is the invite message's `sent_at`
 
 #### Mark attendance
 - **Given** an instance with 4 presences

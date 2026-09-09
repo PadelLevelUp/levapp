@@ -16,6 +16,11 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
 2. Block events open `EventDetailSheet`: view/edit block details
 3. ClassDetailSheet shows: title, date, time, level, "Participants (X/Y)", presence list
+3a. **(PAD-199, B-017)** A participant row's status badge is gated on `Presence.reminderSentAt`
+   (`attendance.presence` rule 1a), never on `Presence.invited`: "Confirmed attendance" when
+   `confirmed`, "Reminder sent" when a reminder or invitation message exists, nothing otherwise.
+   Both shells (`AttendanceRow.tsx`, `ParticipantRow.tsx`) apply the same rule and expose it as
+   `data-testid="attendance-signal"` with `data-signal="confirmed" | "reminder-sent"`.
 4. Actions available: Mark attendance, Edit, Delete, Notify, Training planning
 5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both
 6. The class-detail "invited" (convidados) list is keyed by STUDENT, not by invite record. A student who received several `NotificationEvent` rows for the same instance (multiple rounds, a manual invite plus an automatic one, a re-invite after a decline — all legitimate per notifications.invitations) appears exactly ONCE. The `invitations` array returned by the class-detail payload therefore contains at most one entry per `playerId`

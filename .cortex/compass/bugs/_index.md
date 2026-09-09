@@ -11,3 +11,4 @@ whether a failure mode has been seen before.
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
 - [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
 - [B-030](B-030-needs-you-later-button-does-nothing.md) — "Mais tarde" on a needs-you empty-seats card did nothing on either shell; now a 24h server-side snooze (incomplete-rule, medium, resolved)
+- [B-017](B-017-attendance-invited-flag-not-a-reminder-signal.md) — "Reminder sent" badge was gated on Presence.invited (roster membership); now on reminderSentAt derived from the reminder/invite messages (layer-drift, medium, resolved in PAD-199)
