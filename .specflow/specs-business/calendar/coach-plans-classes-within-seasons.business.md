@@ -1,6 +1,6 @@
 ---
 id: calendar.coach-plans-classes-within-seasons
-status: implementing
+status: implemented
 implemented_by:
   - ../../specs/calendar/seasons.spec.md
 ---

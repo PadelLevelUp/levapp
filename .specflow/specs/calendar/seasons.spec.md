@@ -1,6 +1,6 @@
 ---
 id: calendar.seasons
-status: implementing
+status: implemented
 depends_on: [calendar.view, classes.create, attendance.history]
 implements: ../../specs-business/calendar/coach-plans-classes-within-seasons.business.md
 governed_by: [R-022, R-024]
