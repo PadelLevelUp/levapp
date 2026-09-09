@@ -1521,19 +1521,25 @@ def _send_system_message(
         url=f"/messages/{conv.id}",
     )
 
-    # Native (Expo) push — additive, best-effort. Every _send_system_message call
-    # in this module is a class/notification-engine event (reminder, invite,
-    # spot-filled, waiting list, etc.), so it always carries a lesson instance id
-    # for mobile tap-routing to class/[id]. Falls back to msg_metadata's
-    # lessonInstanceId/instanceId when the caller didn't pass it explicitly
-    # (``resolved_instance_id`` was computed above for the PAD-107 backstop).
+    # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
+    # notification (messaging.push-notifications rule 7). Every system message
+    # is a Message row in the coach–student thread, and what the student acts
+    # on (the Yes/No answer, the reply) lives there, so the tap opens the
+    # conversation. It used to route to class/[id] with the lesson instance id,
+    # which the mobile class screen cannot open from a push — it rebuilds its
+    # event from route params (model/originalId/date) a push never carries —
+    # so every tap dead-ended on "this class could not be found". The instance
+    # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
+    # still rides along as context; the client never routes on it alone.
+    push_data = {"type": "message", "conversationId": conv.id}
     if resolved_instance_id is not None:
-        send_expo_push_to_user(
-            player_user_id,
-            title="New message",
-            body=text[:100],
-            data={"type": "class", "classInstanceId": resolved_instance_id},
-        )
+        push_data["classInstanceId"] = resolved_instance_id
+    send_expo_push_to_user(
+        player_user_id,
+        title="New message",
+        body=text[:100],
+        data=push_data,
+    )
 
     return msg
 
@@ -1636,12 +1642,19 @@ def _notify_coach_of_cancellation(
         url=f"/messages/{conv.id}",
     )
 
+    # PAD-240: the cancellation is a message in the coach–student thread, so
+    # the push opens that thread (messaging.push-notifications rule 7); the
+    # instance id is context only.
     from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         coach_user_id,
         title=push_title,
         body=text[:100],
-        data={"type": "class", "classInstanceId": instance.id},
+        data={
+            "type": "message",
+            "conversationId": conv.id,
+            "classInstanceId": instance.id,
+        },
     )
 
     return msg

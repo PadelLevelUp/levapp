@@ -2,6 +2,8 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 
+import { routeForPushData } from "@/lib/push-routing";
+
 /**
  * Foreground display policy: show a banner even while the app is open.
  * Module-level side effect — registered once, on first import (from
@@ -17,26 +19,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-type PushNotificationData = {
-  type?: string;
-  conversationId?: string;
-  classInstanceId?: string;
-};
-
-/** Maps a notification's `data` payload to an in-app route, per the tap-routing contract. */
-function routeForData(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const payload = data as PushNotificationData;
-
-  if (payload.type === "message" && payload.conversationId) {
-    return `/conversation/${payload.conversationId}`;
-  }
-  if (payload.type === "class" && payload.classInstanceId) {
-    return `/class/${payload.classInstanceId}`;
-  }
-  return null;
-}
-
+/**
+ * The data → route mapping lives in `@/lib/push-routing` (pure, unit-tested):
+ * message-backed pushes open the thread, class pushes open the class, and a
+ * class id on a message push never wins (PAD-240).
+ */
 /**
  * Wires push-notification tap → in-app navigation:
  * - Live taps while the app is running: `addNotificationResponseReceivedListener`.
@@ -59,7 +46,7 @@ export function usePushNotificationRouting(): void {
         if (handledIds.current.has(id)) return;
         handledIds.current.add(id);
 
-        const path = routeForData(response.notification.request.content.data);
+        const path = routeForPushData(response.notification.request.content.data);
         if (path) router.push(path);
       } catch (error) {
         console.warn("[push] tap routing failed", error);
