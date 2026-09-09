@@ -108,12 +108,12 @@ Players can join a waiting list for full classes. Standing waiting list entries 
       localized "expired" label. The row's remove control stays at full emphasis and fully usable:
       an expired entry is precisely one the coach is likely to want to delete
 12. **Only an offered player may answer (PAD-222, B-032).** `POST /api/app/notify/respond_waiting_list`
-    is 403 unless the caller's player has an *unanswered* `waiting_list_offer` message for that
-    `lessonInstanceId` in their direct conversation with the class's coach — the same lookup that
-    settles the offer. Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no
-    conversation created. An offer already answered counts as none, so a second Yes on a settled
-    bubble is refused rather than re-queueing. The check runs before the late-instance no-op of
-    PAD-68, so a player never learns whether an arbitrary instance id exists.
+    is 403 unless the caller's player holds a `waiting_list_offer` message for that
+    `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
+    double tap or a changed answer on the same offer stays the idempotent upsert of PAD-124).
+    Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
+    created. The check runs before the late-instance no-op of PAD-68, so a player never learns
+    whether an arbitrary instance id exists.
 
 ### Acceptance Criteria
 
@@ -158,7 +158,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **When** S is sent the offer and answers Yes
 - **Then** the response is 200 and the entry exists
 - **When** S answers Yes again on the now-settled offer
-- **Then** the response is 403 and the entry is unchanged
+- **Then** the response is 200 and there is still exactly one entry (idempotent, PAD-124)
 
 #### Declining the offer queues nobody
 - **Given** a student who received a `waiting_list_offer`
