@@ -6,6 +6,7 @@ export * from "./class-colors";
 export * from "./dashboard-format";
 export * from "./dateLocale";
 export * from "./presence-status";
+export * from "./presence-scope";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./notify-blocked";

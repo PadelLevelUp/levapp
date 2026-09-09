@@ -20,7 +20,8 @@ import {
 } from "@/api/presences";
 import { getCoachPlayers } from "@/api/players";
 import { toIsoDate } from "@/components/attendance/dateRanges";
-import type { PendingValidation, PresenceStats, PresenceTrend } from "@/types";
+import type { PendingValidation, PresencePlayerStats, PresenceStats, PresenceTrend } from "@/types";
+import { chartScope, narrowedTotals } from "@levelup/config";
 
 /**
  * Monday–Sunday bounds for a week `offset` weeks from today, in UTC.
@@ -53,13 +54,22 @@ function weekBounds(offset: number): { from: string; to: string } {
  * The stats window and the validation week are deliberately independent: a
  * coach validating last week's classes should not have the whole page's
  * statistics jump around underneath them.
+ *
+ * PAD-192 (attendance.validation rule 17a): the table's filters are page-level.
+ * The ranking and the academy/private split re-derive from the filtered rows
+ * client-side; the over-time series is re-requested with the filtered player
+ * ids (debounced), and roster-wide again once the filters clear.
  */
+const TREND_DEBOUNCE_MS = 300;
+
 export default function PresencesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
 
   const [stats, setStats] = useState<PresenceStats | null>(null);
   const [trend, setTrend] = useState<PresenceTrend | null>(null);
+  // `null` = no filter active: the charts show the whole roster.
+  const [filteredPlayers, setFilteredPlayers] = useState<PresencePlayerStats[] | null>(null);
   const [queue, setQueue] = useState<PendingValidation | null>(null);
   const [roster, setRoster] = useState<RosterOption[]>([]);
 
@@ -108,6 +118,31 @@ export default function PresencesPage() {
   useEffect(() => {
     void loadStats();
   }, [loadStats]);
+
+  // The over-time chart follows the filters through the server (rule 17a):
+  // re-request the series for the visible players, debounced per keystroke,
+  // and fall back to the roster-wide one when the filters clear.
+  const filteredIdsKey = filteredPlayers
+    ? filteredPlayers.map((p) => p.playerId).sort((a, b) => a - b).join(",")
+    : null;
+  useEffect(() => {
+    if (filteredIdsKey === null) return;
+    const ids = filteredIdsKey === "" ? [] : filteredIdsKey.split(",").map(Number);
+    const handle = window.setTimeout(() => {
+      getPresenceTrend({ playerIds: ids })
+        .then(setTrend)
+        .catch(() => undefined);
+    }, TREND_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [filteredIdsKey]);
+  useEffect(() => {
+    if (filteredIdsKey !== null || !stats) return;
+    // Filters just cleared: back to the whole roster.
+    getPresenceTrend()
+      .then(setTrend)
+      .catch(() => undefined);
+    // `stats` is only here to skip the very first render, before loadStats.
+  }, [filteredIdsKey, stats]);
 
   useEffect(() => {
     void loadQueue();
@@ -248,16 +283,18 @@ export default function PresencesPage() {
         </div>
 
         <PresenceCharts
-          players={stats?.players ?? []}
-          totals={totals}
+          players={filteredPlayers ?? stats?.players ?? []}
+          totals={filteredPlayers ? narrowedTotals(filteredPlayers, totals) : totals}
           trend={trend?.buckets ?? []}
           granularity={trend?.granularity ?? "day"}
           loading={loadingStats}
+          scope={chartScope(filteredPlayers, stats?.players ?? [])}
         />
 
         <PresencePlayersTable
           players={stats?.players ?? []}
           loading={loadingStats}
+          onFilteredChange={setFilteredPlayers}
         />
       </div>
     </AppLayout>

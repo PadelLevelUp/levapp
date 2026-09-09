@@ -110,7 +110,8 @@
       "splitHint": "Share of all presences",
       "overTime": "Presences over time",
       "overTimeHint": "Across the selected period",
-      "empty": "No attendance recorded yet."
+      "empty": "No attendance recorded yet.",
+      "following": "Following the table filters · {{shown}} of {{total}} players"
     },
     "toast": {
       "validated_one": "Class validated",

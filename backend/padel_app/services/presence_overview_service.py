@@ -31,7 +31,7 @@ That LEFT JOIN being NULL is the definition used throughout this module.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
@@ -197,23 +197,31 @@ def build_presence_trend(
     range_start: datetime,
     range_end: datetime,
     granularity: Optional[str] = None,
+    player_ids: Optional[Sequence[int]] = None,
 ) -> Dict[str, Any]:
     """Roster-wide attended-class counts over time, gap-filled.
 
     The roster-wide sibling of ``build_attendance_history``: same granularity
     rules, same gap-filling, same naive-UTC handling — reused rather than
     reimplemented so the two charts can never bucket a date differently.
+
+    ``player_ids`` (PAD-192, ``attendance.validation`` rule 17a) narrows the
+    series to those players so the over-time chart can follow the table's
+    filters like the other two charts do. ``None`` is the whole roster; an
+    empty list is a filter that matched nobody and yields an all-zero series.
     """
     start, end = _normalize_range(range_start, range_end)
     if granularity not in GRANULARITIES:
         granularity = pick_granularity(start, end)
 
-    rows = (
+    query = (
         _coach_presence_query(coach_id, start, end)
         .with_entities(LessonInstance.start_datetime)
         .filter(Presence.status == "present")
-        .all()
     )
+    if player_ids is not None:
+        query = query.filter(Presence.player_id.in_(list(player_ids)))
+    rows = query.all()
 
     counts: Dict[date, int] = {}
     for (started,) in rows:

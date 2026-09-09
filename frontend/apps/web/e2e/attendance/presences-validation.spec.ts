@@ -186,3 +186,36 @@ test.describe("PAD-140: Presences tab", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+// attendance.validation rule 17a (PAD-192): the charts follow the table's
+// filters. Narrowing the search to one roster player re-derives the ranking
+// and split from that row, re-requests the trend for that player, and says so;
+// clearing the search restores the roster-wide charts.
+test.describe("PAD-192: charts follow the table filters", () => {
+  test("a name search narrows the charts and the trend request", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/presences");
+    await expect(page.getByTestId("presences-charts")).toBeVisible();
+    await expect(page.getByTestId("presences-charts-scope")).toHaveCount(0);
+
+    const rowsBefore = await page.getByTestId("presences-player-row").count();
+    expect(rowsBefore).toBeGreaterThan(1);
+
+    const trendRequest = page.waitForRequest(
+      (r) => /\/api\/app\/presence_trend\?.*playerIds=\d+/.test(r.url()),
+      { timeout: 10_000 }
+    );
+    await page.getByPlaceholder(/search player|procurar jogador/i).fill("E2E Student 2");
+    await expect(page.getByTestId("presences-player-row")).toHaveCount(1);
+    const request = await trendRequest;
+    expect(new URL(request.url()).searchParams.get("playerIds")).toMatch(/^\d+$/);
+
+    await expect(page.getByTestId("presences-charts-scope")).toContainText(
+      new RegExp(`1 (of|de) ${rowsBefore} `)
+    );
+
+    await page.getByPlaceholder(/search player|procurar jogador/i).fill("");
+    await expect(page.getByTestId("presences-player-row")).toHaveCount(rowsBefore);
+    await expect(page.getByTestId("presences-charts-scope")).toHaveCount(0);
+  });
+});

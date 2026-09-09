@@ -247,6 +247,49 @@ def test_trend_buckets_are_gap_filled(app, coach_world):
     assert any(c == 0 for c in counts), "range is wider than the activity"
 
 
+def test_trend_can_follow_a_player_filter(app, coach_world):
+    """attendance.validation rule 17a (PAD-192): playerIds narrows the series."""
+    from padel_app.services.presence_overview_service import build_presence_trend
+
+    start, end = _window()
+    with app.app_context():
+        everyone = build_presence_trend(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end, granularity="day"
+        )
+        ana_only = build_presence_trend(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end,
+            granularity="day", player_ids=[coach_world["ana_id"]],
+        )
+        nobody = build_presence_trend(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end,
+            granularity="day", player_ids=[],
+        )
+
+    assert everyone["total"] == 3
+    assert ana_only["total"] == 2, "Ana attended both classes; Carla's guest presence is not hers"
+    assert sum(b["count"] for b in ana_only["buckets"]) == 2
+    assert nobody["total"] == 0 and all(b["count"] == 0 for b in nobody["buckets"])
+
+
+def test_trend_route_parses_player_ids(app, client, coach_world):
+    from flask_jwt_extended import create_access_token
+    from padel_app.models.coaches import Coach
+
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+    with app.app_context():
+        token = create_access_token(identity=str(db.session.get(Coach, coach_world["coach_id"]).user_id))
+    headers = {"Authorization": f"Bearer {token}"}
+    start, end = _window()
+    base = {"from": start.date().isoformat(), "to": end.date().isoformat()}
+
+    narrowed = client.get("/api/app/presence_trend", query_string={**base, "playerIds": str(coach_world["ana_id"])}, headers=headers)
+    assert narrowed.status_code == 200 and narrowed.get_json()["total"] == 2
+    whole = client.get("/api/app/presence_trend", query_string=base, headers=headers)
+    assert whole.get_json()["total"] == 3
+    bad = client.get("/api/app/presence_trend", query_string={**base, "playerIds": "1,x"}, headers=headers)
+    assert bad.status_code == 400
+
+
 def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
     """`ready` means everyone answered — not that the coach decided anything."""
     from padel_app.services.presence_overview_service import list_pending_validation
