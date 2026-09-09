@@ -3,13 +3,14 @@ id: B-031
 title: "The verify-email screen presents RESEND_TOO_SOON as an error on web and iOS"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - auth.email-verification
   - frontend/apps/web/src/pages/VerifyEmailPage.tsx
   - frontend/apps/mobile/app/verify-email.tsx
 proposed_fix: "Rule 8 gains 8a: a 429 on Send a new code is not a failure — the button takes retryAfterSeconds as its countdown and no error text is shown; the screen never requests a code on mount for a pending user."
 opened: 2026-09-09T00:00:00Z
+resolved: 2026-09-09T00:00:00Z
 ---
 
 # B-031 — The verify-email screen presents RESEND_TOO_SOON as an error on web and iOS
@@ -70,4 +71,11 @@ says what the *screen* does with a 429, so both shells treated it like every oth
 
 ### Resolution
 
-_pending_
+Implemented on `feature/pad-250-verification-flow` (2026-09-09).
+- Spec changes: `auth/email-verification.spec.md` rule 8a + two criteria.
+- Tests: `e2e/auth-onboarding/email-verification.spec.ts` "US-250: just registered means a code
+  is in flight" (network assertion, 0 send requests) and "US-250: a too-soon resend is a
+  countdown, not an error" (routed 429, failed on the red slot before the fix).
+- Code: `VerifyEmailPage.tsx` and `verify-email.tsx` drop `setError` from the 429 branch; the
+  `tooSoon` string is removed from both locales.
+- Resolved: 2026-09-09

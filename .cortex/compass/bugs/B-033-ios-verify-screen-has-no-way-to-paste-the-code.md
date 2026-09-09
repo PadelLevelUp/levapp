@@ -3,12 +3,13 @@ id: B-033
 title: "The iOS verify-email screen has no way to paste the code"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - auth.email-verification
   - frontend/apps/mobile/app/verify-email.tsx
 proposed_fix: "A Paste code button under the cells reads the clipboard through expo-clipboard (loaded lazily), takes the first 6 digits and submits; a clipboard without a code shows a neutral hint."
 opened: 2026-09-09T00:00:00Z
+resolved: 2026-09-09T00:00:00Z
 ---
 
 # B-033 — The iOS verify-email screen has no way to paste the code
@@ -61,4 +62,11 @@ covers paste (there is no way to set the simulator clipboard from a flow).
 
 ### Resolution
 
-_pending_
+Implemented on `feature/pad-250-verification-flow` (2026-09-09).
+- Spec changes: `auth/email-verification.spec.md` rule 8b + "Paste on iOS".
+- Tests: no Maestro flow can set the clipboard; verified in the simulator with
+  `xcrun simctl pbcopy` + scratch flows (signup → junk paste shows the neutral hint → real code
+  paste lands on Connect). Recorded in the PR.
+- Code: `apps/mobile/app/verify-email.tsx` Paste code button (lazy `expo-clipboard`), strings
+  `auth.verifyEmail.pasteCode` / `pasteEmpty` in pt and en.
+- Resolved: 2026-09-09

@@ -3,7 +3,7 @@ id: B-032
 title: "Transactional mail images point at prod in every environment, and a missing /brand/* asset answers 200 text/html"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - auth.email-verification
   - auth.coach-approval
@@ -14,6 +14,7 @@ affects:
   - frontend/apps/web/nginx.conf
 proposed_fix: "Every deployed environment sets PUBLIC_WEB_ORIGIN to its own origin (staging → https://staging.levapp.app, prod → https://levapp.app); nginx serves /brand/ with try_files $uri =404 so a missing asset is a 404, not the SPA shell."
 opened: 2026-09-09T00:00:00Z
+resolved: 2026-09-09T00:00:00Z
 ---
 
 # B-032 — Transactional mail images point at prod in every environment, and a missing /brand/* asset answers 200 text/html
@@ -66,4 +67,11 @@ keeps `/brand/*` off the fallback.
 
 ### Resolution
 
-_pending_
+Implemented on `feature/pad-250-verification-flow` (2026-09-09).
+- Spec changes: `auth/email-verification.spec.md` rule 7 + "The mail points at the environment
+  that sent it"; `auth/mobile-universal-links.spec.md` notes.
+- Tests: `backend/padel_app/tests/test_mail_origin_per_environment.py` (env files failed before
+  the fix; renderer pins), `apps/web/src/test/nginx-brand-assets.test.ts` (failed before).
+- Code: `PUBLIC_WEB_ORIGIN` in `backend/.env.staging` and `backend/.env.prod`;
+  `location /brand/ { try_files $uri =404; }` in `apps/web/nginx.conf`.
+- Resolved: 2026-09-09

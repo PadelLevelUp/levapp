@@ -1,6 +1,6 @@
 ---
 id: auth.email-verification
-status: draft
+status: implemented
 depends_on: [auth.register, auth.login, settings.profile]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: [R-022, R-024]
@@ -90,7 +90,10 @@ own email in Settings.
    - 8b. **Paste on iOS.** The real input is an invisible overlay (so the keypad and autofill
      land in it), which leaves iOS with nothing to anchor its Paste callout to. A **Paste
      code** button under the cells reads the clipboard, keeps the first run of 6 digits and
-     submits it; a clipboard with no such run shows a neutral "no code in the clipboard" hint.
+     submits it; a clipboard with no such run shows a neutral "no code in the clipboard" hint
+     and clears any stale wrong-code error. iOS shows its own "LevApp would like to paste
+     from …" prompt on a programmatic read (pasteboard privacy, first read per source app);
+     that prompt is the OS's and is expected.
      Web has no button: its real input already accepts ⌘V/Ctrl+V, and browser clipboard-read
      either prompts (Chrome) or is unsupported (Firefox), so the exception to R-024 is
      deliberate. Nothing in the mail itself can copy — mail clients run no script — so the
