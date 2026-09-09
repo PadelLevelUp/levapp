@@ -151,7 +151,11 @@ def render_coach_approved_email(user):
     t = _APPROVED[_lang(user)]
     name = (user.name or "").split()[0] if user.name else ""
     intro = t["intro"].format(name=name).replace("Olá .", "Olá.").replace("Hi .", "Hi.")
-    href = web_origin()
+    # An approved coach still has to sign in, so send them to the sign-in screen
+    # rather than the site root — the root redirects an anonymous visitor to
+    # /auth anyway, but only after a load, and on iOS the universal link opens
+    # the app at whatever path it was given.
+    href = f"{web_origin()}/auth"
     subject = t["subject"]
     text = "\n\n".join([t["title"], intro, t["next"], f"{t['button']}: {href}"])
     html = _layout(subject, [_h1(t["title"]), _p(intro), _p(t["next"]), _button(t["button"], href)], t["footer"])

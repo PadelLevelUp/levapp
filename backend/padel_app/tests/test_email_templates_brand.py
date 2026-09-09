@@ -56,3 +56,19 @@ def test_the_lockup_is_an_absolute_url(app):
     src = re.search(r'<img src="([^"]+)"', html)
 
     assert src and src.group(1).startswith("https://"), src.group(1) if src else None
+
+
+def test_the_approval_button_goes_to_sign_in(app):
+    """An approved coach still has to sign in; the root is not that screen."""
+    from padel_app.tools.email_templates import render_coach_approved_email
+
+    class _Coach:
+        email = "coach@example.com"
+        language = "pt"
+        name = "Fernanda Trenga"
+
+    with app.app_context():
+        _subject, text, html = render_coach_approved_email(_Coach())
+
+    assert 'href="https://levapp.app/auth"' in html
+    assert "https://levapp.app/auth" in text, "the plain-text part must match the HTML"
