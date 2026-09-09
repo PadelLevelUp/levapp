@@ -4,6 +4,7 @@ import type {
   AttendanceGranularity,
   ClassInstance,
   PendingValidation,
+  PendingValidationCount,
   Presence,
   PresenceStats,
   PresenceStatus,
@@ -79,6 +80,22 @@ export async function getPendingValidation(
   params: PresenceRangeParams = {}
 ): Promise<PendingValidation> {
   const res = await getApi().get("/app/class_instances/pending_validation", {
+    params,
+  });
+  return res.data;
+}
+
+/**
+ * How many classes in the window still need validating (PAD-190 / PAD-201).
+ *
+ * The same helper the coach dashboard's validation card reads
+ * (`attendance.validation` rule 18), so the tab trigger and the card can only
+ * ever show one number.
+ */
+export async function getPendingValidationCount(
+  params: PresenceRangeParams = {}
+): Promise<PendingValidationCount> {
+  const res = await getApi().get("/app/class_instances/pending_validation/count", {
     params,
   });
   return res.data;

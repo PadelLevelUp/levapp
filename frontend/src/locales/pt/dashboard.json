@@ -69,10 +69,10 @@
         "open": "Abrir"
       },
       "validation": {
-        "title_one": "{{count}} presença para validar",
-        "title_other": "{{count}} presenças para validar",
-        "detail_one": "De {{count}} aula na semana passada",
-        "detail_other": "De {{count}} aulas na semana passada",
+        "title_one": "{{count}} aula por validar",
+        "title_other": "{{count}} aulas por validar",
+        "thisWeek": "Esta semana",
+        "lastWeek": "Semana passada",
         "review": "Rever"
       },
       "invite": {

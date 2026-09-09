@@ -51,8 +51,8 @@ import { cn } from "@/lib/utils";
  */
 export function canGo(href: string | undefined): href is string {
   if (!href) return false;
-  return ["/calendar", "/messages", "/players", "/attendance", "/absences"].some((p) =>
-    href.startsWith(p),
+  return ["/calendar", "/messages", "/players", "/presences", "/attendance", "/absences"].some(
+    (p) => href.startsWith(p),
   );
 }
 
@@ -80,6 +80,12 @@ export function go(href: string, hint?: { title?: string; timeLabel?: string }) 
     router.push("/(tabs)/calendar");
   } else if (href.startsWith("/messages")) router.push("/(tabs)/messages");
   else if (href.startsWith("/players")) router.push("/(tabs)/players");
+  // PAD-201: the validation card lands on the Presences tab ON the week it
+  // counted (`/presences?week=-1`), so the number tapped is the number shown.
+  else if (href.startsWith("/presences")) {
+    const week = new URLSearchParams(href.split("?")[1] ?? "").get("week") ?? "0";
+    router.push({ pathname: "/(tabs)/presences", params: { week } });
+  }
   // PAD-162: the student's "Attended" KPI.
   else if (href.startsWith("/attendance")) router.push("/attendance" as never);
   // PAD-163: the student's "Missed" KPI, same backend contract
@@ -485,14 +491,19 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   const it = item as DashboardNeedsYouValidation;
   return (
     // No accent — validation is a chore, not a problem.
-    <ActionCard>
+    <ActionCard testID="dashboard-queue-validation">
       <View className="flex-row items-center gap-3.5">
         <View className="flex-1">
-          <Text className="text-[15px] font-sans-bold text-foreground">
+          <Text
+            className="text-[15px] font-sans-bold text-foreground"
+            testID="dashboard-queue-validation-count"
+          >
             {t("dashboard.needsYou.validation.title", { count: it.count })}
           </Text>
           <Text className="text-[13px] text-muted-foreground">
-            {t("dashboard.needsYou.validation.detail", { count: it.classCount })}
+            {it.weekOffset === 0
+              ? t("dashboard.needsYou.validation.thisWeek")
+              : t("dashboard.needsYou.validation.lastWeek")}
           </Text>
         </View>
         <Button variant="secondary" onPress={() => go(it.href)}>

@@ -271,6 +271,64 @@ def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
     assert private["players"][0]["response"] == "none"
 
 
+def test_count_pending_validation_is_the_listings_count(app, coach_world):
+    """attendance.validation rule 18: the count is `len(pending)`, never a second query."""
+    from padel_app.services.presence_overview_service import (
+        count_pending_validation,
+        list_pending_validation,
+    )
+
+    start, end = _window()
+    with app.app_context():
+        listed = list_pending_validation(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end
+        )
+        counted = count_pending_validation(
+            coach_id=coach_world["coach_id"], range_start=start, range_end=end
+        )
+
+    assert counted == listed["pendingCount"] == 2
+
+
+def test_count_endpoint_is_coach_only_and_echoes_the_listing(app, client, coach_world):
+    """attendance.validation rule 18: 403 for a student, the listing's count for the coach."""
+    from flask_jwt_extended import create_access_token
+    from padel_app.models import User
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+    with app.app_context():
+        coach_user_id = db.session.get(Coach, coach_world["coach_id"]).user_id
+        student_user_id = db.session.get(Player, coach_world["ana_id"]).user_id
+        coach_token = create_access_token(identity=str(coach_user_id))
+        student_token = create_access_token(identity=str(student_user_id))
+
+    start, end = _window()
+    params = {"from": start.date().isoformat(), "to": end.date().isoformat()}
+
+    denied = client.get(
+        "/api/app/class_instances/pending_validation/count",
+        query_string=params,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert denied.status_code == 403
+
+    counted = client.get(
+        "/api/app/class_instances/pending_validation/count",
+        query_string=params,
+        headers={"Authorization": f"Bearer {coach_token}"},
+    )
+    listed = client.get(
+        "/api/app/class_instances/pending_validation",
+        query_string=params,
+        headers={"Authorization": f"Bearer {coach_token}"},
+    )
+    assert counted.status_code == 200
+    assert counted.get_json()["pendingCount"] == listed.get_json()["pendingCount"] == 2
+    assert counted.get_json()["from"] == listed.get_json()["from"]
+
+
 def test_future_class_is_not_listed(app, coach_world):
     """Validating a class that has not happened yet is meaningless."""
     from padel_app.models.lesson_instances import LessonInstance
