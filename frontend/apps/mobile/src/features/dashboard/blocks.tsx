@@ -26,6 +26,8 @@ import type {
   DashboardNeedsYouItem,
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
+  DashboardNeedsYouVacancyInvite,
+  DashboardNeedsYouWaitingListOffer,
   DashboardNextClassBlock,
   DashboardSchedule7dBlock,
   DashboardWeekPulseBlock,
@@ -38,7 +40,11 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useSnoozeNeedsYouItem } from "@levelup/hooks";
-import { useRespondReminder } from "@/features/calendar/hooks";
+import {
+  useRespondInvite,
+  useRespondReminder,
+  useRespondWaitingListOffer,
+} from "@/features/calendar/hooks";
 import { parseDashboardItemId } from "@/features/calendar/params";
 import { cn } from "@/lib/utils";
 
@@ -288,6 +294,126 @@ function AnswerButtons({
   );
 }
 
+/**
+ * PAD-236: Yes / No for the two chat-born asks. Same endpoints the bubble
+ * calls; the card leaves when the refetched payload no longer lists it.
+ */
+function AskButtons({
+  busy,
+  onAnswer,
+}: {
+  busy: boolean;
+  onAnswer: (action: "yes" | "no") => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="flex-row items-center gap-2" testID="dashboard-confirm">
+      <Button size="sm" disabled={busy} testID="dashboard-confirm-yes" onPress={() => onAnswer("yes")}>
+        <Text className="font-sans-semibold text-primary-foreground">{t("dashboard.answer.yes")}</Text>
+      </Button>
+      <Button size="sm" variant="outline" disabled={busy} testID="dashboard-confirm-no" onPress={() => onAnswer("no")}>
+        <Text className="font-sans-semibold text-foreground">{t("dashboard.answer.no")}</Text>
+      </Button>
+    </View>
+  );
+}
+
+function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
+  const { t, i18n } = useTranslation();
+  const respond = useRespondInvite();
+  const answer = (action: "yes" | "no") =>
+    respond.mutate(
+      { notificationEventId: item.notificationEventId, action },
+      {
+        onSuccess: (result) => {
+          if (result.action === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+          else if (result.action === "declined") toast.success(t("dashboard.answer.inviteDeclined"));
+          else if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
+          // No toast.info on mobile: "just filled" is bad news, so error.
+          else if (String(result.action).startsWith("spot_filled")) toast.error(t("dashboard.answer.spotFilled"));
+          else toast.error(t("dashboard.answer.failed"));
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  return (
+    <ActionCard accent="attention" testID="dashboard-queue-vacancy-invite">
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">
+          {t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {t("dashboard.needsYou.vacancyInvite.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+            filled: item.filled,
+            capacity: item.capacity,
+          })}
+        </Text>
+      </View>
+      <View className="mt-3.5 flex-row items-center gap-2">
+        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <View className="flex-1" />
+        <Pressable
+          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+          accessibilityRole="button"
+          className="px-2 py-2"
+        >
+          <Text className="text-[13px] font-sans-semibold text-primary">
+            {t("dashboard.needsYou.vacancyInvite.open")}
+          </Text>
+        </Pressable>
+      </View>
+    </ActionCard>
+  );
+}
+
+function WaitingListOfferCard({ item }: { item: DashboardNeedsYouWaitingListOffer }) {
+  const { t, i18n } = useTranslation();
+  const respond = useRespondWaitingListOffer();
+  const answer = (action: "yes" | "no") =>
+    respond.mutate(
+      { lessonInstanceId: item.lessonInstanceId, action },
+      {
+        onSuccess: (result) => {
+          if (result.action === "added_to_waiting_list") toast.success(t("dashboard.answer.joinedWaitingList"));
+          else if (result.action === "declined") toast.success(t("dashboard.answer.offerDeclined"));
+          else if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
+          else toast.error(t("dashboard.answer.failed"));
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  return (
+    <ActionCard accent="attention" testID="dashboard-queue-waiting-list-offer">
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">
+          {t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {t("dashboard.needsYou.waitingListOffer.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+          })}
+        </Text>
+      </View>
+      <View className="mt-3.5 flex-row items-center gap-2">
+        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <View className="flex-1" />
+        <Pressable
+          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+          accessibilityRole="button"
+          className="px-2 py-2"
+        >
+          <Text className="text-[13px] font-sans-semibold text-primary">
+            {t("dashboard.needsYou.waitingListOffer.open")}
+          </Text>
+        </Pressable>
+      </View>
+    </ActionCard>
+  );
+}
+
 /* ── blocks ──────────────────────────────────────────────────────────────── */
 
 export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
@@ -457,6 +583,14 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
         </View>
       </ActionCard>
     );
+  }
+
+  if (item.kind === "vacancy_invite") {
+    return <VacancyInviteCard item={item as DashboardNeedsYouVacancyInvite} />;
+  }
+
+  if (item.kind === "waiting_list_offer") {
+    return <WaitingListOfferCard item={item as DashboardNeedsYouWaitingListOffer} />;
   }
 
   if (item.kind === "reply") {

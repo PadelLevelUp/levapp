@@ -17,7 +17,13 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from padel_app.sql_db import db
-from padel_app.models import LessonInstance, Presence
+from padel_app.models import (
+    ConversationParticipant,
+    LessonInstance,
+    Message,
+    NotificationEvent,
+    Presence,
+)
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.utils.dates import utcnow_naive
 
@@ -108,8 +114,19 @@ def build_player_needs_you_block(*, player_id: int, user_id: int, now: Optional[
     """Invites to answer (soonest first), then unread replies."""
     now = now or utcnow_naive()
 
+    # PAD-236: the asks come from three sources — the reminder (Presence), the
+    # invitation engine (NotificationEvent) and the waiting-list offer (a chat
+    # message) — merged soonest-class-first and capped together, so the most
+    # time-sensitive question a student gets is never buried in the chat.
+    asks = (
+        _invite_items(player_id=player_id, now=now)
+        + _vacancy_invite_items(player_id=player_id, now=now)
+        + _waiting_list_offer_items(player_id=player_id, user_id=user_id, now=now)
+    )
+    asks.sort(key=lambda i: (str(i.get("date") or ""), str(i.get("timeLabel") or "")))
+
     items: List[Dict[str, Any]] = []
-    items.extend(_invite_items(player_id=player_id, now=now))
+    items.extend(asks[:QUEUE_INVITE_LIMIT])
     items.extend(reply_items(user_id=user_id))
 
     return {
@@ -156,6 +173,112 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
                 "href": class_href(event),
             }
         )
+    return out
+
+
+def _class_item(instance: LessonInstance, *, now: datetime) -> Dict[str, Any]:
+    event = serialize_calendar_event(instance, now=now)
+    filled, capacity = fill(event)
+    return {
+        "lessonInstanceId": int(instance.id),
+        "classTitle": event.get("title") or "",
+        "date": event.get("date"),
+        "timeLabel": event.get("startTime"),
+        "filled": filled,
+        "capacity": capacity,
+        "href": class_href(event),
+    }
+
+
+def _message_open(message: Optional[Message]) -> bool:
+    """True while the chat bubble would still show Yes/No."""
+    if message is None:
+        return True
+    meta = message.msg_metadata or {}
+    return not (meta.get("responded") or meta.get("superseded") or meta.get("expired"))
+
+
+def _vacancy_invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
+    """Open engine invitations — "a spot opened, want it?" (PAD-236).
+
+    An event is open while its status is ``sent`` and its class has not started.
+    It is deduplicated against the chat bubble: once the invite message carries
+    ``responded`` (either shell's Yes/No wrote it), the question is settled and
+    must not reappear here. Several rounds for the same class collapse to the
+    newest event so one class is one card.
+    """
+    rows = (
+        db.session.query(NotificationEvent, LessonInstance)
+        .join(LessonInstance, LessonInstance.id == NotificationEvent.lesson_instance_id)
+        .filter(NotificationEvent.player_id == player_id)
+        .filter(NotificationEvent.status == "sent")
+        .filter(LessonInstance.start_datetime >= now)
+        .filter(LessonInstance.status != "canceled")
+        .order_by(LessonInstance.start_datetime.asc(), NotificationEvent.id.desc())
+        .all()
+    )
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for event, instance in rows:
+        if instance.id in seen:
+            continue
+        seen.add(instance.id)
+        message = db.session.get(Message, event.message_id) if event.message_id else None
+        if not _message_open(message):
+            continue
+        item = _class_item(instance, now=now)
+        item.update(
+            {
+                "kind": "vacancy_invite",
+                "id": f"notification-{event.id}",
+                # The answer goes through respond_to_notification, keyed by event.
+                "notificationEventId": int(event.id),
+            }
+        )
+        out.append(item)
+    return out
+
+
+def _waiting_list_offer_items(*, player_id: int, user_id: int, now: datetime) -> List[Dict[str, Any]]:
+    """Un-answered waiting-list offers — "want to join the list?" (PAD-236).
+
+    The offer only exists as a chat message (``notifications.waiting-list``
+    rule 1), so this reads the student's inbound ``waiting_list_offer`` messages
+    and keeps the ones still open for a class that has not started. Metadata is
+    filtered in Python, like the reminder code, so SQLite tests and Postgres
+    behave identically.
+    """
+    rows = (
+        db.session.query(Message)
+        .join(ConversationParticipant, ConversationParticipant.conversation_id == Message.conversation_id)
+        .filter(ConversationParticipant.user_id == user_id)
+        .filter(Message.sender_id != user_id)
+        .filter(Message.message_type == "waiting_list_offer")
+        .filter(Message.is_deleted.is_(False))
+        .order_by(Message.id.desc())
+        .all()
+    )
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for message in rows:
+        meta = message.msg_metadata or {}
+        instance_id = meta.get("lessonInstanceId")
+        if not instance_id or instance_id in seen:
+            continue
+        seen.add(instance_id)
+        if not _message_open(message):
+            continue
+        instance = db.session.get(LessonInstance, int(instance_id))
+        if (
+            instance is None
+            or instance.start_datetime is None
+            or instance.start_datetime < now
+            or instance.status == "canceled"
+        ):
+            continue
+        item = _class_item(instance, now=now)
+        item.update({"kind": "waiting_list_offer", "id": f"waiting-list-offer-{message.id}"})
+        out.append(item)
     return out
 
 

@@ -79,6 +79,16 @@
         "title": "You're invited to {{class}}",
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
         "open": "Open"
+      },
+      "vacancyInvite": {
+        "title": "A spot opened in {{class}}",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
+        "open": "Open"
+      },
+      "waitingListOffer": {
+        "title": "Waiting list for {{class}}",
+        "detail": "{{date}} · {{time}} · the spot was taken — want to be on the list?",
+        "open": "Open"
       }
     },
     "schedule": {
@@ -109,7 +119,11 @@
       "confirmed": "You're in — see you there.",
       "declined": "Noted — your spot has been freed.",
       "expired": "That class has already started.",
-      "failed": "Could not record your answer. Try again."
+      "failed": "Could not record your answer. Try again.",
+      "inviteDeclined": "Noted — we'll ask someone else.",
+      "spotFilled": "Sorry, that spot was just filled.",
+      "joinedWaitingList": "You're on the waiting list.",
+      "offerDeclined": "Noted — you're not on the list."
     }
   }
 }

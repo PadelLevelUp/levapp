@@ -472,9 +472,47 @@ export interface DashboardNeedsYouValidation {
   href: string;
 }
 
+/**
+ * PAD-236: an open engine invitation — "a spot opened in {class}, want it?".
+ * Answered through `respondToNotification(notificationEventId)`, exactly like
+ * the chat bubble; the card exists only while the bubble is still unanswered.
+ */
+export interface DashboardNeedsYouVacancyInvite {
+  kind: "vacancy_invite";
+  id: string;
+  notificationEventId: number;
+  lessonInstanceId: number;
+  classTitle: string;
+  /** ISO date, `YYYY-MM-DD`. */
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
+  href: string;
+}
+
+/**
+ * PAD-236: an un-answered waiting-list offer — "that spot was taken, join the
+ * list?". Answered through `respondToWaitingList(lessonInstanceId)`.
+ */
+export interface DashboardNeedsYouWaitingListOffer {
+  kind: "waiting_list_offer";
+  id: string;
+  lessonInstanceId: number;
+  classTitle: string;
+  /** ISO date, `YYYY-MM-DD`. */
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
+  href: string;
+}
+
 export type DashboardNeedsYouItem =
   | DashboardNeedsYouEmptySeats
   | DashboardNeedsYouInvite
+  | DashboardNeedsYouVacancyInvite
+  | DashboardNeedsYouWaitingListOffer
   | DashboardNeedsYouReply
   | DashboardNeedsYouValidation;
 

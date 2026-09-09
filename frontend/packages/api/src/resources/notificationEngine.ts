@@ -126,7 +126,19 @@ export async function getNotificationGroups(
 export async function respondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+  // "expired" is PAD-68 (the class already started; nothing recorded) and
+  // "spot_filled_waiting_list_offered" is the "sorry, just filled" path that
+  // also sends a waiting_list_offer — both were always returned by the server;
+  // PAD-236 names them so the dashboard cards can react to them.
+): Promise<{
+  action:
+    | "confirmed"
+    | "declined"
+    | "spot_filled"
+    | "spot_filled_waiting_list_offered"
+    | "expired"
+    | "unknown";
+}> {
   const res = await getApi().post("/app/notify/respond", { notificationEventId, action });
   return res.data;
 }
