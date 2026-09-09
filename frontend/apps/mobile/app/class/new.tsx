@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { seasonsApi } from "@levelup/api";
+import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
 import {
   CLASS_COLOR_SWATCHES,
   findOverlappingEvent,
@@ -96,6 +96,15 @@ export default function NewClassScreen() {
   const [maxPlayers, setMaxPlayers] = React.useState("4");
   const [color, setColor] = React.useState(COLORS[0]);
   const [levelOption, setLevelOption] = React.useState<Option>(undefined);
+  // clubs.courts rule 7 (PAD-194): the coach's current club's courts.
+  const [courtOption, setCourtOption] = React.useState<Option>(undefined);
+  const { data: clubCourts } = useQuery({
+    queryKey: ["current-club-courts"],
+    queryFn: async () => {
+      const club = await invitationsApi.getCoachClub();
+      return club ? courtsApi.listCourts(club.id) : [];
+    },
+  });
   const [isRecurring, setIsRecurring] = React.useState(false);
   const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [endDate, setEndDate] = React.useState("");
@@ -233,6 +242,7 @@ export default function NewClassScreen() {
       maxPlayers: Number(maxPlayers),
       color,
       levelId: levelOption?.value || null,
+      courtId: courtOption?.value ? Number(courtOption.value) : null,
       playerIds: [] as string[],
       notificationsEnabled: false,
       recurrenceRule: isRecurring
@@ -410,6 +420,24 @@ export default function NewClassScreen() {
                       value={level.id}
                       label={level.label || level.code}
                     />
+                  ))}
+                </SelectContent>
+              </Select>
+            </View>
+          ) : null}
+
+          {/* Court (clubs.courts rule 7, PAD-194) */}
+          {clubCourts && clubCourts.length > 0 ? (
+            <View className="gap-1.5">
+              <Label>{t("calendar.addClass.court")}</Label>
+              <Select value={courtOption} onValueChange={setCourtOption}>
+                <SelectTrigger testID="class-court-select" accessibilityLabel={t("calendar.addClass.court")}>
+                  <SelectValue placeholder={t("calendar.addClass.noCourt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" label={t("calendar.addClass.noCourt")} />
+                  {clubCourts.map((court) => (
+                    <SelectItem key={court.id} value={String(court.id)} label={court.name} />
                   ))}
                 </SelectContent>
               </Select>

@@ -142,6 +142,18 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
         </Text>
       ) : null}
 
+      {/* clubs.courts rule 7 (PAD-194): where the class happens. */}
+      {!isBlock && event.club ? (
+        <Text
+          numberOfLines={1}
+          testID={`calendar-event-place-${event.id}`}
+          className="mt-1 text-sm"
+          style={{ color: ink, opacity: 0.85 }}
+        >
+          {event.court ? `${event.club.name} · ${event.court.name}` : event.club.name}
+        </Text>
+      ) : null}
+
       {showFill ? (
         <View
           testID={`calendar-event-fill-${event.id}`}

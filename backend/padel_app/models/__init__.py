@@ -1,6 +1,7 @@
 from .token_blocklist import TokenBlocklist
 from .backend_apps import Backend_App
 from .clubs import Club
+from .courts import Court
 from .coach_levels import CoachLevel
 from .coaches import Coach
 from .lesson_instances import LessonInstance
@@ -55,6 +56,7 @@ MODELS = {
     # no get_create_form().
     "backend_app": Backend_App,
     "club": Club,
+    "court": Court,
     "coachlevel": CoachLevel,
     "coach": Coach,
     "lessoninstance": LessonInstance,

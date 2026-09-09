@@ -11,6 +11,7 @@ export const EDITABLE_CLASS_FIELDS = [
   "color",
   "maxPlayers",
   "levelId",
+  "courtId",
   "recurrenceEnd",
   "notificationsEnabled",
 ] as const satisfies readonly (keyof ClassInstance)[];

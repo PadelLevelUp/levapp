@@ -438,6 +438,10 @@ def edit_lesson_helper(data, lesson=None):
     values = form.set_values(fake_request)
 
     lesson.update_with_dict(values)
+    # clubs.courts rule 6 (PAD-194): an explicit null clears the court — the
+    # form adapter drops None values, so it never reaches update_with_dict.
+    if "court" in data and data["court"] in (None, "", "null"):
+        lesson.court_id = None
     lesson.save()
 
     """ if "coach" in data:
@@ -481,6 +485,7 @@ def duplicate_lesson_helper(old_lesson):
         start_datetime=old_lesson.start_datetime,
         end_datetime=old_lesson.end_datetime,
         club_id=old_lesson.club_id,
+        court_id=old_lesson.court_id,
     )
 
     new_lesson.create()
@@ -597,6 +602,13 @@ def add_class_service(data, coach, club):
         "coach": coach.id,
         "player_ids": data.get("playerIds", []),
     }
+
+    # clubs.courts rule 6 (PAD-194): an optional court of the class's club.
+    if "courtId" in data:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        court = resolve_court_for_club(club.id, data.get("courtId"))
+        lesson_payload["court"] = court.id if court else None
 
     if data.get("isRecurring"):
         lesson_payload["recurrence_rule"] = json.dumps(data.get("recurrenceRule"))
@@ -797,6 +809,15 @@ def edit_class_service(data):
 
     model = event.get("model")
     original_id = event.get("originalId")
+
+    # clubs.courts rule 6 (PAD-194): null clears the court, omitted leaves it.
+    # Validated against the class's club before anything is written.
+    if "courtId" in updates:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        target = LessonInstance.query.get_or_404(original_id).lesson if model == "LessonInstance" else Lesson.query.get_or_404(original_id)
+        court = resolve_court_for_club(target.club_id, updates.get("courtId"))
+        payload["court"] = court.id if court else None
 
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)

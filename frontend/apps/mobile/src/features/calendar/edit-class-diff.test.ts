@@ -18,6 +18,7 @@ describe("EDITABLE_CLASS_FIELDS", () => {
       "color",
       "maxPlayers",
       "levelId",
+      "courtId",
       "recurrenceEnd",
       "notificationsEnabled",
     ]);

@@ -48,6 +48,10 @@ class Lesson(db.Model, model.Model):
     )
     club = relationship("Club", back_populates="lessons")
 
+    # clubs.courts rule 6 (PAD-194): an optional court of the class's club.
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="SET NULL"), nullable=True)
+    court = relationship("Court")
+
     @property
     def coaches(self):
         return [rel.coach for rel in self.coaches_relations]
@@ -113,6 +117,7 @@ class Lesson(db.Model, model.Model):
                 get_field("color", type="Color", label="Color"),
                 get_field("max_players", type="Integer", label="Max players"),
                 get_field("level", type="ManyToOne", label="Level", related_model="CoachLevel"),
+                get_field("court", type="ManyToOne", label="Court", related_model="Court"),
                 get_field("start_datetime", type="DateTime", label="Start Time"),
                 get_field("end_datetime", type="DateTime", label="End Time"),
                 get_field("is_recurring", type="Boolean", label="Is Recurring"),

@@ -46,6 +46,9 @@ class Club(db.Model, model.Model):
         return [rel.player for rel in self.players_relations]
 
     # One-to-many: Club ↔ Lessons
+    # clubs.courts (PAD-194): the club's courts, in display order.
+    courts = relationship("Court", back_populates="club", cascade="all, delete-orphan", order_by="Court.position")
+
     lessons = relationship(
         "Lesson", back_populates="club", cascade="all, delete-orphan"
     )

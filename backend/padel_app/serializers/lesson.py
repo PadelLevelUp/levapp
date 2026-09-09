@@ -149,6 +149,10 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         "participants": participants,
         "recurrenceEnd": lesson.recurrence_end.isoformat() if lesson.recurrence_end else None,
         "notificationsEnabled": obj.notifications_enabled if hasattr(obj, "notifications_enabled") else True,
+        # clubs.courts rule 7 (PAD-194): the detail shows club and court.
+        "clubName": lesson.club.name if lesson.club else None,
+        "courtId": lesson.court_id,
+        "courtName": lesson.court.name if lesson.court else None,
     }
 
     if is_instance:

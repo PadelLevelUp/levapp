@@ -297,6 +297,21 @@
         "declined": "{{name}}'s request declined.",
         "actionFailed": "Could not complete the action.",
         "loadFailed": "Could not load the requests."
+      },
+      "courts": {
+        "title": "Courts",
+        "description": "The club's courts, in the order you want them. A class can say which court it is on.",
+        "empty": "The club has no courts yet.",
+        "namePlaceholder": "e.g. Court 1",
+        "add": "Add court",
+        "rename": "Rename",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove",
+        "invalid": "The name must be 1 to 80 characters.",
+        "duplicate": "A court with that name already exists.",
+        "saveFailed": "The court could not be saved",
+        "removeFailed": "The court could not be removed"
       }
     },
     "seasons": {

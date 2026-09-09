@@ -66,7 +66,9 @@
       "missingFieldsDescription": "Please fill in: {{fields}}",
       "fieldDate": "Date",
       "fieldDays": "Days of the week",
-      "fieldEndDate": "End date"
+      "fieldEndDate": "End date",
+      "court": "Court",
+      "noCourt": "No court"
     },
     "overlap": {
       "title": "Overlapping event",
@@ -185,7 +187,10 @@
       "notAttending": "Not attending",
       "notAttendingJustified": "Justified absence",
       "colorOption": "Color {{color}}",
-      "invitedCount": "Invited ({{count}})"
+      "invitedCount": "Invited ({{count}})",
+      "club": "Club",
+      "court": "Court",
+      "noCourt": "No court"
     },
     "planning": {
       "title": "Planning ({{count}})",

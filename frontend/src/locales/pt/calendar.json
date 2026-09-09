@@ -66,7 +66,9 @@
       "missingFieldsDescription": "Preencha: {{fields}}",
       "fieldDate": "Data",
       "fieldDays": "Dias da semana",
-      "fieldEndDate": "Data de fim"
+      "fieldEndDate": "Data de fim",
+      "court": "Campo",
+      "noCourt": "Sem campo"
     },
     "overlap": {
       "title": "Horário sobreposto",
@@ -185,7 +187,10 @@
       "notAttending": "Não vais comparecer",
       "notAttendingJustified": "Falta justificada",
       "colorOption": "Cor {{color}}",
-      "invitedCount": "Convidados ({{count}})"
+      "invitedCount": "Convidados ({{count}})",
+      "club": "Clube",
+      "court": "Campo",
+      "noCourt": "Sem campo"
     },
     "planning": {
       "title": "Planeamento ({{count}})",

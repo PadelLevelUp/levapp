@@ -49,6 +49,16 @@ def _compute_status(
 
     return "completed" if effective_end <= now else "scheduled"
 
+def _club_ref(lesson):
+    club = getattr(lesson, "club", None)
+    return {"id": club.id, "name": club.name} if club else None
+
+
+def _court_ref(lesson):
+    court = getattr(lesson, "court", None)
+    return {"id": court.id, "name": court.name} if court else None
+
+
 def serialize_calendar_event(obj, *, override_id: str | None = None, override_date: str | None = None, now: Optional[datetime] = None) -> dict:
     """
     Serialize LessonInstance, Lesson or CalendarBlock into a CalendarEvent-compatible dict.
@@ -87,7 +97,10 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 "maxPlayers": obj.max_players,
                 "color": lesson.color,
                 "levelId": obj.level_id or lesson.default_level_id,
-                "isRecurring": True if lesson.recurrence_rule else False
+                "isRecurring": True if lesson.recurrence_rule else False,
+                # clubs.courts rule 7 (PAD-194): the card shows club and court.
+                "club": _club_ref(lesson),
+                "court": _court_ref(lesson),
             }
         )
 
@@ -108,7 +121,9 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 "confirmedCount": 0,
                 "color": obj.color,
                 "levelId": obj.default_level_id,
-                "isRecurring": True if obj.recurrence_rule else False
+                "isRecurring": True if obj.recurrence_rule else False,
+                "club": _club_ref(obj),
+                "court": _court_ref(obj),
             }
         )
 

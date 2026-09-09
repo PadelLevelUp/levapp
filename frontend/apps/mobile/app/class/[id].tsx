@@ -1,3 +1,4 @@
+import { courtsApi, invitationsApi } from "@levelup/api";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
@@ -17,11 +18,12 @@ import {
   useCoachLevels,
 } from "@levelup/hooks";
 import type {
+  Court,
   ApprovalBundle,
   ClassInstance,
   PresenceStatus,
 } from "@levelup/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
@@ -152,6 +154,22 @@ export default function ClassDetailScreen() {
   const removeClass = useRemoveClass();
   const cancelAttendance = useCancelAttendance();
   const editClass = useEditClass();
+  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  const { data: clubCourts } = useQuery({
+    queryKey: ["current-club-courts"],
+    queryFn: async () => {
+      const club = await invitationsApi.getCoachClub();
+      return club ? courtsApi.listCourts(club.id) : [];
+    },
+    enabled: isCoach,
+  });
+  const courtOptions = React.useMemo<Option[]>(
+    () => [
+      { value: "", label: t("calendar.detail.noCourt") },
+      ...(clubCourts ?? []).map((c: Court) => ({ value: String(c.id), label: c.name })),
+    ],
+    [clubCourts, t]
+  );
   const sendReminders = useSendClassReminders();
   const confirmTraining = useConfirmClassTraining();
 
@@ -760,6 +778,32 @@ export default function ClassDetailScreen() {
                   <Text className="text-sm font-medium">{levelLabel}</Text>
                 )}
               </View>
+            </View>
+
+            {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-detail-place">
+              <Text className="text-xs text-muted-foreground">{t("calendar.detail.club")}</Text>
+              {isEditing && draft && clubCourts && clubCourts.length > 0 ? (
+                <Select
+                  value={courtOptions.find((o) => o!.value === String(draft.courtId ?? ""))}
+                  onValueChange={(opt) =>
+                    setDraft((d) => (d ? { ...d, courtId: opt?.value ? Number(opt.value) : null } : d))
+                  }
+                >
+                  <SelectTrigger testID="class-edit-court-select" accessibilityLabel={t("calendar.detail.court")} className="h-9">
+                    <SelectValue placeholder={t("calendar.detail.noCourt")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courtOptions.map((opt) => (
+                      <SelectItem key={opt!.value} value={opt!.value} label={opt!.label} />
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Text className="text-sm font-medium">
+                  {(active?.clubName ?? "—") + (active?.courtName ? ` · ${active.courtName}` : "")}
+                </Text>
+              )}
             </View>
           </View>
 

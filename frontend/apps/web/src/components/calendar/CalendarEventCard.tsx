@@ -144,6 +144,16 @@ export function CalendarEventCard({
         </p>
       )}
 
+      {/* clubs.courts rule 7 (PAD-194): where the class happens. */}
+      {!isBlock && event.club && (!compact || isRow) && (
+        <p
+          data-testid="calendar-event-place"
+          className={cn('truncate opacity-80 leading-tight', isRow ? 'text-xs' : 'text-[10px]')}
+        >
+          {event.court ? `${event.club.name} · ${event.court.name}` : event.club.name}
+        </p>
+      )}
+
       {/* Fill: the bar reads before the number does. */}
       {showFill && (!compact || isRow) && (
         <div className="mt-auto flex items-center gap-1.5">

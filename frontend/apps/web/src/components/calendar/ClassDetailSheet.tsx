@@ -21,6 +21,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { listCurrentClubCourts } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
 import { ClassPlanningSection } from "./ClassPlanningSection";
@@ -32,6 +33,7 @@ import type {
   ClassInvitation,
   CoachPlayer,
   CoachLevel,
+  Court,
   PresenceStatus,
   AbsenceJustification,
 } from "@/types";
@@ -136,6 +138,20 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
+  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  const [courts, setCourts] = useState<Court[]>([]);
+  useEffect(() => {
+    if (!isEditing) return;
+    let cancelled = false;
+    listCurrentClubCourts()
+      .then((rows) => {
+        if (!cancelled) setCourts(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -439,6 +455,7 @@ export function ClassDetailSheet({
     "color",
     "maxPlayers",
     "levelId",
+    "courtId",
     "recurrenceEnd",
     "notificationsEnabled",
   ] as const;
@@ -824,6 +841,38 @@ export function ClassDetailSheet({
               ) : (
                 <p className="text-sm font-medium">
                   {levels.find((l) => l.id === active.levelId)?.code ?? "—"}
+                </p>
+              )}
+            </div>
+
+            {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1" data-testid="class-detail-place">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">{t("calendar.detail.club")}</span>
+              </div>
+              {isEditing && courts.length > 0 ? (
+                <Select
+                  value={active.courtId ? String(active.courtId) : "none"}
+                  onValueChange={(value) =>
+                    setDraft((d) => (d ? { ...d, courtId: value === "none" ? null : Number(value) } : d))
+                  }
+                >
+                  <SelectTrigger className="h-8 text-sm" data-testid="class-detail-court">
+                    <SelectValue placeholder={t("calendar.detail.noCourt")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t("calendar.detail.noCourt")}</SelectItem>
+                    {courts.map((court) => (
+                      <SelectItem key={court.id} value={String(court.id)}>
+                        {court.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium">
+                  {active.clubName ?? "—"}
+                  {active.courtName ? ` · ${active.courtName}` : ""}
                 </p>
               )}
             </div>
