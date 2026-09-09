@@ -2,9 +2,10 @@
 # class screen (messaging.push-notifications rule 7).
 #
 # A push cannot be sent from inside Maestro, so this flow is driven by
-# scripts/push-tap-flow.sh: it starts this flow and, 30 s later (once
-# login-coach has run and this flow is parked on the Messages tab), delivers a
-# simulated APNs notification with `xcrun simctl push` (payload:
+# scripts/push-tap-flow.sh: it starts this flow and, once Maestro reports the
+# "conversation-item-1 is visible" step complete (login-coach has run and this
+# flow is parked on the Messages tab), delivers a simulated APNs notification
+# with `xcrun simctl push` (payload:
 # scripts/push-payloads/message.apns) whose data is {type: "message",
 # conversationId: 1} — the shape the backend now sends for every
 # message-backed push (direct messages AND invitation/reminder system

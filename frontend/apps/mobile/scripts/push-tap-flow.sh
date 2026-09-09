@@ -5,22 +5,34 @@
 #
 #   bash apps/mobile/scripts/push-tap-flow.sh [SIM_UDID]
 #
-# The push is sent PUSH_DELAY seconds (default 30) after the flow starts: by
-# then login-coach has run and the flow is parked on the Messages tab waiting
-# for the banner (it waits up to 45 s). Maestro cannot signal readiness to a
-# shell, so a fixed delay is the only handshake there is.
+# Handshake: Maestro prints each step as it completes, so the wrapper tails
+# its output and sends the push the moment "conversation-item-1 is visible"
+# completes — i.e. login-coach has run and the flow is parked on the Messages
+# tab, waiting up to 45 s for the banner. A fixed delay is not enough: on this
+# simulator `launchApp` can stall for minutes in simctl's privacy step (Maestro
+# retries it), and a push delivered before the app is up is a banner nobody
+# sees.
 set -uo pipefail
 MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SIM_UDID="${1:-180A9433-4EA7-4F9B-9FD1-79E1250BD9BB}"
-PUSH_DELAY="${PUSH_DELAY:-30}"
+READY_TIMEOUT="${READY_TIMEOUT:-900}"   # seconds to wait for the Messages tab
 export PATH="$HOME/.maestro/bin:$PATH"
 export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
 
-maestro --device "$SIM_UDID" test "$MOBILE_DIR/.maestro/flows/29-push-tap-routing.yaml" &
+OUT="$(mktemp -t pad240-maestro)"
+maestro --device "$SIM_UDID" test "$MOBILE_DIR/.maestro/flows/29-push-tap-routing.yaml" > "$OUT" 2>&1 &
 MAESTRO_PID=$!
 
-sleep "$PUSH_DELAY"
-kill -0 "$MAESTRO_PID" 2>/dev/null && \
-  xcrun simctl push "$SIM_UDID" com.padellevelup.app "$MOBILE_DIR/scripts/push-payloads/message.apns"
+for _ in $(seq 1 "$READY_TIMEOUT"); do
+  if grep -q "conversation-item-1 is visible... COMPLETED" "$OUT"; then
+    xcrun simctl push "$SIM_UDID" com.padellevelup.app \
+      "$MOBILE_DIR/scripts/push-payloads/message.apns"
+    break
+  fi
+  kill -0 "$MAESTRO_PID" 2>/dev/null || break
+  sleep 1
+done
 
-wait "$MAESTRO_PID"
+wait "$MAESTRO_PID"; STATUS=$?
+cat "$OUT"; rm -f "$OUT"
+exit $STATUS
