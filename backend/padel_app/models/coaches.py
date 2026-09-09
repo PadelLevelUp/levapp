@@ -51,7 +51,8 @@ class Coach(db.Model, model.Model):
     
     evaluation_categories = relationship("EvaluationCategory", back_populates="coach", cascade="all, delete-orphan")
 
-    seasons = relationship("Season", back_populates="coach", cascade="all, delete-orphan")
+    # calendar.seasons rule 1 (PAD-82): at most one recurring season per coach.
+    season = relationship("CoachSeason", back_populates="coach", cascade="all, delete-orphan", uselist=False)
     
     @property
     def name(self):

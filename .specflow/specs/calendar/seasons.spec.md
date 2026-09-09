@@ -48,7 +48,8 @@ season each September.
    the first one whose start is after it. Occurrence labels are the coach's `label` when set,
    otherwise `"2026/2027"` for a wrapping occurrence and `"2026"` for a non-wrapping one.
 4. **The same maths on every side.** The occurrence rules live once per language:
-   `padel_app/tools/season_dates.py` (pure functions, no ORM — the migration imports them too) and
+   `padel_app/tools/season_dates.py` (pure functions, no ORM; the migration carries an inlined copy,
+   since migrations never import application code, and a test checks the two agree) and
    `@levelup/config` `season-coverage.ts` (`seasonOccurrenceContaining`, `nextSeasonOccurrence`),
    both pinned by unit tests with the same cases (wrapping, non-wrapping, gap, 29 February).
 5. `GET /app/season` (coach) answers `null` when the coach has no definition, otherwise
@@ -84,8 +85,11 @@ season each September.
     union of ranges), derives day/month from it, keeps `name` as `label`, and sets `needs_review`
     when the coach had more than one row or the row spanned more than 400 days; coaches with no
     row get no definition. Then, for flagged lessons whose `recurrence_end` is NULL and whose coach
-    now has a definition, it applies rule 6's cap (containing occurrence, else the next — the two
-    production rows start in the August gap and are meant for the 2026/2027 season). Finally it
+    now has a definition, it caps at the containing occurrence's end — unless the start is in a gap or
+    within 30 days of that end, in which case the next occurrence's end: the two production rows start
+    on 2026-07-24 under 1 Sep → 31 Jul, and "until season end" ticked a week before the season ends
+    means the season about to start (PAD-91's option (b)). The heuristic exists only for these legacy
+    rows; the live paths (rules 6 and 9) never apply it. Finally it
     drops `seasons`. Downgrade rebuilds `seasons` from the snapshot. No coach-facing reconciliation
     UI: PAD-91 showed every trigger empty in production; `needs_review` is kept as data only.
 12. **Settings → Calendar (web and iOS, R-024).** One card: an optional label, a start day/month
@@ -154,13 +158,13 @@ season each September.
 
 #### Migration collapses the old rows
 - **Given** the migration source
-- **Then** every `create_table`, `drop_table` and column step is guarded by an existence check, the collapse orders a coach's rows by `start_date` descending and takes the first, and it imports the occurrence maths from `padel_app.tools.season_dates`
+- **Then** every `create_table`, `drop_table` and column step is guarded by an existence check, the collapse orders a coach's rows by `start_date` descending and takes the first, and its inlined occurrence maths agrees with `padel_app.tools.season_dates`
 - **Given** old rows 2026-09-01 → 2027-07-31 for coach A, two overlapping rows for coach B, and none for coach C
 - **When** the collapse function runs
 - **Then** A gets 1 Sep → 31 Jul with `needs_review` false, B gets the row with the later start and `needs_review` true, and C gets nothing
-- **Given** a flagged lesson starting 2026-07-24 with NULL `recurrence_end` under A's definition
+- **Given** flagged lessons with NULL `recurrence_end` under A's definition starting 2026-07-24, 2026-08-10 and 2026-06-15
 - **When** the cap function runs
-- **Then** its `recurrence_end` is 2027-07-31 (the next occurrence — the start is in the gap)
+- **Then** the first two get 2027-07-31 (a late start and a gap both mean the coming season) and the third gets 2026-07-31
 
 #### The coach defines the season in Settings on web
 - **Given** the seeded coach on Settings → Calendar
@@ -186,9 +190,9 @@ season each September.
 - Source: PAD-82 (this), PAD-83 (investigation: zero inbound FKs, stats have no season link),
   PAD-91 (production profile: one season, wrapping, two unbounded flagged lessons), PAD-8/PAD-89/
   PAD-90 (the previous contract, whose fail-closed rule survives as rule 9).
-- Decision: the two production lessons whose start falls in the August gap are capped at the
-  **next** occurrence's end (2027-07-31), not the containing one — "until season end" ticked in
-  July means the season about to start. Re-run PAD-91's eight queries before promoting to prod.
+- Decision: the two production lessons starting 2026-07-24 are capped at the **next** occurrence's
+  end (2027-07-31), not the containing one that ends seven days later — a 30-day late-start horizon
+  in the migration only. Re-run PAD-91's eight queries before promoting to prod.
 - Decision: students get no Season preset in v1 — a student can have several coaches and the
   definition is per coach. A per-coach preset on the student side is a follow-up.
 - Decision: no reconciliation banner (PAD-91), `needs_review` is data only.

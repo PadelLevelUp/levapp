@@ -46,10 +46,10 @@ def _make_user(app, username, *, is_admin=False, is_superadmin=False):
 
 
 def _season_count(app):
-    from padel_app.models.seasons import Season
+    from padel_app.models.coach_seasons import CoachSeason
 
     with app.app_context():
-        return Season.query.count()
+        return CoachSeason.query.count()
 
 
 # Every route the blueprint exposes, as (method, path). None of them may be
@@ -102,16 +102,17 @@ def test_anonymous_create_is_rejected_and_writes_nothing(app, client):
 
 
 def test_anonymous_edit_is_rejected_and_writes_nothing(app, client):
-    from padel_app.models.seasons import Season
-    from datetime import date
+    from padel_app.models.coach_seasons import CoachSeason
 
     coach_id = make_coach(app)
     with app.app_context():
-        season = Season(
+        season = CoachSeason(
             coach_id=coach_id,
-            name="Legit",
-            start_date=date(2026, 3, 1),
-            end_date=date(2026, 5, 31),
+            label="Legit",
+            start_day=1,
+            start_month=3,
+            end_day=31,
+            end_month=5,
         )
         db.session.add(season)
         db.session.commit()
@@ -119,12 +120,12 @@ def test_anonymous_edit_is_rejected_and_writes_nothing(app, client):
 
     response = client.post(
         f"/api/edit/season/{season_id}",
-        json={"values": {"name": "Tampered"}},
+        json={"values": {"label": "Tampered"}},
     )
 
     assert response.status_code == 401
     with app.app_context():
-        assert db.session.get(Season, season_id).name == "Legit"
+        assert db.session.get(CoachSeason, season_id).label == "Legit"
 
 
 def test_anonymous_query_does_not_leak_rows(app, client):

@@ -26,7 +26,7 @@ from .coach_join_token import CoachJoinToken
 from .player_claim_request import PlayerClaimRequest
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
-from .seasons import Season
+from .coach_seasons import CoachSeason, SeasonLegacy
 from .exercise import Exercise, ExerciseGroup
 from .Association_CoachClub import Association_CoachClub
 from .Association_CoachLesson import Association_CoachLesson
@@ -79,7 +79,7 @@ MODELS = {
     "playerclaimrequest": PlayerClaimRequest,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
-    "season": Season,
+    "season": CoachSeason,
     "exercise": Exercise,
     "exercisegroup": ExerciseGroup,
     "conversation_participant": ConversationParticipant,
