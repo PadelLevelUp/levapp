@@ -3682,6 +3682,35 @@ def _offer_waiting_list(
     )
 
 
+def _find_waiting_list_offer(
+    coach_user_id: int | None,
+    player_user_id: int,
+    lesson_instance_id: int,
+):
+    """The newest ``waiting_list_offer`` (answered or not) for this pair and
+    instance, or None. Read-only: unlike :func:`_get_or_create_direct_conversation`
+    it never creates the conversation (PAD-222, notifications.waiting-list rule 12).
+    Answered offers count: a double tap on the same offer must stay the idempotent
+    upsert of PAD-124, not a 403."""
+    if not coach_user_id:
+        return None
+    from padel_app.models import Conversation, Message
+
+    key = Conversation.build_participant_key([coach_user_id, player_user_id])
+    conv = Conversation.query.filter_by(participant_key=key).first()
+    if conv is None:
+        return None
+    return next(
+        (m for m in Message.query.filter_by(
+            conversation_id=conv.id,
+            message_type="waiting_list_offer",
+        ).order_by(Message.id.desc()).all()
+         if m.msg_metadata
+         and m.msg_metadata.get("lessonInstanceId") == lesson_instance_id),
+        None,
+    )
+
+
 def _mark_waiting_list_offer_responded(
     coach_user_id: int | None,
     player_user_id: int,
@@ -3754,6 +3783,15 @@ def respond_to_waiting_list(
         lesson_instance_id=lesson_instance_id
     ).first()
     coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+
+    # PAD-222 (rule 12): only a player holding an offer for THIS instance may
+    # answer. Checked before the late-instance branch so nothing is written or
+    # revealed for an instance the caller was never offered.
+    if _find_waiting_list_offer(
+        coach.user_id if coach else None, acting_user_id, lesson_instance_id
+    ) is None:
+        from flask import abort
+        abort(403)
 
     if _instance_is_over(instance, now):
         _expire_stale_invitations(instance)
