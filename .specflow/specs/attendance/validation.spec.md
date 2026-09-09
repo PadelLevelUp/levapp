@@ -128,7 +128,30 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       button row plus two sheets (filters + sort, and the column chooser), which
       commit on Apply rather than live — the list is behind the sheet.
 
+18. **(PAD-190 / PAD-201, B-031) One count for "classes to validate".**
+    `count_pending_validation(coach_id, range_start, range_end)` is the only derivation of how
+    many classes in a window still have an unvalidated presence — it is `len(pending)` of
+    `list_pending_validation` for the same bounds, never a second query. It is exposed as
+    `GET /class_instances/pending_validation/count?from&to` → `{ from, to, pendingCount }`
+    (coach-only, 403 otherwise, same `from`/`to` parsing as the listing). The tab's trigger on
+    both shells reads this endpoint for the week it is showing, and the coach dashboard's
+    `validation` queue item calls the same function (`dashboard.blocks` rule 3), so the two
+    surfaces show one number. The tab accepts `?week=<offset>` (web query string, iOS route
+    param) as its initial week so the dashboard can land the coach on the week it counted.
+
 ### Acceptance Criteria
+
+#### The count endpoint is the listing's count
+- **Given** a coach with one ready and one needs-input class in a window
+- **When** they GET `/class_instances/pending_validation/count` for that window
+- **Then** `pendingCount` is 2 — identical to the listing's `pendingCount` for the same bounds
+- **And** a student gets 403
+
+#### The tab opens on the week it was sent to
+- **Given** the coach arrives at `/presences?week=-1`
+- **When** the page renders
+- **Then** the validate trigger counts the previous week's classes and the dialog opens on
+  that week
 
 #### A past class with everyone answered is ready to confirm
 - **Given** a class that ended yesterday where every enrolled player confirmed or declined

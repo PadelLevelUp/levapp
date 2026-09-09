@@ -24,6 +24,15 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
      `href`. `count` is `items.length`. Item kinds, in fixed server order:
      - coach: `empty_seats` (soonest first) → `reply` → `validation`
+     A `validation` item (PAD-190 / PAD-201, B-031) carries `count` — the number of **classes**
+     with at least one unvalidated presence, derived by `attendance.validation` rule 18's
+     `count_pending_validation` for one Monday–Sunday UTC week — plus `weekOffset` (`0` for the
+     current week, `-1` for the previous) and `href` (`/presences` or `/presences?week=-1`). The
+     server counts the current week first and falls back to the previous week when the current
+     one has nothing pending, so a Monday-morning coach still sees the weekend's backlog. The
+     item is omitted when both weeks are clean. Both shells open the Presences tab **on that
+     week**, and the tab's own trigger reads the same endpoint for the same bounds, so the two
+     numbers are one number.
      - student: `invite` (soonest first) → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
      An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
@@ -142,6 +151,28 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class in the next 7 days
 - **When** they press **Later** on that card
 - **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
+
+#### Validation card counts classes for the tab's week (PAD-190 / PAD-201)
+- **Given** a coach with two classes ended last week that still have an unvalidated presence,
+  and nothing ended this week
+- **When** they GET `/api/app/dashboard`
+- **Then** the queue's `validation` item has `count: 2`, `weekOffset: -1` and
+  `href: "/presences?week=-1"`, and `GET /api/app/class_instances/pending_validation/count`
+  for last week's Monday–Sunday bounds answers `pendingCount: 2`
+
+- **Given** a coach with one such class this week and two last week
+- **When** they GET `/api/app/dashboard`
+- **Then** the item has `count: 1`, `weekOffset: 0` and `href: "/presences"` — the current week
+  wins whenever it has work
+
+- **Given** a coach whose only unvalidated class ended three weeks ago
+- **When** they GET `/api/app/dashboard`
+- **Then** there is no `validation` item
+
+- **Given** the seeded `e2e-coach` on the dashboard
+- **When** they press **Review** on the validation card
+- **Then** they land on `/presences` (never the 404 page) and the tab's trigger shows the same
+  number of classes the card showed
 
 #### Player dashboard
 - **Given** an authenticated player enrolled in 2 classes this week
