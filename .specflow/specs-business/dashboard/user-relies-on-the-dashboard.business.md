@@ -48,6 +48,9 @@ Every coach and every student, as the first screen they see on opening the app.
   needs to act on — but in one shared visual language, so the app never looks like two apps
   depending on who signed in.
 - An invite the student has not answered is shown as something to resolve, not merely counted.
+  That includes the time-critical asks that arrive through chat — "a spot opened, want it?" and
+  "want to join the waiting list?" — answered right there with the same Yes/No, once, in one
+  place: answering on the dashboard settles the chat message and vice versa.
 - A coach can push a "class still has room" card back with "Later": it leaves their queue for a
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
