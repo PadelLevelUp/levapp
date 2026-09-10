@@ -1,6 +1,6 @@
 ---
 id: calendar.mobile-views
-status: implementing
+status: implemented
 depends_on: [calendar.view, calendar.event-detail, calendar.blocks, classes.instances]
 implements: ../../specs-business/calendar/coach-views-and-manages-schedule.business.md
 governed_by: []
@@ -122,13 +122,22 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
     from rule 10; out-of-month cells render at 32% opacity and are not tappable.
 17. **Single-day grid and sheet.** Below the month grid, rule 13's time grid for the selected
-    day only (one full-width column) with rule 3's bottom sheet over it.
+    day only (one full-width column) with rule 3's bottom sheet over it. Its hour range applies rule 13 to the
+    selected day's events alone (08:00–20:00 when that day is empty), so a quiet day is not
+    squeezed by a busy one elsewhere in the month.
 
 #### Controls, roles, chrome
 18. **Add controls are floating action buttons on both shells:** `Add event`
     (`calendar-add-event`, all roles) and `Add class` (`calendar-add-class`, coaches only),
     positioned as the iOS calendar already positions them. At phone widths web no longer
-    renders `CalendarToolbar`; desktop web is unchanged.
+    renders `CalendarToolbar`; desktop web is unchanged. **(PAD-248)** Every list the buttons float
+    over — the Dia card list and the Semana / Mês day sheet — ends with bottom padding taller
+    than the button stack, so the last card can always be scrolled clear of the buttons on both
+    shells. **(PAD-248, coordinator decision 2026-09-10)** In `Mês` the month grid leaves
+    the day sheet too little list for that padding, so while the sheet is dragged above its
+    resting height the two floating add buttons are hidden on both shells; they come back as
+    soon as the sheet is at or below its resting height, and on leaving `Mês`. `Dia` and
+    `Semana` always show them.
 19. **Students** see the same three modes, read-only: their enrolled classes and their own
     blockers, with no `Add class` button. Everything else in this spec applies.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
@@ -262,6 +271,20 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   is absent
 - **And** a student sees `calendar-add-event` only
 
+#### Floating add buttons never hide the last card
+- **Given** a coach whose selected day has six classes, at 390×844 on web and on iOS
+- **When** they scroll the Dia list, and then the Semana and Mês day sheets, to their end
+- **Then** the last card ends above the top of both `calendar-add-event` and
+  `calendar-add-class`
+
+#### Add buttons step aside while the Mês sheet is pulled up
+- **Given** a coach in `Mês` at 390×844 with the day sheet at its resting height
+- **Then** `calendar-add-event` and `calendar-add-class` are visible
+- **When** they drag the sheet above its resting height
+- **Then** both buttons are gone
+- **And** dragging the sheet back down to its lowest position brings both back
+- **And** in `Semana`, dragging the sheet up leaves both buttons visible
+
 #### Labels follow the language
 - **Given** a coach whose language is `pt`, then `en`
 - **When** they view `Mês` on September 2026 with Monday 7 selected
@@ -276,9 +299,10 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   seeded class opens
 
 ### Notes
-- **Status (2026-09-10, PAD-247):** rules 1–14 and 18–25 are built on web and iOS — Dia
-  (PAD-246) and Semana with the draggable day sheet (PAD-247). Rules 15–17 (Mês, PAD-248) are
-  specified, not built; the Mês segment renders disabled until it lands.
+- **Status (2026-09-10, PAD-248):** every rule (1–25) is built on web and iOS — Dia
+  (PAD-246), Semana (PAD-247) and Mês with the FAB clearance (PAD-248). Verified by the full
+  Playwright suite (422 tests, run as four shards: 420 passed, 2 skipped, 0 failed) and the
+  Maestro flows `31-week-view` and `32-month-view` on the simulator.
 - Ships in three tickets, each landing web and iOS together (R-024): (1) Dia, shared chrome,
   colour rules and the swatch remap; (2) Semana; (3) Mês. Until ticket 3 lands, the
   segmented control offers only the shipped modes.

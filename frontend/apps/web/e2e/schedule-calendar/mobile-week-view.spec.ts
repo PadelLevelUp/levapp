@@ -150,8 +150,8 @@ test.describe("PAD-247: phone calendar Semana view", () => {
     await expect(week).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("calendar-time-grid")).toBeVisible();
     await expect(page.getByTestId("calendar-today")).toBeVisible();
-    // Mês still waits for PAD-248.
-    await expect(page.getByTestId("calendar-view-month")).toHaveAttribute(
+    // Mês shipped in PAD-248 (mobile-month-view.spec.ts).
+    await expect(page.getByTestId("calendar-view-month")).not.toHaveAttribute(
       "aria-disabled",
       "true"
     );

@@ -174,3 +174,12 @@ export function clampSheetTop(top: number, { min, max }: { min: number; max: num
   if (max < min) return max;
   return Math.min(max, Math.max(min, top));
 }
+
+/**
+ * Rule 18 (PAD-248, coordinator decision): is the sheet dragged above its
+ * resting height? In Mês the shells hide the floating add buttons while this
+ * is true; at rest or lower they show.
+ */
+export function isSheetRaised(top: number, bounds: SheetBounds): boolean {
+  return top < bounds.initial;
+}

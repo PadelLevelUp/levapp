@@ -13,6 +13,7 @@ export * from "./class-request-slots";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./calendar-grid";
+export * from "./calendar-month";
 export * from "./notify-blocked";
 export * from "./season-coverage";
 export * from "./court-diagram";

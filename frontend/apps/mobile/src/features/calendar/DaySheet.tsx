@@ -7,6 +7,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { EmptyState } from "@/components/empty-state";
 import { DayHeader } from "./DayHeader";
 import { EventCard } from "./EventCard";
+import { FAB_CLEARANCE } from "./layout";
 
 /** Handle row (18pt) plus the DayHeader's height: what stays visible at `max`. */
 export const SHEET_COLLAPSED_HEIGHT = 18 + 76;
@@ -72,7 +73,13 @@ export function DaySheet({
         </View>
       </GestureDetector>
       <DayHeader day={day} count={events.length} />
-      <ScrollView className="flex-1" contentContainerClassName="gap-3 px-5 pb-32 pt-3">
+      <ScrollView
+        testID="calendar-sheet-list"
+        className="flex-1"
+        contentContainerClassName="gap-3 px-5 pt-3"
+        // Rule 18: clear of the floating add buttons at the end of the list.
+        contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
+      >
         {events.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
