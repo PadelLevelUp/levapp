@@ -116,6 +116,14 @@ def get_players_list(coach, club):
         return Player.query.all()
 
 
+def _activation_token_if_inactive(user):
+    from padel_app.tools.activation_token import activation_token_for
+
+    if user is None or user.status != "inactive":
+        return None
+    return activation_token_for(user)
+
+
 def _serialize_coach_player_relation(rel):
     player = rel.player
     user = player.user if player else None
@@ -133,6 +141,10 @@ def _serialize_coach_player_relation(rel):
         "side": rel.side,
         "userId": player.user_id if player else None,
         "isActive": user.status == "active" if user else False,
+        # auth.activate rule 3 (PAD-254): the secret the activation link needs,
+        # visible to the owning coach only and only while there is something to
+        # activate. `None` afterwards so a shared roster never carries it.
+        "activationToken": _activation_token_if_inactive(user),
         # PAD-30: a player who has completed self-service registration
         # (PAD-32) has a password set. Coach-disabled players keep their
         # password, so this is a precise "profile complete" signal that does

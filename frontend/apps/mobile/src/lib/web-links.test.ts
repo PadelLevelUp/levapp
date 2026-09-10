@@ -59,6 +59,30 @@ describe("registerLink", () => {
     );
   });
 
+  // auth.activate rule 2 (PAD-254): the shareable link carries the secret.
+  it("appends the activation secret as ?t= when the roster provides one", () => {
+    expect(registerLink(BASE, 42, "abc123")).toBe(
+      "https://www.padellevelup.com/register/42?t=abc123"
+    );
+    expect(registerLink(BASE, "42", "a/b c")).toBe(
+      "https://www.padellevelup.com/register/42?t=a%2Fb%20c"
+    );
+  });
+
+  it("omits the secret when it is missing or blank", () => {
+    for (const token of [null, undefined, "", "  "]) {
+      expect(registerLink(BASE, 42, token)).toBe(
+        "https://www.padellevelup.com/register/42"
+      );
+    }
+  });
+
+  it("never attaches a secret to the placeholder link", () => {
+    expect(registerLink(BASE, null, "abc123")).toBe(
+      "https://www.padellevelup.com/register/player"
+    );
+  });
+
   it("falls back to web's 'player' placeholder when the id is missing", () => {
     // Same behaviour as apps/web PlayerHeader: the route renders and reports
     // the link as invalid, rather than the string "undefined" reaching a coach.

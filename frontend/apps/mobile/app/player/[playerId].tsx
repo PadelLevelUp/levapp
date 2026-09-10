@@ -123,7 +123,13 @@ export default function PlayerDetailScreen() {
   // PAD-165: web's PlayerHeader offers this link at any time; iOS only ever
   // showed one inline at creation (app/player/new.tsx), so a coach who
   // dismissed that screen could never re-share it from the phone.
-  const registerUrl = registerLink(WEB_APP_URL, player?.userId);
+  // auth.activate rule 3 (PAD-254): the roster row carries the link's secret
+  // while the account is inactive; the link is only useful with it.
+  const registerUrl = registerLink(
+    WEB_APP_URL,
+    player?.userId,
+    player?.activationToken
+  );
 
   const handleShareRegisterLink = async () => {
     try {

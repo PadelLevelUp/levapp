@@ -38,7 +38,9 @@ a teammate or an invite flow) via the generic activation link.
 - An account created on someone's behalf always starts inactive — nobody can sign in with it until it's
   been activated. (A self-registered account is the exception: it is active from the start, see
   [[auth.newcomer-signs-up-on-their-own]].)
-- Only an inactive account can be activated; the activation link is specific to that one account.
+- Only an inactive account can be activated; the activation link is specific to that one account
+  and carries a secret only the coach's own app can produce — knowing (or guessing) an account's
+  number is never enough to complete it, and a link shared without its secret does not work.
 - The account's username must end up unique across the whole app once activation is complete.
 - The activation form never reveals a system-generated placeholder username to the person completing
   it — it shows a blank field for them to fill in themselves, so they never keep an internal-looking

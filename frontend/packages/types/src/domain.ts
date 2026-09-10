@@ -112,6 +112,12 @@ export interface CoachPlayer {
   name: string,
   email: string,
   isActive: boolean,
+  /**
+   * auth.activate rule 3 (PAD-254): the secret the activation link needs
+   * (`/register/<userId>?t=<token>`). Present only while the account is
+   * inactive and only on the owning coach's roster payload; `null` afterwards.
+   */
+  activationToken?: string | null,
   /** PAD-30: true once the player completed self-service registration (password set). */
   validated: boolean,
   /**

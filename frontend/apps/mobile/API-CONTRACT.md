@@ -11,7 +11,7 @@ Derived from backend source (`backend/padel_app/`): route blueprints, SQLAlchemy
 - **Logout:** `POST /api/auth/logout` — blocklists the JWT `jti`. Every request checks the blocklist.
 - **Login:** `POST /api/auth/login` `{username, password}` → `{accessToken, user: {id, name, role}}`
 - **Registration/invite flows (no JWT — token is in the link):**
-  - Coach: `GET /api/app/register/user/<user_id>` → `POST /api/app/activate/user/<user_id>`
+  - Coach-created account: `GET /api/app/register/user/<user_id>?token=<t>` → `POST /api/app/activate/user/<user_id>` `{token, …}` — `t` is the secret in the `/register/<id>?t=` link (PAD-254); without it both are 404
   - Coach via club invite: `GET /api/app/coach-invitations/<token>` → `POST /api/app/coach-invitations/<token>/accept`
   - Player via invite: `GET /api/app/player-invitations/<token>` → `POST /api/app/player-invitations/<token>/accept`
   - Both accept endpoints return `{accessToken}` for immediate login.
@@ -36,8 +36,8 @@ Derived from backend source (`backend/padel_app/`): route blueprints, SQLAlchemy
 
 Health & registration:
 | GET | `/api/app/healthz` | None | — | `{status: "ok"\|"db_unreachable"\|"scheduler_not_ready"}` |
-| GET | `/api/app/register/user/<user_id>` | None | — | serialize_user |
-| POST | `/api/app/activate/user/<user_id>` | None | `{password, ...}` | `{success: true}` |
+| GET | `/api/app/register/user/<user_id>?token=` | None (token) | — | `{id, name, username, email, phone, isActive}` while inactive; `{isActive: true}` after; 404 without the token |
+| POST | `/api/app/activate/user/<user_id>` | None (token) | `{token, name, username, email, phone, password}` | `{success: true}`; 404 without the token, 410 unless inactive |
 
 Dashboard & calendar:
 | GET | `/api/app/dashboard` | JWT | — | dashboard payload (blocks: KPI grid, class list, messages overview, notification activity) |

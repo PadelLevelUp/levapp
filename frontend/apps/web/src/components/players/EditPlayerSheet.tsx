@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { activationLinkPath } from "@/api/register";
 import type { CoachLevel, PlayerSide } from "@/types";
 import { SIDE_LABEL_KEYS } from "@/types";
 
@@ -43,6 +44,8 @@ export interface EditPlayerInput {
   side?: PlayerSide;
   notes?: string;
   isActive?: boolean;
+  /** auth.activate rule 3 (PAD-254): present while the account is inactive. */
+  activationToken?: string | null;
 }
 
 interface EditPlayerSheetProps {
@@ -102,7 +105,9 @@ export function EditPlayerSheet({
 
   const levelLabel = levels.find((l) => l.id === levelId.toString());
 
-  const inviteLink = `${window.location.origin}/register/${userId || "player"}`;
+  const inviteLink = initialValues?.activationToken
+    ? `${window.location.origin}${activationLinkPath(userId, initialValues.activationToken)}`
+    : `${window.location.origin}/register/${userId || "player"}`;
 
   const handleSave = () => {
     if (!name.trim()) return;

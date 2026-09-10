@@ -8,6 +8,7 @@ import {
   inviteTokenFromParam,
   playerInviteSchema,
   registerSchema,
+  registerTokenFromParam,
   registerUserIdFromParam,
   statusFromError,
   submitOutcomeForError,
@@ -91,6 +92,24 @@ describe("registerUserIdFromParam", () => {
 
   it("takes the first value of an array param", () => {
     expect(registerUserIdFromParam(["7"])).toBe("7");
+  });
+});
+
+// auth.activate rule 8 (PAD-254): the `t` query key is the activation secret.
+describe("registerTokenFromParam", () => {
+  it("returns the secret, trimmed", () => {
+    expect(registerTokenFromParam("abc123")).toBe("abc123");
+    expect(registerTokenFromParam("  abc123 ")).toBe("abc123");
+  });
+
+  it("rejects a missing, empty or blank secret", () => {
+    expect(registerTokenFromParam(undefined)).toBeNull();
+    expect(registerTokenFromParam("")).toBeNull();
+    expect(registerTokenFromParam("  ")).toBeNull();
+  });
+
+  it("takes the first value of an array param", () => {
+    expect(registerTokenFromParam(["s3cret", "other"])).toBe("s3cret");
   });
 });
 
