@@ -14,7 +14,7 @@ from padel_app.serializers.lesson import (
     serialize_lesson_instance,
     serialize_class_instance,
 )
-from padel_app.serializers.user import serialize_user
+from padel_app.serializers.user import serialize_user, serialize_user_public
 from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.serializers.presence import serialize_presence
 from padel_app.serializers.calendar import serialize_calendar_block
@@ -553,7 +553,8 @@ def lesson_instance_detail(instance_id):
 @bp.get("/register/user/<user_id>")
 def get_user_for_registration(user_id):
     user = User.query.get_or_404(user_id)
-    payload = serialize_user(user)
+    # PAD-227 / auth.activate rule 6: public, guessable id — public shape only.
+    payload = serialize_user_public(user)
     # PAD-105: a coach-created account carries a generated `pending-…`
     # placeholder username. This form is precisely where the user picks their
     # own, so hand back an empty field rather than the placeholder — prefilling
@@ -676,7 +677,8 @@ def get_players():
 @jwt_required()
 def get_users():
     users = User.query.filter_by(status="active").all()
-    return jsonify([serialize_user(u) for u in users])
+    # messaging.conversations rule 15 (PAD-227): public shape, never contact details.
+    return jsonify([serialize_user_public(u) for u in users])
 
 
 @bp.get("/messageable-users")
@@ -684,7 +686,8 @@ def get_users():
 def get_messageable_users():
     user = current_user()
     users = get_messageable_users_service(user)
-    return jsonify([serialize_user(u) for u in users])
+    # messaging.conversations rule 15 (PAD-227): public shape, never contact details.
+    return jsonify([serialize_user_public(u) for u in users])
 
 
 @bp.post("/users/<int:user_id>/block")

@@ -62,13 +62,24 @@ export interface PlayerProfile {
   weaknesses: CoachNote[];
 }
 
+/**
+ * The PUBLIC user shape (`GET /app/users`, `GET /app/messageable-users`,
+ * `GET /app/register/user/:id`): messaging.conversations rule 15 (PAD-227).
+ * Contact details are never on it — they only ride on `/auth/me` and on a
+ * coach's own roster payloads.
+ */
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username?: string;
+  role?: "coach" | "player";
+  /** @deprecated not sent since PAD-227; kept optional so old readers compile. */
+  email?: string;
+  /** @deprecated not sent since PAD-227; kept optional so old readers compile. */
   phone?: string;
   avatarUrl?: string;
   abbreviation: string;
+  isActive?: boolean;
 }
 
 /** Entry in the blocked-users list (GET /app/blocked-users). */
