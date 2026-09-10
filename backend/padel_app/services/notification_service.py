@@ -1534,11 +1534,16 @@ def _send_system_message(
     push_data = {"type": "message", "conversationId": conv.id}
     if resolved_instance_id is not None:
         push_data["classInstanceId"] = resolved_instance_id
+    # PAD-147: this is an unread Message row like any direct message, so the
+    # push carries the recipient's real unread total as the icon badge (rule
+    # 5). msg.create() has already committed, so the count includes it.
+    from padel_app.services.messaging_service import get_unread_count
     send_expo_push_to_user(
         player_user_id,
         title="New message",
         body=text[:100],
         data=push_data,
+        badge=get_unread_count(player_user_id),
     )
 
     return msg
@@ -1646,6 +1651,7 @@ def _notify_coach_of_cancellation(
     # the push opens that thread (messaging.push-notifications rule 7); the
     # instance id is context only.
     from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.services.messaging_service import get_unread_count
     send_expo_push_to_user(
         coach_user_id,
         title=push_title,
@@ -1655,6 +1661,8 @@ def _notify_coach_of_cancellation(
             "conversationId": conv.id,
             "classInstanceId": instance.id,
         },
+        # PAD-147: unread total as the icon badge, like every message push.
+        badge=get_unread_count(coach_user_id),
     )
 
     return msg
