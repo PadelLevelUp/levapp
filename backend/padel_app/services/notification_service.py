@@ -3122,7 +3122,7 @@ def _send_invitation_batch(
     # Check waiting list before doing a fresh invite round
     wl_entry = _check_waiting_list(vacancy, instance, coach_id, config, vacancy.current_round_number)
     if wl_entry:
-        if _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config):
+        if _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config, now=now):
             return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
         # PAD-261: another path won the spot, or the class is full. Invite nobody.
         return []
@@ -3579,6 +3579,15 @@ def respond_to_notification(
         # vacancy, then the class, and decide on what is committed now; a second
         # "yes" for the same last spot waits here, then gets the spot-filled answer.
         vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+
+        # PAD-68 under the lock: the class may have reached its start while this
+        # answer waited. Decide on the re-read row and expire exactly as the
+        # early check above does.
+        if _instance_is_over(instance, now):
+            _expire_stale_invitations(instance)
+            _retire_invite_message(event)
+            db.session.commit()  # release the lock
+            return {"action": "expired"}
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
@@ -4229,6 +4238,7 @@ def _fill_from_waiting_list(
     instance: LessonInstance,
     coach_id: int,
     config: NotificationConfig,
+    now: datetime | None = None,
 ) -> bool:
     """Place a waiting-list student into the vacancy. Returns whether it did.
 
@@ -4239,6 +4249,13 @@ def _fill_from_waiting_list(
     from padel_app.models import Coach
 
     vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+    if _instance_is_over(instance, now):
+        # PAD-68 under the lock: the class started while this placement waited.
+        # The vacancy expires as _send_invitation_batch's early check expires it.
+        if vacancy.status == "open":
+            vacancy.status = "expired"
+        db.session.commit()  # the expiry, and the end of the lock
+        return False
     if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.max_players:
         db.session.commit()  # release the lock; nothing was written
         return False
