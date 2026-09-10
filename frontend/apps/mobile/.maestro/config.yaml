@@ -36,6 +36,8 @@ executionOrder:
     # 22 only reads (it never writes a presence), so it is order-independent;
     # it does read better after 04 has marked the seeded student present.
     - 22-student-attendance-history
+    # 29 reads only (switches the calendar to Semana and opens the seeded class).
+    - 29-week-view
     # 28 changes the seeded coach's password and puts it back within itself,
     # so its position is not load bearing; last so a mid-flow failure cannot
     # lock the other flows out.

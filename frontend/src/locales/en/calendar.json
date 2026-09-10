@@ -7,6 +7,9 @@
       "addEvent": "Add event",
       "addClass": "Add class"
     },
+    "sheet": {
+      "handle": "Drag to resize"
+    },
     "views": {
       "label": "Calendar view",
       "day": "Day",

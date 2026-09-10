@@ -1,0 +1,43 @@
+# PAD-247 — calendar.mobile-views rules 3, 11–14: the Semana view on iOS.
+# Mirrors: apps/web/e2e/schedule-calendar/mobile-week-view.spec.ts (the parts
+# observable without mocking the API).
+# - the Semana segment can be chosen and shows the time grid, the Hoje pill
+#   and the draggable day sheet
+# - the week header row keeps the calendar-next-week / calendar-day-<date>
+#   ids, so the shared goto-seeded-monday subflow still reaches the seeded
+#   Monday, whose class then appears in the sheet and opens its detail
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-time-grid"
+    timeout: 10000
+- assertVisible:
+    id: "calendar-today"
+- assertVisible:
+    id: "calendar-sheet-handle"
+# Mês still waits for PAD-248.
+- assertVisible:
+    id: "calendar-view-month"
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- tapOn:
+    text: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- back
+# Back on the calendar the mode is remembered.
+- extendedWaitUntil:
+    visible:
+      id: "calendar-time-grid"
+    timeout: 10000
