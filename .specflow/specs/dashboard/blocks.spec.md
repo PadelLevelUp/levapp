@@ -161,6 +161,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    classes it holds and never touches another coach's rows. The replies queue asks the database
    for the newest unread message per conversation, capped at the queue limit, instead of every
    unread message.
+9. **(B-058)** A class is in a dashboard window when it overlaps it: its **end instant** is
+   after the window start and its start instant is before the window end. The end instant is
+   the class's END datetime, never the start date joined to the end time-of-day. `date`,
+   `startTime` and `endTime` are UTC strings, so a class that crosses UTC midnight (23:15–00:15
+   UTC; in Lisbon summer, any class ending after 01:00 local) ends on the NEXT date. Joining the
+   start date to `endTime` put its end before its start, and every block built on the shared
+   window silently dropped it: the coach hero, needs-you empty seats, next 7 days and week
+   pulse, and the student hero and schedule.
 
 ### Acceptance Criteria
 
@@ -302,3 +310,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
   "next class" hero, the "NEEDS YOU" and "NEXT 7 DAYS" eyebrows and the KPI tiles with their
   denominators; and the same locators the coach home exposes (`dashboard-next-class`,
   `dashboard-needs-you`, `dashboard-schedule`) are present under `student-dashboard`
+
+#### A class crossing UTC midnight stays on both homes (B-058)
+- **Given** a coach with a one-hour class at 23:15 UTC today that has empty seats, and a student signed up for it
+- **When** the dashboards are built at 22:30 UTC
+- **Then** the class is the coach's next-class hero, an empty-seats item on the needs-you queue and a row in the next 7 days
+- **And** it is the student's next-class hero and a row on their schedule

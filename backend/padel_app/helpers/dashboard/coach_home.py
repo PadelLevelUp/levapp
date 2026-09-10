@@ -159,7 +159,19 @@ def _event_start(event: Dict[str, Any]) -> datetime:
 
 
 def _event_end(event: Dict[str, Any]) -> datetime:
-    return _combine(event.get("date"), event.get("endTime"), datetime.min)
+    """The class's real end instant (B-058, dashboard.blocks rule 9).
+
+    ``date`` is the START date, and the strings are UTC. A class that crosses
+    UTC midnight (23:15-00:15 UTC) ends on the next date, so an end time
+    earlier than the start time rolls forward one day. Joining the start date
+    to the end time used to put such a class's end before its start, and every
+    block built on ``load_events`` dropped it.
+    """
+    end = _combine(event.get("date"), event.get("endTime"), datetime.min)
+    start = _combine(event.get("date"), event.get("startTime"), datetime.max)
+    if end is not datetime.min and start is not datetime.max and end < start:
+        end += timedelta(days=1)
+    return end
 
 
 def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> datetime:
