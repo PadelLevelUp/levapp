@@ -3,11 +3,13 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
   ScrollView,
+  type TextInput,
   View,
 } from "react-native";
 import { z } from "zod";
@@ -147,6 +149,22 @@ export default function SignUpScreen() {
   // can be brought into view (auth.register rule 10: every rejection names
   // the field, and the user must be able to see it).
   const fieldOffsets = React.useRef<Partial<Record<Field, number>>>({});
+  // Next on each text field moves focus down the form and scrolls that field into
+  // view: the keyboard covers the lower half of the form, so a field below it can't
+  // be tapped (auth.parental-consent rule 10).
+  const inputRefs = React.useRef<Partial<Record<Field, TextInput | null>>>({});
+  const NEXT_FIELD: Partial<Record<Field, Field>> = {
+    name: "username",
+    username: "email",
+    email: "password",
+    password: "repeatPassword",
+    repeatPassword: "birthDate",
+  };
+  const focusField = (field: Field) => {
+    const y = fieldOffsets.current[field];
+    if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+    inputRefs.current[field]?.focus();
+  };
 
   const FIELD_ORDER: Field[] = ["name", "username", "email", "password", "repeatPassword", "birthDate", "guardianEmail"];
   const revealFirstError = (next: FieldErrors) => {
@@ -359,7 +377,16 @@ export default function SignUpScreen() {
               >
                 <Label>{t(`auth.signup.${field}`)}</Label>
                 <Input
+                  ref={(el) => {
+                    inputRefs.current[field] = el;
+                  }}
                   testID={`signup-${field}`}
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => {
+                    const next = NEXT_FIELD[field];
+                    if (next) focusField(next);
+                  }}
                   accessibilityLabel={t(`auth.signup.${field}`)}
                   value={form[field]}
                   onChangeText={(v) => setField(field, v)}
@@ -392,13 +419,21 @@ export default function SignUpScreen() {
             >
               <Label>{t("auth.signup.birthDate")}</Label>
               <Input
+                ref={(el) => {
+                  inputRefs.current.birthDate = el;
+                }}
                 testID="signup-birthDate"
                 accessibilityLabel={t("auth.signup.birthDate")}
                 placeholder="DD/MM/AAAA"
                 keyboardType="number-pad"
                 maxLength={10}
                 value={form.birthDate}
-                onChangeText={(v) => setField("birthDate", formatBirthInput(v))}
+                onChangeText={(v) => {
+                  const next = formatBirthInput(v);
+                  setField("birthDate", next);
+                  // The number pad has no Done key: close it once the date is complete.
+                  if (next.length === 10) Keyboard.dismiss();
+                }}
                 editable={!loading}
                 className={errors.birthDate ? "border-destructive" : undefined}
               />
@@ -450,6 +485,7 @@ export default function SignUpScreen() {
                   testID="signup-guardianEmail"
                   accessibilityLabel={t("auth.signup.guardianEmail")}
                   keyboardType="email-address"
+                  returnKeyType="done"
                   autoCapitalize="none"
                   autoCorrect={false}
                   value={form.guardianEmail}
