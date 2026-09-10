@@ -37,7 +37,7 @@ class DeviceToken(db.Model, model.Model):
 
     @classmethod
     def get_create_form(cls):
-        def get_field(name, label, type, required=False):
+        def get_field(name, label, type, required=False, related_model=None):
             return Field(
                 instance_id=cls.id,
                 model=cls.model_name,
@@ -45,15 +45,18 @@ class DeviceToken(db.Model, model.Model):
                 label=label,
                 type=type,
                 required=required,
+                related_model=related_model,
             )
 
         form = Form()
         info_block = Block(
             "info_block",
             fields=[
-                get_field("user", "User", "ManyToOne", required=True),
-                get_field("token", "Token", "String", required=True),
-                get_field("platform", "Platform", "String"),
+                # PAD-280 (B-052): "String" is not a form field type, so the
+                # editor's schema route 500'd on this model.
+                get_field("user", "User", "ManyToOne", required=True, related_model="User"),
+                get_field("token", "Token", "Text", required=True),
+                get_field("platform", "Platform", "Text"),
             ],
         )
         form.add_block(info_block)

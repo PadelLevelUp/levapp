@@ -1,7 +1,7 @@
 """add invitation_groups and tiebreakers to notification_config
 
 Revision ID: a3f1c9e2b847
-Revises: c6f54b3fa846
+Revises: a20050262cd7
 Create Date: 2026-03-20
 
 """
