@@ -485,3 +485,56 @@ def test_presences_table_drops_a_deleted_student_and_the_charts_still_agree(app,
     assert ids["rita_id"] not in {row["playerId"] for row in stats["players"]}
     assert stats["totals"]["presences"] == sum(row["total"] for row in stats["players"]) == trend["total"] == 1
 
+
+
+# ── rule 8: the coach home counts a deleted account nowhere forward-looking ──
+
+def test_the_week_pulse_does_not_count_a_deleted_student(app):
+    from datetime import datetime
+
+    from padel_app.helpers.dashboard.coach_home import build_week_pulse_block
+    from padel_app.models import User
+    from padel_app.services.account_service import delete_account_service
+    from padel_app.tests.test_dashboard_coach_home import _seed
+
+    now = datetime(2026, 8, 4, 10, 0)
+    coach_id, _, _ = _seed(app, now=now)
+    with app.app_context():
+        # ch_p3 is signed up only to tomorrow's class, and is still on the roster row.
+        gone_user_id = User.query.filter_by(username="ch_p3").one().id
+    with app.app_context():
+        delete_account_service(gone_user_id)
+
+    with app.app_context():
+        players = build_week_pulse_block(coach_id=coach_id, now=now)["data"]["players"]
+    assert players == {"active": 3, "total": 3, "idle": 0}
+
+
+def test_the_reply_queue_skips_a_deleted_sender(app):
+    from datetime import datetime
+
+    from padel_app.helpers.dashboard.coach_home import reply_items
+    from padel_app.models import Conversation, ConversationParticipant, Message, User
+    from padel_app.tests.test_dashboard_coach_home import _seed
+
+    now = datetime(2026, 8, 4, 10, 0)
+    _, coach_user_id, _ = _seed(app, now=now)
+    with app.app_context():
+        for i, (name, status) in enumerate((("Active Sender", "active"), ("Gone Sender", "disabled"))):
+            other = User(name=name, username=f"rq_{i}", password="x", status=status)
+            db.session.add(other)
+            db.session.flush()
+            conv = Conversation(participant_key=Conversation.build_participant_key([coach_user_id, other.id]), is_group=False)
+            db.session.add(conv)
+            db.session.flush()
+            db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=coach_user_id))
+            db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=other.id))
+            # The deleted sender's message is the newest, so a filter applied after
+            # the per-conversation pick would still have to drop it explicitly.
+            db.session.add(Message(text=f"from {name}", sender_id=other.id, conversation_id=conv.id,
+                                   sent_at=now - timedelta(minutes=10 - 5 * i)))
+        db.session.commit()
+
+    with app.app_context():
+        items = reply_items(user_id=coach_user_id)
+    assert [i["personName"] for i in items] == ["Active Sender"]
