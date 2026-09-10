@@ -22,9 +22,10 @@ import { loginAsCoach, loginAsStudent } from "../helpers/auth";
  */
 const TODAY = format(new Date(), "yyyy-MM-dd");
 
-// Times are chosen so the ordering and the "next" gate are stable whenever
-// the suite runs before 23:40 local time: the two upcoming classes sit at the
-// very end of the day, the finished one at its start.
+// The two upcoming classes sit at the very end of the day and the finished one
+// at its start, so the ordering and the "next" gate depend on "now". PAD-253:
+// mockCalendar pins the browser clock to noon of TODAY, so they hold whenever
+// the suite runs (it used to fail between 23:51 and midnight).
 const MOCK_EVENTS = [
   {
     id: "class-1001",
@@ -105,6 +106,9 @@ const MOCK_EVENTS = [
 ];
 
 async function mockCalendar(page: Page) {
+  // PAD-253: every mock is placed relative to noon of TODAY, not to the wall
+  // clock. setFixedTime keeps timers running, so the app still renders.
+  await page.clock.setFixedTime(new Date(`${TODAY}T12:00:00`));
   await page.route("**/app/calendar**", (route) =>
     route.fulfill({
       status: 200,
