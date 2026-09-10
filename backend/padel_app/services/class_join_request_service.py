@@ -495,3 +495,45 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
         coach_user_id, title=title, body=text[:100],
         data={"type": "class", "classInstanceId": instance.id},
     )
+
+
+# ---------------------------------------------------------------------------
+# Read access (PAD-131 × PAD-257, classes.join-requests rule 16)
+# ---------------------------------------------------------------------------
+
+def student_may_view_open_spot(player, instance, *, now=None) -> bool:
+    """Rule 16: may this non-enrolled student read this class instance?
+
+    ``classes.detail-visibility`` rule 5 (PAD-257) limits class reads to the
+    class's own people. A student discovering an open spot is not one of them
+    yet, so this is the one exception, and it asks exactly what
+    ``create_join_request_service`` asks before it lets a student request: on
+    the owning coach's roster, and either already holding a request for this
+    instance, or the instance is open (not started, cancelled, completed or
+    full), advertised (``effective_open_spots_visible``) and the student passes
+    its eligibility bar. Pure: no aborts, no writes.
+    """
+    from padel_app.services.notification_service import (
+        effective_eligibility,
+        effective_open_spots_visible,
+        passes_eligibility,
+    )
+
+    if player is None or instance is None:
+        return False
+    coach_id = _coach_id_for(instance)
+    if coach_id is None:
+        return False
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player.id).first()
+    if cp is None:
+        return False
+    if ClassJoinRequest.query.filter_by(
+        lesson_instance_id=instance.id, player_id=player.id
+    ).first() is not None:
+        return True
+    if _is_closed(instance, now or utcnow_naive()) or _is_full(instance):
+        return False
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    if not effective_open_spots_visible(instance, coach_id, config):
+        return False
+    return bool(passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)))

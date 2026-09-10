@@ -344,3 +344,39 @@ def test_class_payload_carries_requests_per_role_and_routes_work(app, client):
     res = client.post(f"/api/app/class-join-requests/{rid}/accept", headers=coach, json={})
     assert res.status_code == 200 and res.get_json()["status"] == "accepted"
     assert _enrolled(app, ids, pid) == (True, True)
+
+
+# ── rule 16: reading an open-spot class (PAD-131 × PAD-257) ─────────────────
+
+def _read_as(app, client, pid, ids):
+    from flask_jwt_extended import create_access_token
+    from padel_app.models.players import Player
+
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+    with app.app_context():
+        user_id = db.session.get(Player, pid).user_id
+        headers = {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
+    return client.post(
+        f"/api/app/class_instance?model=LessonInstance&id={ids['instance_id']}", headers=headers
+    )
+
+
+def test_an_eligible_student_may_open_an_advertised_class_before_asking(app, client):
+    ids = _seed(app, eligibility_rules=LEVEL_SAME)
+    _config(app, ids, open_spots_visible=True)
+    pid = _student(app, ids, "curious")
+    res = _read_as(app, client, pid, ids)
+    assert res.status_code == 200, res.get_json()
+    body = res.get_json()
+    assert body.get("myJoinRequest") is None and "joinRequests" not in body
+
+
+def test_an_ineligible_or_unadvertised_non_enrolled_student_still_gets_403(app, client):
+    ids = _seed(app, eligibility_rules=LEVEL_SAME)
+    weak = _student(app, ids, "weak", "5-")
+    strong = _student(app, ids, "strong")
+    # Not advertised (the default): even an eligible rostered student is refused.
+    assert _read_as(app, client, strong, ids).status_code == 403
+    _config(app, ids, open_spots_visible=True)
+    # Advertised, but this student fails the bar: PAD-257's scope still holds.
+    assert _read_as(app, client, weak, ids).status_code == 403

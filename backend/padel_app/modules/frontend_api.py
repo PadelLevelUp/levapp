@@ -430,11 +430,19 @@ def require_readable_class(model_name, obj):
         abort(403, "Not authorized to view this class")
 
     player = current_player()
-    if player is None or not _student_enrolled(
+    if player is not None and _student_enrolled(
         player, lesson.id if lesson else None, instance_id
     ):
-        abort(403, "Not authorized to view this class")
-    return obj
+        return obj
+    # classes.join-requests rule 16 (PAD-131 × PAD-257): the one exception — a
+    # rostered student may read an instance they may ask for, or hold a request
+    # on. They still get the student view (rule 3); everyone else is refused.
+    if player is not None and not is_lesson:
+        from padel_app.services.class_join_request_service import student_may_view_open_spot
+
+        if student_may_view_open_spot(player, obj):
+            return obj
+    abort(403, "Not authorized to view this class")
 
 
 def require_own_roster_relation(coach, player_id):

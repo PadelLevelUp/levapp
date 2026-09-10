@@ -41,8 +41,11 @@ coach-only information about other players.
      helpers) **or a coach who is a member of the class's club** (`Association_CoachClub` on
      `lessons.club_id`) — colleagues cover for each other; a coach from another club gets 403; or
    - a **student enrolled in it** — an `Association_PlayerLessonInstance` or `Presence` row for
-     the instance, or an `Association_PlayerLesson` row for the parent lesson. Any other student
-     gets 403.
+     the instance, or an `Association_PlayerLesson` row for the parent lesson; or
+   - a **rostered student who may ask for an open spot in it** — the one exception,
+     `classes.join-requests` rule 16: they hold a join request for that instance, or it is
+     advertised, open, not full and they pass its bar. They get the student view (rule 3).
+   Any other student gets 403.
    The role check alone (rules 2–4) never suffices: an id-keyed read by a coach of another club
    used to return every participant with email and phone. 404 for an unknown id still comes
    before 403 for a known one, matching the PAD-92 write guards.

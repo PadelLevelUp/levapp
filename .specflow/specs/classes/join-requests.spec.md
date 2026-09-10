@@ -95,6 +95,17 @@ by a student's request — and whichever lands first wins.
     - First fill wins is enforced where every fill path already converges:
       `_add_player_to_instance`. Once the class holds `max_players`, every other pending request
       for it closes as `superseded` there, whichever path filled the spot.
+16. **Reading an open-spot class (PAD-131 × PAD-257).** `classes.detail-visibility` rule 5 limits
+    the id-keyed class reads to the class's own people. A student discovering an open spot is not
+    one of them yet, so they get one exception, decided by `student_may_view_open_spot` in
+    `class_join_request_service`: a student **on the owning coach's roster** may read a class
+    **instance** while they hold a join request for it (any status, so they can see its outcome),
+    or while the join-request gate would let them ask — the instance is not started, cancelled,
+    completed or full, open spots are visible for it (`effective_open_spots_visible`) and they pass
+    its eligibility bar. Everyone else still gets 403, and what they read is the student view
+    (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
+    stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
+    batch, where PAD-257 and PAD-131 met.
 
 ### Acceptance Criteria
 
@@ -156,6 +167,14 @@ by a student's request — and whichever lands first wins.
 - **Given** a student enrolled in a class
 - **When** they attempt to request it
 - **Then** the request is rejected by the server
+
+#### An open-spot class can be opened before asking; nobody else gains access (rule 16)
+- **Given** a class instance advertising open spots and two students on the coach's roster, one who
+  passes its bar and one who does not, neither enrolled
+- **When** each opens the class (`POST /api/app/class_instance`)
+- **Then** the eligible one gets the student view with `myJoinRequest: null`
+- **And** the other gets 403, as does the eligible one while the class is not advertised
+- **And** a student who has requested the class reads it with their request in `myJoinRequest`
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
