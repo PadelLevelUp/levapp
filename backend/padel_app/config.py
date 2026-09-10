@@ -128,8 +128,15 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or "dev-secret-key"
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "dev-jwt-secret"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
-    JWT_TOKEN_LOCATION = ["headers", "query_string"]
+    # R-009 / PAD-269: the Authorization header everywhere. The `?token=` query
+    # string is enabled on the SSE route alone (`@jwt_required(locations=
+    # ["query_string"])` on /api/app/events), because EventSource cannot set
+    # headers; enabling it globally put tokens in every access log.
+    JWT_TOKEN_LOCATION = ["headers"]
     JWT_QUERY_STRING_NAME = "token"
+    # auth.token-refresh rule 6: a session ends this many days after its login,
+    # however often its token is silently refreshed.
+    JWT_ABSOLUTE_SESSION_DAYS = int(os.getenv("JWT_ABSOLUTE_SESSION_DAYS", "90"))
     JWT_COOKIE_CSRF_PROTECT = False
 
     # Email

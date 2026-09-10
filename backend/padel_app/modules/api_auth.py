@@ -1,6 +1,8 @@
 import re
 
-from flask import Blueprint, abort, request, jsonify
+from datetime import datetime, timedelta, timezone
+
+from flask import Blueprint, abort, current_app, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
 
@@ -25,6 +27,7 @@ from padel_app.services.email_verification_service import (
     verification_state,
 )
 from padel_app.utils.debug_flags import debug_endpoints_enabled
+from padel_app.utils.tokens import issue_access_token
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
@@ -98,7 +101,7 @@ def register():
             payload["field"] = exc.field
         return jsonify(payload), exc.status
 
-    access_token = create_access_token(identity=str(user.id))
+    access_token = issue_access_token(user.id)
     return jsonify({
         "accessToken": access_token,
         "user": {
@@ -177,10 +180,12 @@ def login():
 
     user = User.query.filter_by(username=username).first()
 
-    if not user or not check_password_hash(user.password, password):
+    # auth.login rule 11 (PAD-269): a coach-created account with no password yet
+    # is a wrong password, not a 500 that tells a caller the username exists.
+    if not user or not user.password or not check_password_hash(user.password, password):
         return {"error": "Invalid credentials"}, 401
 
-    access_token = create_access_token(identity=str(user.id))
+    access_token = issue_access_token(user.id)
 
     return {
         "accessToken": access_token,
@@ -196,6 +201,13 @@ def login():
 def logout():
     jti = get_jwt()["jti"]
     db.session.add(TokenBlocklist(jti=jti))
+    # auth.logout rule 3 (PAD-269): rows older than the token lifetime (plus a
+    # day) belong to expired tokens and only slow the per-request lookup.
+    lifetime = current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES")
+    if not isinstance(lifetime, timedelta):
+        lifetime = timedelta(days=30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - lifetime - timedelta(days=1)
+    TokenBlocklist.query.filter(TokenBlocklist.created_at < cutoff).delete(synchronize_session=False)
     db.session.commit()
     return {"message": "Successfully logged out"}, 200
 
