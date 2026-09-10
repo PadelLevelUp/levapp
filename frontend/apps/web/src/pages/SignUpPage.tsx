@@ -139,6 +139,10 @@ const SignUpPage = () => {
         }));
       } else if (data?.status === 400 && data.data?.field) {
         setErrors((prev) => ({ ...prev, [data.data!.field as keyof FieldErrors]: data.data?.error }));
+      } else if (data?.status === 429) {
+        // auth.register rule 15 (PAD-228).
+        const seconds = (data.data as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds ?? 60;
+        toast({ variant: "destructive", title: t("auth.signup.failedTitle"), description: t("auth.login.rateLimited", { seconds }) });
       } else if (!data) {
         toast({ variant: "destructive", title: t("auth.signup.failedTitle"), description: t("auth.login.networkError") });
       } else if (data.status === 404 || data.status === 405) {

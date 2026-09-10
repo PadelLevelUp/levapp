@@ -31,7 +31,7 @@ const CODE_LENGTH = 6;
 const PASSWORD_MIN = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-type ApiError = { response?: { status?: number; data?: { error?: string; attemptsLeft?: number } } };
+type ApiError = { response?: { status?: number; data?: { error?: string; attemptsLeft?: number; retryAfterSeconds?: number } } };
 
 const ForgotPasswordPage = () => {
   const { t } = useTranslation();
@@ -72,8 +72,14 @@ const ForgotPasswordPage = () => {
       setCode("");
       setStep("code");
     } catch (err) {
-      const status = (err as ApiError).response?.status;
-      setEmailError(status === 400 ? t("auth.recovery.invalidEmail") : t("auth.login.networkError"));
+      const res = (err as ApiError).response;
+      setEmailError(
+        res?.status === 429
+          ? t("auth.login.rateLimited", { seconds: res.data?.retryAfterSeconds ?? 60 })
+          : res?.status === 400
+            ? t("auth.recovery.invalidEmail")
+            : t("auth.login.networkError"),
+      );
     } finally {
       setSending(false);
     }
@@ -113,6 +119,9 @@ const ForgotPasswordPage = () => {
       } else if (status === 410) {
         setCode("");
         setCodeError(t("auth.verifyEmail.expired"));
+      } else if (status === 429) {
+        // auth.password-recovery rule 10 (PAD-228).
+        setCodeError(t("auth.login.rateLimited", { seconds: data?.retryAfterSeconds ?? 60 }));
       } else {
         setCodeError(t("auth.login.networkError"));
       }
