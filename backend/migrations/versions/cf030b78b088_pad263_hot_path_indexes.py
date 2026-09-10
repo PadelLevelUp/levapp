@@ -14,7 +14,7 @@ Decisions:
   double materialisation created exactly those duplicates and prod may still
   hold some; a unique index would fail the upgrade and crash-loop the deploy.
   The lookup gets the same index without the constraint; the constraint is
-  ledger B-033 (count on the staging copy of prod, merge, then constrain).
+  ledger B-046 (count on the staging copy of prod, merge, then constrain).
 - Already present, so not here: `messages(sender_id)` and
   `conversation_participants(user_id)` (PAD-204); `conversation_participants
   (conversation_id)` is the leading column of `uq_conversation_participant`.

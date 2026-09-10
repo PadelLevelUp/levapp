@@ -17,7 +17,7 @@ Specs: the Entities sections of classes.instances, classes.enrollment,
 classes.create, classes.coach-assignment, attendance.presence, calendar.blocks,
 players.level-history, notifications.invitations and notifications.waiting-list.
 
-The lesson_instances occurrence index is deliberately NOT unique; B-033 holds
+The lesson_instances occurrence index is deliberately NOT unique; B-046 holds
 the plan for the constraint.
 """
 import importlib.util
@@ -114,7 +114,7 @@ def test_the_model_schema_carries_each_hot_path_index(app, name):
     assert name in reflected, f"{table} has no {name}"
     assert reflected[name]["column_names"] == columns
     # Plain indexes only. A unique one on these tables can fail the upgrade on
-    # data prod already holds (B-033), which is a data fix, not an index.
+    # data prod already holds (B-046), which is a data fix, not an index.
     assert not reflected[name]["unique"]
 
 

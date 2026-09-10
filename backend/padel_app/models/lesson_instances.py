@@ -10,7 +10,7 @@ from padel_app.tools.input_tools import Block, Field, Form
 class LessonInstance(db.Model, model.Model):
     __tablename__ = "lesson_instances"
     # PAD-263: the occurrence lookup and the calendar range. Not unique yet:
-    # PAD-85 duplicates may remain on prod (ledger B-033).
+    # PAD-85 duplicates may remain on prod (ledger B-046).
     __table_args__ = (
         Index("ix_lesson_instances_lesson_id_occurrence_date", "lesson_id", "original_lesson_occurence_date"),
         Index("ix_lesson_instances_start_datetime", "start_datetime"),

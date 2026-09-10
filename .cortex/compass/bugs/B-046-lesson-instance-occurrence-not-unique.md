@@ -1,5 +1,5 @@
 ---
-id: B-033
+id: B-046
 title: "Nothing in the database stops two lesson instances for the same occurrence; the unique constraint needs a duplicate merge first"
 type: incomplete-rule
 severity: medium
@@ -12,7 +12,7 @@ proposed_fix: "Count duplicate (lesson_id, occurrence date) groups on the stagin
 opened: 2026-09-10T00:00:00Z
 ---
 
-# B-033 — Lesson instance occurrences are not unique in the database
+# B-046 — Lesson instance occurrences are not unique in the database
 
 **Source:** PAD-263 (audit H11, Session A, 2026-09-10). The audit recommended a UNIQUE index on
 `lesson_instances (lesson_id, original_lesson_occurence_date)`. PAD-263 shipped it as a plain
