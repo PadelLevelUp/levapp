@@ -1,6 +1,6 @@
 ---
 id: classes.join-requests
-status: draft
+status: implementing
 depends_on: [eligibility.open-spot-visibility, eligibility.enforcement, classes.instances, notifications.invitations, messaging.messages]
 implements: ../../specs-business/classes/student-joins-and-views-classes.business.md
 governed_by: []
@@ -68,6 +68,33 @@ by a student's request — and whichever lands first wins.
     vacancy — the spot it guarded is gone.
 14. Requests for a class that has started, been cancelled or completed are rejected by the server and
     any still-pending requests for it are closed.
+
+15. **Wire contract (PAD-131).** Requests are addressed like a class edit — by the calendar event
+    (`model`, `originalId`, `date`) — so a virtual occurrence can be requested (rule 2):
+    - `POST /app/class-join-requests` `{model, originalId, date}` → `201` with the request, or `200`
+      with the already-pending one (rule 3). Refusals are `409` with a `code`: `already_enrolled`,
+      `class_closed` (started, cancelled, completed), `not_visible` (the coach does not advertise
+      it or the student is not on their roster), `spot_filled` (no empty spot), `ineligible`.
+    - `POST /app/class-join-requests/<id>/withdraw` — the requesting student only (rule 4).
+    - `POST /app/class-join-requests/<id>/accept` `{confirm?: boolean}` — the class's coach only.
+      Without `confirm`, a student who now fails the bar answers `409 {code: "ineligible",
+      ineligible: [...]}` in the `eligibility_check` shape (rule 7); a class that is meanwhile full
+      answers `409 {code: "spot_filled"}` and the request closes as `superseded` (rule 10).
+    - `POST /app/class-join-requests/<id>/reject` — the class's coach only (rule 9).
+    - The class payload (`POST /app/class_instance`) carries the requests: a coach gets
+      `joinRequests` (the pending ones, `{id, playerId, playerName, status, createdAt}`); a student
+      gets `myJoinRequest` (their latest request for that class, or `null`). Nothing about another
+      student's request ever reaches a student (`classes.detail-visibility`).
+    - Every request or decision is mirrored into the coach ↔ student direct conversation, the same
+      channel invitations and cancellations already use: the request itself as a message from the
+      student's side (`msg_metadata.joinRequest`, coach push + SSE `join_request_created`), the
+      decision and the automatic "spot taken" reply (rule 11) as system messages to the student. The
+      coach's "class is now full" alert (rule 12) is delivered per superseded requester, inside
+      that requester's own conversation, plus one push — a conversation never names a third
+      student.
+    - First fill wins is enforced where every fill path already converges:
+      `_add_player_to_instance`. Once the class holds `max_players`, every other pending request
+      for it closes as `superseded` there, whichever path filled the spot.
 
 ### Acceptance Criteria
 
