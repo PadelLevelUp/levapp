@@ -1,6 +1,6 @@
 ---
 id: players.invite-completion
-status: implemented
+status: implementing
 depends_on: [players.create, clubs.coach-invitation, auth.activate]
 implements: ../../specs-business/players/coach-builds-roster.business.md
 governed_by: []
@@ -20,7 +20,8 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 7-day expiry, single-use enforced via a status enum.
 
 ### Entities
-- **PlayerInvitation** (`player_invitations`): player_id (FK → players, CASCADE), token (unique),
+- **PlayerInvitation** (`player_invitations`): player_id (FK → players, CASCADE), token_hash (unique;
+  the SHA-256 hex of the token, which is never stored, PAD-269),
   invited_by_coach_id (FK → coaches, SET NULL — PAD-255), status (pending|accepted|revoked|expired), expires_at, created_at
 
 ### State model
@@ -33,7 +34,10 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 1. A coach can create an incomplete player with only: name (required), level, and side. No username is
    required at creation. The player's User is created with status `inactive` and a placeholder username.
 2. Creating an incomplete player generates a PlayerInvitation with a unique single-use token, expiring
-   after 7 days (`secrets.token_urlsafe`), following the coach-invitation pattern.
+   after 7 days (`secrets.token_urlsafe`), following the coach-invitation pattern. Only the
+   token's SHA-256 hash is stored (PAD-269): the token appears once, in the creation response's
+   `inviteLink`. Links issued before PAD-269 keep working, because its migration hashed the
+   stored tokens in place.
 3. Only the coach associated with the player may create or revoke a player invitation.
 4. Frontend route: `/invite/player/:token` — a public (unauthenticated) profile-completion form.
 5. The completion form lets the player set their own username (unique across users), password, and

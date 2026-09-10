@@ -1,6 +1,6 @@
 ---
 id: clubs.coach-invitation
-status: implemented
+status: implementing
 depends_on: [clubs.crud, clubs.membership, auth.activate]
 implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: []
@@ -13,16 +13,16 @@ governed_by: []
 A coach who belongs to a club can invite another coach to join that club via a shareable invite link. Accepting the invitation creates (or links) the coach account and adds them to the club.
 
 ### Entities
-- **CoachInvitation** (`coach_invitations`): club_id (FK → clubs, CASCADE), token (unique), email (optional), invited_by_coach_id (FK → coaches, SET NULL — PAD-255), status (pending|accepted|revoked|expired), expires_at, created_at
+- **CoachInvitation** (`coach_invitations`): club_id (FK → clubs, CASCADE), token_hash (unique; the SHA-256 hex of the token, which is never stored, PAD-269), email (optional), invited_by_coach_id (FK → coaches, SET NULL — PAD-255), status (pending|accepted|revoked|expired), expires_at, created_at
 
 ### Rules
 1. Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it
-2. Each invitation has a unique single-use token, expiring after 7 days
+2. Each invitation has a unique single-use token, expiring after 7 days. Only its SHA-256 hash is stored (PAD-269); the token appears once, in the creation response's `inviteLink`, and links issued before PAD-269 keep working because its migration hashed the stored tokens in place.
 3. Frontend route: `/invite/coach/:token` — shows club name and accept form
 4. Accepting as a new user: registers a User + Coach with status `active`, then creates the `coach_in_club` association
 5. Accepting while authenticated as an existing coach: only creates the `coach_in_club` association (no-op if already a member)
 6. Used, revoked, or expired tokens are rejected (410)
-7. Inviter can list and revoke pending invitations for their club
+7. Inviter can list and revoke pending invitations for their club. `GET /api/app/club/<clubId>/coach-invitations` returns each pending invitation's `id`, `email`, `expiresAt` and `createdAt`, never its token (PAD-269: the list used to hand every coach of the club every live link). Revoking from the list is `POST /api/app/club/<clubId>/coach-invitations/<id>/revoke` (403 for a non-member, 404 for an id outside the club, 410 unless pending). `POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link.
 
 ### Acceptance Criteria
 
@@ -51,3 +51,15 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **Given** an invitation that is expired, revoked, or already accepted
 - **When** anyone attempts to accept it
 - **Then** the response status is 410
+
+#### The list never carries a token (PAD-269)
+- **Given** a pending invitation for club 1 created by a member coach
+- **When** another member coach GETs `/api/app/club/1/coach-invitations`
+- **Then** the row has `id`, `email`, `expiresAt` and `createdAt`, and no `token`
+- **And** the stored row holds only the token's SHA-256 hash
+
+#### Revoke from the list by id (PAD-269)
+- **Given** a pending invitation with id 7 for club 1
+- **When** a member coach POSTs `/api/app/club/1/coach-invitations/7/revoke`
+- **Then** the invitation becomes `revoked` and accepting its link answers 410
+- **And** the same call from a coach outside club 1 is 403

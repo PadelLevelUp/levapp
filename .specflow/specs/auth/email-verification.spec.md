@@ -1,6 +1,6 @@
 ---
 id: auth.email-verification
-status: implemented
+status: implementing
 depends_on: [auth.register, auth.login, settings.profile]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: [R-022, R-024]
@@ -120,6 +120,12 @@ own email in Settings.
     raises like a transport failure (so `send` answers 503 `MAIL_FAILED`, never a silent success).
     Empty means everyone (prod). Staging runs with a real sender and `@levapp.app` only, because
     its database is a copy of prod's and it must never mail a real coach.
+13. **Per-IP throttle (PAD-269).** `send` and `confirm` share one bucket, throttled per client IP
+    by `padel_app/utils/rate_limit.py` (`auth.login` rule 7) with the knob
+    `AUTH_RATE_LIMIT_VERIFICATION`, default `20/600`. Over the limit the request is not processed
+    and answers 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with `Retry-After`. This
+    sits on top of the per-user 60-second resend cooldown (rule 4) and the per-code attempt limit
+    (rule 3). The code screen shows the wait on web and iOS instead of a network error.
 
 ### Acceptance Criteria
 
@@ -259,6 +265,12 @@ own email in Settings.
 - **Given** pending coach `rui` who has not verified
 - **When** the admin GETs `/api/app/admin/coach-approvals`
 - **Then** `rui`'s row has `emailVerified: false`, and the Admin list marks it on web and iOS
+
+#### Verification is throttled per IP (PAD-269)
+- **Given** `AUTH_RATE_LIMIT_VERIFICATION` is `2/600`
+- **When** one IP makes three verification calls (send or confirm) within ten minutes
+- **Then** the third is 429 `RATE_LIMITED` with `retryAfterSeconds` and a `Retry-After` header
+- **And** no code is sent and no attempt is consumed by it
 
 ### Notes
 - Linear: PAD-234 (this), PAD-231 (mail sender: prod already has `MAIL_USERNAME` +
