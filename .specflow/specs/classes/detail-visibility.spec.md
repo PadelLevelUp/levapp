@@ -34,7 +34,25 @@ coach-only information about other players.
    `GET /api/app/lesson_instance/<id>/presences`) is authenticated and applies the same
    student-scoping: a student receives only their own presence row.
 
+5. **Reads are scoped to the class's own people (PAD-257, audit H1).** Before any of the three
+   id-keyed reads (`POST /api/app/class_instance`, `GET /api/app/lesson_instance/<id>`,
+   `GET /api/app/lesson_instance/<id>/presences`) returns anything, the caller must be:
+   - a **coach who owns the class** (`coach_owns_lesson` / `coach_owns_instance`, the PAD-92
+     helpers) **or a coach who is a member of the class's club** (`Association_CoachClub` on
+     `lessons.club_id`) — colleagues cover for each other; a coach from another club gets 403; or
+   - a **student enrolled in it** — an `Association_PlayerLessonInstance` or `Presence` row for
+     the instance, or an `Association_PlayerLesson` row for the parent lesson. Any other student
+     gets 403.
+   The role check alone (rules 2–4) never suffices: an id-keyed read by a coach of another club
+   used to return every participant with email and phone. 404 for an unknown id still comes
+   before 403 for a known one, matching the PAD-92 write guards.
+
 ### Acceptance Criteria
+
+#### A class is readable only by its own coaches, club colleagues and enrolled students (PAD-257)
+- **Given** coach Ana owns a class at club Norte, coach Carla is another member of Norte, coach Bruno belongs to club Sul, student Rui is enrolled and student Sara is not
+- **When** each calls `POST /class_instance`, `GET /lesson_instance/<id>` and `GET /lesson_instance/<id>/presences` for that class
+- **Then** Ana and Carla get 200 with the coach payload, Rui gets 200 with only his own presence, and Bruno and Sara get 403 with no participant, email or phone in the body
 
 #### Coach sees the full class detail
 - **Given** a coach who owns a class instance with players Alice and Bob, where Bob is absent
