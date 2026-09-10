@@ -31,9 +31,11 @@ class Presence(db.Model, model.Model):
     status = Column(Enum("present", "absent", name="lesson_presence_status"), nullable=True)
     justification = Column(Enum("justified", "unjustified", name="lesson_presence_justification"), nullable=True)
 
-    invited = Column(Boolean, default=False)
-    confirmed = Column(Boolean, default=False)
-    validated = Column(Boolean, default=False)
+    # PAD-273 (audit M12): NOT NULL with a database default, so a raw insert
+    # can never leave a NULL that `== True` readers silently drop.
+    invited = Column(Boolean, default=False, nullable=False, server_default="0")
+    confirmed = Column(Boolean, default=False, nullable=False, server_default="0")
+    validated = Column(Boolean, default=False, nullable=False, server_default="0")
     # Set when a student cancels their attendance at or after the coach's
     # configured cancellation deadline (but before the class starts). PAD-43.
     late_cancellation = Column(

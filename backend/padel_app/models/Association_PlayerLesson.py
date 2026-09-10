@@ -17,8 +17,8 @@ class Association_PlayerLesson(db.Model, model.Model):
     model_name = "Association_PlayerLesson"
 
     id = Column(Integer, primary_key=True)
-    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
-    lesson_id = Column(Integer, ForeignKey("lessons.id", ondelete="CASCADE"))
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    lesson_id = Column(Integer, ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False)
 
     player = relationship("Player", back_populates="lessons_relations")
     lesson = relationship("Lesson", back_populates="players_relations")

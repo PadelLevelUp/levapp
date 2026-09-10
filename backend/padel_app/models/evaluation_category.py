@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -8,7 +8,11 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class EvaluationCategory(db.Model, model.Model):
     __tablename__ = "evaluation_categories"
-    __table_args__ = {"extend_existing": True}
+    # PAD-273 (audit M14): uniqueness the domain implies, enforced by the database.
+    __table_args__ = (
+        Index("uq_evaluation_categories_coach_name", "coach_id", "name", unique=True),
+        {"extend_existing": True},
+    )
 
     page_title = "Evaluation Categories"
     model_name = "EvaluationCategory"
