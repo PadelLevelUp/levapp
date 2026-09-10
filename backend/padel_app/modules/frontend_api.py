@@ -2428,8 +2428,20 @@ def remove_player():
     assert_acting_coach(coach, data.get("coachId"))
     require_own_roster_relation(coach, data.get("playerId"))
     data["coachId"] = coach.id
-    result, status = remove_player_service(data)
+    # players.remove rules 4-6 (PAD-274): disconnect, or delete a placeholder; audited.
+    result, status = remove_player_service(data, actor_user_id=coach.user_id)
     return jsonify(result), status
+
+
+@bp.get("/player/<int:player_id>/removal_impact")
+@jwt_required()
+def player_removal_impact_route(player_id):
+    """players.remove rule 7 (PAD-274): which removal the coach gets, and what it takes."""
+    from padel_app.services.player_service import player_removal_impact
+
+    coach = require_coach()
+    require_own_roster_relation(coach, player_id)
+    return jsonify(player_removal_impact(coach.id, player_id)), 200
 
 
 @bp.post("/delete/coach_level")
@@ -2457,8 +2469,24 @@ def delete_evaluation_category():
     rel = EvaluationCategory.query.filter_by(id=_required_int_id(data)).first_or_404()
     if rel.coach_id != coach.id:
         abort(403, "Not authorized to delete this evaluation category")
-    rel.delete()
+    # evaluations.categories rule 7 (PAD-274): the scores go with it; audited.
+    from padel_app.services.coach_service import delete_evaluation_category_service
+
+    delete_evaluation_category_service(rel, actor_user_id=coach.user_id)
     return jsonify({"status": "Removed evaluation categories"}), 200
+
+
+@bp.get("/evaluation_category/<int:category_id>/impact")
+@jwt_required()
+def evaluation_category_impact_route(category_id):
+    """evaluations.categories rule 7 (PAD-274): what deleting this category removes."""
+    from padel_app.services.coach_service import evaluation_category_impact
+
+    coach = require_coach()
+    category = EvaluationCategory.query.filter_by(id=category_id).first_or_404()
+    if category.coach_id != coach.id:
+        abort(403, "Not authorized to read this evaluation category")
+    return jsonify(evaluation_category_impact(category)), 200
 
 
 @bp.post("/delete/coach_note")
