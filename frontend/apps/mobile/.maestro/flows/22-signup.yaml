@@ -58,7 +58,21 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-repeatPassword"
 - inputText: "Segura1234"
+# PAD-198: birth date is required; an adult in Portugal (the default country).
+- scrollUntilVisible:
+    element:
+      id: "signup-birthDate"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "signup-birthDate"
+- inputText: "01012000"
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:
@@ -109,7 +123,21 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-repeatPassword"
 - inputText: "Segura1234"
+# PAD-198: birth date is required; an adult in Portugal (the default country).
+- scrollUntilVisible:
+    element:
+      id: "signup-birthDate"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "signup-birthDate"
+- inputText: "01012000"
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:

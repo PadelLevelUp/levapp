@@ -42,3 +42,5 @@ executionOrder:
     - 28-password-recovery
     # 29 registers and rejects its own coach, so its position is not load bearing.
     - 29-coach-rejection
+    # 30 creates its own minor and guardian, so its position is not load bearing.
+    - 30-parental-consent
