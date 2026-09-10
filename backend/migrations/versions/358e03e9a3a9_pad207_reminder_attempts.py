@@ -10,7 +10,9 @@ only if absent, and the backfill inserts one row per existing
 out of the message's JSON metadata in Python (portable across Postgres and
 SQLite — no JSON operators). The player is the conversation participant who is
 not the sender (the coach sends reminders). Messages whose metadata carries no
-instance id are skipped (nothing to key on). No behaviour change.
+instance id are skipped (nothing to key on), and so are messages whose instance
+has since been deleted (B-059: the row would break the foreign key). No
+behaviour change.
 """
 import json
 from datetime import datetime
@@ -90,6 +92,14 @@ def upgrade():
         metadata = raw if isinstance(raw, dict) else (json.loads(raw) if isinstance(raw, str) and raw else None)
         fields = attempt_from_metadata(metadata, sent_at=sent_at)
         if fields is None:
+            continue
+        # B-059: a reminder whose class was deleted since names an instance that is
+        # gone. The table cascades on instance delete, so such a row could not
+        # exist; inserting it broke the FK and rolled back the whole deploy.
+        if bind.execute(
+            sa.text("SELECT 1 FROM lesson_instances WHERE id = :inst"),
+            dict(inst=fields["lesson_instance_id"]),
+        ).fetchone() is None:
             continue
         player = bind.execute(
             sa.text(
