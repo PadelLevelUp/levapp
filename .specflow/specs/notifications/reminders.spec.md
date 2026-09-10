@@ -43,6 +43,18 @@ Automatically send class reminders to enrolled players at a configured time befo
     touch the marker. (The read state is one watermark per conversation, so "read up to the
     answer" is the finest grain the model allows.)
 
+15. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
+    `init_scheduler` returns without starting APScheduler when the process is a migration
+    (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
+    `run`. That holds whether the process was launched as the `flask` console script or as
+    `python -m flask`, which is how the production entrypoint (`backend/scripts/entrypoint.sh`)
+    runs `db upgrade`. Server processes (gunicorn, `flask run`, including `flask --app app.py
+    run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
+    `flask/__main__.py`, the guard missed it, and every deploy's migration started the
+    scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
+    twice.
+    *(Numbered 15, not 14: PAD-258 (#155) appends a rule 14 to this file on its own branch.)*
+
 ### Acceptance Criteria
 
 #### Reminder job fires
@@ -107,3 +119,9 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **Then** the first reminder message is marked superseded (`msg_metadata.superseded = true`) and its action area renders as a disabled "expired" indicator (no live Yes/No buttons)
 - **And** only the second (latest) reminder shows actionable Yes/No buttons
 - **And** if the player had already confirmed/declined the first reminder, it keeps its status badge and is NOT marked superseded
+
+#### The scheduler does not start inside a migration (PAD-264)
+- **Given** the production entrypoint running `python -m flask --app app.py db upgrade`
+- **When** the app factory runs
+- **Then** APScheduler is not started and no reminder job is rescheduled
+- **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it
