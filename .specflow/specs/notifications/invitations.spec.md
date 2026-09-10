@@ -66,7 +66,10 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
    coach's entire roster. The same applies to the legacy rounds `same_level` criterion.
-5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger):
+5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
+   `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
+   be able to run the batch processor concurrently with the scheduler.
+   Details:
    - Skips vacancies with approval_status "pending" or "dismissed"
    - Sends batched invitations (maxSimultaneous at a time)
    - Respects restrictions (quiet hours, max per student per day, etc.)

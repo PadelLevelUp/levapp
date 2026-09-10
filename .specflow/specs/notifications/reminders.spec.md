@@ -42,6 +42,12 @@ Automatically send class reminders to enrolled players at a configured time befo
     answer still does. A duplicate answer (rule 12) or an expired reminder (rule 10) does not
     touch the marker. (The read state is one watermark per conversation, so "read up to the
     answer" is the finest grain the model allows.)
+14. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
+    the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
+    the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
+    written. Before this, any student could "decline" any class: a stray absent Presence was
+    created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
+    replacement invitations for a spot that was never theirs.
 
 ### Acceptance Criteria
 
