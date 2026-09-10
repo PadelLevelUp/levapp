@@ -22,6 +22,7 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 3. Returns JWT access token with 30-day expiry
 4. Token can be sent via Authorization header or query string (`?token=`)
 5. Token contains user identity (user_id)
+6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
 
 ### Acceptance Criteria
 

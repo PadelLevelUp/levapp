@@ -212,6 +212,18 @@ export default function LoginScreen() {
               )}
             </Button>
 
+            {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
+            <Pressable
+              testID="login-forgot-password"
+              accessibilityRole="link"
+              accessibilityLabel={t("auth.login.forgotPassword")}
+              onPress={() => router.push("/forgot-password")}
+              disabled={loading}
+              className="items-center"
+            >
+              <Text className="text-sm text-muted-foreground underline">{t("auth.login.forgotPassword")}</Text>
+            </Pressable>
+
             {/* auth.register rule 10 — the signup entry point lives on the login screen. */}
             <View className="flex-row items-center justify-center gap-1 pt-1">
               <Text className="text-sm text-muted-foreground">{t("auth.login.noAccount")}</Text>

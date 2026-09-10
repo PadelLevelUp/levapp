@@ -172,6 +172,13 @@ const AuthPage = () => {
             </Button>
           </form>
 
+          {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
+          <p className="mt-3 text-center text-sm">
+            <Link to="/forgot-password" className="text-muted-foreground underline hover:text-foreground" data-testid="auth-forgot-password">
+              {t("auth.login.forgotPassword")}
+            </Link>
+          </p>
+
           {/* auth.register rule 10 — the signup entry point lives on the login screen. */}
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {t("auth.login.noAccount")}{" "}

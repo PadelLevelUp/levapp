@@ -9,7 +9,7 @@ governing leaf spec and its dependencies before touching code.
 ## Domains
 
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
-- `auth/` — Authentication & User Management (11 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07)
+- `auth/` — Authentication & User Management (12 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (10 leaves)
 - `clubs/` — Club Management (4 leaves)
