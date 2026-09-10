@@ -72,3 +72,6 @@ export async function sendEmailVerificationCode(): Promise<SendVerificationCodeR
 export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
   return authApi.confirmEmailVerificationCode(code);
 }
+
+/** auth.coach-approval rule 12 (PAD-233). Not mockable — it notifies the admin. */
+export const reapplyCoachApproval = authApi.reapplyCoachApproval;

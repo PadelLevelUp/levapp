@@ -150,3 +150,20 @@ export async function confirmEmailVerificationCode(code: string): Promise<MeResp
   const res = await getApi().post("/auth/email-verification/confirm", { code });
   return res.data;
 }
+
+// ── auth.coach-approval rule 12 (PAD-233) ───────────────────────────────────
+
+/**
+ * A rejected coach asks for approval again, from the login screen, with the
+ * credentials they just typed. 200 answers with the login body (the client
+ * signs them in and lands on the pending screen); 401 wrong credentials;
+ * 410 not a rejected coach. The login itself answers 403
+ * `{error: "COACH_REJECTED", reason}` for a rejected coach (rule 11).
+ */
+export async function reapplyCoachApproval(payload: { username: string; password: string }): Promise<{
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player" };
+}> {
+  const res = await getApi().post("/auth/coach-approval/reapply", payload);
+  return res.data;
+}

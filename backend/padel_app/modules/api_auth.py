@@ -17,6 +17,10 @@ from padel_app.services.registration_service import (
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
+from padel_app.services.coach_approval_service import (
+    reapply_coach_service,
+    rejected_coach_of,
+)
 from padel_app.services.email_verification_service import (
     EmailVerificationError,
     confirm_code,
@@ -180,6 +184,13 @@ def login():
     if not user or not check_password_hash(user.password, password):
         return {"error": "Invalid credentials"}, 401
 
+    # auth.coach-approval rule 11 (PAD-233): right credentials, rejected
+    # coach — say why, issue nothing. Wrong credentials stay 401 above so the
+    # status never leaks to a guesser.
+    rejected = rejected_coach_of(user)
+    if rejected is not None:
+        return {"error": "COACH_REJECTED", "reason": rejected.rejection_reason}, 403
+
     access_token = create_access_token(identity=str(user.id))
 
     return {
@@ -191,6 +202,14 @@ def login():
         }
     }
     
+@bp.post("/coach-approval/reapply")
+def coach_approval_reapply():
+    """auth.coach-approval rule 12 (PAD-233): a rejected coach asks again."""
+    data = request.get_json(silent=True) or {}
+    body = reapply_coach_service(data.get("username"), data.get("password"))
+    return jsonify(body), 200
+
+
 @bp.post("/logout")
 @jwt_required()
 def logout():

@@ -1,4 +1,4 @@
-import { getApi } from "@levelup/api";
+import { authApi, getApi } from "@levelup/api";
 import { loginSchema } from "@levelup/validation";
 import { router } from "expo-router";
 import * as React from "react";
@@ -39,6 +39,9 @@ export default function LoginScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // auth.coach-approval rule 13 (PAD-233): a rejected coach sees why and can ask again.
+  const [rejected, setRejected] = React.useState<{ reason: string | null } | null>(null);
+  const [reapplying, setReapplying] = React.useState(false);
 
   const validate = (): boolean => {
     const result = loginSchema.safeParse({ username, password });
@@ -55,6 +58,38 @@ export default function LoginScreen() {
     return false;
   };
 
+  /** Session in hand: hydrate and route exactly as a fresh login does. */
+  const enter = async (accessToken: string) => {
+    await login(accessToken);
+    // auth.register rule 11: route by approval / club state, not straight
+    // to the tabs.
+    // players.join-token rule 9: a join link opened without a session comes
+    // first, once the account is one that can use it.
+    const route = postLoginLanding(await refreshUser());
+    const pending = consumePendingJoin();
+    // players.claim rule 3: an invite link opened to LINK an existing account.
+    const pendingClaim = consumePendingClaim();
+    if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
+      router.replace(`/invite/player/${pendingClaim}`);
+      return;
+    }
+    router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
+  };
+
+  const handleReapply = async () => {
+    setReapplying(true);
+    setFormError(null);
+    try {
+      const res = await authApi.reapplyCoachApproval({ username, password });
+      setRejected(null);
+      await enter(res.accessToken);
+    } catch {
+      setFormError(t("auth.login.reapplyFailed"));
+    } finally {
+      setReapplying(false);
+    }
+  };
+
   const handleLogin = async () => {
     setFormError(null);
     if (!validate()) return;
@@ -62,21 +97,12 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const res = await getApi().post("/auth/login", { username, password });
-      await login(res.data.accessToken);
-      // auth.register rule 11: route by approval / club state, not straight
-      // to the tabs.
-      // players.join-token rule 9: a join link opened without a session comes
-      // first, once the account is one that can use it.
-      const route = postLoginLanding(await refreshUser());
-      const pending = consumePendingJoin();
-      // players.claim rule 3: an invite link opened to LINK an existing account.
-      const pendingClaim = consumePendingClaim();
-      if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
-        router.replace(`/invite/player/${pendingClaim}`);
+      await enter(res.data.accessToken);
+    } catch (err: any) {
+      if (err?.response?.status === 403 && err.response?.data?.error === "COACH_REJECTED") {
+        setRejected({ reason: err.response.data.reason ?? null });
         return;
       }
-      router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
-    } catch (err: any) {
       // No `response` means the request never got a reply from the server —
       // network failure, timeout, DNS/connection error, wrong API host,
       // etc. Distinguish that from an actual auth rejection (401) so a
@@ -154,7 +180,10 @@ export default function LoginScreen() {
                 autoCorrect={false}
                 autoComplete="username"
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(v) => {
+                  setUsername(v);
+                  setRejected(null);
+                }}
                 editable={!loading}
               />
               {errors.username ? (
@@ -197,6 +226,21 @@ export default function LoginScreen() {
               >
                 {formError}
               </Text>
+            ) : null}
+
+            {rejected ? (
+              <View className="gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3" testID="login-rejected">
+                <Text className="text-sm font-medium text-foreground">{t("auth.login.rejectedTitle")}</Text>
+                <Text className="text-sm text-muted-foreground">{t("auth.login.rejectedDescription")}</Text>
+                {rejected.reason ? (
+                  <Text className="text-sm text-muted-foreground" testID="login-rejected-reason">
+                    {t("auth.login.rejectedReason", { reason: rejected.reason })}
+                  </Text>
+                ) : null}
+                <Button variant="outline" testID="login-reapply" disabled={reapplying} onPress={() => void handleReapply()}>
+                  {reapplying ? <ActivityIndicator color={"#1355DC"} /> : <Text>{t("auth.login.reapply")}</Text>}
+                </Button>
+              </View>
             ) : null}
 
             <Button

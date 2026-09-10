@@ -36,3 +36,5 @@ executionOrder:
     # 22 only reads (it never writes a presence), so it is order-independent;
     # it does read better after 04 has marked the seeded student present.
     - 22-student-attendance-history
+    # 29 registers and rejects its own coach, so its position is not load bearing.
+    - 29-coach-rejection

@@ -99,7 +99,7 @@ it is designed to be switched off later without a data change.
 #### Rejection stores the reason and blocks the coach
 - **Given** coach `rui` pending
 - **When** `admin` POSTs `.../reject` with `{"reason": "not a coach"}`
-- **Then** `approval_status = rejected`, `rejection_reason = "not a coach"`, and `rui`'s `POST /api/app/club` is 403 `COACH_NOT_APPROVED`
+- **Then** `approval_status = rejected`, `rejection_reason = "not a coach"`, and `rui`'s `POST /api/app/club` with the token from before the rejection is 401 (rule 10 killed the session; before PAD-233 it was 403 `COACH_NOT_APPROVED`)
 
 #### Rejection signs the coach out everywhere (PAD-233)
 - **Given** pending coach `rui` signed in on two devices
