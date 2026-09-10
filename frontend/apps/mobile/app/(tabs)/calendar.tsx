@@ -22,11 +22,12 @@ import { DayStrip } from "@/features/calendar/DayStrip";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import { ViewModeControl } from "@/features/calendar/ViewModeControl";
+import { WeekView } from "@/features/calendar/WeekView";
 import { cn } from "@/lib/utils";
 import { readViewMode, writeViewMode } from "@/lib/view-mode-store";
 
-/** Modes that have shipped. Semana arrives with PAD-247, Mês with PAD-248. */
-const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day"];
+/** Modes that have shipped. Mês arrives with PAD-248. */
+const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day", "week"];
 
 function eventDayKey(event: CalendarEvent): string {
   const date = event.date;
@@ -147,28 +148,42 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
         enabled={ENABLED_VIEW_MODES}
       />
 
-      <DayStrip
-        weekDays={calendar.weekDays}
-        selectedDay={calendar.selectedDay}
-        onSelectDay={calendar.selectDay}
-        onPrev={() => calendar.navigateWeek("prev")}
-        onNext={() => calendar.navigateWeek("next")}
-        eventsByDay={eventsByDay}
-      />
-
-      <View className="flex-1">
-        {isError ? (
-          <ErrorState
-            message={t("calendar.mobile.loadFailed")}
-            onRetry={() => refetch()}
+      {isError ? (
+        <View className="flex-1">
+          <ErrorState message={t("calendar.mobile.loadFailed")} onRetry={() => refetch()} />
+        </View>
+      ) : isPending ? (
+        <View className="flex-1 gap-3 p-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </View>
+      ) : calendar.viewMode === "week" ? (
+        // PAD-247: Semana — nav row, day header row, time grid, day sheet.
+        <WeekView
+          weekDays={calendar.weekDays}
+          weekLabel={calendar.weekLabel}
+          selectedDay={calendar.selectedDay}
+          onSelectDay={calendar.selectDay}
+          onPrevWeek={() => calendar.navigateWeek("prev")}
+          onNextWeek={() => calendar.navigateWeek("next")}
+          onToday={calendar.goToToday}
+          events={events ?? []}
+          eventsByDay={eventsByDay}
+          nextEventId={nextEventId}
+          levelCodeById={levelCodeById}
+          onEventPress={openEvent}
+        />
+      ) : (
+        <>
+          <DayStrip
+            weekDays={calendar.weekDays}
+            selectedDay={calendar.selectedDay}
+            onSelectDay={calendar.selectDay}
+            onPrev={() => calendar.navigateWeek("prev")}
+            onNext={() => calendar.navigateWeek("next")}
+            eventsByDay={eventsByDay}
           />
-        ) : isPending ? (
-          <View className="gap-3 p-4">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </View>
-        ) : (
           <ScrollView className="flex-1" contentContainerClassName="pb-32">
             <DayHeader day={calendar.selectedDay} count={dayEvents.length} />
             <View className="gap-3 px-5 pt-3">
@@ -196,8 +211,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
               )}
             </View>
           </ScrollView>
-        )}
-      </View>
+        </>
+      )}
 
       {/* Floating add actions (calendar.mobile-views rule 18): "Add event" for
           every role, "Add class" for coaches only. */}

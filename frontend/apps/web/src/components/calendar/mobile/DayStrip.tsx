@@ -9,6 +9,27 @@ import { dateFnsLocale } from "@/lib/dateLocale";
 /** Up to three dots per day, in start order — calendar.mobile-views rule 10. */
 export const MAX_DAY_DOTS = 3;
 
+/**
+ * The date circle's states (rule 10), shared with the Semana header row:
+ * selected → navy on white; today unselected → primary ring; else plain.
+ */
+export function dateCircleClass(selected: boolean, today: boolean): string {
+  return cn(
+    "flex items-center justify-center rounded-full font-bold tabular-nums",
+    selected && "bg-sidebar text-sidebar-foreground",
+    !selected && today && "text-primary ring-2 ring-inset ring-primary",
+    !selected && !today && "text-foreground"
+  );
+}
+
+/** The weekday abbreviation's colour (rule 10). */
+export function dayAbbrClass(selected: boolean): string {
+  return cn(
+    "font-bold uppercase tracking-wider",
+    selected ? "text-primary" : "text-muted-foreground"
+  );
+}
+
 function dotColor(event: CalendarEvent, now: Date): string {
   const { variant } = resolveCardVariant(event, { now });
   if (variant === "block") return "hsl(var(--muted-foreground))";

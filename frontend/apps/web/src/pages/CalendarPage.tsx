@@ -452,6 +452,8 @@ export default function CalendarPage() {
               onSelectDay={calendar.selectDay}
               onPrevWeek={() => calendar.navigateWeek("prev")}
               onNextWeek={() => calendar.navigateWeek("next")}
+              onToday={calendar.goToToday}
+              weekLabel={calendar.weekLabel}
               events={calendar.events}
               levels={levels}
               onEventClick={handleEventClick}

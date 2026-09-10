@@ -35,7 +35,9 @@ appId: com.padellevelup.app
     visible:
       id: "class-detail"
     timeout: 20000
-- back
+# Maestro's `back` is Android-only; on iOS the screen's own back button is used.
+- tapOn:
+    id: "class-detail-back"
 # Back on the calendar the mode is remembered.
 - extendedWaitUntil:
     visible:
