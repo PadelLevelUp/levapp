@@ -14,6 +14,7 @@ export * as classJoinRequestsApi from "./resources/classJoinRequests";
 export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";
 export * as dashboardApi from "./resources/dashboard";
+export * as editorApi from "./resources/editor";
 export * as evaluationApi from "./resources/evaluation";
 export * as fieldsApi from "./resources/fields";
 export * as invitationsApi from "./resources/invitations";

@@ -6,6 +6,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_req
 
 from padel_app.models import MODELS, User
 from padel_app.sql_db import db
+from padel_app.tools.redaction import redacted_columns, strip_redacted
 
 bp = Blueprint("editor_api", __name__, url_prefix="/api/editor")
 
@@ -20,8 +21,12 @@ def require_superadmin():
 
 
 def serialize(instance):
+    # settings.admin-editor rule 3 (PAD-267): secret columns never leave.
+    hidden = redacted_columns(instance)
     result = {}
     for col in instance.__table__.columns:
+        if col.name in hidden:
+            continue
         val = getattr(instance, col.name)
         if isinstance(val, (datetime, date)):
             result[col.name] = val.isoformat()
@@ -136,7 +141,8 @@ def create_record(model):
         abort(404, f"Model '{model}' not found")
 
     data = request.get_json() or {}
-    values = data.get("values", {})
+    # settings.admin-editor rule 3 (PAD-267): a secret is never written here.
+    values = strip_redacted(model_cls, data.get("values", {}))
 
     if not values:
         abort(400, "No values provided")
@@ -155,7 +161,8 @@ def update_record(model, record_id):
 
     instance = model_cls.query.get_or_404(record_id)
     data = request.get_json() or {}
-    values = data.get("values", {})
+    # settings.admin-editor rule 3 (PAD-267): a secret is never written here.
+    values = strip_redacted(model_cls, data.get("values", {}))
 
     if not values:
         abort(400, "No values provided")

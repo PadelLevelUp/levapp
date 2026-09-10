@@ -1,6 +1,6 @@
 ---
 id: settings.admin-editor
-status: implementing
+status: implemented
 depends_on: [auth.login, settings.role-scope]
 implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
@@ -87,3 +87,7 @@ directory (audit M9).
 - `/api/editor/<model>/options` and the legacy `/api/query/<model>` still load whole tables.
 - Writes use the generic `update_with_dict`, bypassing each domain's service invariants; accepted
   for a superadmin-only tool.
+- The Jinja editor's device-token pages have always failed (pre-existing, found in PAD-267): the
+  model's form declares an unsupported `"String"` field type, so `/editor/display/devicetoken/<id>`
+  raises, and it defines no list columns, so `/editor/display/devicetoken` raises too. Neither page
+  ever rendered a token; `/api/editor/devicetoken` (the web data browser) works and redacts it.

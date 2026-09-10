@@ -3,7 +3,7 @@ id: B-010
 title: "editor_api.py has a caller (web api/editor.ts) but no spec"
 type: missing-dev-spec
 severity: medium
-status: triaged
+status: resolved
 affects:
   - backend/padel_app/modules/editor_api.py
   - frontend/apps/web/src/api/editor.ts
@@ -12,6 +12,7 @@ affects:
   - settings.admin-editor
 proposed_fix: "Write a dev spec for the editor surface under .specflow/specs/ (web-only admin/authoring is a permitted parity exception if recorded) and cover its routes with a route-authorization test."
 opened: 2026-09-03T14:30:00Z
+resolved: 2026-09-10T12:00:00Z
 ---
 
 # B-010 — editor_api.py has a caller (web api/editor.ts) but no spec
@@ -44,5 +45,17 @@ ways; drop method invocation; drop the CSV routes.
 
 ### Resolution
 
-_Filled in when the PR lands._
+- Spec changes: `settings.admin-editor` (new, implemented) and the business rule in
+  `settings.coach-configures-preferences-and-access`.
+- Tests added: `backend/padel_app/tests/test_pad267_admin_editor.py` (20; 19 failed on the unfixed
+  code; the Jinja pages test was proved red by stashing only the `model.py` redaction and asserts every
+  page loads before checking its content, after a first draft passed vacuously on an error page).
+  `test_generic_crud_auth.py` updated to the superadmin-only rule and the removed CSV routes.
+- Code changes: `EDITOR_ENABLED` (config + `create_app`, on in development, off in production,
+  `backend/.env.staging` sets it); gated registration; `tools/redaction.py` applied to every read and
+  write, the Jinja form pre-fill and list columns; superadmin-only guards on `/api/*` and `/editor/*`;
+  method invocation refused; CSV routes, menu items and helpers removed; web client moved into
+  `@levelup/api`.
+- Verified: backend suite, Playwright `e2e/editor` + `e2e/security`, tsc web + mobile (counts in the PR).
+- Resolved: 2026-09-10 (PAD-175 + PAD-267).
 
