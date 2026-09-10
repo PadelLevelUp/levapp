@@ -11,7 +11,7 @@ The revision `cf030b78b088` adds sixteen plain indexes and the models declare
 the same ones. Both halves are pinned here, because the pytest schema is built
 with `create_all` from the models while real databases get the migration: when
 the two disagree nothing fails until `flask db migrate` drafts a revision that
-drops the difference (ledger B-032).
+drops the difference (the PAD-265 drift entry, #163).
 
 Specs: the Entities sections of classes.instances, classes.enrollment,
 classes.create, classes.coach-assignment, attendance.presence, calendar.blocks,

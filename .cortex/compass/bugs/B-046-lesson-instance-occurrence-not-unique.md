@@ -63,7 +63,7 @@ constraints that the move can collide with.
 3. **Constrain** in a guarded migration: create `uq_lesson_instance_occurrence` only if absent and
    only if the step-1 query returns nothing (fail with a message naming the duplicate ids otherwise),
    then drop `ix_lesson_instances_lesson_id_occurrence_date`, which the unique index supersedes.
-   Declare the constraint on the model in the same change (B-032).
+   Declare the constraint on the model in the same change (see the PAD-265 drift entry, #163).
 4. **Make materialisation race-safe:** once the constraint exists, `get_or_materialize_instance`
    should catch the `IntegrityError` from a concurrent insert and re-read, instead of failing the
    request.
@@ -75,5 +75,5 @@ constraints that the move can collide with.
    for the expired ones), then add the index.
 
 **Related:** PAD-85 (the duplicates' origin), PAD-263 (the plain index), PAD-261 / B-051 (the deferred
-vacancy unique), B-032 (keep models and
+vacancy unique), the PAD-265 drift entry in #163 (keep models and
 migrations declaring the same indexes).

@@ -31,7 +31,7 @@ Decisions:
 
 The models declare the same sixteen indexes, and
 `tests/test_pad263_hot_path_indexes.py` pins the two lists together, so
-`flask db migrate` does not draft their removal (see ledger B-032).
+`flask db migrate` does not draft their removal (see the PAD-265 drift entry, #163).
 
 Revision ID: cf030b78b088
 Revises: 93731ca0bea7
