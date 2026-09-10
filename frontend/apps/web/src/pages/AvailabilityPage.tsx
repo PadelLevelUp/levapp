@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { format, addMonths } from "date-fns";
 import { CalendarOff, Repeat, Trash2, Plus, Pencil } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import {
   Card,
   CardContent,
@@ -229,6 +230,9 @@ export default function AvailabilityPage() {
             </Button>
           )}
         </div>
+
+        {/* PAD-104: the student books a class in the coach's free time. */}
+        {!showForm && <ClassRequestsSection role="student" />}
 
         {showForm && (
           <Card>

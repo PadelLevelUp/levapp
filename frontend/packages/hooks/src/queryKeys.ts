@@ -23,6 +23,11 @@ export const queryKeys = {
   unreadCount: ["messages-unread-count"] as const,
   coachLevels: ["coach_levels"] as const,
   availabilityBlockers: ["availability-blockers"] as const,
+  // PAD-104: class requests (both roles), the student's coaches, a coach's free blocks.
+  classRequests: ["class-requests"] as const,
+  classRequestCoaches: ["class-request-coaches"] as const,
+  classRequestFreeBlocks: (coachId: string, date: string) =>
+    ["class-request-free-blocks", coachId, date] as const,
   exercises: ["exercises"] as const,
   exercise: (id: string) => ["exercises", id] as const,
   exerciseGroups: ["exercise-groups"] as const,

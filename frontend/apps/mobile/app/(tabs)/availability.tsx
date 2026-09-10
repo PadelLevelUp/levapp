@@ -8,6 +8,7 @@ import { useAvailabilityBlockers } from "@levelup/hooks";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
+import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -212,6 +213,9 @@ export default function AvailabilityScreen() {
         <Text className="text-sm text-muted-foreground">
           {t("availability.intro")}
         </Text>
+
+        {/* PAD-104: the student books a class in the coach's free time. */}
+        {!showForm ? <ClassRequestsSection role="student" /> : null}
 
         {showForm ? (
           <BlockerForm

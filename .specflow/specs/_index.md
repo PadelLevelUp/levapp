@@ -81,7 +81,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | auth | 5 | 9 | implemented (auth.email-verification draft) |
 | clubs | 3 | 4 | implemented |
 | players | 3 | 11 (+1 deprecated) | implemented |
-| classes | 3 | 11 | implemented (classes.join-requests draft; classes.class-requests implementing) |
+| classes | 3 | 11 | implemented (classes.join-requests draft; classes.class-requests implemented) |
 | calendar | 2 | 8 | implemented (calendar.student-blockers partial; calendar.mobile-views draft) |
 | eligibility | 1 | 4 | draft |
 | attendance | 2 | 5 | partial |

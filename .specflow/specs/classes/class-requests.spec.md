@@ -1,6 +1,6 @@
 ---
 id: classes.class-requests
-status: implementing
+status: implemented
 depends_on: [classes.create, calendar.view, calendar.blocks, messaging.messages]
 implements: ../../specs-business/classes/student-books-a-class.business.md
 governed_by: []
@@ -47,7 +47,13 @@ held on the coach's calendar while the request is open.
    side) — the same channels invitations and cancellations already use.
 7. **Requests for the past are refused**, and a slot that is no longer free (another request or a
    class landed meanwhile) answers `409 slot_taken`.
-8. `GET /app/class-requests` lists the caller's own requests (a student's, or every request
+8. **Times follow the class-time convention (PAD-256 / audit C3).** A slot is the wall-clock the
+   user typed, stored naive and serialised back unchanged — exactly as `classes.create` stores a
+   class today; free blocks are computed in the calendar's own `HH:MM` strings; "has it started"
+   compares against the same naive clock the calendar and the notification engine use. The module
+   keeps one clock (`_now_wall_clock`) and one parser (`_parse_slot`) so the PAD-256 decision changes
+   them in one place. No new timezone assumption is introduced.
+9. `GET /app/class-requests` lists the caller's own requests (a student's, or every request
    addressed to the coach), newest first, with `playerName` / `coachName`.
 
 ### Acceptance Criteria
