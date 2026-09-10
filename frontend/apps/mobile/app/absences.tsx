@@ -146,6 +146,7 @@ export default function AbsencesScreen() {
               granularity={history?.granularity ?? "day"}
               loading={isPending}
               error={isError}
+              copyNamespace="absences.chart"
             />
             <AttendanceRangeControls
               preset={preset}

@@ -429,8 +429,10 @@ export default function ClassDetailScreen() {
           })
         );
       }
+      // PAD-239: a student's own opt-out is a caveat, not a failure — warning
+      // slot, as on web.
       if (optedOut.length > 0) {
-        toast.error(
+        toast.warning(
           t("calendar.notify.blockedByPreference", {
             names: blockedNames(optedOut),
           }),

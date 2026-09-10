@@ -160,11 +160,10 @@ export function NotifyModal({
       }
       // PAD-112: a student who blocked notifications is skipped; naming them
       // (and their own reason, when they gave one) makes the short count read
-      // as their choice rather than as a failure. Web uses a warning toast
-      // here; the mobile toast has only success/error, and reporting "could
-      // not notify" as a success would be a lie, so it takes the error slot.
+      // as their choice rather than as a failure. Same warning slot web uses
+      // (PAD-239 added the variant; before that this sat in the error slot).
       if (optedOut.length > 0) {
-        toast.error(
+        toast.warning(
           t("calendar.notify.blockedByPreference", {
             names: blockedNames(optedOut),
           }),

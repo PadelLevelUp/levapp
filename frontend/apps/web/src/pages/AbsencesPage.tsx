@@ -160,6 +160,7 @@ export default function AbsencesPage() {
               granularity={history?.granularity ?? "day"}
               loading={loading && !history}
               error={error}
+              copyNamespace="absences.chart"
             />
             <AttendanceRangeControls
               preset={preset}

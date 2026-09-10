@@ -22,17 +22,25 @@ const CHART_HEIGHT = 200;
  * `Chart` primitive; the labelling rules live in `attendance-series.ts`, where
  * they are testable without a renderer. Loading and error are rendered at the
  * chart's own size so the card does not jump between states.
+ *
+ * PAD-221: `copyNamespace` picks whether the empty/loading/error strings come
+ * from `attendance.chart` or `absences.chart` — the absences screen (PAD-163)
+ * reuses this chart and used to read "no attendance recorded".
  */
+export type AttendanceChartCopyNamespace = "attendance.chart" | "absences.chart";
+
 export function AttendanceChart({
   buckets,
   granularity,
   loading,
   error,
+  copyNamespace = "attendance.chart",
 }: {
   buckets: AttendanceBucket[];
   granularity: AttendanceGranularity;
   loading?: boolean;
   error?: boolean;
+  copyNamespace?: AttendanceChartCopyNamespace;
 }) {
   const { t } = useTranslation();
   const locale = useDateLocale();
@@ -50,7 +58,7 @@ export function AttendanceChart({
       <Skeleton
         testID="attendance-chart"
         className="h-[200px] w-full rounded-md"
-        accessibilityLabel={t("attendance.chart.loading")}
+        accessibilityLabel={t(`${copyNamespace}.loading`)}
       />
     );
   }
@@ -63,7 +71,7 @@ export function AttendanceChart({
         style={{ height: CHART_HEIGHT }}
       >
         <Text role="alert" className="text-sm text-destructive">
-          {t("attendance.chart.error")}
+          {t(`${copyNamespace}.error`)}
         </Text>
       </View>
     );
@@ -75,11 +83,11 @@ export function AttendanceChart({
       data={points}
       variant="bar"
       height={CHART_HEIGHT}
-      emptyLabel={t("attendance.chart.empty")}
+      emptyLabel={t(`${copyNamespace}.empty`)}
       accessibilityLabel={attendanceChartLabel(
         points,
-        t("attendance.chart.seriesLabel"),
-        t("attendance.chart.empty")
+        t(`${copyNamespace}.seriesLabel`),
+        t(`${copyNamespace}.empty`)
       )}
     />
   );
