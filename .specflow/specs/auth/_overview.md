@@ -18,6 +18,7 @@ The auth domain.
 - `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
 - `auth.mobile-universal-links` — implemented
 - `auth.mobile-account-creation` — implemented
+- `auth.account-profiles` — implementing (PAD-260: an account has at most one player and one coach profile; a profile never outlives its account)
 
 ## Why it's grouped this way
 
