@@ -30,3 +30,4 @@ whether a failure mode has been seen before.
 - [B-051](B-051-capacity-and-vacancy-check-then-write-without-a-lock.md) — capacity, one-winner-per-vacancy and materialisation were check-then-write with no row lock (incomplete-rule, high, resolved in PAD-261)
 - [B-037](B-037-account-deletion-leaves-the-future-behind.md) — account deletion left enrolments, reminders, pushes, waiting-list credits, legacy login and roster listings behind (missing-dev-spec, medium, resolved in PAD-268)
 - [B-038](B-038-privacy-policy-omits-ai-import-processor.md) — privacy policy does not name the AI import processor (OpenRouter) or the EEA transfer (layer-drift, medium, open — owner action)
+- [B-052](B-052-editor-registry-traps.md) — editor registry traps: Message under "lessage" (404), DeviceToken and LessonInstanceTraining schema 500s; keys are now the lowercased class name, pinned by a registry walk (missing-criterion, low, resolved in PAD-280)

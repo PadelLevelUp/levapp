@@ -9,8 +9,7 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class Presence(db.Model, model.Model):
     __tablename__ = "presences"
-    __table_args__ = {"extend_existing": True}
-    
+
     page_title = "Presences"
     model_name = "Presence"
 
@@ -44,11 +43,14 @@ class Presence(db.Model, model.Model):
     def name(self):
         return f"<Presence {self.id}"
 
+    # PAD-280: assigned once. A second assignment used to replace the first,
+    # silently dropping extend_existing.
     __table_args__ = (
         UniqueConstraint(
             "player_id", "lesson_instance_id",
             name="uq_presence_player_lesson_instance"
         ),
+        {"extend_existing": True},
     )
 
     @classmethod

@@ -64,7 +64,7 @@ MODELS = {
     "coach": Coach,
     "lessoninstance": LessonInstance,
     "lesson": Lesson,
-    "lessage": Message,
+    "message": Message,
     "messagereaction": MessageReaction,
     "messagereport": MessageReport,
     "blockeduser": BlockedUser,
@@ -85,10 +85,10 @@ MODELS = {
     "playerclaimrequest": PlayerClaimRequest,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
-    "season": CoachSeason,
+    "coachseason": CoachSeason,
     "exercise": Exercise,
     "exercisegroup": ExerciseGroup,
-    "conversation_participant": ConversationParticipant,
+    "conversationparticipant": ConversationParticipant,
     "association_coachclub": Association_CoachClub,
     "association_coachlesson": Association_CoachLesson,
     "association_coachlessoninstance": Association_CoachLessonInstance,
@@ -98,7 +98,11 @@ MODELS = {
     "association_playerlessoninstance": Association_PlayerLessonInstance,
     "association_coachexercise": Association_CoachExercise,
     "association_coachexercisegroup": Association_CoachExerciseGroup,
-    "lesson_instance_training": LessonInstanceTraining,
+    # NOTE: LessonInstanceTraining is deliberately excluded (PAD-280, B-052), for
+    # the same reason as TokenBlocklist: it is a plain association table (no
+    # editor Model mixin, a composite key and no `id`), so the editor's schema
+    # and list routes both 500'd on it. Keys are the lowercased class name —
+    # the legacy editor and api.py look models up by `model_name.lower()`.
     "notificationconfig": NotificationConfig,
     "notificationevent": NotificationEvent,
     "replacementapprovalprompt": ReplacementApprovalPrompt,

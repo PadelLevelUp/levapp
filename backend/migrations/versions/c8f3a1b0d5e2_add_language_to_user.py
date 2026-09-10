@@ -1,7 +1,7 @@
 """add language to user
 
 Revision ID: c8f3a1b0d5e2
-Revises: 7a4c9e2d1f30
+Revises: 1705ccface4a
 Create Date: 2026-07-03 10:00:00.000000
 
 """
