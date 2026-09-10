@@ -7,6 +7,12 @@ confirmed -> ``confirmed`` nor declined/timed-out -> ``expired``).
 """
 from datetime import datetime, timedelta
 
+# PAD-253: one fixed daytime instant for the seed AND the helpers under test.
+# The seed read the wall clock and the helpers read their own; from 23:00 UTC in
+# Lisbon summer time the seeded "tomorrow" (a UTC date) was already the club's
+# today, so the count came back 0.
+NOW = datetime(2026, 8, 4, 10, 0)
+
 
 def _seed(app):
     from padel_app.sql_db import db
@@ -66,7 +72,7 @@ def _seed(app):
             db.session.flush()
             return inst
 
-        now = datetime.utcnow()
+        now = NOW
         tomorrow = (now + timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
         today = now.replace(hour=9, minute=0, second=0, microsecond=0)
 
@@ -100,7 +106,7 @@ def test_count_pending_confirmations_only_tomorrow_sent(app):
     coach_id, _, _ = _seed(app)
     with app.app_context():
         # Only p0 & p1 (sent, tomorrow) count — confirmed/expired/today excluded.
-        assert count_pending_confirmations(coach_id=coach_id) == 2
+        assert count_pending_confirmations(coach_id=coach_id, now=NOW) == 2
 
 
 def test_pending_targets_grouped_by_instance(app):
@@ -108,7 +114,7 @@ def test_pending_targets_grouped_by_instance(app):
 
     coach_id, tomo_inst_id, _ = _seed(app)
     with app.app_context():
-        targets = get_pending_confirmation_targets(coach_id=coach_id)
+        targets = get_pending_confirmation_targets(coach_id=coach_id, now=NOW)
         assert len(targets) == 1
         instance_id, player_ids = targets[0]
         assert instance_id == tomo_inst_id
@@ -131,7 +137,7 @@ def test_notify_pending_only_targets_pending_students(app, monkeypatch):
     monkeypatch.setattr(ns, "send_manual_notifications", fake_send)
 
     with app.app_context():
-        result = pending_mod.notify_pending_confirmations(coach_id=coach_id)
+        result = pending_mod.notify_pending_confirmations(coach_id=coach_id, now=NOW)
 
     assert result == {"instances": 1, "sent": 2}
     assert len(calls) == 1
