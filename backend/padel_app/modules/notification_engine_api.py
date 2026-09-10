@@ -4,7 +4,7 @@ from flask import Blueprint, abort, current_app, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from padel_app.models import Lesson, LessonInstance, User
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
     get_config_dict,
@@ -547,7 +547,7 @@ def debug_schedule_reminder_test():
     from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
-    from padel_app.scheduler import schedule_instance_jobs, _compute_reminder_dt, ensure_scheduler_ready
+    from padel_app.scheduler import schedule_instance_jobs, _fire_time_utc, ensure_scheduler_ready
     from padel_app.services.notification_service import get_or_create_config
 
     # Fail loudly if the scheduler didn't initialise — otherwise the test would
@@ -570,8 +570,9 @@ def debug_schedule_reminder_test():
     if not coach or not student1 or not student2 or not club:
         abort(500, "Seed data incomplete")
 
-    now = utcnow_naive()
-    class_start = now + timedelta(hours=48, seconds=seconds_until_fire)
+    # PAD-256: a class time is Lisbon wall-clock (R-023), so build it on the
+    # club's clock; the 48 h reminder then fires `seconds_until_fire` from now.
+    class_start = club_now_naive() + timedelta(hours=48, seconds=seconds_until_fire)
     class_end = class_start + timedelta(hours=1)
 
     lesson = Lesson(
@@ -619,7 +620,7 @@ def debug_schedule_reminder_test():
     schedule_instance_jobs(instance.id, coach.id)
 
     config = get_or_create_config(coach.id)
-    reminder_dt = _compute_reminder_dt(instance, config.get_reminder_timing())
+    reminder_dt = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
 
     ms_to_wait = 0
     if reminder_dt:

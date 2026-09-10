@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from padel_app.sql_db import db
-from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive
 from padel_app.models import (
     Association_CoachLessonInstance,
     Association_CoachPlayer,
@@ -2208,7 +2208,8 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         if _log:
             _log.info("send_class_reminders: instance %s status=%s — skipping", instance_id, instance.status)
         return _no_send
-    if instance.start_datetime <= _now:
+    # PAD-256 (notifications.reminders rule 15): the class time is wall-clock.
+    if instance.start_datetime <= utc_to_wall_naive(_now):
         if _log:
             _log.info("send_class_reminders: instance %s start_datetime in the past — skipping", instance_id)
         return _no_send
