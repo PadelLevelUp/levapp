@@ -3,7 +3,7 @@ id: B-009
 title: "`compute_coach_kpis` has no caller"
 type: layer-drift
 severity: low
-status: fixed
+status: resolved
 affects:
   - backend/padel_app/helpers/dashboard/kpis.py
 proposed_fix: "Delete, or record the intent in the dashboard spec and reference it from a follow-up ticket."

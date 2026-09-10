@@ -3,13 +3,10 @@ id: 2026-09-09-one-number-for-classes-to-validate
 title: "One number for \"classes to validate\": classes, per Presences-tab week, one helper"
 date: 2026-09-09
 status: accepted
-sources:
-  - PAD-190
-  - PAD-201
 compass_rules: []
 related_specs:
-  - .specflow/specs/dashboard/blocks.spec.md
-  - .specflow/specs/attendance/validation.spec.md
+  - dashboard.blocks
+  - attendance.validation
 ---
 
 # One number for "classes to validate"

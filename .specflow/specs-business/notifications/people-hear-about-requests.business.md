@@ -1,5 +1,5 @@
 ---
-id: business.notifications.people-hear-about-requests
+id: notifications.people-hear-about-requests
 status: implemented
 implemented_by:
   - ../../specs/notifications/request-alerts.spec.md
