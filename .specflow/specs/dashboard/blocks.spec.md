@@ -114,6 +114,17 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    `notify_pending_confirmations`, which actually **sends** messages, so a misaligned boundary does
    not merely misreport a number — it nudges the wrong students about the wrong day's classes.
 
+8. **(PAD-262, audit H9) One pipeline call per paint, scoped in SQL.** The coach home loads its
+   classes ONCE — one calendar-pipeline call over the widest window any block needs (from a week
+   before the current week to the hero's 90-day horizon) — and every block cuts its own window
+   from that set; the blocks' output is identical to loading each window separately. The
+   instance loader filters by coach in SQL (the instance's own coach junction, or the lesson's
+   when the instance has none) and eager-loads the lesson, its coaches, the instance's coaches,
+   enrolments and presences, so a window costs a fixed number of statements however many
+   classes it holds and never touches another coach's rows. The replies queue asks the database
+   for the newest unread message per conversation, capped at the queue limit, instead of every
+   unread message.
+
 ### Acceptance Criteria
 
 #### Coach dashboard
