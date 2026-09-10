@@ -90,9 +90,12 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
    **Não autorizo** does the same through `POST /api/auth/guardian-consent/<token>/decline`
    `{"confirm": true}`. Both confirmation steps state that the child's account and data are removed
    and that this cannot be undone.
-10. **Clients** (web and iOS, R-024). The sign-up form gains a date-of-birth field (native date input
-    on web, the app's date picker on iOS), a country select (Portugal pre-selected), and — once the
-    date and country make the person a minor — a guardian email field with a one-line explanation.
+10. **Clients** (web and iOS, R-024). The sign-up form gains a date-of-birth field (the browser's
+    date input on web; on iOS a `DD/MM/AAAA` field with the number pad — the app's wheel picker opens
+    on today, which is slow for a date years back and cannot be driven by the Maestro suite), a
+    country select (Portugal pre-selected), and — once the date and country make the person a minor
+    by the client's copy of the seed ages, or the server answers `GUARDIAN_EMAIL_REQUIRED` — a
+    guardian email field with a one-line explanation.
     After a pending sign-up, and after a 403 `GUARDIAN_CONSENT_PENDING` on login, both screens show
     a "waiting for your guardian" card: the masked guardian email, **Enviar novamente** (60-second
     countdown), **Alterar email do encarregado** and **Voltar a entrar**. The consent and withdraw
