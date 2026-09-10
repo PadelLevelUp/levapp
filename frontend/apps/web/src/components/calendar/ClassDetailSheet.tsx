@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, parseISODate } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -851,11 +851,11 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   <p className="text-sm font-medium">
-                    {format(new Date(active.date), "EEE, d MMM", { locale: dateFnsLocale(i18n.language) })}
+                    {format(parseISODate(active.date), "EEE, d MMM", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   {active.recurrenceEnd && !active.parentClassId && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })}
+                      {t("calendar.detail.untilDate", { date: format(parseISODate(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })}
                     </p>
                   )}
                 </div>
