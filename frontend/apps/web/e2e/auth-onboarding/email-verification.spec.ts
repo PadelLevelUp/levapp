@@ -59,6 +59,63 @@ test("US-234: the verify screen holds the newcomer until the code is typed", asy
   await expect(page.getByTestId("profile-email-verified")).toBeVisible({ timeout: 10_000 });
 });
 
+test("US-250: just registered means a code is in flight — no send request, only a countdown", async ({ page }) => {
+  // auth.email-verification rule 8a / B-031: signup already sent the code
+  // (rule 6); the screen must not ask for another and must not show the
+  // cooldown as an error.
+  let sendCalls = 0;
+  page.on("request", (req) => {
+    if (/\/api\/auth\/email-verification\/send$/.test(req.url()) && req.method() === "POST") sendCalls += 1;
+  });
+  const username = `e2e-inflight-${stamp()}`;
+  await signUpToVerifyScreen(page, username);
+
+  const resend = page.getByTestId("verify-email-resend");
+  await expect(resend).toBeDisabled();
+  await expect(resend).toContainText(/\d+s/);
+  await expect(page.getByTestId("verify-email-hint")).toBeVisible();
+  await expect(page.getByTestId("verify-email-error")).toHaveCount(0);
+  // Reloading re-hydrates the countdown from /me instead of asking again.
+  await page.reload();
+  await expect(page.getByTestId("verify-email")).toBeVisible();
+  await expect(resend).toBeDisabled();
+  await expect(page.getByTestId("verify-email-error")).toHaveCount(0);
+  expect(sendCalls).toBe(0);
+});
+
+test("US-250: a too-soon resend is a countdown, not an error", async ({ page }) => {
+  // auth.email-verification rule 8a / B-031: a 429 carries retryAfterSeconds;
+  // the button counts down from it and nothing turns red.
+  const username = `e2e-toosoon-${stamp()}`;
+  await signUpToVerifyScreen(page, username);
+
+  // Make the button clickable without waiting out the real cooldown: the
+  // screen seeds its countdown from /me on load.
+  await page.route("**/api/auth/me", async (route) => {
+    const res = await route.fetch();
+    const body = (await res.json()) as Record<string, unknown>;
+    await route.fulfill({ response: res, json: { ...body, emailVerificationResendInSeconds: 0 } });
+  });
+  await page.route("**/api/auth/email-verification/send", async (route) => {
+    await route.fulfill({
+      status: 429,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "RESEND_TOO_SOON", retryAfterSeconds: 42 }),
+    });
+  });
+  await page.reload();
+  await expect(page.getByTestId("verify-email")).toBeVisible();
+
+  const resend = page.getByTestId("verify-email-resend");
+  await expect(resend).toBeEnabled();
+  await resend.click();
+
+  await expect(resend).toBeDisabled();
+  await expect(resend).toContainText(/4[12]s/);
+  await expect(page.getByTestId("verify-email-error")).toHaveCount(0);
+  await expect(page.getByTestId("verify-email-hint")).toBeVisible();
+});
+
 test("US-234: Send a new code counts down, then replaces the code", async ({ page }) => {
   test.slow(); // waits out the 60 s server cooldown once
   const username = `e2e-resend-${stamp()}`;

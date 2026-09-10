@@ -1,6 +1,6 @@
 ---
 id: auth.email-verification
-status: draft
+status: implemented
 depends_on: [auth.register, auth.login, settings.profile]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: [R-022, R-024]
@@ -64,7 +64,12 @@ own email in Settings.
    minutes", "if this wasn't you, ignore this email") plus a plain-text alternative. pt-PT, *tu*,
    no emoji. The sender is the configured `MAIL_USERNAME`; the mail is rendered by
    `padel_app/tools/email_templates.py`, the same module that renders the coach-approval mail
-   (`auth.coach-approval` rule 5).
+   (`auth.coach-approval` rule 5). Every image and link in the mail is an absolute URL rooted at
+   `PUBLIC_WEB_ORIGIN`, and every deployed environment sets that variable to its **own** origin
+   in `backend/.env.<env>` (`https://staging.levapp.app` on staging, `https://levapp.app` on
+   prod) so staging mail can be checked against staging's assets; the `https://levapp.app`
+   default in the module is only for a box that sets nothing. A missing brand asset is a 404
+   from the web app, never the SPA shell (`auth.mobile-universal-links` notes).
 8. **Client routing (web and iOS, R-024).** Right after signup, and on every app load, a user
    whose `emailVerification` is `"pending"` is held on the **Verify your email** screen before
    the pending-approval / club-onboarding / connect-with-a-coach / dashboard routing of
@@ -75,6 +80,24 @@ own email in Settings.
    cells, and offers **Send a new code** (disabled with a 60-second countdown after each send),
    **Change email** (edits the address inline, PATCHes `/api/auth/me`, which issues a fresh code
    to the new address) and **Sign out**. A user whose state is `"unverified"` is never held here.
+   - 8a. **Just registered means a code is in flight.** The screen never requests a code on
+     mount for a `"pending"` user — signup (rule 6) and a Settings email change
+     (`settings.profile` rule 9) already sent one — and its countdown starts from
+     `emailVerificationResendInSeconds`. Only an `"unverified"` user (Settings → Verify) gets a
+     code requested on mount. A 429 `RESEND_TOO_SOON` from **Send a new code** is never
+     presented as a failure: the button takes `retryAfterSeconds` as its countdown and the
+     hint under the cells stays neutral; no error text is shown.
+   - 8b. **Paste on iOS.** The real input is an invisible overlay (so the keypad and autofill
+     land in it), which leaves iOS with nothing to anchor its Paste callout to. A **Paste
+     code** button under the cells reads the clipboard, keeps the first run of 6 digits and
+     submits it; a clipboard with no such run shows a neutral "no code in the clipboard" hint
+     and clears any stale wrong-code error. iOS shows its own "LevApp would like to paste
+     from …" prompt on a programmatic read (pasteboard privacy, first read per source app);
+     that prompt is the OS's and is expected.
+     Web has no button: its real input already accepts ⌘V/Ctrl+V, and browser clipboard-read
+     either prompts (Chrome) or is unsupported (Firefox), so the exception to R-024 is
+     deliberate. Nothing in the mail itself can copy — mail clients run no script — so the
+     mail keeps the code as one selectable token (letter-spacing, never inserted spaces).
 9. **Settings.** The profile section (web and iOS) shows the email's state next to the field:
    *Verified* (success tone) or *Not verified* with a **Verify** action that opens the same code
    screen (as a route on web, a modal on iOS). Saving a new email address shows the code screen
@@ -198,9 +221,33 @@ own email in Settings.
 - **When** the countdown ends and the user clicks it
 - **Then** the debug route returns a different code, the button is disabled again and the old code no longer verifies
 
+#### Just registered means a code is in flight
+- **Given** a visitor who just created an account on web or iOS
+- **When** the verify screen appears
+- **Then** no `POST /api/auth/email-verification/send` leaves the client, and **Send a new code** is disabled and counting down
+
+#### A too-soon resend is not an error
+- **Given** the verify screen with **Send a new code** enabled
+- **When** the user clicks it and the server answers 429 `RESEND_TOO_SOON` with `retryAfterSeconds: 42`
+- **Then** the button is disabled and reads a countdown from 42, and no error text is shown under the cells
+
 #### Same flow on iOS
 - **Given** the iOS app after a self-signup
 - **Then** the same verify screen is shown, with the numeric keypad and the one-time-code autofill hint, and it accepts a pasted code
+
+#### Paste on iOS
+- **Given** the iOS verify screen and `166315` (the current code) on the clipboard
+- **When** the user taps **Paste code**
+- **Then** the six cells fill with `166315` and the code is submitted
+- **Given** the clipboard holds `see you at 10` instead
+- **When** the user taps **Paste code**
+- **Then** the cells stay empty and the hint says there is no code in the clipboard
+
+#### The mail points at the environment that sent it
+- **Given** `PUBLIC_WEB_ORIGIN` is `https://staging.levapp.app`
+- **When** the verification mail is rendered
+- **Then** its lockup `<img src>` and every link start with `https://staging.levapp.app`
+- **And** `backend/.env.staging` sets `PUBLIC_WEB_ORIGIN=https://staging.levapp.app` and `backend/.env.prod` sets `PUBLIC_WEB_ORIGIN=https://levapp.app`
 
 #### Settings shows the state
 - **Given** a verified user on Settings → Profile (web and iOS)
@@ -223,5 +270,10 @@ own email in Settings.
   truly depend on a verified email (password recovery PAD-139, notification email) will check
   `email_verified_at` when built.
 - OPEN: no rate limit on `send` beyond the per-user 60-second cooldown (shares PAD-228's gap).
+- PAD-250 / B-031: the ticket's "client double-sends after register" did not reproduce from
+  source — both shells already skip the mount-time send for a `pending` user. Rule 8a pins
+  that and the 429 presentation. PAD-251 / B-032, B-033: origin per environment, honest 404 for
+  `/brand/*`, and the iOS Paste button. Decision: no deep link carrying the code in the mail —
+  codes in URLs get logged, forwarded and cached.
 - OPEN: coach-created players keep an unverified email forever unless they change it; a
   "Verify" action in Settings covers the ones who care.

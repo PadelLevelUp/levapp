@@ -16,3 +16,6 @@ whether a failure mode has been seen before.
 - [B-032](B-032-student-upcoming-kpi-counts-confirmed-only.md) — student "Upcoming lessons" KPI counted confirmed presences and read 0 above a populated schedule; now the schedule's own count (layer-drift, medium, resolved in PAD-235)
 - [B-033](B-033-bulk-validate-guards-only-the-first-class.md) — web bulk validate guarded only the first class of the run; now the in-flight set (incomplete-rule, low, resolved in PAD-191)
 - [B-017](B-017-attendance-invited-flag-not-a-reminder-signal.md) — "Reminder sent" badge was gated on Presence.invited (roster membership); now on reminderSentAt derived from the reminder/invite messages (layer-drift, medium, resolved in PAD-199)
+- [B-031](B-031-verify-screen-shows-resend-cooldown-as-an-error.md) — the verify-email screen printed RESEND_TOO_SOON as a red error on web and iOS; now only a countdown (incomplete-rule, medium, PAD-250)
+- [B-032](B-032-transactional-mail-points-at-prod-and-missing-brand-assets-answer-200.md) — mail images pointed at prod in every environment; a missing /brand/* asset answered 200 text/html (incomplete-rule, medium, PAD-251)
+- [B-033](B-033-ios-verify-screen-has-no-way-to-paste-the-code.md) — the iOS verify-email screen had no way to paste the code (incomplete-rule, high, PAD-251)

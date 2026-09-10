@@ -1,6 +1,6 @@
 ---
 id: auth.newcomer-signs-up-on-their-own
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/auth/register.spec.md
   - ../../specs/auth/coach-approval.spec.md
