@@ -1,6 +1,6 @@
 ---
 id: calendar.mobile-views
-status: implementing
+status: implemented
 depends_on: [calendar.view, calendar.event-detail, calendar.blocks, classes.instances]
 implements: ../../specs-business/calendar/coach-views-and-manages-schedule.business.md
 governed_by: []
@@ -287,9 +287,10 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   seeded class opens
 
 ### Notes
-- **Status (2026-09-10, PAD-247):** rules 1–14 and 18–25 are built on web and iOS — Dia
-  (PAD-246) and Semana with the draggable day sheet (PAD-247). Rules 15–17 (Mês, PAD-248) are
-  specified, not built; the Mês segment renders disabled until it lands.
+- **Status (2026-09-10, PAD-248):** every rule (1–25) is built on web and iOS — Dia
+  (PAD-246), Semana (PAD-247) and Mês with the FAB clearance (PAD-248). Verified by the full
+  Playwright suite (422 tests, run as four shards: 420 passed, 2 skipped, 0 failed) and the
+  Maestro flows `31-week-view` and `32-month-view` on the simulator.
 - Ships in three tickets, each landing web and iOS together (R-024): (1) Dia, shared chrome,
   colour rules and the swatch remap; (2) Semana; (3) Mês. Until ticket 3 lands, the
   segmented control offers only the shipped modes.
