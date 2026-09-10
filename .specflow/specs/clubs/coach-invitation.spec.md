@@ -1,6 +1,6 @@
 ---
 id: clubs.coach-invitation
-status: implementing
+status: implemented
 depends_on: [clubs.crud, clubs.membership, auth.activate]
 implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: []

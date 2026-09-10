@@ -1,6 +1,6 @@
 ---
 id: messaging.push-notifications
-status: implementing
+status: implemented
 depends_on: [messaging.messages, auth.push-subscription]
 implements: ../../specs-business/messaging/user-manages-unread-and-notifications.business.md
 governed_by: []

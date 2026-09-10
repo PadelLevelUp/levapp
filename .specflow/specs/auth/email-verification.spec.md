@@ -1,6 +1,6 @@
 ---
 id: auth.email-verification
-status: implementing
+status: implemented
 depends_on: [auth.register, auth.login, settings.profile]
 implements: ../../specs-business/auth/newcomer-signs-up-on-their-own.business.md
 governed_by: [R-022, R-024]
