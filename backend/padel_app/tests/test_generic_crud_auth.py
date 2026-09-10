@@ -202,31 +202,10 @@ def test_superadmin_jwt_passes_the_guard(app, client):
 
 
 @pytest.fixture
-def session_app():
-    import os
-    import tempfile
-
-    from padel_app import create_app
-    from padel_app.sql_db import init_db
-
-    db_fd, db_path = tempfile.mkstemp()
-    app = create_app(
-        {
-            "TESTING": True,
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
-            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-            "SECRET_KEY": "test-secret-key",
-            "SESSION_TYPE": "filesystem",
-        }
-    )
-    with app.app_context():
-        init_db(app)
-        db.create_all()
-
-    yield app
-
-    os.close(db_fd)
-    os.unlink(db_path)
+def session_app(app_with_config):
+    # PAD-278: built by conftest on the selected backend (sqlite or postgres),
+    # not a private SQLite file, so the Postgres run covers these tests too.
+    return app_with_config({"SECRET_KEY": "test-secret-key", "SESSION_TYPE": "filesystem"})
 
 
 @pytest.fixture
