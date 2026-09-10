@@ -17,7 +17,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
-- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active
+- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active. Unique: one **active** entry per (coach_id, player_id), via the partial unique index `uq_standing_entries_active_coach_player` (PAD-273). `add_standing_waiting_list_entry` deactivates the previous active entry before creating the new one; inactive rows keep the history and may repeat
 
 ### Rules
 1. **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
@@ -169,6 +169,12 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **When** they tap No
 - **Then** no WaitingListEntry exists for them on that instance
 - **And** the offer bubble shows the "declined" badge
+
+#### Only one active standing entry per coach and player
+- **Given** coach `maria` and player `rui` with one active standing entry, and two older inactive ones
+- **When** a second active entry for `maria` and `rui` is written directly
+- **Then** the database refuses it (integrity error); the inactive rows are unaffected
+- **And** `POST /api/app/notify/standing_waiting_list` for `rui` still works, because it deactivates the old entry first
 
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)

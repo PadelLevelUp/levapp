@@ -51,6 +51,15 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
     `NULL`. The same migration makes `coach_invitations.invited_by_coach_id` and
     `player_invitations.invited_by_coach_id` `SET NULL` (audit H7), so a coach who once sent an
     invitation can be deleted.
+12. **A coach never holds two levels with the same `code`** (PAD-273, audit M14). The database
+    enforces it with the unique index `uq_coach_levels_coach_code` on `(coach_id, code)`. Every write
+    path already matches on the code first: the settings upsert (`upsert_coach_levels`) updates the
+    existing row and the spreadsheet/AI import skips it. The migration creates the index only when
+    no duplicate exists; otherwise it logs a WARNING with the count and leaves the index for a human
+    to add after cleaning up.
+13. **`display_order` is NOT NULL with a database default of `0`** (PAD-273, audit M12). `0` is the
+    "unset" value rules 9 and 10 already describe, so a row written without an order (raw SQL, an
+    old client) still sorts last and is renumbered on the next write. It is never `NULL`.
 
 ### Acceptance Criteria
 
@@ -82,6 +91,17 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
 - **When** the models are inspected
 - **Then** each declares `ondelete="SET NULL"` and `CoachLevel.coach_player_relations` has no `delete` cascade
 - **And** the migration rewrites exactly those six, each step guarded by the inspector
+
+#### A coach cannot hold two levels with the same code
+- **Given** coach `maria` with a level whose code is `B1`
+- **When** a second level with code `B1` is written for `maria`
+- **Then** the database refuses it (integrity error) and `maria` still has exactly one `B1`
+- **And** another coach can still have a level `B1`
+
+#### A level written without an order gets 0, never NULL
+- **Given** a raw `INSERT INTO coach_levels (coach_id, label, code)` with no `display_order`
+- **When** the row is read back
+- **Then** its `display_order` is `0`
 
 #### Ordering convention is explained in the settings UI
 - **Given** an authenticated coach on Settings → Coach Levels

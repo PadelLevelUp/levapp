@@ -73,7 +73,9 @@ class Model:
     __tablename__ = None
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    # PAD-273 (audit M13): bumped on EVERY ORM update, not only through save();
+    # most services commit directly. UTC like everything else (R-023).
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         try:
@@ -110,7 +112,9 @@ class Model:
         return True
 
     def save(self):
-        self.updated_at = datetime.now()
+        # PAD-273: this used to stamp LOCAL time (datetime.now()) into a column
+        # everything else fills with UTC.
+        self.updated_at = datetime.utcnow()
         db.session.commit()
         return True
 
