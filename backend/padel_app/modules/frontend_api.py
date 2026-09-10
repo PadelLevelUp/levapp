@@ -100,6 +100,7 @@ from padel_app.services.club_service import (
     get_coach_invitation_service,
     accept_coach_invitation_service,
     revoke_coach_invitation_service,
+    revoke_coach_invitation_by_id_service,
     list_coach_invitations_service,
     search_clubs_service,
     serialize_club_search_result,
@@ -1673,7 +1674,8 @@ def list_coach_invitations(club_id):
     invitations = list_coach_invitations_service(club_id, coach)
     return jsonify([
         {
-            "token": inv.token,
+            # clubs.coach-invitation rule 7 (PAD-269): an id, never the token
+            "id": inv.id,
             "email": inv.email,
             "expiresAt": inv.expires_at.isoformat(),
             "createdAt": inv.created_at.isoformat() if inv.created_at else None,
@@ -1969,6 +1971,15 @@ def accept_coach_invitation(token):
 def revoke_coach_invitation(token):
     coach = require_coach()
     revoke_coach_invitation_service(token, coach)
+    return jsonify({"success": True})
+
+
+@bp.post("/club/<int:club_id>/coach-invitations/<int:invitation_id>/revoke")
+@jwt_required()
+def revoke_coach_invitation_by_id(club_id, invitation_id):
+    """clubs.coach-invitation rule 7 (PAD-269): revoke from the club's list by id."""
+    coach = require_coach()
+    revoke_coach_invitation_by_id_service(club_id, invitation_id, coach)
     return jsonify({"success": True})
 
 
