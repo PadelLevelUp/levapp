@@ -23,12 +23,12 @@ from padel_app.serializers.conversation import (
     serialize_conversations,
 )
 from padel_app.serializers.coach_level import serialize_coach_level
-from padel_app.serializers.season import serialize_season
 from padel_app.services.season_service import (
-    list_seasons,
-    upsert_seasons,
-    delete_season,
-    regenerate_future_instances_for_season,
+    InvalidSeasonError,
+    delete_definition,
+    legacy_season_list,
+    save_definition,
+    serialize_definition,
 )
 
 from padel_app.helpers.calendar_helpers import (
@@ -827,8 +827,44 @@ def get_coach_levels():
 @bp.get("/seasons")
 @jwt_required()
 def get_seasons():
+    """calendar.seasons rule 8 — LEGACY read shape for mobile build 14: `[]` or
+    one entry for the current-or-upcoming occurrence. Remove with the next
+    TestFlight build."""
     coach = require_coach()
-    return jsonify([serialize_season(s) for s in list_seasons(coach)])
+    return jsonify(legacy_season_list(coach))
+
+
+@bp.get("/season")
+@jwt_required()
+def get_season():
+    """calendar.seasons rule 5 — the coach's single recurring definition, or null."""
+    coach = require_coach()
+    return jsonify(serialize_definition(coach.season))
+
+
+@bp.put("/season")
+@jwt_required()
+def put_season():
+    """calendar.seasons rule 6 — create or replace the definition, then re-cap
+    every class that recurs until season end."""
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    from padel_app.sql_db import db
+
+    try:
+        definition = save_definition(coach, data)
+    except InvalidSeasonError as exc:
+        db.session.rollback()
+        return jsonify({"error": str(exc), "code": exc.code}), 400
+    return jsonify(serialize_definition(definition))
+
+
+@bp.delete("/season")
+@jwt_required()
+def delete_season_route():
+    """calendar.seasons rule 7 — remove the definition; snapshotted ends stay."""
+    delete_definition(require_coach())
+    return "", 204
 
 
 # PAD-92: `GET /lessons` and `GET /calendar_block` used to dump EVERY lesson and
@@ -1497,31 +1533,6 @@ def add_coach_level():
     data = request.get_json() or {}
     upsert_coach_levels(require_coach(), data)
     return jsonify(data)
-
-
-@bp.post("/add_seasons")
-@jwt_required()
-def add_seasons():
-    data = request.get_json() or []
-    coach = require_coach()
-    try:
-        upsert_seasons(coach, data)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-
-    seasons = list_seasons(coach)
-    for season in seasons:
-        regenerate_future_instances_for_season(season)
-
-    return jsonify([serialize_season(s) for s in list_seasons(coach)])
-
-
-@bp.post("/delete/season")
-@jwt_required()
-def delete_season_route():
-    data = request.get_json() or {}
-    delete_season(require_coach(), data["id"])
-    return jsonify({"status": "Removed season"}), 200
 
 
 @bp.post("/add_evaluation_categories")

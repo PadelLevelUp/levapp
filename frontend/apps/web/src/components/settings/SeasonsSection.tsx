@@ -1,254 +1,305 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, CalendarRange } from "lucide-react";
-import type { Season } from "@/types";
-import { getSeasons, addSeasons, deleteSeason, type SeasonUpsert } from "@/api/seasons";
-import { USE_MOCK_DATA } from "@/config";
+import { Loader2, Trash2, CalendarRange } from "lucide-react";
+import { nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
+import type { SeasonDefinition } from "@/types";
+import { deleteSeason, getSeason, saveSeason } from "@/api/seasons";
 
-interface SeasonDraft {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  isNew?: boolean;
+/**
+ * calendar.seasons rule 12 (PAD-82) — Settings → Calendar: the coach's ONE
+ * recurring season, a day/month start and end (no year). The preview line is
+ * derived client-side with the same maths the server uses (rule 4), so what
+ * the coach reads before saving is what "until season end" will resolve to.
+ */
+
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+
+type ApiError = { response?: { status?: number; data?: { error?: string; code?: string } } };
+
+interface Draft {
+  label: string;
+  startDay: number;
+  startMonth: number;
+  endDay: number;
+  endMonth: number;
+}
+
+const DEFAULT_DRAFT: Draft = { label: "", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
+
+function draftFrom(definition: SeasonDefinition | null): Draft {
+  if (!definition) return DEFAULT_DRAFT;
+  return {
+    label: definition.label ?? "",
+    startDay: definition.startDay,
+    startMonth: definition.startMonth,
+    endDay: definition.endDay,
+    endMonth: definition.endMonth,
+  };
+}
+
+/** Day-of-month validity for the picked month, 29 Feb allowed (it clamps). */
+function dayFitsMonth(day: number, month: number): boolean {
+  return day <= new Date(Date.UTC(2024, month, 0)).getUTCDate();
 }
 
 export function SeasonsSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const [seasons, setSeasons] = useState<SeasonDraft[]>([]);
 
+  const [definition, setDefinition] = useState<SeasonDefinition | null>(null);
+  const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getSeasons()
-      .then((data) =>
-        setSeasons(
-          data.map((s) => ({
-            id: s.id,
-            name: s.name,
-            startDate: s.startDate,
-            endDate: s.endDate,
-          }))
-        )
-      )
+    getSeason()
+      .then((data) => {
+        setDefinition(data);
+        setDraft(draftFrom(data));
+        setEditing(Boolean(data));
+      })
+      .catch(() => setError(t("settings.seasons.saveFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
-  const handleAdd = () => {
-    setSeasons((prev) => [
-      ...prev,
-      {
-        id: `new-${Date.now()}`,
-        name: "",
-        startDate: "",
-        endDate: "",
-        isNew: true,
-      },
-    ]);
-  };
+  const monthName = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });
+    return (month: number) => fmt.format(new Date(Date.UTC(2024, month - 1, 1)));
+  }, [i18n.language]);
 
-  const handleRemove = async (id: string) => {
-    const season = seasons.find((s) => s.id === id);
-    if (season?.isNew) {
-      setSeasons((prev) => prev.filter((s) => s.id !== id));
-      return;
+  const formatDay = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    return (iso: string) => fmt.format(new Date(`${iso}T00:00:00Z`));
+  }, [i18n.language]);
+
+  // Rule 12: the preview reads the current-or-upcoming occurrence of the DRAFT,
+  // so the coach sees the dates change as they pick.
+  const preview = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const current = seasonOccurrenceContaining(today, draft);
+    if (current) return { key: "settings.seasons.previewCurrent", ...current };
+    const upcoming = nextSeasonOccurrence(today, draft);
+    return upcoming ? { key: "settings.seasons.previewUpcoming", ...upcoming } : null;
+  }, [draft]);
+
+  const localProblem = (): string | null => {
+    if (!dayFitsMonth(draft.startDay, draft.startMonth) || !dayFitsMonth(draft.endDay, draft.endMonth)) {
+      return t("settings.seasons.invalidDay");
     }
-    setRemovingId(id);
-    try {
-      await deleteSeason(id);
-      setSeasons((prev) => prev.filter((s) => s.id !== id));
-    } catch {
-      toast({ variant: "destructive", title: t("settings.seasons.deleteFailed") });
-    } finally {
-      setRemovingId(null);
+    if (draft.startDay === draft.endDay && draft.startMonth === draft.endMonth) {
+      return t("settings.seasons.invalidSame");
     }
-  };
-
-  const handleChange = (
-    id: string,
-    field: "name" | "startDate" | "endDate",
-    value: string
-  ) => {
-    setSeasons((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
-    );
+    return null;
   };
 
   const handleSave = async () => {
-    const invalid = seasons.some(
-      (s) => !s.name.trim() || !s.startDate || !s.endDate || s.startDate > s.endDate
-    );
-    if (invalid) {
-      toast({
-        variant: "destructive",
-        title: t("settings.seasons.validationErrorTitle"),
-        description: t("settings.seasons.validationErrorDescription"),
-      });
+    const problem = localProblem();
+    if (problem) {
+      setError(problem);
       return;
     }
-
-    // PAD-89: send `id` for already-persisted rows so the backend updates them
-    // in place. Locally-added rows carry a synthetic `new-<ts>` id and must be
-    // posted without one so the backend creates them.
-    const payload: SeasonUpsert[] = seasons.map((s) => ({
-      ...(s.isNew ? {} : { id: s.id }),
-      name: s.name,
-      startDate: s.startDate,
-      endDate: s.endDate,
-    }));
-
-    if (USE_MOCK_DATA) {
-      toast({
-        title: t("settings.seasons.savedTitle"),
-        description: t("settings.seasons.savedMock", { count: seasons.length }),
-      });
-      return;
-    }
-
     setSaving(true);
+    setError(null);
     try {
-      const updated = await addSeasons(payload);
-      setSeasons(
-        updated.map((s) => ({
-          id: s.id,
-          name: s.name,
-          startDate: s.startDate,
-          endDate: s.endDate,
-        }))
-      );
-      toast({
-        title: t("settings.seasons.savedTitle"),
-        description: t("settings.seasons.saved", { count: updated.length }),
+      const saved = await saveSeason({
+        label: draft.label.trim() || null,
+        startDay: draft.startDay,
+        startMonth: draft.startMonth,
+        endDay: draft.endDay,
+        endMonth: draft.endMonth,
       });
-    } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: t("settings.seasons.saveFailed"),
-        description: err?.response?.data?.error || t("settings.seasons.saveFailed"),
-      });
+      setDefinition(saved);
+      setDraft(draftFrom(saved));
+      setEditing(true);
+      toast({ title: t("settings.seasons.saved") });
+    } catch (err) {
+      const data = (err as ApiError).response?.data;
+      if ((err as ApiError).response?.status === 400 && data?.code === "invalid_season") {
+        setError(t("settings.seasons.invalidDay"));
+      } else {
+        setError(t("settings.seasons.saveFailed"));
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  const handleRemove = async () => {
+    setRemoving(true);
+    try {
+      await deleteSeason();
+      setDefinition(null);
+      setDraft(DEFAULT_DRAFT);
+      setEditing(false);
+      setError(null);
+      toast({ title: t("settings.seasons.removed") });
+    } catch {
+      toast({ variant: "destructive", title: t("settings.seasons.deleteFailed") });
+    } finally {
+      setRemoving(false);
+      setConfirmOpen(false);
+    }
+  };
+
+  const numberSelect = (
+    id: string,
+    value: number,
+    values: number[],
+    labelOf: (n: number) => string,
+    ariaLabel: string,
+    onChange: (n: number) => void
+  ) => (
+    <Select value={String(value)} onValueChange={(v) => onChange(Number(v))}>
+      <SelectTrigger id={id} className="h-9 text-sm" aria-label={ariaLabel} data-testid={id}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {values.map((n) => (
+          <SelectItem key={n} value={String(n)}>
+            {labelOf(n)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   if (loading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          {t("settings.seasons.loading")}
-        </CardContent>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">{t("settings.seasons.loading")}</CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card data-testid="season-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarRange className="w-4 h-4" />
           {t("settings.seasons.title")}
         </CardTitle>
-        <CardDescription>
-          {t("settings.seasons.description")}
-        </CardDescription>
+        <CardDescription>{t("settings.seasons.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Header row */}
-        <div className="hidden grid-cols-1 sm:grid-cols-[1fr_150px_150px_32px] gap-2 text-xs font-medium text-muted-foreground px-1 sm:grid">
-          <span>{t("settings.seasons.name")}</span>
-          <span>{t("settings.seasons.start")}</span>
-          <span>{t("settings.seasons.end")}</span>
-          <span />
-        </div>
-
-        {seasons.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
+        {!editing && !definition ? (
+          <p className="text-sm text-muted-foreground" data-testid="season-empty">
             {t("settings.seasons.empty")}
           </p>
-        )}
+        ) : null}
 
-        {seasons.map((season) => (
-          <div
-            key={season.id}
-            data-testid="season-row"
-            className="flex flex-wrap sm:grid sm:grid-cols-[1fr_150px_150px_32px] gap-2 items-center rounded-lg border p-2 bg-background"
-          >
-            <div className="flex flex-1 items-center gap-1.5 sm:contents">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
-                {t("settings.seasons.name")}
-              </span>
-              <Input
-                value={season.name}
-                aria-label={t("settings.seasons.name")}
-                onChange={(e) => handleChange(season.id, "name", e.target.value)}
-                placeholder={t("settings.seasons.namePlaceholder")}
-                className="h-8 flex-1 text-sm"
-              />
-            </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="season-label">{t("settings.seasons.label")}</Label>
+          <Input
+            id="season-label"
+            data-testid="season-label"
+            value={draft.label}
+            placeholder={t("settings.seasons.labelPlaceholder")}
+            onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
+            className="h-9 text-sm max-w-sm"
+          />
+        </div>
 
-            <div className="flex flex-1 items-center gap-1.5 sm:contents">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
-                {t("settings.seasons.start")}
-              </span>
-              <Input
-                type="date"
-                aria-label={t("settings.seasons.startAriaLabel")}
-                value={season.startDate}
-                onChange={(e) => handleChange(season.id, "startDate", e.target.value)}
-                className="h-8 flex-1 text-sm"
-              />
-            </div>
-
-            <div className="flex flex-1 items-center gap-1.5 sm:contents">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
-                {t("settings.seasons.end")}
-              </span>
-              <Input
-                type="date"
-                aria-label={t("settings.seasons.endAriaLabel")}
-                value={season.endDate}
-                onChange={(e) => handleChange(season.id, "endDate", e.target.value)}
-                className="h-8 flex-1 text-sm"
-              />
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => handleRemove(season.id)}
-              disabled={removingId === season.id}
-            >
-              {removingId === season.id ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">{t("settings.seasons.start")}</legend>
+            <div className="grid grid-cols-[5.5rem_1fr] gap-2">
+              {numberSelect("season-start-day", draft.startDay, DAYS, String, t("settings.seasons.startDay"), (n) =>
+                setDraft((d) => ({ ...d, startDay: n }))
               )}
-            </Button>
-          </div>
-        ))}
+              {numberSelect("season-start-month", draft.startMonth, MONTHS, monthName, t("settings.seasons.startMonth"), (n) =>
+                setDraft((d) => ({ ...d, startMonth: n }))
+              )}
+            </div>
+          </fieldset>
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">{t("settings.seasons.end")}</legend>
+            <div className="grid grid-cols-[5.5rem_1fr] gap-2">
+              {numberSelect("season-end-day", draft.endDay, DAYS, String, t("settings.seasons.endDay"), (n) =>
+                setDraft((d) => ({ ...d, endDay: n }))
+              )}
+              {numberSelect("season-end-month", draft.endMonth, MONTHS, monthName, t("settings.seasons.endMonth"), (n) =>
+                setDraft((d) => ({ ...d, endMonth: n }))
+              )}
+            </div>
+          </fieldset>
+        </div>
 
-        <Separator />
+        {preview ? (
+          <p className="text-sm text-muted-foreground" data-testid="season-preview">
+            {t(preview.key, { start: formatDay(preview.startDate), end: formatDay(preview.endDate) })}
+          </p>
+        ) : null}
+
+        {error ? (
+          <p className="text-sm text-destructive" role="alert" data-testid="season-error">
+            {error}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
-            <Plus className="w-4 h-4" />
-            {t("settings.seasons.addSeason")}
-          </Button>
-
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          {definition ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmOpen(true)}
+              disabled={removing}
+              data-testid="season-remove"
+            >
+              {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {t("settings.seasons.remove")}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button size="sm" onClick={handleSave} disabled={saving} data-testid="season-save">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? t("settings.seasons.saving") : t("settings.seasons.saveSeasons")}
+            {saving ? t("settings.seasons.saving") : t("settings.seasons.save")}
           </Button>
         </div>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("settings.seasons.removeTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("settings.seasons.removeDescription")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={removing}>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleRemove();
+                }}
+                disabled={removing}
+                data-testid="season-remove-confirm"
+              >
+                {t("settings.seasons.removeConfirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
