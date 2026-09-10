@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, text
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -9,7 +9,18 @@ from padel_app.sql_db import db
 
 class Vacancy(db.Model, model.Model):
     __tablename__ = "vacancies"
-    __table_args__ = {"extend_existing": True}
+    # PAD-263: vacancies per class, and a partial index for the engine's
+    # open-vacancy sweep (filled and expired rows are never read by it).
+    __table_args__ = (
+        Index("ix_vacancies_lesson_instance_id_status", "lesson_instance_id", "status"),
+        Index(
+            "ix_vacancies_open",
+            "status",
+            postgresql_where=text("status = 'open'"),
+            sqlite_where=text("status = 'open'"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Vacancy"
     model_name = "Vacancy"
