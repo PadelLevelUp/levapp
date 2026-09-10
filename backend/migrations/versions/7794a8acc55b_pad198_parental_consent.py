@@ -1,7 +1,7 @@
 """parental consent for minors (auth.parental-consent, PAD-198)
 
 Revision ID: 7794a8acc55b
-Revises: ad97ec649746
+Revises: cf030b78b088 (PAD-263, Session A; chained after it on the coordinator's instruction)
 Create Date: 2026-09-10 02:30:00.000000
 
 Every DDL statement is guarded: prod carries unmigrated hand-made schema and
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '7794a8acc55b'
-down_revision = 'ad97ec649746'
+down_revision = 'cf030b78b088'
 branch_labels = None
 depends_on = None
 
