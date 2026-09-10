@@ -37,7 +37,12 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
    future, at most 120 years ago → 400 `field: "birthDate"`), `country` (two letters, required →
    400 `field: "country"`), and for a minor `guardianEmail` (required, a valid email, not equal to the
    person's own email case-insensitively → 400 `field: "guardianEmail"`). An adult's `guardianEmail`
-   is ignored.
+   is ignored. Every rejection also carries a `code`: `BIRTH_DATE_REQUIRED`, `INVALID_BIRTH_DATE`,
+   `COUNTRY_REQUIRED`, `INVALID_COUNTRY`, `GUARDIAN_EMAIL_REQUIRED`, `INVALID_GUARDIAN_EMAIL`,
+   `GUARDIAN_EMAIL_IS_OWN`. When `birthDate` or `country` is **absent** — an app build from before
+   PAD-198 — the `error` text tells the person to update the app, in Portuguese and English, because
+   an old build shows the server's message verbatim (coordinator decision 2026-09-10, option A: the
+   fields are required on the server and old internal builds may not sign up until updated).
 3. **A minor's sign-up** creates the User and the Player/Coach exactly as `auth.register` does, with
    `guardian_consent_status = pending` and `email_verification_required = true` but **no** code sent
    yet, stores `birth_date` and `country`, creates the GuardianConsent row, and mails the guardian
@@ -71,7 +76,8 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
    confirmMinorDetails: true, acceptTerms: true}`: 400 with `field` for a missing name, an unknown
    relationship or an unticked box; 410 / 409 as rule 7. On success it records `guardian_name`,
    `relationship`, `minor_snapshot`, `consented_at`, `consent_ip`, `terms_version` (config
-   `LEGAL_TERMS_VERSION`, default `2026-09-06`); clears the consent token; issues a revoke token (32
+   `LEGAL_TERMS_VERSION`, default `2026-09-06`); keeps the consent token hash only so that reopening
+   the link answers 409 `ALREADY_DECIDED` (it can no longer change anything); issues a revoke token (32
    bytes, hashed, no expiry); sets the user `granted`; sends the minor's first email-verification code
    (`auth.email-verification` rule 6); notifies the admin if the user is a pending coach; mails the
    guardian a confirmation with the withdraw link `<origin>/guardian-consent/revoke/<revoke token>`.
@@ -121,13 +127,14 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
 #### Sign-up validation names the field
 - **When** POST `/api/auth/register` without `birthDate`, with `birthDate` tomorrow, without `country`, or as a minor without `guardianEmail` or with the person's own email as `guardianEmail`
 - **Then** each is 400 with `field` `birthDate`, `birthDate`, `country`, `guardianEmail`, `guardianEmail`, and no user is created
+- **And** an absent `birthDate` carries `code: "BIRTH_DATE_REQUIRED"` and an absent `country` `code: "COUNTRY_REQUIRED"`, each with an "update the app" message
 
 #### The guardian consents from the email link
 - **Given** the pending minor `rita` and the consent link
 - **When** the guardian GETs the link's API
 - **Then** the response shows `rita`'s name, username, birth date and country, and nothing changed
 - **When** they POST name "Maria Silva", relationship `parent`, both boxes ticked
-- **Then** the response is 200, the GuardianConsent row has the name, relationship, snapshot, `consented_at`, `terms_version: "2026-09-06"` and a revoke token hash, `rita` is `granted`, one verification code went to `rita`'s email and one confirmation mail with a `/guardian-consent/revoke/` link went to the guardian
+- **Then** the response is 200, the GuardianConsent row has the name, relationship, snapshot, `consented_at`, `terms_version: "2026-09-06"`, a revoke token hash and still the consent token hash, `rita` is `granted`, one verification code went to `rita`'s email and one confirmation mail with a `/guardian-consent/revoke/` link went to the guardian
 - **And** `rita` can now log in (200) and is held on the email code screen
 - **And** the consent link now answers 409 `ALREADY_DECIDED`
 
