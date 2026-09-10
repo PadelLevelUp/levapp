@@ -23,5 +23,5 @@ E2E tests start their own Flask server on port 5001 with the `levelup_test` DB (
 - Navigation helpers: `openCalendar(page)`, `openPlayers(page)`, etc. from `e2e/helpers/navigation.ts`
 - Test naming: `"US-XXX: description"` for traceability
 - Locator priority: `getByRole` > `getByPlaceholder` > `getByLabel` > `getByText` > CSS class (last resort)
-- Seeded data (`e2e/scripts/seed.py`): coaches `e2e-coach` and `e2e-coach-nolevels` (same club, deliberately no `CoachLevel` rows — the empty-levels-dropdown case; use `loginAsCoachNoLevels`), students `e2e-student` / `e2e-student-2`, class "E2E Academy Class" on next Monday 10:00
+- Seeded data (`e2e/scripts/seed.py`): coaches `e2e-coach` and `e2e-coach-nolevels` (same club, deliberately no `CoachLevel` rows — the empty-levels-dropdown case; use `loginAsCoachNoLevels`), students `e2e-student` / `e2e-student-2`, class "E2E Academy Class" on next Monday 10:00. Every fixture date comes from `e2e/scripts/seed_dates.py` (PAD-223) — one pure function of `today`, proven collision-free on all seven weekdays by `e2e/scripts/test_seed_dates.py` (`python -m pytest frontend/apps/web/e2e/scripts` from the backend venv); `E2E_SEED_TODAY=YYYY-MM-DD` pins the anchor to reproduce a run on another weekday. Add new dated fixtures there, never inline
 - Workers: 1 (serial), timeout: 3 minutes
