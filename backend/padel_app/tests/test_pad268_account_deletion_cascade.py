@@ -259,7 +259,7 @@ def test_legacy_session_login_refuses_a_disabled_account(session_app):
     client = session_app.test_client()
     _legacy_user(session_app, "off_user", "disabled")
     res = client.post(LEGACY_LOGIN, data={"username": "off_user", "password": "pw"})
-    assert res.status_code == 200 and not _logged_in(client)
+    assert res.status_code == 401 and not _logged_in(client)  # auth.login rule 12 (B-053)
 
 
 def test_a_deleted_student_cannot_use_the_legacy_login(session_app):
@@ -267,7 +267,7 @@ def test_a_deleted_student_cannot_use_the_legacy_login(session_app):
     ids = _world(session_app)
     _delete(session_app, client, ids)
     res = client.post(LEGACY_LOGIN, data={"username": "rita", "password": "pw"})
-    assert res.status_code == 200 and not _logged_in(client)
+    assert res.status_code == 200 and not _logged_in(client)  # deletion scrubs the credentials, so the ordinary wrong-credentials answer refuses it first (auth.login rule 12)
 
 
 def test_an_open_legacy_session_of_a_disabled_account_is_dropped(app):

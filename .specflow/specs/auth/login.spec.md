@@ -33,6 +33,17 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    there is nothing to port (R-024 exception recorded here and in the PR).
 9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
+12. **Disabled accounts cannot sign in (B-053).** After the credentials check, a rejected coach
+    keeps rule 9's 403 `COACH_REJECTED` with the reason, which drives the re-application button.
+    Any other user with `status = disabled`, of either role, gets 401
+    `{"error": "ACCOUNT_DISABLED"}` and no token. That covers a deleted account (App Store
+    5.1.1(v)) and a minor whose guardian withdrew consent. Wrong credentials stay the ordinary 401
+    `Invalid credentials` and are checked first, so the status never leaks to a guesser. The legacy
+    server-rendered `/auth/login` refuses every disabled account with HTTP 401 and never opens a
+    Flask-Login session; rejected coaches are included, since it has no re-application flow. Before
+    this, the JSON route issued a token to a disabled account (the blocklist loader refused it on
+    the next request) and the legacy route opened a session. Numbered 12 to stay clear of rules 10
+    and 11 in open PRs.
 
 ### Acceptance Criteria
 
@@ -65,6 +76,22 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Given** coach `rui` rejected with reason "not a coach"
 - **When** they POST `/api/auth/login` with the right password
 - **Then** the response is 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
+
+#### A disabled account gets a clear 401 (B-053)
+- **Given** a deleted student `ana` and a deleted approved coach `rui`, both `status = disabled`
+- **When** each POSTs `/api/auth/login` with the right password
+- **Then** each response is 401 `{"error": "ACCOUNT_DISABLED"}` with no `accessToken`
+- **And** with a wrong password each response is 401 `Invalid credentials`
+
+#### A rejected coach still gets the reason (B-053)
+- **Given** rejected coach `rita` (`status = disabled`, reason "not a coach")
+- **When** she POSTs `/api/auth/login` with the right password
+- **Then** the response is still 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
+
+#### The legacy login refuses a disabled account (B-053)
+- **Given** the deleted student `ana`
+- **When** the legacy form POSTs `/auth/login` with her right password
+- **Then** the response is 401 and no Flask-Login session is opened
 
 #### Inactive user login
 - **Given** a user with status `inactive`

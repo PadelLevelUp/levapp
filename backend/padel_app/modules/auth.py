@@ -28,12 +28,14 @@ def login():
 
         if user is None:
             error = "Wrong username"
-        elif not check_password_hash(user.password, password):
+        elif not user.password or not check_password_hash(user.password, password):
             error = "Wrong password"
         elif user.status == "disabled":
-            # PAD-268 (auth.account-deletion rule 3): a deleted or disabled
-            # account never gets a session.
-            error = "This account is disabled"
+            # auth.login rule 12 (B-053) and auth.account-deletion rule 3 (PAD-268):
+            # no session for any disabled account, rejected coaches included
+            # (this route has no re-application flow).
+            flash("This account is disabled")
+            return render_template("auth/login.html"), 401
 
         if error is None:
             login_user(user)

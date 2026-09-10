@@ -228,6 +228,11 @@ def login():
     if rejected is not None:
         return {"error": "COACH_REJECTED", "reason": rejected.rejection_reason}, 403
 
+    # auth.login rule 12 (B-053): any other disabled account — deleted, or a
+    # minor whose guardian withdrew — is refused with a clear code and no token.
+    if user.status == "disabled":
+        return {"error": "ACCOUNT_DISABLED"}, 401
+
     access_token = create_access_token(identity=str(user.id))
 
     return {
