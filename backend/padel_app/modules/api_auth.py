@@ -83,6 +83,8 @@ def _serialize_me(user):
         "blockManualInvitations": bool(user.notif_block_manual_invitations),
         "blockAllNotifications": bool(user.notif_block_all),
         "notificationBlockReason": user.notif_block_reason or "",
+        # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
+        "requestAlerts": user.notif_request_alerts is not False,
     }
 
 @bp.post("/register")

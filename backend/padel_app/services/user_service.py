@@ -132,6 +132,8 @@ OWN_PROFILE_FIELDS = (
     "blockManualInvitations",
     "blockAllNotifications",
     "notificationBlockReason",
+    # PAD-232: opt-out for request alerts (notifications.request-alerts rule 6).
+    "requestAlerts",
 )
 
 #: PAD-112: payload key → `users` column, for the three block toggles.
@@ -222,6 +224,10 @@ def update_own_profile_service(user_id, data):
     for key, column in NOTIFICATION_BLOCK_FIELDS.items():
         if key in data:
             setattr(user, column, _coerce_bool(data.get(key), key))
+
+    # PAD-232: same membership-checked boolean handling as the block toggles.
+    if "requestAlerts" in data:
+        user.notif_request_alerts = _coerce_bool(data.get("requestAlerts"), "requestAlerts")
 
     if "notificationBlockReason" in data:
         reason = (data.get("notificationBlockReason") or "").strip()

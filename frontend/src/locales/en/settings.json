@@ -60,6 +60,10 @@
       "bioPlaceholder": "Tell players a bit about you..."
     },
     "preferences": {
+      "requestAlerts": "Request alerts",
+      "requestAlertsDescription": "Push and email when a request needs you (club join, account link, coach approval) and when yours is decided. In-app badges always stay on.",
+      "requestAlertsSaved": "Preference saved.",
+      "requestAlertsSaveFailed": "Could not save. Try again.",
       "title": "Preferences",
       "description": "How you want the app to behave.",
       "theme": "Theme",

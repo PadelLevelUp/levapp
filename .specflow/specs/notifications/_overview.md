@@ -18,6 +18,7 @@ The notifications domain.
 - `notifications.groups` — implemented
 - `notifications.message-templates` — implemented
 - `notifications.student-block-preferences` — implemented
+- `notifications.request-alerts` — implemented (PAD-232): push + email for club join, claim and coach-approval requests, per-user opt-out
 - `notifications.invite-simulation` — implemented — read-only dry run of the engine for a hypothetical
   vacancy, stage-tagged so it can explain who is invited and why; feeds `settings.tutorials`
 

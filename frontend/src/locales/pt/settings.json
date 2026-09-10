@@ -60,6 +60,10 @@
       "bioPlaceholder": "Conta um pouco sobre ti aos jogadores..."
     },
     "preferences": {
+      "requestAlerts": "Alertas de pedidos",
+      "requestAlertsDescription": "Push e email quando um pedido precisa de ti (entrada no clube, ligação de conta, aprovação de treinador) e quando o teu é decidido. Os avisos dentro da app continuam sempre.",
+      "requestAlertsSaved": "Preferência guardada.",
+      "requestAlertsSaveFailed": "Não foi possível guardar. Tenta outra vez.",
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
       "theme": "Tema",

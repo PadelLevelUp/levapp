@@ -27,6 +27,8 @@ export type MeResponse = {
   blockAllNotifications?: boolean;
   /** Free text the student writes; deliberately visible to their coach. */
   notificationBlockReason?: string;
+  /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
+  requestAlerts?: boolean;
   /**
    * auth.coach-approval: a self-registered coach is `pending` until a LevApp
    * admin approves them; `null` for students. Existing coaches were backfilled
@@ -106,6 +108,8 @@ export type UpdateMePayload = {
   blockManualInvitations?: boolean;
   blockAllNotifications?: boolean;
   notificationBlockReason?: string;
+  /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
+  requestAlerts?: boolean;
 };
 
 export async function getMe(): Promise<MeResponse> {

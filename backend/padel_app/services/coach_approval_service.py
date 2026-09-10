@@ -76,11 +76,23 @@ def _send(subject, recipients, body, html=None):
 
 
 def notify_admin_of_pending_coach(coach):
-    """Tell the LevApp admin a coach is waiting — only when ADMIN_NOTIFY_EMAIL is set."""
+    """Tell the LevApp admin a coach is waiting — the ADMIN_NOTIFY_EMAIL mail
+    (rule 4) when configured, plus a push to every superadmin (PAD-232,
+    notifications.request-alerts rule 1; the mailbox ignores any opt-out)."""
+    user = coach.user
+    try:
+        from padel_app.services.request_alert_service import (
+            notify_request_event, superadmin_users,
+        )
+        notify_request_event(
+            "coach_approval.received", superadmin_users(),
+            actor=user.name if user else "",
+        )
+    except Exception as exc:  # noqa: BLE001 — never fail the signup
+        current_app.logger.warning("coach-approval superadmin alert failed: %s", exc)
     to = current_app.config.get("ADMIN_NOTIFY_EMAIL")
     if not to:
         return
-    user = coach.user
     verified = "yes" if user.email_verified_at is not None else "no"
     body = (
         f"A coach is waiting for approval.\n\n"
@@ -96,7 +108,27 @@ def notify_coach_approved(coach):
     from padel_app.tools.email_templates import render_coach_approved_email
 
     user = coach.user
-    if not user or not user.email:
+    if not user:
+        return
+    # PAD-232: a push as well as the branded mail (notifications.request-alerts
+    # rule 1). Push only — the mail below is the existing rule-5 email.
+    try:
+        from padel_app.services.request_alert_service import (
+            wants_request_alerts,
+        )
+        from padel_app.utils.expo_push import send_expo_push_to_user
+        from padel_app.utils.push_notifications import send_push_notification
+        from padel_app.services.request_alert_service import render_copy, _lang, PATHS
+        if wants_request_alerts(user):
+            title, body = render_copy("coach_approval.decided", _lang(user))
+            send_push_notification(user.id, title, body, url=PATHS["coach_approval.decided"])
+            send_expo_push_to_user(
+                user.id, title, body,
+                data={"type": "request", "kind": "coach_approval.decided"},
+            )
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning("coach-approval push to %s failed: %s", user.id, exc)
+    if not user.email:
         return
     subject, text, html = render_coach_approved_email(user)
     _send(subject, [user.email], text, html=html)

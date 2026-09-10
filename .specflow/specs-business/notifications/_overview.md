@@ -31,3 +31,4 @@ differently, read by different people, and can each ship or change independently
 (`groups`, `message-templates`, `activity`, `toggle-class`) are configuration surfaces filed under
 "coach tunes the invitation engine" even though their effects show up when a spot is actually
 filled or a reminder is sent — see each leaf's own Notes for the cross-reference.
+- `business.notifications.people-hear-about-requests` — the people who can act on a club join, claim or coach-approval request are told at once; requesters hear the decision (PAD-232)

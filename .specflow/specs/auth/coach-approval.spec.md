@@ -118,6 +118,8 @@ it is designed to be switched off later without a data change.
   `.env.prod` on 2026-09-07 (PAD-231). Staging has the same sender behind
   `MAIL_ALLOWED_RECIPIENTS=@levapp.app` (`auth.email-verification` rule 12), so an approval
   there can only ever reach the team.
+- Superadmins also get a native push for a pending coach, and the coach a push on approval:
+  `notifications.request-alerts` (PAD-232).
 - OPEN: who the LevApp admin is operationally — today the only `is_superadmin` account is the
   owner's. If a second admin is needed, flip the flag in the editor; no UI for that in v1.
 - OPEN: rejected coaches keep an active User. Decide later whether rejection should disable the
