@@ -73,6 +73,7 @@ from padel_app.services.presence_overview_service import (
     build_presence_trend,
     default_overview_range,
     list_pending_validation,
+    count_pending_validation,
     unvalidate_instance,
 )
 from padel_app.services.club_service import (
@@ -1130,6 +1131,27 @@ def class_instances_pending_validation():
             range_start=range_start,
             range_end=range_end,
         )
+    )
+
+
+@bp.get("/class_instances/pending_validation/count")
+@jwt_required()
+def class_instances_pending_validation_count():
+    """How many classes in the window still need validating (PAD-190 / PAD-201).
+
+    `attendance.validation` rule 18: the same helper the coach dashboard's
+    validation card reads, so the tab trigger and the card show one number.
+    """
+    coach = require_coach()
+    range_start, range_end = _presence_overview_range()
+    return jsonify(
+        {
+            "from": range_start.isoformat(),
+            "to": range_end.isoformat(),
+            "pendingCount": count_pending_validation(
+                coach_id=coach.id, range_start=range_start, range_end=range_end
+            ),
+        }
     )
 
 

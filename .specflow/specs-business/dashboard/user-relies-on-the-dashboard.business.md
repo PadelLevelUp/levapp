@@ -54,6 +54,10 @@ Every coach and every student, as the first screen they see on opening the app.
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
   a matching page actually exists to receive the click.
+- The "classes to validate" number a coach sees on the dashboard is the same number the Presences
+  tab shows when the card opens it — one count, in classes, for one week — so the coach never has
+  to work out which of two figures is the real one. When this week has nothing left, the card
+  shows last week's backlog and opens the tab on last week.
 - Clicking an upcoming class always opens that exact occurrence's details already in view — never a
   bare calendar the user then has to search through.
 - "Tomorrow" and other day-relative counts on the dashboard are always the coach's own local

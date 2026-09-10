@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { CalendarCheck, TrendingUp, UserCheck, Users } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -13,6 +14,7 @@ import {
 } from "@/components/presences/ValidateClassesDialog";
 import {
   getPendingValidation,
+  getPendingValidationCount,
   getPresenceStats,
   getPresenceTrend,
   unvalidateClass,
@@ -44,6 +46,15 @@ function weekBounds(offset: number): { from: string; to: string } {
 }
 
 /**
+ * `?week=<offset>` — the dashboard's validation card lands here on the week it
+ * counted (dashboard.navigation rule 9a). Anything unparseable is the current week.
+ */
+function initialWeekOffset(raw: string | null): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
  * PAD-140 — "Presenças", the coach's attendance overview.
  *
  * Coach-only. Composes four blocks over three endpoints:
@@ -71,9 +82,13 @@ export default function PresencesPage() {
   // `null` = no filter active: the charts show the whole roster.
   const [filteredPlayers, setFilteredPlayers] = useState<PresencePlayerStats[] | null>(null);
   const [queue, setQueue] = useState<PendingValidation | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [roster, setRoster] = useState<RosterOption[]>([]);
 
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [searchParams] = useSearchParams();
+  const [weekOffset, setWeekOffset] = useState(() =>
+    initialWeekOffset(searchParams.get("week"))
+  );
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
   // PAD-191 (B-033): the SET of classes in flight, not just the first — every
@@ -105,7 +120,14 @@ export default function PresencesPage() {
   const loadQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
-      setQueue(await getPendingValidation(week));
+      // The trigger's number comes from the count endpoint — the same helper
+      // the dashboard card reads — never from `pending.length` (B-031).
+      const [list, count] = await Promise.all([
+        getPendingValidation(week),
+        getPendingValidationCount(week),
+      ]);
+      setQueue(list);
+      setPendingCount(count.pendingCount);
     } catch {
       toast({
         title: t("presences.error.queueTitle"),
@@ -243,6 +265,7 @@ export default function PresencesPage() {
           <ValidateClassesDialog
             pending={queue?.pending ?? []}
             validated={queue?.validated ?? []}
+            pendingCount={pendingCount}
             weekOffset={weekOffset}
             onWeekChange={setWeekOffset}
             loading={loadingQueue}

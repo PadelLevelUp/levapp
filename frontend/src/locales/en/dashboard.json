@@ -69,10 +69,10 @@
         "open": "Open"
       },
       "validation": {
-        "title_one": "{{count}} attendance to validate",
-        "title_other": "{{count}} attendances to validate",
-        "detail_one": "From {{count}} class last week",
-        "detail_other": "From {{count}} classes last week",
+        "title_one": "{{count}} class to validate",
+        "title_other": "{{count}} classes to validate",
+        "thisWeek": "This week",
+        "lastWeek": "Last week",
         "review": "Review"
       },
       "invite": {

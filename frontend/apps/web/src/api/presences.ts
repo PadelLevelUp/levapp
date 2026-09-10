@@ -5,6 +5,7 @@ import type {
   AttendanceGranularity,
   ClassInstance,
   PendingValidation,
+  PendingValidationCount,
   Presence,
   PresenceStats,
   PresenceStatus,
@@ -76,6 +77,12 @@ export async function getPendingValidation(
   params: PresenceRangeParams = {}
 ): Promise<PendingValidation> {
   return presencesApi.getPendingValidation(params);
+}
+
+export async function getPendingValidationCount(
+  params: PresenceRangeParams = {}
+): Promise<PendingValidationCount> {
+  return presencesApi.getPendingValidationCount(params);
 }
 
 export async function unvalidateClass(

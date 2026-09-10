@@ -245,13 +245,22 @@ function ValidationCard({ item }: { item: DashboardNeedsYouValidation }) {
   return (
     // No accent: validation is a chore, not a problem. And it is a single line,
     // so on desktop it spans both columns rather than leaving a half-empty row.
-    <ActionCard className="flex items-center gap-3.5 lg:col-span-2">
+    <ActionCard
+      className="flex items-center gap-3.5 lg:col-span-2"
+      testId="dashboard-queue-validation"
+    >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[15px] font-bold tabular-nums">
+        <span
+          className="text-[15px] font-bold tabular-nums"
+          data-testid="dashboard-queue-validation-count"
+        >
           {t("dashboard.needsYou.validation.title", { count: item.count })}
         </span>
         <span className="text-[13px] text-muted-foreground tabular-nums">
-          {t("dashboard.needsYou.validation.detail", { count: item.classCount })}
+          {/* Which week the number is for — the tab opens on that same week. */}
+          {item.weekOffset === 0
+            ? t("dashboard.needsYou.validation.thisWeek")
+            : t("dashboard.needsYou.validation.lastWeek")}
         </span>
       </div>
       <Button variant="secondary" className="h-11 shrink-0 lg:h-10" onClick={() => navigate(item.href)}>

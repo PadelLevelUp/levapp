@@ -64,6 +64,7 @@ export interface RosterOption {
 export function ValidateClassesDialog({
   pending,
   validated,
+  pendingCount,
   weekOffset,
   onWeekChange,
   loading,
@@ -74,6 +75,12 @@ export function ValidateClassesDialog({
 }: {
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
+  /**
+   * The trigger's number, from `/pending_validation/count` — the helper the
+   * dashboard card reads too (attendance.validation rule 18). `null` while
+   * loading; the list below it is the same week's classes.
+   */
+  pendingCount: number | null;
   weekOffset: number;
   onWeekChange: (next: number) => void;
   loading?: boolean;
@@ -254,13 +261,15 @@ export function ValidateClassesDialog({
           <ClipboardCheck className="h-5 w-5" />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold">
+          <span className="block text-sm font-semibold" data-testid="presences-validate-count">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so the
                 counted string renders "0 aula por validar". An empty queue
                 deserves its own sentence anyway. */}
-            {pending.length === 0
-              ? t("presences.validate.triggerEmpty")
-              : t("presences.validate.trigger", { count: pending.length })}
+            {pendingCount == null
+              ? "…"
+              : pendingCount === 0
+                ? t("presences.validate.triggerEmpty")
+                : t("presences.validate.trigger", { count: pendingCount })}
           </span>
           <span className="block text-xs text-muted-foreground">
             {t("presences.validate.triggerHint")}

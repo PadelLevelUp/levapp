@@ -485,12 +485,19 @@ export interface DashboardNeedsYouInvite {
   href: string;
 }
 
-/** Attendances awaiting validation, scoped to classes that ended last week. */
+/**
+ * Classes still to validate for one Presences-tab week (PAD-190 / PAD-201).
+ *
+ * `count` is CLASSES, derived by the same helper the Presences trigger reads,
+ * so the two surfaces show one number. `weekOffset` is `0` for the current
+ * week or `-1` when this week was clean and the card fell back to last week's
+ * backlog; `href` opens the tab on that week.
+ */
 export interface DashboardNeedsYouValidation {
   kind: "validation";
   id: string;
   count: number;
-  classCount: number;
+  weekOffset: number;
   href: string;
 }
 
@@ -1107,5 +1114,12 @@ export interface PendingValidation {
   to: string;
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
+  pendingCount: number;
+}
+
+/** `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18. */
+export interface PendingValidationCount {
+  from: string;
+  to: string;
   pendingCount: number;
 }

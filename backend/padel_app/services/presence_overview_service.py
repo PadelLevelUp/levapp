@@ -384,6 +384,28 @@ def list_pending_validation(
     }
 
 
+def count_pending_validation(
+    *,
+    coach_id: int,
+    range_start: datetime,
+    range_end: datetime,
+    now: Optional[datetime] = None,
+) -> int:
+    """How many classes in the window still have an unvalidated presence.
+
+    ``attendance.validation`` rule 18: this is ``len(pending)`` of
+    :func:`list_pending_validation` for the same bounds — deliberately not a
+    leaner second query. The coach dashboard's ``validation`` queue item and
+    the Presences tab's trigger both read this, so the two surfaces show one
+    number by construction (B-031).
+    """
+    return len(
+        list_pending_validation(
+            coach_id=coach_id, range_start=range_start, range_end=range_end, now=now
+        )["pending"]
+    )
+
+
 def unvalidate_instance(instance: LessonInstance) -> List[Presence]:
     """Reopen a validated class by clearing ``validated`` on its presences.
 

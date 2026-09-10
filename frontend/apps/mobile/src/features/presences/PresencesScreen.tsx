@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { chartScope, lightTheme, narrowedTotals } from "@levelup/config";
 import type { PresencePlayerStats } from "@levelup/types";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { ErrorState } from "@/components/error-state";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
 import {
   useCoachRoster,
   usePendingValidation,
+  usePendingValidationCount,
   usePresenceStats,
   usePresenceTrend,
   useUnvalidateClass,
@@ -64,11 +65,23 @@ import {
  * lives in `report-state.ts` so it is unit-testable — the mobile vitest project
  * cannot render a React Native tree.
  */
+function parseWeekParam(raw: string | undefined): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function PresencesScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  // `week` — the dashboard's validation card sends the coach to the week it
+  // counted (dashboard.navigation rule 9a). Re-synced on every arrival: the
+  // tab stays mounted, so an initial-state read alone would only work once.
+  const { week: weekParam } = useLocalSearchParams<{ week?: string }>();
 
-  const [weekOffset, setWeekOffset] = React.useState(0);
+  const [weekOffset, setWeekOffset] = React.useState(() => parseWeekParam(weekParam));
+  React.useEffect(() => {
+    if (weekParam !== undefined) setWeekOffset(parseWeekParam(weekParam));
+  }, [weekParam]);
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [columnsOpen, setColumnsOpen] = React.useState(false);
@@ -83,6 +96,7 @@ export function PresencesScreen() {
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
   const queue = usePendingValidation(week);
+  const pendingCountQuery = usePendingValidationCount(week);
   const roster = useCoachRoster();
   const validate = useValidateClasses();
   const unvalidate = useUnvalidateClass();
@@ -138,7 +152,8 @@ export function PresencesScreen() {
     return <ErrorState onRetry={() => void stats.refetch()} />;
   }
 
-  const pendingCount = queue.data?.pending.length ?? 0;
+  // From the count endpoint, never `pending.length` (B-031).
+  const pendingCount = pendingCountQuery.data?.pendingCount;
 
   return (
     <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 gap-4">
@@ -155,9 +170,11 @@ export function PresencesScreen() {
           <Text className="text-sm font-sans-bold">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so a
                 counted string renders "0 aula". */}
-            {pendingCount === 0
-              ? t("presences.validate.triggerEmpty")
-              : t("presences.validate.trigger", { count: pendingCount })}
+            {pendingCount == null
+              ? "…"
+              : pendingCount === 0
+                ? t("presences.validate.triggerEmpty")
+                : t("presences.validate.trigger", { count: pendingCount })}
           </Text>
           <Text className="text-xs text-muted-foreground">
             {t("presences.validate.triggerHint")}

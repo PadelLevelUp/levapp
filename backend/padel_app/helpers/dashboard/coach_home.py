@@ -19,10 +19,14 @@ Notes on two deliberate choices:
 
 * **No court.** ``Lesson`` has no court/field column, so the hero shows
   ``{start} – {end}`` only rather than inventing a location.
-* **Validation is a last-7-days window.** The old KPI counted every unvalidated
-  presence ever recorded. Scoped to classes that ended in the last week, the
-  number matches the "From {n} classes last week" framing and can actually reach
-  zero; attendances older than that are a backlog, not this week's chore.
+* **Validation is a Presences-tab week, in classes.** (PAD-190 / PAD-201,
+  B-031.) The old item counted presence rows over a rolling 7 days while the
+  tab counted classes over a Monday–Sunday week, so the two never agreed. The
+  item now reads ``count_pending_validation`` — the tab's own helper — for the
+  current UTC week, falling back to the previous week when this one is clean
+  (a Monday-morning coach still needs to see the weekend's backlog), and links
+  to the tab *on that week*. Older attendances are a backlog, not this
+  week's chore, and stay out of the card.
 """
 from __future__ import annotations
 
@@ -53,6 +57,7 @@ from padel_app.helpers.calendar_helpers import (
     load_lesson_instances_for_player,
 )
 from padel_app.helpers.dashboard.snooze import snoozed_item_ids
+from padel_app.services.presence_overview_service import count_pending_validation
 from padel_app.tools.tools import _safe_int
 from padel_app.utils.dates import utcnow_naive
 
@@ -67,7 +72,9 @@ QUEUE_REPLY_LIMIT = 3
 # and still says how many are signed up.
 HERO_AVATAR_LIMIT = 2
 ACTIVE_PLAYER_DAYS = 30
-VALIDATION_WINDOW_DAYS = 7
+# The current week, then the previous one. Two, not more: anything older is a
+# backlog the tab's week control reaches, not this week's chore.
+VALIDATION_WEEK_OFFSETS = (0, -1)
 
 _EPOCH = datetime(1970, 1, 1)
 
@@ -321,35 +328,44 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
     return out
 
 
+def week_bounds(now: datetime, offset: int) -> Tuple[datetime, datetime]:
+    """Monday 00:00:00 – Sunday 23:59:59 (naive UTC) for the week ``offset`` weeks from ``now``.
+
+    Byte-for-byte the window both shells' ``weekBounds`` produce once the bare
+    ``to`` date is expanded to end-of-day by ``_parse_attendance_bound``
+    (``attendance.validation`` rule 15), so the dashboard counts exactly the
+    week the tab will show.
+    """
+    monday = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    monday += timedelta(weeks=offset)
+    sunday_end = monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return monday, sunday_end
+
+
+def validation_href(week_offset: int) -> str:
+    return "/presences" if week_offset == 0 else f"/presences?week={week_offset}"
+
+
 def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:
-    """Unvalidated attendances for classes that ended in the last week."""
-    window_start = now - timedelta(days=VALIDATION_WINDOW_DAYS)
+    """Classes still to validate, for the tab's week (dashboard.blocks rule 3).
 
-    base = (
-        db.session.query(Presence.id, LessonInstance.id.label("instance_id"))
-        .join(LessonInstance, Presence.lesson_instance_id == LessonInstance.id)
-        .join(Lesson, LessonInstance.lesson_id == Lesson.id)
-        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
-        .filter(Association_CoachLesson.coach_id == coach_id)
-        .filter(Presence.validated.is_(False))
-        .filter(LessonInstance.end_datetime <= now)
-        .filter(LessonInstance.end_datetime >= window_start)
-        .subquery()
-    )
-
-    count = db.session.query(func.count(base.c.id)).scalar() or 0
-    if not count:
-        return None
-
-    class_count = db.session.query(func.count(func.distinct(base.c.instance_id))).scalar() or 0
-
-    return {
-        "kind": "validation",
-        "id": "validation",
-        "count": int(count),
-        "classCount": int(class_count),
-        "href": "/validations",
-    }
+    One helper — ``count_pending_validation`` — so this is the number the
+    Presences trigger shows once the card opens it (B-031).
+    """
+    for offset in VALIDATION_WEEK_OFFSETS:
+        start, end = week_bounds(now, offset)
+        count = count_pending_validation(
+            coach_id=coach_id, range_start=start, range_end=end, now=now
+        )
+        if count:
+            return {
+                "kind": "validation",
+                "id": "validation",
+                "count": int(count),
+                "weekOffset": offset,
+                "href": validation_href(offset),
+            }
+    return None
 
 
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
