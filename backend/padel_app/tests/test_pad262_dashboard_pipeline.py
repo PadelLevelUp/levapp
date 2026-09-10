@@ -137,7 +137,7 @@ def test_the_coach_home_runs_the_pipeline_once(app, monkeypatch):
         return real(**kwargs)
 
     monkeypatch.setattr(coach_home, "load_events", counting)
-    monkeypatch.setattr(coach_module, "utcnow_naive", lambda: now)
+    monkeypatch.setattr(coach_module, "club_now_naive", lambda: now)  # PAD-256: the dashboard clock
 
     with app.app_context():
         blocks = coach_module.build_coach_dashboard_blocks(coach=db.session.get(Coach, coach_id), user_id=user_id)
