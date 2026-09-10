@@ -3,7 +3,12 @@ from datetime import datetime
 from flask import Blueprint, abort, current_app, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from padel_app.models import Lesson, LessonInstance, User
+from padel_app.models import Association_CoachPlayer, Lesson, LessonInstance, User
+from padel_app.modules.frontend_api import (
+    coach_owns_instance,
+    coach_owns_lesson,
+    require_superadmin,
+)
 from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
@@ -207,14 +212,20 @@ def invite_simulation_explain():
 @bp.post("/toggle_class")
 @jwt_required()
 def toggle_class_notifications():
-    _current_coach()
+    coach = _current_coach()
     data = request.get_json() or {}
     model = data.get("model", "LessonInstance")
     original_id = int(data.get("originalId"))
     if model.lower() == "lessoninstance":
         obj = LessonInstance.query.get_or_404(original_id)
+        owned = coach_owns_instance(coach, obj)
     else:
         obj = Lesson.query.get_or_404(original_id)
+        owned = coach_owns_lesson(coach, obj)
+    # PAD-258 — notifications.toggle-class rule 4: any coach could flip any
+    # lesson's flag by id.
+    if not owned:
+        abort(403, "Not authorized to modify this class")
     obj.notifications_enabled = not obj.notifications_enabled
     obj.save()
     return jsonify({"notificationsEnabled": obj.notifications_enabled})
@@ -232,6 +243,14 @@ def manual_notify():
     if not player_ids:
         return jsonify({"error": "No player IDs provided"}), 400
     instance = _resolve_instance(model, original_id, date_str)
+    # PAD-258 — notifications.manual rule 7: the class must be the caller's
+    # and every player must be on the caller's roster; otherwise no event, no
+    # message.
+    if not coach_owns_instance(coach, instance):
+        abort(403, "Not authorized to notify for this class")
+    for pid in player_ids:
+        if Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=pid).first() is None:
+            abort(403, "Player is not on your roster")
     # PAD-107 + PAD-112: work out who will be skipped BEFORE sending, so the
     # coach is told by name exactly who could not be reached instead of just
     # seeing a count that is quietly short. Two independent reasons a student is
@@ -450,7 +469,12 @@ def approval_respond():
 @bp.post("/process_rounds")
 @jwt_required()
 def process_rounds():
-    """Intended for cron job / periodic polling. Processes invitation batches."""
+    """Intended for cron job / periodic polling. Processes invitation batches.
+
+    PAD-258 — notifications.invitations rule 5: superadmin-only; any JWT
+    holder used to be able to run the batch processor concurrently with the
+    scheduler."""
+    require_superadmin()
     processed = process_invitation_batches()
     return jsonify({"processed": processed})
 

@@ -18,6 +18,9 @@ Coaches manually select players to notify about a class, bypassing the automatic
 3. Sends invitation messages to selected players
 4. Players respond same as auto invitations
 5. UI: ManualNotificationModal with searchable player selector
+7. **Owner and roster only (PAD-258).** The caller must own the class instance, and every
+   `playerId` must be on the caller's roster (`Association_CoachPlayer`); otherwise 403 and no
+   NotificationEvent or message is created.
 6. Selection rows (both search results and rows inside a notification group) are a single click target: clicking the checkbox, the avatar or the name each produce exactly one toggle of that player's selection. The row must not carry a click handler that competes with the checkbox's own change handler
 
 ### Acceptance Criteria

@@ -64,6 +64,12 @@ Automatically send class reminders to enrolled players at a configured time befo
     never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
     armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
     October, and a class at 23:00 or later got its day-before reminder a day late.
+17. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
+    the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
+    the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
+    written. Before this, any student could "decline" any class: a stray absent Presence was
+    created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
+    replacement invitations for a spot that was never theirs.
 
 ### Acceptance Criteria
 

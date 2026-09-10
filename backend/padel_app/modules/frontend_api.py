@@ -2140,6 +2140,26 @@ def accept_join_token(token):
 # `@jwt_required()` `PUT /calendar_block/<id>`. Removed.
 
 
+def _player_in_class(player_id, lesson_id, instance_id=None):
+    """PAD-258: an instance link, a presence row, or lesson-level enrolment."""
+    if player_id in (None, ""):
+        return False
+    if instance_id is not None:
+        if Association_PlayerLessonInstance.query.filter_by(
+            player_id=player_id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+        if Presence.query.filter_by(
+            player_id=player_id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+    if lesson_id is not None:
+        return Association_PlayerLesson.query.filter_by(
+            player_id=player_id, lesson_id=lesson_id
+        ).first() is not None
+    return False
+
+
 @bp.post("/class_instance/presences/confirm")
 @jwt_required()
 def confirm_presences():
@@ -2152,7 +2172,31 @@ def confirm_presences():
     )
     from padel_app.utils.dates import utcnow_naive
 
-    data = request.get_json()
+    data = request.get_json() or {}
+    # PAD-258 / audit H4 — attendance.confirm rule 17: this was JWT-only with
+    # no owner check and upserted any player id. Resolve the target the same
+    # way the service does and refuse before anything is materialised.
+    coach = require_coach()
+    ci = data.get("classInstance") or {}
+    event_id = str(ci.get("id") or "")
+    if event_id.startswith("lessoninstance-"):
+        is_instance = True
+    elif event_id.startswith("lesson-"):
+        is_instance = False
+    else:
+        is_instance = bool(ci.get("parentClassId"))
+    target = require_owned_class(
+        coach, "lessoninstance" if is_instance else "lesson", ci.get("originalId")
+    )
+    target_lesson_id = target.lesson_id if is_instance else target.id
+    target_instance_id = target.id if is_instance else None
+    for item in data.get("presences") or []:
+        pid = item.get("playerId")
+        on_roster = pid not in (None, "") and Association_CoachPlayer.query.filter_by(
+            coach_id=coach.id, player_id=pid
+        ).first() is not None
+        if not on_roster and not _player_in_class(pid, target_lesson_id, target_instance_id):
+            abort(403, "Not authorized to record attendance for this player")
     presences = confirm_presences_service(data['classInstance'], data['presences'])
 
     notified_players = []
