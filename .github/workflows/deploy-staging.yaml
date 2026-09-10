@@ -66,8 +66,60 @@ jobs:
               - 'frontend/**'
               - '.github/workflows/deploy-staging.yaml'
 
-  backend:
+  # PAD-220: the migration drift gate. Every migration runs from empty against a
+  # throwaway Postgres 15, there must be exactly one head, and `flask db check`
+  # must find nothing the models disagree with. A red gate stops the backend job
+  # (it `needs` this one) before any image is built or any container touched.
+  drift-gate:
     needs: changes
+    if: >-
+      (github.event_name == 'push' && (needs.changes.outputs.backend == 'true' || github.event.before == '0000000000000000000000000000000000000000')) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'backend'))
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: padel_app_user
+          POSTGRES_PASSWORD: drift-gate
+          POSTGRES_DB: drift_gate
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U padel_app_user -d drift_gate"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FLASK_APP: padel_app
+      FLASK_ENV: development
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: padel_app_user
+      POSTGRES_PW: drift-gate
+      POSTGRES_DB: drift_gate
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Install Poetry
+      run: pipx install poetry
+    - name: Install backend
+      run: poetry install --no-root --no-interaction
+      working-directory: backend
+    - name: Migrate an empty database
+      run: poetry run flask db upgrade
+      working-directory: backend
+    - name: Exactly one head
+      run: |
+        heads=$(poetry run flask db heads 2>/dev/null | grep -c '(head)')
+        echo "alembic heads: $heads"
+        test "$heads" -eq 1
+      working-directory: backend
+    - name: Models match the migrations (flask db check)
+      run: poetry run flask db check
+      working-directory: backend
+
+  backend:
+    needs: [ changes, drift-gate ]
     # A push that CREATES the branch has no base commit for paths-filter to diff
     # against (event.before is all zeros), so treat it as "everything changed".
     if: >-
@@ -124,6 +176,20 @@ jobs:
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          # PAD-220: `docker run` succeeding proves nothing about migrations — the
+          # entrypoint runs them, and a failed one crash-loops the container
+          # while this job reports green. Wait for the entrypoint to reach
+          # "Starting app..." and fail the deploy, with the log, if it does not.
+          for i in $(seq 1 45); do
+            if docker logs padelapp_staging 2>&1 | grep -q "Starting app..."; then echo "migrations applied"; break; fi
+            restarts=$(docker inspect -f '{{.RestartCount}}' padelapp_staging)
+            if [ "$restarts" -gt 0 ] || [ "$i" -eq 45 ]; then
+              echo "::error::padelapp_staging did not finish its migrations (restarts=$restarts)"
+              docker logs --tail 60 padelapp_staging
+              exit 1
+            fi
+            sleep 2
+          done
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
