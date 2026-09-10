@@ -8,7 +8,12 @@ new secret cannot be served by the editor by accident.
 """
 
 REDACTED_COLUMNS = {
-    "users": frozenset({"password", "generated_code", "email_verification_code_hash"}),
+    "users": frozenset({
+        "password",
+        "generated_code",
+        "email_verification_code_hash",
+        "password_reset_code_hash",  # PAD-139
+    }),
     "device_tokens": frozenset({"token"}),
     "push_subscriptions": frozenset({"subscription_json"}),
     "coach_invitations": frozenset({"token"}),
@@ -16,9 +21,16 @@ REDACTED_COLUMNS = {
     "coach_join_tokens": frozenset({"token"}),
 }
 
-#: Columns whose names look like secrets but are not. Empty today; add a
-#: (table, column) pair here, with a reason, rather than weakening the guard.
-NOT_SECRET = frozenset()
+#: Columns whose names look like secrets but are not. Add a (table, column) pair
+#: here, with a reason, rather than weakening the guard.
+NOT_SECRET = frozenset({
+    # PAD-139 recovery bookkeeping: they match only on "password" and hold a
+    # timestamp or a counter, like the email_verification_* siblings the editor
+    # already serves. The code itself is redacted above.
+    ("users", "password_reset_expires_at"),
+    ("users", "password_reset_sent_at"),
+    ("users", "password_reset_attempts"),
+})
 
 
 def redacted_columns(model_or_instance) -> frozenset:
