@@ -96,7 +96,10 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
     on today, which is slow for a date years back and cannot be driven by the Maestro suite), a
     country select (Portugal pre-selected), and — once the date and country make the person a minor
     by the client's copy of the seed ages, or the server answers `GUARDIAN_EMAIL_REQUIRED` — a
-    guardian email field with a one-line explanation.
+    guardian email field with a one-line explanation. On iOS every text field's return key is
+    **Next**, which moves focus to the following field and scrolls it into view (the keyboard
+    covers the lower half of the form), and the number pad closes itself once the date is complete,
+    since it has no Done key.
     After a pending sign-up, and after a 403 `GUARDIAN_CONSENT_PENDING` on login, both screens show
     a "waiting for your guardian" card: the masked guardian email, **Enviar novamente** (60-second
     countdown), **Alterar email do encarregado** and **Voltar a entrar**. The consent and withdraw
