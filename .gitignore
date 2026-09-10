@@ -33,3 +33,7 @@ __pycache__/
 # internal prose — plans, QA, handoffs, onboarding notes, vendored reference apps.
 # Kept on disk, out of the public repo. Cortex knowledge lives in .cortex/ instead.
 docs/
+
+# Local iOS build output and watchman cookies: never commit (swept into #195 by mistake).
+/build/
+.watchman-cookie-*
