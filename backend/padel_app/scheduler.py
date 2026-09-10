@@ -342,7 +342,8 @@ def init_scheduler(app, test_config=None) -> None:
 
     Skipped in these contexts:
     - Tests:             ``test_config`` is not None
-    - Flask CLI:         ``flask db upgrade``, ``flask shell``, etc.
+    - Flask CLI:         ``flask db upgrade``, ``flask shell``, etc., whether run as
+                         the ``flask`` script or ``python -m flask`` (PAD-264)
     - Werkzeug watcher:  outer watcher process (``WERKZEUG_RUN_MAIN`` set but ≠ "true")
     """
     global _app, _scheduler
@@ -351,9 +352,26 @@ def init_scheduler(app, test_config=None) -> None:
     if test_config is not None:
         return
 
-    # Skip during Flask CLI sub-commands that are not `flask run`
-    argv0 = os.path.basename(sys.argv[0]) if sys.argv else ""
-    if argv0 in ("flask", "flask.exe") and len(sys.argv) > 1 and sys.argv[1] != "run":
+    # Skip every Flask CLI process except `flask run` (PAD-264, audit H12;
+    # notifications.reminders rule 15). The production entrypoint runs
+    # `python -m flask --app app.py db upgrade`, and under `python -m`
+    # sys.argv[0] is ".../flask/__main__.py". The old basename check
+    # ("flask"/"flask.exe") missed that, so APScheduler started inside every
+    # deploy's migration. Options are skipped when looking for the command, so
+    # `flask --app app.py run` is recognised as `run` (the old argv[1] check
+    # read "--app" and skipped it).
+    from padel_app.config import is_migration_invocation
+
+    argv = sys.argv or [""]
+    if is_migration_invocation(argv):
+        return
+    argv0 = argv[0].replace("\\", "/")
+    is_flask_cli = (
+        os.path.basename(argv0) in ("flask", "flask.exe")
+        or argv0.endswith("flask/__main__.py")
+    )
+    command_args = [a for a in argv[1:] if not a.startswith("-")]
+    if is_flask_cli and "run" not in command_args:
         return
 
     # Werkzeug dev-reloader spawns two processes:
