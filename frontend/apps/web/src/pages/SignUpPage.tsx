@@ -376,12 +376,15 @@ const SignUpPage = () => {
           </form>
           )}
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {t("auth.signup.haveAccount")}{" "}
-            <Link to="/auth" className="underline hover:text-foreground">
-              {t("auth.signup.signIn")}
-            </Link>
-          </p>
+          {/* The waiting card carries its own "Voltar a entrar" (PAD-198). */}
+          {!pending && (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              {t("auth.signup.haveAccount")}{" "}
+              <Link to="/auth" className="underline hover:text-foreground">
+                {t("auth.signup.signIn")}
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
 
