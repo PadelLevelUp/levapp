@@ -5,6 +5,9 @@ a mail failure is logged and never fails the signup or the decision.
 """
 from flask import abort, current_app
 
+from flask_jwt_extended import create_access_token
+from werkzeug.security import check_password_hash
+
 from padel_app.models import Coach, User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
@@ -59,7 +62,64 @@ def approve_coach_service(coach_id, admin_user, now=None):
 
 
 def reject_coach_service(coach_id, admin_user, reason=None):
-    return _decide(coach_id, admin_user, "rejected", reason=reason)
+    coach = _decide(coach_id, admin_user, "rejected", reason=reason)
+    # Rule 10 (PAD-233): a rejected coach cannot sign in. `disabled` is the
+    # status the JWT blocklist loader already treats as "kill every session",
+    # so this signs them out on every device without a new column.
+    if coach.user is not None and coach.user.status != "disabled":
+        coach.user.status = "disabled"
+        db.session.commit()
+    return coach
+
+
+class CoachRejected(Exception):
+    """Login refused because the coach was rejected (rule 11)."""
+
+    def __init__(self, reason):
+        super().__init__("COACH_REJECTED")
+        self.reason = reason
+
+    def payload(self):
+        return {"error": "COACH_REJECTED", "reason": self.reason}
+
+
+def rejected_coach_of(user):
+    """The user's Coach when it is `rejected`, else None."""
+    coach = getattr(user, "coach", None)
+    if coach is not None and coach.approval_status == "rejected":
+        return coach
+    return None
+
+
+def login_body(user):
+    return {
+        "accessToken": create_access_token(identity=str(user.id)),
+        "user": {"id": user.id, "name": user.name, "role": user.role},
+    }
+
+
+def reapply_coach_service(username, password):
+    """Rule 12: a rejected coach asks again. Checks the credentials (401),
+    requires a rejected coach on a live account (410), puts the coach back in
+    the queue, re-enables the login, notifies the admin and returns the login
+    body."""
+    from flask import abort
+
+    user = User.query.filter_by(username=username or "").first()
+    if user is None or not user.password or not check_password_hash(user.password, password or ""):
+        abort(401)
+    coach = rejected_coach_of(user)
+    # A deleted account has no email (account_service) and cannot come back.
+    if coach is None or not user.email:
+        abort(410)
+    coach.approval_status = "pending"
+    coach.rejection_reason = None
+    coach.approved_at = None
+    coach.approved_by_user_id = None
+    user.status = "active"
+    db.session.commit()
+    notify_admin_of_pending_coach(coach)
+    return login_body(user)
 
 
 # ── notifications (best-effort) ────────────────────────────────────────────

@@ -19,6 +19,7 @@ import { useLaunchOverlay } from "@/components/brand/launch-overlay";
 import { postLoginLanding } from "@/auth/postLoginPath";
 import { getMe } from "@/api/auth";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
+import { reapplyCoachApproval } from "@/api/auth";
 
 const AuthPage = () => {
   const { t } = useTranslation();
@@ -29,6 +30,9 @@ const AuthPage = () => {
     username?: string;
     password?: string;
   }>({});
+  // auth.coach-approval rule 13 (PAD-233): a rejected coach sees why and can ask again.
+  const [rejected, setRejected] = useState<{ reason: string | null } | null>(null);
+  const [reapplying, setReapplying] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -52,6 +56,44 @@ const AuthPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  /** Session in hand: hydrate, route as a fresh login does, reveal. */
+  const enter = async (accessToken: string) => {
+    await login(accessToken);
+    // auth.register rule 11: a coach still waiting for approval, or with no
+    // club yet, lands on the screen that says so rather than the dashboard.
+    // players.join-token rule 9: a join link opened without a session comes
+    // first, once the account is usable for it.
+    const me = await getMe();
+    const target = postLoginLanding(me);
+    const remembered = consumePostAuthRedirect();
+    // A remembered post-auth path (invite / join link) wins over both the
+    // dashboard and the "connect with a coach" landing — the link IS the
+    // connection the student came for. Coach gates (pending, no club) still win.
+    const gated = target !== "/dashboard" && target !== "/connect";
+    navigate(remembered && !gated ? remembered : target);
+    succeed();
+    toast({
+      title: t("auth.login.welcomeTitle"),
+      description: t("auth.login.welcomeDescription"),
+    });
+  };
+
+  const handleReapply = async () => {
+    setReapplying(true);
+    try {
+      const res = await reapplyCoachApproval({ username, password });
+      setRejected(null);
+      toast({ title: t("auth.login.reapplied") });
+      begin();
+      await enter(res.accessToken);
+    } catch {
+      cancel();
+      toast({ variant: "destructive", title: t("auth.login.failedTitle"), description: t("auth.login.reapplyFailed") });
+    } finally {
+      setReapplying(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -67,35 +109,29 @@ const AuthPage = () => {
       // auth.login rule 8 (PAD-186): cover the screen only once the server has
       // said yes — a wrong password must show its toast on the untouched form,
       // never the mark forming and then vanishing. The overlay lives above the
-      // router (LaunchOverlayProvider), so the navigate below happens
+      // router (LaunchOverlayProvider), so the navigate inside `enter` happens
       // underneath it and the dashboard is already fetching (session hydration
       // and /me are what the mark forming now waits on) by the time the reveal
       // plays.
       begin();
 
-      await login(res.data.accessToken)
-      // auth.register rule 11: a coach still waiting for approval, or with no
-      // club yet, lands on the screen that says so rather than the dashboard.
-      // players.join-token rule 9: a join link opened without a session comes
-      // first, once the account is usable for it.
-      const me = await getMe();
-      const target = postLoginLanding(me);
-      const remembered = consumePostAuthRedirect();
-      // A remembered post-auth path (invite / join link) wins over both the
-      // dashboard and the "connect with a coach" landing — the link IS the
-      // connection the student came for. Coach gates (pending, no club) still win.
-      const gated = target !== "/dashboard" && target !== "/connect";
-      navigate(remembered && !gated ? remembered : target);
-      succeed();
-      toast({
-        title: t("auth.login.welcomeTitle"),
-        description: t("auth.login.welcomeDescription"),
-      });
+      await enter(res.data.accessToken);
     } catch (err) {
       // Take the overlay away at once; the error toast is behind it.
       cancel();
-      // auth.login rule 7 (PAD-228): a throttled attempt says when to retry.
-      const res = (err as { response?: { status?: number; data?: { retryAfterSeconds?: number } } }).response;
+      // auth.login rule 9 (PAD-233): a rejected coach is told why and offered
+      // re-application. auth.login rule 7 (PAD-228): a throttled attempt says
+      // when to retry.
+      const res = (err as {
+        response?: {
+          status?: number;
+          data?: { error?: string; reason?: string | null; retryAfterSeconds?: number };
+        };
+      }).response;
+      if (res?.status === 403 && res.data?.error === "COACH_REJECTED") {
+        setRejected({ reason: res.data.reason ?? null });
+        return;
+      }
       toast({
         variant: "destructive",
         title: t("auth.login.failedTitle"),
@@ -148,6 +184,7 @@ const AuthPage = () => {
                 onChange={(e) => {
                   setUsername(e.target.value);
                   setErrors((prev) => ({ ...prev, username: undefined }));
+                  setRejected(null);
                 }}
               />
               {errors.username && (
@@ -175,6 +212,21 @@ const AuthPage = () => {
                 </p>
               )}
             </div>
+
+            {rejected && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-2" data-testid="login-rejected">
+                <p className="text-sm font-medium">{t("auth.login.rejectedTitle")}</p>
+                <p className="text-sm text-muted-foreground">{t("auth.login.rejectedDescription")}</p>
+                {rejected.reason && (
+                  <p className="text-sm text-muted-foreground" data-testid="login-rejected-reason">
+                    {t("auth.login.rejectedReason", { reason: rejected.reason })}
+                  </p>
+                )}
+                <Button type="button" variant="outline" className="w-full" disabled={reapplying} onClick={() => void handleReapply()} data-testid="login-reapply">
+                  {reapplying ? t("auth.login.reapplying") : t("auth.login.reapply")}
+                </Button>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}

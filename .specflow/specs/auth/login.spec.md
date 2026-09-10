@@ -31,6 +31,8 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    session hydration and `/api/auth/me` still run behind the overlay. Web-only: the iOS app has no
    sign-in animation (its launch animation runs at app start, `app/_layout.tsx`, not on login), so
    there is nothing to port (R-024 exception recorded here and in the PR).
+9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
+   token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
 
 ### Acceptance Criteria
 
@@ -58,6 +60,11 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Then** while the request is in flight and after the error toast appears, no `launch-loader` element exists on the page
 - **When** the user submits the right password
 - **Then** the loader mounts after the 200 and the dashboard is revealed behind it
+
+#### Rejected coach cannot log in (PAD-233)
+- **Given** coach `rui` rejected with reason "not a coach"
+- **When** they POST `/api/auth/login` with the right password
+- **Then** the response is 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
 
 #### Inactive user login
 - **Given** a user with status `inactive`

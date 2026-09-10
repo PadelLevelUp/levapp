@@ -43,8 +43,9 @@ without their knowledge (that case is picked up in
 4. **A coach** is then signed in but sees "Waiting for LevApp approval". The LevApp admin is told a
    coach is waiting (email, when configured, and a badge in the admin's Settings), can see whether
    the coach's email is verified, checks them, and approves or rejects. An approved coach gets an
-   email in their language saying they can start; a rejected coach sees that their request was not
-   approved and how to reach support.
+   email in their language saying they can start; a rejected coach is signed out, sees on the
+   login screen that their request was not approved and why, and can ask again with one tap — which
+   puts them back in the admin's queue (decision 2026-09-09).
 5. **An approved coach**, on their next app load, picks their club: either create a new one
    (name, optionally location), or search existing clubs by name and ask to join one. Creating
    is instant — they are a member of the new club and can start adding players and classes.

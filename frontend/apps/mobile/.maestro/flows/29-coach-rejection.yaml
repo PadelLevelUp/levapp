@@ -1,0 +1,72 @@
+# PAD-233 — auth.coach-approval rules 10-13. A coach is registered, verified
+# and rejected through the API (the seeded e2e-coach is the superadmin); the
+# login screen then shows "Pedido não aprovado" with the reason and a
+# "Pedir nova aprovação" button that signs the coach in on the pending screen.
+#
+# Mirrors: apps/web/e2e/auth-onboarding/coach-rejection.spec.ts
+appId: com.padellevelup.app
+---
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "tab-dashboard"
+          timeout: 20000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "tab-dashboard"
+          file: ../subflows/logout.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 30000
+- waitForAnimationToEnd
+- evalScript: ${output.stamp = String(Date.now())}
+- evalScript: ${output.username = 'maestro-rej-' + output.stamp}
+- evalScript: ${output.reg = json(http.post('http://localhost:5001/api/auth/register', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'coach', name: 'Maestro Rejected', username: output.username, email: output.username + '@example.com', password: 'Segura1234' }) }).body)}
+- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=' + output.username + '@example.com').body).code}
+- evalScript: ${output.verify = http.post('http://localhost:5001/api/auth/email-verification/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.reg.accessToken }, body: JSON.stringify({ code: output.code }) }).ok}
+- evalScript: ${output.admin = json(http.post('http://localhost:5001/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}
+- evalScript: ${output.coachId = json(http.get('http://localhost:5001/api/app/admin/coach-approvals', { headers: { 'Authorization': 'Bearer ' + output.admin } }).body).filter(function (r) { return r.username === output.username; })[0].coachId}
+- evalScript: ${output.rejected = http.post('http://localhost:5001/api/app/admin/coach-approvals/' + output.coachId + '/reject', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.admin }, body: JSON.stringify({ reason: 'Maestro: not a coach' }) }).ok}
+
+# ── Login says why ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: ${output.username}
+      - assertVisible: ${output.username}
+- tapOn:
+    id: "login-password"
+- eraseText: 40
+- inputText: "Segura1234"
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "login-rejected"
+    timeout: 15000
+- assertVisible:
+    id: "login-rejected-reason"
+
+# ── Request again → pending screen ──
+- tapOn:
+    id: "login-reapply"
+- extendedWaitUntil:
+    visible:
+      id: "coach-pending"
+    timeout: 25000
+- tapOn:
+    id: "coach-pending-signout"
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 15000

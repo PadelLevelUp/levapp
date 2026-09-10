@@ -40,3 +40,5 @@ executionOrder:
     # so its position is not load bearing; last so a mid-flow failure cannot
     # lock the other flows out.
     - 28-password-recovery
+    # 29 registers and rejects its own coach, so its position is not load bearing.
+    - 29-coach-rejection

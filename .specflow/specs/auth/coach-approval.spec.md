@@ -58,6 +58,29 @@ it is designed to be switched off later without a data change.
 9. Switching the gate off later: a config flag `COACH_APPROVAL_REQUIRED` (default `true`). When
    `false`, `auth.register` creates coaches as `approved` and the admin section shows nothing
    pending. No column or client change is needed to turn it off.
+10. **Rejection disables the login (PAD-233, owner decision 2026-09-09).** `reject` also sets
+    the coach's `users.status` to `disabled`. The JWT blocklist loader already refuses every
+    token of a `disabled` user, so the coach is signed out on every device at once (the next
+    request answers 401 and the clients drop the session) and nothing club-scoped is reachable.
+    No new column: `disabled` is the same state account deletion uses, and the coach row keeps
+    `approval_status = rejected` plus `rejection_reason`.
+11. **Login says why.** `POST /api/auth/login` with the right credentials for a user whose coach
+    is `rejected` answers 403 `{"error": "COACH_REJECTED", "reason": "<rejection_reason or
+    null>"}` and issues no token. The reason the admin typed IS shown to the coach from now on
+    (rule 3's "never shown in v1" is superseded). Wrong credentials stay 401 so the status leaks
+    nothing to a guesser.
+12. **Re-application.** `POST /api/auth/coach-approval/reapply` `{"username", "password"}` (no
+    JWT — the coach cannot sign in) checks the credentials (401 on a mismatch), requires the
+    coach to be `rejected` (410 otherwise, including for a deleted account, which has no email),
+    then sets `approval_status = pending`, clears `rejection_reason`, sets `users.status` back to
+    `active`, notifies the admin exactly as signup does (rule 4) and answers 200 with the login
+    body (`accessToken` + `user`), so the client signs the coach in and lands them on the
+    "Waiting for LevApp approval" screen (rule 6). The admin sees them in the pending list again.
+13. **Login screens (web and iOS).** On a 403 `COACH_REJECTED` the login form shows, in place of
+    the generic failure toast, a "Pedido não aprovado" block with the reason when there is one
+    and a **Pedir nova aprovação** button that calls rule 12 with the credentials already typed;
+    on success the app routes exactly as a fresh login. The in-app rejected screen of rule 6 stays
+    for a session that was open at the moment of rejection but is normally never reached again.
 
 ### Acceptance Criteria
 
@@ -76,7 +99,35 @@ it is designed to be switched off later without a data change.
 #### Rejection stores the reason and blocks the coach
 - **Given** coach `rui` pending
 - **When** `admin` POSTs `.../reject` with `{"reason": "not a coach"}`
-- **Then** `approval_status = rejected`, `rejection_reason = "not a coach"`, and `rui`'s `POST /api/app/club` is 403 `COACH_NOT_APPROVED`
+- **Then** `approval_status = rejected`, `rejection_reason = "not a coach"`, and `rui`'s `POST /api/app/club` with the token from before the rejection is 401 (rule 10 killed the session; before PAD-233 it was 403 `COACH_NOT_APPROVED`)
+
+#### Rejection signs the coach out everywhere (PAD-233)
+- **Given** pending coach `rui` signed in on two devices
+- **When** `admin` POSTs `.../reject` with `{"reason": "not a coach"}`
+- **Then** `rui`'s User has `status = disabled`, and both devices' next `GET /api/auth/me` is 401
+
+#### Login tells a rejected coach why (PAD-233)
+- **Given** rejected coach `rui` (reason "not a coach")
+- **When** `rui` POSTs `/api/auth/login` with the right password
+- **Then** the response is 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}` with no `accessToken`
+- **When** `rui` POSTs with a wrong password
+- **Then** the response is 401 with no reason
+
+#### A rejected coach can ask again (PAD-233)
+- **Given** rejected coach `rui` and `ADMIN_NOTIFY_EMAIL` configured with a captured transport
+- **When** `rui` POSTs `/api/auth/coach-approval/reapply` with the right password
+- **Then** the response is 200 with an `accessToken`, the Coach is `pending` with `rejection_reason` null, the User is `active`, one admin mail was sent, and `admin`'s pending list contains `rui`
+- **When** `rui` POSTs `reapply` again while pending
+- **Then** the response is 410
+- **When** anyone POSTs `reapply` with a wrong password
+- **Then** the response is 401 and nothing changes
+
+#### Login screen offers "request again" (PAD-233)
+- **Given** a rejected coach on the web `/auth` or the iOS login screen
+- **When** they sign in with the right password
+- **Then** the form shows "Pedido não aprovado" with the reason and a **Pedir nova aprovação** button, and no dashboard is shown
+- **When** they tap it
+- **Then** they land on "Waiting for LevApp approval", and Settings → Admin lists them for the superadmin
 
 #### Ordinary coach cannot approve
 - **Given** approved coach `maria` (not superadmin) and pending coach `rui`
@@ -122,5 +173,6 @@ it is designed to be switched off later without a data change.
   `notifications.request-alerts` (PAD-232).
 - OPEN: who the LevApp admin is operationally — today the only `is_superadmin` account is the
   owner's. If a second admin is needed, flip the flag in the editor; no UI for that in v1.
-- OPEN: rejected coaches keep an active User. Decide later whether rejection should disable the
-  account (that would reuse `delete_account_service` and kill sessions).
+- Decision 2026-09-09 (owner, PAD-233): rejection disables the login (rules 10–13) and the
+  coach may ask again. The `disabled` status is reused rather than a new column so no migration
+  was needed; a deleted account cannot re-apply because deletion clears the email.
