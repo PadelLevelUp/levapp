@@ -199,3 +199,72 @@ def test_materialising_locks_the_parent_lesson_and_yields_one_instance(app, recu
         second = get_or_materialize_instance(db.session.get(Lesson, lesson_id), occurrence)
         assert first.id == second.id
     assert "Lesson" in locks
+
+
+# ── PAD-68 under the lock: the class starts while an answer waits ────────────
+
+def _moved_to_start_while_locking(monkeypatch, instance_id, start):
+    """The class reaches its start while the answer waits on the lock.
+
+    Stands in for another transaction (a coach moving the class to start now)
+    that commits while this one is blocked on SELECT ... FOR UPDATE; only a check
+    on the re-read row can see it.
+    """
+    from sqlalchemy import update
+
+    from padel_app.models import LessonInstance
+    from padel_app.services import notification_service as ns
+
+    original = ns._lock_vacancy_and_instance
+
+    def moved(vacancy, instance):
+        db.session.execute(
+            update(LessonInstance).where(LessonInstance.id == instance_id).values(start_datetime=start)
+        )
+        db.session.commit()
+        return original(vacancy, instance)
+
+    monkeypatch.setattr(ns, "_lock_vacancy_and_instance", moved)
+
+
+def test_a_yes_that_waits_past_the_start_enrols_nobody(app, monkeypatch):
+    from padel_app.models import LessonInstance, NotificationEvent, Vacancy
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+
+    coach_id, instance_id, players = _world(app)
+    with app.app_context():
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            trigger_invitations(db.session.get(LessonInstance, instance_id), coach_id)
+        event = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, status="sent").first()
+        assert event is not None and event.vacancy_id is not None
+        user_id = next(u for p, u in players if p == event.player_id)
+        event_id, player_id, vacancy_id = event.id, event.player_id, event.vacancy_id
+        # The pinned clock: an hour before the class as loaded, so the early check passes.
+        start_instant = db.session.get(LessonInstance, instance_id).start_datetime - timedelta(hours=1)
+
+    _moved_to_start_while_locking(monkeypatch, instance_id, start_instant)
+    with app.app_context():
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            result = respond_to_notification(event_id, "yes", user_id, now=start_instant)
+        assert result == {"action": "expired"}
+        assert player_id not in _enrolled(instance_id)
+        assert db.session.get(NotificationEvent, event_id).status == "expired"
+        assert db.session.get(Vacancy, vacancy_id).status == "expired"
+
+
+def test_a_placement_that_waits_past_the_start_places_nobody(app, monkeypatch):
+    from padel_app.models import LessonInstance, Vacancy, WaitingListEntry
+
+    coach_id, instance_id, players = _world(app, students=1)
+    ((player_id, _),) = players
+    vacancy_id, entry_id = _waiting(app, coach_id, instance_id, player_id)
+    with app.app_context():
+        start_instant = db.session.get(LessonInstance, instance_id).start_datetime - timedelta(hours=1)
+
+    _moved_to_start_while_locking(monkeypatch, instance_id, start_instant)
+    monkeypatch.setattr("padel_app.services.notification_service.utcnow_naive", lambda: start_instant)
+    assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is False
+    with app.app_context():
+        assert player_id not in _enrolled(instance_id)
+        assert db.session.get(WaitingListEntry, entry_id).is_active is True
+        assert db.session.get(Vacancy, vacancy_id).status == "expired"
