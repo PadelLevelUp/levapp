@@ -423,7 +423,7 @@
         "unjustifiedAbsences": "Unjustified absences",
         "justifiedAbsences": "Justified absences",
         "attendanceRate": "Attendance rate",
-        "subscription": "Subscription"
+        "subscription": "Account status"
       },
       "operations": {
         "sameAsVacancy": "Same as vacancy",
@@ -447,7 +447,7 @@
       "mostJustified": "Most justified absences",
       "highestAttendance": "Highest attendance rate",
       "matchingSide": "Matching playing side",
-      "activeSubscription": "Active subscription"
+      "activeSubscription": "Active account"
     },
     "restrictions": {
       "maxSimultaneous": "Max simultaneous notifications",
@@ -469,8 +469,8 @@
       "excludedPlayers": "Excluded players",
       "excludedPlayersDescription": "Specific players to exclude from all automatic invitations.",
       "searchPlayers": "Search players…",
-      "excludeUnpaid": "Exclude unpaid subscriptions",
-      "excludeUnpaidDescription": "Don't invite students with an inactive or unpaid subscription",
+      "excludeUnpaid": "Exclude inactive accounts",
+      "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"

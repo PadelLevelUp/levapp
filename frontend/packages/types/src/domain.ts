@@ -644,6 +644,7 @@ export interface NotificationRestrictions {
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
   quietHours: { enabled: boolean };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
+  /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
   // Plain scalar (hours before class start). Cancellations after this window are
   // still allowed but flagged as "late cancellations". Backend key:

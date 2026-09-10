@@ -423,7 +423,7 @@
         "unjustifiedAbsences": "Faltas injustificadas",
         "justifiedAbsences": "Faltas justificadas",
         "attendanceRate": "Taxa de presença",
-        "subscription": "Subscrição"
+        "subscription": "Estado da conta"
       },
       "operations": {
         "sameAsVacancy": "Igual à vaga",
@@ -447,7 +447,7 @@
       "mostJustified": "Mais faltas justificadas",
       "highestAttendance": "Taxa de presença mais alta",
       "matchingSide": "Lado de jogo correspondente",
-      "activeSubscription": "Subscrição ativa"
+      "activeSubscription": "Conta ativa"
     },
     "restrictions": {
       "maxSimultaneous": "Máximo de notificações simultâneas",
@@ -469,8 +469,8 @@
       "excludedPlayers": "Jogadores excluídos",
       "excludedPlayersDescription": "Jogadores específicos a excluir de todos os convites automáticos.",
       "searchPlayers": "Procurar jogadores…",
-      "excludeUnpaid": "Excluir subscrições por pagar",
-      "excludeUnpaidDescription": "Não convidar alunos com uma subscrição inativa ou por pagar",
+      "excludeUnpaid": "Excluir contas inativas",
+      "excludeUnpaidDescription": "Não convidar alunos cuja conta ainda não está ativa (não terminaram de criar o acesso). É o estado da conta, não o pagamento.",
       "hours": "horas",
       "cancellationDeadline": "Prazo de cancelamento",
       "cancellationDeadlineDescription": "Cancelamentos dentro deste número de horas antes do início da aula são marcados como tardios"

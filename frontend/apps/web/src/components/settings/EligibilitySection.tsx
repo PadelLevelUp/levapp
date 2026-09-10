@@ -16,8 +16,9 @@ import type { GroupRule } from "@/types";
  *  - **no payments/subscription.** No payment state exists to read; the
  *    existing `subscription_status` invitation-group attribute and the
  *    `excludeUnpaidSubscription` restriction both read account activation, not
- *    payment. Both keep working untouched; the eligibility picker simply does
- *    not offer them (eligibility.rules rule 5).
+ *    payment — PAD-132 relabelled them "Account status" / "Exclude inactive
+ *    accounts" (ids kept). The eligibility picker simply does not offer them
+ *    (eligibility.rules rule 5).
  *  - **level operations are anchored to the CLASS**, not to a vacancy, because
  *    the bar must be answerable for a class with no spot open.
  */
