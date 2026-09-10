@@ -220,6 +220,155 @@ def test_invite_reaches_the_queue_and_confirmed_class_does_not(app):
     assert item["href"].startswith("/calendar?classId=") and "date=2026-08-05" in item["href"]
 
 
+def _seed_asks(app, *, now, student_id, user_id):
+    """A vacancy invite (3 days out, not enrolled) and a waiting-list offer (4 days out)."""
+    from padel_app.sql_db import db
+    from padel_app.models import (
+        Association_CoachLesson,
+        Conversation,
+        ConversationParticipant,
+        LessonInstance,
+        Message,
+        NotificationEvent,
+    )
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context():
+        coach = db.session.query(Coach).first()
+        club_id = db.session.query(Lesson.club_id).first()[0]
+
+        def make_instance(title, start):
+            lesson = Lesson(
+                title=title, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                is_recurring=False, type="academy", max_players=4, status="active",
+                club_id=club_id,
+            )
+            db.session.add(lesson)
+            db.session.flush()
+            db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=lesson.id))
+            inst = LessonInstance(
+                lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                max_players=4, status="scheduled", notifications_enabled=True,
+                original_lesson_occurence_date=start.date(),
+            )
+            db.session.add(inst)
+            db.session.flush()
+            return inst
+
+        conv = Conversation(
+            is_group=False,
+            participant_key=Conversation.build_participant_key([coach.user_id, user_id]),
+        )
+        db.session.add(conv)
+        db.session.flush()
+        db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=coach.user_id))
+        # Read up to "now": the asks below are inbound messages too, and these
+        # tests are about the ask cards, not the unread-reply card they would
+        # otherwise also produce.
+        db.session.add(
+            ConversationParticipant(
+                conversation_id=conv.id, user_id=user_id, last_read_at=now + timedelta(minutes=1)
+            )
+        )
+
+        vacancy_inst = make_instance("Vacancy Class", (now + timedelta(days=3)).replace(hour=19, minute=0))
+        invite_msg = Message(
+            conversation_id=conv.id, sender_id=coach.user_id, text="A spot opened",
+            message_type="notification_invite", sent_at=now,
+            msg_metadata={"lessonInstanceId": vacancy_inst.id, "responded": False},
+        )
+        db.session.add(invite_msg)
+        db.session.flush()
+        event = NotificationEvent(
+            coach_id=coach.id, lesson_instance_id=vacancy_inst.id, player_id=student_id,
+            type="auto", round_number=1, status="sent", message_id=invite_msg.id,
+        )
+        db.session.add(event)
+
+        offer_inst = make_instance("Offer Class", (now + timedelta(days=4)).replace(hour=19, minute=0))
+        db.session.add(Message(
+            conversation_id=conv.id, sender_id=coach.user_id, text="Join the waiting list?",
+            message_type="waiting_list_offer", sent_at=now,
+            msg_metadata={"lessonInstanceId": offer_inst.id, "responded": False},
+        ))
+        db.session.commit()
+        return {"event_id": event.id, "invite_msg_id": invite_msg.id,
+                "vacancy_instance_id": vacancy_inst.id, "offer_instance_id": offer_inst.id,
+                "coach_id": coach.id}
+
+
+def test_vacancy_invites_and_waiting_list_offers_reach_the_queue(app):
+    """dashboard.blocks rule 3 (PAD-236): the asks are merged soonest-first."""
+    from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
+
+    now = datetime(2026, 8, 4, 10, 0)
+    student_id, user_id, _ = _seed(app, now=now)
+    ids = _seed_asks(app, now=now, student_id=student_id, user_id=user_id)
+
+    with app.app_context():
+        block = build_player_needs_you_block(player_id=student_id, user_id=user_id, now=now)
+
+    items = block["data"]["items"]
+    assert [i["kind"] for i in items] == ["invite", "vacancy_invite", "waiting_list_offer"]
+    assert block["data"]["count"] == 3
+
+    vacancy = items[1]
+    assert vacancy["notificationEventId"] == ids["event_id"]
+    assert vacancy["lessonInstanceId"] == ids["vacancy_instance_id"]
+    assert vacancy["classTitle"] == "Vacancy Class"
+    assert (vacancy["filled"], vacancy["capacity"]) == (0, 4)
+    assert vacancy["href"].startswith("/calendar?classId=")
+
+    offer = items[2]
+    assert offer["lessonInstanceId"] == ids["offer_instance_id"]
+    assert offer["classTitle"] == "Offer Class"
+    assert offer["date"] == "2026-08-08"
+
+
+def test_an_ask_answered_in_the_chat_is_not_asked_again(app):
+    """Dedupe with the bubble: `responded` on the message settles the question everywhere."""
+    from padel_app.sql_db import db
+    from padel_app.models import Message, NotificationEvent
+    from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
+
+    now = datetime(2026, 8, 4, 10, 0)
+    student_id, user_id, _ = _seed(app, now=now)
+    ids = _seed_asks(app, now=now, student_id=student_id, user_id=user_id)
+
+    with app.app_context():
+        msg = db.session.get(Message, ids["invite_msg_id"])
+        msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "no"}
+        # A later round for the same class, still "sent" but its message settled.
+        db.session.add(NotificationEvent(
+            coach_id=ids["coach_id"], lesson_instance_id=ids["vacancy_instance_id"],
+            player_id=student_id, type="auto", round_number=2, status="sent",
+            message_id=ids["invite_msg_id"],
+        ))
+        for m in db.session.query(Message).filter_by(message_type="waiting_list_offer").all():
+            m.msg_metadata = {**m.msg_metadata, "responded": True, "response": "yes"}
+        db.session.commit()
+        block = build_player_needs_you_block(player_id=student_id, user_id=user_id, now=now)
+
+    assert [i["kind"] for i in block["data"]["items"]] == ["invite"]
+
+
+def test_an_ask_for_a_class_that_started_is_dropped(app):
+    from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
+
+    now = datetime(2026, 8, 4, 10, 0)
+    student_id, user_id, _ = _seed(app, now=now)
+    _seed_asks(app, now=now, student_id=student_id, user_id=user_id)
+
+    with app.app_context():
+        # Five days on: every seeded ask's class has started.
+        block = build_player_needs_you_block(
+            player_id=student_id, user_id=user_id, now=now + timedelta(days=5)
+        )
+
+    assert [i["kind"] for i in block["data"]["items"]] == []
+
+
 def test_schedule_lists_the_week_including_the_invite(app):
     """An invited-but-unconfirmed class is still on the student's calendar."""
     from padel_app.helpers.dashboard.player_home import build_player_schedule_block

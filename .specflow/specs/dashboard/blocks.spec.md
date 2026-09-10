@@ -33,11 +33,31 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      item is omitted when both weeks are clean. Both shells open the Presences tab **on that
      week**, and the tab's own trigger reads the same endpoint for the same bounds, so the two
      numbers are one number.
-     - student: `invite` (soonest first) → `reply`
+     - student: the **asks** — `invite`, `vacancy_invite`, `waiting_list_offer` — merged and
+       ordered soonest class first, together capped at 5 → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
      An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
      `confirmed = false` on a `LessonInstance` that has not started, soonest first, capped at 5,
      carrying `classTitle`, ISO `date`, `timeLabel`, `filled`, `capacity` and the calendar deep link.
+     **(PAD-236) The other two asks come from the messaging layer, not from `Presence`:**
+     - a `vacancy_invite` is an open `NotificationEvent` (`status = sent`) for the student on a
+       class that has not started — the engine's "a spot opened, want it?" (`notifications.
+       invitations`). It carries `notificationEventId` (the answer goes through
+       `POST /app/notify/respond`, exactly as the chat bubble's Yes/No does), `lessonInstanceId`,
+       `classTitle`, `date`, `timeLabel`, `filled`, `capacity`, `href`.
+     - a `waiting_list_offer` is an un-answered `waiting_list_offer` message to the student
+       (`notifications.waiting-list` rule 1) for a class that has not started. It carries
+       `lessonInstanceId` (the answer goes through `POST /app/notify/respond_waiting_list`),
+       `classTitle`, `date`, `timeLabel`, `href`.
+     Both are **deduplicated against the chat bubble's own state**: an item exists only while the
+     message's `metadata.responded` is falsy, and answering from the dashboard settles the bubble
+     the same way answering in the chat does (`respond_to_notification` /
+     `respond_to_waiting_list` write `responded` + `response` back onto the message), so the same
+     question is never open in two places. One item per class: several invite rounds for the same
+     class collapse to the newest event. Both shells render Yes / No on these cards with the
+     same outcomes the bubble reports (spot filled → the "just filled" notice; expired → the
+     "already started" notice) and refetch the dashboard so the card leaves because the payload
+     says so.
      **(B-030) "Later" on an `empty_seats` card is a real action, not decoration.**
      `POST /api/app/dashboard/needs-you/<itemId>/snooze` (coach only, else 403; `itemId` must be a
      queue item id — `lessoninstance-<pk>` or `lesson-<pk>-<date>` — else 400) records a per-coach
@@ -194,6 +214,30 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** `needs_you.count` is 1 and its single item has `kind: "invite"`, the class title,
   tomorrow's ISO date, `timeLabel: "18:00"` and a `/calendar?classId=…&date=…` href; the
   confirmed class is absent from the queue
+
+#### Vacancy invitations and waiting-list offers reach the queue (PAD-236)
+- **Given** an authenticated student with an open (`sent`) `NotificationEvent` for a class in
+  three days they are not enrolled in, an un-answered `waiting_list_offer` message for a class in
+  four days, and a reminder invite for tomorrow
+- **When** they GET `/api/app/dashboard`
+- **Then** `needs_you.items` are, in order, the `invite` (tomorrow), the `vacancy_invite`
+  (`notificationEventId` set, `filled`/`capacity` present) and the `waiting_list_offer`
+  (`lessonInstanceId` set), and `count` is 3
+
+- **Given** the same student after answering the vacancy invite in the chat (its message
+  carries `responded: true`) and a second `sent` event for the same class from a later round
+- **When** they GET `/api/app/dashboard`
+- **Then** no `vacancy_invite` for that class is listed
+
+- **Given** a `waiting_list_offer` for a class that already started
+- **When** the queue is built
+- **Then** it is absent
+
+- **Given** the seeded `e2e-student` with a real `waiting_list_offer` for "E2E Academy Class"
+  (sent through the engine's own path)
+- **When** they open `/` and press **Yes** on that card
+- **Then** the card is gone after the dashboard refetches, the queue count drops by one, and the
+  offer message in the chat shows the "on the waiting list" state
 
 #### Student hero is the soonest class (PAD-202)
 - **Given** an authenticated student whose next class starts in 45 minutes

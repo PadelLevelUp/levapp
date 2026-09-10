@@ -274,6 +274,44 @@ export function useCancelAttendance() {
   });
 }
 
+/** Student action (PAD-236): answer an engine invitation (POST /app/notify/respond). */
+export function useRespondInvite() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      notificationEventId,
+      action,
+    }: {
+      notificationEventId: number;
+      action: "yes" | "no";
+    }) => notificationEngineApi.respondToNotification(notificationEventId, action),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
+/** Student action (PAD-236): answer a waiting-list offer (POST /app/notify/respond_waiting_list). */
+export function useRespondWaitingListOffer() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      lessonInstanceId,
+      action,
+    }: {
+      lessonInstanceId: number;
+      action: "yes" | "no";
+    }) => notificationEngineApi.respondToWaitingList(lessonInstanceId, action),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
 /** Student action: answer a class reminder (POST /app/notify/respond_reminder). */
 export function useRespondReminder() {
   const queryClient = useQueryClient();
