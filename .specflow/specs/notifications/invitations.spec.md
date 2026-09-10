@@ -83,7 +83,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    - Expires unanswered invitations after maxInactiveTime
 6. Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no
 7. If confirmed: Vacancy.status = "filled", player added to instance
-8. If all decline or expire: moves to next round
+8. If all decline or expire: moves to next round. A player invited for a vacancy in a round is
+   not invited for it again in that round, whatever they answered: a decline, a timeout and a
+   still-open invitation all count. The next round applies its own criteria (B-056).
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
 
 ### Acceptance Criteria
@@ -164,6 +166,15 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **When** `process_invitation_batches()` runs
 - **Then** the Vacancy advances to Round 2
 - **And** new matching criteria are applied
+
+#### A student who declines is not invited again in that round (B-056)
+- **Given** one open spot, two students eligible in Round 1, and one invitation at a time
+- **When** the first-ranked student declines
+- **Then** the next invitation goes to the other student, and the first student has exactly one
+  invitation for that vacancy in Round 1
+- **And** a decline recorded by the coach is treated the same on the next batch
+- **And** when the other student declines too, the vacancy advances to Round 2 instead of
+  re-inviting either of them
 
 #### The widest round is capped at the eligibility bar (pending PAD-128)
 - **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
