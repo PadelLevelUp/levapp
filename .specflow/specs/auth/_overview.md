@@ -18,6 +18,7 @@ The auth domain.
 - `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
 - `auth.mobile-universal-links` — implemented
 - `auth.mobile-account-creation` — implemented
+- `auth.account-deletion` — implementing (PAD-268: deleting an account removes it from the future, keeps the coach's records)
 
 ## Why it's grouped this way
 
