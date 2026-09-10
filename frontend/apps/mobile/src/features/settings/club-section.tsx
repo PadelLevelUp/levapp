@@ -52,9 +52,7 @@ export function ClubSection() {
   >([]);
 
   const [creating, setCreating] = React.useState(false);
-  const [revokingToken, setRevokingToken] = React.useState<string | null>(
-    null
-  );
+  const [revokingId, setRevokingId] = React.useState<number | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
   const [inviteUrl, setInviteUrl] = React.useState<string | null>(null);
   // clubs.join-request rule 9: coaches asking to come in (mirrors web).
@@ -241,17 +239,18 @@ export function ClubSection() {
     }
   };
 
-  const handleRevoke = async (token: string) => {
+  // clubs.coach-invitation rule 7 (PAD-269): the list carries ids, never tokens.
+  const handleRevoke = async (invitationId: number) => {
     if (!club) return;
-    setRevokingToken(token);
+    setRevokingId(invitationId);
     try {
-      await invitationsApi.revokeCoachInvitation(token);
+      await invitationsApi.revokeCoachInvitationById(club.id, invitationId);
       await refreshInvitations(club.id);
       toast.success(t("settings.club.invitationRevoked"));
     } catch {
       toast.error(t("settings.club.revokeFailed"));
     } finally {
-      setRevokingToken(null);
+      setRevokingId(null);
     }
   };
 
@@ -489,7 +488,7 @@ export function ClubSection() {
               ) : (
                 invitations.map((inv) => (
                   <View
-                    key={inv.token}
+                    key={inv.id}
                     className="flex-row items-center justify-between rounded-lg border border-border p-3"
                   >
                     <View className="flex-1 pr-2">
@@ -505,12 +504,12 @@ export function ClubSection() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      testID={`club-revoke-${inv.token}`}
+                      testID={`club-revoke-${inv.id}`}
                       accessibilityLabel={t("settings.club.revokeInvitation")}
-                      disabled={revokingToken === inv.token}
-                      onPress={() => void handleRevoke(inv.token)}
+                      disabled={revokingId === inv.id}
+                      onPress={() => void handleRevoke(inv.id)}
                     >
-                      {revokingToken === inv.token ? (
+                      {revokingId === inv.id ? (
                         <Spinner size="small" color={lightTheme.destructive} />
                       ) : (
                         <Text className="text-destructive">
