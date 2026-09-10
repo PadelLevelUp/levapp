@@ -365,6 +365,61 @@ def require_owned_class(coach, model_name, class_id):
     return obj
 
 
+def _student_enrolled(player, lesson_id, instance_id=None):
+    """A student is "in" a class when they hold an instance link, a presence
+    row for the instance, or a lesson-level enrolment (recurring series)."""
+    if player is None:
+        return False
+    if instance_id is not None:
+        if Association_PlayerLessonInstance.query.filter_by(
+            player_id=player.id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+        if Presence.query.filter_by(
+            player_id=player.id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+    if lesson_id is not None:
+        return Association_PlayerLesson.query.filter_by(
+            player_id=player.id, lesson_id=lesson_id
+        ).first() is not None
+    return False
+
+
+def require_readable_class(model_name, obj):
+    """PAD-257 / audit H1 — classes.detail-visibility rule 5.
+
+    The id-keyed class reads used to stop at a role check, so a coach of ANY
+    club could read ANY class with every participant's email and phone, and
+    any student could read any class. Now the caller must be the owning coach,
+    a coach of the class's club (colleagues cover for each other), or a
+    student enrolled in it. Call AFTER get_or_404 so an unknown id stays 404,
+    as the PAD-92 write guards do.
+    """
+    normalized = (model_name or "").strip().lower()
+    is_lesson = normalized == "lesson"
+    lesson = obj if is_lesson else obj.lesson
+    instance_id = None if is_lesson else obj.id
+
+    coach = current_coach()
+    if coach is not None:
+        owned = coach_owns_lesson(coach, obj) if is_lesson else coach_owns_instance(coach, obj)
+        club_id = getattr(lesson, "club_id", None)
+        same_club = club_id is not None and Association_CoachClub.query.filter_by(
+            coach_id=coach.id, club_id=club_id
+        ).first() is not None
+        if owned or same_club:
+            return obj
+        abort(403, "Not authorized to view this class")
+
+    player = current_player()
+    if player is None or not _student_enrolled(
+        player, lesson.id if lesson else None, instance_id
+    ):
+        abort(403, "Not authorized to view this class")
+    return obj
+
+
 def require_own_roster_relation(coach, player_id):
     """Load the caller's Association_CoachPlayer row for ``player_id`` (403 if none)."""
     if player_id in (None, ""):
@@ -534,6 +589,7 @@ def calendar():
 @jwt_required()
 def lesson_instance_detail(instance_id):
     instance = LessonInstance.query.get_or_404(instance_id)
+    require_readable_class("lessoninstance", instance)  # PAD-257
 
     presence_query = Presence.query.filter_by(lesson_instance_id=instance.id)
     # Role-based visibility (PAD-36): a student only sees their own presence.
@@ -810,6 +866,8 @@ def get_lesson_instances():
 @bp.get("/lesson_instance/<int:instance_id>/presences")
 @jwt_required()
 def lesson_instance_presences(instance_id):
+    instance = LessonInstance.query.get_or_404(instance_id)
+    require_readable_class("lessoninstance", instance)  # PAD-257
     presence_query = Presence.query.filter_by(lesson_instance_id=instance_id)
     # Role-based visibility (PAD-36): a student only sees their own presence.
     if current_coach() is None:
@@ -901,6 +959,13 @@ def class_instance():
             )
             if instance is not None:
                 current_class = instance
+
+    # PAD-257: owner / club colleague / enrolled student only, before any
+    # payload is built. `model` may have resolved to an instance above.
+    require_readable_class(
+        "lessoninstance" if isinstance(current_class, LessonInstance) else "lesson",
+        current_class,
+    )
 
     # Role-based visibility (PAD-36): coaches get the full payload; students
     # only ever see their own participation, presence and notifications.
