@@ -33,6 +33,11 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    there is nothing to port (R-024 exception recorded here and in the PR).
 9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
+10. **Guardian consent (PAD-198).** Right credentials of a user whose `guardian_consent_status` is
+    `pending` answer 403 `GUARDIAN_CONSENT_PENDING` with the masked guardian email and no token; a
+    `disabled` user (deleted, or withdrawn by a guardian) gets the ordinary 401
+    (`auth.parental-consent` rule 4). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
+    PAD-228, PAD-186 and PAD-233 in parallel branches.
 
 ### Acceptance Criteria
 

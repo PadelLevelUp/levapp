@@ -13,6 +13,9 @@ LevApp.
   every account created *for* someone (coach-created player, invite link's account half).
 - `auth.newcomer-signs-up-on-their-own` — a coach or student creates their own account from the
   login screen, proves the email with a mailed code; a coach waits for LevApp admin approval, then ends up in a club (created, or requested to join).
+- `auth.minor-signs-up-with-a-guardians-consent` — a person under their country's age of digital
+  consent signs up; the account waits until a parent or guardian consents by email, and the guardian
+  can withdraw it.
 - `auth.visitor-picks-an-audience-and-finds-the-way-in` — the public landing page: a visitor with
   no account picks coach / player / other and is pointed at a demo, the login, support or an email.
 
