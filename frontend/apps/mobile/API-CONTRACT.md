@@ -127,7 +127,7 @@ Any role: `POST /respond {notificationEventId*, action*}`, `POST /respond_remind
 ### `/api/notifications` — Push subscriptions (Web Push)
 
 | GET | `/api/notifications/vapid-public-key` | None | — | `{publicKey}` |
-| POST | `/api/notifications/subscribe` | JWT | `{subscription*: PushSubscription JSON}` | `{success}` 201 |
+| POST | `/api/notifications/save-subscription` | JWT | `{subscription*: PushSubscription JSON}` | `{success}` 201 |
 | DELETE | `/api/notifications/unsubscribe` | JWT | — | 204 |
 
 NOTE: backend push is **Web Push (VAPID)** only. There is no native APNs/FCM device-token endpoint — this is an endpoint gap for native mobile push (see PR notes).

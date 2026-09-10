@@ -109,7 +109,7 @@ The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. 
 
 ## Push notifications
 
-Scaffolded but stubbed. `src/lib/push/` contains an `ExpoPushRegistrar` (expo-notifications) invoked fire-and-forget from `AuthContext` on login and session restore. Every step is guarded and resolves silently: it skips on simulators (`Device.isDevice`), on denied notification permission, and — the key stub — `PUSH_TOKEN_ENDPOINT` is `null` because the backend has no native push-token endpoint yet (it only exposes Web-Push at `/api/notifications/subscribe`). With the endpoint `null`, the obtained Expo token is logged and never synced. When the backend endpoint lands, set `PUSH_TOKEN_ENDPOINT` in `src/lib/push/expoPushRegistrar.ts` and registration starts syncing automatically.
+`src/lib/push/` contains an `ExpoPushRegistrar` (expo-notifications) invoked fire-and-forget from `AuthContext` on login and session restore. Every step is guarded and resolves silently: it skips on simulators (`Device.isDevice`) and on denied notification permission. `PUSH_TOKEN_ENDPOINT` is `/notifications/device` — the backend's native push-token route — so an obtained Expo token is registered there (and deleted on logout). This is a separate contract from browser Web-Push, which the web app registers at `/api/notifications/save-subscription`; native iOS never calls that path.
 
 ## API contract
 
