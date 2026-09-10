@@ -9,6 +9,9 @@
 # Mirrors: apps/web/e2e/auth-onboarding/parental-consent.spec.ts
 appId: com.padellevelup.app
 ---
+# The backend the debug calls hit: Maestro -e API_BASE=http://localhost:<port> for an
+# isolated backend; the shared test backend on :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - launchApp:
     clearState: true
 - evalScript: ${output.stamp = String(Date.now())}
@@ -95,8 +98,8 @@ appId: com.padellevelup.app
     timeout: 15000
 
 # ── The guardian consents (web-only page; driven through the API here) ──
-- evalScript: ${output.token = json(http.get('http://localhost:5001/api/auth/guardian-consent/debug/last-link?email=' + output.guardian).body).consentToken}
-- evalScript: ${output.consented = http.post('http://localhost:5001/api/auth/guardian-consent/' + output.token, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guardianName: 'Maestro Guardian', relationship: 'parent', confirmMinorDetails: true, acceptTerms: true }) }).ok}
+- evalScript: ${output.token = json(http.get(output.api + '/api/auth/guardian-consent/debug/last-link?email=' + output.guardian).body).consentToken}
+- evalScript: "${output.consented = http.post(output.api + '/api/auth/guardian-consent/' + output.token, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guardianName: 'Maestro Guardian', relationship: 'parent', confirmMinorDetails: true, acceptTerms: true }) }).ok}"
 
 # ── The minor gets in, to the email code screen first ──
 - tapOn:

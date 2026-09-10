@@ -15,6 +15,9 @@
 # the same list and is exercised in the parity walk, not here.
 appId: com.padellevelup.app
 ---
+# The backend the debug calls hit: Maestro -e API_BASE=http://localhost:<port> for an
+# isolated backend; the shared test backend on :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - launchApp:
     clearState: true
 - evalScript: ${output.stamp = String(Date.now())}
@@ -39,6 +42,14 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-username"
 - inputText: "a"
+# The PAD-198 fields put the submit button below the keyboard; a tap there
+# lands on a key. Dismiss the keyboard and bring the button into view first.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:
@@ -79,7 +90,7 @@ appId: com.padellevelup.app
     visible:
       id: "verify-email"
     timeout: 25000
-- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-s-' + output.stamp + '@example.com').body).code}
+- evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=maestro-s-' + output.stamp + '@example.com').body).code}
 - tapOn:
     id: "verify-email-code"
 - inputText: ${output.code}
@@ -144,7 +155,7 @@ appId: com.padellevelup.app
     visible:
       id: "verify-email"
     timeout: 25000
-- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-c-' + output.stamp + '@example.com').body).code}
+- evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=maestro-c-' + output.stamp + '@example.com').body).code}
 - tapOn:
     id: "verify-email-code"
 - inputText: ${output.code}
