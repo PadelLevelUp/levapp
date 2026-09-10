@@ -78,7 +78,8 @@ that what the tutorial shows and what the engine does can never disagree.
    - `auto_notify_disabled`
    - `class_notifications_disabled` (`notifications.toggle-class`)
    - `class_over`
-   - `invitation_window` with `opensAt` (from `_compute_invite_start_dt`), blocked while now is
+   - `invitation_window` with `opensAt` (from `_compute_invite_start_dt`: a naive UTC instant the
+     client formats in `Europe/Lisbon`, `notifications.invitations` rule 10), blocked while now is
      before it
    - `quiet_hours` with `until` (next 07:00 club-local, `notifications.config` rule 6a)
    - `min_time_before_class` with `minutes`

@@ -85,6 +85,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 7. If confirmed: Vacancy.status = "filled", player added to instance
 8. If all decline or expire: moves to next round
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+10. **When the invitation window opens (PAD-256).** `invitation_start_timing` is computed exactly
+    like a reminder (`notifications.reminders` rule 15):
+    - `hours_before` counts real hours before the class's real start;
+    - `days_before` takes the class's own date at HH:MM on the club's clock.
+
+    The result is a UTC instant. `Vacancy.invite_not_before` stores it as naive UTC, because it
+    is a moment the server computes (R-023), and every gate compares it with UTC now.
+    `minTimeBeforeClass` counts real minutes to the class's real start.
 
 ### Acceptance Criteria
 
