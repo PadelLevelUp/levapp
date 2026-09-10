@@ -868,6 +868,12 @@ export default function ClassDetailScreen() {
               onChange={(eligibilityRules) =>
                 setDraft((d) => (d ? { ...d, eligibilityRules } : d))
               }
+              openSpots={active.openSpotsVisible ?? null}
+              effectiveOpenSpots={active.effectiveOpenSpotsVisible ?? false}
+              openSpotsSource={active.openSpotsSource ?? "coach"}
+              onOpenSpotsChange={(openSpotsVisible) =>
+                setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
+              }
             />
           ) : null}
 

@@ -36,6 +36,7 @@ from padel_app.helpers.calendar_helpers import (
     load_lesson_instances_for_coach,
     load_lessons_for_player,
     load_lesson_instances_for_player,
+    load_open_spot_events_for_player,
     build_lesson_events,
     load_calendar_blocks_for_user,
     build_block_events,
@@ -575,6 +576,8 @@ def calendar():
     elif player is not None:
         lessons = load_lessons_for_player(player.id, range_start, range_end)
         instances_by_key = load_lesson_instances_for_player(player.id, range_start, range_end)
+        # PAD-130: classes the student could ask to join, flagged `openSpot`.
+        open_spots = load_open_spot_events_for_player(player.id, range_start, range_end)
     else:
         abort(403, "User has no coach or player profile")
 
@@ -582,7 +585,7 @@ def calendar():
     blocks = load_calendar_blocks_for_user(user.id, range_start, range_end)
     block_events = build_block_events(blocks, range_start, range_end)
 
-    return jsonify(lesson_events + block_events)
+    return jsonify(lesson_events + block_events + (open_spots if player is not None and coach is None else []))
 
 
 @bp.get("/lesson_instance/<int:instance_id>")

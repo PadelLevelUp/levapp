@@ -115,11 +115,24 @@ def _eligibility_provenance(obj, coach_id):
         rels = getattr(obj, "coaches_relations", None) or []
         coach_id = rels[0].coach_id if rels else None
     if coach_id is None:
-        return {"effectiveEligibilityRules": None, "eligibilitySource": "coach"}
-    from padel_app.services.notification_service import effective_eligibility_with_source
+        return {
+            "effectiveEligibilityRules": None, "eligibilitySource": "coach",
+            "effectiveOpenSpotsVisible": False, "openSpotsSource": "coach",
+        }
+    from padel_app.services.notification_service import (
+        effective_eligibility_with_source,
+        effective_open_spots_visible_with_source,
+    )
 
     rules, source = effective_eligibility_with_source(obj, coach_id)
-    return {"effectiveEligibilityRules": rules, "eligibilitySource": source}
+    visible, visible_source = effective_open_spots_visible_with_source(obj, coach_id)
+    return {
+        "effectiveEligibilityRules": rules,
+        "eligibilitySource": source,
+        # PAD-130 rule 10
+        "effectiveOpenSpotsVisible": visible,
+        "openSpotsSource": visible_source,
+    }
 
 
 def serialize_class_instance(obj, viewer_player_id=None) -> dict:
@@ -167,6 +180,7 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         # PAD-129 (eligibility.cascade rule 8): the tier this payload addresses,
         # what actually resolved, and where it came from.
         "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
+        "openSpotsVisible": obj.open_spots_visible if isinstance(getattr(obj, "open_spots_visible", None), bool) else None,
         **_eligibility_provenance(obj, coach_id),
     }
 

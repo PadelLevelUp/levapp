@@ -33,6 +33,8 @@ class LessonInstance(db.Model, model.Model):
     # PAD-129 (eligibility.cascade): the single-class tier. Same tri-state as
     # Lesson.eligibility_rules; wins over the lesson and coach tiers when set.
     eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130: single-class tier of the "advertise empty spots" toggle.
+    open_spots_visible = Column(Boolean, nullable=True)
 
     status = Column(
         Enum(

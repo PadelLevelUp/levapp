@@ -374,6 +374,22 @@
       },
       "everyoneHint": "Sem regras nesta aula — todos os teus alunos podem entrar.",
       "standardHint": "Usa a tua elegibilidade padrão em Definições → Notificações."
+    },
+    "openSpot": {
+      "chip": "Vaga livre",
+      "coach": "com {{coach}}",
+      "title": "Vagas livres",
+      "hint": "Se os alunos elegíveis veem as vagas livres desta aula no calendário deles.",
+      "source": {
+        "coach": "Definição padrão",
+        "lesson": "Definida para esta série",
+        "instance": "Definida para esta aula"
+      },
+      "mode": {
+        "inherit": "Padrão",
+        "on": "Visível",
+        "off": "Escondida"
+      }
     }
   }
 }

@@ -40,6 +40,9 @@ class Lesson(db.Model, model.Model):
     # PAD-129 (eligibility.cascade): the series tier. NULL = no override here;
     # [] = a deliberate "everyone"; a list = the bar for this series.
     eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130 (eligibility.open-spot-visibility rule 3): series tier of the
+    # "advertise empty spots" toggle. NULL = inherit, True/False = override.
+    open_spots_visible = Column(Boolean, nullable=True)
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(

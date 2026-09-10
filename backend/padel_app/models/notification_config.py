@@ -200,6 +200,9 @@ class NotificationConfig(db.Model, model.Model):
     # eligibility.cascade (PAD-129) needs [] to be a deliberate override at the
     # lesson/instance tiers; at the coach tier they are equivalent.
     eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130: the coach's standard "make empty spots for future classes visible
+    # to eligible students" toggle. NULL/False = off (today's behaviour).
+    open_spots_visible = Column(Boolean, nullable=True)
 
     coach = relationship("Coach")
 
