@@ -207,3 +207,76 @@ class TestWaitingListOfferResponse:
 
             assert result == {"action": "unknown"}
             assert offer.msg_metadata["responded"] is False
+
+
+class TestOnlyOfferedPlayersMayAnswer:
+    """PAD-222 / B-032 — notifications.waiting-list rule 12."""
+
+    def _headers(self, app, user_id):
+        from flask_jwt_extended import create_access_token
+
+        app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+        with app.app_context():
+            return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
+
+    def test_no_offer_is_403_and_writes_nothing(self, app, client):
+        from padel_app.models import Conversation
+        from padel_app.models.waiting_list_entry import WaitingListEntry
+
+        with app.app_context():
+            ids = _seed("nooffer")
+            instance_id, player_id, user_id = ids["instance"].id, ids["player"].id, ids["player_user_id"]
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            res = client.post(
+                "/api/app/notify/respond_waiting_list",
+                json={"lessonInstanceId": instance_id, "action": "yes"},
+                headers=self._headers(app, user_id),
+            )
+        assert res.status_code == 403
+        with app.app_context():
+            assert WaitingListEntry.query.filter_by(
+                lesson_instance_id=instance_id, player_id=player_id).first() is None
+            assert Conversation.query.count() == 0
+
+    def test_offered_player_is_accepted_and_double_tap_is_idempotent(self, app, client):
+        from padel_app.models.waiting_list_entry import WaitingListEntry
+
+        with app.app_context():
+            ids = _seed("offered")
+            with patch(PATCHES[0]), patch(PATCHES[1]):
+                _send_offer(ids)
+            instance_id, player_id, user_id = ids["instance"].id, ids["player"].id, ids["player_user_id"]
+        headers = self._headers(app, user_id)
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            res = client.post(
+                "/api/app/notify/respond_waiting_list",
+                json={"lessonInstanceId": instance_id, "action": "yes"},
+                headers=headers,
+            )
+            assert res.status_code == 200, res.get_json()
+            assert res.get_json()["action"] == "added_to_waiting_list"
+            # A double tap on the same offer stays idempotent (PAD-124).
+            again = client.post(
+                "/api/app/notify/respond_waiting_list",
+                json={"lessonInstanceId": instance_id, "action": "yes"},
+                headers=headers,
+            )
+        assert again.status_code == 200
+        with app.app_context():
+            entries = WaitingListEntry.query.filter_by(
+                lesson_instance_id=instance_id, player_id=player_id).all()
+            assert len(entries) == 1 and entries[0].is_active
+
+    def test_service_refuses_without_offer_before_touching_the_instance(self, app):
+        from werkzeug.exceptions import Forbidden
+        from padel_app.services.notification_service import respond_to_waiting_list
+
+        with app.app_context():
+            ids = _seed("svc")
+            with patch(PATCHES[0]), patch(PATCHES[1]):
+                try:
+                    respond_to_waiting_list(ids["instance"].id, "yes", ids["player_user_id"])
+                except Forbidden:
+                    pass
+                else:
+                    raise AssertionError("expected 403 Forbidden")

@@ -703,9 +703,21 @@ class TestPastClassInvitationExpiry:
         from padel_app.services.notification_service import respond_to_waiting_list
         from padel_app.models.waiting_list_entry import WaitingListEntry
 
+        from padel_app.services.notification_service import (
+            _offer_waiting_list,
+            get_or_create_config,
+        )
+
         with app.app_context():
             ids = self._seed_pending_invite(suffix="latewl")
             with patch(PATCHES[0]), patch(PATCHES[1]):
+                # PAD-222 (rule 12): only an offered player may answer at all,
+                # so the late tap has to be on a real offer.
+                config = get_or_create_config(ids["coach_id"])
+                _offer_waiting_list(
+                    ids["candidate_id"], ids["instance"], ids["coach_id"],
+                    config.get_message_templates(None), None,
+                )
                 result = respond_to_waiting_list(
                     ids["instance_id"], "yes", ids["candidate_user_id"],
                     now=datetime.utcnow() + timedelta(days=3),

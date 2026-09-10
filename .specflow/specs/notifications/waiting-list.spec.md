@@ -107,6 +107,13 @@ Players can join a waiting list for full classes. Standing waiting list entries 
       (`text-muted-foreground`, `opacity-*`) — no new colour tokens — and shows an explicit
       localized "expired" label. The row's remove control stays at full emphasis and fully usable:
       an expired entry is precisely one the coach is likely to want to delete
+12. **Only an offered player may answer (PAD-222, B-032).** `POST /api/app/notify/respond_waiting_list`
+    is 403 unless the caller's player holds a `waiting_list_offer` message for that
+    `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
+    double tap or a changed answer on the same offer stays the idempotent upsert of PAD-124).
+    Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
+    created. The check runs before the late-instance no-op of PAD-68, so a player never learns
+    whether an arbitrary instance id exists.
 
 ### Acceptance Criteria
 
@@ -143,6 +150,15 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **Given** a student who has answered a `waiting_list_offer`
 - **When** they reopen the conversation
 - **Then** the bubble still shows the badge for the answer they gave, not the Yes/No again
+
+#### A player who was not offered the list is refused (PAD-222)
+- **Given** a future instance of coach C's class and student S on C's roster with no `waiting_list_offer` for it
+- **When** S POSTs `/api/app/notify/respond_waiting_list` with that `lessonInstanceId` and `action=yes`
+- **Then** the response is 403, no `WaitingListEntry` exists for S on that instance and no conversation was created
+- **When** S is sent the offer and answers Yes
+- **Then** the response is 200 and the entry exists
+- **When** S answers Yes again on the now-settled offer
+- **Then** the response is 200 and there is still exactly one entry (idempotent, PAD-124)
 
 #### Declining the offer queues nobody
 - **Given** a student who received a `waiting_list_offer`
