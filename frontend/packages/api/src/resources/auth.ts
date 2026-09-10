@@ -228,6 +228,8 @@ export async function reapplyCoachApproval(payload: { username: string; password
   user: { id: number; name: string; role: "coach" | "player" };
 }> {
   const res = await getApi().post("/auth/coach-approval/reapply", payload);
+  return res.data;
+}
 
 // ── auth.parental-consent (PAD-198) ─────────────────────────────────────────
 
