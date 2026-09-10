@@ -16,7 +16,7 @@ from padel_app.serializers.lesson import (
 )
 from padel_app.serializers.user import serialize_user, serialize_user_public
 from padel_app.tools.username_tools import is_placeholder_username
-from padel_app.serializers.presence import serialize_presence
+from padel_app.serializers.presence import serialize_presence, serialize_presences
 from padel_app.serializers.calendar import serialize_calendar_block
 from padel_app.serializers.message import serialize_message
 from padel_app.serializers.conversation import (
@@ -546,7 +546,7 @@ def lesson_instance_detail(instance_id):
 
     return jsonify({
         "lessonInstance": serialize_lesson_instance(instance),
-        "presences": [serialize_presence(p) for p in presences],
+        "presences": serialize_presences(presences),
     })
 
 
@@ -821,7 +821,7 @@ def lesson_instance_presences(instance_id):
             abort(403, "Not authorized to view this class")
         presence_query = presence_query.filter_by(player_id=player.id)
     presences = presence_query.all()
-    return jsonify([serialize_presence(p) for p in presences])
+    return jsonify(serialize_presences(presences))
 
 
 @bp.get("/calendar_event")
@@ -1148,7 +1148,7 @@ def class_instance_unvalidate(instance_id):
     return jsonify(
         {
             "lessonInstanceId": instance.id,
-            "presences": [serialize_presence(p) for p in presences],
+            "presences": serialize_presences(presences),
         }
     )
 
@@ -1822,7 +1822,7 @@ def confirm_presences():
                         db.session.rollback()
 
     return jsonify({
-        "presences": [serialize_presence(p) for p in presences],
+        "presences": serialize_presences(presences),
         "notifiedPlayers": notified_players,
         "approvalBundle": approval_bundle,
     })

@@ -1,7 +1,7 @@
 import json
 from padel_app.tools.tools import iso_date
 from padel_app.serializers.player import serialize_player
-from padel_app.serializers.presence import serialize_presence
+from padel_app.serializers.presence import serialize_presences
 
 
 # How "meaningful" each invitation status is when a student ends up with more
@@ -176,11 +176,11 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             lesson_instance_id=obj.id
         ).all()
 
-        presences = [
-            serialize_presence(p)
+        presences = serialize_presences(
+            p
             for p in getattr(obj, "presences", [])
             if not is_student or p.player_id == viewer_player_id
-        ]
+        )
 
         # Effective cancellation deadline for this instance (PAD-43) so the
         # frontend can render deadline UX. Falls back to the default when the

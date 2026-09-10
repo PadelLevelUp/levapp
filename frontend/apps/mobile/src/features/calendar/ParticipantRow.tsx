@@ -81,8 +81,13 @@ export function ParticipantRow({
           {name}
         </Text>
 
-        {presence?.invited ? (
-          <Badge variant={presence.confirmed ? "success" : "warning"}>
+        {/* PAD-199 (B-017): the badge follows a message that exists —
+            `reminderSentAt` — never `invited`, which is roster membership. */}
+        {presence?.confirmed || presence?.reminderSentAt ? (
+          <Badge
+            variant={presence.confirmed ? "success" : "warning"}
+            testID="attendance-signal"
+          >
             <Text>
               {presence.confirmed
                 ? t("calendar.attendance.confirmedAttendance")

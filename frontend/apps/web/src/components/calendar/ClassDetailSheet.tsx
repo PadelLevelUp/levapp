@@ -999,7 +999,7 @@ export function ClassDetailSheet({
                       attendance={attendance[p.id] || { status: null }}
                       onChange={(state) => handleAttendanceChange(p.id, state)}
                       disabled={!isValidating || isCanceled}
-                      invited={presence?.invited}
+                      reminderSent={!!presence?.reminderSentAt}
                       confirmed={presence?.confirmed}
                     />
                   );
