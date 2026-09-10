@@ -2033,11 +2033,70 @@ def vacancy_snapshot_for_player(
     return side, None, "none"
 
 
+def _lock_instance(instance: LessonInstance) -> LessonInstance:
+    """PAD-261 (notifications.invitations rule 10): take the class row lock and re-read it.
+
+    ``SELECT ... FOR UPDATE`` waits for any other transaction deciding on this
+    class, then refreshes the row and drops the cached roster and presences, so
+    capacity is counted from what is committed now, never from a copy loaded
+    earlier in the request. The lock lasts until the next commit; every caller
+    ends its locked section with one.
+    """
+    locked = (
+        LessonInstance.query.filter_by(id=instance.id)
+        .with_for_update()
+        .populate_existing()
+        .one()
+    )
+    db.session.expire(locked, ["players_relations", "presences"])
+    return locked
+
+
+def _lock_vacancy_and_instance(vacancy, instance):
+    """PAD-261: lock the vacancy, then the class, and re-read both.
+
+    Always in that order, so two deciders can never deadlock on each other.
+    """
+    if vacancy is not None:
+        vacancy = (
+            Vacancy.query.filter_by(id=vacancy.id)
+            .with_for_update()
+            .populate_existing()
+            .one()
+        )
+    return vacancy, _lock_instance(instance)
+
+
+def _open_vacancy_for(instance_id: int, player_id: int):
+    return (
+        Vacancy.query.filter_by(
+            lesson_instance_id=instance_id,
+            original_player_id=player_id,
+            status="open",
+        )
+        .order_by(Vacancy.id.asc())
+        .first()
+    )
+
+
 def _create_vacancy_for_absent_player(
     instance: LessonInstance,
     coach_id: int,
     absent_player_id: int,
 ) -> Vacancy:
+    # PAD-261 (invitations rule 10): a departing player has at most one open
+    # vacancy. A found one takes no lock; a new one is created only after
+    # looking again under the class lock, so two concurrent absences for the
+    # same player cannot both insert.
+    existing = _open_vacancy_for(instance.id, absent_player_id)
+    if existing is not None:
+        return existing
+    instance = _lock_instance(instance)
+    existing = _open_vacancy_for(instance.id, absent_player_id)
+    if existing is not None:
+        db.session.commit()  # release the lock
+        return existing
+
     side, level_id, _source = vacancy_snapshot_for_player(
         instance, coach_id, absent_player_id
     )
@@ -2062,12 +2121,20 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
     Create Vacancy records for spots that are open because the class was never
     fully enrolled (no 'departing' player to snapshot from).
     """
-    existing_count = Vacancy.query.filter_by(
-        lesson_instance_id=instance.id,
-    ).filter(Vacancy.status.in_(["open", "filled"])).count()
+    def _spots_to_create() -> int:
+        existing_count = Vacancy.query.filter_by(
+            lesson_instance_id=instance.id,
+        ).filter(Vacancy.status.in_(["open", "filled"])).count()
+        open_spots = instance.max_players - _effective_filled_spots(instance)
+        return max(0, open_spots - existing_count)
 
-    open_spots = instance.max_players - _effective_filled_spots(instance)
-    spots_to_create = max(0, open_spots - existing_count)
+    if _spots_to_create() == 0:
+        return []
+    # PAD-261 (invitations rule 10): count again under the class lock, and add
+    # every new row in one commit, so a concurrent caller waits and then
+    # counts them instead of adding its own.
+    instance = _lock_instance(instance)
+    spots_to_create = _spots_to_create()
 
     config = get_or_create_config(coach_id)
     approval_status = "pending" if _is_semi_auto(config) else "not_required"
@@ -2084,8 +2151,9 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
             status="open",
             approval_status=approval_status,
         )
-        v.create()
+        db.session.add(v)
         vacancies.append(v)
+    db.session.commit()  # the new rows, and the end of the lock
     return vacancies
 
 
@@ -3054,8 +3122,10 @@ def _send_invitation_batch(
     # Check waiting list before doing a fresh invite round
     wl_entry = _check_waiting_list(vacancy, instance, coach_id, config, vacancy.current_round_number)
     if wl_entry:
-        _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config)
-        return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
+        if _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config):
+            return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
+        # PAD-261: another path won the spot, or the class is full. Invite nobody.
+        return []
 
     invitation_groups = config.get_invitation_groups()
     if invitation_groups:
@@ -3505,6 +3575,11 @@ def respond_to_notification(
         return {"action": "declined"}
 
     elif action == "yes":
+        # PAD-261 (invitations rule 10): one winner per vacancy. Lock the
+        # vacancy, then the class, and decide on what is committed now; a second
+        # "yes" for the same last spot waits here, then gets the spot-filled answer.
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
             event.status = "expired"
@@ -3555,16 +3630,15 @@ def respond_to_notification(
             )
             return {"action": "spot_filled_waiting_list_offered"}
 
-        # Fill the spot
-        _add_player_to_instance(event.player_id, instance)
-        event.status = "confirmed"
-        event.save()
-
+        # Fill the spot. The vacancy is marked before the enrolment so both land
+        # in the enrolment's commit, which is also where the lock ends (PAD-261).
         if vacancy:
             vacancy.status = "filled"
             vacancy.filled_by_player_id = event.player_id
             vacancy.filled_at = utcnow_naive()
-            vacancy.save()
+        _add_player_to_instance(event.player_id, instance)
+        event.status = "confirmed"
+        event.save()
 
         if coach_user_id:
             _send_system_message(
@@ -4155,14 +4229,24 @@ def _fill_from_waiting_list(
     instance: LessonInstance,
     coach_id: int,
     config: NotificationConfig,
-) -> None:
+) -> bool:
+    """Place a waiting-list student into the vacancy. Returns whether it did.
+
+    PAD-261 (waiting-list rule 13): decided under the vacancy-then-class lock.
+    The student is placed only while the vacancy is still open and the class
+    still has room; otherwise nobody is placed and the entry stays active.
+    """
     from padel_app.models import Coach
 
-    _add_player_to_instance(entry.player_id, instance)
+    vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+    if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.max_players:
+        db.session.commit()  # release the lock; nothing was written
+        return False
 
     vacancy.status = "filled"
     vacancy.filled_by_player_id = entry.player_id
     vacancy.filled_at = utcnow_naive()
+    _add_player_to_instance(entry.player_id, instance)
     vacancy.save()
 
     entry.is_active = False
@@ -4179,11 +4263,11 @@ def _fill_from_waiting_list(
 
     coach = Coach.query.get(coach_id)
     if not coach:
-        return
+        return True
 
     player_user_id = _user_id_for_player(entry.player_id)
     if not player_user_id:
-        return
+        return True
 
     from padel_app.models import Player
 
@@ -4221,6 +4305,7 @@ def _fill_from_waiting_list(
         },
         _coach_only(coach.user_id),
     )
+    return True
 
 
 # ---------------------------------------------------------------------------

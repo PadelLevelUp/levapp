@@ -114,26 +114,41 @@ def get_or_materialize_instance(lesson: Lesson, date):
 
     day_start = datetime.combine(date, time.min)
     day_end = day_start + timedelta(days=1)
-    instance = (
-        LessonInstance.query
-        .filter(LessonInstance.lesson_id == lesson.id)
-        .filter(
-            or_(
-                LessonInstance.original_lesson_occurence_date == date,
-                and_(
-                    LessonInstance.original_lesson_occurence_date.is_(None),
-                    LessonInstance.start_datetime >= day_start,
-                    LessonInstance.start_datetime < day_end,
-                ),
-            )
-        )
-        .order_by(LessonInstance.id.asc())
-        .first()
-    )
 
+    def _lookup():
+        return (
+            LessonInstance.query
+            .filter(LessonInstance.lesson_id == lesson.id)
+            .filter(
+                or_(
+                    LessonInstance.original_lesson_occurence_date == date,
+                    and_(
+                        LessonInstance.original_lesson_occurence_date.is_(None),
+                        LessonInstance.start_datetime >= day_start,
+                        LessonInstance.start_datetime < day_end,
+                    ),
+                )
+            )
+            .order_by(LessonInstance.id.asc())
+            .first()
+        )
+
+    instance = _lookup()
     if instance:
         return instance
-    
+
+    # PAD-261 (classes.instances rule 8): materialisation is serialised per
+    # series. A found occurrence takes no lock. A missing one locks the parent
+    # lesson row and is looked up again: a concurrent caller that got here first
+    # has committed its instance by the time the lock is ours.
+    from padel_app.models.lessons import Lesson as _Lesson
+
+    db.session.query(_Lesson.id).filter(_Lesson.id == lesson.id).with_for_update().one()
+    instance = _lookup()
+    if instance:
+        db.session.commit()  # release the lock
+        return instance
+
     instance = create_lesson_instance_helper({'date':date, 'original_lesson_occurence_date': date}, lesson)
 
     instance.add_to_session()
