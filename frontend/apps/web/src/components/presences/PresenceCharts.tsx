@@ -59,12 +59,19 @@ export function PresenceCharts({
   trend,
   granularity,
   loading,
+  scope,
 }: {
   players: PresencePlayerStats[];
   totals?: PresenceStatsTotals;
   trend: AttendanceBucket[];
   granularity: AttendanceGranularity;
   loading?: boolean;
+  /**
+   * PAD-192: set while the table's filters narrow the roster. The charts are
+   * then derived from the filtered rows, and this caption says so — nobody
+   * should read a one-player chart as the whole academy.
+   */
+  scope?: { shown: number; total: number } | null;
 }) {
   const { t, i18n } = useTranslation();
 
@@ -131,6 +138,15 @@ export function PresenceCharts({
   }
 
   return (
+    <div className="space-y-2">
+      {scope && (
+        <p
+          data-testid="presences-charts-scope"
+          className="text-xs font-medium text-muted-foreground"
+        >
+          {t("presences.charts.following", { shown: scope.shown, total: scope.total })}
+        </p>
+      )}
     <div className="grid gap-4 lg:grid-cols-3" data-testid="presences-charts">
       <ChartCard
         title={t("presences.charts.perPlayer")}
@@ -227,6 +243,7 @@ export function PresenceCharts({
           </ChartContainer>
         )}
       </ChartCard>
+    </div>
     </div>
   );
 }

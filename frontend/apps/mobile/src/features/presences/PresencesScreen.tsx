@@ -2,7 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { chartScope, lightTheme, narrowedTotals } from "@levelup/config";
 import type { PresencePlayerStats } from "@levelup/types";
 import { useRouter } from "expo-router";
 
@@ -82,7 +82,6 @@ export function PresencesScreen() {
 
   const week = React.useMemo(() => weekBounds(weekOffset), [weekOffset]);
   const stats = usePresenceStats();
-  const trend = usePresenceTrend();
   const queue = usePendingValidation(week);
   const roster = useCoachRoster();
   const validate = useValidateClasses();
@@ -102,6 +101,15 @@ export function PresencesScreen() {
   );
 
   const filterCount = activeFilterCount(filters);
+
+  // PAD-192 (attendance.validation rule 17a): the charts follow the filter
+  // sheet. Filtered rows feed the ranking and the split; the trend is
+  // re-requested for those players and roster-wide again when filters clear.
+  const filteredPlayers = React.useMemo(
+    () => (filterCount > 0 ? filterPlayers(players, filters) : null),
+    [players, filters, filterCount]
+  );
+  const trend = usePresenceTrend(filteredPlayers?.map((p) => p.playerId));
 
   const handleExport = React.useCallback(async () => {
     setExporting(true);
@@ -190,8 +198,9 @@ export function PresencesScreen() {
       </View>
 
       <PresenceReportCharts
-        players={players}
-        totals={totals}
+        players={filteredPlayers ?? players}
+        totals={filteredPlayers ? narrowedTotals(filteredPlayers, totals) : totals}
+        scope={chartScope(filteredPlayers, players)}
         trend={trend.data?.buckets ?? []}
         granularity={trend.data?.granularity ?? "day"}
         loading={stats.isLoading || trend.isLoading}

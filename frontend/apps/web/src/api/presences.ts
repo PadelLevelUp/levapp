@@ -64,7 +64,10 @@ export async function getPresenceStats(
 }
 
 export async function getPresenceTrend(
-  params: PresenceRangeParams & { granularity?: AttendanceGranularity } = {}
+  params: PresenceRangeParams & {
+    granularity?: AttendanceGranularity;
+    playerIds?: number[];
+  } = {}
 ): Promise<PresenceTrend> {
   return presencesApi.getPresenceTrend(params);
 }

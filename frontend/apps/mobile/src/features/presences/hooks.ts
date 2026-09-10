@@ -30,10 +30,16 @@ export function usePresenceStats() {
   });
 }
 
-export function usePresenceTrend() {
+/**
+ * `playerIds` (PAD-192): the players the filter sheet left visible, so the
+ * over-time chart follows the filters like the other two. `undefined` is the
+ * whole roster.
+ */
+export function usePresenceTrend(playerIds?: number[]) {
+  const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
-    queryKey: presenceKeys.trend,
-    queryFn: () => presencesApi.getPresenceTrend(),
+    queryKey: [...presenceKeys.trend, key],
+    queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
   });
 }
 

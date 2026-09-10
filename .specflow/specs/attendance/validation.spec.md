@@ -132,6 +132,22 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - Web's toolbar controls and sortable column headings become a compact
       button row plus two sheets (filters + sort, and the column chooser), which
       commit on Apply rather than live — the list is behind the sheet.
+17a. **[DEC 2026-09-09, PAD-192] The charts follow the table's filters.** On web the three
+    charts and the players table share one screen and read from the same roster payload; two
+    views of the same data disagreeing side by side reads as a bug, not a choice. Decided:
+    the name search, minimum-total and maximum-unjustified filters are **page-level** —
+    - the per-player ranking and the academy/private split re-derive from the **filtered**
+      rows (client-side, like the table);
+    - the presences-over-time series follows too: `GET /presence_trend` accepts an optional
+      `playerIds` (comma-separated) and counts only those players' attended classes; the page
+      re-requests it (debounced) whenever the filtered set changes, and requests the
+      roster-wide series again when no filter is active. Sorting and the column chooser never
+      affect the charts — they change how rows are shown, not which.
+    - the chart block says so when narrowed ("Following the table filters · n of N players")
+      so nobody reads a filtered chart as the whole roster.
+    - The stats window (trailing 90 days) and the validation week stay independent, as before.
+    iOS renders the charts under its own filter sheet with the same rule (the charts are built
+    from the same filtered `rows` the list shows), so the decision holds on both shells.
 
 ### Acceptance Criteria
 
@@ -202,6 +218,18 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the file contains only the rows that survived the filters, only the
   visible columns, in the order the list is showing them
 - **And** it arrives through the iOS share sheet rather than as a download
+
+#### The charts follow the table filters (PAD-192)
+- **Given** the coach types a name that matches one roster player
+- **When** the table narrows to that row
+- **Then** the ranking chart shows only that player, the academy/private split is that player's
+  own, the trend is re-requested with `playerIds=<that id>`, and the chart block reads
+  "Following the table filters · 1 of N players"
+- **And** clearing the search restores the roster-wide charts and the caption disappears
+
+- **Given** `GET /presence_trend?playerIds=<ana>` for a window with Ana and Bruno present
+- **When** the coach reads it
+- **Then** `total` counts Ana's attended classes only; without `playerIds` it counts both
 
 #### A cleared filter is not a zero filter
 - **Given** the coach types `0` into "max unjustified" and then clears the field

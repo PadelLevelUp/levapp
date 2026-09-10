@@ -1094,12 +1094,22 @@ def presence_trend():
     """
     coach = require_coach()
     range_start, range_end = _presence_overview_range()
+    # PAD-192: `playerIds=1,2,3` narrows the series to the table's filtered
+    # players. Absent = whole roster; present-but-empty = nobody (all zeros).
+    raw_ids = request.args.get("playerIds")
+    player_ids = None
+    if raw_ids is not None:
+        try:
+            player_ids = [int(part) for part in raw_ids.split(",") if part.strip()]
+        except ValueError:
+            abort(400, "playerIds must be a comma-separated list of integers")
     return jsonify(
         build_presence_trend(
             coach_id=coach.id,
             range_start=range_start,
             range_end=range_end,
             granularity=request.args.get("granularity"),
+            player_ids=player_ids,
         )
     )
 
