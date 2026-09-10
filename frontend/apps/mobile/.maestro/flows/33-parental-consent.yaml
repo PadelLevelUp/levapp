@@ -36,23 +36,20 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-username"
 - inputText: ${output.username}
-- tapOn:
-    id: "signup-email"
+# PAD-198: Next moves focus down the form and scrolls the field into view. A field
+# under the keyboard still counts as visible, so tapping it would hit the keyboard.
+- pressKey: Enter
 - inputText: ${output.username + '@example.com'}
-- tapOn:
-    id: "signup-password"
+- pressKey: Enter
 - inputText: "Segura1234"
-- tapOn:
-    id: "signup-repeatPassword"
+- pressKey: Enter
 - inputText: "Segura1234"
-- scrollUntilVisible:
-    element:
-      id: "signup-birthDate"
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: "signup-birthDate"
+- pressKey: Enter
 - inputText: ${'0101' + output.year}
+# The number pad closes itself once the date is complete.
+- assertVisible:
+    id: "signup-birthDate"
+    text: "${'01/01/' + output.year}"
 - scrollUntilVisible:
     element:
       id: "signup-guardianEmail"
@@ -61,7 +58,8 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-guardianEmail"
 - inputText: ${output.guardian}
-- hideKeyboard
+# Done on the guardian email closes the keyboard.
+- pressKey: Enter
 - scrollUntilVisible:
     element:
       id: "signup-submit"
