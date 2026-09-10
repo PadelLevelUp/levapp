@@ -54,7 +54,8 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
    403 `{"error": "GUARDIAN_CONSENT_PENDING", "guardianEmail": "<masked>",
    "resendAvailableInSeconds": n}`. The JWT blocklist loader also refuses any token of a user whose
    `guardian_consent_status` is `pending` or `revoked`, so no other path (recovery, an old token) can
-   open a session. Login refuses a `disabled` user with the ordinary 401.
+   open a session. Login refuses a `disabled` user with 401 `ACCOUNT_DISABLED` (`auth.login`
+   rule 12, B-053).
 5. **Resend** `POST /api/auth/guardian-consent/resend` `{username, password, guardianEmail?}` (no JWT):
    401 on wrong credentials, 409 `NOT_PENDING` unless `pending`, 429 `RESEND_TOO_SOON`
    `{retryAfterSeconds}` within 60 s of the last send. An optional `guardianEmail` corrects the address

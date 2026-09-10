@@ -35,8 +35,8 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
 10. **Guardian consent (PAD-198).** Right credentials of a user whose `guardian_consent_status` is
     `pending` answer 403 `GUARDIAN_CONSENT_PENDING` with the masked guardian email and no token; a
-    `disabled` user (deleted, or withdrawn by a guardian) gets the ordinary 401
-    (`auth.parental-consent` rule 4). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
+    `disabled` user (deleted, or withdrawn by a guardian) gets 401 `ACCOUNT_DISABLED` (rule 12,
+    B-053; `auth.parental-consent` rule 4). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
     PAD-228, PAD-186 and PAD-233 in parallel branches.
 
 ### Acceptance Criteria
