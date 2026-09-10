@@ -66,7 +66,7 @@ by a student's request — and whichever lands first wins.
     anybody. A join request is already a coach decision, so it can be accepted regardless of a
     vacancy's `approval_status`, and accepting it resolves any pending approval prompt for that
     vacancy — the spot it guarded is gone.
-14. Requests for a class that has started, been cancelled or completed are rejected by the server and
+14. Requests for a class that has started (on the club's clock, PAD-256), been cancelled or completed are rejected by the server and
     any still-pending requests for it are closed.
 
 15. **Wire contract (PAD-131).** Requests are addressed like a class edit — by the calendar event
