@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from padel_app.sql_db import db
-from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
     Association_CoachLessonInstance,
     Association_CoachPlayer,
@@ -2845,12 +2845,12 @@ def proactive_decline_deadline(
     normally have been asked to confirm*. That moment is precisely when the
     attendance reminder for this instance would fire, so the cutoff is DERIVED
     from the very same input the scheduler uses to arm the reminder job —
-    ``config.get_reminder_timing()`` fed through ``_compute_reminder_dt`` — and
+    ``config.get_reminder_timing()`` fed through ``_fire_time_utc`` (PAD-256) — and
     is never a hardcoded interval. Change the coach's reminder timing and this
     cutoff moves with it, automatically and in lockstep with the real reminder.
 
     Returns ``None`` when no instant is computable (no start time, or a timing
-    shape ``_compute_timing_dt`` doesn't understand). Callers treat ``None`` as
+    shape ``_fire_time_utc`` doesn't understand). Callers treat ``None`` as
     "there is no proactive window", which keeps the pre-PAD-73 behaviour intact.
     """
     if instance is None or instance.start_datetime is None:
@@ -2860,7 +2860,7 @@ def proactive_decline_deadline(
         DEFAULT_REMINDER_TIMING,
         NotificationConfig,
     )
-    from padel_app.scheduler import _compute_reminder_dt
+    from padel_app.scheduler import _fire_time_utc
 
     _config = config
     if _config is None:
@@ -2879,7 +2879,7 @@ def proactive_decline_deadline(
         _config.get_reminder_timing() if _config is not None
         else DEFAULT_REMINDER_TIMING
     )
-    return _compute_reminder_dt(instance, timing)
+    return _fire_time_utc(instance.start_datetime, timing)
 
 
 def proactive_decline_window_is_open(
@@ -2932,7 +2932,8 @@ def cancel_attendance(
     instance = LessonInstance.query.get_or_404(lesson_instance_id)
 
     _now = now or utcnow_naive()
-    if instance.start_datetime is not None and _now >= instance.start_datetime:
+    # PAD-256 (attendance.confirm rule 9): "started" is judged on the club's clock.
+    if instance.start_datetime is not None and utc_to_wall_naive(_now) >= instance.start_datetime:
         abort(409, description="Class has already started; attendance can no longer be cancelled.")
 
     player = Player.query.filter_by(user_id=acting_user_id).first()
@@ -3006,7 +3007,8 @@ def cancel_attendance(
             else DEFAULT_CANCELLATION_DEADLINE_HOURS
         )
         if instance.start_datetime is not None:
-            deadline = instance.start_datetime - timedelta(hours=deadline_hours)
+            # PAD-256 (attendance.confirm rule 6): N real hours before the real start.
+            deadline = wall_to_utc_naive(instance.start_datetime) - timedelta(hours=deadline_hours)
             is_late = _now >= deadline
         # PAD-73: a proactive decline is never late. This only bites when a coach
         # configures a first reminder that fires AFTER their own cancellation

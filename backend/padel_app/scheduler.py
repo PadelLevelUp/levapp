@@ -85,9 +85,9 @@ def _app_ctx():
 def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetime | None:
     """Return the absolute UTC datetime for a timing config relative to class start.
 
-    PAD-256: legacy. It reads the stored wall-clock start as UTC. Reminders use
-    ``_fire_time_utc``; the proactive-decline deadline and the invitation start
-    move there in their own PAD-256 changes, and then this function goes.
+    PAD-256: legacy. It reads the stored wall-clock start as UTC. Reminders and
+    the proactive-decline deadline use ``_fire_time_utc``; the invitation start
+    moves there in its own PAD-256 change, and then this function goes.
 
     Accepted shapes:
       {"type": "hours_before",       "value": N}
@@ -146,9 +146,10 @@ def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> d
     take the class's OWN wall date minus N days and fire at HH:MM on the club's
     clock, so a 23:30 class gets its day-before reminder on the day before.
 
-    Reminders use this (``notifications.reminders`` rule 15). The proactive-
-    decline deadline and the invitation start still go through
-    ``_compute_timing_dt`` until their own PAD-256 changes move them here.
+    Reminders and the proactive-decline deadline use this
+    (``notifications.reminders`` rule 15, ``attendance.confirm`` rule 10). The
+    invitation start still goes through ``_compute_timing_dt`` until its own
+    PAD-256 change moves it here.
     """
     if not timing_config or wall_start is None:
         return None
@@ -172,13 +173,6 @@ def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> d
         )
 
     return None
-
-
-def _compute_reminder_dt(instance, timing_config: dict) -> datetime | None:
-    # PAD-256: still the legacy arithmetic, because the proactive-decline
-    # deadline (notification_service) reads it. Reminder jobs themselves are
-    # armed with ``_fire_time_utc``.
-    return _compute_timing_dt(instance.start_datetime, timing_config)
 
 
 def _compute_invite_start_dt(instance, timing_config: dict) -> datetime | None:
