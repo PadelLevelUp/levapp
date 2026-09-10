@@ -13,8 +13,8 @@ governed_by: []
 Assign coaches to classes and specific instances.
 
 ### Entities
-- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id
-- **Association_CoachLessonInstance** (`coach_in_lesson_instance`): coach_id, lesson_instance_id
+- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id — unique on (coach_id, lesson_id), indexed on lesson_id
+- **Association_CoachLessonInstance** (`coach_in_lesson_instance`): coach_id, lesson_instance_id — unique on (coach_id, lesson_instance_id), indexed on lesson_instance_id
 
 ### Rules
 1. Multiple coaches can be assigned to a class

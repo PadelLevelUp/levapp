@@ -16,7 +16,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 > this spec is implemented (rules 3a/4a-4d aside, which are pending PAD-128 as noted inline).
 
 ### Entities
-- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id)
+- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
 - **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active
 
 ### Rules

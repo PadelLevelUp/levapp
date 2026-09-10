@@ -13,7 +13,7 @@ governed_by: []
 Track the history of level assignments for a player, providing an audit trail.
 
 ### Entities
-- **PlayerLevelHistory** (`player_level_history`): player_id, coach_id, level_id, assigned_at
+- **PlayerLevelHistory** (`player_level_history`): player_id, coach_id, level_id, assigned_at — indexed on (player_id, assigned_at)
 
 ### Rules
 1. Every level change creates a new history entry

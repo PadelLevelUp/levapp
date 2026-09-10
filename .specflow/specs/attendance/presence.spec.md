@@ -13,7 +13,7 @@ governed_by: []
 Track player attendance for each class instance, including invitation, confirmation, and validation status.
 
 ### Entities
-- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool)
+- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup)
 - Unique constraint: (player_id, lesson_instance_id)
 
 ### Rules
