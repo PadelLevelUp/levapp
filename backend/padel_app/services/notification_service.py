@@ -2986,7 +2986,13 @@ def _send_invitation_batch(
         eligible = get_eligible_students(vacancy, instance, coach_id, config, vacancy.current_round_number)
 
     if not eligible:
-        _advance_round(vacancy, instance, coach_id, config)
+        # PAD-87 / notifications.invitations rule 3c: an empty round advances
+        # the counter and STOPS. It used to call _advance_round, which sends
+        # the next round synchronously, so eight groups of which seven were
+        # empty notified the eighth in the same call as the trigger — the
+        # "everyone was notified immediately" of PAD-70. The next round goes
+        # out on the next process_invitation_batches tick, one round per tick.
+        _defer_next_round(vacancy, config, now=now)
         return []
 
     restrictions = config.get_restrictions()
@@ -3074,6 +3080,41 @@ def _send_invitation_batch(
     return notified
 
 
+def _round_max_count(config: NotificationConfig) -> int:
+    invitation_groups = config.get_invitation_groups()
+    return len(invitation_groups) if invitation_groups else len(config.get_rounds())
+
+
+def _defer_next_round(
+    vacancy: Vacancy, config: NotificationConfig, *, now: datetime | None = None
+) -> None:
+    """PAD-87: the current round had nobody to invite. Advance the counter (or
+    expire past the last round) and leave the sending to the next engine tick.
+    `last_activity_at` is stamped so the tick's "fresh vacancy" branch does not
+    re-send round 1; `_round_pending` is what makes the tick pick it up."""
+    vacancy.current_round_number += 1
+    vacancy.last_activity_at = now or utcnow_naive()
+    if vacancy.current_round_number > _round_max_count(config):
+        vacancy.status = "expired"
+    vacancy.save()
+
+
+def _round_pending(vacancy: Vacancy) -> bool:
+    """True when the vacancy's current round was reached by `_defer_next_round`
+    and has sent nothing yet (no NotificationEvent for that round)."""
+    round_no = vacancy.current_round_number
+    # A real row only: the schedule tests drive this tick with MagicMock
+    # vacancies, and a mocked counter must fall through to the timer branch.
+    if not isinstance(round_no, int) or round_no <= 1:
+        return False
+    return (
+        NotificationEvent.query.filter_by(
+            vacancy_id=vacancy.id, round_number=round_no
+        ).count()
+        == 0
+    )
+
+
 def _advance_round(
     vacancy: Vacancy,
     instance: LessonInstance,
@@ -3084,9 +3125,7 @@ def _advance_round(
     vacancy.current_round_number += 1
     vacancy.save()
 
-    invitation_groups = config.get_invitation_groups()
-    max_count = len(invitation_groups) if invitation_groups else len(config.get_rounds())
-    if vacancy.current_round_number > max_count:
+    if vacancy.current_round_number > _round_max_count(config):
         vacancy.status = "expired"
         vacancy.save()
         return
@@ -3273,6 +3312,14 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 
         # Fresh vacancy (no batch sent yet) — trigger immediately
         if last is None:
+            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            processed += 1
+            continue
+
+        # PAD-87: a round reached because the previous one was empty. Send it
+        # now — one round per tick — regardless of maxInactiveTime, which waits
+        # for invited students to answer and an empty round invited nobody.
+        if _round_pending(vacancy):
             _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue

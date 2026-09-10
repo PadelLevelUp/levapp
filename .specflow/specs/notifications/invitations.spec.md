@@ -41,6 +41,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    is a round criterion (rules 4a/4b) and is deliberately **not** an eligibility parameter
    (`eligibility.rules` rule 4). Removing side from the bar must not remove it from the rounds:
    `both`-side handling and its acceptance criteria below are unaffected by this work.
+3c. **An empty round never cascades (PAD-87).** When the current group/round yields no
+   eligible candidate, the engine advances the round counter and **stops** — it does not send
+   the next round in the same call. The next round goes out on the next
+   `process_invitation_batches()` tick (rule 5, every 2 minutes), one round per tick, so eight
+   groups of which the first seven are empty reach the eighth after seven ticks, never all at
+   once. `maxInactiveTime` is not applied to an empty round: that timer waits for invited
+   students to answer, and an empty round invited nobody. When the counter passes the last
+   group the vacancy expires, as before. Decision recorded in the PR: the engine tick is the
+   spacing, because waiting the full inactivity timeout (120 min by default) per empty group
+   could push a vacancy past the class start with nobody ever invited.
 4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
 4a. Side eligibility with "both" (eligibility is symmetric and inclusive):
    - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
@@ -77,6 +87,14 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
 
 ### Acceptance Criteria
+
+#### Empty invitation groups advance one round per tick (PAD-87)
+- **Given** a coach with eight invitation groups, the first seven matching nobody on the roster and the eighth open to everyone
+- **When** a vacancy is triggered
+- **Then** no invitation is sent in that call and the vacancy sits at round 2 with `last_activity_at` set
+- **And** each subsequent `process_invitation_batches()` tick advances exactly one round
+- **And** the seventh tick sends the eighth group's invitations, with no invitation ever sent for rounds 1–7
+- **And** with all eight groups empty, the eighth tick expires the vacancy and nobody was invited
 
 #### Trigger invitations
 - **Given** a class with a vacancy (player Alice dropped out, level "Beginner", side "left")
