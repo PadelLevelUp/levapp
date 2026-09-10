@@ -34,6 +34,7 @@ from padel_app.models import (
 from padel_app.models.Association_CoachExercise import Association_CoachExercise
 from padel_app.models.Association_CoachExerciseGroup import Association_CoachExerciseGroup
 from padel_app.sql_db import db
+from padel_app.utils.dates import club_now_naive
 
 
 DEFAULT_PASSWORD = "test1234"
@@ -226,7 +227,8 @@ MOCK_COACH_IN_PLAYER = [
 
 
 def _dt(days_from_now: int, hour: int, minute: int = 0) -> datetime:
-    base = datetime.utcnow().replace(second=0, microsecond=0)
+    # PAD-256 (R-023): class times are Lisbon wall-clock, built on the club's date.
+    base = club_now_naive().replace(second=0, microsecond=0)
     return (base + timedelta(days=days_from_now)).replace(hour=hour, minute=minute)
 
 

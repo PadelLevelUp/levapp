@@ -72,3 +72,31 @@ def test_today_can_be_pinned_for_reproduction():
     assert seed_today({"E2E_SEED_TODAY": "2026-09-13"}) == datetime(2026, 9, 13)
     real = seed_today({})
     assert (real.hour, real.minute, real.second) == (0, 0, 0)
+
+
+# ── PAD-256: the seed's "today" is the club's date ─────────────────────────
+
+def _frozen(utc_now):
+    """A datetime whose now() is `utc_now` (naive UTC), converted to any zone."""
+    from datetime import datetime as _dt, timezone as _tz
+
+    class Frozen(_dt):
+        @classmethod
+        def now(cls, tz=None):
+            aware = utc_now.replace(tzinfo=_tz.utc)
+            return aware.astimezone(tz) if tz is not None else utc_now
+
+    return Frozen
+
+
+def test_today_is_the_club_date_in_summer_and_winter(monkeypatch):
+    """Fixture times are Lisbon wall-clock (R-023), so "today" is the Lisbon
+    date. At 23:30 UTC in July it is already the next day in Lisbon; in January
+    Lisbon is UTC."""
+    import seed_dates as sd
+
+    monkeypatch.setattr(sd, "datetime", _frozen(datetime(2027, 7, 12, 23, 30)))
+    assert sd.seed_today({}) == datetime(2027, 7, 13)
+    monkeypatch.setattr(sd, "datetime", _frozen(datetime(2027, 1, 11, 23, 30)))
+    assert sd.seed_today({}) == datetime(2027, 1, 11)
+
