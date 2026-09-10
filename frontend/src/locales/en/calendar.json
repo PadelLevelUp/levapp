@@ -395,6 +395,39 @@
         "on": "Visible",
         "off": "Hidden"
       }
+    },
+    "joinRequest": {
+      "request": "Request to join",
+      "requestHint": "Ask {{coach}} for this spot. They decide.",
+      "requestHintNoCoach": "Ask the coach for this spot. They decide.",
+      "sentTitle": "Request sent",
+      "sentBody": "The coach has been told and will accept or reject it.",
+      "pending": "Request sent — waiting for the coach",
+      "withdraw": "Withdraw request",
+      "withdrawn": "Request withdrawn",
+      "rejected": "The coach did not accept your request",
+      "superseded": "This spot was taken before the coach decided",
+      "accepted": "Your request was accepted",
+      "failed": "Could not send the request",
+      "refusal": {
+        "already_enrolled": "You are already in this class",
+        "class_closed": "This class is no longer open to requests",
+        "not_visible": "This class is not open to requests",
+        "spot_filled": "This class is already full",
+        "ineligible": "You do not meet this class's eligibility bar",
+        "not_pending": "This request was already decided"
+      },
+      "coachTitle_one": "{{count}} request to join",
+      "coachTitle_other": "{{count}} requests to join",
+      "accept": "Accept",
+      "reject": "Reject",
+      "acceptedToast": "{{name}} is in",
+      "rejectedToast": "{{name}}'s request was rejected",
+      "decideFailed": "Could not decide the request",
+      "spotFilledToast": "The class filled up meanwhile — the request was closed",
+      "classClosedToast": "The class is no longer open — the request was closed",
+      "confirmTitle": "Accept a student who no longer meets the bar?",
+      "confirmBody": "Accepting a request is a manual add — the bar says what changed; you decide."
     }
   }
 }

@@ -1931,6 +1931,13 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
             confirmed=True,
         ).create()
 
+    # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
+    # — invitation "yes", waiting-list placement, accepted request — converges
+    # here, so this is where the other pending requests learn the spot is gone.
+    from padel_app.services.class_join_request_service import supersede_pending_requests
+    db.session.expire(instance, ["players_relations", "presences"])
+    supersede_pending_requests(instance, filled_by_player_id=player_id)
+
 
 def _broadcast_spot_filled(
     instance: LessonInstance,

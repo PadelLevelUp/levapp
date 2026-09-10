@@ -41,6 +41,7 @@ from padel_app.models import (
     Player,
     PlayerClaimRequest,
     ClassRequest,
+    ClassJoinRequest,
     PlayerInvitation,
     PlayerLevelHistory,
     Presence,
@@ -77,6 +78,7 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "player_invitations",
     "player_claim_requests",
     "class_requests",
+    "class_join_requests",
 })
 
 ALREADY_ACTIVATED = "ALREADY_ACTIVATED"
@@ -233,6 +235,8 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
         _repoint_unique_pairs(Association_PlayerLesson, "lesson_id", pid, cid)
         _repoint_unique_pairs(Association_PlayerLessonInstance, "lesson_instance_id", pid, cid)
         _repoint_unique_pairs(WaitingListEntry, "lesson_instance_id", pid, cid)
+        # PAD-131: one pending join request per (class, player) — same rule
+        _repoint_unique_pairs(ClassJoinRequest, "lesson_instance_id", pid, cid)
         _repoint_unique_pairs(StandingWaitingListEntry, "id", pid, cid)  # never collides; plain re-point
 
         # c. presences — unique per instance (R-018): keep the claimant's row
