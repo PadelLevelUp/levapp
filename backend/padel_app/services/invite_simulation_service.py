@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from padel_app.utils.dates import CLUB_TZ, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, utcnow_naive, wall_to_utc_naive
 
 SEND_FIRST_BATCH = "first_batch"
 SEND_QUEUED = "queued"
@@ -140,7 +140,8 @@ def _gates(instance, config, now: datetime) -> list[dict]:
     min_enabled = bool(min_time.get("enabled"))
     minutes_until = None
     if instance.start_datetime is not None:
-        minutes_until = (instance.start_datetime - now).total_seconds() / 60
+        # PAD-256: real minutes to the real start (the stored start is wall-clock).
+        minutes_until = (wall_to_utc_naive(instance.start_datetime) - now).total_seconds() / 60
     min_blocked = (
         min_enabled and minutes_until is not None and minutes_until < min_time.get("value", 0)
     )

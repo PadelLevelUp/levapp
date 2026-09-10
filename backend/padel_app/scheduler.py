@@ -82,61 +82,6 @@ def _app_ctx():
 # Timing helpers (pure functions — no Flask dependency)
 # ---------------------------------------------------------------------------
 
-def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetime | None:
-    """Return the absolute UTC datetime for a timing config relative to class start.
-
-    PAD-256: legacy. It reads the stored wall-clock start as UTC. Reminders and
-    the proactive-decline deadline use ``_fire_time_utc``; the invitation start
-    moves there in its own PAD-256 change, and then this function goes.
-
-    Accepted shapes:
-      {"type": "hours_before",       "value": N}
-      {"type": "days_before",        "days": N, "time": "HH:MM"}
-      {"type": "days_before_at_time","days": N, "time": "HH:MM"}
-
-    ``instance_start`` must be a naive UTC datetime, and the return value is
-    naive UTC too (the scheduler arms every job with ``timezone="UTC"``).
-
-    The ``"time"`` field is a CLUB_TZ wall clock, so the day/time variants
-    convert local → UTC; ``hours_before`` is pure delta arithmetic and needs
-    no conversion.
-    """
-    if not timing_config:
-        return None
-
-    t = timing_config.get("type")
-
-    if t == "hours_before":
-        value = int(timing_config.get("value", 24))
-        return instance_start - timedelta(hours=value)
-
-    if t in ("days_before", "days_before_at_time"):
-        days = int(timing_config.get("days", 1))
-        time_str = timing_config.get("time", "09:00")
-        try:
-            hour, minute = (int(p) for p in time_str.split(":"))
-        except (ValueError, AttributeError):
-            hour, minute = 9, 0
-
-        # PAD-134: `hour`/`minute` are the coach's CLUB_TZ wall clock. Stamping
-        # them straight into a naive-UTC datetime made every reminder fire an
-        # hour late through Portuguese summer time (WEST = UTC+1) and on time
-        # in winter (WET = UTC+0) — the reported "sempre 1h depois".
-        #
-        # The day count is taken from the LOCAL calendar day too: a 00:30
-        # Lisbon class is 23:30 UTC the previous day, so a UTC-derived date
-        # would land the reminder a day early.
-        local_start = instance_start.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
-        target_date = local_start.date() - timedelta(days=days)
-        local_target = datetime(
-            target_date.year, target_date.month, target_date.day,
-            hour, minute, tzinfo=CLUB_TZ,
-        )
-        return local_target.astimezone(timezone.utc).replace(tzinfo=None)
-
-    return None
-
-
 def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> datetime | None:
     """PAD-256 (R-023): when a timing config fires, as a naive UTC instant.
 
@@ -146,10 +91,9 @@ def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> d
     take the class's OWN wall date minus N days and fire at HH:MM on the club's
     clock, so a 23:30 class gets its day-before reminder on the day before.
 
-    Reminders and the proactive-decline deadline use this
-    (``notifications.reminders`` rule 15, ``attendance.confirm`` rule 10). The
-    invitation start still goes through ``_compute_timing_dt`` until its own
-    PAD-256 change moves it here.
+    Reminders, the proactive-decline deadline and the invitation start all use
+    this (``notifications.reminders`` rule 15, ``attendance.confirm`` rule 10,
+    ``notifications.invitations`` rule 10).
     """
     if not timing_config or wall_start is None:
         return None
@@ -176,7 +120,9 @@ def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> d
 
 
 def _compute_invite_start_dt(instance, timing_config: dict) -> datetime | None:
-    return _compute_timing_dt(instance.start_datetime, timing_config)
+    # PAD-256 (notifications.invitations rule 10): a UTC instant, stored as
+    # `Vacancy.invite_not_before` and compared with UTC now.
+    return _fire_time_utc(instance.start_datetime, timing_config)
 
 
 # ---------------------------------------------------------------------------

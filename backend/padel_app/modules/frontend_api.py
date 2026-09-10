@@ -7,6 +7,7 @@ import queue
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 
 
+from padel_app.utils.dates import club_now_naive
 from padel_app.models import *
 from padel_app.realtime import subscribe, unsubscribe
 from padel_app.serializers.calendar_event import serialize_calendar_event
@@ -2109,7 +2110,8 @@ def confirm_presences():
     if has_absences and presences:
         coach = current_coach()
         instance = presences[0].lesson_instance
-        if instance and instance.start_datetime > utcnow_naive():
+        # PAD-256: class times are wall-clock (R-023).
+        if instance and instance.start_datetime > club_now_naive():
             config = get_or_create_config(coach.id)
             if _is_semi_auto(config):
                 # Semi-automatic: create pending vacancies for the absent

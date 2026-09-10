@@ -24,7 +24,7 @@ from datetime import datetime
 from padel_app.sql_db import db
 from padel_app.realtime import publish
 from padel_app.services.conversation_access import message_recipient_ids
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 from padel_app.utils.push_notifications import send_push_notification
 
 ASSISTANT_USERNAME = "levelup-assistant"
@@ -234,7 +234,8 @@ def create_approval_prompts(
     bundle = {
         "bundleId": bundle_id,
         "lessonInstanceId": instance.id,
-        "windowOpenAt": window_open_dt.isoformat() if window_open_dt else None,
+        # PAD-256: a UTC instant, sent on the club's wall clock like class times.
+        "windowOpenAt": utc_to_wall_naive(window_open_dt).isoformat() if window_open_dt else None,
         "responded": False,
         "vacancies": vacancies_payload,
     }
