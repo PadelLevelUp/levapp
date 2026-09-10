@@ -114,7 +114,8 @@ jobs:
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           docker stop padelapp_staging || true && docker rm padelapp_staging || true
-          docker run -d --name padelapp_staging -p 5100:80 \
+          # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
+          docker run -d --name padelapp_staging -p 127.0.0.1:5100:80 \
             --restart unless-stopped \
             --network levelup_net \
             --memory 400m \
@@ -202,6 +203,6 @@ jobs:
               --restart unless-stopped \
               --network levelup_net \
               --memory 100m \
-              -p 3100:80 \
+              -p 127.0.0.1:3100:80 \
               ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
             docker image prune -f || true
