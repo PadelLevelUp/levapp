@@ -152,7 +152,7 @@ export function PresencesScreen() {
     return <ErrorState onRetry={() => void stats.refetch()} />;
   }
 
-  // From the count endpoint, never `pending.length` (B-031).
+  // From the count endpoint, never `pending.length` (B-045).
   const pendingCount = pendingCountQuery.data?.pendingCount;
 
   return (

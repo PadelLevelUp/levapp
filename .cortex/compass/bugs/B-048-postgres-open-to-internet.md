@@ -1,5 +1,5 @@
 ---
-id: B-016
+id: B-048
 title: "Postgres 5432 was open to 0.0.0.0/0"
 type: layer-drift
 severity: critical
@@ -13,7 +13,7 @@ opened: 2026-09-06T10:00:00Z
 resolved: 2026-09-06T12:00:00Z
 ---
 
-# B-016 — Postgres 5432 was open to 0.0.0.0/0
+# B-048 — Postgres 5432 was open to 0.0.0.0/0
 
 `google_compute_firewall.allow-postgres` allowed TCP 5432 from anywhere, with a restricted `/32` commented out directly above it. The database is a container on the shared VM holding real data. The VM's external address is necessarily public (the iOS app calls the API on it), so the open port was directly reachable.
 

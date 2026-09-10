@@ -1,4 +1,4 @@
-"""auth.email-verification rule 7 / B-032 (PAD-251).
+"""auth.email-verification rule 7 / B-043 (PAD-251).
 
 Transactional mail is read in a mail client, which has no page origin to
 resolve anything against, so every image and link is absolute — and it must be

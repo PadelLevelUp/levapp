@@ -20,7 +20,7 @@ Notes on two deliberate choices:
 * **No court.** ``Lesson`` has no court/field column, so the hero shows
   ``{start} – {end}`` only rather than inventing a location.
 * **Validation is a Presences-tab week, in classes.** (PAD-190 / PAD-201,
-  B-031.) The old item counted presence rows over a rolling 7 days while the
+  B-045.) The old item counted presence rows over a rolling 7 days while the
   tab counted classes over a Monday–Sunday week, so the two never agreed. The
   item now reads ``count_pending_validation`` — the tab's own helper — for the
   current UTC week, falling back to the previous week when this one is clean
@@ -410,7 +410,7 @@ def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]
     """Classes still to validate, for the tab's week (dashboard.blocks rule 3).
 
     One helper — ``count_pending_validation`` — so this is the number the
-    Presences trigger shows once the card opens it (B-031).
+    Presences trigger shows once the card opens it (B-045).
     """
     for offset in VALIDATION_WEEK_OFFSETS:
         start, end = week_bounds(now, offset)

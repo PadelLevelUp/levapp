@@ -94,7 +94,7 @@ commands, and the physical-device test plan are written down in `docs/infra/univ
 
 The same SPA fallback (`try_files … /index.html`) is why a missing `/brand/*` asset used to answer
 **200 `text/html`** — invisible to any check that asserts a 2xx, visible only to a human reading a
-mail with a broken image (PAD-251, B-032). `location /brand/ { try_files $uri =404; }` keeps the
+mail with a broken image (PAD-251, B-043). `location /brand/ { try_files $uri =404; }` keeps the
 brand assets that transactional mail loads (`auth.email-verification` rule 7) off the fallback, so a
 missing file is a 404. An availability check on those URLs asserts `Content-Type: image/*`, not
 the status code.

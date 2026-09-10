@@ -1,5 +1,5 @@
 ---
-id: B-032
+id: B-043
 title: "Transactional mail images point at prod in every environment, and a missing /brand/* asset answers 200 text/html"
 type: incomplete-rule
 severity: medium
@@ -17,7 +17,7 @@ opened: 2026-09-09T00:00:00Z
 resolved: 2026-09-09T00:00:00Z
 ---
 
-# B-032 — Transactional mail images point at prod in every environment, and a missing /brand/* asset answers 200 text/html
+# B-043 — Transactional mail images point at prod in every environment, and a missing /brand/* asset answers 200 text/html
 
 **Source:** Linear PAD-251 §1 (Gmail iOS screenshot, staging build 14, 2026-09-09): the
 verification mail's header rendered as a broken image with the blue `alt` text.

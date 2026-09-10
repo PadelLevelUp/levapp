@@ -210,7 +210,7 @@ class TestWaitingListOfferResponse:
 
 
 class TestOnlyOfferedPlayersMayAnswer:
-    """PAD-222 / B-032 — notifications.waiting-list rule 12."""
+    """PAD-222 / B-041 — notifications.waiting-list rule 12."""
 
     def _headers(self, app, user_id):
         from flask_jwt_extended import create_access_token

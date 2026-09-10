@@ -60,7 +60,7 @@ test("US-234: the verify screen holds the newcomer until the code is typed", asy
 });
 
 test("US-250: just registered means a code is in flight — no send request, only a countdown", async ({ page }) => {
-  // auth.email-verification rule 8a / B-031: signup already sent the code
+  // auth.email-verification rule 8a / B-042: signup already sent the code
   // (rule 6); the screen must not ask for another and must not show the
   // cooldown as an error.
   let sendCalls = 0;
@@ -84,7 +84,7 @@ test("US-250: just registered means a code is in flight — no send request, onl
 });
 
 test("US-250: a too-soon resend is a countdown, not an error", async ({ page }) => {
-  // auth.email-verification rule 8a / B-031: a 429 carries retryAfterSeconds;
+  // auth.email-verification rule 8a / B-042: a 429 carries retryAfterSeconds;
   // the button counts down from it and nothing turns red.
   const username = `e2e-toosoon-${stamp()}`;
   await signUpToVerifyScreen(page, username);

@@ -107,7 +107,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
       (`text-muted-foreground`, `opacity-*`) — no new colour tokens — and shows an explicit
       localized "expired" label. The row's remove control stays at full emphasis and fully usable:
       an expired entry is precisely one the coach is likely to want to delete
-12. **Only an offered player may answer (PAD-222, B-032).** `POST /api/app/notify/respond_waiting_list`
+12. **Only an offered player may answer (PAD-222, B-041).** `POST /api/app/notify/respond_waiting_list`
     is 403 unless the caller's player holds a `waiting_list_offer` message for that
     `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
     double tap or a changed answer on the same offer stays the idempotent upsert of PAD-124).

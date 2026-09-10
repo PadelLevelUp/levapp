@@ -97,7 +97,7 @@ export default function VerifyEmailScreen() {
       const status = (err as ApiErr).response?.status;
       const data = (err as ApiErr).response?.data;
       if (status === 429 && data?.retryAfterSeconds) {
-        // Rule 8a / B-031: "too soon" means a code is already in the inbox.
+        // Rule 8a / B-042: "too soon" means a code is already in the inbox.
         // The counting-down button says so; nothing turns red.
         setCountdown(data.retryAfterSeconds);
       } else if (status === 409) {
@@ -167,7 +167,7 @@ export default function VerifyEmailScreen() {
     if (digits.length === CODE_LENGTH) void submit(digits);
   };
 
-  // Rule 8b / B-033 (PAD-251): the real input is an invisible overlay, so iOS
+  // Rule 8b / B-044 (PAD-251): the real input is an invisible overlay, so iOS
   // has no caret or selection to hang its Paste callout on, and the number
   // pad has no paste key. This button reads the clipboard itself.
   const paste = async () => {

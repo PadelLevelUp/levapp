@@ -121,7 +121,7 @@ export default function PresencesPage() {
     setLoadingQueue(true);
     try {
       // The trigger's number comes from the count endpoint — the same helper
-      // the dashboard card reads — never from `pending.length` (B-031).
+      // the dashboard card reads — never from `pending.length` (B-045).
       const [list, count] = await Promise.all([
         getPendingValidation(week),
         getPendingValidationCount(week),

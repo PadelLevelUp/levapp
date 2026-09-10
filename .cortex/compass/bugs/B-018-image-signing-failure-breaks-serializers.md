@@ -17,7 +17,7 @@ resolved: 2026-09-06T16:00:00Z
 # B-018 — A private image that cannot be signed breaks every payload that carries one
 
 Surfaced within minutes of PAD-200's first run. Staging received a copy of production (185 users,
-avatars and club logos included) and, on the restart, B-015's migration flipped every image row to
+avatars and club logos included) and, on the restart, B-047's migration flipped every image row to
 `is_public = False`. From then on `User.avatar`, `Club.logo_url` and `Message.attachment_url` all
 went through `Image.signed_url()`, which
 
@@ -40,7 +40,7 @@ storage client is created once per process. Pinned by `test_image_privacy.py`
 `test_storage_client_is_built_once`) and by `messaging.messages` rule 5b.
 
 On staging, private images render as missing (no bucket) — the intended degraded state, not a
-crash. Prod has the bucket and the IAM bindings, so once B-015's migration reaches `main` it
+crash. Prod has the bucket and the IAM bindings, so once B-047's migration reaches `main` it
 serves signed URLs; only PAD-197's step 3 (revoking `allUsers`, still pending) changes anything
 there.
 

@@ -1,5 +1,5 @@
 ---
-id: B-031
+id: B-045
 title: "Coach dashboard \"aulas por validar\" card 404s on click and disagrees with the Presences tab"
 type: layer-drift
 severity: high
@@ -23,7 +23,7 @@ opened: 2026-09-09T00:00:00Z
 resolved: 2026-09-09T00:00:00Z
 ---
 
-# B-031 — Coach dashboard "aulas por validar" card 404s on click and disagrees with the Presences tab
+# B-045 — Coach dashboard "aulas por validar" card 404s on click and disagrees with the Presences tab
 
 **Source:** PAD-201 (Discord report, 2026-09-06) and PAD-190 (PAD-140 review, 2026-09-03).
 

@@ -1,5 +1,5 @@
 ---
-id: B-015
+id: B-047
 title: "Uploads bucket was world-readable and anonymously enumerable"
 type: missing-criterion
 severity: critical
@@ -15,7 +15,7 @@ opened: 2026-09-06T10:00:00Z
 resolved: 2026-09-06T12:00:00Z
 ---
 
-# B-015 — Uploads bucket was world-readable and anonymously enumerable
+# B-047 — Uploads bucket was world-readable and anonymously enumerable
 
 `google_storage_bucket_iam_member.public_all` granted `roles/storage.objectViewer` to `allUsers` on the uploads bucket. Three facts compounded into a data exposure rather than a merely-public CDN:
 

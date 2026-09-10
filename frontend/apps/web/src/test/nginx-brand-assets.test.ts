@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * auth.mobile-universal-links notes / B-032 (PAD-251): the brand assets that
+ * auth.mobile-universal-links notes / B-043 (PAD-251): the brand assets that
  * transactional mail loads (`/brand/levapp-lockup-on-light.png`, referenced
  * from backend/padel_app/tools/email_templates.py) must never fall through to
  * the SPA `try_files … /index.html` fallback. When they did, a missing asset

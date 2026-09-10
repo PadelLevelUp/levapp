@@ -24,7 +24,7 @@ Send, edit, and delete messages within conversations, with support for replies a
 5a. An attachment is **private**. It is stored in a bucket with no public ACL and
     served as a short-lived signed URL minted per response, never as a durable
     public link; its storage key carries a random segment so it cannot be guessed
-    from the sender, the send time or the original filename (B-015)
+    from the sender, the send time or the original filename (B-047)
 5b. **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
     When no uploads bucket is configured, or the runtime cannot mint a signed URL (no
     `iam.serviceAccountTokenCreator` on the service account, storage unreachable), the

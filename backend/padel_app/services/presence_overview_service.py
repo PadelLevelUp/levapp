@@ -397,7 +397,7 @@ def count_pending_validation(
     :func:`list_pending_validation` for the same bounds — deliberately not a
     leaner second query. The coach dashboard's ``validation`` queue item and
     the Presences tab's trigger both read this, so the two surfaces show one
-    number by construction (B-031).
+    number by construction (B-045).
     """
     return len(
         list_pending_validation(

@@ -1,5 +1,5 @@
 ---
-id: B-031
+id: B-042
 title: "The verify-email screen presents RESEND_TOO_SOON as an error on web and iOS"
 type: incomplete-rule
 severity: medium
@@ -13,7 +13,7 @@ opened: 2026-09-09T00:00:00Z
 resolved: 2026-09-09T00:00:00Z
 ---
 
-# B-031 — The verify-email screen presents RESEND_TOO_SOON as an error on web and iOS
+# B-042 — The verify-email screen presents RESEND_TOO_SOON as an error on web and iOS
 
 **Source:** Linear PAD-250 (staging diagnosis, 2026-09-09). The ticket reproduced
 `POST /api/auth/register → 201` followed by `POST /api/auth/email-verification/send → 429

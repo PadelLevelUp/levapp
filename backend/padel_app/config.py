@@ -23,7 +23,7 @@ LOCAL_POSTGRES_HOST = "localhost"
 # Spellings of "this machine" that a tunnel endpoint can legitimately use.
 LOCAL_POSTGRES_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
-# Postgres is no longer reachable from the internet (B-016), so the shared
+# Postgres is no longer reachable from the internet (B-048), so the shared
 # database is reached by forwarding it to a local port. That makes a remote
 # database look like `localhost`, which would silently disarm the host-based
 # guard below — the very check that stops a workstation migrating real data.

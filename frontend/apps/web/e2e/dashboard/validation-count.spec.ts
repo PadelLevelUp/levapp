@@ -1,5 +1,5 @@
 /**
- * PAD-201 / PAD-190 (B-031): the coach dashboard's "classes to validate" card
+ * PAD-201 / PAD-190 (B-045): the coach dashboard's "classes to validate" card
  * and the Presences tab show ONE number, and the card opens the tab on the
  * week it counted — never the 404 page.
  *

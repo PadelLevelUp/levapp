@@ -83,7 +83,7 @@ const VerifyEmailPage = () => {
       const data = (err as ApiError).response?.data;
       const status = (err as ApiError).response?.status;
       if (status === 429 && data?.retryAfterSeconds) {
-        // Rule 8a / B-031: "too soon" means a code is already in the inbox.
+        // Rule 8a / B-042: "too soon" means a code is already in the inbox.
         // The counting-down button says so; nothing turns red.
         setCountdown(data.retryAfterSeconds);
       } else if (status === 409) {

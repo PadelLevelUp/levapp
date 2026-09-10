@@ -270,9 +270,9 @@ own email in Settings.
   truly depend on a verified email (password recovery PAD-139, notification email) will check
   `email_verified_at` when built.
 - OPEN: no rate limit on `send` beyond the per-user 60-second cooldown (shares PAD-228's gap).
-- PAD-250 / B-031: the ticket's "client double-sends after register" did not reproduce from
+- PAD-250 / B-042: the ticket's "client double-sends after register" did not reproduce from
   source — both shells already skip the mount-time send for a `pending` user. Rule 8a pins
-  that and the 429 presentation. PAD-251 / B-032, B-033: origin per environment, honest 404 for
+  that and the 429 presentation. PAD-251 / B-043, B-044: origin per environment, honest 404 for
   `/brand/*`, and the iOS Paste button. Decision: no deep link carrying the code in the mail —
   codes in URLs get logged, forwarded and cached.
 - OPEN: coach-created players keep an unverified email forever unless they change it; a

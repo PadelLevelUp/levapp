@@ -24,7 +24,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
      `href`. `count` is `items.length`. Item kinds, in fixed server order:
      - coach: `empty_seats` (soonest first) → `reply` → `validation`
-     A `validation` item (PAD-190 / PAD-201, B-031) carries `count` — the number of **classes**
+     A `validation` item (PAD-190 / PAD-201, B-045) carries `count` — the number of **classes**
      with at least one unvalidated presence, derived by `attendance.validation` rule 18's
      `count_pending_validation` for one Monday–Sunday UTC week — plus `weekOffset` (`0` for the
      current week, `-1` for the previous) and `href` (`/presences` or `/presences?week=-1`). The

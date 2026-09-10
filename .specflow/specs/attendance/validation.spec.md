@@ -149,7 +149,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     iOS renders the charts under its own filter sheet with the same rule (the charts are built
     from the same filtered `rows` the list shows), so the decision holds on both shells.
 
-18. **(PAD-190 / PAD-201, B-031) One count for "classes to validate".**
+18. **(PAD-190 / PAD-201, B-045) One count for "classes to validate".**
     `count_pending_validation(coach_id, range_start, range_end)` is the only derivation of how
     many classes in a window still have an unvalidated presence — it is `len(pending)` of
     `list_pending_validation` for the same bounds, never a second query. It is exposed as

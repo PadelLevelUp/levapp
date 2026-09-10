@@ -35,7 +35,7 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
    alike. **(PAD-202)** `class_list` no longer exists; the student's "Your upcoming lessons" is
    their `schedule_7d` and "Invites to confirm" is the `invite` kind of `needs_you`, and both
    keep the same deep-link shape.
-9a. **(PAD-201, B-031)** The `validation` kind of `needs_you` links to the Presences tab —
+9a. **(PAD-201, B-045)** The `validation` kind of `needs_you` links to the Presences tab —
     `/presences`, with `?week=<offset>` when the counted week is not the current one — and the
     tab honours `week` as its initial week. `/validations` never existed; rule 6 applies to queue
     items exactly as it does to KPI tiles.

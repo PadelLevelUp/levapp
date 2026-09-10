@@ -1,5 +1,5 @@
 ---
-id: B-033
+id: B-044
 title: "The iOS verify-email screen has no way to paste the code"
 type: incomplete-rule
 severity: high
@@ -12,7 +12,7 @@ opened: 2026-09-09T00:00:00Z
 resolved: 2026-09-09T00:00:00Z
 ---
 
-# B-033 — The iOS verify-email screen has no way to paste the code
+# B-044 — The iOS verify-email screen has no way to paste the code
 
 **Source:** Linear PAD-251 §3 (real device, staging build 14, 2026-09-09): the code copied
 from the mail cannot be pasted into the app; works on web.

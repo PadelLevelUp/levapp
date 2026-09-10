@@ -1,5 +1,5 @@
 ---
-id: B-032
+id: B-041
 title: "respond_waiting_list never checks the caller was offered the list"
 type: incomplete-rule
 severity: high
@@ -13,7 +13,7 @@ opened: 2026-09-06T00:00:00Z
 resolved: 2026-09-09T00:00:00Z
 ---
 
-# B-032 — respond_waiting_list never checks the caller was offered the list
+# B-041 — respond_waiting_list never checks the caller was offered the list
 
 **Root cause.** `respond_to_waiting_list()` only checked that the JWT resolved to a `Player`,
 then upserted a `WaitingListEntry` for `(lesson_instance_id, player.id)`. Any authenticated
