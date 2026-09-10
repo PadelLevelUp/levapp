@@ -14,7 +14,13 @@
  * off-by-one-day drift PAD-33 chased down in the messaging timestamps.
  */
 
-export type AttendanceRangePreset = "1w" | "1m" | "1y";
+export type AttendanceRangePreset = "1w" | "1m" | "1y" | "season";
+
+/** The season occurrence a "season" preset reads (calendar.seasons rule 14). */
+export interface SeasonRangeLike {
+  startDate: string;
+  endDate: string;
+}
 
 export interface AttendanceRange {
   from: string;
@@ -42,8 +48,15 @@ export function parseIsoDate(value: string): Date {
  */
 export function presetRange(
   preset: AttendanceRangePreset,
-  now: Date = new Date()
+  now: Date = new Date(),
+  season: SeasonRangeLike | null = null
 ): AttendanceRange {
+  // calendar.seasons rule 14: the coach's current season occurrence; falls
+  // back to the current month when no occurrence is known.
+  if (preset === "season") {
+    if (season) return { from: season.startDate, to: season.endDate };
+    preset = "1m";
+  }
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   const d = now.getUTCDate();

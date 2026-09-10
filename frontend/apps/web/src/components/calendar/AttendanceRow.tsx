@@ -22,7 +22,12 @@ interface AttendanceRowProps {
   attendance: AttendanceState;
   onChange: (attendance: AttendanceState) => void;
   disabled?: boolean;
-  invited?: boolean;
+  /**
+   * PAD-199 (B-017): true only when a reminder/invitation message actually
+   * reached this player (`presence.reminderSentAt`). `Presence.invited` is
+   * roster membership and must not drive the badge.
+   */
+  reminderSent?: boolean;
   confirmed?: boolean;
 }
 
@@ -31,7 +36,7 @@ export function AttendanceRow({
   attendance,
   onChange,
   disabled = false,
-  invited,
+  reminderSent,
   confirmed,
 }: AttendanceRowProps) {
   const { t } = useTranslation();
@@ -62,7 +67,11 @@ export function AttendanceRow({
   };
 
   return (
-    <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+    <div
+      className="p-3 rounded-lg bg-muted/50 space-y-2"
+      data-testid="attendance-row"
+      data-player-id={player.id}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Avatar className="w-8 h-8">
@@ -72,13 +81,17 @@ export function AttendanceRow({
           </Avatar>
           <span className="text-sm font-medium">{name}</span>
 
-          {/* Invited / Confirmed status icons */}
+          {/* Confirmed / reminder-sent status icon — gated on the messaging
+              record (calendar.event-detail rule 3a), never on `invited`. */}
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-1">
-              {invited && (
+              {(confirmed || reminderSent) && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className={cn(
+                    <span
+                      data-testid="attendance-signal"
+                      data-signal={confirmed ? "confirmed" : "reminder-sent"}
+                      className={cn(
                       "inline-flex items-center justify-center w-5 h-5 rounded-full",
                       confirmed
                         ? "bg-success/15 text-success-strong"

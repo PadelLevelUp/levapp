@@ -21,7 +21,7 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 
 ### Entities
 - **PlayerInvitation** (`player_invitations`): player_id (FK → players, CASCADE), token (unique),
-  invited_by_coach_id (FK → coaches), status (pending|accepted|revoked|expired), expires_at, created_at
+  invited_by_coach_id (FK → coaches, SET NULL — PAD-255), status (pending|accepted|revoked|expired), expires_at, created_at
 
 ### State model
 - "Pending" profile ⇒ the player's `users.status` is `inactive` (created by the coach, no real account yet).

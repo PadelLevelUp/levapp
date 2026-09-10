@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, DateTime, Boolean, Enum
+from sqlalchemy import JSON, Column, Integer, String, Text, ForeignKey, Date, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -30,13 +30,19 @@ class Lesson(db.Model, model.Model):
     
     type = Column(Enum("academy", "private", name="lesson_type"), nullable=False)
 
-    default_level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    default_level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
     max_players = Column(Integer, nullable=False)
 
     color = Column(String(10))
     status = Column(Enum("active", "ended", name="lesson_status"), default="active")
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
+    # PAD-129 (eligibility.cascade): the series tier. NULL = no override here;
+    # [] = a deliberate "everyone"; a list = the bar for this series.
+    eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130 (eligibility.open-spot-visibility rule 3): series tier of the
+    # "advertise empty spots" toggle. NULL = inherit, True/False = override.
+    open_spots_visible = Column(Boolean, nullable=True)
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(
@@ -47,6 +53,10 @@ class Lesson(db.Model, model.Model):
         Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False
     )
     club = relationship("Club", back_populates="lessons")
+
+    # clubs.courts rule 6 (PAD-194): an optional court of the class's club.
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="SET NULL"), nullable=True)
+    court = relationship("Court")
 
     @property
     def coaches(self):
@@ -113,6 +123,7 @@ class Lesson(db.Model, model.Model):
                 get_field("color", type="Color", label="Color"),
                 get_field("max_players", type="Integer", label="Max players"),
                 get_field("level", type="ManyToOne", label="Level", related_model="CoachLevel"),
+                get_field("court", type="ManyToOne", label="Court", related_model="Court"),
                 get_field("start_datetime", type="DateTime", label="Start Time"),
                 get_field("end_datetime", type="DateTime", label="End Time"),
                 get_field("is_recurring", type="Boolean", label="Is Recurring"),

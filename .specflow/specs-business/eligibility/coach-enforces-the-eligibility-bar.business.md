@@ -48,7 +48,7 @@ keeping full control to make an exception themselves.
 - A student is never placed back into the exact spot their own cancellation just created, and never
   placed into a class they're already in.
 - Waiting-list placement, manual invitations and the automatic engine all honor the same exclusion
-  and restriction settings (excluded players, unpaid-subscription exclusion, calendar
+  and restriction settings (excluded players, inactive-account exclusion, calendar
   availability blockers) regardless of whether a bar is even defined.
 - Tightening a bar is informational only — it reports who would now fail it among enrolled
   students, but removes nobody and notifies nobody. Membership, once granted, isn't retroactively

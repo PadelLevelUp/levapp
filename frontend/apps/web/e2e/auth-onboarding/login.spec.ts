@@ -12,12 +12,21 @@ test("US-33: coach logs in successfully", async ({ page }) => {
 
 // US-33: Invalid credentials show an error
 test("US-33: wrong password shows error", async ({ page }) => {
+  // auth.login rule 8 (PAD-186): the launch animation must not start for a
+  // failed attempt. Hold the 401 back long enough to look while it is in flight.
+  await page.route("**/api/auth/login", async (route) => {
+    await new Promise((r) => setTimeout(r, 1200));
+    await route.continue();
+  });
   await page.goto("/auth");
   // The login page renders in the default locale (pt) before auth, so use stable
   // id/type selectors rather than localized placeholder / button text.
   await page.locator("#username").fill(COACH_USERNAME);
   await page.locator("#password").fill("WrongPassword!");
   await page.locator('button[type="submit"]').click();
+  // In flight: the form is still there and the loader never mounted.
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId("launch-loader")).toHaveCount(0);
   // Should stay on auth page and show an error — wait for the request to resolve
   await expect(page).toHaveURL(/.*\/auth/);
   // Error toast: EN "Invalid username or password." / PT "Nome de utilizador ou
@@ -25,6 +34,7 @@ test("US-33: wrong password shows error", async ({ page }) => {
   await expect(
     page.locator("text=/invalid|incorrect|error|inválid|palavra-passe/i").first()
   ).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("launch-loader")).toHaveCount(0);
 });
 
 // US-34: Student can log in with valid credentials

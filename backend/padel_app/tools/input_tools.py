@@ -91,7 +91,7 @@ class Field:
         now = datetime.now().strftime("%Y%m%d%H%M%S")
         file, base = image_tools.file_handler(fs)
         # `now` + the original filename is guessable; the random segment is what
-        # keeps an object key from being enumerable (B-015).
+        # keeps an object key from being enumerable (B-047).
         object_key = (
             self.mandatory_path
             or f"images/{self.model}/{now}_{secrets.token_urlsafe(16)}_{base}"

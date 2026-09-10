@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, ForeignKey, DateTime, Enum, Text, String, Date
+from sqlalchemy import JSON, Boolean, Column, Integer, ForeignKey, DateTime, Enum, Text, String, Date
 from sqlalchemy.orm import relationship
 
 
@@ -26,10 +26,15 @@ class LessonInstance(db.Model, model.Model):
     end_datetime = Column(DateTime, nullable=False)
     overwrite_title = Column(String(255), nullable=True)
     
-    level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
 
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
+    # PAD-129 (eligibility.cascade): the single-class tier. Same tri-state as
+    # Lesson.eligibility_rules; wins over the lesson and coach tiers when set.
+    eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130: single-class tier of the "advertise empty spots" toggle.
+    open_spots_visible = Column(Boolean, nullable=True)
 
     status = Column(
         Enum(

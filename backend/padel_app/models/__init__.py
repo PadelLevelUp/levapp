@@ -1,6 +1,7 @@
 from .token_blocklist import TokenBlocklist
 from .backend_apps import Backend_App
 from .clubs import Club
+from .courts import Court
 from .coach_levels import CoachLevel
 from .coaches import Coach
 from .lesson_instances import LessonInstance
@@ -15,6 +16,7 @@ from .player_level_history import PlayerLevelHistory
 from .players import Player
 from .users import User
 from .presences import Presence
+from .reminder_attempts import ReminderAttempt
 from .calendar_blocks import CalendarBlock
 from .conversations import Conversation
 from .conversation_participants import ConversationParticipant
@@ -26,7 +28,7 @@ from .coach_join_token import CoachJoinToken
 from .player_claim_request import PlayerClaimRequest
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
-from .seasons import Season
+from .coach_seasons import CoachSeason, SeasonLegacy
 from .exercise import Exercise, ExerciseGroup
 from .Association_CoachClub import Association_CoachClub
 from .Association_CoachLesson import Association_CoachLesson
@@ -46,6 +48,8 @@ from .waiting_list_entry import WaitingListEntry
 from .standing_waiting_list_entry import StandingWaitingListEntry
 from .bulk_import import BulkImport
 from .needs_you_snooze import NeedsYouSnooze
+from .class_request import ClassRequest
+from .class_join_request import ClassJoinRequest
 
 MODELS = {
     # NOTE: TokenBlocklist is deliberately excluded — it's internal JWT
@@ -55,6 +59,7 @@ MODELS = {
     # no get_create_form().
     "backend_app": Backend_App,
     "club": Club,
+    "court": Court,
     "coachlevel": CoachLevel,
     "coach": Coach,
     "lessoninstance": LessonInstance,
@@ -69,6 +74,7 @@ MODELS = {
     "player": Player,
     "user": User,
     "presence": Presence,
+    "reminderattempt": ReminderAttempt,
     "calendarblock": CalendarBlock,
     "conversation": Conversation,
     "coachplayernote": CoachPlayerNote,
@@ -79,7 +85,7 @@ MODELS = {
     "playerclaimrequest": PlayerClaimRequest,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
-    "season": Season,
+    "season": CoachSeason,
     "exercise": Exercise,
     "exercisegroup": ExerciseGroup,
     "conversation_participant": ConversationParticipant,
@@ -100,4 +106,6 @@ MODELS = {
     "waitinglistentry": WaitingListEntry,
     "standingwaitinglistentry": StandingWaitingListEntry,
     "bulkimport": BulkImport,
+    "classrequest": ClassRequest,
+    "classjoinrequest": ClassJoinRequest,
 }

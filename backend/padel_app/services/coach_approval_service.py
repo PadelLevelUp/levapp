@@ -5,6 +5,9 @@ a mail failure is logged and never fails the signup or the decision.
 """
 from flask import abort, current_app
 
+from flask_jwt_extended import create_access_token
+from werkzeug.security import check_password_hash
+
 from padel_app.models import Coach, User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
@@ -59,7 +62,64 @@ def approve_coach_service(coach_id, admin_user, now=None):
 
 
 def reject_coach_service(coach_id, admin_user, reason=None):
-    return _decide(coach_id, admin_user, "rejected", reason=reason)
+    coach = _decide(coach_id, admin_user, "rejected", reason=reason)
+    # Rule 10 (PAD-233): a rejected coach cannot sign in. `disabled` is the
+    # status the JWT blocklist loader already treats as "kill every session",
+    # so this signs them out on every device without a new column.
+    if coach.user is not None and coach.user.status != "disabled":
+        coach.user.status = "disabled"
+        db.session.commit()
+    return coach
+
+
+class CoachRejected(Exception):
+    """Login refused because the coach was rejected (rule 11)."""
+
+    def __init__(self, reason):
+        super().__init__("COACH_REJECTED")
+        self.reason = reason
+
+    def payload(self):
+        return {"error": "COACH_REJECTED", "reason": self.reason}
+
+
+def rejected_coach_of(user):
+    """The user's Coach when it is `rejected`, else None."""
+    coach = getattr(user, "coach", None)
+    if coach is not None and coach.approval_status == "rejected":
+        return coach
+    return None
+
+
+def login_body(user):
+    return {
+        "accessToken": create_access_token(identity=str(user.id)),
+        "user": {"id": user.id, "name": user.name, "role": user.role},
+    }
+
+
+def reapply_coach_service(username, password):
+    """Rule 12: a rejected coach asks again. Checks the credentials (401),
+    requires a rejected coach on a live account (410), puts the coach back in
+    the queue, re-enables the login, notifies the admin and returns the login
+    body."""
+    from flask import abort
+
+    user = User.query.filter_by(username=username or "").first()
+    if user is None or not user.password or not check_password_hash(user.password, password or ""):
+        abort(401)
+    coach = rejected_coach_of(user)
+    # A deleted account has no email (account_service) and cannot come back.
+    if coach is None or not user.email:
+        abort(410)
+    coach.approval_status = "pending"
+    coach.rejection_reason = None
+    coach.approved_at = None
+    coach.approved_by_user_id = None
+    user.status = "active"
+    db.session.commit()
+    notify_admin_of_pending_coach(coach)
+    return login_body(user)
 
 
 # ── notifications (best-effort) ────────────────────────────────────────────
@@ -76,11 +136,23 @@ def _send(subject, recipients, body, html=None):
 
 
 def notify_admin_of_pending_coach(coach):
-    """Tell the LevApp admin a coach is waiting — only when ADMIN_NOTIFY_EMAIL is set."""
+    """Tell the LevApp admin a coach is waiting — the ADMIN_NOTIFY_EMAIL mail
+    (rule 4) when configured, plus a push to every superadmin (PAD-232,
+    notifications.request-alerts rule 1; the mailbox ignores any opt-out)."""
+    user = coach.user
+    try:
+        from padel_app.services.request_alert_service import (
+            notify_request_event, superadmin_users,
+        )
+        notify_request_event(
+            "coach_approval.received", superadmin_users(),
+            actor=user.name if user else "",
+        )
+    except Exception as exc:  # noqa: BLE001 — never fail the signup
+        current_app.logger.warning("coach-approval superadmin alert failed: %s", exc)
     to = current_app.config.get("ADMIN_NOTIFY_EMAIL")
     if not to:
         return
-    user = coach.user
     verified = "yes" if user.email_verified_at is not None else "no"
     body = (
         f"A coach is waiting for approval.\n\n"
@@ -96,7 +168,27 @@ def notify_coach_approved(coach):
     from padel_app.tools.email_templates import render_coach_approved_email
 
     user = coach.user
-    if not user or not user.email:
+    if not user:
+        return
+    # PAD-232: a push as well as the branded mail (notifications.request-alerts
+    # rule 1). Push only — the mail below is the existing rule-5 email.
+    try:
+        from padel_app.services.request_alert_service import (
+            wants_request_alerts,
+        )
+        from padel_app.utils.expo_push import send_expo_push_to_user
+        from padel_app.utils.push_notifications import send_push_notification
+        from padel_app.services.request_alert_service import render_copy, _lang, PATHS
+        if wants_request_alerts(user):
+            title, body = render_copy("coach_approval.decided", _lang(user))
+            send_push_notification(user.id, title, body, url=PATHS["coach_approval.decided"])
+            send_expo_push_to_user(
+                user.id, title, body,
+                data={"type": "request", "kind": "coach_approval.decided"},
+            )
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning("coach-approval push to %s failed: %s", user.id, exc)
+    if not user.email:
         return
     subject, text, html = render_coach_approved_email(user)
     _send(subject, [user.email], text, html=html)

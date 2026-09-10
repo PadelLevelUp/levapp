@@ -114,11 +114,14 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
       .first()
       .inputValue();
     expect(registerLink).toContain("/register/");
-    const userId = registerLink.split("/register/")[1];
+    // auth.activate rule 2 (PAD-254): the link carries the account's secret;
+    // the student opens exactly what the coach shared, path and `?t=` alike.
+    const linkUrl = new URL(registerLink);
+    expect(linkUrl.searchParams.get("t")).toMatch(/^[0-9a-f]{64}$/);
 
     const context = await browser.newContext();
     const registerPage = await context.newPage();
-    await registerPage.goto(`/register/${userId}`);
+    await registerPage.goto(`${linkUrl.pathname}${linkUrl.search}`);
 
     const usernameInput = registerPage.locator("#username");
     await expect(usernameInput).toBeVisible({ timeout: 10_000 });

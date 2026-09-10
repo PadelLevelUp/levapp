@@ -22,7 +22,7 @@ async function openCalendarSettings(page: Page) {
   // (dead UI cleanup) but kept SeasonsSection, which renders its own "Seasons"
   // heading — assert on that instead.
   await expect(
-    page.getByRole("heading", { name: /^seasons$/i })
+    page.getByRole("heading", { name: /^season$/i })
   ).toBeVisible({ timeout: 5000 });
 }
 
@@ -34,21 +34,20 @@ test("PAD-51: Seasons section and class-recurrence controls render fully localiz
   // --- Seasons section (Settings > Calendar) ---
   await openCalendarSettings(page);
 
-  await expect(page.getByRole("heading", { name: /^seasons$/i })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /^season$/i })).toBeVisible({
     timeout: 5000,
   });
   await expect(
-    page.getByText(/define named seasons so classes can recur/i)
+    page.getByText(/define your season once, by day and month/i)
   ).toBeVisible();
 
-  const addSeasonButton = page.getByRole("button", { name: /add season/i });
-  await expect(addSeasonButton).toBeVisible();
-  await expect(page.getByRole("button", { name: /save seasons/i })).toBeVisible();
-
-  await addSeasonButton.click();
-  await expect(page.getByPlaceholder(/season name/i).last()).toBeVisible();
-  await expect(page.getByLabel(/^season start$/i).last()).toBeVisible();
-  await expect(page.getByLabel(/^season end$/i).last()).toBeVisible();
+  // PAD-82: one recurring definition — label, start day/month, end day/month.
+  await expect(page.getByPlaceholder(/academy season/i)).toBeVisible();
+  await expect(page.getByLabel(/^start day$/i)).toBeVisible();
+  await expect(page.getByLabel(/^start month$/i)).toBeVisible();
+  await expect(page.getByLabel(/^end day$/i)).toBeVisible();
+  await expect(page.getByLabel(/^end month$/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /save season/i })).toBeVisible();
 
   // --- AddClassSheet recurrence controls ---
   await openCalendar(page);

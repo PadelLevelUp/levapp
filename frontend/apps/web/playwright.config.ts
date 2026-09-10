@@ -1,27 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
+import { resolveE2EIsolation } from "./e2e/isolation";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* The E2E backend port. Overridable because 5001 is a popular port — an
-   unrelated local project holding it makes the whole suite fail to start, and
-   `reuseExistingServer: false` means Playwright can't just adopt whatever is
-   there (it would be the wrong app, or the wrong database). */
-const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "5001";
-/* The E2E database and Vite port are overridable for the same reason: several
-   checkouts (worktrees, other sessions) share one Postgres server and one
-   machine. Running two suites against `levelup_test` at once resets the
-   database under the other run. Use e.g. E2E_DB_NAME=levelup_test_pad210
-   E2E_BACKEND_PORT=5011 E2E_WEB_PORT=8090 — and pass the same E2E_DB_NAME to
-   e2e/scripts/reset-test-db.sh. */
-const DB_NAME = process.env.E2E_DB_NAME ?? "levelup_test";
-const WEB_PORT = process.env.E2E_WEB_PORT ?? "8080";
+/* PAD-218: the database and both ports are per-checkout by default, derived
+   from this directory's path (see e2e/isolation.ts), so two worktrees can run
+   their suites at once without resetting each other's database or fighting
+   over 5001/8080. Explicit E2E_DB_NAME / E2E_BACKEND_PORT / E2E_WEB_PORT still
+   win; E2E_SHARED=1 opts back into levelup_test / 5001 / 8080. global-setup
+   passes the same values to e2e/scripts/reset-test-db.sh. */
+const ISOLATION = resolveE2EIsolation(process.env, __dirname);
+const BACKEND_PORT = ISOLATION.backendPort;
+const DB_NAME = ISOLATION.dbName;
+const WEB_PORT = ISOLATION.webPort;
 
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
 
   /* Serial execution to avoid DB conflicts */
   workers: 1,
@@ -75,6 +74,9 @@ export default defineConfig({
         JWT_SECRET_KEY: "e2e-test-secret",
         E2E_DEBUG_ENDPOINTS: "true",
         TEST_MODE: "true",
+        // PAD-228: the suite signs in from 127.0.0.1 far more often than any
+        // person; the throttle is covered by pytest, not here.
+        AUTH_RATE_LIMIT_ENABLED: "0",
       },
     },
     {

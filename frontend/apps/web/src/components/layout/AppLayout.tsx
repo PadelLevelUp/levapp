@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
   CalendarOff,
+  CalendarPlus,
   Users,
   LayoutDashboard,
   Settings,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
-import { LayoutProvider, useLayout } from "@/components/layout/LayoutContext";
+import { useLayout } from "@/components/layout/LayoutContext";
 import { createEventSource } from "@/api/events";
 
 interface AppLayoutProps {
@@ -84,6 +85,13 @@ const navItems: NavItem[] = [
     roles: ["player"],
   },
   {
+    // PAD-104: students book from Availability; the coach answers here.
+    icon: CalendarPlus,
+    labelKey: "nav.classRequests",
+    path: "/class-requests",
+    roles: ["coach"],
+  },
+  {
     icon: MessageSquare,
     labelKey: "nav.messages",
     path: "/messages",
@@ -106,12 +114,29 @@ const navItems: NavItem[] = [
   // tools, and it was sitting in the same list as Calendar and Players.
 ];
 
+// PAD-149. This used to mount a SECOND LayoutProvider around AppLayoutInner,
+// nested inside the one App.tsx already wraps the whole router in. Two
+// providers meant two independent `useState` copies of the layout state, and
+// which one a component saw depended on whether it sat above or below this
+// boundary:
+//
+//   - MessagesPage and DashboardPage call useLayout() at their own top level
+//     and RENDER <AppLayout>, so they wrote to the OUTER provider;
+//   - AppLayoutInner — which draws the unread badge and applies scrollMode —
+//     read from the INNER one, which nothing refreshed after its mount effect.
+//
+// So MessagesPage's refreshUnreadCount() correctly POSTed the read, correctly
+// got {"unreadCount": 0} back, and set a count nothing rendered: the nav badge
+// stayed stale until a route change remounted this component. That is the
+// PAD-149 defect. It also silently dropped DashboardPage's setUnreadCount /
+// setLatestMessage and MessagesPage's setScrollMode("none") — the latter had
+// never once taken effect. (Composer's setBottomNavHidden worked only because
+// Composer happens to render below this boundary.)
+//
+// App.tsx's provider wraps <BrowserRouter> and every route, so one provider is
+// enough and every consumer now shares it.
 export function AppLayout({ children }: AppLayoutProps) {
-  return (
-    <LayoutProvider>
-      <AppLayoutInner>{children}</AppLayoutInner>
-    </LayoutProvider>
-  );
+  return <AppLayoutInner>{children}</AppLayoutInner>;
 }
 
 export function AppLayoutInner({ children }: AppLayoutProps) {
@@ -136,7 +161,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   // redundant there anyway: the avatar menu in the header already links to it
   // on every viewport. The desktop sidebar keeps using `visibleNavItems`
   // unfiltered, so this has no effect above the `md` breakpoint.
-  const mobileNavItems = visibleNavItems.filter(item => item.path !== "/settings");
+  // PAD-104: the coach's class-requests inbox also stays off the bar (PAD-183's 390px budget);
+  // it is still in the desktop sidebar and the mobile drawer.
+  const mobileNavItems = visibleNavItems.filter(
+    item => item.path !== "/settings" && item.path !== "/class-requests",
+  );
 
   const userInitials =
     user?.name
@@ -254,7 +283,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                 <div className="relative shrink-0">
                   <item.icon className="w-5 h-5 shrink-0" />
                   {showBadge && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
+                    // PAD-149: the badge is a bare span, so a test could only
+                    // assert on the Link's text — which itself changes as the
+                    // badge changes. Name the element instead.
+                    <span
+                      data-testid="nav-unread-badge"
+                      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1"
+                    >
                       {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                   )}
@@ -330,7 +365,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               >
                 <item.icon className="w-5 h-5" />
                 {showBadge && (
-                  <span className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5">
+                  // PAD-149: same count, second render site (see rule 7).
+                  <span
+                    data-testid="bottom-nav-unread-badge"
+                    className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-medium flex items-center justify-center px-0.5"
+                  >
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
                 )}

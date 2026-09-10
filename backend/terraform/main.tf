@@ -134,7 +134,7 @@ resource "google_storage_bucket_iam_member" "allow_instance_uploads" {
 # signed URLs minted by the application (`Image.signed_url`), never by a public
 # ACL: `roles/storage.objectViewer` on `allUsers` also carries
 # `storage.objects.list`, which made the whole bucket anonymously enumerable —
-# including chat attachments (B-015).
+# including chat attachments (B-047).
 
 # Read back what it uploaded. Without this the app cannot serve its own objects
 # once the public grant is gone (`objectCreator` alone is write-only).

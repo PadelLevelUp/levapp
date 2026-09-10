@@ -1,10 +1,11 @@
 ---
 id: auth.newcomer-signs-up-on-their-own
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/auth/register.spec.md
   - ../../specs/auth/coach-approval.spec.md
   - ../../specs/auth/email-verification.spec.md
+  - ../../specs/auth/password-recovery.spec.md
   - ../../specs/clubs/join-request.spec.md
 ---
 
@@ -42,8 +43,9 @@ without their knowledge (that case is picked up in
 4. **A coach** is then signed in but sees "Waiting for LevApp approval". The LevApp admin is told a
    coach is waiting (email, when configured, and a badge in the admin's Settings), can see whether
    the coach's email is verified, checks them, and approves or rejects. An approved coach gets an
-   email in their language saying they can start; a rejected coach sees that their request was not
-   approved and how to reach support.
+   email in their language saying they can start; a rejected coach is signed out, sees on the
+   login screen that their request was not approved and why, and can ask again with one tap — which
+   puts them back in the admin's queue (decision 2026-09-09).
 5. **An approved coach**, on their next app load, picks their club: either create a new one
    (name, optionally location), or search existing clubs by name and ask to join one. Creating
    is instant — they are a member of the new club and can start adding players and classes.
@@ -56,6 +58,10 @@ without their knowledge (that case is picked up in
 7. Either way, the login works right away — there is no separate activation email or link,
    because the person who set the password is the person who owns the account. What a coach can
    *do* with it waits for the admin.
+8. **Later, locked out.** Whoever forgets their password or their username taps "Forgot your
+   password?" on the login screen, types the email on the account, and gets one mail with their
+   username and a 6-digit code that is good for 15 minutes and works once. Typing the code and a
+   new password signs them straight in. The screen never says whether an email has an account.
 
 ## Business Rules
 
@@ -79,6 +85,8 @@ without their knowledge (that case is picked up in
 - Joining an existing club always needs a current member's approval; nobody can walk into a
   club's roster and message its students just by knowing the club's name.
 - The signup form links to the Privacy Policy and Terms, on both platforms.
+- The email on the account is the recovery channel for both the password and the username. A
+  recovery request never confirms or denies that an email has an account.
 
 ## Success Metrics
 
@@ -90,7 +98,6 @@ without their knowledge (that case is picked up in
 
 - How a student, once registered, gets onto a coach's roster (QR, invite link, claim) — see
   [[players.coach-builds-roster]].
-- Password and username recovery — PAD-139, its own outcome.
 - Parental consent for minors (birth date, country, guardian email) — PAD-198 layers onto this
   form later.
 - Email verification. Not in v1 (decision 2026-09-06).

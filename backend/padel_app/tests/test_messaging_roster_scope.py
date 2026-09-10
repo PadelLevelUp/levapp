@@ -154,7 +154,8 @@ def test_conversation_with_unrelated_player_is_still_403(client, app, roster_sce
 
 
 def test_messageable_payload_carries_only_picker_fields(client, app, roster_scenario):
-    """PAD-205 must not widen the picker payload (data-model audit H3)."""
+    """PAD-205 must not widen the picker payload (data-model audit H3), and
+    PAD-227 narrowed it to the public shape (messaging.conversations rule 15)."""
     resp = client.get(
         "/api/app/messageable-users",
         headers=_auth_header(app, roster_scenario["coach_user_id"]),
@@ -167,10 +168,8 @@ def test_messageable_payload_carries_only_picker_fields(client, app, roster_scen
             "id",
             "name",
             "username",
-            "email",
-            "phone",
+            "role",
             "isActive",
-            "language",
             "avatarUrl",
             "abbreviation",
         }

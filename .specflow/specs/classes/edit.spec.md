@@ -18,6 +18,8 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 3. Scope parameter: `single` (just this occurrence) or `future` (this and all future)
 4. Instance edits create overridden fields tracked in `overridden_fields` JSON
 5. Changing lesson time reschedules all future reminder/invitation jobs
+6. **Court (PAD-194).** `updates.courtId` sets the class's court (null clears it; omitted leaves it);
+   it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
 
 ### Acceptance Criteria
 

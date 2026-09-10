@@ -479,8 +479,18 @@ export default function MessagesPage() {
             </Button>
           </div>
         )}
+        {/* PAD-195: this banner is about BROWSER alerts only. The conversation
+            list, the SSE live updates and the unread badge never depended on
+            the permission, but the old copy ("Notifications blocked. Enable
+            them in browser settings.") read as "this app has stopped
+            notifying you" — a coach with push blocked reported exactly that.
+            The copy now says what is off and what still works
+            (messaging.push-notifications rule 8). */}
         {isSupported && permission === "denied" && (
-          <div className="px-3 py-2 border-b border-border bg-muted/30">
+          <div
+            data-testid="push-blocked-banner"
+            className="px-3 py-2 border-b border-border bg-muted/30"
+          >
             <p className="text-xs text-muted-foreground">
               {t("messages.notificationsBlocked")}
             </p>

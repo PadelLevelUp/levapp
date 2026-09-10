@@ -124,6 +124,56 @@ def render_verification_code_email(user, code):
     return subject, text, html
 
 
+# ── auth.password-recovery rule 3 ───────────────────────────────────────────
+
+_RECOVERY = {
+    "pt": {
+        "subject": "Recuperar o acesso à tua conta LevApp",
+        "title": "Recupera o acesso à tua conta",
+        "intro": "Olá {name}. Pediste para recuperar o acesso à tua conta LevApp.",
+        "username": "O teu nome de utilizador é {username}.",
+        "code_intro": "Escreve este código na LevApp, junto com a nova palavra-passe:",
+        "valid": "O código é válido durante 15 minutos e só pode ser usado uma vez.",
+        "ignore": "Se não foste tu, ignora este email — a tua palavra-passe não foi alterada.",
+        "footer": "Recebeste este email porque alguém pediu para recuperar o acesso a uma conta LevApp com este endereço.",
+    },
+    "en": {
+        "subject": "Recover access to your LevApp account",
+        "title": "Recover access to your account",
+        "intro": "Hi {name}. You asked to recover access to your LevApp account.",
+        "username": "Your username is {username}.",
+        "code_intro": "Type this code into LevApp, along with your new password:",
+        "valid": "The code is valid for 15 minutes and works only once.",
+        "ignore": "If this wasn't you, ignore this email — your password has not changed.",
+        "footer": "You got this email because someone asked to recover access to a LevApp account with this address.",
+    },
+}
+
+
+def render_password_recovery_email(user, code):
+    """Return (subject, text, html) for the recovery mail: username + code."""
+    t = _RECOVERY[_lang(user)]
+    name = (user.name or "").split()[0] if user.name else ""
+    intro = t["intro"].format(name=name).replace("Olá .", "Olá.").replace("Hi .", "Hi.")
+    username_line = t["username"].format(username=user.username)
+    subject = t["subject"]
+    text = "\n\n".join([t["title"], intro, username_line, t["code_intro"], code, t["valid"], t["ignore"]])
+    html = _layout(
+        subject,
+        [
+            _h1(t["title"]),
+            _p(intro),
+            _p(username_line),
+            _p(t["code_intro"]),
+            _code(code),
+            _p(t["valid"], muted=True),
+            _p(t["ignore"], muted=True),
+        ],
+        t["footer"],
+    )
+    return subject, text, html
+
+
 # ── auth.coach-approval rule 5 ──────────────────────────────────────────────
 
 _APPROVED = {
@@ -160,3 +210,20 @@ def render_coach_approved_email(user):
     text = "\n\n".join([t["title"], intro, t["next"], f"{t['button']}: {href}"])
     html = _layout(subject, [_h1(t["title"]), _p(intro), _p(t["next"]), _button(t["button"], href)], t["footer"])
     return subject, text, html
+
+
+def render_request_alert_email(user, title, body, path):
+    """PAD-232 — one branded email for any request alert (notifications.request-alerts
+    rule 2): the same title/body the pushes carry, one button into the web app."""
+    lang = _lang(user)
+    label = "Abrir a LevApp" if lang == "pt" else "Open LevApp"
+    href = web_origin() + path
+    blocks = [_h1(title), _p(body), _button(label, href)]
+    footer = (
+        "Podes desativar estes alertas em Definições → Preferências."
+        if lang == "pt"
+        else "You can turn these alerts off under Settings → Preferences."
+    )
+    html = _layout(title, blocks, footer)
+    text = f"{title}\n\n{body}\n\n{label}: {href}\n\n{footer}\n"
+    return f"[LevApp] {title}", text, html

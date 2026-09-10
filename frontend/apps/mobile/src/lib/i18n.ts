@@ -36,6 +36,7 @@ import attendanceEn from "../../../../src/locales/en/attendance.json";
 import authEn from "../../../../src/locales/en/auth.json";
 import availabilityEn from "../../../../src/locales/en/availability.json";
 import calendarEn from "../../../../src/locales/en/calendar.json";
+import classRequestsEn from "../../../../src/locales/en/classRequests.json";
 import classDetailEn from "../../../../src/locales/en/classDetail.json";
 import commonEn from "../../../../src/locales/en/common.json";
 import dashboardEn from "../../../../src/locales/en/dashboard.json";
@@ -55,6 +56,7 @@ import attendancePt from "../../../../src/locales/pt/attendance.json";
 import authPt from "../../../../src/locales/pt/auth.json";
 import availabilityPt from "../../../../src/locales/pt/availability.json";
 import calendarPt from "../../../../src/locales/pt/calendar.json";
+import classRequestsPt from "../../../../src/locales/pt/classRequests.json";
 import classDetailPt from "../../../../src/locales/pt/classDetail.json";
 import commonPt from "../../../../src/locales/pt/common.json";
 import dashboardPt from "../../../../src/locales/pt/dashboard.json";
@@ -98,6 +100,7 @@ const enNamespaces: Dict[] = [
   authEn,
   availabilityEn,
   calendarEn,
+  classRequestsEn,
   classDetailEn,
   commonEn,
   dashboardEn,
@@ -119,6 +122,7 @@ const ptNamespaces: Dict[] = [
   authPt,
   availabilityPt,
   calendarPt,
+  classRequestsPt,
   classDetailPt,
   commonPt,
   dashboardPt,

@@ -1,3 +1,4 @@
+import { courtsApi, invitationsApi } from "@levelup/api";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
@@ -17,11 +18,12 @@ import {
   useCoachLevels,
 } from "@levelup/hooks";
 import type {
+  Court,
   ApprovalBundle,
   ClassInstance,
   PresenceStatus,
 } from "@levelup/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
@@ -67,6 +69,11 @@ import {
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
+import type { EligibilityCheckEntry } from "@levelup/types";
+import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import {
   diffInstance,
   EDITABLE_CLASS_FIELDS,
@@ -152,6 +159,22 @@ export default function ClassDetailScreen() {
   const removeClass = useRemoveClass();
   const cancelAttendance = useCancelAttendance();
   const editClass = useEditClass();
+  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  const { data: clubCourts } = useQuery({
+    queryKey: ["current-club-courts"],
+    queryFn: async () => {
+      const club = await invitationsApi.getCoachClub();
+      return club ? courtsApi.listCourts(club.id) : [];
+    },
+    enabled: isCoach,
+  });
+  const courtOptions = React.useMemo<Option[]>(
+    () => [
+      { value: "", label: t("calendar.detail.noCourt") },
+      ...(clubCourts ?? []).map((c: Court) => ({ value: String(c.id), label: c.name })),
+    ],
+    [clubCourts, t]
+  );
   const sendReminders = useSendClassReminders();
   const confirmTraining = useConfirmClassTraining();
 
@@ -206,6 +229,12 @@ export default function ClassDetailScreen() {
     React.useCallback(
       (evt) => {
         if (!isCoach || !event) return;
+        // PAD-131: a student asked to join, or the class filled and the
+        // requests closed → refetch so the requests block is current.
+        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded") {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          return;
+        }
         if (evt.type === "notification_responded") {
           const payload = evt.payload as {
             notificationEventId: number;
@@ -348,15 +377,24 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const commitEdit = async (scope: "single" | "future") => {
-    if (!draft || !instance || !event) return;
-    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS);
+  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
+  // the bar asks first, naming why. The edit is parked until answered.
+  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
+  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
+  const [joinBusy, setJoinBusy] = React.useState(false);
+  const [pendingAccept, setPendingAccept] = React.useState<{
+    id: number;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
+  const [pendingEdit, setPendingEdit] = React.useState<{
+    changes: Record<string, unknown>;
+    scope: "single" | "future";
+  } | null>(null);
+
+  const finalizeEdit = async (changes: Record<string, unknown>, scope: "single" | "future") => {
+    if (!event) return;
     setEditScopeOpen(false);
     setIsEditing(false);
-    if (Object.keys(changes).length === 0) {
-      setDraft(null);
-      return;
-    }
     try {
       await editClass.mutateAsync({ event, updates: changes, scope });
       toast.success(t("calendar.page.classUpdated"));
@@ -368,6 +406,37 @@ export default function ClassDetailScreen() {
     } finally {
       setDraft(null);
     }
+  };
+
+  const commitEdit = async (scope: "single" | "future") => {
+    if (!draft || !instance || !event) return;
+    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS) as Record<string, unknown>;
+    if (Object.keys(changes).length === 0) {
+      setEditScopeOpen(false);
+      setIsEditing(false);
+      setDraft(null);
+      return;
+    }
+    const added = Array.isArray(changes.addPlayers) ? (changes.addPlayers as Array<string | number>) : [];
+    if (added.length > 0) {
+      try {
+        const { ineligible: failing } = await notificationEngineApi.checkEligibility(
+          event.model,
+          String(event.originalId),
+          event.date,
+          added
+        );
+        if (failing.length > 0) {
+          setEditScopeOpen(false);
+          setIneligible(failing);
+          setPendingEdit({ changes, scope });
+          return;
+        }
+      } catch {
+        // Rule 6: the warning is a courtesy, the enrolment is the coach's.
+      }
+    }
+    await finalizeEdit(changes, scope);
   };
 
   // ── Remind ──
@@ -392,8 +461,10 @@ export default function ClassDetailScreen() {
           })
         );
       }
+      // PAD-239: a student's own opt-out is a caveat, not a failure — warning
+      // slot, as on web.
       if (optedOut.length > 0) {
-        toast.error(
+        toast.warning(
           t("calendar.notify.blockedByPreference", {
             names: blockedNames(optedOut),
           }),
@@ -480,6 +551,77 @@ export default function ClassDetailScreen() {
 
   // Student-only: their own presence row (the API only ever returns theirs).
   const myPresence = !isCoach ? (instance?.presences ?? [])[0] : undefined;
+
+  // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9) — mirrors web's
+  // ClassDetailSheet: the student asks or withdraws; the coach accepts (a
+  // manual add, so a student who slipped below the bar needs the same
+  // named-reason confirmation) or rejects.
+  const refreshInstance = async () => {
+    if (!event) return;
+    await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+  };
+  const handleJoinRequest = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await classJoinRequestsApi.createClassJoinRequest({
+        model: event.model,
+        originalId: event.originalId,
+        date: event.date,
+      });
+      toast.success(t("calendar.joinRequest.sentTitle"));
+    } catch (err) {
+      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
+      toast.error(
+        refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : t("calendar.joinRequest.failed")
+      );
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleWithdrawJoinRequest = async (id: number) => {
+    setJoinBusy(true);
+    try {
+      await classJoinRequestsApi.withdrawClassJoinRequest(id);
+      toast.success(t("calendar.joinRequest.withdrawn"));
+    } catch {
+      toast.error(t("calendar.joinRequest.failed"));
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleDecideJoinRequest = async (id: number, accept: boolean, confirm = false) => {
+    const req = instance?.joinRequests?.find((r) => r.id === id);
+    setJoinBusy(true);
+    try {
+      if (accept) await classJoinRequestsApi.acceptClassJoinRequest(id, confirm);
+      else await classJoinRequestsApi.rejectClassJoinRequest(id);
+      toast.success(
+        t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
+          name: req?.playerName ?? "",
+        })
+      );
+    } catch (err) {
+      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
+      if (refusal?.code === "ineligible") {
+        setJoinBusy(false);
+        setPendingAccept({ id, ineligible: refusal.ineligible ?? [] });
+        return;
+      }
+      toast.error(
+        refusal?.code === "spot_filled"
+          ? t("calendar.joinRequest.spotFilledToast")
+          : refusal?.code === "class_closed"
+            ? t("calendar.joinRequest.classClosedToast")
+            : t("calendar.joinRequest.decideFailed")
+      );
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
 
   // PAD-170 C5: the gates live in `attendance-decline.ts` so the unit runner can
   // exercise them. The proactive WINDOW is the server's answer
@@ -761,6 +903,32 @@ export default function ClassDetailScreen() {
                 )}
               </View>
             </View>
+
+            {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-detail-place">
+              <Text className="text-xs text-muted-foreground">{t("calendar.detail.club")}</Text>
+              {isEditing && draft && clubCourts && clubCourts.length > 0 ? (
+                <Select
+                  value={courtOptions.find((o) => o!.value === String(draft.courtId ?? ""))}
+                  onValueChange={(opt) =>
+                    setDraft((d) => (d ? { ...d, courtId: opt?.value ? Number(opt.value) : null } : d))
+                  }
+                >
+                  <SelectTrigger testID="class-edit-court-select" accessibilityLabel={t("calendar.detail.court")} className="h-9">
+                    <SelectValue placeholder={t("calendar.detail.noCourt")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courtOptions.map((opt) => (
+                      <SelectItem key={opt!.value} value={opt!.value} label={opt!.label} />
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Text className="text-sm font-medium">
+                  {(active?.clubName ?? "—") + (active?.courtName ? ` · ${active.courtName}` : "")}
+                </Text>
+              )}
+            </View>
           </View>
 
           {isRecurring && !isEditing ? (
@@ -816,6 +984,25 @@ export default function ClassDetailScreen() {
                 />
               </View>
             </View>
+          ) : null}
+
+          {/* PAD-129: which eligibility tier applies, and the override editor in edit mode */}
+          {isCoach && event?.type === "class" && active ? (
+            <ClassEligibilityBlock
+              current={active.eligibilityRules ?? null}
+              effective={active.effectiveEligibilityRules ?? null}
+              source={active.eligibilitySource ?? "coach"}
+              editing={isEditing}
+              onChange={(eligibilityRules) =>
+                setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+              openSpots={active.openSpotsVisible ?? null}
+              effectiveOpenSpots={active.effectiveOpenSpotsVisible ?? false}
+              openSpotsSource={active.openSpotsSource ?? "coach"}
+              onOpenSpotsChange={(openSpotsVisible) =>
+                setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
+              }
+            />
           ) : null}
 
           {/* Color — only in edit mode (mirrors web) */}
@@ -909,6 +1096,48 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
+          {/* PAD-131 (rules 5, 7, 9): the coach decides each pending request. */}
+          {isCoach && !isEditing && (instance?.joinRequests?.length ?? 0) > 0 ? (
+            <>
+              <Separator />
+              <View className="gap-1" testID="class-join-requests">
+                <Text className="py-1 text-sm font-semibold">
+                  {t("calendar.joinRequest.coachTitle", { count: instance!.joinRequests!.length })}
+                </Text>
+                {instance!.joinRequests!.map((req) => (
+                  <View
+                    key={req.id}
+                    className="flex-row items-center justify-between gap-2 py-1"
+                    testID="class-join-request-row"
+                  >
+                    <Text className="flex-1 text-sm" numberOfLines={1}>
+                      {req.playerName}
+                    </Text>
+                    <View className="flex-row gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={joinBusy}
+                        onPress={() => void handleDecideJoinRequest(req.id, false)}
+                        testID="class-join-reject"
+                      >
+                        <Text>{t("calendar.joinRequest.reject")}</Text>
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={joinBusy}
+                        onPress={() => void handleDecideJoinRequest(req.id, true)}
+                        testID="class-join-accept"
+                      >
+                        <Text>{t("calendar.joinRequest.accept")}</Text>
+                      </Button>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           {/* Invited (N) — coach only, collapsible, live via SSE above. */}
           {isCoach && !isEditing && invitations.length > 0 ? (
             <>
@@ -965,6 +1194,60 @@ export default function ClassDetailScreen() {
                     ))}
                   </View>
                 ) : null}
+              </View>
+            </>
+          ) : null}
+
+          {/* PAD-131: a student outside the class asks for the open spot
+              (rule 1) or withdraws their pending ask (rule 4). */}
+          {!isCoach &&
+          !isEditing &&
+          !isCanceled &&
+          !myPresence &&
+          (event.openSpot || instance?.myJoinRequest) ? (
+            <>
+              <Separator />
+              <View
+                className="gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                testID="class-join-request"
+              >
+                {instance?.myJoinRequest?.status === "pending" ? (
+                  <>
+                    <Text className="text-sm font-medium">{t("calendar.joinRequest.pending")}</Text>
+                    <Button
+                      variant="outline"
+                      disabled={joinBusy}
+                      onPress={() => void handleWithdrawJoinRequest(instance!.myJoinRequest!.id)}
+                      testID="class-join-withdraw"
+                    >
+                      <Text>{t("calendar.joinRequest.withdraw")}</Text>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {instance?.myJoinRequest && instance.myJoinRequest.status !== "withdrawn" ? (
+                      <Text className="text-xs text-muted-foreground">
+                        {t(`calendar.joinRequest.${instance.myJoinRequest.status}`)}
+                      </Text>
+                    ) : null}
+                    {event.openSpot ? (
+                      <>
+                        <Button
+                          disabled={joinBusy}
+                          onPress={() => void handleJoinRequest()}
+                          testID="class-join-request-button"
+                        >
+                          <Text>{t("calendar.joinRequest.request")}</Text>
+                        </Button>
+                        <Text className="text-xs text-muted-foreground">
+                          {event.coachName
+                            ? t("calendar.joinRequest.requestHint", { coach: event.coachName })
+                            : t("calendar.joinRequest.requestHintNoCoach")}
+                        </Text>
+                      </>
+                    ) : null}
+                  </>
+                )}
               </View>
             </>
           ) : null}
@@ -1243,6 +1526,31 @@ export default function ClassDetailScreen() {
         onConfirm={(scope) => void commitEdit(scope)}
       />
 
+      <EligibilityConfirmDialog
+        open={pendingEdit !== null}
+        ineligible={ineligible}
+        onCancel={() => {
+          setPendingEdit(null);
+          setIneligible([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingEdit;
+          setPendingEdit(null);
+          setIneligible([]);
+          if (parked) void finalizeEdit(parked.changes, parked.scope);
+        }}
+      />
+      {/* PAD-131 rule 7: accepting a request is a manual add — same warning. */}
+      <EligibilityConfirmDialog
+        open={pendingAccept !== null}
+        ineligible={pendingAccept?.ineligible ?? []}
+        onCancel={() => setPendingAccept(null)}
+        onConfirm={() => {
+          const parked = pendingAccept;
+          setPendingAccept(null);
+          if (parked) void handleDecideJoinRequest(parked.id, true, true);
+        }}
+      />
       <OverlapConfirmDialog
         open={overlapOpen}
         onCancel={() => setOverlapOpen(false)}

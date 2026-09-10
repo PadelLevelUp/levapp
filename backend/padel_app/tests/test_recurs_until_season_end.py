@@ -46,10 +46,20 @@ def _make_club(coach_id):
 
 
 def _seed_season(coach_id, name, start, end):
+    """PAD-82: the coach has ONE recurring day/month definition; the old
+    absolute dates map onto it by day/month (all cases here are non-wrapping
+    ranges inside 2026, so the occurrence semantics are unchanged)."""
     from padel_app.sql_db import db
-    from padel_app.models import Season
+    from padel_app.models import CoachSeason
 
-    season = Season(coach_id=coach_id, name=name, start_date=start, end_date=end)
+    season = CoachSeason(
+        coach_id=coach_id,
+        label=name,
+        start_day=start.day,
+        start_month=start.month,
+        end_day=end.day,
+        end_month=end.month,
+    )
     db.session.add(season)
     db.session.commit()
     return season

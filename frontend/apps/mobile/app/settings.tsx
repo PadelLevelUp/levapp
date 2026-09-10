@@ -13,6 +13,7 @@ import { AccountSection } from "@/features/settings/account-section";
 import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { ClubSection } from "@/features/settings/club-section";
+import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
 import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
@@ -124,6 +125,8 @@ export default function SettingsScreen() {
         return <SeasonsSection />;
       case "notifications":
         return <AutoInviteSection />;
+      case "classRequests":
+        return <ClassRequestsSection role="coach" />;
       case "myNotifications":
         return <StudentNotificationBlocksSection />;
       case "tutorials":

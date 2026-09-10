@@ -27,7 +27,8 @@
         "holiday": "Holiday",
         "off_work": "Off work",
         "unavailable": "Unavailable"
-      }
+      },
+      "openAria": "Open {{title}}, {{start}} to {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} class",
@@ -55,7 +56,7 @@
       "endDate": "End date",
       "recursUntilSeasonEnd": "Recurs until season end",
       "recursUntilSeasonEndHint": "Ends at your season's end date.",
-      "noSeasonCoversDate": "No season covers this date. Set a season in Settings → Calendar, or turn this off and pick an end date.",
+      "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or turn this off and pick an end date.",
       "autoNotifications": "Auto notifications",
       "autoNotificationsDescription": "Students will be auto-invited",
       "color": "Color",
@@ -66,7 +67,9 @@
       "missingFieldsDescription": "Please fill in: {{fields}}",
       "fieldDate": "Date",
       "fieldDays": "Days of the week",
-      "fieldEndDate": "End date"
+      "fieldEndDate": "End date",
+      "court": "Court",
+      "noCourt": "No court"
     },
     "overlap": {
       "title": "Overlapping event",
@@ -185,7 +188,10 @@
       "notAttending": "Not attending",
       "notAttendingJustified": "Justified absence",
       "colorOption": "Color {{color}}",
-      "invitedCount": "Invited ({{count}})"
+      "invitedCount": "Invited ({{count}})",
+      "club": "Club",
+      "court": "Court",
+      "noCourt": "No court"
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -351,6 +357,77 @@
       "done": "Finished",
       "event": "Event / not a class",
       "fill": "Confirmed / awaiting / free"
+    },
+    "eligibilityConfirm": {
+      "title": "Add students who don't meet the bar?",
+      "body": "Enrolment is your call — this only tells you what the bar says.",
+      "confirm": "Add anyway",
+      "cancel": "Cancel"
+    },
+    "eligibility": {
+      "title": "Eligibility",
+      "hint": "Who may join this class. The standard bar applies unless you override it here.",
+      "source": {
+        "coach": "Standard bar",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "standard": "Standard bar",
+        "everyone": "Everyone",
+        "custom": "Custom rules"
+      },
+      "everyoneHint": "No rules for this class — every one of your students may join.",
+      "standardHint": "Uses your standard eligibility from Settings → Notifications."
+    },
+    "openSpot": {
+      "chip": "Open spot",
+      "coach": "with {{coach}}",
+      "title": "Open spots",
+      "hint": "Whether eligible students see this class's empty spots in their own calendar.",
+      "source": {
+        "coach": "Standard setting",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "inherit": "Standard",
+        "on": "Visible",
+        "off": "Hidden"
+      }
+    },
+    "joinRequest": {
+      "request": "Request to join",
+      "requestHint": "Ask {{coach}} for this spot. They decide.",
+      "requestHintNoCoach": "Ask the coach for this spot. They decide.",
+      "sentTitle": "Request sent",
+      "sentBody": "The coach has been told and will accept or reject it.",
+      "pending": "Request sent — waiting for the coach",
+      "withdraw": "Withdraw request",
+      "withdrawn": "Request withdrawn",
+      "rejected": "The coach did not accept your request",
+      "superseded": "This spot was taken before the coach decided",
+      "accepted": "Your request was accepted",
+      "failed": "Could not send the request",
+      "refusal": {
+        "already_enrolled": "You are already in this class",
+        "class_closed": "This class is no longer open to requests",
+        "not_visible": "This class is not open to requests",
+        "spot_filled": "This class is already full",
+        "ineligible": "You do not meet this class's eligibility bar",
+        "not_pending": "This request was already decided"
+      },
+      "coachTitle_one": "{{count}} request to join",
+      "coachTitle_other": "{{count}} requests to join",
+      "accept": "Accept",
+      "reject": "Reject",
+      "acceptedToast": "{{name}} is in",
+      "rejectedToast": "{{name}}'s request was rejected",
+      "decideFailed": "Could not decide the request",
+      "spotFilledToast": "The class filled up meanwhile — the request was closed",
+      "classClosedToast": "The class is no longer open — the request was closed",
+      "confirmTitle": "Accept a student who no longer meets the bar?",
+      "confirmBody": "Accepting a request is a manual add — the bar says what changed; you decide."
     }
   }
 }

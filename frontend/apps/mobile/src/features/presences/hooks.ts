@@ -20,6 +20,8 @@ export const presenceKeys = {
   trend: ["presence-trend"] as const,
   pending: (from: string, to: string) =>
     ["presence-pending", from, to] as const,
+  pendingCount: (from: string, to: string) =>
+    ["presence-pending", "count", from, to] as const,
   roster: ["coach-players"] as const,
 };
 
@@ -30,10 +32,16 @@ export function usePresenceStats() {
   });
 }
 
-export function usePresenceTrend() {
+/**
+ * `playerIds` (PAD-192): the players the filter sheet left visible, so the
+ * over-time chart follows the filters like the other two. `undefined` is the
+ * whole roster.
+ */
+export function usePresenceTrend(playerIds?: number[]) {
+  const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
-    queryKey: presenceKeys.trend,
-    queryFn: () => presencesApi.getPresenceTrend(),
+    queryKey: [...presenceKeys.trend, key],
+    queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
   });
 }
 
@@ -41,6 +49,18 @@ export function usePendingValidation(range: { from: string; to: string }) {
   return useQuery({
     queryKey: presenceKeys.pending(range.from, range.to),
     queryFn: () => presencesApi.getPendingValidation(range),
+  });
+}
+
+/**
+ * The trigger's number (PAD-190 / PAD-201): the count endpoint is the helper
+ * the dashboard's validation card reads, so the two cannot disagree. Keyed
+ * under `presence-pending` so every write invalidates it with the list.
+ */
+export function usePendingValidationCount(range: { from: string; to: string }) {
+  return useQuery({
+    queryKey: presenceKeys.pendingCount(range.from, range.to),
+    queryFn: () => presencesApi.getPendingValidationCount(range),
   });
 }
 

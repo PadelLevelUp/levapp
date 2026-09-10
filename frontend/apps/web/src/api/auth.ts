@@ -72,3 +72,18 @@ export async function sendEmailVerificationCode(): Promise<SendVerificationCodeR
 export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
   return authApi.confirmEmailVerificationCode(code);
 }
+
+export type {
+  PasswordRecoveryRequestResponse,
+  PasswordRecoveryConfirmPayload,
+  PasswordRecoveryConfirmResponse,
+} from "@levelup/api/src/resources/auth";
+
+/** auth.password-recovery rule 2. Not mockable — it sends a real mail. */
+export const requestPasswordRecovery = authApi.requestPasswordRecovery;
+
+/** auth.password-recovery rule 6. Resolves with the login body. */
+export const confirmPasswordRecovery = authApi.confirmPasswordRecovery;
+
+/** auth.coach-approval rule 12 (PAD-233). Not mockable — it notifies the admin. */
+export const reapplyCoachApproval = authApi.reapplyCoachApproval;

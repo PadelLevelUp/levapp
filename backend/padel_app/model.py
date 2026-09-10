@@ -382,7 +382,7 @@ class Image(db.Model):
     object_key = Column(String(512), nullable=False, unique=True)
     content_type = Column(String(128))
     size_bytes = Column(BigInteger)
-    # Private by default: the bucket carries no public ACL (B-015), so an
+    # Private by default: the bucket carries no public ACL (B-047), so an
     # object is only reachable through a signed URL unless something
     # deliberately marks it public.
     is_public = Column(Boolean, nullable=False, default=False)
@@ -424,7 +424,7 @@ class Image(db.Model):
         rather than falling back on its own. Signing has to be routed through
         the IAM `signBlob` API by naming the service account and passing a live
         access token, which is why `vm_sa` holds
-        `roles/iam.serviceAccountTokenCreator` on itself (B-015). Locally, where
+        `roles/iam.serviceAccountTokenCreator` on itself (B-047). Locally, where
         credentials do have a signer, the plain call already works.
         """
         blob = self._blob()

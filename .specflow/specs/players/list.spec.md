@@ -27,6 +27,16 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    raise an unhandled `AttributeError`. This mirrors `settings.role-scope` rules 6-7, which
    established the same contract for the Settings endpoints.
 
+8. **(PAD-148)** Each player card in the roster grid is a real interactive control, not a
+   styled `<div>` with a click handler: it is focusable in DOM order, carries an accessible
+   name that names the player, activates with **Enter and Space** as well as a pointer, and
+   shows a visible focus ring. This is the same requirement `dashboard.navigation` rule 10 and
+   `attendance.history` rule 13 already place on their list rows, and it is generalised by
+   compass rule **R-026**. The card is the only route to a player's detail page — evaluations,
+   strengths & weaknesses, level/side, notes — so without it that whole branch of the product
+   is mouse-only. iOS already satisfies this (`role="button"` + `accessibilityLabel` on the
+   `Pressable`); web was the shell that lagged.
+
 ### Acceptance Criteria
 
 #### Roster endpoints reject a student with 403
@@ -50,3 +60,12 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **Given** a coach with 3 players, 1 without a level
 - **When** they GET `/api/app/coach_players_paginated?missing_level=true`
 - **Then** only the player without a level is returned
+
+#### Player card is reachable and activatable by keyboard
+- **Given** a signed-in coach on `/players` with at least one player
+- **When** they move focus through the page with `Tab`
+- **Then** focus lands on a player card, which exposes an accessible name containing the
+  player's name
+- **And** pressing `Enter` on the focused card opens that player's detail page
+- **And** pressing `Space` on the focused card does the same without scrolling the page
+

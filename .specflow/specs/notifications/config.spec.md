@@ -21,7 +21,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
 4. `reminder_timing`: `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`
 5. `invitation_start_timing`: when to start sending invitations after a vacancy
-6. `restrictions`: maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription
+6. `restrictions`: maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
 6a. **(PAD-136)** `quietHours` is a **club-local wall clock** window of **22:00–07:00**, evaluated against
    the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. The bounds are
    currently fixed constants — `quietHours` carries only `{enabled}` and no start/end — so
@@ -52,12 +52,16 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    groups order who gets asked first, eligibility decides who may join at all. Neither is derived
    from the other, and existing coaches' `invitation_groups` are never migrated into
    `eligibility_rules` (`eligibility.rules` rule 10).
-7c. **(pending PAD-132)** The `subscription_status` group attribute and the `excludeUnpaidSubscription` restriction read
-   `users.status`, which is **account activation**, not payment state. Both keep working as shipped;
-   `eligibility.rules` rule 5 explains why eligibility offers no payments attribute. Renaming these
-   two to say what they actually check is separate, deliberate work — not a silent side effect of
-   the eligibility change.
-8. `tiebreakers`: ordered ranking criteria (level, attendance, side, subscription status)
+7c. **Account status, not payment (PAD-132, closed 2026-09-10).** The `subscription_status` group
+   attribute and the `excludeUnpaidSubscription` restriction read `users.status`, which is
+   **account activation** (`inactive | active | disabled`), not payment state — there is no payment
+   model anywhere in the product. Every label and description on both platforms now says so
+   ("Account status", "Exclude inactive accounts"); the two **wire identifiers are kept** because
+   they are stored inside every coach's saved config JSON and consumed by the engine, the
+   simulation and both clients — renaming them would be a data migration for no behaviour change
+   (decision `2026-09-10-account-status-not-payment`). `eligibility.rules` rule 5 explains why
+   eligibility offers no payments attribute.
+8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
 10. Updating timing configs reschedules all future scheduler jobs
 11. `cancellationDeadlineHours` (default 24): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`

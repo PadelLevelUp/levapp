@@ -438,6 +438,10 @@ def edit_lesson_helper(data, lesson=None):
     values = form.set_values(fake_request)
 
     lesson.update_with_dict(values)
+    # clubs.courts rule 6 (PAD-194): an explicit null clears the court — the
+    # form adapter drops None values, so it never reaches update_with_dict.
+    if "court" in data and data["court"] in (None, "", "null"):
+        lesson.court_id = None
     lesson.save()
 
     """ if "coach" in data:
@@ -481,6 +485,7 @@ def duplicate_lesson_helper(old_lesson):
         start_datetime=old_lesson.start_datetime,
         end_datetime=old_lesson.end_datetime,
         club_id=old_lesson.club_id,
+        court_id=old_lesson.court_id,
     )
 
     new_lesson.create()
@@ -597,6 +602,13 @@ def add_class_service(data, coach, club):
         "coach": coach.id,
         "player_ids": data.get("playerIds", []),
     }
+
+    # clubs.courts rule 6 (PAD-194): an optional court of the class's club.
+    if "courtId" in data:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        court = resolve_court_for_club(club.id, data.get("courtId"))
+        lesson_payload["court"] = court.id if court else None
 
     if data.get("isRecurring"):
         lesson_payload["recurrence_rule"] = json.dumps(data.get("recurrenceRule"))
@@ -767,6 +779,13 @@ def _ensure_date(payload, date_obj):
     return payload
 
 
+def _normalize_eligibility_override(value):
+    """A tier's incoming bar: ``None`` clears the tier; a list is stored as-is
+    (``[]`` = everyone); anything else is treated as "clear" rather than
+    letting a malformed payload lock a class."""
+    return value if isinstance(value, list) else None
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
@@ -777,6 +796,15 @@ def edit_class_service(data):
         return {"error": "Invalid payload"}, 400
 
     notifications_enabled = updates.get("notificationsEnabled")
+    # PAD-129 (eligibility.cascade rules 5, 8): absent = untouched, None = clear
+    # this tier, [] = everyone, a list = that bar. `scope` picks the tier.
+    eligibility_touched = "eligibilityRules" in updates
+    eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
+    # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
+    visibility_touched = "openSpotsVisible" in updates
+    open_spots_visible = updates.get("openSpotsVisible")
+    if open_spots_visible is not None:
+        open_spots_visible = bool(open_spots_visible)
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
@@ -798,6 +826,15 @@ def edit_class_service(data):
     model = event.get("model")
     original_id = event.get("originalId")
 
+    # clubs.courts rule 6 (PAD-194): null clears the court, omitted leaves it.
+    # Validated against the class's club before anything is written.
+    if "courtId" in updates:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        target = LessonInstance.query.get_or_404(original_id).lesson if model == "LessonInstance" else Lesson.query.get_or_404(original_id)
+        court = resolve_court_for_club(target.club_id, updates.get("courtId"))
+        payload["court"] = court.id if court else None
+
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)
 
@@ -806,6 +843,12 @@ def edit_class_service(data):
             edit_lesson_instance_helper(payload, instance)
             if notifications_enabled is not None:
                 instance.notifications_enabled = notifications_enabled
+                instance.save()
+            if eligibility_touched:
+                instance.eligibility_rules = eligibility_rules
+                instance.save()
+            if visibility_touched:
+                instance.open_spots_visible = open_spots_visible
                 instance.save()
             return {"id": instance.id}, 200
 
@@ -841,6 +884,14 @@ def edit_class_service(data):
             if notifications_enabled is not None:
                 lesson_to_edit.notifications_enabled = notifications_enabled
                 lesson_to_edit.save()
+            if eligibility_touched:
+                # The series tier — on the forked master when the edit started
+                # mid-series (rule 6), so earlier occurrences keep the old bar.
+                lesson_to_edit.eligibility_rules = eligibility_rules
+                lesson_to_edit.save()
+            if visibility_touched:
+                lesson_to_edit.open_spots_visible = open_spots_visible
+                lesson_to_edit.save()
             # A "this and future" edit off a materialized occurrence splits the
             # series into a *new* Lesson (duplicate_lesson_helper). Without this
             # the new lesson carries no reminder jobs at all, so its classes
@@ -873,6 +924,12 @@ def edit_class_service(data):
         if notifications_enabled is not None:
             instance.notifications_enabled = notifications_enabled
             instance.save()
+        if eligibility_touched:
+            instance.eligibility_rules = eligibility_rules
+            instance.save()
+        if visibility_touched:
+            instance.open_spots_visible = open_spots_visible
+            instance.save()
         # Schedule reminder/invite jobs for this newly materialized instance
         from padel_app.scheduler import _maybe_schedule_instance
         _maybe_schedule_instance(instance)
@@ -893,6 +950,12 @@ def edit_class_service(data):
         )
         if notifications_enabled is not None:
             lesson_to_edit.notifications_enabled = notifications_enabled
+            lesson_to_edit.save()
+        if eligibility_touched:
+            lesson_to_edit.eligibility_rules = eligibility_rules
+            lesson_to_edit.save()
+        if visibility_touched:
+            lesson_to_edit.open_spots_visible = open_spots_visible
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:

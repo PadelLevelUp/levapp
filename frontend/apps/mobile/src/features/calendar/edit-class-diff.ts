@@ -11,8 +11,13 @@ export const EDITABLE_CLASS_FIELDS = [
   "color",
   "maxPlayers",
   "levelId",
+  "courtId",
   "recurrenceEnd",
   "notificationsEnabled",
+  // PAD-129: the eligibility tier this screen addresses (null / [] / rules).
+  "eligibilityRules",
+  // PAD-130: the open-spot toggle at this tier (null / true / false).
+  "openSpotsVisible",
 ] as const satisfies readonly (keyof ClassInstance)[];
 
 /** Generic before/after diff for scalar/object/array fields — values are

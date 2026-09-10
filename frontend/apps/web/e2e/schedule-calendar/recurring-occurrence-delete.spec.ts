@@ -58,7 +58,7 @@ test.describe("PAD-65: deleted recurring occurrence stays gone", () => {
     // Open the occurrence and delete just this one.
     await page.getByText(RECURRING).first().click();
     await page.locator("text=/participants|attendance|edit/i").first().waitFor({ timeout: 5000 });
-    await page.getByRole("button", { name: /delete class/i }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first().click();
 
     const single = page.getByText("Only this class").first();
     await expect(single).toBeVisible({ timeout: 5000 });

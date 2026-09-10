@@ -23,7 +23,7 @@ LOCAL_POSTGRES_HOST = "localhost"
 # Spellings of "this machine" that a tunnel endpoint can legitimately use.
 LOCAL_POSTGRES_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
-# Postgres is no longer reachable from the internet (B-016), so the shared
+# Postgres is no longer reachable from the internet (B-048), so the shared
 # database is reached by forwarding it to a local port. That makes a remote
 # database look like `localhost`, which would silently disarm the host-based
 # guard below — the very check that stops a workstation migrating real data.
@@ -168,6 +168,18 @@ class Config:
     # Where to email "a coach is waiting for approval". Unset → no email, the
     # Settings → Admin badge is the only signal.
     ADMIN_NOTIFY_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL") or None
+
+    # PAD-228: per-IP sliding-window throttle on the public auth routes
+    # (auth.login rule 7, auth.register rule 15, auth.password-recovery rule
+    # 10). "count/seconds"; "0" switches one scope off, AUTH_RATE_LIMIT_ENABLED=0
+    # switches them all off (the E2E backends do, so a suite that signs in a
+    # hundred times from 127.0.0.1 is not throttled).
+    AUTH_RATE_LIMIT_ENABLED = os.getenv("AUTH_RATE_LIMIT_ENABLED", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
+    AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
+    AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
+    AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.

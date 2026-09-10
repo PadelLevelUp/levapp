@@ -27,7 +27,12 @@ Manage conversations between users (1:1 or group chats).
 3. `is_group=True` allows group_name display
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
-6. `POST /api/app/conversation` finds or creates by participant list
+6. `POST /api/app/conversation` finds or creates by participant list, and answers with **the
+   same paged shape as `GET /api/app/conversation/{id}`** (PAD-237): `messages` is the newest
+   `30` (the clients' first-page size, `CONVERSATION_FIRST_PAGE_SIZE`) in ascending order,
+   plus `hasMore` and `oldestMessageId` for walking back. A found conversation with a long
+   history is therefore never returned whole; a freshly created one has `messages: []`,
+   `hasMore: false`, `oldestMessageId: null`
 7. A coach may start a conversation with any player on their **roster** (`coach_in_player`) or in
    any **club** they belong to (`player_in_club`) — the union of the two is the coach's
    messageable set. Everyone else is a student and may start a conversation with any active coach.
@@ -71,6 +76,13 @@ Manage conversations between users (1:1 or group chats).
     only; there is no endpoint that lists or searches students by name or username. The
     student-to-student path by exact username is `messaging.direct-by-username`, and blocks are
     specified in `messaging.block-and-report`.
+15. **Public user shape (PAD-227, B-031).** `GET /api/app/messageable-users` and
+    `GET /api/app/users` return the *public* user shape only: `id`, `name`, `username`, `role`
+    (`coach`|`player`), `avatarUrl`, `abbreviation`, `isActive`. Never `email`, `phone` or
+    `language`: contact details reach a caller only through their own `/api/auth/me` and
+    `/api/app/coach`, or through a coach's roster payloads (`players.*`), which are scoped to
+    that coach's own players. Any other user-bearing list payload added later uses the same
+    public shape unless its spec says why not.
 
 ### Acceptance Criteria
 
@@ -159,6 +171,13 @@ Manage conversations between users (1:1 or group chats).
 - **When** a second row for conversation and user 5 is inserted
 - **Then** the database rejects it with an integrity error
 - **And** the conversation still has exactly one participant row for user 5
+
+#### The picker never carries contact details (PAD-227)
+- **Given** student S connected to coach C, and coach C with a roster
+- **When** S GETs `/api/app/messageable-users` and `/api/app/users`
+- **Then** every entry has `id`, `name`, `username`, `role`, `avatarUrl`, `abbreviation` and no `email`, `phone` or `language` key
+- **When** C GETs the same two routes
+- **Then** the entries have the same public shape, while `GET /api/app/players` still carries the roster's `email` and `phone` for C
 
 #### Students are not discoverable
 - **Given** an authenticated student

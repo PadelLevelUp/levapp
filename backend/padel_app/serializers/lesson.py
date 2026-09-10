@@ -1,7 +1,7 @@
 import json
 from padel_app.tools.tools import iso_date
 from padel_app.serializers.player import serialize_player
-from padel_app.serializers.presence import serialize_presence
+from padel_app.serializers.presence import serialize_presences
 
 
 # How "meaningful" each invitation status is when a student ends up with more
@@ -107,6 +107,34 @@ def serialize_lesson_instance(instance):
     }
 
     
+def _eligibility_provenance(obj, coach_id):
+    """``effectiveEligibilityRules`` + ``eligibilitySource`` for a class payload."""
+    if coach_id is None:
+        # A materialised instance may be owned through its own coach
+        # association only (no Association_CoachLesson on the parent).
+        rels = getattr(obj, "coaches_relations", None) or []
+        coach_id = rels[0].coach_id if rels else None
+    if coach_id is None:
+        return {
+            "effectiveEligibilityRules": None, "eligibilitySource": "coach",
+            "effectiveOpenSpotsVisible": False, "openSpotsSource": "coach",
+        }
+    from padel_app.services.notification_service import (
+        effective_eligibility_with_source,
+        effective_open_spots_visible_with_source,
+    )
+
+    rules, source = effective_eligibility_with_source(obj, coach_id)
+    visible, visible_source = effective_open_spots_visible_with_source(obj, coach_id)
+    return {
+        "effectiveEligibilityRules": rules,
+        "eligibilitySource": source,
+        # PAD-130 rule 10
+        "effectiveOpenSpotsVisible": visible,
+        "openSpotsSource": visible_source,
+    }
+
+
 def serialize_class_instance(obj, viewer_player_id=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
@@ -149,6 +177,15 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         "participants": participants,
         "recurrenceEnd": lesson.recurrence_end.isoformat() if lesson.recurrence_end else None,
         "notificationsEnabled": obj.notifications_enabled if hasattr(obj, "notifications_enabled") else True,
+        # PAD-129 (eligibility.cascade rule 8): the tier this payload addresses,
+        # what actually resolved, and where it came from.
+        "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
+        "openSpotsVisible": obj.open_spots_visible if isinstance(getattr(obj, "open_spots_visible", None), bool) else None,
+        **_eligibility_provenance(obj, coach_id),
+        # clubs.courts rule 7 (PAD-194): the detail shows club and court.
+        "clubName": lesson.club.name if lesson.club else None,
+        "courtId": lesson.court_id,
+        "courtName": lesson.court.name if lesson.court else None,
     }
 
     if is_instance:
@@ -176,11 +213,11 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             lesson_instance_id=obj.id
         ).all()
 
-        presences = [
-            serialize_presence(p)
+        presences = serialize_presences(
+            p
             for p in getattr(obj, "presences", [])
             if not is_student or p.player_id == viewer_player_id
-        ]
+        )
 
         # Effective cancellation deadline for this instance (PAD-43) so the
         # frontend can render deadline UX. Falls back to the default when the
@@ -252,5 +289,20 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             }
         )
         data["levelId"] = str(obj.level_id) if obj.level_id else data["levelId"]
+
+        # PAD-131 (classes.join-requests rule 15): the coach sees the pending
+        # requests; a student sees only their own latest one.
+        from padel_app.services.class_join_request_service import (
+            latest_request_for_player,
+            pending_requests_for_instance,
+            serialize_join_request,
+        )
+        if is_student:
+            mine = latest_request_for_player(obj.id, viewer_player_id)
+            data["myJoinRequest"] = serialize_join_request(mine) if mine else None
+        else:
+            data["joinRequests"] = [
+                serialize_join_request(r) for r in pending_requests_for_instance(obj.id)
+            ]
 
     return data

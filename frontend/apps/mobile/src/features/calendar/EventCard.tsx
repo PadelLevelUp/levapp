@@ -45,13 +45,23 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
   const ink = isBlock ? SURFACES.foreground : (surface.color ?? SURFACES.foreground);
   const onColor = variant === "scheduled" && ink === "#FFFFFF";
 
+  // PAD-130: an open spot is an offer — the class's colour as a dashed
+  // outline on a plain surface, never the filled card of an enrolled class.
+  const isOpenSpot = !!event.openSpot;
   const stateStyle: ViewStyle = isBlock
     ? {}
-    : {
-        backgroundColor: surface.backgroundColor,
-        borderWidth: surface.borderWidth,
-        borderColor: surface.borderColor,
-      };
+    : isOpenSpot
+      ? {
+          backgroundColor: SURFACES.card,
+          borderWidth: 1.5,
+          borderStyle: "dashed",
+          borderColor: event.color ?? lightTheme.primary,
+        }
+      : {
+          backgroundColor: surface.backgroundColor,
+          borderWidth: surface.borderWidth,
+          borderColor: surface.borderColor,
+        };
 
   const capacity = event.maxPlayers ?? 0;
   const filled = event.participantCount ?? 0;
@@ -99,6 +109,15 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       )}
       style={stateStyle}
     >
+      {isOpenSpot ? (
+        <Text
+          testID="calendar-open-spot-chip"
+          className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
+          style={{ color: ink, borderColor: ink }}
+        >
+          {t("calendar.openSpot.chip")}
+        </Text>
+      ) : null}
       <View className="flex-row items-start justify-between gap-2">
         <Text
           numberOfLines={1}
@@ -139,6 +158,18 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       {subtitle ? (
         <Text className="mt-1 text-sm" style={{ color: ink, opacity: 0.85 }}>
           {subtitle}
+        </Text>
+      ) : null}
+
+      {/* clubs.courts rule 7 (PAD-194): where the class happens. */}
+      {!isBlock && event.club ? (
+        <Text
+          numberOfLines={1}
+          testID={`calendar-event-place-${event.id}`}
+          className="mt-1 text-sm"
+          style={{ color: ink, opacity: 0.85 }}
+        >
+          {event.court ? `${event.club.name} · ${event.court.name}` : event.club.name}
         </Text>
       ) : null}
 

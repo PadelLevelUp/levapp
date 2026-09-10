@@ -154,3 +154,15 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
   list anchored with `scrollToEnd` — don't reintroduce `inverted`.
 - The suite runs against the **dev build + Metro**; screenshots in
   `~/.maestro/tests/` are the first debugging stop.
+
+## Push tap routing (PAD-240)
+
+`flows/29-push-tap-routing.yaml` is not in `config.yaml`'s order because Maestro
+cannot send a push. Run it through the wrapper, which delivers a simulated APNs
+notification (`scripts/push-payloads/message.apns`, `xcrun simctl push`) once the
+flow is parked on the Messages tab, then lets the flow tap the banner and assert
+the conversation opened:
+
+```bash
+bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDID
+```

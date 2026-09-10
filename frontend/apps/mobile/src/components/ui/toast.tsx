@@ -6,7 +6,11 @@ import { Animated, Easing, Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
-type ToastVariant = "success" | "error";
+// PAD-239: `warning` mirrors web's sonner `toast.warning` — for outcomes that
+// are a choice or a caveat, not a failure (e.g. a student who opted out of
+// invitations). Before it existed those were reported in the error slot,
+// which read as "could not notify" when nothing had gone wrong.
+type ToastVariant = "success" | "error" | "warning";
 
 type ToastRecord = {
   id: number;
@@ -57,6 +61,8 @@ const toast = {
     addToast("success", message, description),
   error: (message: string, description?: string) =>
     addToast("error", message, description),
+  warning: (message: string, description?: string) =>
+    addToast("warning", message, description),
 };
 
 function ToastItem({ record }: { record: ToastRecord }) {
@@ -86,6 +92,7 @@ function ToastItem({ record }: { record: ToastRecord }) {
   }, [dismiss, progress]);
 
   const isSuccess = record.variant === "success";
+  const isWarning = record.variant === "warning";
 
   return (
     <Animated.View
@@ -107,13 +114,25 @@ function ToastItem({ record }: { record: ToastRecord }) {
         accessibilityLiveRegion="polite"
         className={cn(
           "w-full max-w-sm flex-row items-start gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg shadow-black/20",
-          isSuccess ? "border-success" : "border-destructive"
+          isSuccess
+            ? "border-success"
+            : isWarning
+              ? "border-warning"
+              : "border-destructive"
         )}
       >
         <Ionicons
-          name={isSuccess ? "checkmark-circle" : "alert-circle"}
+          name={
+            isSuccess ? "checkmark-circle" : isWarning ? "warning" : "alert-circle"
+          }
           size={20}
-          color={isSuccess ? lightTheme.success : lightTheme.destructive}
+          color={
+            isSuccess
+              ? lightTheme.success
+              : isWarning
+                ? lightTheme.warning
+                : lightTheme.destructive
+          }
         />
         <View className="flex-1 gap-0.5">
           <Text className="text-sm font-medium text-foreground">
@@ -132,7 +151,8 @@ function ToastItem({ record }: { record: ToastRecord }) {
 
 /**
  * Renders active toasts into the root <PortalHost /> (app/_layout.tsx).
- * Mount once near the app root; call `toast.success`/`toast.error` from anywhere.
+ * Mount once near the app root; call `toast.success`/`toast.error`/`toast.warning`
+ * from anywhere.
  */
 function ToastHost() {
   const items = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

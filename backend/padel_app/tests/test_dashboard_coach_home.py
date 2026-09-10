@@ -163,8 +163,143 @@ def test_queue_orders_empty_seats_then_replies_then_validation(app):
     assert seats["seatsMissing"] == 4
     assert (seats["filled"], seats["capacity"]) == (2, 6)
 
+    # PAD-190: the unit is classes and the scope is a Presences-tab week. The
+    # past class ended on Sunday 2 Aug — the PREVIOUS week of Tuesday 4 Aug —
+    # and the current week is clean, so the card falls back to last week and
+    # sends the coach there.
     validation = block["data"]["items"][1]
-    assert (validation["count"], validation["classCount"]) == (1, 1)
+    assert validation["count"] == 1
+    assert validation["weekOffset"] == -1
+    assert validation["href"] == "/presences?week=-1"
+    assert "classCount" not in validation
+
+
+def _add_past_class_with_unvalidated_presence(app, *, coach_id, ended_at, title):
+    from padel_app.sql_db import db
+    from padel_app.models import (
+        Association_CoachLesson,
+        Association_CoachPlayer,
+        LessonInstance,
+        Presence,
+    )
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.Association_CoachClub import Association_CoachClub
+
+    with app.app_context():
+        player_id = (
+            db.session.query(Association_CoachPlayer.player_id)
+            .filter(Association_CoachPlayer.coach_id == coach_id)
+            .first()[0]
+        )
+        club_id = (
+            db.session.query(Association_CoachClub.club_id)
+            .filter(Association_CoachClub.coach_id == coach_id)
+            .first()[0]
+        )
+        start = ended_at - timedelta(hours=1)
+        lesson = Lesson(
+            title=title,
+            start_datetime=start,
+            end_datetime=ended_at,
+            is_recurring=False,
+            type="academy",
+            max_players=4,
+            status="active",
+            club_id=club_id,
+        )
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=lesson.id))
+        inst = LessonInstance(
+            lesson_id=lesson.id,
+            start_datetime=start,
+            end_datetime=ended_at,
+            max_players=4,
+            status="scheduled",
+            notifications_enabled=True,
+            original_lesson_occurence_date=start.date(),
+        )
+        db.session.add(inst)
+        db.session.flush()
+        db.session.add(
+            Presence(lesson_instance_id=inst.id, player_id=player_id, status="present", validated=False)
+        )
+        db.session.commit()
+
+
+def test_validation_item_prefers_the_current_week(app):
+    """dashboard.blocks rule 3: the current week wins whenever it has work."""
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block
+
+    now = datetime(2026, 8, 4, 10, 0)  # Tuesday
+    coach_id, user_id, _ = _seed(app, now=now)  # one pending class last week (Sun 2 Aug)
+    _add_past_class_with_unvalidated_presence(
+        app, coach_id=coach_id, ended_at=datetime(2026, 8, 3, 19, 0), title="Monday Class"
+    )
+
+    with app.app_context():
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+
+    validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
+    assert validation["count"] == 1, "only this week's class, not last week's too"
+    assert validation["weekOffset"] == 0
+    assert validation["href"] == "/presences"
+
+
+def test_validation_item_counts_classes_not_presences(app):
+    from padel_app.sql_db import db
+    from padel_app.models import Association_CoachPlayer, LessonInstance, Presence
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block
+
+    now = datetime(2026, 8, 4, 10, 0)
+    coach_id, user_id, _ = _seed(app, now=now)
+    # A second unvalidated presence on the same past class must not bump the number.
+    with app.app_context():
+        past = db.session.query(LessonInstance).filter(LessonInstance.end_datetime < now).one()
+        second = (
+            db.session.query(Association_CoachPlayer.player_id)
+            .filter(Association_CoachPlayer.coach_id == coach_id)
+            .offset(1)
+            .first()[0]
+        )
+        db.session.add(Presence(lesson_instance_id=past.id, player_id=second, status="absent", validated=False))
+        db.session.commit()
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+
+    validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
+    assert validation["count"] == 1
+
+
+def test_validation_item_is_omitted_when_both_weeks_are_clean(app):
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block
+
+    # Three weeks after the seed's past class: outside both the current and
+    # the previous week, so there is a backlog but no card.
+    now = datetime(2026, 8, 25, 10, 0)
+    coach_id, user_id, _ = _seed(app, now=datetime(2026, 8, 4, 10, 0))
+
+    with app.app_context():
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+
+    assert "validation" not in [i["kind"] for i in block["data"]["items"]]
+
+
+def test_validation_item_is_the_count_endpoints_number(app):
+    """attendance.validation rule 18: one helper, so one number."""
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block, week_bounds
+    from padel_app.services.presence_overview_service import count_pending_validation
+
+    now = datetime(2026, 8, 4, 10, 0)
+    coach_id, user_id, _ = _seed(app, now=now)
+
+    with app.app_context():
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+        validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
+        start, end = week_bounds(now, validation["weekOffset"])
+        assert count_pending_validation(
+            coach_id=coach_id, range_start=start, range_end=end, now=now
+        ) == validation["count"]
+    assert (start, end) == (datetime(2026, 7, 27), datetime(2026, 8, 2, 23, 59, 59))
 
 
 def test_queue_reaches_zero(app):

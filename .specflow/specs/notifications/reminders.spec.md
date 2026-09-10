@@ -42,6 +42,15 @@ Automatically send class reminders to enrolled players at a configured time befo
     answer still does. A duplicate answer (rule 12) or an expired reminder (rule 10) does not
     touch the marker. (The read state is one watermark per conversation, so "read up to the
     answer" is the finest grain the model allows.)
+14. **Reminder state has its own table (PAD-207, audit M6).** Every reminder sent is one row of
+    `reminder_attempts` (`lesson_instance_id`, `player_id`, `presence_id`, `number`, `message_id`,
+    `sent_at`, `responded_at`, `response`, `superseded`, `expired`). Every read that asks "how many
+    reminders has this player had for this class", "which reminder is still pending" or "the
+    latest reminder to mark answered" goes through that table — never through a scan of the
+    conversation's messages. The message keeps being the delivery record the clients render, so
+    `msg_metadata` (`responded`, `response`, `superseded`, `expired`, `reminderNumber`) is written
+    in step with the row and nothing the clients see changes. The migration is idempotent and
+    backfills one row per existing `notification_reminder` message from its metadata.
 
 ### Acceptance Criteria
 
@@ -107,3 +116,12 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **Then** the first reminder message is marked superseded (`msg_metadata.superseded = true`) and its action area renders as a disabled "expired" indicator (no live Yes/No buttons)
 - **And** only the second (latest) reminder shows actionable Yes/No buttons
 - **And** if the player had already confirmed/declined the first reminder, it keeps its status badge and is NOT marked superseded
+
+#### Reminder state is read from reminder_attempts (PAD-207)
+- **Given** a player who was sent two reminders for instance 10 and answered the second
+- **Then** `reminder_attempts` holds rows 1 and 2 for that (player, instance), row 1 `superseded`, row 2 `responded_at` set with `response: "yes"`, and each message's `msg_metadata` mirrors its row
+- **Given** a reminder message whose `msg_metadata` still says pending while its row says responded
+- **When** the pending reminder is looked up
+- **Then** nothing is pending — the table, not the metadata, is the source of truth
+- **Given** the migration source
+- **Then** the table is created only if absent and the backfill inserts only messages without a row

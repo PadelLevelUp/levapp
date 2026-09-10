@@ -186,3 +186,118 @@ test.describe("PAD-140: Presences tab", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+// attendance.validation rule 7a (PAD-191, B-033): a bulk run guards EVERY
+// queued class, not only the first. The fixture's two classes are made ready
+// (the silent student is marked present), both are selected, and the confirm
+// route is slowed down so the in-flight window is observable: while the first
+// POST is pending, the second class's Validate button must already be disabled.
+test.describe("PAD-191: bulk validation guards every queued class", () => {
+  test("classes 2..N are disabled while the run is in flight", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/presences");
+    await openQueueAtFixtureWeek(page);
+
+    // Earlier tests in this file may already have validated the fixture's
+    // ready class; reopen anything validated so the run has N = 2 again
+    // (spec rule 9: undo keeps the record, so the class comes back ready).
+    const undo = page.getByRole("button", { name: /^(undo|anular)$/i });
+    while ((await undo.count()) > 0) {
+      const before = await page.locator('[data-testid="presences-class-card"]').count();
+      await undo.first().click();
+      await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(before + 1, {
+        timeout: 15_000,
+      });
+    }
+
+    // Decide every silent player so both classes are ready to confirm: press
+    // the first not-yet-pressed "Present" in each not-ready card until none
+    // is left (capped, so a stuck card fails loudly instead of looping).
+    const notReady = page.locator('[data-testid="presences-class-card"][data-ready="false"]');
+    for (let i = 0; i < 12 && (await notReady.count()) > 0; i++) {
+      await notReady
+        .first()
+        .locator('[data-testid="presence-mark-present"][aria-pressed="false"]')
+        .first()
+        .click();
+    }
+    await expect(notReady).toHaveCount(0);
+    // N ≥ 2: the fixture's two validation classes, plus whatever else the
+    // seed left in that week (an attended-history instance lands there when
+    // the suite runs early in the week).
+    const readyCards = page.locator('[data-testid="presences-class-card"][data-ready="true"]');
+    const n = await readyCards.count();
+    expect(n).toBeGreaterThanOrEqual(2);
+
+    await page.getByRole("button", { name: /select all ready|selecionar as prontas/i }).click();
+    const bulk = page.getByTestId("presences-validate-selected");
+    await expect(bulk).toContainText(String(n));
+
+    // Hold every confirm for a moment so the run is observable mid-flight.
+    await page.route("**/api/app/class_instance/presences/confirm", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+
+    await bulk.click();
+    // During the run: bulk button and BOTH per-class buttons are disabled.
+    await expect(bulk).toBeDisabled();
+    const validateButtons = page.getByTestId("presences-validate-class");
+    await expect(validateButtons).toHaveCount(n);
+    for (const button of await validateButtons.all()) {
+      await expect(button).toBeDisabled();
+    }
+
+    // After the run: both classes validated, exactly once each.
+    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await page.unroute("**/api/app/class_instance/presences/confirm");
+
+    // Leave the fixture as the run found it: later specs (dashboard/validation-count,
+    // PAD-201) count the seed's classes awaiting validation. Undo keeps the record
+    // (spec rule 9), so each class returns to the queue.
+    const undoAfter = page.getByRole("button", { name: /^(undo|anular)$/i });
+    for (let i = 0; i < 12 && (await undoAfter.count()) > 0; i++) {
+      const before = await page.locator('[data-testid="presences-class-card"]').count();
+      await undoAfter.first().click();
+      await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(before + 1, {
+        timeout: 15_000,
+      });
+    }
+    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(n);
+  });
+});
+
+// attendance.validation rule 17a (PAD-192): the charts follow the table's
+// filters. Narrowing the search to one roster player re-derives the ranking
+// and split from that row, re-requests the trend for that player, and says so;
+// clearing the search restores the roster-wide charts.
+test.describe("PAD-192: charts follow the table filters", () => {
+  test("a name search narrows the charts and the trend request", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/presences");
+    await expect(page.getByTestId("presences-charts")).toBeVisible();
+    await expect(page.getByTestId("presences-charts-scope")).toHaveCount(0);
+
+    const rowsBefore = await page.getByTestId("presences-player-row").count();
+    expect(rowsBefore).toBeGreaterThan(1);
+
+    const trendRequest = page.waitForRequest(
+      (r) => /\/api\/app\/presence_trend\?.*playerIds=\d+/.test(r.url()),
+      { timeout: 10_000 }
+    );
+    await page.getByPlaceholder(/search player|procurar jogador/i).fill("E2E Student Two");
+    await expect(page.getByTestId("presences-player-row")).toHaveCount(1);
+    const request = await trendRequest;
+    expect(new URL(request.url()).searchParams.get("playerIds")).toMatch(/^\d+$/);
+
+    await expect(page.getByTestId("presences-charts-scope")).toContainText(
+      new RegExp(`1 (of|de) ${rowsBefore} `)
+    );
+
+    await page.getByPlaceholder(/search player|procurar jogador/i).fill("");
+    await expect(page.getByTestId("presences-player-row")).toHaveCount(rowsBefore);
+    await expect(page.getByTestId("presences-charts-scope")).toHaveCount(0);
+  });
+});

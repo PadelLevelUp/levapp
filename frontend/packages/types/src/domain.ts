@@ -62,13 +62,24 @@ export interface PlayerProfile {
   weaknesses: CoachNote[];
 }
 
+/**
+ * The PUBLIC user shape (`GET /app/users`, `GET /app/messageable-users`,
+ * `GET /app/register/user/:id`): messaging.conversations rule 15 (PAD-227).
+ * Contact details are never on it — they only ride on `/auth/me` and on a
+ * coach's own roster payloads.
+ */
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username?: string;
+  role?: "coach" | "player";
+  /** @deprecated not sent since PAD-227; kept optional so old readers compile. */
+  email?: string;
+  /** @deprecated not sent since PAD-227; kept optional so old readers compile. */
   phone?: string;
   avatarUrl?: string;
   abbreviation: string;
+  isActive?: boolean;
 }
 
 /** Entry in the blocked-users list (GET /app/blocked-users). */
@@ -97,11 +108,39 @@ export interface CoachLevel {
   displayOrder: number;
 }
 
-export interface Season {
-  id: string;
-  name: string;
+/**
+ * calendar.seasons (PAD-82): the coach's single recurring day/month season, as
+ * `GET /app/season` answers it (null when none is defined).
+ */
+export interface SeasonOccurrence {
+  /** Inclusive first day, "YYYY-MM-DD". */
   startDate: string;
+  /** Inclusive last day, "YYYY-MM-DD". */
   endDate: string;
+  label: string;
+}
+
+export interface SeasonDefinition {
+  label: string | null;
+  startDay: number;
+  startMonth: number;
+  endDay: number;
+  endMonth: number;
+  wrapsYear: boolean;
+  needsReview: boolean;
+  /** The occurrence containing today, or null in the gap. */
+  current: SeasonOccurrence | null;
+  /** The next occurrence starting after today. */
+  upcoming: SeasonOccurrence | null;
+}
+
+/** The fields the coach edits; `PUT /app/season` body. */
+export interface SeasonDefinitionInput {
+  label?: string | null;
+  startDay: number;
+  startMonth: number;
+  endDay: number;
+  endMonth: number;
 }
 
 export interface CoachPlayer {
@@ -112,6 +151,12 @@ export interface CoachPlayer {
   name: string,
   email: string,
   isActive: boolean,
+  /**
+   * auth.activate rule 3 (PAD-254): the secret the activation link needs
+   * (`/register/<userId>?t=<token>`). Present only while the account is
+   * inactive and only on the owning coach's roster payload; `null` afterwards.
+   */
+  activationToken?: string | null,
   /** PAD-30: true once the player completed self-service registration (password set). */
   validated: boolean,
   /**
@@ -146,12 +191,58 @@ export interface CoachPlayer {
   blockAllNotifications?: boolean;
   /** Written by the student, read-only for the coach. */
   notificationBlockReason?: string;
+  /** PAD-232: push + email for requests that need you / decisions on yours. */
+  requestAlerts?: boolean;
 }
 
 export interface RecurrenceRule {
   frequency: 'weekly' | 'biweekly' | 'monthly';
   daysOfWeek: number[]; // 0 = Sunday, 1 = Monday, etc.
   interval?: number;
+}
+
+/** PAD-104 (classes.class-requests): a student's ask for a class in the coach's free time. */
+export type ClassRequestStatus = "pending" | "countered" | "accepted" | "declined" | "withdrawn";
+
+export interface ClassRequest {
+  id: number;
+  playerId: string;
+  playerName: string;
+  coachId: string;
+  coachName: string;
+  /** The slot currently on the table (moved by a counter-proposal). */
+  date: string;
+  startTime: string;
+  endTime: string;
+  note: string | null;
+  status: ClassRequestStatus;
+  decidedBy: "coach" | "student" | null;
+  decidedAt: string | null;
+  lessonId: string | null;
+  createdAt: string | null;
+}
+
+/** A window the coach's calendar leaves open (classes.class-requests rule 1). */
+export interface FreeBlock {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * PAD-131 (classes.join-requests rule 15): a student's ask to attend an open
+ * spot. `pending` until the coach decides; `superseded` when another path
+ * filled the spot first.
+ */
+export interface ClassJoinRequest {
+  id: number;
+  lessonInstanceId: string;
+  playerId: string;
+  playerName: string;
+  coachId: string;
+  status: "pending" | "accepted" | "rejected" | "withdrawn" | "superseded";
+  createdAt: string | null;
+  decidedAt: string | null;
 }
 
 export interface ClassInvitation {
@@ -174,6 +265,10 @@ export interface ClassInstance {
   name?: string;
   color?: string;
   levelId?: string;
+  /** clubs.courts rule 7 (PAD-194). */
+  clubName?: string | null;
+  courtId?: number | null;
+  courtName?: string | null;
   maxPlayers: number;
   notes?: string;
   recurrenceEnd?: string;
@@ -183,7 +278,25 @@ export interface ClassInstance {
   participants?: Player[];
   presences?: Presence[];
   notificationsEnabled?: boolean;
+  /**
+   * PAD-129 (eligibility.cascade rule 8). `eligibilityRules` is the bar stored
+   * at the tier this payload addresses (`null` = no override there);
+   * `effectiveEligibilityRules` is what resolved; `eligibilitySource` says
+   * from which tier. Sending `eligibilityRules` on an edit writes the tier the
+   * edit scope selects: `null` clears it, `[]` means everyone.
+   */
+  eligibilityRules?: GroupRule[] | null;
+  effectiveEligibilityRules?: GroupRule[] | null;
+  eligibilitySource?: "instance" | "lesson" | "coach";
+  /** PAD-130: the open-spot toggle at this tier (`null` = inherit), what resolved, and where from. */
+  openSpotsVisible?: boolean | null;
+  effectiveOpenSpotsVisible?: boolean;
+  openSpotsSource?: "instance" | "lesson" | "coach";
   invitations?: ClassInvitation[];
+  /** PAD-131: coach only — the pending join requests for this class. */
+  joinRequests?: ClassJoinRequest[];
+  /** PAD-131: student only — their latest join request for this class, or null. */
+  myJoinRequest?: ClassJoinRequest | null;
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
   // the student view can render deadline-aware cancel UX.
@@ -207,9 +320,20 @@ export interface Presence {
   status?: 'present' | 'absent';
   justification?: 'justified' | 'unjustified';
 
+  /**
+   * Roster membership, NOT a messaging signal: materialisation sets it for
+   * every enrolled player before any notification exists (B-017). Never
+   * render "reminder sent" off this — use `reminderSentAt`.
+   */
   invited: boolean;
   confirmed: boolean;
   validated: boolean;
+  /**
+   * PAD-199: when the last reminder or invitation message actually reached
+   * this player for this instance (ISO), or `null` when none ever did. Derived
+   * server-side from the messages themselves (`attendance.presence` rule 1a).
+   */
+  reminderSentAt?: string | null;
 
   player?: Player;
 }
@@ -231,7 +355,24 @@ export interface CalendarBlock {
 }
 
 // Calendar view types
+/** clubs.courts (PAD-194): a club's court — a name in a display order. */
+export interface Court {
+  id: number;
+  clubId: number;
+  name: string;
+  position: number;
+}
+
+/** A club or court reference as the calendar event carries it (clubs.courts rule 7). */
+export interface NamedRef {
+  id: number;
+  name: string;
+}
+
 export interface CalendarEvent {
+  /** clubs.courts rule 7: the class's club and court; absent on blocks. */
+  club?: NamedRef | null;
+  court?: NamedRef | null;
   model: string,
   originalId: number,
   id: string;
@@ -253,6 +394,13 @@ export interface CalendarEvent {
   /** Coach level for this class, used for the block's level chip. */
   levelId?: string | number;
   isTemporary?: boolean;
+  /**
+   * PAD-130 (eligibility.open-spot-visibility rule 10): a class the student is
+   * NOT in but could ask to join — visible, with room, and they are eligible.
+   * Absent on the student's own classes and on every coach event.
+   */
+  openSpot?: boolean;
+  coachName?: string | null;
 }
 
 export interface TimeSlot {
@@ -463,18 +611,63 @@ export interface DashboardNeedsYouInvite {
   href: string;
 }
 
-/** Attendances awaiting validation, scoped to classes that ended last week. */
+/**
+ * Classes still to validate for one Presences-tab week (PAD-190 / PAD-201).
+ *
+ * `count` is CLASSES, derived by the same helper the Presences trigger reads,
+ * so the two surfaces show one number. `weekOffset` is `0` for the current
+ * week or `-1` when this week was clean and the card fell back to last week's
+ * backlog; `href` opens the tab on that week.
+ */
 export interface DashboardNeedsYouValidation {
   kind: "validation";
   id: string;
   count: number;
-  classCount: number;
+  weekOffset: number;
+  href: string;
+}
+
+/**
+ * PAD-236: an open engine invitation — "a spot opened in {class}, want it?".
+ * Answered through `respondToNotification(notificationEventId)`, exactly like
+ * the chat bubble; the card exists only while the bubble is still unanswered.
+ */
+export interface DashboardNeedsYouVacancyInvite {
+  kind: "vacancy_invite";
+  id: string;
+  notificationEventId: number;
+  lessonInstanceId: number;
+  classTitle: string;
+  /** ISO date, `YYYY-MM-DD`. */
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
+  href: string;
+}
+
+/**
+ * PAD-236: an un-answered waiting-list offer — "that spot was taken, join the
+ * list?". Answered through `respondToWaitingList(lessonInstanceId)`.
+ */
+export interface DashboardNeedsYouWaitingListOffer {
+  kind: "waiting_list_offer";
+  id: string;
+  lessonInstanceId: number;
+  classTitle: string;
+  /** ISO date, `YYYY-MM-DD`. */
+  date: string;
+  timeLabel: string;
+  filled: number;
+  capacity: number;
   href: string;
 }
 
 export type DashboardNeedsYouItem =
   | DashboardNeedsYouEmptySeats
   | DashboardNeedsYouInvite
+  | DashboardNeedsYouVacancyInvite
+  | DashboardNeedsYouWaitingListOffer
   | DashboardNeedsYouReply
   | DashboardNeedsYouValidation;
 
@@ -644,6 +837,7 @@ export interface NotificationRestrictions {
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
   quietHours: { enabled: boolean };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
+  /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
   // Plain scalar (hours before class start). Cancellations after this window are
   // still allowed but flagged as "late cancellations". Backend key:
@@ -712,6 +906,8 @@ export interface NotificationConfig {
    * to a vacancy, and only level and absence attributes are valid.
    */
   eligibilityRules?: GroupRule[] | null;
+  /** PAD-130: the coach standard of "advertise empty spots to eligible students". */
+  openSpotsVisible?: boolean;
 }
 
 // ── Replacement approval (semi-automatic mode) ─────────────────────────────
@@ -752,6 +948,36 @@ export interface EligibilityFailure {
   threshold: string | number | boolean | null;
   ladder_distance: number | null;
   reason: string | null;
+}
+
+/** One failing student from `POST /app/notify/eligibility_check` (PAD-150). */
+export interface EligibilityCheckEntry {
+  playerId: number;
+  name: string | null;
+  failures: EligibilityFailure[];
+}
+
+export interface EligibilityCheckResult {
+  /** Only the students who FAIL — empty means no confirmation is needed. */
+  ineligible: EligibilityCheckEntry[];
+}
+
+/**
+ * One (student, class) pair a newly-saved bar would exclude
+ * (`eligibility.enforcement` rule 9a). Rides on the config save response.
+ */
+export interface EligibilityImpactEntry {
+  playerId: number;
+  name: string | null;
+  instanceId: number;
+  classTitle: string | null;
+  /** Naive-UTC ISO start of the class. */
+  startDatetime: string | null;
+  failures: EligibilityFailure[];
+}
+
+export interface EligibilityImpact {
+  affected: EligibilityImpactEntry[];
 }
 
 export type InviteSimulationGateCode =
@@ -1084,5 +1310,12 @@ export interface PendingValidation {
   to: string;
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
+  pendingCount: number;
+}
+
+/** `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18. */
+export interface PendingValidationCount {
+  from: string;
+  to: string;
   pendingCount: number;
 }

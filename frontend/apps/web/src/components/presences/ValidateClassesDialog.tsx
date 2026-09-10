@@ -64,16 +64,23 @@ export interface RosterOption {
 export function ValidateClassesDialog({
   pending,
   validated,
+  pendingCount,
   weekOffset,
   onWeekChange,
   loading,
   roster,
   onValidate,
   onUnvalidate,
-  busyClassId,
+  busyClassIds = [],
 }: {
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
+  /**
+   * The trigger's number, from `/pending_validation/count` — the helper the
+   * dashboard card reads too (attendance.validation rule 18). `null` while
+   * loading; the list below it is the same week's classes.
+   */
+  pendingCount: number | null;
   weekOffset: number;
   onWeekChange: (next: number) => void;
   loading?: boolean;
@@ -89,7 +96,11 @@ export function ValidateClassesDialog({
     }>
   ) => Promise<void>;
   onUnvalidate: (lessonInstanceId: number) => Promise<void>;
-  busyClassId?: number | null;
+  /**
+   * PAD-191 (B-033): every class currently being written. A bulk run lists all
+   * of them, so classes 2..N cannot be submitted again mid-run.
+   */
+  busyClassIds?: number[];
 }) {
   const { t, i18n } = useTranslation();
 
@@ -250,13 +261,15 @@ export function ValidateClassesDialog({
           <ClipboardCheck className="h-5 w-5" />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold">
+          <span className="block text-sm font-semibold" data-testid="presences-validate-count">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so the
                 counted string renders "0 aula por validar". An empty queue
                 deserves its own sentence anyway. */}
-            {pending.length === 0
-              ? t("presences.validate.triggerEmpty")
-              : t("presences.validate.trigger", { count: pending.length })}
+            {pendingCount == null
+              ? "…"
+              : pendingCount === 0
+                ? t("presences.validate.triggerEmpty")
+                : t("presences.validate.trigger", { count: pendingCount })}
           </span>
           <span className="block text-xs text-muted-foreground">
             {t("presences.validate.triggerHint")}
@@ -283,7 +296,7 @@ export function ValidateClassesDialog({
               remaining={remainingFor(active)}
               edits={edits[active.lessonInstanceId] ?? {}}
               roster={roster}
-              busy={busyClassId === active.lessonInstanceId}
+              busy={busyClassIds.includes(active.lessonInstanceId)}
               onMark={(playerId, mark) =>
                 setMark(active.lessonInstanceId, playerId, mark)
               }
@@ -343,11 +356,11 @@ export function ValidateClassesDialog({
                 </Button>
                 <Button
                   size="sm"
-                  disabled={!selected.length || busyClassId != null}
+                  disabled={!selected.length || busyClassIds.length > 0}
                   onClick={bulkValidate}
                   data-testid="presences-validate-selected"
                 >
-                  {busyClassId != null && (
+                  {busyClassIds.length > 0 && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   {t("presences.validate.validateSelected", {
@@ -382,7 +395,7 @@ export function ValidateClassesDialog({
                   selected={selected}
                   edits={edits}
                   roster={roster}
-                  busyClassId={busyClassId}
+                  busyClassIds={busyClassIds}
                   remainingFor={remainingFor}
                   onToggleSelect={(id) =>
                     setSelected((prev) =>
@@ -416,7 +429,7 @@ export function ValidateClassesDialog({
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={busyClassId === klass.lessonInstanceId}
+                          disabled={busyClassIds.includes(klass.lessonInstanceId)}
                           onClick={() => onUnvalidate(klass.lessonInstanceId)}
                         >
                           {t("presences.validate.undo")}
@@ -449,7 +462,7 @@ function ClassList({
   selected,
   edits,
   roster,
-  busyClassId,
+  busyClassIds,
   remainingFor,
   onToggleSelect,
   onMark,
@@ -461,7 +474,7 @@ function ClassList({
   selected: number[];
   edits: Edits;
   roster: RosterOption[];
-  busyClassId?: number | null;
+  busyClassIds: number[];
   remainingFor: (klass: PendingValidationClass) => number;
   onToggleSelect: (id: number) => void;
   onMark: (classId: number, playerId: number, mark: PresenceMark) => void;
@@ -526,7 +539,7 @@ function ClassList({
                         remaining={remainingFor(klass)}
                         edits={edits[klass.lessonInstanceId] ?? {}}
                         roster={roster}
-                        busy={busyClassId === klass.lessonInstanceId}
+                        busy={busyClassIds.includes(klass.lessonInstanceId)}
                         onToggleSelect={() =>
                           onToggleSelect(klass.lessonInstanceId)
                         }

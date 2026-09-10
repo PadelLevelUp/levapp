@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import type { Court } from '@/types';
+import { listCurrentClubCourts } from '@/api/courts';
 import { format, addMonths, addDays, startOfWeek } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
@@ -128,6 +130,21 @@ export function AddClassSheet({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedLevel, setSelectedLevel] = useState<string>('');
+  // clubs.courts rule 7 (PAD-194): the coach's current club's courts.
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [selectedCourt, setSelectedCourt] = useState<string>('');
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    listCurrentClubCourts()
+      .then((rows) => {
+        if (!cancelled) setCourts(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
@@ -282,6 +299,7 @@ export function AddClassSheet({
       maxPlayers,
       color: selectedColor,
       levelId: selectedLevel || null,
+      courtId: selectedCourt ? Number(selectedCourt) : null,
       playerIds: selectedPlayers,
       notificationsEnabled,
       recurrenceRule: isRecurring
@@ -324,6 +342,7 @@ export function AddClassSheet({
     setSelectedDays([]);
     setEndDate('');
     setRecursUntilSeasonEnd(false);
+    setSelectedCourt('');
     setNotificationsEnabled(true);
     setErrors({});
     setRejection(null);
@@ -442,6 +461,28 @@ export function AddClassSheet({
               </Select>
             </div>
           </div>
+
+          {/* Court (clubs.courts rule 7, PAD-194) */}
+          {courts.length > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">{t("calendar.addClass.court")}</span>
+              </div>
+              <Select value={selectedCourt || 'none'} onValueChange={(v) => setSelectedCourt(v === 'none' ? '' : v)}>
+                <SelectTrigger className="h-8 text-sm" data-testid="add-class-court" aria-label={t("calendar.addClass.court")}>
+                  <SelectValue placeholder={t("calendar.addClass.noCourt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("calendar.addClass.noCourt")}</SelectItem>
+                  {courts.map((court) => (
+                    <SelectItem key={court.id} value={String(court.id)}>
+                      {court.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Recurring */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-3">

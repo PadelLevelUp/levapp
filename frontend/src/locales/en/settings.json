@@ -22,7 +22,8 @@
       "club": "Club",
       "account": "Account",
       "myNotifications": "My notifications",
-      "admin": "Admin"
+      "admin": "Admin",
+      "classRequests": "Class requests"
     },
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
@@ -60,6 +61,10 @@
       "bioPlaceholder": "Tell players a bit about you..."
     },
     "preferences": {
+      "requestAlerts": "Request alerts",
+      "requestAlertsDescription": "Push and email when a request needs you (club join, account link, coach approval) and when yours is decided. In-app badges always stay on.",
+      "requestAlertsSaved": "Preference saved.",
+      "requestAlertsSaveFailed": "Could not save. Try again.",
       "title": "Preferences",
       "description": "How you want the app to behave.",
       "theme": "Theme",
@@ -135,7 +140,6 @@
       "profileSaveFailed": "Could not save your profile. Please try again.",
       "languageSaved": "Language preference saved.",
       "languageSaveFailed": "Failed to save language preference.",
-      "removeSeason": "Remove season {{name}}",
       "removeCategory": "Remove category {{name}}",
       "removeLevel": "Remove level {{name}}",
       "moveLevelUp": "Move level up",
@@ -145,7 +149,8 @@
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet.",
-      "adminNavDescription": "Approve registered coaches"
+      "adminNavDescription": "Approve registered coaches",
+      "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar."
     },
     "account": {
       "title": "Account",
@@ -297,31 +302,52 @@
         "declined": "{{name}}'s request declined.",
         "actionFailed": "Could not complete the action.",
         "loadFailed": "Could not load the requests."
+      },
+      "courts": {
+        "title": "Courts",
+        "description": "The club's courts, in the order you want them. A class can say which court it is on.",
+        "empty": "The club has no courts yet.",
+        "namePlaceholder": "e.g. Court 1",
+        "add": "Add court",
+        "rename": "Rename",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove",
+        "invalid": "The name must be 1 to 80 characters.",
+        "duplicate": "A court with that name already exists.",
+        "saveFailed": "The court could not be saved",
+        "removeFailed": "The court could not be removed"
       }
     },
     "seasons": {
-      "loading": "Loading seasons…",
-      "title": "Seasons",
-      "description": "Define named seasons so classes can recur until a season's end date.",
-      "name": "Name",
+      "title": "Season",
+      "description": "Define your season once, by day and month: it repeats every year. Classes can recur until season end and attendance can be read by season.",
+      "loading": "Loading season…",
+      "empty": "No season defined yet. Set its start and end so classes can recur until season end.",
+      "label": "Name (optional)",
+      "labelPlaceholder": "e.g. Academy season",
       "start": "Start",
       "end": "End",
-      "empty": "No seasons defined yet. Add your first one below.",
-      "namePlaceholder": "Season name",
-      "startAriaLabel": "Season start",
-      "endAriaLabel": "Season end",
-      "addSeason": "Add season",
+      "day": "Day",
+      "month": "Month",
+      "startDay": "Start day",
+      "startMonth": "Start month",
+      "endDay": "End day",
+      "endMonth": "End month",
+      "previewCurrent": "Current season: {{start}} – {{end}}",
+      "previewUpcoming": "Next season: {{start}} – {{end}}",
+      "save": "Save season",
       "saving": "Saving…",
-      "saveSeasons": "Save seasons",
-      "deleteFailed": "Failed to delete season",
-      "validationErrorTitle": "Validation error",
-      "validationErrorDescription": "Each season needs a name and a start date on or before the end date.",
-      "savedTitle": "Seasons saved",
-      "savedMock_one": "{{count}} season updated (mock).",
-      "savedMock_other": "{{count}} seasons updated (mock).",
-      "saved_one": "{{count}} season updated.",
-      "saved_other": "{{count}} seasons updated.",
-      "saveFailed": "Failed to save seasons"
+      "saved": "Season saved.",
+      "remove": "Remove season",
+      "removeTitle": "Remove the season?",
+      "removeDescription": "Classes that recur until season end keep the end date already set. Without a season, new classes cannot be set to recur until season end.",
+      "removeConfirm": "Remove",
+      "removed": "Season removed.",
+      "invalidDay": "That day does not exist in that month.",
+      "invalidSame": "Start and end cannot be the same day.",
+      "saveFailed": "The season could not be saved",
+      "deleteFailed": "The season could not be removed"
     },
     "coachLevels": {
       "title": "Coach Levels",
@@ -423,7 +449,7 @@
         "unjustifiedAbsences": "Unjustified absences",
         "justifiedAbsences": "Justified absences",
         "attendanceRate": "Attendance rate",
-        "subscription": "Subscription"
+        "subscription": "Account status"
       },
       "operations": {
         "sameAsVacancy": "Same as vacancy",
@@ -447,7 +473,7 @@
       "mostJustified": "Most justified absences",
       "highestAttendance": "Highest attendance rate",
       "matchingSide": "Matching playing side",
-      "activeSubscription": "Active subscription"
+      "activeSubscription": "Active account"
     },
     "restrictions": {
       "maxSimultaneous": "Max simultaneous notifications",
@@ -469,8 +495,8 @@
       "excludedPlayers": "Excluded players",
       "excludedPlayersDescription": "Specific players to exclude from all automatic invitations.",
       "searchPlayers": "Search players…",
-      "excludeUnpaid": "Exclude unpaid subscriptions",
-      "excludeUnpaidDescription": "Don't invite students with an inactive or unpaid subscription",
+      "excludeUnpaid": "Exclude inactive accounts",
+      "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"
@@ -582,6 +608,16 @@
         "atMost": "at most",
         "greaterThan": "more than",
         "atLeast": "at least"
+      },
+      "impact": {
+        "title_one": "{{count}} enrolled student no longer meets this bar",
+        "title_other": "{{count}} enrolled students no longer meet this bar",
+        "body": "They stay enrolled — eligibility governs joining, never staying. Remove anyone through the class itself if you wish.",
+        "none": "Every enrolled student still meets the bar.",
+        "line": "{{name}} · {{class}} · {{when}}"
+      },
+      "openSpots": {
+        "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
       }
     },
     "admin": {

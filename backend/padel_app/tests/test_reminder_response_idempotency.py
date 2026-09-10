@@ -84,6 +84,8 @@ class TestReminderResponseIdempotency:
         )
         from padel_app.models.vacancy import Vacancy
 
+        from padel_app.services.notification_service import process_invitation_batches
+
         ids, instance_id, _ = _seed_declinable_class(app)
 
         with app.app_context():
@@ -94,6 +96,18 @@ class TestReminderResponseIdempotency:
                 first = respond_to_reminder(
                     instance_id, "no", ids["student_user_id"], now=t0
                 )
+                # PAD-87 (notifications.invitations rule 3c): the decline opens
+                # the vacancy and runs round 1 in this call. The three seeded
+                # candidates carry no level/side, so the default "same level +
+                # same side" first group is EMPTY, and an empty round no longer
+                # cascades into the next one synchronously — it goes out on the
+                # next engine tick. Tick until the round that has candidates
+                # fans out (at most one tick per remaining default group), then
+                # hold the idempotency invariants against that single round.
+                for tick in range(1, 4):
+                    if _invitation_events(instance_id):
+                        break
+                    process_invitation_batches(now=t0 + timedelta(minutes=2 * tick))
                 events_after_first = len(_invitation_events(instance_id))
 
                 second = respond_to_reminder(
@@ -277,4 +291,18 @@ def _resend_reminder(ids, instance_id):
     )
     msg.create()
     db.session.commit()
+    # notifications.reminders rule 14 (PAD-207): a reminder IS a
+    # reminder_attempts row; the message is only its delivery record.
+    from padel_app.models import Player, Presence
+    from padel_app.services.reminder_attempt_service import record_attempt
+
+    player = Player.query.filter_by(user_id=ids["student_user_id"]).first()
+    presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player.id).first()
+    record_attempt(
+        message=msg,
+        instance_id=instance_id,
+        player_id=player.id,
+        presence_id=presence.id if presence else None,
+        number=2,
+    )
     return msg

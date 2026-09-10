@@ -69,15 +69,25 @@
         "open": "Abrir"
       },
       "validation": {
-        "title_one": "{{count}} presença para validar",
-        "title_other": "{{count}} presenças para validar",
-        "detail_one": "De {{count}} aula na semana passada",
-        "detail_other": "De {{count}} aulas na semana passada",
+        "title_one": "{{count}} aula por validar",
+        "title_other": "{{count}} aulas por validar",
+        "thisWeek": "Esta semana",
+        "lastWeek": "Semana passada",
         "review": "Rever"
       },
       "invite": {
         "title": "Estás convidado para {{class}}",
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
+        "open": "Abrir"
+      },
+      "vacancyInvite": {
+        "title": "Abriu uma vaga em {{class}}",
+        "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
+        "open": "Abrir"
+      },
+      "waitingListOffer": {
+        "title": "Lista de espera para {{class}}",
+        "detail": "{{date}} · {{time}} · a vaga foi ocupada — queres ficar na lista?",
         "open": "Abrir"
       }
     },
@@ -109,7 +119,11 @@
       "confirmed": "Estás inscrito — até lá.",
       "declined": "Registado — a tua vaga foi libertada.",
       "expired": "Essa aula já começou.",
-      "failed": "Não foi possível registar a resposta. Tenta outra vez."
+      "failed": "Não foi possível registar a resposta. Tenta outra vez.",
+      "inviteDeclined": "Anotado — vamos perguntar a outra pessoa.",
+      "spotFilled": "Essa vaga acabou de ser ocupada.",
+      "joinedWaitingList": "Estás na lista de espera.",
+      "offerDeclined": "Anotado — não ficas na lista."
     }
   }
 }

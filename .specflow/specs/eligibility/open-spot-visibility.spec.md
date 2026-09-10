@@ -1,6 +1,6 @@
 ---
 id: eligibility.open-spot-visibility
-status: draft
+status: implemented
 depends_on: [eligibility.cascade, calendar.view]
 implements: ../../specs-business/eligibility/student-discovers-open-spots.business.md
 governed_by: []
@@ -42,6 +42,21 @@ separate browse screen. A coach controls whether their open spots are advertised
    protection the blocker exists to give is not at stake.
 9. With the toggle off — at whichever tier resolves — the student's calendar is exactly what it is
    today: their enrolled classes only.
+10. **(PAD-130) Wire contract.** `open_spots_visible` is a tri-state at the lesson and instance
+    tiers (`NULL` = inherit, `true`/`false` = override) and a boolean at the coach tier (default
+    off), resolved by `effective_open_spots_visible()` — the same instance → lesson → coach walk
+    as `eligibility.cascade` rule 1. The coach tier is `openSpotsVisible` on the notification
+    config; a class edit sends `updates.openSpotsVisible` (absent = untouched, `null` = inherit,
+    boolean = override) and the class payload carries `openSpotsVisible`,
+    `effectiveOpenSpotsVisible` and `openSpotsSource`. A student's `GET /calendar` appends the
+    discoverable classes to their own events, each flagged `openSpot: true` and carrying
+    `coachName`; an event without the flag is one of theirs. Discovery reuses the calendar's own
+    loaders and `serialize_calendar_event` — no second projection of occurrences.
+11. **(PAD-130) Both shells render the flag, not a colour of their own choosing:** an open-spot
+    card keeps the class's colour as an outline on a plain surface with a dashed edge and an
+    "Open spot" chip, so it reads as an offer beside the filled cards that are the student's
+    own. Tapping it opens the same class detail the student already has (their own data only,
+    `classes.detail-visibility`), where `classes.join-requests` adds the request action.
 
 ### Acceptance Criteria
 
@@ -78,3 +93,7 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **Given** a coach with the visibility toggle off
 - **When** any student of theirs loads their calendar
 - **Then** only the classes that student is enrolled in appear
+
+### Notes
+- **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
+  the visibility cascade reuses the tier walk and the class-sheet block that PAD-129 introduced.

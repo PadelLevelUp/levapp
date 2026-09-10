@@ -40,12 +40,6 @@ export class ExpoPushRegistrar implements PushRegistrar {
 
   async register(): Promise<void> {
     try {
-      if (!Device.isDevice) {
-        // Simulators/emulators cannot obtain push tokens.
-        console.log("[push] skipping registration: not a physical device");
-        return;
-      }
-
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
           name: "Default",
@@ -59,6 +53,16 @@ export class ExpoPushRegistrar implements PushRegistrar {
       }
       if (status !== "granted") {
         console.log("[push] notification permission not granted");
+        return;
+      }
+
+      // Simulators/emulators cannot obtain push tokens, but they CAN hold
+      // notification permission — and without it iOS drops every
+      // `xcrun simctl push`, which is how the PAD-240 Maestro flow delivers
+      // its probe. So the permission is asked for above on every platform;
+      // only the token fetch and the registration are device-only.
+      if (!Device.isDevice) {
+        console.log("[push] skipping registration: not a physical device");
         return;
       }
 

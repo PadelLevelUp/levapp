@@ -24,11 +24,40 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
      `href`. `count` is `items.length`. Item kinds, in fixed server order:
      - coach: `empty_seats` (soonest first) → `reply` → `validation`
-     - student: `invite` (soonest first) → `reply`
+     A `validation` item (PAD-190 / PAD-201, B-045) carries `count` — the number of **classes**
+     with at least one unvalidated presence, derived by `attendance.validation` rule 18's
+     `count_pending_validation` for one Monday–Sunday UTC week — plus `weekOffset` (`0` for the
+     current week, `-1` for the previous) and `href` (`/presences` or `/presences?week=-1`). The
+     server counts the current week first and falls back to the previous week when the current
+     one has nothing pending, so a Monday-morning coach still sees the weekend's backlog. The
+     item is omitted when both weeks are clean. Both shells open the Presences tab **on that
+     week**, and the tab's own trigger reads the same endpoint for the same bounds, so the two
+     numbers are one number.
+     - student: the **asks** — `invite`, `vacancy_invite`, `waiting_list_offer` — merged and
+       ordered soonest class first, together capped at 5 → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
      An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
      `confirmed = false` on a `LessonInstance` that has not started, soonest first, capped at 5,
      carrying `classTitle`, ISO `date`, `timeLabel`, `filled`, `capacity` and the calendar deep link.
+     **(PAD-236) The other two asks come from the messaging layer, not from `Presence`:**
+     - a `vacancy_invite` is an open `NotificationEvent` (`status = sent`) for the student on a
+       class that has not started — the engine's "a spot opened, want it?" (`notifications.
+       invitations`). It carries `notificationEventId` (the answer goes through
+       `POST /app/notify/respond`, exactly as the chat bubble's Yes/No does), `lessonInstanceId`,
+       `classTitle`, `date`, `timeLabel`, `filled`, `capacity`, `href`.
+     - a `waiting_list_offer` is an un-answered `waiting_list_offer` message to the student
+       (`notifications.waiting-list` rule 1) for a class that has not started. It carries
+       `lessonInstanceId` (the answer goes through `POST /app/notify/respond_waiting_list`),
+       `classTitle`, `date`, `timeLabel`, `href`.
+     Both are **deduplicated against the chat bubble's own state**: an item exists only while the
+     message's `metadata.responded` is falsy, and answering from the dashboard settles the bubble
+     the same way answering in the chat does (`respond_to_notification` /
+     `respond_to_waiting_list` write `responded` + `response` back onto the message), so the same
+     question is never open in two places. One item per class: several invite rounds for the same
+     class collapse to the newest event. Both shells render Yes / No on these cards with the
+     same outcomes the bubble reports (spot filled → the "just filled" notice; expired → the
+     "already started" notice) and refetch the dashboard so the card leaves because the payload
+     says so.
      **(B-030) "Later" on an `empty_seats` card is a real action, not decoration.**
      `POST /api/app/dashboard/needs-you/<itemId>/snooze` (coach only, else 403; `itemId` must be a
      queue item id — `lessoninstance-<pk>` or `lesson-<pk>-<date>` — else 400) records a per-coach
@@ -54,6 +83,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
      Invites reads "to confirm". `href` policy is `dashboard.navigation` rules 6–7.
+     **(PAD-235, B-032) "Upcoming lessons" is the schedule's number.** Its `value` is the count
+     of scheduled classes the student is enrolled in (signed up, or holding a `Presence`) over
+     the same 30-day window `schedule_7d` lists, derived from the **same event load** — so the
+     tile can never read 0 above a populated list. It is NOT the count of confirmed presences:
+     a student with three unanswered reminders has three upcoming lessons, not zero. "How many
+     of those still need an answer" is the `invite` kind of `needs_you`, and the Invites tile.
    - `messages_overview`: unread count, conversations to reply, latest message, link. Emitted for
      every dashboard because the layout's unread badge feeds off it, but **rendered by neither
      home** — "Unread messages: 0" as the largest card on the screen is the flaw the redesign
@@ -114,6 +149,17 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    `notify_pending_confirmations`, which actually **sends** messages, so a misaligned boundary does
    not merely misreport a number — it nudges the wrong students about the wrong day's classes.
 
+8. **(PAD-262, audit H9) One pipeline call per paint, scoped in SQL.** The coach home loads its
+   classes ONCE — one calendar-pipeline call over the widest window any block needs (from a week
+   before the current week to the hero's 90-day horizon) — and every block cuts its own window
+   from that set; the blocks' output is identical to loading each window separately. The
+   instance loader filters by coach in SQL (the instance's own coach junction, or the lesson's
+   when the instance has none) and eager-loads the lesson, its coaches, the instance's coaches,
+   enrolments and presences, so a window costs a fixed number of statements however many
+   classes it holds and never touches another coach's rows. The replies queue asks the database
+   for the newest unread message per conversation, capped at the queue limit, instead of every
+   unread message.
+
 ### Acceptance Criteria
 
 #### Coach dashboard
@@ -143,6 +189,28 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** they press **Later** on that card
 - **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
 
+#### Validation card counts classes for the tab's week (PAD-190 / PAD-201)
+- **Given** a coach with two classes ended last week that still have an unvalidated presence,
+  and nothing ended this week
+- **When** they GET `/api/app/dashboard`
+- **Then** the queue's `validation` item has `count: 2`, `weekOffset: -1` and
+  `href: "/presences?week=-1"`, and `GET /api/app/class_instances/pending_validation/count`
+  for last week's Monday–Sunday bounds answers `pendingCount: 2`
+
+- **Given** a coach with one such class this week and two last week
+- **When** they GET `/api/app/dashboard`
+- **Then** the item has `count: 1`, `weekOffset: 0` and `href: "/presences"` — the current week
+  wins whenever it has work
+
+- **Given** a coach whose only unvalidated class ended three weeks ago
+- **When** they GET `/api/app/dashboard`
+- **Then** there is no `validation` item
+
+- **Given** the seeded `e2e-coach` on the dashboard
+- **When** they press **Review** on the validation card
+- **Then** they land on `/presences` (never the 404 page) and the tab's trigger shows the same
+  number of classes the card showed
+
 #### Player dashboard
 - **Given** an authenticated player enrolled in 2 classes this week
 - **When** they GET `/api/app/dashboard`
@@ -157,6 +225,30 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** `needs_you.count` is 1 and its single item has `kind: "invite"`, the class title,
   tomorrow's ISO date, `timeLabel: "18:00"` and a `/calendar?classId=…&date=…` href; the
   confirmed class is absent from the queue
+
+#### Vacancy invitations and waiting-list offers reach the queue (PAD-236)
+- **Given** an authenticated student with an open (`sent`) `NotificationEvent` for a class in
+  three days they are not enrolled in, an un-answered `waiting_list_offer` message for a class in
+  four days, and a reminder invite for tomorrow
+- **When** they GET `/api/app/dashboard`
+- **Then** `needs_you.items` are, in order, the `invite` (tomorrow), the `vacancy_invite`
+  (`notificationEventId` set, `filled`/`capacity` present) and the `waiting_list_offer`
+  (`lessonInstanceId` set), and `count` is 3
+
+- **Given** the same student after answering the vacancy invite in the chat (its message
+  carries `responded: true`) and a second `sent` event for the same class from a later round
+- **When** they GET `/api/app/dashboard`
+- **Then** no `vacancy_invite` for that class is listed
+
+- **Given** a `waiting_list_offer` for a class that already started
+- **When** the queue is built
+- **Then** it is absent
+
+- **Given** the seeded `e2e-student` with a real `waiting_list_offer` for "E2E Academy Class"
+  (sent through the engine's own path)
+- **When** they open `/` and press **Yes** on that card
+- **Then** the card is gone after the dashboard refetches, the queue count drops by one, and the
+  offer message in the chat shows the "on the waiting list" state
 
 #### Student hero is the soonest class (PAD-202)
 - **Given** an authenticated student whose next class starts in 45 minutes
@@ -176,6 +268,18 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the `kpi_grid` Attended item is `{ value: 12, total: 15 }` and Missed is
   `{ value: 3, total: 15 }`, with the `href` values of `dashboard.navigation` rules 11 / 11a
   unchanged
+
+#### Upcoming lessons is the schedule's count (PAD-235)
+- **Given** an authenticated student signed up to one class in 45 minutes, invited-but-unanswered
+  on tomorrow's class, confirmed on the day after's, and confirmed on one in 12 days
+- **When** they GET `/api/app/dashboard`
+- **Then** the `kpi_grid` "Upcoming lessons" item has `value: 4` — equal to
+  `schedule_7d.totalCount` — not the 2 confirmed ones
+
+- **Given** the seeded `e2e-student` on the dashboard
+- **When** the page renders
+- **Then** the number on the "Upcoming lessons" tile equals the `totalCount` of the
+  `schedule_7d` block in the same payload
 
 #### Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`

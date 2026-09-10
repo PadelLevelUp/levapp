@@ -74,6 +74,18 @@ class User(db.Model, model.Model, UserMixin):
         Integer, nullable=False, server_default="0", default=0,
     )
 
+    # ── auth.password-recovery (PAD-139) ─────────────────────────────────────
+    #
+    # Same shape as the verification code: an HMAC, never the code, 15-minute
+    # expiry, 5 attempts, single-use. Replaces the legacy plaintext
+    # `generated_code`, which no route reads or writes any more.
+    password_reset_code_hash = Column(String(128), nullable=True)
+    password_reset_expires_at = Column(DateTime, nullable=True)
+    password_reset_sent_at = Column(DateTime, nullable=True)
+    password_reset_attempts = Column(
+        Integer, nullable=False, server_default="0", default=0,
+    )
+
     # ── PAD-112: the student's standing block preferences ────────────────────
     #
     # Distinct from the per-window availability blockers of PAD-28/PAD-107
@@ -99,6 +111,12 @@ class User(db.Model, model.Model, UserMixin):
     #: the player record — the opposite privacy posture to an availability
     #: blocker's title/description, which the coach must never see (PAD-107).
     notif_block_reason = Column(Text, nullable=True)
+    #: PAD-232: push + email when a request needs this user (club join, claim,
+    #: coach approval) and when their own request is decided. Default on; the
+    #: in-app badges never depend on it (notifications.request-alerts rule 3).
+    notif_request_alerts = Column(
+        Boolean, nullable=False, server_default="1", default=True,
+    )
 
     @property
     def notifications_blocked(self):

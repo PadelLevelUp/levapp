@@ -19,6 +19,7 @@ import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SignUpPage from "./pages/SignUpPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import CoachPendingPage from "./pages/CoachPendingPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ClubOnboardingPage from "./pages/ClubOnboardingPage";
@@ -30,6 +31,7 @@ import TermsPage from "./pages/TermsPage";
 import SupportPage from "./pages/SupportPage";
 import SettingsPage from "./pages/SettingsPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
+import ClassRequestsPage from "./pages/ClassRequestsPage";
 import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 import TrainingPage from "./pages/TrainingPage";
@@ -67,6 +69,8 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
               <Route path="/signup" element={<SignUpPage />} />
+              {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
@@ -139,6 +143,16 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["coach"]}>
                     <PlayersPage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-104: the coach's class-request inbox (classes.class-requests). */}
+              <Route
+                path="/class-requests"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <ClassRequestsPage />
                   </RoleRoute>
                 }
               />

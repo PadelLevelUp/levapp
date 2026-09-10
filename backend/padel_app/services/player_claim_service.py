@@ -37,8 +37,11 @@ from padel_app.models import (
     MessageReaction,
     MessageReport,
     NotificationEvent,
+    ReminderAttempt,
     Player,
     PlayerClaimRequest,
+    ClassRequest,
+    ClassJoinRequest,
     PlayerInvitation,
     PlayerLevelHistory,
     Presence,
@@ -60,6 +63,7 @@ from padel_app.utils.dates import utcnow_naive
 #: Every table with a foreign key onto ``players.id`` that the merge handles.
 #: ``test_player_claim_merge.py`` compares this against ``db.metadata``.
 MERGED_PLAYER_FK_TABLES = frozenset({
+    "reminder_attempts",  # notifications.reminders rule 14 (PAD-207)
     "coach_in_player",
     "player_in_club",
     "player_in_lesson",
@@ -73,6 +77,8 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "replacement_approval_prompts",
     "player_invitations",
     "player_claim_requests",
+    "class_requests",
+    "class_join_requests",
 })
 
 ALREADY_ACTIVATED = "ALREADY_ACTIVATED"
@@ -229,6 +235,8 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
         _repoint_unique_pairs(Association_PlayerLesson, "lesson_id", pid, cid)
         _repoint_unique_pairs(Association_PlayerLessonInstance, "lesson_instance_id", pid, cid)
         _repoint_unique_pairs(WaitingListEntry, "lesson_instance_id", pid, cid)
+        # PAD-131: one pending join request per (class, player) — same rule
+        _repoint_unique_pairs(ClassJoinRequest, "lesson_instance_id", pid, cid)
         _repoint_unique_pairs(StandingWaitingListEntry, "id", pid, cid)  # never collides; plain re-point
 
         # c. presences — unique per instance (R-018): keep the claimant's row
@@ -236,7 +244,9 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
 
         # d. plain re-points
         PlayerLevelHistory.query.filter_by(player_id=pid).update({"player_id": cid})
+        ClassRequest.query.filter_by(player_id=pid).update({"player_id": cid})  # PAD-104
         NotificationEvent.query.filter_by(player_id=pid).update({"player_id": cid})
+        ReminderAttempt.query.filter_by(player_id=pid).update({"player_id": cid})
         Vacancy.query.filter_by(original_player_id=pid).update({"original_player_id": cid})
         Vacancy.query.filter_by(filled_by_player_id=pid).update({"filled_by_player_id": cid})
         ReplacementApprovalPrompt.query.filter_by(declined_player_id=pid).update({"declined_player_id": cid})
@@ -345,6 +355,14 @@ def create_claim_request_service(player_id, coach, username):
     )
     db.session.add(req)
     db.session.commit()
+    # PAD-232: the invited account hears about it — best-effort.
+    from padel_app.services.request_alert_service import notify_request_event
+    notify_request_event(
+        "claim.received",
+        [target],
+        actor=coach.user.name if coach.user else "",
+        player=player.user.name if player.user else "",
+    )
     return req
 
 
@@ -367,12 +385,25 @@ def decide_claim_request_service(request_id, user, accept):
     req = _get_pending(request_id)
     if user is None or req.target_user_id != user.id:
         abort(403, "Only the invited account can decide this request")
+    # PAD-232: capture what the coach must be told before the merge retires
+    # the placeholder's name.
+    coach_user = req.requested_by_coach.user if req.requested_by_coach else None
+    placeholder_name = req.player.user.name if req.player and req.player.user else ""
+    from padel_app.services.request_alert_service import notify_request_event
     if accept:
         merge_placeholder_player_into(req.player, user)   # marks the request accepted
+        notify_request_event(
+            "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+            decision="approved",
+        )
         return PlayerClaimRequest.query.get(request_id)
     req.status = "rejected"
     req.decided_at = utcnow_naive()
     db.session.commit()
+    notify_request_event(
+        "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+        decision="rejected",
+    )
     return req
 
 

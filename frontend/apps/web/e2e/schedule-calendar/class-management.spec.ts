@@ -56,8 +56,8 @@ test("US-42: delete class option is available in class detail", async ({ page })
   await expect(page.locator('[role="dialog"]').first()).toBeVisible({ timeout: 5000 });
 
   // The class detail sheet has a "Delete class" button (icon-only Trash2 with aria-label)
-  const deleteBtn = page.getByRole("button", { name: /delete class/i }).first();
-  const cancelBtn = page.getByRole("button", { name: /cancel class|cancel session/i }).first();
+  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first();
+  const cancelBtn = page.getByRole("dialog").getByRole("button", { name: /cancel class|cancel session/i }).first();
 
   const deleteVisible = await deleteBtn.isVisible({ timeout: 5000 }).catch(() => false);
   const cancelVisible = await cancelBtn.isVisible({ timeout: 3000 }).catch(() => false);

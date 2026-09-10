@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -72,6 +73,28 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   React.useEffect(() => {
     if (me?.language) setLanguage(me.language);
   }, [me?.language]);
+
+  // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
+  // Server value wins; an explicit `false` is the only "off".
+  const requestAlerts = me?.requestAlerts !== false;
+  const [requestAlertsStatusKey, setRequestAlertsStatusKey] = React.useState<
+    string | null
+  >(null);
+  const handleRequestAlertsChange = async (checked: boolean) => {
+    setRequestAlertsStatusKey(null);
+    const previous = me;
+    queryClient.setQueryData(["auth-me"], (cur: typeof me) =>
+      cur ? { ...cur, requestAlerts: checked } : cur
+    );
+    try {
+      const updated = await authApi.updateMe({ requestAlerts: checked });
+      queryClient.setQueryData(["auth-me"], updated);
+      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaved");
+    } catch {
+      queryClient.setQueryData(["auth-me"], previous);
+      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaveFailed");
+    }
+  };
 
   const handleLanguageChange = async (value: Language) => {
     const previous = language;
@@ -134,6 +157,31 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               className="text-sm text-muted-foreground"
             >
               {t(languageStatusKey)}
+            </Text>
+          ) : null}
+
+          {/* PAD-232: for every role — a student is asked to link accounts, a
+              coach hears about club join requests, an admin about approvals. */}
+          <View className="mt-4 flex-row items-start justify-between gap-3">
+            <View className="flex-1 gap-0.5">
+              <Label>{t("settings.preferences.requestAlerts")}</Label>
+              <Text className="text-xs text-muted-foreground">
+                {t("settings.preferences.requestAlertsDescription")}
+              </Text>
+            </View>
+            <Switch
+              testID="settings-request-alerts"
+              accessibilityLabel={t("settings.preferences.requestAlerts")}
+              checked={requestAlerts}
+              onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
+            />
+          </View>
+          {requestAlertsStatusKey ? (
+            <Text
+              testID="settings-request-alerts-status"
+              className="text-sm text-muted-foreground"
+            >
+              {t(requestAlertsStatusKey)}
             </Text>
           ) : null}
         </CardContent>

@@ -233,9 +233,10 @@ export default function NewConversationScreen() {
             </Avatar>
             <View className="flex-1">
               <Text className="text-base text-foreground">{item.name}</Text>
-              {item.email ? (
+              {/* PAD-227: the picker carries the public shape — the username, never the email. */}
+              {item.username ? (
                 <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                  {item.email}
+                  @{item.username}
                 </Text>
               ) : null}
             </View>

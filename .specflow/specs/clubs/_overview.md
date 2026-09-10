@@ -10,6 +10,7 @@ The clubs domain.
 - `clubs.membership` — implemented
 - `clubs.coach-invitation` — implemented
 - `clubs.join-request` — implemented (an approved coach creates a club or asks to join one; a member approves; PAD-211)
+- `clubs.courts` — a club's courts, managed in Settings → Club; a class may carry one and shows it (PAD-194 v1)
 
 ## Why it's grouped this way
 

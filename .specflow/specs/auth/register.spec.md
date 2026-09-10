@@ -72,6 +72,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     same request, best-effort (`auth.email-verification` rules 1 and 6). The 201 body's `user`
     carries `emailVerification: "pending"` (or `"verified"` when the gate is off), and the
     client shows the **Verify your email** screen before any of the destinations in rule 11.
+15. **Per-IP throttle (PAD-228).** `POST /api/auth/register` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_REGISTER` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. The limit exists so the route cannot be used to mass-create accounts or flood the admin approval queue.
 
 ### Acceptance Criteria
 
@@ -136,10 +137,16 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Then** the response is 500 or 400
 - **And** no User or Coach row was created
 
+#### Too many signups from one IP are throttled
+- **Given** `AUTH_RATE_LIMIT_REGISTER` is `2/600`
+- **When** IP `203.0.113.7` POSTs `/api/auth/register` three times with valid, distinct bodies
+- **Then** two accounts are created and the third response is 429 `RATE_LIMITED` with `retryAfterSeconds` and `Retry-After`, and no third user exists
+- **And** the same body from `203.0.113.8` creates the account
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2
   and 7 (admin approval of coaches, added the same day).
-- OPEN: no rate limiting on this route (same gap as B-001 on login).
+- Rate limiting: rule 15 (PAD-228).
 - Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
 - PAD-198 will add `birthDate` + `country` to this body and gate activation for minors; leave
   room in the service for a post-create hook rather than branching inside the route.

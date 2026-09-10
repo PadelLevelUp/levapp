@@ -7,7 +7,9 @@ from padel_app.helpers.dashboard.coach_home import (
     build_next_class_block,
     build_schedule_block,
     build_week_pulse_block,
+    load_coach_home_events,
 )
+from padel_app.utils.dates import utcnow_naive
 
 
 def build_coach_dashboard_blocks(*, coach, user_id: int) -> List[Dict[str, Any]]:
@@ -26,14 +28,19 @@ def build_coach_dashboard_blocks(*, coach, user_id: int) -> List[Dict[str, Any]]
     """
     blocks: List[Dict[str, Any]] = []
 
+    # PAD-262 (dashboard.blocks rule 8): one pipeline call over the widest
+    # window any block needs; each block cuts its own window from this set.
+    now = utcnow_naive()
+    events = load_coach_home_events(coach_id=coach.id, now=now)
+
     # Omitted rather than emptied: an empty hero would be the biggest element on
     # the screen saying nothing.
-    hero = build_next_class_block(coach_id=coach.id)
+    hero = build_next_class_block(coach_id=coach.id, now=now, events=events)
     if hero is not None:
         blocks.append(hero)
 
-    blocks.append(build_needs_you_block(coach_id=coach.id, user_id=user_id))
-    blocks.append(build_schedule_block(coach_id=coach.id))
-    blocks.append(build_week_pulse_block(coach_id=coach.id))
+    blocks.append(build_needs_you_block(coach_id=coach.id, user_id=user_id, now=now, events=events))
+    blocks.append(build_schedule_block(coach_id=coach.id, now=now, events=events))
+    blocks.append(build_week_pulse_block(coach_id=coach.id, now=now, events=events))
 
     return blocks

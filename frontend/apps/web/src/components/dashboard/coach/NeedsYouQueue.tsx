@@ -15,6 +15,8 @@ import type {
   DashboardNeedsYouItem,
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
+  DashboardNeedsYouVacancyInvite,
+  DashboardNeedsYouWaitingListOffer,
 } from "@levelup/types";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
+import { useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
 import { shortDate } from "@levelup/config";
 
 export function NeedsYouQueue({
@@ -77,6 +80,10 @@ function QueueItem({
       return <EmptySeatsCard item={item} onSnoozed={onAnswered} />;
     case "invite":
       return <InviteCard item={item} onAnswered={onAnswered} />;
+    case "vacancy_invite":
+      return <VacancyInviteCard item={item} onAnswered={onAnswered} />;
+    case "waiting_list_offer":
+      return <WaitingListOfferCard item={item} onAnswered={onAnswered} />;
     case "reply":
       return <ReplyCard item={item} />;
     case "validation":
@@ -202,6 +209,100 @@ function InviteCard({
   );
 }
 
+/**
+ * PAD-236: the engine's "a spot opened" invitation, answered here with the same
+ * Yes/No the chat bubble offers (`respondToNotification`). Amber: it is the
+ * most time-sensitive ask a student gets.
+ */
+function VacancyInviteCard({
+  item,
+  onAnswered,
+}: {
+  item: DashboardNeedsYouVacancyInvite;
+  onAnswered?: () => void | Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { answer, busyId } = useAnswerVacancyInvite(onAnswered);
+
+  return (
+    <ActionCard
+      accent="attention"
+      className="flex flex-col gap-3.5"
+      testId="dashboard-queue-vacancy-invite"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold">
+          {t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
+        </span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">
+          {t("dashboard.needsYou.vacancyInvite.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+            filled: item.filled,
+            capacity: item.capacity,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <AnswerButtons
+          className="flex items-center gap-2"
+          busy={busyId === item.notificationEventId}
+          onAnswer={(action) => answer(item.notificationEventId, action)}
+        />
+        <span className="flex-1" />
+        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
+          {t("dashboard.needsYou.vacancyInvite.open")}
+        </Button>
+      </div>
+    </ActionCard>
+  );
+}
+
+/** PAD-236: the waiting-list offer, answered with `respondToWaitingList`. */
+function WaitingListOfferCard({
+  item,
+  onAnswered,
+}: {
+  item: DashboardNeedsYouWaitingListOffer;
+  onAnswered?: () => void | Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { answer, busyId } = useAnswerWaitingListOffer(onAnswered);
+
+  return (
+    <ActionCard
+      accent="attention"
+      className="flex flex-col gap-3.5"
+      testId="dashboard-queue-waiting-list-offer"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold">
+          {t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
+        </span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">
+          {t("dashboard.needsYou.waitingListOffer.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <AnswerButtons
+          className="flex items-center gap-2"
+          busy={busyId === item.lessonInstanceId}
+          onAnswer={(action) => answer(item.lessonInstanceId, action)}
+        />
+        <span className="flex-1" />
+        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>
+          {t("dashboard.needsYou.waitingListOffer.open")}
+        </Button>
+      </div>
+    </ActionCard>
+  );
+}
+
 function ReplyCard({ item }: { item: DashboardNeedsYouReply }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -245,13 +346,22 @@ function ValidationCard({ item }: { item: DashboardNeedsYouValidation }) {
   return (
     // No accent: validation is a chore, not a problem. And it is a single line,
     // so on desktop it spans both columns rather than leaving a half-empty row.
-    <ActionCard className="flex items-center gap-3.5 lg:col-span-2">
+    <ActionCard
+      className="flex items-center gap-3.5 lg:col-span-2"
+      testId="dashboard-queue-validation"
+    >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[15px] font-bold tabular-nums">
+        <span
+          className="text-[15px] font-bold tabular-nums"
+          data-testid="dashboard-queue-validation-count"
+        >
           {t("dashboard.needsYou.validation.title", { count: item.count })}
         </span>
         <span className="text-[13px] text-muted-foreground tabular-nums">
-          {t("dashboard.needsYou.validation.detail", { count: item.classCount })}
+          {/* Which week the number is for — the tab opens on that same week. */}
+          {item.weekOffset === 0
+            ? t("dashboard.needsYou.validation.thisWeek")
+            : t("dashboard.needsYou.validation.lastWeek")}
         </span>
       </div>
       <Button variant="secondary" className="h-11 shrink-0 lg:h-10" onClick={() => navigate(item.href)}>

@@ -1,4 +1,6 @@
 import type {
+  EligibilityCheckResult,
+  EligibilityImpact,
   ApprovalAction,
   ApprovalVacancyResult,
   InviteExplain,
@@ -22,11 +24,38 @@ export async function getNotificationConfig(): Promise<NotificationConfig> {
   return res.data;
 }
 
+/**
+ * Saves a config patch. When the patch touched `eligibilityRules` the server
+ * adds `eligibilityImpact.affected` — the enrolled students the new bar would
+ * have excluded (PAD-133, `eligibility.enforcement` rule 9a). Informational:
+ * nobody is un-enrolled or notified.
+ */
 export async function updateNotificationConfig(
   data: Partial<NotificationConfig>
-): Promise<NotificationConfig> {
+): Promise<NotificationConfig & { eligibilityImpact?: EligibilityImpact }> {
   const res = await getApi().post("/app/notify/config", data);
   return res.data;
+}
+
+/**
+ * Which of `playerIds` would fail the class's eligibility bar, and why
+ * (PAD-133 / PAD-150, `eligibility.enforcement` rules 6–7c). Called BEFORE a
+ * manual add so the coach can be asked; an empty `ineligible` means no prompt.
+ * Structured reasons only — render them with `describeEligibilityFailure`.
+ */
+export async function checkEligibility(
+  model: string,
+  originalId: string | number,
+  date: string | null | undefined,
+  playerIds: Array<string | number>
+): Promise<EligibilityCheckResult> {
+  const res = await getApi().post("/app/notify/eligibility_check", {
+    model,
+    originalId,
+    date: date ?? null,
+    playerIds,
+  });
+  return { ineligible: res.data?.ineligible ?? [] };
 }
 
 export async function toggleLessonNotifications(
@@ -126,7 +155,19 @@ export async function getNotificationGroups(
 export async function respondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+  // "expired" is PAD-68 (the class already started; nothing recorded) and
+  // "spot_filled_waiting_list_offered" is the "sorry, just filled" path that
+  // also sends a waiting_list_offer — both were always returned by the server;
+  // PAD-236 names them so the dashboard cards can react to them.
+): Promise<{
+  action:
+    | "confirmed"
+    | "declined"
+    | "spot_filled"
+    | "spot_filled_waiting_list_offered"
+    | "expired"
+    | "unknown";
+}> {
   const res = await getApi().post("/app/notify/respond", { notificationEventId, action });
   return res.data;
 }

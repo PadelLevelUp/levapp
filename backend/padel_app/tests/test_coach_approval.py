@@ -151,14 +151,16 @@ def test_rejection_stores_reason_and_blocks_coach(client, app):
         assert coach.approval_status == "rejected"
         assert coach.rejection_reason == "not a coach"
 
+    # PAD-233 rule 10: rejection disables the login, so every token of the
+    # coach is dead — 401 rather than the pre-PAD-233 403 COACH_NOT_APPROVED.
     res = client.post("/api/app/club", json={"name": "Rui Padel"}, headers=_auth(app, rui_id))
-    assert res.status_code == 403
-    assert res.get_json()["error"] == "COACH_NOT_APPROVED"
+    assert res.status_code == 401
+    with app.app_context():
+        assert User.query.get(rui_id).status == "disabled"
 
     # deciding a non-pending coach the other way is 410
     assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id)).status_code == 410
-    me = client.get("/api/auth/me", headers=_auth(app, rui_id)).get_json()
-    assert me["coachApproval"] == "rejected"
+    assert client.get("/api/auth/me", headers=_auth(app, rui_id)).status_code == 401
 
 
 # --- Ordinary coach cannot approve ------------------------------------------
@@ -354,3 +356,97 @@ def test_approval_email_is_branded_and_localised(client, app, monkeypatch):
         john_coach_id = john.coach.id
     client.post(f"/api/app/admin/coach-approvals/{john_coach_id}/approve", headers=_auth(app, admin_id))
     assert sent[0][0] == "Your coach account is approved"
+
+
+# ── PAD-233: rejection disables the login; the coach can ask again ──────────
+
+def _register_and_reject(client, app, reason="not a coach"):
+    body = _register_coach(client)
+    admin_id = _make_user(app, "admin", superadmin=True)
+    from padel_app.models import Coach
+
+    with app.app_context():
+        coach_id = Coach.query.filter_by(user_id=body["user"]["id"]).first().id
+    res = client.post(
+        f"/api/app/admin/coach-approvals/{coach_id}/reject",
+        json={"reason": reason},
+        headers=_auth(app, admin_id),
+    )
+    assert res.status_code == 200, res.get_json()
+    return body["user"]["id"], coach_id, admin_id
+
+
+def test_rejection_disables_user_and_kills_sessions(client, app):
+    body = _register_coach(client)
+    token = body["accessToken"]
+    hdr = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/auth/me", headers=hdr).status_code == 200
+    admin_id = _make_user(app, "admin", superadmin=True)
+    from padel_app.models import Coach, User
+
+    with app.app_context():
+        coach_id = Coach.query.filter_by(user_id=body["user"]["id"]).first().id
+    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", json={"reason": "x"},
+                      headers=_auth(app, admin_id))
+    assert res.status_code == 200
+    with app.app_context():
+        assert db.session.get(User, body["user"]["id"]).status == "disabled"
+    assert client.get("/api/auth/me", headers=hdr).status_code == 401
+    assert client.get("/api/auth/me", headers=_auth(app, body["user"]["id"])).status_code == 401
+
+
+def test_login_tells_rejected_coach_why(client, app):
+    _register_and_reject(client, app)
+    res = client.post("/api/auth/login", json={"username": "rui", "password": "Segura123"})
+    assert res.status_code == 403
+    assert res.get_json() == {"error": "COACH_REJECTED", "reason": "not a coach"}
+    assert "accessToken" not in res.get_json()
+    res = client.post("/api/auth/login", json={"username": "rui", "password": "wrong"})
+    assert res.status_code == 401
+    assert "reason" not in res.get_json()
+
+
+def test_rejected_coach_can_reapply(client, app, monkeypatch):
+    from padel_app.models import Coach, User
+    from padel_app.tools import email_tools
+
+    sent = []
+    monkeypatch.setattr(email_tools, "send_email",
+                        lambda subject, recipients, body=None, html=None: sent.append((subject, list(recipients))) or "Sent")
+    app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
+    user_id, coach_id, admin_id = _register_and_reject(client, app)
+    sent.clear()
+
+    res = client.post("/api/auth/coach-approval/reapply", json={"username": "rui", "password": "Segura123"})
+    assert res.status_code == 200, res.get_json()
+    body = res.get_json()
+    assert body["accessToken"] and body["user"]["id"] == user_id
+    with app.app_context():
+        coach = db.session.get(Coach, coach_id)
+        assert coach.approval_status == "pending" and coach.rejection_reason is None
+        assert db.session.get(User, user_id).status == "active"
+    assert [s for s in sent if s[1] == ["admin@levapp.app"]], sent
+    listed = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json()
+    assert any(row["username"] == "rui" for row in listed)
+    # The fresh token works and /me reports pending.
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['accessToken']}"})
+    assert me.status_code == 200 and me.get_json()["coachApproval"] == "pending"
+    # Pending again → 410; wrong password → 401 and nothing changes.
+    assert client.post("/api/auth/coach-approval/reapply", json={"username": "rui", "password": "Segura123"}).status_code == 410
+    _register_and_reject_second = None  # noqa: F841 (readability)
+
+
+def test_reapply_rejects_wrong_password_and_deleted_accounts(client, app):
+    from padel_app.models import Coach, User
+
+    user_id, coach_id, _ = _register_and_reject(client, app)
+    res = client.post("/api/auth/coach-approval/reapply", json={"username": "rui", "password": "wrong"})
+    assert res.status_code == 401
+    with app.app_context():
+        assert db.session.get(Coach, coach_id).approval_status == "rejected"
+        # A deleted account (email cleared) cannot be resurrected through re-application.
+        user = db.session.get(User, user_id)
+        user.email = None
+        db.session.commit()
+    res = client.post("/api/auth/coach-approval/reapply", json={"username": "rui", "password": "Segura123"})
+    assert res.status_code == 410

@@ -22,6 +22,7 @@ export type SettingsSectionId =
   | "preferences"
   | "calendar"
   | "notifications"
+  | "classRequests"
   | "myNotifications"
   | "tutorials"
   | "import"
@@ -91,6 +92,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     descriptionKey: "settings.mobile.myNotificationsNavDescription",
     icon: "notifications-off-outline",
     audience: "student",
+  },
+  {
+    // PAD-104: the coach's inbox of students' class requests. Web puts it in
+    // the sidebar; the phone tab bar is full, so it lives here.
+    id: "classRequests",
+    labelKey: "settings.nav.classRequests",
+    descriptionKey: "settings.mobile.classRequestsNavDescription",
+    icon: "calendar-outline",
+    audience: "coach",
   },
   {
     // PAD-196: interactive walkthroughs (settings.tutorials rule 1), right

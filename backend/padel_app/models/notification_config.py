@@ -10,7 +10,9 @@ DEFAULT_PRIORITY_CRITERIA = [
     {"id": "justified_misses", "label": "Justified Misses", "enabled": True},
     {"id": "attendance", "label": "Attendance", "enabled": True},
     {"id": "playing_side", "label": "Playing Side", "enabled": False},
-    {"id": "subscription_status", "label": "Subscription Status", "enabled": False},
+    # PAD-132: reads users.status (account activation) — the id is a stored
+    # wire identifier and stays; the label says what it checks.
+    {"id": "subscription_status", "label": "Account status", "enabled": False},
 ]
 
 DEFAULT_RESTRICTIONS = {
@@ -21,6 +23,7 @@ DEFAULT_RESTRICTIONS = {
     "quietHours": {"enabled": False},
     "maxInactiveTime": {"enabled": True, "value": 120},
     "excludedPlayers": {"enabled": False, "playerIds": []},
+    # PAD-132: "exclude inactive accounts" — reads users.status, never payment.
     "excludeUnpaidSubscription": {"enabled": False},
     # Hours before class start after which a student cancellation is flagged
     # as a late cancellation (spot is still freed). Plain scalar (hours).
@@ -139,7 +142,7 @@ DEFAULT_TIEBREAKERS = [
     {"id": "justified_absences", "label": "Most justified absences", "enabled": True},
     {"id": "attendance_rate", "label": "Highest attendance rate", "enabled": True},
     {"id": "playing_side_match", "label": "Matching playing side", "enabled": False},
-    {"id": "subscription_status", "label": "Active subscription", "enabled": False},
+    {"id": "subscription_status", "label": "Active account", "enabled": False},
 ]
 
 # Hours before a class start after which a student cancellation is flagged as a
@@ -197,6 +200,9 @@ class NotificationConfig(db.Model, model.Model):
     # eligibility.cascade (PAD-129) needs [] to be a deliberate override at the
     # lesson/instance tiers; at the coach tier they are equivalent.
     eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130: the coach's standard "make empty spots for future classes visible
+    # to eligible students" toggle. NULL/False = off (today's behaviour).
+    open_spots_visible = Column(Boolean, nullable=True)
 
     coach = relationship("Coach")
 

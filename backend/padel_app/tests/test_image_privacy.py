@@ -1,4 +1,4 @@
-"""Regression tests for B-015.
+"""Regression tests for B-047.
 
 The uploads bucket used to grant `roles/storage.objectViewer` to `allUsers`, so
 `Image.url()` handed out a permanent unauthenticated link — for chat
@@ -94,7 +94,7 @@ def test_storage_client_is_built_once(app):
 
 
 def test_signed_urls_outlive_a_render():
-    """Five minutes expired while a page was still open (B-015)."""
+    """Five minutes expired while a page was still open (B-047)."""
     from padel_app import model
 
     assert model.SIGNED_URL_MINUTES >= 30

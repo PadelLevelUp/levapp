@@ -39,9 +39,10 @@ answered for any future class whether or not a spot is currently open.
 5. **Payments are not a v1 parameter.** The eligibility rule picker does not offer a payments or
    subscription option, because no payment state exists to read (the existing `subscription_status`
    invitation-group attribute and the `excludeUnpaidSubscription` restriction both read
-   `users.status`, which is *account activation*, not payment). Those two shipped settings are left
-   in place and untouched by this work; renaming them to say what they check is separate work.
-   A real payment criterion is added once a payment-state field exists.
+   `users.status`, which is *account activation*, not payment). PAD-132 relabelled those two
+   settings on both platforms to say what they check ("Account status", "Exclude inactive
+   accounts"); their stored identifiers are unchanged (`notifications.config` rule 7c). A real
+   payment criterion is added only once a payment-state field exists — none is planned.
 6. **Level operations are anchored to the class**, and the set is wider than the invitation-group
    vocabulary. All are evaluated on the coach's **ladder position** (`notifications.invitations`
    rule 4c — never the raw `display_order`):

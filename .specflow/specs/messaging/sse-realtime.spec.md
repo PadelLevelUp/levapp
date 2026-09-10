@@ -31,6 +31,13 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
    `publish()` — calling `publish(event)` raises `TypeError` rather than falling back
    to a broadcast (B-004)
 9. A client never receives an event for a conversation it is not a participant of.
+10. **Single worker until a broker exists (PAD-237, audit M19).** The registry in
+    `padel_app/realtime.py` is per-process and in-memory, so production runs **one** gunicorn
+    worker (`backend/Dockerfile`, `--workers 1 --threads 64`); a second worker would hold its
+    own registry and never see the first's connections, and events would reach only the
+    clients that happen to be attached to the publishing process. Scaling out means a shared
+    broker (Redis pub/sub) first. Compass rule R-027 guards the Dockerfile and the deploy
+    workflows; the decision is recorded in the atlas.
    Client-side filtering by conversation id is a rendering convenience, never the
    privacy boundary
 
