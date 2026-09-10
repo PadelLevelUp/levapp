@@ -7,6 +7,7 @@ status: open
 affects:
   - backend/padel_app/models/lesson_instances.py
   - backend/padel_app/services/lesson_service.py
+  - backend/padel_app/models/vacancy.py
   - .specflow/specs/classes/instances.spec.md
 proposed_fix: "Count duplicate (lesson_id, occurrence date) groups on the staging copy of prod; merge each group into its lowest-id instance with every child row re-pointed and the child-table unique collisions resolved; then replace ix_lesson_instances_lesson_id_occurrence_date with a unique constraint in a guarded migration."
 opened: 2026-09-10T00:00:00Z
@@ -67,5 +68,12 @@ constraints that the move can collide with.
    should catch the `IntegrityError` from a concurrent insert and re-read, instead of failing the
    request.
 
-**Related:** PAD-85 (the duplicates' origin), PAD-263 (the plain index), B-032 (keep models and
+5. **Deferred from PAD-261 (B-051):** partial unique index on `vacancies (lesson_instance_id,
+   original_player_id) WHERE status = 'open' AND original_player_id IS NOT NULL`. PAD-261 only
+   locks rows and does get-or-create in code. In the same pass, count duplicate open vacancies per
+   key on the staging copy of prod, expire all but the oldest (retiring the invitations still out
+   for the expired ones), then add the index.
+
+**Related:** PAD-85 (the duplicates' origin), PAD-263 (the plain index), PAD-261 / B-051 (the deferred
+vacancy unique), B-032 (keep models and
 migrations declaring the same indexes).
