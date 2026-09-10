@@ -133,7 +133,11 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     renders `CalendarToolbar`; desktop web is unchanged. **(PAD-248)** Every list the buttons float
     over — the Dia card list and the Semana / Mês day sheet — ends with bottom padding taller
     than the button stack, so the last card can always be scrolled clear of the buttons on both
-    shells.
+    shells. **(PAD-248, coordinator decision 2026-09-10)** In `Mês` the month grid leaves
+    the day sheet too little list for that padding, so while the sheet is dragged above its
+    resting height the two floating add buttons are hidden on both shells; they come back as
+    soon as the sheet is at or below its resting height, and on leaving `Mês`. `Dia` and
+    `Semana` always show them.
 19. **Students** see the same three modes, read-only: their enrolled classes and their own
     blockers, with no `Add class` button. Everything else in this spec applies.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
@@ -272,6 +276,14 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **When** they scroll the Dia list, and then the Semana and Mês day sheets, to their end
 - **Then** the last card ends above the top of both `calendar-add-event` and
   `calendar-add-class`
+
+#### Add buttons step aside while the Mês sheet is pulled up
+- **Given** a coach in `Mês` at 390×844 with the day sheet at its resting height
+- **Then** `calendar-add-event` and `calendar-add-class` are visible
+- **When** they drag the sheet above its resting height
+- **Then** both buttons are gone
+- **And** dragging the sheet back down to its lowest position brings both back
+- **And** in `Semana`, dragging the sheet up leaves both buttons visible
 
 #### Labels follow the language
 - **Given** a coach whose language is `pt`, then `en`
