@@ -258,9 +258,12 @@ def test_send_expo_push_noop_when_no_tokens(app):
 # Delivery-path wiring
 # ---------------------------------------------------------------------------
 
-def test_class_reminder_pushes_expo_with_class_payload(app):
-    """send_class_reminders, for a player with a registered DeviceToken, calls
-    the Expo sender with {"type": "class", "classInstanceId": instance.id}."""
+def test_class_reminder_pushes_expo_with_message_payload(app):
+    """PAD-240 — send_class_reminders, for a player with a registered
+    DeviceToken, calls the Expo sender with a MESSAGE payload that names the
+    thread the reminder landed in (messaging.push-notifications rule 7). The
+    instance id rides along as context only; before this the payload was
+    {"type": "class", ...} and the tap dead-ended on "class not found"."""
     from padel_app.models import DeviceToken
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
@@ -324,7 +327,64 @@ def test_class_reminder_pushes_expo_with_class_payload(app):
         assert mock_send.call_count >= 1
         args, kwargs = mock_send.call_args
         assert args[0] == player_user.id
-        assert kwargs["data"] == {"type": "class", "classInstanceId": instance_id}
+        from padel_app.models import Conversation
+        conv_ids = {c.id for c in Conversation.query.all()}
+        assert kwargs["data"]["type"] == "message"
+        assert kwargs["data"]["conversationId"] in conv_ids
+        assert kwargs["data"]["classInstanceId"] == instance_id
+
+
+def test_coach_cancellation_pushes_expo_with_message_payload(app):
+    """PAD-240 — a student's cancellation notice to the coach is a message in
+    their thread, so its push routes to the conversation, not the class."""
+    from padel_app.models import DeviceToken, Conversation
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+    from padel_app.models.clubs import Club
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.notification_service import _notify_coach_of_cancellation
+
+    with app.app_context():
+        coach_user = _create_user("Coach", "cancel-coach")
+        player_user = _create_user("Player", "cancel-player")
+        db.session.flush()
+        coach = Coach(user_id=coach_user.id)
+        db.session.add(coach)
+        player = Player(user_id=player_user.id)
+        db.session.add(player)
+        club = Club(name="Club", description="", location="City")
+        db.session.add(club)
+        db.session.flush()
+        start = datetime.utcnow() + timedelta(hours=48)
+        lesson = Lesson(title="Class", start_datetime=start, end_datetime=start + timedelta(hours=1),
+                        is_recurring=False, type="academy", max_players=4, color="#000",
+                        status="active", club_id=club.id)
+        db.session.add(lesson)
+        db.session.flush()
+        instance = LessonInstance(lesson_id=lesson.id, start_datetime=start,
+                                  end_datetime=start + timedelta(hours=1), max_players=4,
+                                  status="scheduled", notifications_enabled=True)
+        db.session.add(instance)
+        db.session.commit()
+        DeviceToken(user_id=coach_user.id, token="ExponentPushToken[cancel]", platform="ios").create()
+
+        with patch("padel_app.services.notification_service.publish"), \
+             patch("padel_app.services.notification_service.send_push_notification"), \
+             patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_send:
+            mock_send.return_value = True
+            msg = _notify_coach_of_cancellation(
+                coach_user.id, player_user.id, instance, player, is_late=False
+            )
+
+        assert mock_send.call_count == 1
+        args, kwargs = mock_send.call_args
+        assert args[0] == coach_user.id
+        assert kwargs["data"] == {
+            "type": "message",
+            "conversationId": msg.conversation_id,
+            "classInstanceId": instance.id,
+        }
 
 
 def test_direct_message_pushes_expo_with_message_payload(app):

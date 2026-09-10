@@ -1,0 +1,10 @@
+{
+  "Simulator Target Bundle": "com.padellevelup.app",
+  "aps": {
+    "alert": { "title": "New message", "body": "PAD-240 push probe" },
+    "sound": "default"
+  },
+  "type": "message",
+  "conversationId": "1",
+  "classInstanceId": "1"
+}
