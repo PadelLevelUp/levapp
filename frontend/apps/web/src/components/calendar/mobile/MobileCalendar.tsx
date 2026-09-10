@@ -67,6 +67,7 @@ export function MobileCalendar({
   monthEvents,
   levels = [],
   onEventClick,
+  onAddButtonsHiddenChange,
 }: {
   viewMode: CalendarViewMode;
   onViewModeChange: (mode: CalendarViewMode) => void;
@@ -91,6 +92,8 @@ export function MobileCalendar({
   monthEvents: CalendarEvent[];
   levels?: CoachLevel[];
   onEventClick?: (event: CalendarEvent) => void;
+  /** Rule 18: in Mês, true while the day sheet is pulled up — hide the add buttons. */
+  onAddButtonsHiddenChange?: (hidden: boolean) => void;
 }) {
   const { t } = useTranslation();
   const isMonth = viewMode === "month";
@@ -132,6 +135,7 @@ export function MobileCalendar({
           onSelectDay={onSelectDay}
           onPrevMonth={onPrevMonth}
           onNextMonth={onNextMonth}
+          onSheetRaisedChange={onAddButtonsHiddenChange}
           eventsByDay={eventsByDay}
           nextEventId={nextEventId}
           levels={levels}

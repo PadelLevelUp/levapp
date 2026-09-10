@@ -71,6 +71,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
+  const [addButtonsHidden, setAddButtonsHidden] = React.useState(false);
 
   // Week navigation, the selected day and the view mode all live in the
   // shared hook (calendar.mobile-views rule 2) — this screen never re-decides
@@ -175,6 +177,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
           onSelectDay={calendar.selectDay}
           onPrevMonth={() => calendar.navigateMonth("prev")}
           onNextMonth={() => calendar.navigateMonth("next")}
+          onSheetRaisedChange={setAddButtonsHidden}
           eventsByDay={eventsByDay}
           nextEventId={nextEventId}
           levelCodeById={levelCodeById}
@@ -243,6 +246,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
 
       {/* Floating add actions (calendar.mobile-views rule 18): "Add event" for
           every role, "Add class" for coaches only. */}
+      {!addButtonsHidden ? (
       <Pressable
         testID="calendar-add-event"
         accessibilityLabel={t("calendar.toolbar.addEvent")}
@@ -264,8 +268,9 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
           color={lightTheme.foreground}
         />
       </Pressable>
+      ) : null}
 
-      {isCoach ? (
+      {isCoach && !addButtonsHidden ? (
         <Pressable
           testID="calendar-add-class"
           accessibilityLabel={t("calendar.toolbar.addClass")}

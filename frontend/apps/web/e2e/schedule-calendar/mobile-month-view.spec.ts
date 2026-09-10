@@ -244,4 +244,53 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     await page.getByTestId("calendar-view-month").click();
     await lastCardClearsButtons("calendar-sheet-list");
   });
+
+  // Rule 18 (coordinator decision 2026-09-10): in Mês the add buttons step
+  // aside while the sheet is dragged above its resting height.
+  test("US-248-6: in Mês the add buttons hide while the sheet is pulled up, and come back", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    await mockCalendar(page, MONTH_EVENTS);
+
+    const dragHandleBy = async (dy: number) => {
+      const box = (await page.getByTestId("calendar-sheet-handle").boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y + dy, { steps: 8 });
+      await page.mouse.up();
+    };
+    const addEvent = page.getByTestId("calendar-add-event");
+    const addClass = page.getByTestId("calendar-add-class");
+
+    await openMonth(page);
+    // At its resting height the buttons are there.
+    await expect(addEvent).toBeVisible();
+    await expect(addClass).toBeVisible();
+
+    // Pulled up: both gone.
+    await dragHandleBy(-600);
+    await expect(addEvent).toHaveCount(0);
+    await expect(addClass).toHaveCount(0);
+
+    // Dragged all the way down: both back.
+    await dragHandleBy(900);
+    await expect(addEvent).toBeVisible();
+    await expect(addClass).toBeVisible();
+
+    // Pulled up again, then leaving Mês brings them back.
+    await dragHandleBy(-600);
+    await expect(addEvent).toHaveCount(0);
+    await page.getByTestId("calendar-view-day").click();
+    await expect(addEvent).toBeVisible();
+
+    // Semana keeps them whatever the sheet does.
+    await page.getByTestId("calendar-view-week").click();
+    await expect(page.getByTestId("calendar-time-grid")).toBeVisible();
+    await dragHandleBy(-600);
+    await expect(addEvent).toBeVisible();
+    await expect(addClass).toBeVisible();
+  });
 });

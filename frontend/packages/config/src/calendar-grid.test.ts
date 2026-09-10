@@ -6,6 +6,7 @@ import {
   layoutDayEvents,
   resolveHourRange,
   sheetTopBounds,
+  isSheetRaised,
 } from "./calendar-grid";
 
 /**
@@ -115,5 +116,31 @@ describe("sheetTopBounds / clampSheetTop", () => {
     expect(clampSheetTop(10, b)).toBe(40);
     expect(clampSheetTop(400, b)).toBe(326);
     expect(clampSheetTop(200, b)).toBe(200);
+  });
+});
+
+/**
+ * PAD-248 rule 18 (coordinator decision): in Mês the add buttons step aside
+ * while the day sheet is dragged above its resting height.
+ * Criterion: "Add buttons step aside while the Mês sheet is pulled up".
+ */
+describe("isSheetRaised", () => {
+  const b = { min: 44, max: 241, initial: 201 };
+
+  it("is false at the resting height and below it", () => {
+    expect(isSheetRaised(201, b)).toBe(false);
+    expect(isSheetRaised(230, b)).toBe(false);
+    expect(isSheetRaised(241, b)).toBe(false);
+  });
+
+  it("is true once the sheet is dragged above its resting height", () => {
+    expect(isSheetRaised(200, b)).toBe(true);
+    expect(isSheetRaised(44, b)).toBe(true);
+  });
+
+  it("with no room to rest above the collapsed height, only a drag up counts", () => {
+    const tight = { min: 44, max: 60, initial: 60 };
+    expect(isSheetRaised(60, tight)).toBe(false);
+    expect(isSheetRaised(50, tight)).toBe(true);
   });
 });

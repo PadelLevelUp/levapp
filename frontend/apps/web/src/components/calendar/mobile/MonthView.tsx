@@ -22,6 +22,7 @@ export function MonthView({
   nextEventId,
   levels = [],
   onEventClick,
+  onSheetRaisedChange,
 }: {
   monthLabel: string;
   monthDays: Date[];
@@ -34,6 +35,8 @@ export function MonthView({
   nextEventId?: string;
   levels?: CoachLevel[];
   onEventClick?: (event: CalendarEvent) => void;
+  /** Rule 18: whether the day sheet is pulled above its resting height. */
+  onSheetRaisedChange?: (raised: boolean) => void;
 }) {
   const days = useMemo(() => [selectedDay], [selectedDay]);
   const dayEvents = eventsByDay[format(selectedDay, "yyyy-MM-dd")] ?? [];
@@ -57,6 +60,7 @@ export function MonthView({
         nextEventId={nextEventId}
         levels={levels}
         onEventClick={onEventClick}
+        onRaisedChange={onSheetRaisedChange}
       />
     </div>
   );

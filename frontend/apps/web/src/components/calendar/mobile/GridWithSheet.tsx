@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { clampSheetTop, resolveHourRange, sheetTopBounds } from "@levelup/config";
+import { clampSheetTop, isSheetRaised, resolveHourRange, sheetTopBounds } from "@levelup/config";
 import type { CalendarEvent, CoachLevel } from "@/types";
 import { DaySheet, SHEET_COLLAPSED_HEIGHT } from "./DaySheet";
 import { ROW_HEIGHT, TimeGrid } from "./TimeGrid";
@@ -21,6 +21,7 @@ export function GridWithSheet({
   nextEventId,
   levels = [],
   onEventClick,
+  onRaisedChange,
 }: {
   /** The grid's columns. */
   days: Date[];
@@ -32,6 +33,8 @@ export function GridWithSheet({
   nextEventId?: string;
   levels?: CoachLevel[];
   onEventClick?: (event: CalendarEvent) => void;
+  /** Called with whether the sheet is above its resting height (rule 18). */
+  onRaisedChange?: (raised: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -61,6 +64,14 @@ export function GridWithSheet({
     if (containerHeight === 0) return;
     setSheetTop((current) => (current === null ? bounds.initial : clampSheetTop(current, bounds)));
   }, [containerHeight, bounds]);
+
+  // Rule 18 (Mês): tell the shell whether the sheet sits above its resting
+  // height so it can hide the floating add buttons; reset when unmounted.
+  useEffect(() => {
+    if (!onRaisedChange) return;
+    onRaisedChange(sheetTop !== null && isSheetRaised(sheetTop, bounds));
+  }, [sheetTop, bounds, onRaisedChange]);
+  useEffect(() => () => onRaisedChange?.(false), [onRaisedChange]);
 
   const hourRange = useMemo(() => resolveHourRange(rangeEvents), [rangeEvents]);
   const dayEvents = eventsByDay[format(selectedDay, "yyyy-MM-dd")] ?? [];

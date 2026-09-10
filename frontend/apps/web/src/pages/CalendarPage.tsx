@@ -97,6 +97,8 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
+  const [addButtonsHidden, setAddButtonsHidden] = useState(false);
 
   const canManageClasses = user?.roles.includes("coach") ?? false;
   const calendar = useCalendar(allEvents, {
@@ -469,9 +471,11 @@ export default function CalendarPage() {
               onNextMonth={() => calendar.navigateMonth("next")}
               events={calendar.events}
               monthEvents={calendar.monthEvents}
+              onAddButtonsHiddenChange={setAddButtonsHidden}
               levels={levels}
               onEventClick={handleEventClick}
             />
+            {!addButtonsHidden && (
             <button
               type="button"
               data-testid="calendar-add-event"
@@ -484,7 +488,8 @@ export default function CalendarPage() {
             >
               <CalendarPlus className="h-5 w-5" />
             </button>
-            {canManageClasses && (
+            )}
+            {canManageClasses && !addButtonsHidden && (
               <button
                 type="button"
                 data-testid="calendar-add-class"
