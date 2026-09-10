@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from flask import abort
 from werkzeug.security import generate_password_hash
 
+from padel_app.services.level_service import set_roster_level
 from padel_app.models import (
     Association_CoachPlayer,
     Player,
@@ -37,24 +38,15 @@ def create_incomplete_player_service(data, now=None):
     db.session.add(player)
     db.session.flush()
 
-    db.session.add(
-        Association_CoachPlayer(
-            coach_id=int(data["coachId"]),
-            player_id=player.id,
-            level_id=int(data["levelId"]) if data.get("levelId") else None,
-            side=data.get("side") or None,
-            notes=data.get("notes") or None,
-        )
+    rel = Association_CoachPlayer(
+        coach_id=int(data["coachId"]),
+        player_id=player.id,
+        side=data.get("side") or None,
+        notes=data.get("notes") or None,
     )
-
-    if data.get("levelId"):
-        db.session.add(
-            PlayerLevelHistory(
-                coach_id=int(data["coachId"]),
-                player_id=player.id,
-                level_id=int(data["levelId"]),
-            )
-        )
+    db.session.add(rel)
+    # PAD-270: the one writer of a roster level also records the history row.
+    set_roster_level(rel, data.get("levelId"))
 
     invitation = PlayerInvitation(
         player_id=player.id,

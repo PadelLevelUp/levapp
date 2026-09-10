@@ -7,6 +7,8 @@ from padel_app.models import (
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.sql_db import db
+from padel_app.services.level_service import set_roster_level
 from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
 from padel_app.tools.username_tools import unique_placeholder_username
 
@@ -40,7 +42,6 @@ def create_player_helper(data):
         rel_data = {
             'coach': data.get("coach"),
             'player': player.id,
-            'level': data.get('level', None),
             'side': data.get('side', None),
             'notes': data.get('notes', None),
         }
@@ -53,13 +54,9 @@ def create_player_helper(data):
 
         rel.update_with_dict(rel_values)
         rel.create()
-
-    if data.get("coach") and data['level']:
-        PlayerLevelHistory(
-            coach_id=data["coach"],
-            player_id=player.id,
-            level_id=data['level']
-        ).create()
+        # PAD-270: the one writer of a roster level also records the history row.
+        set_roster_level(rel, data.get("level"))
+        db.session.commit()
 
     return player.coach_player_info(data["coach"])
 
@@ -72,11 +69,17 @@ def edit_player_helper(player, rel, data):
     player.user.update_with_dict(user_values)
     player.user.save()
 
+    # PAD-270 (B-061): the level goes through the one writer, which records the
+    # history row an edit used to skip. Only a changed level reaches here.
+    relation = dict(data['relation'])
+    level = relation.pop('level', None)
     rel_form = rel.get_edit_form()
-    rel_fake_request = JsonRequestAdapter(data['relation'], rel_form)
+    rel_fake_request = JsonRequestAdapter(relation, rel_form)
     rel_values = rel_form.set_values(rel_fake_request)
 
     rel.update_with_dict(rel_values)
+    if level is not None:
+        set_roster_level(rel, level)
     rel.save()
 
     return player.coach_player_info(data["coach"])

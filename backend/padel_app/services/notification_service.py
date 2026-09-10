@@ -194,30 +194,9 @@ def _is_semi_auto(config: NotificationConfig) -> bool:
 # Level resolution (PAD-86)
 # ---------------------------------------------------------------------------
 
-def effective_level_id(obj) -> int | None:
-    """The level a class is matched against, resolved the SAME way everywhere.
-
-    PAD-86: a ``LessonInstance`` often carries no ``level_id`` of its own — the
-    level lives on the parent ``Lesson`` as ``default_level_id``. Resolving that
-    fallback in some call sites but not others meant a structural vacancy could
-    be created with ``level_id = None``, which every level rule then read as
-    "the level filter is switched off" — a level-only invitation group silently
-    matched the coach's entire roster.
-
-    Accepts a ``LessonInstance`` (instance level, falling back to its lesson's
-    default level) or a ``Lesson`` (its default level). Returns ``None`` only
-    when there is genuinely no level anywhere — which callers must treat as
-    "nobody qualifies", never as "no filter".
-    """
-    if obj is None:
-        return None
-    direct = getattr(obj, "level_id", None)
-    if direct:
-        return direct
-    lesson = getattr(obj, "lesson", None)
-    if lesson is not None:
-        return getattr(lesson, "default_level_id", None)
-    return getattr(obj, "default_level_id", None)
+# PAD-270: moved to level_service, the one home of level resolution; re-exported
+# here because the engine and its tests import it from this module.
+from padel_app.services.level_service import effective_level_id  # noqa: E402,F401
 
 
 def effective_level(obj):

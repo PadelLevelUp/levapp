@@ -106,12 +106,6 @@ class Player(db.Model, model.Model):
         order_by="desc(PlayerLevelHistory.assigned_at)",
         passive_deletes=True,
     )
-    
-    @property
-    def level(self):
-        if self.level_history:
-            return self.level_history[0]
-        return None
 
     def __repr__(self):
         return f"<Player {self.name}>"
