@@ -13,7 +13,7 @@ governed_by: []
 Lesson instances are the actual scheduled occurrences of a class. For recurring lessons, instances are materialized lazily (on-demand).
 
 ### Entities
-- **LessonInstance** (`lesson_instances`): lesson_id, original_lesson_occurence_date, start_datetime, end_datetime, overwrite_title, level_id, notifications_enabled, status (scheduled|canceled|rescheduled|completed), notes, max_players, overridden_fields (JSON)
+- **LessonInstance** (`lesson_instances`): lesson_id, original_lesson_occurence_date, start_datetime, end_datetime, overwrite_title, level_id, notifications_enabled, status (scheduled|canceled|rescheduled|completed), notes, max_players, overridden_fields (JSON) — indexed on (lesson_id, original_lesson_occurence_date), the occurrence key every materialisation lookup takes (not unique yet: B-046), and on start_datetime
 
 ### Rules
 1. **Lazy materialization**: Instances for recurring lessons are NOT pre-created. They are created on-demand when:
