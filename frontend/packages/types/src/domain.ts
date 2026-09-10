@@ -193,6 +193,10 @@ export interface ClassInstance {
   name?: string;
   color?: string;
   levelId?: string;
+  /** clubs.courts rule 7 (PAD-194). */
+  clubName?: string | null;
+  courtId?: number | null;
+  courtName?: string | null;
   maxPlayers: number;
   notes?: string;
   recurrenceEnd?: string;
@@ -275,7 +279,24 @@ export interface CalendarBlock {
 }
 
 // Calendar view types
+/** clubs.courts (PAD-194): a club's court — a name in a display order. */
+export interface Court {
+  id: number;
+  clubId: number;
+  name: string;
+  position: number;
+}
+
+/** A club or court reference as the calendar event carries it (clubs.courts rule 7). */
+export interface NamedRef {
+  id: number;
+  name: string;
+}
+
 export interface CalendarEvent {
+  /** clubs.courts rule 7: the class's club and court; absent on blocks. */
+  club?: NamedRef | null;
+  court?: NamedRef | null;
   model: string,
   originalId: number,
   id: string;

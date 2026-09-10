@@ -301,6 +301,21 @@
         "declined": "Pedido de {{name}} recusado.",
         "actionFailed": "Não foi possível concluir a ação.",
         "loadFailed": "Não foi possível carregar os pedidos."
+      },
+      "courts": {
+        "title": "Campos",
+        "description": "Os campos do clube, pela ordem em que os queres ver. Uma aula pode indicar o campo onde acontece.",
+        "empty": "O clube ainda não tem campos.",
+        "namePlaceholder": "Ex.: Campo 1",
+        "add": "Adicionar campo",
+        "rename": "Mudar o nome",
+        "moveUp": "Subir",
+        "moveDown": "Descer",
+        "remove": "Remover",
+        "invalid": "O nome tem de ter entre 1 e 80 caracteres.",
+        "duplicate": "Já existe um campo com esse nome.",
+        "saveFailed": "Não foi possível guardar o campo",
+        "removeFailed": "Não foi possível remover o campo"
       }
     },
     "seasons": {

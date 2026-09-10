@@ -1383,12 +1383,17 @@ def create_conversation():
 def add_class():
     from padel_app.services.lesson_service import NoSeasonCoversDateError
 
+    from padel_app.services.court_service import CourtNotInClubError
+
     data = request.get_json() or {}
     try:
         lesson = add_class_service(data, require_coach(), require_club())
     except NoSeasonCoversDateError as e:
         # PAD-90: "recurs until season end" with no covering season is rejected
         # rather than creating an unbounded recurring class.
+        return jsonify({"error": str(e), "code": e.code}), 400
+    except CourtNotInClubError as e:
+        # clubs.courts rule 6 (PAD-194).
         return jsonify({"error": str(e), "code": e.code}), 400
     return jsonify(serialize_calendar_event(lesson))
 
@@ -1595,6 +1600,77 @@ def list_coach_invitations(club_id):
 # an *approved* coach picking their club on the onboarding screen (a pending
 # coach is 403 COACH_NOT_APPROVED, a student 403), and deciding is for
 # members of that club (403 otherwise). Never a 500 for the wrong role.
+
+
+# -------------------------------------------------------------------
+# clubs.courts (PAD-194 v1) — a club's courts, managed by its coaches
+# -------------------------------------------------------------------
+
+def _court_or_404(court_id):
+    from padel_app.models import Court
+
+    return Court.query.get_or_404(court_id)
+
+
+@bp.get("/club/<int:club_id>/courts")
+@jwt_required()
+def list_club_courts(club_id):
+    from padel_app.services.court_service import list_courts, require_club_member, serialize_court
+
+    require_club_member(require_coach(), club_id)
+    return jsonify([serialize_court(c) for c in list_courts(club_id)])
+
+
+@bp.post("/club/<int:club_id>/courts")
+@jwt_required()
+def create_club_court(club_id):
+    from padel_app.services.court_service import InvalidCourtError, create_court, require_club_member, serialize_court
+
+    require_club_member(require_coach(), club_id)
+    try:
+        court = create_court(club_id, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return jsonify({"error": str(exc), "code": exc.code}), 400
+    return jsonify(serialize_court(court)), 201
+
+
+@bp.put("/club/<int:club_id>/courts/order")
+@jwt_required()
+def reorder_club_courts(club_id):
+    from padel_app.services.court_service import InvalidCourtError, reorder_courts, require_club_member, serialize_court
+
+    require_club_member(require_coach(), club_id)
+    data = request.get_json(silent=True) or {}
+    try:
+        courts = reorder_courts(club_id, data.get("ids"))
+    except InvalidCourtError as exc:
+        return jsonify({"error": str(exc), "code": exc.code}), 400
+    return jsonify([serialize_court(c) for c in courts])
+
+
+@bp.patch("/courts/<int:court_id>")
+@jwt_required()
+def rename_court_route(court_id):
+    from padel_app.services.court_service import InvalidCourtError, rename_court, require_club_member, serialize_court
+
+    court = _court_or_404(court_id)
+    require_club_member(require_coach(), court.club_id)
+    try:
+        rename_court(court, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return jsonify({"error": str(exc), "code": exc.code}), 400
+    return jsonify(serialize_court(court))
+
+
+@bp.delete("/courts/<int:court_id>")
+@jwt_required()
+def delete_court_route(court_id):
+    from padel_app.services.court_service import delete_court, require_club_member
+
+    court = _court_or_404(court_id)
+    require_club_member(require_coach(), court.club_id)
+    delete_court(court)
+    return "", 204
 
 
 @bp.get("/clubs/search")
@@ -1938,9 +2014,15 @@ def _assert_owns_class_payload(coach, data):
 @bp.post("/edit_class")
 @jwt_required()
 def edit_class():
+    from padel_app.services.court_service import CourtNotInClubError
+
     data = request.get_json() or {}
     _assert_owns_class_payload(require_coach(), data)
-    result, status = edit_class_service(data)
+    try:
+        result, status = edit_class_service(data)
+    except CourtNotInClubError as e:
+        # clubs.courts rule 6 (PAD-194).
+        return jsonify({"error": str(e), "code": e.code}), 400
     return jsonify(result), status
 
 

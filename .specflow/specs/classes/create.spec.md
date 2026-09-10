@@ -24,6 +24,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 4. `max_players` caps enrollment
 5. Coach and enrolled players are linked via junction tables
 6. Creating a lesson with `notifications_enabled=true` schedules reminder jobs
+7. **Court (PAD-194).** The payload may carry `courtId`; it must be one of the class's club's courts
+   (`clubs.courts` rule 6), else 400 `court_not_in_club`. The court is optional and defaults to none.
 
 ### Acceptance Criteria
 

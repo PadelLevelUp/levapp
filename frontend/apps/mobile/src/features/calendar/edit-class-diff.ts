@@ -11,6 +11,7 @@ export const EDITABLE_CLASS_FIELDS = [
   "color",
   "maxPlayers",
   "levelId",
+  "courtId",
   "recurrenceEnd",
   "notificationsEnabled",
   // PAD-129: the eligibility tier this screen addresses (null / [] / rules).

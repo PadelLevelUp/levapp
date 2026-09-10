@@ -182,6 +182,10 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
         "openSpotsVisible": obj.open_spots_visible if isinstance(getattr(obj, "open_spots_visible", None), bool) else None,
         **_eligibility_provenance(obj, coach_id),
+        # clubs.courts rule 7 (PAD-194): the detail shows club and court.
+        "clubName": lesson.club.name if lesson.club else None,
+        "courtId": lesson.court_id,
+        "courtName": lesson.court.name if lesson.court else None,
     }
 
     if is_instance:
