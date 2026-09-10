@@ -13,7 +13,7 @@ export const DEFAULT_TIEBREAKERS: Tiebreaker[] = [
   { id: "justified_absences", label: "Most justified absences", enabled: true },
   { id: "attendance_rate", label: "Highest attendance rate", enabled: true },
   { id: "playing_side_match", label: "Matching playing side", enabled: false },
-  { id: "subscription_status", label: "Active subscription", enabled: false },
+  { id: "subscription_status", label: "Active account", enabled: false },
 ];
 
 const TIEBREAKER_LABEL_KEYS: Record<string, string> = {

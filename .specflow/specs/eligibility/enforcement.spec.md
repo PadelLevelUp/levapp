@@ -30,7 +30,7 @@ a coach acts by hand. The coach's roster always wins.
    with status `absent`. Without the second exclusion the student whose cancellation created the
    vacancy is placed straight back into it — see the acceptance criteria below.
 5. **The waiting-list fill honours the same restrictions the invitation path honours**:
-   `restrictions.excludedPlayers`, `restrictions.excludeUnpaidSubscription`, and the student
+   `restrictions.excludedPlayers`, `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the student
    availability-blocker filter (`calendar.student-blockers`).
 6. **Manual add warns, it does not block.** When a coach adds an ineligible student to a class by
    hand, the action proceeds after an explicit confirmation. This mirrors the existing

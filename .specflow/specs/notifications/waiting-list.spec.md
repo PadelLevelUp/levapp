@@ -67,7 +67,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
    `absent`. The second exclusion is what stops the student whose cancellation created the vacancy
    from being placed straight back into it.
 4c. **(pending PAD-128) Placement honours the same restrictions invitations honour**: `restrictions.excludedPlayers`,
-   `restrictions.excludeUnpaidSubscription`, and the availability-blocker filter of
+   `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the availability-blocker filter of
    `calendar.student-blockers`. Rules 4b and 4c apply whether or not an eligibility bar is defined.
 4d. **(pending PAD-128) Placement is silent enrolment**, and every guard above exists because of that: the student is
    added without being asked. Any path that adds a student without an invitation is held to the
