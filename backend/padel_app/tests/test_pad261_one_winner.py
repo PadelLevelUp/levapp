@@ -113,7 +113,7 @@ def test_structural_vacancies_are_sized_under_the_class_lock(app, locks):
     assert "LessonInstance" in locks
 
 
-# ── waiting-list rule 12 ─────────────────────────────────────────────────────
+# ── waiting-list rule 13 ─────────────────────────────────────────────────────
 
 def _waiting(app, coach_id, instance_id, player_id):
     from padel_app.models import Vacancy, WaitingListEntry

@@ -37,12 +37,14 @@ race is proven with two threads on a scratch Postgres, not in CI (the M20 ticket
 
 ### Change Plan
 
-1. Spec: invitations rule 10, waiting-list rule 12, instances rule 8 (committed before code).
+1. Spec: invitations rule 10, waiting-list rule 13 (12 was taken by PAD-222 on staging), instances
+   rule 8 (committed before code).
 2. `_lock_vacancy_and_instance`: `SELECT … FOR UPDATE` + re-read, vacancy first, then the class.
 3. Accept (`respond_to_notification` "yes") and `_fill_from_waiting_list` decide under it.
 4. `_create_vacancy_for_absent_player` get-or-create and `_create_structural_vacancies` under the
    instance lock.
-5. `get_or_materialize_instance` locks the parent lesson row before the lookup.
+5. `get_or_materialize_instance` locks the parent lesson row when the occurrence is missing and
+   looks again before creating it; a found occurrence takes no lock.
 6. Tests: SQLite behaviour + which rows are locked; scratch-Postgres two-thread race, red on the old
    code and green on the new.
 

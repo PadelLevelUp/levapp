@@ -89,9 +89,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. A second "yes" for the
     same last spot waits on the lock, finds the spot taken and gets the normal spot-filled answer and
-    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are found or created
-    under the class lock: a departing player has at most one open vacancy (get-or-create), and
-    structural vacancies are counted under the same lock. The partial unique key on open vacancies
+    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are created only under
+    the class lock: a departing player has at most one open vacancy (a found one is returned without
+    a lock; a new one is created after looking again under the lock), and structural vacancies are
+    counted again under the same lock and added in one commit. Every locked section ends in a
+    commit, so no lock outlives the decision it protects. The partial unique key on open vacancies
     is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
 
 ### Acceptance Criteria
