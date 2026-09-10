@@ -19,6 +19,7 @@ REDACTED_COLUMNS = {
     "coach_invitations": frozenset({"token"}),
     "player_invitations": frozenset({"token"}),
     "coach_join_tokens": frozenset({"token"}),
+    "guardian_consents": frozenset({"consent_token_hash", "revoke_token_hash"}),  # PAD-198
 }
 
 #: Columns whose names look like secrets but are not. Add a (table, column) pair

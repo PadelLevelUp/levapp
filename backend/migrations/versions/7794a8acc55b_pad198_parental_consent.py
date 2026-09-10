@@ -1,8 +1,10 @@
 """parental consent for minors (auth.parental-consent, PAD-198)
 
 Revision ID: 7794a8acc55b
-Revises: cf030b78b088 (PAD-263, Session A; chained after it on the coordinator's instruction)
+Revises: cf030b78b088
 Create Date: 2026-09-10 02:30:00.000000
+
+Chained after PAD-263 (cf030b78b088, Session A) on the coordinator's instruction.
 
 Every DDL statement is guarded: prod carries unmigrated hand-made schema and
 staging is a copy of prod per deploy, so a column, table or index may already
