@@ -276,10 +276,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   seeded class opens
 
 ### Notes
-- **Status (2026-09-08, PAD-246):** rules 1–10 and 18–25 are built on web and iOS (Dia,
-  segmented control, colour rules, swatch remap, FABs, no phone legend). Rules 11–14
-  (Semana, PAD-247) and 15–17 (Mês, PAD-248) are specified, not built; their segments render
-  disabled until they land.
+- **Status (2026-09-10, PAD-247):** rules 1–14 and 18–25 are built on web and iOS — Dia
+  (PAD-246) and Semana with the draggable day sheet (PAD-247). Rules 15–17 (Mês, PAD-248) are
+  specified, not built; the Mês segment renders disabled until it lands.
 - Ships in three tickets, each landing web and iOS together (R-024): (1) Dia, shared chrome,
   colour rules and the swatch remap; (2) Semana; (3) Mês. Until ticket 3 lands, the
   segmented control offers only the shipped modes.

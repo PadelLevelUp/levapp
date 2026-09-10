@@ -7,6 +7,9 @@
       "addEvent": "Adicionar evento",
       "addClass": "Adicionar aula"
     },
+    "sheet": {
+      "handle": "Arrastar para redimensionar"
+    },
     "views": {
       "label": "Vista do calendário",
       "day": "Dia",

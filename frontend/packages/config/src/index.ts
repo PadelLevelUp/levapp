@@ -12,6 +12,7 @@ export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";
+export * from "./calendar-grid";
 export * from "./notify-blocked";
 export * from "./season-coverage";
 export * from "./court-diagram";

@@ -123,7 +123,7 @@ const PHONE = { width: 390, height: 844 };
 test.describe("PAD-246: phone calendar Dia view", () => {
   test.use({ viewport: PHONE });
 
-  test("US-246-1: segmented control shows Dia active and the other modes disabled", async ({
+  test("US-246-1: segmented control shows Dia active and unshipped modes disabled", async ({
     page,
   }) => {
     await loginAsCoach(page);
@@ -135,8 +135,8 @@ test.describe("PAD-246: phone calendar Dia view", () => {
     await expect(dayTab).toHaveText("Day");
     await expect(page.getByTestId("calendar-view-week")).toHaveText("Week");
     await expect(page.getByTestId("calendar-view-month")).toHaveText("Month");
-    // Semana and Mês ship in PAD-247 / PAD-248.
-    await expect(page.getByTestId("calendar-view-week")).toHaveAttribute(
+    // Semana shipped in PAD-247 (see mobile-week-view.spec.ts); Mês ships in PAD-248.
+    await expect(page.getByTestId("calendar-view-week")).not.toHaveAttribute(
       "aria-disabled",
       "true"
     );
@@ -146,7 +146,7 @@ test.describe("PAD-246: phone calendar Dia view", () => {
     );
     // A stored mode that is not enabled yet falls back to Dia.
     await page.evaluate(() =>
-      window.localStorage.setItem("levapp.calendar.viewMode", "week")
+      window.localStorage.setItem("levapp.calendar.viewMode", "month")
     );
     await page.reload();
     await expect(page.getByTestId("calendar-view-day")).toHaveAttribute(

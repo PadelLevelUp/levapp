@@ -9,9 +9,10 @@ import { DayHeader } from "./DayHeader";
 import { DayStrip } from "./DayStrip";
 import { MobileEventCard } from "./MobileEventCard";
 import { ViewModeControl } from "./ViewModeControl";
+import { WeekView } from "./WeekView";
 
-/** Modes that have shipped. Semana arrives with PAD-247, Mês with PAD-248. */
-export const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day"];
+/** Modes that have shipped. Mês arrives with PAD-248. */
+export const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day", "week"];
 
 function eventDayKey(event: CalendarEvent): string {
   const date = event.date;
@@ -25,7 +26,7 @@ function eventDayKey(event: CalendarEvent): string {
 }
 
 /**
- * The phone calendar — calendar.mobile-views, the Dia mode (PAD-246).
+ * The phone calendar — calendar.mobile-views: Dia (PAD-246) and Semana (PAD-247).
  *
  * Segmented control, the week strip with dots, then the selected day spelled
  * out with its cards. The selected day and the mode live in `useCalendar` and
@@ -39,6 +40,8 @@ export function MobileCalendar({
   onSelectDay,
   onPrevWeek,
   onNextWeek,
+  onToday,
+  weekLabel,
   events,
   levels = [],
   onEventClick,
@@ -46,10 +49,13 @@ export function MobileCalendar({
   viewMode: CalendarViewMode;
   onViewModeChange: (mode: CalendarViewMode) => void;
   weekDays: Date[];
+  /** Locale week-range label from `useCalendar` (calendar.view rule 12). */
+  weekLabel: string;
   selectedDay: Date;
   onSelectDay: (day: Date) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
+  onToday: () => void;
   /** The visible week's events. */
   events: CalendarEvent[];
   levels?: CoachLevel[];
@@ -87,13 +93,35 @@ export function MobileCalendar({
     [events, weekDays]
   );
 
+  const control = (
+    <ViewModeControl value={viewMode} onChange={onViewModeChange} enabled={ENABLED_VIEW_MODES} />
+  );
+
+  if (viewMode === "week") {
+    return (
+      <div className="flex h-full flex-col">
+        {control}
+        <WeekView
+          weekDays={weekDays}
+          weekLabel={weekLabel}
+          selectedDay={selectedDay}
+          onSelectDay={onSelectDay}
+          onPrevWeek={onPrevWeek}
+          onNextWeek={onNextWeek}
+          onToday={onToday}
+          events={events}
+          eventsByDay={eventsByDay}
+          nextEventId={nextEventId}
+          levels={levels}
+          onEventClick={onEventClick}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <ViewModeControl
-        value={viewMode}
-        onChange={onViewModeChange}
-        enabled={ENABLED_VIEW_MODES}
-      />
+      {control}
 
       <DayStrip
         weekDays={weekDays}
