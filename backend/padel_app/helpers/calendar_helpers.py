@@ -1,3 +1,4 @@
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import selectinload
 
 from padel_app.tools.calendar_tools import expand_occurrences
@@ -6,6 +7,7 @@ from padel_app.models import (
     LessonInstance,
     CalendarBlock,
     Association_CoachLesson,
+    Association_CoachLessonInstance,
     Association_PlayerLesson,
     Association_PlayerLessonInstance,
     Presence,
@@ -35,35 +37,43 @@ def load_lessons_for_coach(coach_id, range_start, range_end):
 
 
 def load_lesson_instances_for_coach(coach_id, range_start, range_end):
+    # PAD-262 (audit H9, dashboard.blocks rule 8): the coach filter runs in SQL.
+    # An instance belongs to the coach through its own coach junction, or —
+    # when it has none — through its lesson's. Before this the query loaded
+    # EVERY coach's instances in range and dropped the others in Python.
     instances = (
         LessonInstance.query
         .join(Lesson)
         # PAD-71: the serialized event's participantCount reads
         # LessonInstance.effective_filled_spots, which walks both
         # players_relations and presences — eager-load them so a week of
-        # classes stays at a constant number of queries.
+        # classes stays at a constant number of queries. PAD-262 adds the
+        # lesson, its coaches and the instance's own coaches, which the
+        # serializer and the coach index below otherwise lazy-load per row.
         .options(
             selectinload(LessonInstance.players_relations),
             selectinload(LessonInstance.presences),
+            selectinload(LessonInstance.coaches_relations),
+            selectinload(LessonInstance.lesson).selectinload(Lesson.coaches_relations),
         )
         .filter(
             LessonInstance.start_datetime >= range_start,
             LessonInstance.start_datetime <= range_end,
+            or_(
+                LessonInstance.coaches_relations.any(
+                    Association_CoachLessonInstance.coach_id == coach_id
+                ),
+                and_(
+                    ~LessonInstance.coaches_relations.any(),
+                    Lesson.coaches_relations.any(Association_CoachLesson.coach_id == coach_id),
+                ),
+            ),
         )
         .all()
     )
 
     indexed = {}
     for instance in instances:
-        instance_coaches = (
-            [rel.coach_id for rel in instance.coaches_relations]
-            if instance.coaches_relations
-            else [rel.coach_id for rel in instance.lesson.coaches_relations]
-        )
-
-        if coach_id not in instance_coaches:
-            continue
-
         indexed[(instance.lesson_id, instance.original_lesson_occurence_date)] = instance
 
     return indexed

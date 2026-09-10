@@ -30,7 +30,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urlencode
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 
 from padel_app.sql_db import db
 from padel_app.models import (
@@ -111,6 +111,39 @@ def load_events(
     return sorted(in_window, key=_event_start)
 
 
+def cut_events(events: Sequence[Dict[str, Any]], *, start: datetime, end: datetime) -> List[Dict[str, Any]]:
+    """``events`` restricted to a window — the same predicate ``load_events`` applies.
+
+    PAD-262 (dashboard.blocks rule 8): the coach home loads its classes once over
+    the widest window any block needs and every block cuts its own from that
+    set, so the four blocks cost one pipeline call instead of twelve.
+    """
+    return [e for e in events if _event_end(e) > start and _event_start(e) < end]
+
+
+def coach_home_window(now: datetime) -> Tuple[datetime, datetime]:
+    """The superset window: a week before the current week (week-pulse delta)
+    to the hero's look-ahead."""
+    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    start = min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS))
+    end = max(week_start + timedelta(days=7), now + timedelta(days=HERO_LOOKAHEAD_DAYS))
+    return start, end
+
+
+def load_coach_home_events(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
+    start, end = coach_home_window(now)
+    return load_events(coach_id=coach_id, start=start, end=end)
+
+
+def _window_events(
+    events: Optional[Sequence[Dict[str, Any]]], *, coach_id: int, start: datetime, end: datetime
+) -> List[Dict[str, Any]]:
+    """Cut the preloaded set when there is one, otherwise load just this window."""
+    if events is not None:
+        return cut_events(events, start=start, end=end)
+    return load_events(coach_id=coach_id, start=start, end=end)
+
+
 def _event_start(event: Dict[str, Any]) -> datetime:
     return _combine(event.get("date"), event.get("startTime"), datetime.max)
 
@@ -154,15 +187,17 @@ def _initials(name: Optional[str]) -> str:
 # ── 1. next class hero ─────────────────────────────────────────────────────
 
 
-def build_next_class_block(*, coach_id: int, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+def build_next_class_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Optional[Dict[str, Any]]:
     """The class about to start. ``None`` when the coach has nothing scheduled.
 
     Returning ``None`` is intentional: an empty hero would be the largest element
     on the screen saying nothing, which is the flaw this redesign removes.
     """
     now = now or utcnow_naive()
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
-    return next_class_block(events, now=now)
+    window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
+    return next_class_block(window, now=now)
 
 
 def next_class_block(events: Sequence[Dict[str, Any]], *, now: datetime) -> Optional[Dict[str, Any]]:
@@ -235,7 +270,13 @@ def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
 # ── 2. needs-you queue ─────────────────────────────────────────────────────
 
 
-def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_needs_you_block(
+    *,
+    coach_id: int,
+    user_id: int,
+    now: Optional[datetime] = None,
+    events: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """Things the coach can resolve, each carrying its own action.
 
     Order is fixed — empty seats (soonest first), then replies, then validation —
@@ -244,7 +285,7 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
     now = now or utcnow_naive()
 
     items: List[Dict[str, Any]] = []
-    items.extend(_empty_seat_items(coach_id=coach_id, now=now))
+    items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
     items.extend(reply_items(user_id=user_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
@@ -258,8 +299,10 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
     }
 
 
-def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+def _empty_seat_items(
+    *, coach_id: int, now: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
+    events = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
     snoozed = snoozed_item_ids(coach_id=coach_id, now=now)
@@ -287,16 +330,33 @@ def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
 
 
 def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
-    """Unread inbound messages, most recent first, one per conversation."""
-    rows = (
-        db.session.query(Message, User, ConversationParticipant.conversation_id)
+    """Unread inbound messages, most recent first, one per conversation.
+
+    PAD-262: the database picks the newest unread message per conversation
+    and returns at most ``QUEUE_REPLY_LIMIT`` rows; this used to pull every
+    unread message the user had and dedupe in Python.
+    """
+    unread = (
+        db.session.query(
+            Message.conversation_id.label("conversation_id"),
+            func.max(Message.sent_at).label("latest_at"),
+        )
         .join(ConversationParticipant, ConversationParticipant.conversation_id == Message.conversation_id)
-        .join(User, User.id == Message.sender_id)
         .filter(ConversationParticipant.user_id == user_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
         .filter(Message.sent_at > func.coalesce(ConversationParticipant.last_read_at, _EPOCH))
-        .order_by(Message.sent_at.desc())
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+    rows = (
+        db.session.query(Message, User, unread.c.conversation_id)
+        .join(unread, and_(Message.conversation_id == unread.c.conversation_id, Message.sent_at == unread.c.latest_at))
+        .join(User, User.id == Message.sender_id)
+        .filter(Message.sender_id != user_id)
+        .filter(Message.is_deleted.is_(False))
+        .order_by(Message.sent_at.desc(), Message.id.desc())
+        .limit(QUEUE_REPLY_LIMIT * 2)
         .all()
     )
 
@@ -355,11 +415,13 @@ def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
 
 
-def build_schedule_block(*, coach_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_schedule_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """The week ahead. Shows the first few rows and links out for the rest."""
     now = now or utcnow_naive()
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(events)
+    window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    return schedule_block(window)
 
 
 def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
@@ -397,17 +459,23 @@ def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
 # ── 4. this week ───────────────────────────────────────────────────────────
 
 
-def build_week_pulse_block(*, coach_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_week_pulse_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
     now = now or utcnow_naive()
 
     week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
     week_end = week_start + timedelta(days=7)
 
-    filled, total = _seats_in_window(coach_id=coach_id, start=week_start, end=week_end)
+    # PAD-262: nine windows off one loaded set instead of nine pipeline runs.
+    if events is None:
+        events = load_events(coach_id=coach_id, start=min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS)), end=max(week_end, now + timedelta(days=1)))
+
+    filled, total = _seats_in_window(coach_id=coach_id, start=week_start, end=week_end, events=events)
 
     prev_filled, prev_total = _seats_in_window(
-        coach_id=coach_id, start=week_start - timedelta(days=7), end=week_start
+        coach_id=coach_id, start=week_start - timedelta(days=7), end=week_start, events=events
     )
     pct = _pct(filled, total)
     prev_pct = _pct(prev_filled, prev_total)
@@ -415,7 +483,7 @@ def build_week_pulse_block(*, coach_id: int, now: Optional[datetime] = None) -> 
     trend = []
     for offset in range(SCHEDULE_DAYS - 1, -1, -1):
         day = datetime.combine(now.date() - timedelta(days=offset), datetime.min.time())
-        day_filled, day_total = _seats_in_window(coach_id=coach_id, start=day, end=day + timedelta(days=1))
+        day_filled, day_total = _seats_in_window(coach_id=coach_id, start=day, end=day + timedelta(days=1), events=events)
         trend.append(_pct(day_filled, day_total))
 
     active, total_players = _player_activity(coach_id=coach_id, now=now)
@@ -446,8 +514,10 @@ def _pct(part: int, whole: int) -> int:
     return round(100 * part / whole) if whole else 0
 
 
-def _seats_in_window(*, coach_id: int, start: datetime, end: datetime) -> Tuple[int, int]:
-    events = load_events(coach_id=coach_id, start=start, end=end)
+def _seats_in_window(
+    *, coach_id: int, start: datetime, end: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Tuple[int, int]:
+    events = _window_events(events, coach_id=coach_id, start=start, end=end)
     filled = sum(fill(e)[0] for e in events)
     total = sum(fill(e)[1] for e in events)
     return filled, total
