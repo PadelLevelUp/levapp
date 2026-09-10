@@ -10,7 +10,9 @@ Every step is guarded (prod carries objects no revision created; staging is a pr
 so the upgrade is safe to rerun.
 
 Revision ID: 95bfee084ad1
-Revises: 2c18f5a47c8b (PAD-270)
+Revises: 2c18f5a47c8b
+
+The parent is PAD-270's migration; the chain order is in the PR (#194).
 """
 import sqlalchemy as sa
 from alembic import op
