@@ -174,6 +174,83 @@ def render_password_recovery_email(user, code):
     return subject, text, html
 
 
+# ── auth.parental-consent rules 6 and 8 (PAD-198) ──────────────────────────
+
+_GUARDIAN_REQUEST = {
+    "pt": {
+        "subject": "Autorização para a conta LevApp de {first}",
+        "title": "Um pedido de autorização",
+        "intro": "{first} ({username}) criou uma conta na LevApp, a plataforma que treinadores de padel usam para organizar aulas, presenças e mensagens com os seus alunos.",
+        "why": "Como {first} tem menos de {age} anos, a conta só pode ser usada depois de um pai, mãe ou tutor legal autorizar. Até lá, ninguém consegue entrar nela.",
+        "cta": "Ver o pedido e decidir",
+        "valid": "O link é válido durante 7 dias. Abrir o link não ativa nada: é na página que decides.",
+        "ignore": "Se não conheces esta pessoa, ignora este email — nada acontece sem a tua autorização.",
+        "footer": "Recebeste este email porque este endereço foi indicado como o de um pai, mãe ou tutor legal numa conta LevApp.",
+    },
+    "en": {
+        "subject": "Consent for {first}'s LevApp account",
+        "title": "A request for your consent",
+        "intro": "{first} ({username}) created an account on LevApp, the platform padel coaches use to organise classes, attendance and messages with their students.",
+        "why": "Because {first} is under {age}, the account can only be used once a parent or legal guardian consents. Until then nobody can sign in to it.",
+        "cta": "See the request and decide",
+        "valid": "The link is valid for 7 days. Opening it does not activate anything: you decide on the page.",
+        "ignore": "If you do not know this person, ignore this email — nothing happens without your consent.",
+        "footer": "You got this email because this address was given as a parent's or legal guardian's on a LevApp account.",
+    },
+}
+
+_GUARDIAN_CONFIRMED = {
+    "pt": {
+        "subject": "Autorização registada: conta LevApp de {first}",
+        "title": "Obrigado pela tua autorização",
+        "intro": "A conta de {first} ({username}) já pode ser usada. Guardámos o registo da tua autorização: o teu nome, a relação com {first}, a data e a versão dos termos que aceitaste.",
+        "revoke": "Podes retirar a autorização a qualquer momento neste link. Ao retirá-la, a conta de {first} e os seus dados são apagados, e isso não pode ser desfeito.",
+        "cta": "Retirar autorização",
+        "footer": "Guarda este email: o link acima é a forma de retirares a autorização.",
+    },
+    "en": {
+        "subject": "Consent recorded: {first}'s LevApp account",
+        "title": "Thank you for your consent",
+        "intro": "{first}'s account ({username}) can now be used. We keep a record of your consent: your name, your relationship to {first}, the date and the version of the terms you accepted.",
+        "revoke": "You can withdraw consent at any time from this link. Withdrawing deletes {first}'s account and data, and cannot be undone.",
+        "cta": "Withdraw consent",
+        "footer": "Keep this email: the link above is how you withdraw consent.",
+    },
+}
+
+
+def _first_name(user):
+    return (user.name or "").split()[0] if user.name else (user.username or "")
+
+
+def render_guardian_consent_request_email(user, url, age):
+    """Return (subject, text, html) for the guardian's consent request."""
+    t = _GUARDIAN_REQUEST[_lang(user)]
+    first = _first_name(user)
+    subject = t["subject"].format(first=first)
+    intro = t["intro"].format(first=first, username=user.username)
+    why = t["why"].format(first=first, age=age)
+    text = "\n\n".join([t["title"], intro, why, f"{t['cta']}: {url}", t["valid"], t["ignore"]])
+    html = _layout(
+        subject,
+        [_h1(t["title"]), _p(intro), _p(why), _button(t["cta"], url), _p(t["valid"], muted=True), _p(t["ignore"], muted=True)],
+        t["footer"],
+    )
+    return subject, text, html
+
+
+def render_guardian_consent_confirmed_email(user, url):
+    """Return (subject, text, html) for the guardian's confirmation + withdraw link."""
+    t = _GUARDIAN_CONFIRMED[_lang(user)]
+    first = _first_name(user)
+    subject = t["subject"].format(first=first)
+    intro = t["intro"].format(first=first, username=user.username)
+    revoke = t["revoke"].format(first=first)
+    text = "\n\n".join([t["title"], intro, revoke, f"{t['cta']}: {url}"])
+    html = _layout(subject, [_h1(t["title"]), _p(intro), _p(revoke), _button(t["cta"], url)], t["footer"])
+    return subject, text, html
+
+
 # ── auth.coach-approval rule 5 ──────────────────────────────────────────────
 
 _APPROVED = {

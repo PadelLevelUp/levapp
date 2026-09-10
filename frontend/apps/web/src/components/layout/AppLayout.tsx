@@ -31,7 +31,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
-import { createEventSource } from "@/api/events";
+import { subscribeAppEvents } from "@/api/events";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -185,27 +185,15 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!token) return;
 
-    const es = createEventSource(token);
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // When viewing a specific conversation, MessagesPage marks it read first
-        // then calls refreshUnreadCount — avoid racing with it here.
-        if (data?.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
-          void refreshUnreadCount();
-        }
-      } catch (error) {
-        console.warn("Invalid SSE message payload", error);
+    // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream,
+    // which also reconnects — this effect used to close for good on any error.
+    return subscribeAppEvents(token, (data) => {
+      // When viewing a specific conversation, MessagesPage marks it read first
+      // then calls refreshUnreadCount — avoid racing with it here.
+      if (data.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
+        void refreshUnreadCount();
       }
-    };
-
-    es.onerror = () => {
-      es.close();
-    };
-
-    return () => {
-      es.close();
-    };
+    });
   }, [refreshUnreadCount, token]);
   
   return (

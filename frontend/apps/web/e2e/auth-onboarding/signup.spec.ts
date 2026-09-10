@@ -28,6 +28,8 @@ async function signUp(page: Page, role: "coach" | "student", username: string, v
   await page.locator("#signup-email").fill(`${username}@example.com`);
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
+  // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
+  await page.locator("#signup-birthDate").fill("2000-01-01");
   await page.getByTestId("signup-submit").click();
   if (verify) await completeEmailVerification(page);
 }
@@ -68,6 +70,8 @@ test("US-225: a too-short username is reported under its field before any reques
   await page.locator("#signup-email").fill(`short-${stamp()}@example.com`);
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
+  // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
+  await page.locator("#signup-birthDate").fill("2000-01-01");
   await page.getByTestId("signup-submit").click();
 
   await expect(page.getByTestId("signup-username-error")).toContainText(/3 characters|3 caracteres/i);

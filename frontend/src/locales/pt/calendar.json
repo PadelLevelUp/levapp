@@ -7,6 +7,13 @@
       "addEvent": "Adicionar evento",
       "addClass": "Adicionar aula"
     },
+    "month": {
+      "previous": "Mês anterior",
+      "next": "Mês seguinte"
+    },
+    "sheet": {
+      "handle": "Arrastar para redimensionar"
+    },
     "views": {
       "label": "Vista do calendário",
       "day": "Dia",

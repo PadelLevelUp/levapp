@@ -83,3 +83,74 @@ describe("useCalendar view mode", () => {
     expect(onViewModeChange).toHaveBeenCalledWith("month");
   });
 });
+
+/**
+ * PAD-248 — calendar.mobile-views rules 2 and 15: month navigation, the month
+ * label, the grid range the shells fetch, and a selection that can move to
+ * another week without being snapped back by the reselect rule.
+ */
+describe("useCalendar month", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Wednesday 9 September 2026.
+    vi.setSystemTime(new Date("2026-09-09T10:00:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("labels the month in the active language", () => {
+    const en = renderHook(() => useCalendar([], { language: "en" }));
+    expect(en.result.current.monthLabel).toBe("September 2026");
+    const ptHook = renderHook(() => useCalendar([], { language: "pt" }));
+    expect(ptHook.result.current.monthLabel).toBe("Setembro 2026");
+  });
+
+  it("exposes the grid range covering the month (Mon 31 Aug – Sun 4 Oct)", () => {
+    const { result } = renderHook(() => useCalendar([]));
+    expect(day(result.current.monthRange.start)).toBe("2026-08-31");
+    expect(day(result.current.monthRange.end)).toBe("2026-10-04");
+    expect(result.current.monthDays).toHaveLength(35);
+  });
+
+  it("paging to a month without today selects its 1st and moves the week with it", () => {
+    const { result } = renderHook(() => useCalendar([], { language: "en" }));
+    act(() => result.current.selectDay(new Date("2026-09-10T00:00:00")));
+    act(() => result.current.navigateMonth("next"));
+    expect(result.current.monthLabel).toBe("October 2026");
+    expect(day(result.current.selectedDay)).toBe("2026-10-01");
+    expect(day(result.current.weekStart)).toBe("2026-09-28");
+  });
+
+  it("paging back into today's month reselects today", () => {
+    const { result } = renderHook(() => useCalendar([]));
+    act(() => result.current.navigateMonth("next"));
+    act(() => result.current.navigateMonth("prev"));
+    expect(day(result.current.selectedDay)).toBe("2026-09-09");
+  });
+
+  it("selecting a day in another week keeps it selected and moves the week to it", () => {
+    const { result } = renderHook(() => useCalendar([]));
+    act(() => result.current.selectDay(new Date("2026-09-24T00:00:00")));
+    expect(day(result.current.selectedDay)).toBe("2026-09-24");
+    expect(day(result.current.weekStart)).toBe("2026-09-21");
+  });
+
+  it("monthEvents holds every event inside the grid range", () => {
+    const ev = (id: string, date: string) => ({
+      id,
+      model: "LessonInstance",
+      originalId: 1,
+      type: "class" as const,
+      isRecurring: false,
+      title: id,
+      date,
+      startTime: "10:00",
+      endTime: "11:00",
+    });
+    const { result } = renderHook(() =>
+      useCalendar([ev("a", "2026-08-31"), ev("b", "2026-09-20"), ev("c", "2026-10-05")])
+    );
+    expect(result.current.monthEvents.map((e) => e.id)).toEqual(["a", "b"]);
+  });
+});

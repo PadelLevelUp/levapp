@@ -3,8 +3,8 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from flask_login import current_user
 
 from padel_app.model import Image
-from padel_app.tools import tools
 from padel_app.models import MODELS, User
+from padel_app.tools.redaction import redacted_columns, strip_redacted
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -24,7 +24,12 @@ bp = Blueprint("api", __name__, url_prefix="/api")
 # Two credentials are accepted, one per real client:
 #   * a Flask-Login session  — the legacy Jinja editor pages and their JS;
 #   * a JWT bearer token     — parity with `modules/editor_api.py`.
-# Unauthenticated callers get 401; authenticated non-admins get 403.
+# Unauthenticated callers get 401; authenticated non-superadmins get 403.
+#
+# PAD-267 (settings.admin-editor): superadmin only (a legacy `is_admin` is now
+# refused too), the blueprint exists only where EDITOR_ENABLED is on, secret
+# columns are never returned or written, no method runs by name, and the CSV
+# export/import routes are gone.
 
 
 def _resolve_caller():
@@ -54,8 +59,8 @@ def require_admin():
     user = _resolve_caller()
     if user is None:
         return jsonify(success=False, error="Authentication required"), 401
-    if not (getattr(user, "is_admin", False) or getattr(user, "is_superadmin", False)):
-        return jsonify(success=False, error="Admin access required"), 403
+    if not getattr(user, "is_superadmin", False):
+        return jsonify(success=False, error="Superadmin access required"), 403
     return None
 
 
@@ -75,6 +80,7 @@ def create(model):
         form = empty_instance.get_create_form()
         values = form.set_values(request)
 
+    values = strip_redacted(model_cls, values)
     if not values:
         return jsonify(success=False, error="No values provided"), 400
 
@@ -95,24 +101,22 @@ def edit(model, id):
     if not obj:
         return jsonify(success=False, error=f"{model} with id {id} not found"), 404
 
-    methods = []
     if request.is_json:
         data = request.get_json() or {}
+        # settings.admin-editor rule 4: no method runs by name. This used to call
+        # getattr(obj, name)() for every name in `methods` (delete, logout, ...);
+        # the Jinja editor never sent it.
+        if data.get("methods"):
+            return jsonify(success=False, error="Method invocation is not supported"), 400
         values = data.get("values", {})
-        methods = data.get("methods", [])
     else:
         form = obj.get_edit_form()
         values = form.set_values(request)
 
+    values = strip_redacted(model_cls, values)
     if values:
         obj.update_with_dict(values)
         obj.save()
-
-    for method_name in methods:
-        if hasattr(obj, method_name):
-            getattr(obj, method_name)()
-        else:
-            return jsonify(success=False, error=f"Method {method_name} not found"), 400
 
     return jsonify(success=True, id=obj.id)
 
@@ -122,6 +126,9 @@ def delete(model, id):
     if request.method == "POST":
         model_name = model.lower()
         model = MODELS[model_name]
+        # auth.account-profiles rule 3 (PAD-260): users are never hard-deleted here.
+        if model.__tablename__ == "users":
+            return jsonify(success=False, error="Users are not deleted through the editor; use account deletion (DELETE /api/auth/me)."), 409
         obj = model.query.filter_by(id=id).first()
         obj.delete()
         return jsonify(url_for("editor.display_all", model=model_name))
@@ -135,10 +142,13 @@ def query(model):
 
     instances = model_cls.query.all()
 
+    hidden = redacted_columns(model_cls)
+
     def serialize(instance):
         return {
             column.name: getattr(instance, column.name)
             for column in instance.__table__.columns
+            if column.name not in hidden
         }
 
     return jsonify([serialize(instance) for instance in instances])
@@ -173,32 +183,13 @@ def modal_create_page(model):
     empty_instance = model()
     form = empty_instance.get_basic_create_form()
     if request.method == "POST":
-        values = form.set_values(request)
+        values = strip_redacted(model, form.set_values(request))
         empty_instance.update_with_dict(values)
         empty_instance.create()
         response = {"value": empty_instance.id, "name": empty_instance.name}
         return jsonify(response)
     data = empty_instance.get_basic_create_data(form)
     return render_template("editor/modal_create.html", data=data)
-
-
-@bp.route("/download_csv/<model>", methods=["GET", "POST"])
-def download_csv(model):
-    model_name = model.lower()
-    model = MODELS[model_name]
-    filepath = tools.create_csv_for_model(model)
-    return filepath
-
-
-@bp.route("/upload_csv_to_db/<model>", methods=["GET", "POST"])
-def upload_csv_to_db(model):
-    model_name = model
-    model = MODELS[model_name]
-    check = tools.upload_csv_to_model(model)
-    if check:
-        return jsonify(url_for("editor.display_all", model=model_name))
-    else:
-        return jsonify(sucess=False)
 
 
 @bp.get("/image/<int:image_id>")

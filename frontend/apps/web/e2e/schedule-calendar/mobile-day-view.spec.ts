@@ -22,9 +22,10 @@ import { loginAsCoach, loginAsStudent } from "../helpers/auth";
  */
 const TODAY = format(new Date(), "yyyy-MM-dd");
 
-// Times are chosen so the ordering and the "next" gate are stable whenever
-// the suite runs before 23:40 local time: the two upcoming classes sit at the
-// very end of the day, the finished one at its start.
+// The two upcoming classes sit at the very end of the day and the finished one
+// at its start, so the ordering and the "next" gate depend on "now". PAD-253:
+// mockCalendar pins the browser clock to noon of TODAY, so they hold whenever
+// the suite runs (it used to fail between 23:51 and midnight).
 const MOCK_EVENTS = [
   {
     id: "class-1001",
@@ -105,6 +106,9 @@ const MOCK_EVENTS = [
 ];
 
 async function mockCalendar(page: Page) {
+  // PAD-253: every mock is placed relative to noon of TODAY, not to the wall
+  // clock. setFixedTime keeps timers running, so the app still renders.
+  await page.clock.setFixedTime(new Date(`${TODAY}T12:00:00`));
   await page.route("**/app/calendar**", (route) =>
     route.fulfill({
       status: 200,
@@ -119,7 +123,7 @@ const PHONE = { width: 390, height: 844 };
 test.describe("PAD-246: phone calendar Dia view", () => {
   test.use({ viewport: PHONE });
 
-  test("US-246-1: segmented control shows Dia active and the other modes disabled", async ({
+  test("US-246-1: segmented control shows Dia active and all three modes enabled", async ({
     page,
   }) => {
     await loginAsCoach(page);
@@ -131,18 +135,18 @@ test.describe("PAD-246: phone calendar Dia view", () => {
     await expect(dayTab).toHaveText("Day");
     await expect(page.getByTestId("calendar-view-week")).toHaveText("Week");
     await expect(page.getByTestId("calendar-view-month")).toHaveText("Month");
-    // Semana and Mês ship in PAD-247 / PAD-248.
-    await expect(page.getByTestId("calendar-view-week")).toHaveAttribute(
+    // Semana shipped in PAD-247 and Mês in PAD-248 (their own specs cover them).
+    await expect(page.getByTestId("calendar-view-week")).not.toHaveAttribute(
       "aria-disabled",
       "true"
     );
-    await expect(page.getByTestId("calendar-view-month")).toHaveAttribute(
+    await expect(page.getByTestId("calendar-view-month")).not.toHaveAttribute(
       "aria-disabled",
       "true"
     );
-    // A stored mode that is not enabled yet falls back to Dia.
+    // A stored mode the app does not know falls back to Dia.
     await page.evaluate(() =>
-      window.localStorage.setItem("levapp.calendar.viewMode", "week")
+      window.localStorage.setItem("levapp.calendar.viewMode", "year")
     );
     await page.reload();
     await expect(page.getByTestId("calendar-view-day")).toHaveAttribute(

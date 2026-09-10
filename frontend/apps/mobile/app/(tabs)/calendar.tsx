@@ -22,11 +22,14 @@ import { DayStrip } from "@/features/calendar/DayStrip";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
 import { ViewModeControl } from "@/features/calendar/ViewModeControl";
+import { WeekView } from "@/features/calendar/WeekView";
+import { MonthView } from "@/features/calendar/MonthView";
+import { FAB_CLEARANCE } from "@/features/calendar/layout";
 import { cn } from "@/lib/utils";
 import { readViewMode, writeViewMode } from "@/lib/view-mode-store";
 
-/** Modes that have shipped. Semana arrives with PAD-247, Mês with PAD-248. */
-const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day"];
+/** Modes that have shipped: Dia (PAD-246), Semana (PAD-247), Mês (PAD-248). */
+const ENABLED_VIEW_MODES: CalendarViewMode[] = ["day", "week", "month"];
 
 function eventDayKey(event: CalendarEvent): string {
   const date = event.date;
@@ -68,6 +71,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
+  const [addButtonsHidden, setAddButtonsHidden] = React.useState(false);
 
   // Week navigation, the selected day and the view mode all live in the
   // shared hook (calendar.mobile-views rule 2) — this screen never re-decides
@@ -77,8 +82,13 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     initialViewMode,
     onViewModeChange: writeViewMode,
   });
-  const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
-  const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
+  // PAD-248: Mês fetches the whole grid (every week touching the month);
+  // Dia and Semana fetch the visible week.
+  const isMonth = calendar.viewMode === "month";
+  const rangeStart = isMonth ? calendar.monthRange.start : calendar.weekStart;
+  const rangeEnd = isMonth ? calendar.monthRange.end : addDays(calendar.weekStart, 6);
+  const from = format(rangeStart, "yyyy-MM-dd'T'00:00:00");
+  const to = format(rangeEnd, "yyyy-MM-dd'T'23:59:59");
   const {
     data: events,
     isPending,
@@ -114,10 +124,10 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   // the WEEK containing today — the same rule the web view uses.
   const nextEventId = React.useMemo(
     () =>
-      calendar.weekDays.some((d) => isToday(d))
+      (isMonth ? calendar.monthDays : calendar.weekDays).some((d) => isToday(d))
         ? findNextEventId(events ?? [])
         : undefined,
-    [events, calendar.weekDays]
+    [events, isMonth, calendar.monthDays, calendar.weekDays]
   );
 
   const openEvent = (event: CalendarEvent) => {
@@ -147,29 +157,64 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
         enabled={ENABLED_VIEW_MODES}
       />
 
-      <DayStrip
-        weekDays={calendar.weekDays}
-        selectedDay={calendar.selectedDay}
-        onSelectDay={calendar.selectDay}
-        onPrev={() => calendar.navigateWeek("prev")}
-        onNext={() => calendar.navigateWeek("next")}
-        eventsByDay={eventsByDay}
-      />
-
-      <View className="flex-1">
-        {isError ? (
-          <ErrorState
-            message={t("calendar.mobile.loadFailed")}
-            onRetry={() => refetch()}
+      {isError ? (
+        <View className="flex-1">
+          <ErrorState message={t("calendar.mobile.loadFailed")} onRetry={() => refetch()} />
+        </View>
+      ) : isPending ? (
+        <View className="flex-1 gap-3 p-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </View>
+      ) : isMonth ? (
+        // PAD-248: Mês — month nav, month grid, single-day grid, day sheet.
+        <MonthView
+          monthLabel={calendar.monthLabel}
+          monthDays={calendar.monthDays}
+          monthStart={calendar.monthStart}
+          selectedDay={calendar.selectedDay}
+          onSelectDay={calendar.selectDay}
+          onPrevMonth={() => calendar.navigateMonth("prev")}
+          onNextMonth={() => calendar.navigateMonth("next")}
+          onSheetRaisedChange={setAddButtonsHidden}
+          eventsByDay={eventsByDay}
+          nextEventId={nextEventId}
+          levelCodeById={levelCodeById}
+          onEventPress={openEvent}
+        />
+      ) : calendar.viewMode === "week" ? (
+        // PAD-247: Semana — nav row, day header row, time grid, day sheet.
+        <WeekView
+          weekDays={calendar.weekDays}
+          weekLabel={calendar.weekLabel}
+          selectedDay={calendar.selectedDay}
+          onSelectDay={calendar.selectDay}
+          onPrevWeek={() => calendar.navigateWeek("prev")}
+          onNextWeek={() => calendar.navigateWeek("next")}
+          onToday={calendar.goToToday}
+          events={events ?? []}
+          eventsByDay={eventsByDay}
+          nextEventId={nextEventId}
+          levelCodeById={levelCodeById}
+          onEventPress={openEvent}
+        />
+      ) : (
+        <>
+          <DayStrip
+            weekDays={calendar.weekDays}
+            selectedDay={calendar.selectedDay}
+            onSelectDay={calendar.selectDay}
+            onPrev={() => calendar.navigateWeek("prev")}
+            onNext={() => calendar.navigateWeek("next")}
+            eventsByDay={eventsByDay}
           />
-        ) : isPending ? (
-          <View className="gap-3 p-4">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </View>
-        ) : (
-          <ScrollView className="flex-1" contentContainerClassName="pb-32">
+          <ScrollView
+            testID="calendar-day-list"
+            className="flex-1"
+            // Rule 18: clear of the floating add buttons at the end of the list.
+            contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
+          >
             <DayHeader day={calendar.selectedDay} count={dayEvents.length} />
             <View className="gap-3 px-5 pt-3">
               {dayEvents.length === 0 ? (
@@ -196,11 +241,12 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
               )}
             </View>
           </ScrollView>
-        )}
-      </View>
+        </>
+      )}
 
       {/* Floating add actions (calendar.mobile-views rule 18): "Add event" for
           every role, "Add class" for coaches only. */}
+      {!addButtonsHidden ? (
       <Pressable
         testID="calendar-add-event"
         accessibilityLabel={t("calendar.toolbar.addEvent")}
@@ -222,8 +268,9 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
           color={lightTheme.foreground}
         />
       </Pressable>
+      ) : null}
 
-      {isCoach ? (
+      {isCoach && !addButtonsHidden ? (
         <Pressable
           testID="calendar-add-class"
           accessibilityLabel={t("calendar.toolbar.addClass")}

@@ -18,7 +18,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 3. Block types. Both roles share ONE "home" block vocabulary since the coach redesign
    (`helpers/dashboard/coach_home.py`) and PAD-202 (`helpers/dashboard/player_home.py`):
    - `next_class`: the class about to start — title, ISO date, start/end time, `isToday`,
-     `minutesUntil` (only when today and within two hours, else `null`), fill `filled`/`capacity`,
+     `minutesUntil` (only when today and within two hours, else `null`; both on the club's clock, PAD-256), fill `filled`/`capacity`,
      a server-capped roster for the avatar stack, and a calendar deep link. **Omitted entirely**
      when nothing is scheduled in the next 90 days; there is no empty hero.
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
@@ -78,7 +78,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      instance is `invited` and not yet `confirmed`, i.e. they have been asked to confirm and have
      not answered (both answers set `confirmed`, see `notifications.reminders`).
    - `week_pulse` (coach only): two metrics with denominators — seats filled this week and active
-     players — never a third.
+     players — never a third. A deleted account is not counted as a player, in the count or the
+     denominator (`auth.account-deletion` rule 8).
    - `kpi_grid` (student only): Attended / Missed / Upcoming lessons / Invites. Every item carries
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
@@ -139,12 +140,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 5. Coach and player get different dashboard payloads
 6. **(PAD-144)** The coach's *pending confirmations* set covers **tomorrow's** classes, where
    "tomorrow" is the next **club-local calendar day** (`Europe/Lisbon`) — the day the coach sees on
-   their own calendar, consistent with `calendar` rule 6 and `notifications.config` rule 6b. The
-   half-open `[start, end)` window must be derived in club-local time and converted back to naive
-   UTC to compare against `LessonInstance.start_datetime` (stored naive UTC). A bare
-   `.replace(hour=0, ...)` on a naive-UTC instant pins the window to UTC midnight, which in
-   Portuguese summer time shifts it an hour: a class at 00:30 local tomorrow is excluded while one
-   at 00:30 local *today* is wrongly included.
+   their own calendar, consistent with `calendar` rule 6 and `notifications.config` rule 6b.
+   `LessonInstance.start_datetime` is stored on the club's wall clock (R-023, PAD-256). So the
+   half-open `[start, end)` window is tomorrow 00:00 to the day after 00:00 in wall-clock terms, and
+   it is compared with `start_datetime` directly, with no UTC conversion. PAD-144 converted the
+   window to naive UTC on the assumption that class times were stored in UTC. In summer that made
+   the window 23:00 to 23:00: a class at 23:30 today was counted as tomorrow's, and one at 23:30
+   tomorrow was left out.
 7. **(PAD-144)** Rule 6 governs more than a count. The same window selects the targets of
    `notify_pending_confirmations`, which actually **sends** messages, so a misaligned boundary does
    not merely misreport a number — it nudges the wrong students about the wrong day's classes.
@@ -159,6 +161,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    classes it holds and never touches another coach's rows. The replies queue asks the database
    for the newest unread message per conversation, capped at the queue limit, instead of every
    unread message.
+9. **(B-058)** A class is in a dashboard window when it overlaps it: its **end instant** is
+   after the window start and its start instant is before the window end. The end instant is
+   the class's END datetime, never the start date joined to the end time-of-day. `date`,
+   `startTime` and `endTime` are UTC strings, so a class that crosses UTC midnight (23:15–00:15
+   UTC; in Lisbon summer, any class ending after 01:00 local) ends on the NEXT date. Joining the
+   start date to `endTime` put its end before its start, and every block built on the shared
+   window silently dropped it: the coach hero, needs-you empty seats, next 7 days and week
+   pulse, and the student hero and schedule.
 
 ### Acceptance Criteria
 
@@ -300,3 +310,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
   "next class" hero, the "NEEDS YOU" and "NEXT 7 DAYS" eyebrows and the KPI tiles with their
   denominators; and the same locators the coach home exposes (`dashboard-next-class`,
   `dashboard-needs-you`, `dashboard-schedule`) are present under `student-dashboard`
+
+#### A class crossing UTC midnight stays on both homes (B-058)
+- **Given** a coach with a one-hour class at 23:15 UTC today that has empty seats, and a student signed up for it
+- **When** the dashboards are built at 22:30 UTC
+- **Then** the class is the coach's next-class hero, an empty-seats item on the needs-you queue and a row in the next 7 days
+- **And** it is the student's next-class hero and a row on their schedule

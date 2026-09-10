@@ -20,6 +20,8 @@ import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import GuardianConsentPage from "@/pages/GuardianConsentPage";
+import GuardianRevokePage from "@/pages/GuardianRevokePage";
 import CoachPendingPage from "./pages/CoachPendingPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ClubOnboardingPage from "./pages/ClubOnboardingPage";
@@ -71,6 +73,9 @@ const App = () => (
               <Route path="/signup" element={<SignUpPage />} />
               {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              {/* auth.parental-consent (PAD-198) — public, reached from the guardian's emails. */}
+              <Route path="/guardian-consent/revoke/:token" element={<GuardianRevokePage />} />
+              <Route path="/guardian-consent/:token" element={<GuardianConsentPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />

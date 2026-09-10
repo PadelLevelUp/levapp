@@ -19,7 +19,7 @@ from datetime import timedelta
 from hashlib import sha256
 
 from flask import current_app
-from flask_jwt_extended import create_access_token
+from padel_app.utils.tokens import issue_access_token
 from werkzeug.security import generate_password_hash
 
 from padel_app.models import User
@@ -129,7 +129,7 @@ def request_recovery(email, now=None):
 def login_body(user):
     """The `POST /api/auth/login` response shape (rule 6)."""
     return {
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
         "user": {"id": user.id, "name": user.name, "role": user.role},
     }
 

@@ -14,8 +14,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 
 ### Entities
 - **Lesson** (`lessons`): title, description, start_datetime, end_datetime, is_recurring, recurrence_rule (JSON RRULE), recurrence_end, type (academy|private), default_level_id, max_players, color, status (active|ended), notifications_enabled, club_id
-- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id
-- **Association_PlayerLesson** (`player_in_lesson`): player_id, lesson_id
+- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id — unique on (coach_id, lesson_id), indexed on lesson_id
+- **Association_PlayerLesson** (`player_in_lesson`): player_id, lesson_id — unique on (player_id, lesson_id), indexed on lesson_id
 
 ### Rules
 1. Type is `academy` (group) or `private` (1-on-1)

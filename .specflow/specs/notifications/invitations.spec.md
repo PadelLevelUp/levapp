@@ -15,8 +15,8 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 `eligibility.rules`. They decide priority; they never decide permission.
 
 ### Entities
-- **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at
-- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued)
+- **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
+- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
@@ -76,15 +76,40 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
    coach's entire roster. The same applies to the legacy rounds `same_level` criterion.
-5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger):
+5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
+   `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
+   be able to run the batch processor concurrently with the scheduler.
+   Details:
    - Skips vacancies with approval_status "pending" or "dismissed"
    - Sends batched invitations (maxSimultaneous at a time)
    - Respects restrictions (quiet hours, max per student per day, etc.)
    - Expires unanswered invitations after maxInactiveTime
 6. Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no
 7. If confirmed: Vacancy.status = "filled", player added to instance
-8. If all decline or expire: moves to next round
+8. If all decline or expire: moves to next round. A player invited for a vacancy in a round is
+   not invited for it again in that round, whatever they answered: a decline, a timeout and a
+   still-open invitation all count. The next round applies its own criteria (B-056).
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
+    vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
+    spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
+    waited on the lock past the start (or across a move to start now) is expired exactly as the early
+    check expires it. A second "yes" for the
+    same last spot waits on the lock, finds the spot taken and gets the normal spot-filled answer and
+    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are created only under
+    the class lock: a departing player has at most one open vacancy (a found one is returned without
+    a lock; a new one is created after looking again under the lock), and structural vacancies are
+    counted again under the same lock and added in one commit. Every locked section ends in a
+    commit, so no lock outlives the decision it protects. The partial unique key on open vacancies
+    is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
+11. **When the invitation window opens (PAD-256).** `invitation_start_timing` is computed exactly
+    like a reminder (`notifications.reminders` rule 15):
+    - `hours_before` counts real hours before the class's real start;
+    - `days_before` takes the class's own date at HH:MM on the club's clock.
+
+    The result is a UTC instant. `Vacancy.invite_not_before` stores it as naive UTC, because it
+    is a moment the server computes (R-023), and every gate compares it with UTC now.
+    `minTimeBeforeClass` counts real minutes to the class's real start.
 
 ### Acceptance Criteria
 
@@ -165,6 +190,15 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the Vacancy advances to Round 2
 - **And** new matching criteria are applied
 
+#### A student who declines is not invited again in that round (B-056)
+- **Given** one open spot, two students eligible in Round 1, and one invitation at a time
+- **When** the first-ranked student declines
+- **Then** the next invitation goes to the other student, and the first student has exactly one
+  invitation for that vacancy in Round 1
+- **And** a decline recorded by the coach is treated the same on the next batch
+- **And** when the other student declines too, the vacancy advances to Round 2 instead of
+  re-inviting either of them
+
 #### The widest round is capped at the eligibility bar (pending PAD-128)
 - **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
 - **And** a vacancy whose earlier rounds have all been exhausted
@@ -217,3 +251,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** eligibility for that group is computed
 - **Then** no student passes (the level rule fails closed)
 - **And** the group does not fall back to the coach's whole roster
+
+#### Two students accept the last spot at once (PAD-261, Postgres)
+- **Given** a class with one open spot and two invited students
+- **When** both answer "yes" at the same moment
+- **Then** exactly one is enrolled and the other gets the spot-filled answer
+
+#### An answer that waits past the start enrols nobody (PAD-261, PAD-68)
+- **Given** a student's "yes" that passed the early "class is over" check
+- **When** the class reaches its start while the answer waits on the lock
+- **Then** nobody is enrolled, the answer is `expired`, and the invitation and the open vacancy are expired
+
+#### A departing player gets one open vacancy (PAD-261)
+- **Given** an open vacancy already exists for a student's absence
+- **When** the absence is processed again
+- **Then** the existing vacancy is returned and no second one is created

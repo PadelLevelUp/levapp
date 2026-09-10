@@ -49,7 +49,7 @@ for every bucket and every history row.
 5. The response contains a **contiguous, gap-filled** bucket series covering the whole requested
    range (empty buckets are present with `count: 0`), so the chart's x-axis is continuous rather
    than skipping periods with no attendance.
-6. The default range when no `from`/`to` is supplied is the current month.
+6. The default range when no `from`/`to` is supplied is the current month on the club's clock (PAD-256).
 7. The response also contains a `sessions[]` list of the attended classes in range, most recent
    first, each carrying the class title, its `startDatetime`, its `lessonInstanceId`, and an
    `href` deep link.

@@ -22,9 +22,16 @@ gunicorn worker. A second worker would keep its own registry and simply not see
 the connections held by the first. Horizontal scaling needs a shared broker.
 """
 
+import logging
 import queue
 import threading
 from collections.abc import Iterable
+
+logger = logging.getLogger(__name__)
+
+#: Put into a queue to end its stream at once: the per-user cap evicts a
+#: user's oldest stream this way (messaging.sse-realtime rule 12, PAD-277).
+STOP = object()
 
 # user id -> the queues that user currently has open
 _subscribers: dict[int, list[queue.Queue]] = {}
@@ -42,6 +49,47 @@ def subscribe(user_id: int) -> queue.Queue:
     with _lock:
         _subscribers.setdefault(user_id, []).append(q)
     return q
+
+
+def stream_count() -> int:
+    """Number of open SSE connections across every user."""
+    with _lock:
+        return sum(len(queues) for queues in _subscribers.values())
+
+
+def try_subscribe(user_id: int, *, max_total: int, max_per_user: int):
+    """Register a queue for ``user_id``; return ``(queue, None)`` or
+    ``(None, "total")`` (messaging.sse-realtime rules 11-13, PAD-277).
+
+    Over the per-user cap the user's OLDEST queues are evicted to make room
+    and sent ``STOP``, which ends their streams at once. The newest connection
+    is almost always the live one (a reloaded tab); the oldest is most likely
+    one whose client is gone but not yet noticed by a keep-alive. Only the
+    server-wide cap refuses, and it is judged on the total AFTER that eviction,
+    so a user already at their own cap always gets through and a refusal
+    never evicts anyone. Check, eviction and registration share one lock
+    acquisition, so two requests can never both take the last slot.
+    """
+    user_id = int(user_id)
+    with _lock:
+        queues = _subscribers.get(user_id, [])
+        to_evict = max(0, len(queues) - max_per_user + 1)
+        total = sum(len(qs) for qs in _subscribers.values())
+        if total - to_evict >= max_total:
+            return None, "total"
+        evicted = queues[:to_evict]
+        q: queue.Queue = queue.Queue()
+        _subscribers[user_id] = queues[to_evict:] + [q]
+
+    # Outside the lock, like publish(): a put must never block a subscribe.
+    for old in evicted:
+        try:
+            old.put_nowait(STOP)
+        except Exception:
+            pass
+    if evicted:
+        logger.info("SSE stream evicted: user=%s evicted=%s", user_id, len(evicted))
+    return q, None
 
 
 def unsubscribe(user_id: int, q: queue.Queue) -> None:

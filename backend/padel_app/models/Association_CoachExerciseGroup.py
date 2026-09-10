@@ -22,8 +22,8 @@ class Association_CoachExerciseGroup(db.Model, model.Model):
     model_name = "Association_CoachExerciseGroup"
 
     id = Column(Integer, primary_key=True)
-    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"))
-    exercise_group_id = Column(Integer, ForeignKey("exercise_groups.id", ondelete="CASCADE"))
+    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
+    exercise_group_id = Column(Integer, ForeignKey("exercise_groups.id", ondelete="CASCADE"), nullable=False)
     role = Column(
         Enum("owner", "follower", name="coach_exercise_group_role"),
         nullable=False,

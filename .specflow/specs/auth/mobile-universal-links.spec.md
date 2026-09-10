@@ -50,8 +50,22 @@ Exactly three, all account-creation entry points:
 6. Each claimed route renders the native account-creation screen for that path — see
    `auth.mobile-account-creation`. (Until PAD-164 landed, the routes rendered a hand-off placeholder
    that reopened the equivalent web URL instead.)
+7. **Android App Links (PAD-216).** `android.intentFilters` in `apps/mobile/app.json` claims the
+   same three path prefixes on the same three hosts (`levapp.app`, `padellevelup.com`,
+   `www.padellevelup.com`) in one `VIEW` filter with `autoVerify: true` and the `BROWSABLE` and
+   `DEFAULT` categories; the same pure mapping of rule 3 routes them. Android only verifies the
+   claim against `/.well-known/assetlinks.json` on each host, carrying the SHA-256 of the release
+   signing certificate, which exists only once the owner creates the Play signing key. Until that
+   file is served a tap opens the browser or the chooser, and the web flow of rule 5 is the
+   fallback. The file is added in the change that has the real fingerprint — never with a
+   placeholder, which would be a claim nobody can verify.
 
 ### Acceptance Criteria
+
+#### Android declares the same three paths (PAD-216)
+- **Given** `apps/mobile/app.json`
+- **When** `expo prebuild --platform android` generates the manifest
+- **Then** the main activity has one `VIEW` intent filter with `android:autoVerify="true"`, the `BROWSABLE` and `DEFAULT` categories, scheme `https`, hosts `levapp.app`, `padellevelup.com`, `www.padellevelup.com`, and path prefixes `/invite/player/`, `/invite/coach/`, `/register/` — and no broader path
 
 #### A player invite link opens the app at the right route
 - **Given** an iPhone with the app installed and the association file served from `levapp.app`
@@ -106,3 +120,4 @@ Verify against the exported `.ipa`, not the `.xcarchive`.
 `WEB_APP_URL` currently points at `https://www.padellevelup.com`. Apple does not treat
 `applinks:padellevelup.com` as covering the `www.` host; if www becomes the canonical link host the
 entitlement needs its own entry. Tracked in `docs/infra/universal-links.md`.
+- OPEN: Android `assetlinks.json` on `levapp.app` and `padellevelup.com` needs the release signing certificate's SHA-256 (owner prerequisite, PAD-216 store README).

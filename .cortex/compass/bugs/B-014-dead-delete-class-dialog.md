@@ -3,7 +3,7 @@ id: B-014
 title: "DeleteClassDialog.tsx is dead code, superseded by ClassScopeDialog"
 type: layer-drift
 severity: low
-status: fixed
+status: resolved
 affects:
   - frontend/apps/web/src/components/calendar/DeleteClassDialog.tsx
 proposed_fix: "Delete the file; ClassScopeDialog carries the single-occurrence-vs-series delete flow."

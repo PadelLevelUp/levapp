@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
@@ -14,7 +16,11 @@ class Coach(db.Model, model.Model):
 
     id = Column(Integer, primary_key=True)
     
-    user_id = Column(Integer, ForeignKey("users.id"))
+    # auth.account-profiles rule 1 (PAD-260): one account, at most one coache profile,
+    # never an orphan. The migration names these fk_coaches_user_id / uq_coaches_user_id.
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     user = relationship("User", back_populates="coach", foreign_keys=[user_id])
 
     # ── auth.coach-approval ─────────────────────────────────────────────────
@@ -64,7 +70,23 @@ class Coach(db.Model, model.Model):
     
     @property
     def current_club(self):
-        return self.clubs[-1] if self.clubs else None
+        """The most recently joined club — clubs.crud rule 3 (PAD-266 / B-036).
+
+        The membership with the latest ``created_at`` wins; an undated row
+        (legacy data — the column is nullable) counts as the oldest, and equal
+        join times go to the higher id. Ranked here rather than read off the
+        ``desc(created_at)`` relationship because Postgres sorts NULLs FIRST in
+        a descending order while SQLite sorts them last: the relationship's
+        order is not the rule. (It used to take ``clubs[-1]``, the oldest.)
+        """
+        memberships = [rel for rel in self.clubs_relations if rel.club is not None]
+        if not memberships:
+            return None
+        newest = max(
+            memberships,
+            key=lambda rel: (rel.created_at is not None, rel.created_at or datetime.min, rel.id or 0),
+        )
+        return newest.club
 
     # Many-to-many: Lessons
     lessons_relations = relationship(

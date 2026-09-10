@@ -6,6 +6,11 @@ Before PAD-88 the blueprint carried no `before_request` guard and no
 `jwt_required` on any route, so an anonymous caller could create, edit, delete,
 dump and CSV-export every entry of `padel_app.models.MODELS`.
 
+PAD-267 (settings.admin-editor rules 2 and 5) tightened it: only the
+superadmin gets through (a legacy `is_admin` is now refused too), and the CSV
+export/import routes are gone (their absence is pinned in
+test_pad267_admin_editor.py).
+
 These tests pin the contract:
   * no credentials                -> 401, and nothing is written;
   * valid credentials, not admin  -> 403, and nothing is written;
@@ -65,10 +70,6 @@ ALL_ROUTES = [
     ("post", "/api/remove_relationship"),
     ("get", "/api/modal_create_page/season"),
     ("post", "/api/modal_create_page/season"),
-    ("get", "/api/download_csv/user"),
-    ("post", "/api/download_csv/user"),
-    ("get", "/api/upload_csv_to_db/user"),
-    ("post", "/api/upload_csv_to_db/user"),
     ("get", "/api/image/1"),
 ]
 
@@ -162,7 +163,8 @@ def test_authenticated_non_admin_is_forbidden(app, client):
     assert client.get("/api/query/user", headers=headers).status_code == 403
 
 
-def test_admin_jwt_passes_the_guard(app, client):
+def test_legacy_admin_who_is_not_superadmin_is_forbidden(app, client):
+    """PAD-267 (settings.admin-editor rule 2): `is_admin` alone no longer passes."""
     from padel_app.models.clubs import Club
 
     admin_id = _make_user(app, "admin_user", is_admin=True)
@@ -179,10 +181,23 @@ def test_admin_jwt_passes_the_guard(app, client):
         headers=_auth_header(app, admin_id),
     )
 
-    assert response.status_code == 200
-    assert response.get_json()["success"] is True
+    assert response.status_code == 403
     with app.app_context():
-        assert Club.query.filter_by(name="Admin created club").count() == 1
+        assert Club.query.filter_by(name="Admin created club").count() == 0
+
+
+def test_superadmin_jwt_can_write_through_the_guard(app, client):
+    from padel_app.models.clubs import Club
+
+    admin_id = _make_user(app, "super_writer", is_superadmin=True)
+    response = client.post(
+        "/api/create/club",
+        json={"values": {"name": "Superadmin created club", "description": "d", "location": "Lisbon"}},
+        headers=_auth_header(app, admin_id),
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        assert Club.query.filter_by(name="Superadmin created club").count() == 1
 
 
 def test_superadmin_jwt_passes_the_guard(app, client):
@@ -202,31 +217,10 @@ def test_superadmin_jwt_passes_the_guard(app, client):
 
 
 @pytest.fixture
-def session_app():
-    import os
-    import tempfile
-
-    from padel_app import create_app
-    from padel_app.sql_db import init_db
-
-    db_fd, db_path = tempfile.mkstemp()
-    app = create_app(
-        {
-            "TESTING": True,
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
-            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-            "SECRET_KEY": "test-secret-key",
-            "SESSION_TYPE": "filesystem",
-        }
-    )
-    with app.app_context():
-        init_db(app)
-        db.create_all()
-
-    yield app
-
-    os.close(db_fd)
-    os.unlink(db_path)
+def session_app(app_with_config):
+    # PAD-278: built by conftest on the selected backend (sqlite or postgres),
+    # not a private SQLite file, so the Postgres run covers these tests too.
+    return app_with_config({"SECRET_KEY": "test-secret-key", "SESSION_TYPE": "filesystem"})
 
 
 @pytest.fixture
@@ -240,12 +234,20 @@ def _login_session(client, user_id):
         session["_fresh"] = True
 
 
-def test_admin_flask_login_session_passes_the_guard(session_app, session_client):
+def test_superadmin_flask_login_session_passes_the_guard(session_app, session_client):
     """The legacy Jinja editor authenticates with a session, not a JWT."""
-    admin_id = _make_user(session_app, "session_admin", is_admin=True)
+    admin_id = _make_user(session_app, "session_super", is_superadmin=True)
     _login_session(session_client, admin_id)
 
     assert session_client.get("/api/query/user").status_code == 200
+
+
+def test_legacy_admin_flask_login_session_is_forbidden(session_app, session_client):
+    """PAD-267 (settings.admin-editor rule 2): a session admin who is not superadmin is refused."""
+    admin_id = _make_user(session_app, "session_admin", is_admin=True)
+    _login_session(session_client, admin_id)
+
+    assert session_client.get("/api/query/user").status_code == 403
 
 
 def test_non_admin_flask_login_session_is_forbidden(session_app, session_client):

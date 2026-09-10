@@ -3,7 +3,7 @@ id: B-013
 title: "StudentDetailSheet's Level/Side selects and Save button persist nothing"
 type: missing-criterion
 severity: medium
-status: fixed
+status: resolved
 affects:
   - players.profile
   - frontend/apps/web/src/components/students/StudentDetailSheet.tsx

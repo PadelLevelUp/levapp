@@ -96,6 +96,48 @@ def assert_safe_migration_target(host, port=None, env=None):
     )
 
 
+#: messaging.sse-realtime rules 11-14 (PAD-277): one gunicorn worker, 64
+#: threads, and every open SSE stream holds one thread. 40 streams leaves 24
+#: threads for ordinary API requests; 4 per user covers a phone plus a few tabs
+#: once each tab/app shares one connection (past it, the user's OLDEST stream
+#: is evicted). The keep-alive is how a vanished client is noticed.
+DEFAULT_SSE_MAX_STREAMS = 40
+DEFAULT_SSE_MAX_STREAMS_PER_USER = 4
+DEFAULT_SSE_KEEPALIVE_SECONDS = 5
+
+
+def sse_stream_limits(environ=None):
+    """``(total, per_user)`` SSE stream caps from ``SSE_MAX_STREAMS`` and
+    ``SSE_MAX_STREAMS_PER_USER``. A missing, non-numeric or non-positive value
+    falls back to its default: a typo must neither disable the cap nor shut
+    the stream to everyone."""
+    environ = os.environ if environ is None else environ
+
+    def read(name, default):
+        try:
+            value = int(str(environ.get(name, "")).strip())
+        except ValueError:
+            return default
+        return value if value > 0 else default
+
+    return (
+        read("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
+        read("SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER),
+    )
+
+
+def sse_keepalive_seconds(environ=None):
+    """Seconds between SSE keep-alive comments (``SSE_KEEPALIVE_SECONDS``,
+    default 5). A missing, non-numeric or non-positive value falls back to the
+    default."""
+    environ = os.environ if environ is None else environ
+    try:
+        value = int(str(environ.get("SSE_KEEPALIVE_SECONDS", "")).strip())
+    except ValueError:
+        return DEFAULT_SSE_KEEPALIVE_SECONDS
+    return value if value > 0 else DEFAULT_SSE_KEEPALIVE_SECONDS
+
+
 class Config:
     """Base config (shared defaults).
 
@@ -128,8 +170,21 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or "dev-secret-key"
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "dev-jwt-secret"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
-    JWT_TOKEN_LOCATION = ["headers", "query_string"]
+    # R-009 / PAD-269: the Authorization header everywhere. The `?token=` query
+    # string is enabled on the SSE route alone (`@jwt_required(locations=
+    # ["query_string"])` on /api/app/events), because EventSource cannot set
+    # headers; enabling it globally put tokens in every access log.
+    JWT_TOKEN_LOCATION = ["headers"]
     JWT_QUERY_STRING_NAME = "token"
+
+    # settings.admin-editor rule 1 (PAD-267): whether the generic editor exists.
+    # Subclasses set the default; EDITOR_ENABLED in the environment overrides it
+    # (create_app reads it at startup).
+    EDITOR_ENABLED_DEFAULT = False
+
+    # auth.token-refresh rule 6: a session ends this many days after its login,
+    # however often its token is silently refreshed.
+    JWT_ABSOLUTE_SESSION_DAYS = int(os.getenv("JWT_ABSOLUTE_SESSION_DAYS", "90"))
     JWT_COOKIE_CSRF_PROTECT = False
 
     # Email
@@ -180,10 +235,19 @@ class Config:
     AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
     AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
     AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
+    # auth.parental-consent (PAD-198): the age of digital consent for a country
+    # with no row in `digital_consent_ages` (the GDPR default), and the legal
+    # documents' version recorded with every guardian consent.
+    DIGITAL_CONSENT_DEFAULT_AGE = int(os.getenv("DIGITAL_CONSENT_DEFAULT_AGE", "16"))
+    LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
     PUBLIC_WEB_ORIGIN = os.getenv("PUBLIC_WEB_ORIGIN") or None
+
+    # messaging.sse-realtime rules 11-12 (PAD-277): SSE stream caps.
+    SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
+    SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
 
     # Sessions
     SESSION_PERMANENT = False
@@ -232,6 +296,7 @@ class Config:
 
 class DevConfig(Config):
     DEBUG = True
+    EDITOR_ENABLED_DEFAULT = True
     DEFAULT_POSTGRES_HOST = LOCAL_POSTGRES_HOST
 
 
@@ -244,6 +309,8 @@ class DevConfigProdDB(Config):
 
 class ProdConfig(Config):
     DEBUG = False
+    # Off unless the deploy sets EDITOR_ENABLED=1 (staging does; production must not).
+    EDITOR_ENABLED_DEFAULT = False
     DEFAULT_POSTGRES_HOST = "10.132.0.2"
 
 
@@ -252,6 +319,21 @@ Config.refresh_database_settings()
 
 
 DEV_SECRET_FALLBACKS = frozenset({"dev-secret-key", "dev-jwt-secret", ""})
+
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def editor_enabled_from_env(environ=None, *, default):
+    """settings.admin-editor rule 1: EDITOR_ENABLED from the environment, or ``default``.
+
+    Unset or blank keeps the config class's default (on in development, off in
+    production); any other value is on only when it reads as true.
+    """
+    environ = os.environ if environ is None else environ
+    raw = (environ.get("EDITOR_ENABLED") or "").strip()
+    if not raw:
+        return default
+    return raw.lower() in _TRUTHY
 
 
 def assert_production_secrets(environ=None):

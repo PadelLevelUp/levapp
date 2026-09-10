@@ -7,7 +7,7 @@ These tests verify:
   - send_class_reminders: skips instances that have already started
   - process_invitation_batches: inactivity timer, fresh vacancies, past-class expiry
   - simulate_batch_processor: dry-run utility (pure, no DB)
-  - scheduler._compute_timing_dt: correct datetime arithmetic
+  - scheduler._fire_time_utc: correct datetime arithmetic (PAD-256)
   - schedule_instance_jobs: respects `now` to decide which jobs are still future
 
 All time-sensitive functions accept a `now` keyword argument so tests can inject
@@ -23,7 +23,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from padel_app.models.notification_config import DEFAULT_RESTRICTIONS
-from padel_app.scheduler import _compute_timing_dt
+from padel_app.scheduler import _fire_time_utc
+from padel_app.utils.dates import utc_to_wall_naive
 from padel_app.utils.notification_preview import simulate_batch_processor
 
 
@@ -53,34 +54,37 @@ def _restrictions(**overrides) -> dict:
 
 
 # ===========================================================================
-# _compute_timing_dt
+# _fire_time_utc (PAD-256; replaced _compute_timing_dt)
 # ===========================================================================
 
-class TestComputeTimingDt:
+class TestFireTimeUtc:
+    # PAD-256: these pinned the legacy `_compute_timing_dt`, which read the
+    # stored wall-clock start as UTC. `_fire_time_utc` replaced it; only the
+    # `hours_before` expectations move (real hours before the real start).
     def test_hours_before(self):
         start = datetime(2025, 6, 10, 14, 0)
         cfg = {"type": "hours_before", "value": 24}
-        result = _compute_timing_dt(start, cfg)
-        assert result == datetime(2025, 6, 9, 14, 0)
+        result = _fire_time_utc(start, cfg)
+        assert result == datetime(2025, 6, 9, 13, 0)   # 14:00 WEST is 13:00 UTC
 
     def test_hours_before_fractional(self):
         start = datetime(2025, 6, 10, 10, 0)
         cfg = {"type": "hours_before", "value": 3}
-        result = _compute_timing_dt(start, cfg)
-        assert result == datetime(2025, 6, 10, 7, 0)
+        result = _fire_time_utc(start, cfg)
+        assert result == datetime(2025, 6, 10, 6, 0)   # 10:00 WEST is 09:00 UTC
 
     def test_days_before_at_time(self):
         # PAD-134: "09:00" is the coach's CLUB_TZ wall clock. June is WEST
         # (UTC+1), so the UTC fire time is 08:00.
         start = datetime(2025, 6, 10, 14, 0)   # Tuesday
         cfg = {"type": "days_before", "days": 1, "time": "09:00"}
-        result = _compute_timing_dt(start, cfg)
+        result = _fire_time_utc(start, cfg)
         assert result == datetime(2025, 6, 9, 8, 0)
 
     def test_days_before_crosses_month_boundary(self):
         start = datetime(2025, 7, 1, 10, 0)
         cfg = {"type": "days_before", "days": 2, "time": "08:30"}
-        result = _compute_timing_dt(start, cfg)
+        result = _fire_time_utc(start, cfg)
         assert result == datetime(2025, 6, 29, 7, 30)  # 08:30 WEST → 07:30 UTC
 
     # -- PAD-134: wall-clock times are CLUB_TZ, not UTC ---------------------
@@ -98,26 +102,27 @@ class TestComputeTimingDt:
         """August class, "1 day before at 18:00" → 17:00 UTC == 18:00 WEST."""
         start = datetime(2025, 8, 14, 19, 0)  # 20:00 Lisbon
         cfg = {"type": "days_before_at_time", "days": 1, "time": "18:00"}
-        assert _compute_timing_dt(start, cfg) == datetime(2025, 8, 13, 17, 0)
+        assert _fire_time_utc(start, cfg) == datetime(2025, 8, 13, 17, 0)
 
     def test_same_config_in_winter_has_no_offset(self):
         """January class, same config → 18:00 UTC, because WET == UTC+0."""
         start = datetime(2025, 1, 14, 19, 0)
         cfg = {"type": "days_before_at_time", "days": 1, "time": "18:00"}
-        assert _compute_timing_dt(start, cfg) == datetime(2025, 1, 13, 18, 0)
+        assert _fire_time_utc(start, cfg) == datetime(2025, 1, 13, 18, 0)
 
     def test_target_date_uses_local_day_not_utc_day(self):
-        """A 00:30 Lisbon class is 23:30 UTC the PREVIOUS day.
+        """A class at 00:30 on the club's clock takes its "days before" count
+        from its own date, the day the coach sees.
 
-        The "days before" count must be taken from the local calendar day the
-        coach sees, otherwise a just-past-midnight class computes its reminder
-        a day early. Uses an August date because the local day only diverges
-        from the UTC day under WEST (in winter Lisbon *is* UTC).
+        PAD-256: stored class times are Lisbon wall-clock (R-023), so the class
+        at 00:30 Lisbon on the 15th is stored as 00:30 on the 15th. No UTC day
+        is involved. Before PAD-256 the same class was stored as 23:30 on the
+        14th and read as UTC.
         """
-        start = datetime(2025, 8, 14, 23, 30)  # 00:30 Lisbon on the 15th
+        start = datetime(2025, 8, 15, 0, 30)  # 00:30 Lisbon on the 15th
         cfg = {"type": "days_before_at_time", "days": 1, "time": "18:00"}
         # Local day is the 15th → 1 day before is the 14th at 18:00 WEST.
-        assert _compute_timing_dt(start, cfg) == datetime(2025, 8, 14, 17, 0)
+        assert _fire_time_utc(start, cfg) == datetime(2025, 8, 14, 17, 0)
 
     def test_dst_spring_forward_boundary(self):
         """2025-03-30 is the WET→WEST transition; 02:00 local does not exist.
@@ -127,22 +132,26 @@ class TestComputeTimingDt:
         """
         start = datetime(2025, 3, 31, 10, 0)
         cfg = {"type": "days_before_at_time", "days": 1, "time": "02:30"}
-        result = _compute_timing_dt(start, cfg)
+        result = _fire_time_utc(start, cfg)
         assert isinstance(result, datetime)
         assert result.tzinfo is None  # still naive UTC for the scheduler
 
-    def test_hours_before_is_unaffected_by_timezone(self):
-        """`hours_before` is pure delta arithmetic — no wall clock involved."""
-        start = datetime(2025, 8, 10, 14, 0)
+    def test_hours_before_counts_real_hours_in_every_season(self):
+        """PAD-256 (notifications.reminders rule 15): `hours_before` counts real
+        hours before the class's real start. The stored start is on the club's
+        wall clock, so the UTC fire time follows the season."""
         cfg = {"type": "hours_before", "value": 24}
-        assert _compute_timing_dt(start, cfg) == datetime(2025, 8, 9, 14, 0)
+        # 14:00 WEST is 13:00 UTC.
+        assert _fire_time_utc(datetime(2025, 8, 10, 14, 0), cfg) == datetime(2025, 8, 9, 13, 0)
+        # 14:00 WET is 14:00 UTC.
+        assert _fire_time_utc(datetime(2025, 1, 12, 14, 0), cfg) == datetime(2025, 1, 11, 14, 0)
 
     def test_missing_config_returns_none(self):
-        assert _compute_timing_dt(datetime(2025, 6, 10, 14, 0), {}) is None
-        assert _compute_timing_dt(datetime(2025, 6, 10, 14, 0), None) is None
+        assert _fire_time_utc(datetime(2025, 6, 10, 14, 0), {}) is None
+        assert _fire_time_utc(datetime(2025, 6, 10, 14, 0), None) is None
 
     def test_unknown_type_returns_none(self):
-        assert _compute_timing_dt(datetime(2025, 6, 10, 14, 0), {"type": "unknown"}) is None
+        assert _fire_time_utc(datetime(2025, 6, 10, 14, 0), {"type": "unknown"}) is None
 
 
 # ===========================================================================
@@ -160,7 +169,7 @@ class TestCheckRestrictions:
 
         if instance is None:
             # Default: class starts in 2 hours — well within any min-time threshold
-            instance = _make_instance(now + timedelta(hours=2))
+            instance = _make_instance(utc_to_wall_naive(now) + timedelta(hours=2))
 
         # Patch out the DB query for maxTotal (returns 0 active events)
         with patch(
@@ -253,19 +262,19 @@ class TestCheckRestrictions:
     def test_min_time_blocks_when_too_close(self):
         r = _restrictions(minTimeBeforeClass={"enabled": True, "value": 60})
         now = datetime(2025, 6, 10, 10, 0)
-        instance = _make_instance(now + timedelta(minutes=30))  # only 30 min away
+        instance = _make_instance(utc_to_wall_naive(now) + timedelta(minutes=30))  # only 30 min away
         assert self._call(now, r, instance=instance) is False
 
     def test_min_time_passes_when_far_enough(self):
         r = _restrictions(minTimeBeforeClass={"enabled": True, "value": 60})
         now = datetime(2025, 6, 10, 10, 0)
-        instance = _make_instance(now + timedelta(minutes=90))  # 90 min away
+        instance = _make_instance(utc_to_wall_naive(now) + timedelta(minutes=90))  # 90 min away
         assert self._call(now, r, instance=instance) is True
 
     def test_min_time_disabled_ignores_proximity(self):
         r = _restrictions(minTimeBeforeClass={"enabled": False, "value": 60})
         now = datetime(2025, 6, 10, 10, 0)
-        instance = _make_instance(now + timedelta(minutes=5))   # very close
+        instance = _make_instance(utc_to_wall_naive(now) + timedelta(minutes=5))   # very close
         assert self._call(now, r, instance=instance) is True
 
     # ── normal weekday at expected trigger time ───────────────────────────────
@@ -762,7 +771,7 @@ class TestSimulateBatchProcessor:
 
 
 # ===========================================================================
-# schedule_instance_jobs — timing logic via _compute_timing_dt
+# schedule_instance_jobs — timing logic via _fire_time_utc
 # ===========================================================================
 # APScheduler is a production dependency not installed in the test virtualenv,
 # so we test the underlying timing predicate directly rather than calling
@@ -771,34 +780,34 @@ class TestSimulateBatchProcessor:
 class TestScheduleTimingPredicate:
     """
     The job-scheduling guard is: ``fire_dt > now``.
-    Since _compute_timing_dt is already tested above, these tests verify that
+    Since _fire_time_utc is already tested above, these tests verify that
     the past/future predicate gives the correct answer for representative cases.
     """
 
     def _should_schedule(self, class_start: datetime, timing: dict, now: datetime) -> bool:
-        fire_dt = _compute_timing_dt(class_start, timing)
+        fire_dt = _fire_time_utc(class_start, timing)
         return fire_dt is not None and fire_dt > now
 
     def test_future_reminder_should_schedule(self):
         class_start = datetime(2025, 6, 13, 10, 0)
         now = datetime(2025, 6, 10, 8, 0)
-        # reminder_dt = June 11 10:00 → future
+        # reminder_dt = June 11 09:00 UTC (10:00 WEST) → future
         assert self._should_schedule(class_start, {"type": "hours_before", "value": 48}, now) is True
 
     def test_past_reminder_should_not_schedule(self):
         class_start = datetime(2025, 6, 9, 10, 0)
         now = datetime(2025, 6, 10, 8, 0)   # day after class
-        # reminder_dt = June 7 10:00 → past
+        # reminder_dt = June 7 09:00 UTC → past
         assert self._should_schedule(class_start, {"type": "hours_before", "value": 48}, now) is False
 
     def test_exact_moment_is_not_scheduled(self):
         # fire_dt == now → NOT future (strict >)
         class_start = datetime(2025, 6, 11, 10, 0)
-        now = datetime(2025, 6, 9, 10, 0)   # exactly 48h before
+        now = datetime(2025, 6, 9, 9, 0)   # exactly 48 real hours before (10:00 WEST is 09:00 UTC)
         assert self._should_schedule(class_start, {"type": "hours_before", "value": 48}, now) is False
 
     def test_one_second_future_is_scheduled(self):
         from datetime import timedelta
         class_start = datetime(2025, 6, 11, 10, 0)
-        now = datetime(2025, 6, 9, 10, 0) - timedelta(seconds=1)   # 1s before fire_dt
+        now = datetime(2025, 6, 9, 9, 0) - timedelta(seconds=1)   # 1s before fire_dt (09:00 UTC)
         assert self._should_schedule(class_start, {"type": "hours_before", "value": 48}, now) is True

@@ -7,6 +7,13 @@
       "addEvent": "Add event",
       "addClass": "Add class"
     },
+    "month": {
+      "previous": "Previous month",
+      "next": "Next month"
+    },
+    "sheet": {
+      "handle": "Drag to resize"
+    },
     "views": {
       "label": "Calendar view",
       "day": "Day",

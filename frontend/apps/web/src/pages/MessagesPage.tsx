@@ -29,7 +29,7 @@ import {
   LoadingChatThread,
 } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import { createEventSource } from "@/api/events";
+import { subscribeAppEvents } from "@/api/events";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -124,10 +124,8 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!token) return;
 
-    const es = createEventSource(token);
-
-    es.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
+    // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
+    return subscribeAppEvents(token, async (data) => {
 
       // ---------------------------------------------------------------
       // message_created — promote own optimistic message to 'delivered'
@@ -237,16 +235,7 @@ export default function MessagesPage() {
         );
         return;
       }
-    };
-
-    es.onerror = (err) => {
-      console.warn("SSE error", err);
-      es.close();
-    };
-
-    return () => {
-      es.close();
-    };
+    });
   }, [token, user.id, refreshUnreadCount]);
 
   useEffect(() => {

@@ -27,7 +27,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 7. Presence-confirmation surface: when confirming presences creates N vacancies, the frontend immediately shows one inline approval card bundling all N vacancies (declined players + invite queues concatenated). One decision applies to the whole bundle; the same bundle is also persisted in the Assistant conversation
 8. Coach actions (three):
    - **"Yes, right now"** → approval_status "approved" and invitations are sent right away, bypassing the invitation window
-   - **"Yes, at {window open time}"** → approval_status "approved"; invitations are sent when the invitation window opens (per `invitation_start_timing`). The button label shows the concrete window-open datetime
+   - **"Yes, at {window open time}"** → approval_status "approved"; invitations are sent when the invitation window opens (per `invitation_start_timing`). The button label shows the concrete window-open datetime. `windowOpenAt` is sent as a naive ISO string on the club's wall clock (`notifications.invitations` rule 11, PAD-256)
    - **"No"** → approval_status "dismissed"; the prompt is closed. The vacancy REMAINS OPEN (Vacancy.status unchanged) but the engine never sends invitations for it; the coach can still use the manual invitation flow (notifications.manual). Dismissal is terminal — the prompt cannot be re-approved
    When the invitation window is already open, only **"Yes, right now"** and **"No"** are offered (the scheduled option is meaningless)
 9. Gating: `process_invitation_batches()` and the `invite_start` scheduler job skip vacancies with approval_status "pending" or "dismissed"; only "not_required" and "approved" vacancies are processed

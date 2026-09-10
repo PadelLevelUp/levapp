@@ -4,7 +4,7 @@ Unlike PlayerInvitation it is not bound to a player: one QR serves a whole class
 Rotation (minting again) is the only revocation; rows are never deleted so `uses`
 stays auditable.
 """
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -14,7 +14,11 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class CoachJoinToken(db.Model, model.Model):
     __tablename__ = "coach_join_tokens"
-    __table_args__ = {"extend_existing": True}
+    # Created by migration d2e3f4a5b6c7; declared so autogenerate keeps it (PAD-220).
+    __table_args__ = (
+        Index("ix_coach_join_tokens_coach_id", "coach_id"),
+        {"extend_existing": True},
+    )
 
     page_title = "Coach Join Tokens"
     model_name = "CoachJoinToken"

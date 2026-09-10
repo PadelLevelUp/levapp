@@ -35,7 +35,12 @@ class Lesson(db.Model, model.Model):
     max_players = Column(Integer, nullable=False)
 
     color = Column(String(10))
-    status = Column(Enum("active", "ended", name="lesson_status"), default="active")
+    status = Column(
+        Enum("active", "ended", name="lesson_status"),
+        default="active",
+        nullable=False,
+        server_default="active",
+    )  # PAD-273 (audit M12)
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
     # PAD-129 (eligibility.cascade): the series tier. NULL = no override here;
     # [] = a deliberate "everyone"; a list = the bar for this series.

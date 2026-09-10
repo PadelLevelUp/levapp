@@ -9,8 +9,18 @@ import {
   isWithinInterval,
   isSameDay,
   isToday,
+  addMonths,
+  subMonths,
+  isSameMonth,
+  startOfMonth,
+  endOfDay,
 } from "date-fns";
-import { formatWeekRangeLabel, resolveDateLocale } from "@levelup/config";
+import {
+  buildMonthGrid,
+  formatMonthLabel,
+  formatWeekRangeLabel,
+  resolveDateLocale,
+} from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** The phone calendar's three modes (calendar.mobile-views rule 1). */
@@ -61,10 +71,11 @@ export function useCalendar(
   } = options;
   const [currentDate, setCurrentDate] = useState(() => initialDate ?? new Date());
 
-  const weekStart = useMemo(
-    () => startOfWeek(currentDate, { weekStartsOn }),
-    [currentDate, weekStartsOn]
-  );
+  // Keyed on the week's time value: PAD-248 lets `selectDay` move the anchor,
+  // and selecting another day of the same week must keep the same Date object
+  // so fetch effects keyed on `weekStart` do not see a "new" week.
+  const weekStartTime = startOfWeek(currentDate, { weekStartsOn }).getTime();
+  const weekStart = useMemo(() => new Date(weekStartTime), [weekStartTime]);
 
   const weekRange = useMemo(
     () => ({
@@ -91,8 +102,12 @@ export function useCalendar(
     setSelectedDay(defaultSelection(weekDays));
   }, [weekDays, selectedDay]);
 
+  // The anchor follows the selection, so a day picked in another week (the Mês
+  // grid) moves the week with it instead of being snapped back by the
+  // reselect rule above.
   const selectDay = useCallback((date: Date) => {
     setSelectedDay(date);
+    setCurrentDate(date);
   }, []);
 
   const [viewMode, setViewModeState] = useState<CalendarViewMode>(initialViewMode);
@@ -131,6 +146,48 @@ export function useCalendar(
     setSelectedDay(now);
   }, []);
 
+  // PAD-248 (calendar.mobile-views rules 2, 15): month paging. Lands on today
+  // when the new month contains it, otherwise on the month's 1st, and moves the
+  // week with it so every mode agrees on the one selected day.
+  const navigateMonth = useCallback(
+    (direction: "prev" | "next") => {
+      const target = startOfMonth(
+        direction === "next" ? addMonths(currentDate, 1) : subMonths(currentDate, 1)
+      );
+      const now = new Date();
+      const next = isSameMonth(now, target) ? now : target;
+      setCurrentDate(next);
+      setSelectedDay(next);
+    },
+    [currentDate]
+  );
+
+  const monthKey = format(currentDate, "yyyy-MM");
+  const monthGrid = useMemo(
+    () => buildMonthGrid(parseISO(`${monthKey}-01`), weekStartsOn),
+    [monthKey, weekStartsOn]
+  );
+  // The six-week (or four/five-week) range the Mês grid shows — what the
+  // shells fetch while in Mês.
+  const monthRange = useMemo(
+    () => ({ start: monthGrid.start, end: monthGrid.end }),
+    [monthGrid]
+  );
+  const monthEvents = useMemo(
+    () =>
+      allEvents.filter((event) =>
+        isWithinInterval(parseISO(event.date), {
+          start: monthGrid.start,
+          end: endOfDay(monthGrid.end),
+        })
+      ),
+    [allEvents, monthGrid]
+  );
+  const monthLabel = useMemo(
+    () => formatMonthLabel(monthGrid.monthStart, resolveDateLocale(language)),
+    [monthGrid, language]
+  );
+
   // Compact week-range label (e.g. "6–12 Jul" or "31 Aug–6 Sep"). Kept short so
   // it stays on a single line even on narrow (375px) mobile headers.
   //
@@ -157,5 +214,11 @@ export function useCalendar(
     selectDay,
     viewMode,
     setViewMode,
+    monthStart: monthGrid.monthStart,
+    monthDays: monthGrid.days,
+    monthRange,
+    monthEvents,
+    monthLabel,
+    navigateMonth,
   };
 }

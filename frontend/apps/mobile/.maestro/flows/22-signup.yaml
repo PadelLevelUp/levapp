@@ -15,6 +15,9 @@
 # the same list and is exercised in the parity walk, not here.
 appId: com.padellevelup.app
 ---
+# The backend the debug calls hit: Maestro -e API_BASE=http://localhost:<port> for an
+# isolated backend; the shared test backend on :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - launchApp:
     clearState: true
 - evalScript: ${output.stamp = String(Date.now())}
@@ -39,6 +42,14 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-username"
 - inputText: "a"
+# The PAD-198 fields put the submit button below the keyboard; a tap there
+# lands on a key. Dismiss the keyboard and bring the button into view first.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:
@@ -49,25 +60,38 @@ appId: com.padellevelup.app
     id: "signup-username"
 - eraseText
 - inputText: "maestro-s-${output.stamp}"
-- tapOn:
-    id: "signup-email"
+# PAD-198: Next moves focus down the form and scrolls the field into view. A field
+# under the keyboard still counts as visible, so tapping it would hit the keyboard.
+- pressKey: Enter
 - inputText: "maestro-s-${output.stamp}@example.com"
-- tapOn:
-    id: "signup-password"
+- pressKey: Enter
 - inputText: "Segura1234"
-- tapOn:
-    id: "signup-repeatPassword"
+- pressKey: Enter
 - inputText: "Segura1234"
-- hideKeyboard
+- pressKey: Enter
+# PAD-198: birth date is required; an adult in Portugal (the default country).
+- inputText: "01012000"
+# The number pad closes itself once the date is complete.
+- assertVisible:
+    id: "signup-birthDate"
+    text: "01/01/2000"
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:
     visible:
       id: "verify-email"
     timeout: 25000
-- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-s-' + output.stamp + '@example.com').body).code}
+- evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=maestro-s-' + output.stamp + '@example.com').body).code}
+# The real code input lies transparent over the six cells, so it is not in the
+# accessibility tree; it is autofocused, and a tap on the first cell refocuses it.
 - tapOn:
-    id: "verify-email-code"
+    id: "verify-email-cell-0"
+    optional: true
 - inputText: ${output.code}
 - extendedWaitUntil:
     visible:
@@ -100,25 +124,38 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-username"
 - inputText: "maestro-c-${output.stamp}"
-- tapOn:
-    id: "signup-email"
+# PAD-198: Next moves focus down the form and scrolls the field into view. A field
+# under the keyboard still counts as visible, so tapping it would hit the keyboard.
+- pressKey: Enter
 - inputText: "maestro-c-${output.stamp}@example.com"
-- tapOn:
-    id: "signup-password"
+- pressKey: Enter
 - inputText: "Segura1234"
-- tapOn:
-    id: "signup-repeatPassword"
+- pressKey: Enter
 - inputText: "Segura1234"
-- hideKeyboard
+- pressKey: Enter
+# PAD-198: birth date is required; an adult in Portugal (the default country).
+- inputText: "01012000"
+# The number pad closes itself once the date is complete.
+- assertVisible:
+    id: "signup-birthDate"
+    text: "01/01/2000"
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "signup-submit"
 - extendedWaitUntil:
     visible:
       id: "verify-email"
     timeout: 25000
-- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=maestro-c-' + output.stamp + '@example.com').body).code}
+- evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=maestro-c-' + output.stamp + '@example.com').body).code}
+# The real code input lies transparent over the six cells, so it is not in the
+# accessibility tree; it is autofocused, and a tap on the first cell refocuses it.
 - tapOn:
-    id: "verify-email-code"
+    id: "verify-email-cell-0"
+    optional: true
 - inputText: ${output.code}
 - extendedWaitUntil:
     visible:

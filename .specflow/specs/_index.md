@@ -9,7 +9,8 @@ governing leaf spec and its dependencies before touching code.
 ## Domains
 
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
-- `auth/` — Authentication & User Management (12 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
+- `auth/` — Authentication & User Management (14 leaves; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
+- `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (11 leaves; `classes.class-requests` added 2026-09-10, PAD-104)
 - `clubs/` — Club Management (4 leaves)
@@ -21,7 +22,7 @@ governing leaf spec and its dependencies before touching code.
 - `messaging/` — Real-Time Messaging (9 leaves)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (4 leaves)
+- `settings/` — User Preferences & Internationalization (5 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267;)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest

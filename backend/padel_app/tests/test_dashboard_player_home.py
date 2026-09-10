@@ -484,3 +484,26 @@ def test_player_payload_uses_the_home_vocabulary_and_its_own_id(app):
         "schedule_7d",
         "kpi_grid",
     ]
+
+
+# B-058 / dashboard.blocks rule 9: at 22:30 UTC the student's A1 Class runs
+# 23:15-00:15 UTC and must stay their hero and on their schedule.
+LATE = datetime(2026, 8, 4, 22, 30)
+
+
+def test_b031_class_crossing_utc_midnight_stays_on_the_student_home(app):
+    from padel_app.helpers.dashboard.player_home import (
+        build_player_next_class_block,
+        build_player_schedule_block,
+    )
+
+    student_id, _, _ = _seed(app, now=LATE)
+
+    with app.app_context():
+        hero = build_player_next_class_block(player_id=student_id, now=LATE)
+        schedule = build_player_schedule_block(player_id=student_id, now=LATE)
+
+    assert hero is not None and hero["data"]["title"] == "A1 Class"
+    assert hero["data"]["minutesUntil"] == 45
+    assert schedule["data"]["items"][0]["title"] == "A1 Class"
+    assert schedule["data"]["totalCount"] == 4

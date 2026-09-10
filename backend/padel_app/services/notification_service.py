@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from padel_app.sql_db import db
-from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
     Association_CoachLessonInstance,
     Association_CoachPlayer,
@@ -478,7 +478,7 @@ def students_failing_eligibility_bar(
         LessonInstance.query
         .filter(
             LessonInstance.id.in_(coach_instance_ids),
-            LessonInstance.start_datetime >= _now,
+            LessonInstance.start_datetime >= utc_to_wall_naive(_now),  # PAD-256
         )
         .order_by(LessonInstance.start_datetime)
         .all()
@@ -503,7 +503,8 @@ def students_failing_eligibility_bar(
                         or getattr(instance.lesson, "title", "")
                         or ""
                     ),
-                    "startDatetime": to_utc_iso(instance.start_datetime),
+                    # PAD-256: the true instant; the client formats it in Europe/Lisbon.
+                    "startDatetime": to_utc_iso(wall_to_utc_naive(instance.start_datetime)),
                     "failures": failures,
                 })
     return out
@@ -1138,11 +1139,23 @@ def evaluate_candidates(
 
     active_invite_ids: set = set()
     if getattr(vacancy, "id", None) is not None:
+        from sqlalchemy import or_
+
+        # B-056 (notifications.invitations rule 8): a player already asked for
+        # this vacancy in THIS round is done for the round, whatever they
+        # answered. A decline or a timeout leaves the invitation `expired`, and
+        # without the round clause the decliner was eligible again at once:
+        # the ranking does not change on a decline, so `_send_next_on_decline`
+        # invited the same player straight back and the round never ran out.
+        # Invitations still live from any round keep excluding, as before.
         active_invite_ids = {
             e.player_id
             for e in NotificationEvent.query.filter(
                 NotificationEvent.vacancy_id == vacancy.id,
-                NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                or_(
+                    NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                    NotificationEvent.round_number == wave[1],
+                ),
             ).all()
         }
 
@@ -1195,8 +1208,14 @@ def evaluate_candidates(
         if str(pid) in excluded_player_ids:
             verdicts.append(CandidateVerdict(cp, "excluded_by_coach"))
             continue
+        user = cp.player.user if cp.player else None
+        # PAD-268 (auth.account-deletion rule 7): a deleted account is never a
+        # candidate, whatever "Exclude inactive accounts" says: it can never
+        # attend, and inviting it would spend a slot of the round.
+        if user is not None and user.status == "disabled":
+            verdicts.append(CandidateVerdict(cp, "inactive_account"))
+            continue
         if exclude_inactive:
-            user = cp.player.user if cp.player else None
             if not user or user.status != "active":
                 verdicts.append(CandidateVerdict(cp, "inactive_account"))
                 continue
@@ -1360,7 +1379,8 @@ def _check_restrictions(
 
     min_time = restrictions.get("minTimeBeforeClass", {})
     if min_time.get("enabled"):
-        minutes_until = (instance.start_datetime - now).total_seconds() / 60
+        # PAD-256 (notifications.invitations rule 11): real minutes to the real start.
+        minutes_until = (wall_to_utc_naive(instance.start_datetime) - now).total_seconds() / 60
         if minutes_until < min_time["value"]:
             return False
 
@@ -1898,7 +1918,8 @@ def _instance_is_over(instance: LessonInstance, now: datetime | None = None) -> 
     if instance.status in ("canceled", "completed"):
         return True
     _now = now or utcnow_naive()
-    return instance.start_datetime is not None and instance.start_datetime <= _now
+    # PAD-256 (R-023): `now` is the UTC instant; the class time is on the club's clock.
+    return instance.start_datetime is not None and instance.start_datetime <= utc_to_wall_naive(_now)
 
 
 def _effective_filled_spots(instance: LessonInstance) -> int:
@@ -2033,11 +2054,70 @@ def vacancy_snapshot_for_player(
     return side, None, "none"
 
 
+def _lock_instance(instance: LessonInstance) -> LessonInstance:
+    """PAD-261 (notifications.invitations rule 10): take the class row lock and re-read it.
+
+    ``SELECT ... FOR UPDATE`` waits for any other transaction deciding on this
+    class, then refreshes the row and drops the cached roster and presences, so
+    capacity is counted from what is committed now, never from a copy loaded
+    earlier in the request. The lock lasts until the next commit; every caller
+    ends its locked section with one.
+    """
+    locked = (
+        LessonInstance.query.filter_by(id=instance.id)
+        .with_for_update()
+        .populate_existing()
+        .one()
+    )
+    db.session.expire(locked, ["players_relations", "presences"])
+    return locked
+
+
+def _lock_vacancy_and_instance(vacancy, instance):
+    """PAD-261: lock the vacancy, then the class, and re-read both.
+
+    Always in that order, so two deciders can never deadlock on each other.
+    """
+    if vacancy is not None:
+        vacancy = (
+            Vacancy.query.filter_by(id=vacancy.id)
+            .with_for_update()
+            .populate_existing()
+            .one()
+        )
+    return vacancy, _lock_instance(instance)
+
+
+def _open_vacancy_for(instance_id: int, player_id: int):
+    return (
+        Vacancy.query.filter_by(
+            lesson_instance_id=instance_id,
+            original_player_id=player_id,
+            status="open",
+        )
+        .order_by(Vacancy.id.asc())
+        .first()
+    )
+
+
 def _create_vacancy_for_absent_player(
     instance: LessonInstance,
     coach_id: int,
     absent_player_id: int,
 ) -> Vacancy:
+    # PAD-261 (invitations rule 10): a departing player has at most one open
+    # vacancy. A found one takes no lock; a new one is created only after
+    # looking again under the class lock, so two concurrent absences for the
+    # same player cannot both insert.
+    existing = _open_vacancy_for(instance.id, absent_player_id)
+    if existing is not None:
+        return existing
+    instance = _lock_instance(instance)
+    existing = _open_vacancy_for(instance.id, absent_player_id)
+    if existing is not None:
+        db.session.commit()  # release the lock
+        return existing
+
     side, level_id, _source = vacancy_snapshot_for_player(
         instance, coach_id, absent_player_id
     )
@@ -2062,12 +2142,20 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
     Create Vacancy records for spots that are open because the class was never
     fully enrolled (no 'departing' player to snapshot from).
     """
-    existing_count = Vacancy.query.filter_by(
-        lesson_instance_id=instance.id,
-    ).filter(Vacancy.status.in_(["open", "filled"])).count()
+    def _spots_to_create() -> int:
+        existing_count = Vacancy.query.filter_by(
+            lesson_instance_id=instance.id,
+        ).filter(Vacancy.status.in_(["open", "filled"])).count()
+        open_spots = instance.max_players - _effective_filled_spots(instance)
+        return max(0, open_spots - existing_count)
 
-    open_spots = instance.max_players - _effective_filled_spots(instance)
-    spots_to_create = max(0, open_spots - existing_count)
+    if _spots_to_create() == 0:
+        return []
+    # PAD-261 (invitations rule 10): count again under the class lock, and add
+    # every new row in one commit, so a concurrent caller waits and then
+    # counts them instead of adding its own.
+    instance = _lock_instance(instance)
+    spots_to_create = _spots_to_create()
 
     config = get_or_create_config(coach_id)
     approval_status = "pending" if _is_semi_auto(config) else "not_required"
@@ -2084,8 +2172,9 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
             status="open",
             approval_status=approval_status,
         )
-        v.create()
+        db.session.add(v)
         vacancies.append(v)
+    db.session.commit()  # the new rows, and the end of the lock
     return vacancies
 
 
@@ -2128,7 +2217,8 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         if _log:
             _log.info("send_class_reminders: instance %s status=%s — skipping", instance_id, instance.status)
         return _no_send
-    if instance.start_datetime <= _now:
+    # PAD-256 (notifications.reminders rule 15): the class time is wall-clock.
+    if instance.start_datetime <= utc_to_wall_naive(_now):
         if _log:
             _log.info("send_class_reminders: instance %s start_datetime in the past — skipping", instance_id)
         return _no_send
@@ -2539,6 +2629,24 @@ def _vacancy_has_live_invitations(vacancy: "Vacancy | None") -> bool:
     ).count() > 0
 
 
+def _player_enrolled_in_instance(player_id: int, instance: LessonInstance) -> bool:
+    """Instance link, an existing Presence, or lesson-level enrolment (a
+    recurring series the student belongs to)."""
+    from padel_app.models import Association_PlayerLesson, Association_PlayerLessonInstance
+
+    if Association_PlayerLessonInstance.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first() is not None:
+        return True
+    if Presence.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first() is not None:
+        return True
+    return Association_PlayerLesson.query.filter_by(
+        player_id=player_id, lesson_id=instance.lesson_id
+    ).first() is not None
+
+
 def respond_to_reminder(
     lesson_instance_id: int,
     action: str,
@@ -2564,6 +2672,15 @@ def respond_to_reminder(
     if not player:
         from flask import abort
         abort(403)
+
+    # PAD-258 / audit H4 — notifications.reminders rule 17: only a student who
+    # is IN this class may answer. Before this, any student could "decline"
+    # any class: a stray absent Presence was created below, which lowered
+    # effective_filled_spots, opened a phantom Vacancy and fanned out
+    # replacement invitations for a spot that was never theirs.
+    if not _player_enrolled_in_instance(player.id, instance):
+        from flask import abort
+        abort(403, "Not enrolled in this class")
 
     _now = now or utcnow_naive()
     if _instance_is_over(instance, _now):
@@ -2764,12 +2881,12 @@ def proactive_decline_deadline(
     normally have been asked to confirm*. That moment is precisely when the
     attendance reminder for this instance would fire, so the cutoff is DERIVED
     from the very same input the scheduler uses to arm the reminder job —
-    ``config.get_reminder_timing()`` fed through ``_compute_reminder_dt`` — and
+    ``config.get_reminder_timing()`` fed through ``_fire_time_utc`` (PAD-256) — and
     is never a hardcoded interval. Change the coach's reminder timing and this
     cutoff moves with it, automatically and in lockstep with the real reminder.
 
     Returns ``None`` when no instant is computable (no start time, or a timing
-    shape ``_compute_timing_dt`` doesn't understand). Callers treat ``None`` as
+    shape ``_fire_time_utc`` doesn't understand). Callers treat ``None`` as
     "there is no proactive window", which keeps the pre-PAD-73 behaviour intact.
     """
     if instance is None or instance.start_datetime is None:
@@ -2779,7 +2896,7 @@ def proactive_decline_deadline(
         DEFAULT_REMINDER_TIMING,
         NotificationConfig,
     )
-    from padel_app.scheduler import _compute_reminder_dt
+    from padel_app.scheduler import _fire_time_utc
 
     _config = config
     if _config is None:
@@ -2798,7 +2915,7 @@ def proactive_decline_deadline(
         _config.get_reminder_timing() if _config is not None
         else DEFAULT_REMINDER_TIMING
     )
-    return _compute_reminder_dt(instance, timing)
+    return _fire_time_utc(instance.start_datetime, timing)
 
 
 def proactive_decline_window_is_open(
@@ -2851,7 +2968,8 @@ def cancel_attendance(
     instance = LessonInstance.query.get_or_404(lesson_instance_id)
 
     _now = now or utcnow_naive()
-    if instance.start_datetime is not None and _now >= instance.start_datetime:
+    # PAD-256 (attendance.confirm rule 9): "started" is judged on the club's clock.
+    if instance.start_datetime is not None and utc_to_wall_naive(_now) >= instance.start_datetime:
         abort(409, description="Class has already started; attendance can no longer be cancelled.")
 
     player = Player.query.filter_by(user_id=acting_user_id).first()
@@ -2925,7 +3043,8 @@ def cancel_attendance(
             else DEFAULT_CANCELLATION_DEADLINE_HOURS
         )
         if instance.start_datetime is not None:
-            deadline = instance.start_datetime - timedelta(hours=deadline_hours)
+            # PAD-256 (attendance.confirm rule 6): N real hours before the real start.
+            deadline = wall_to_utc_naive(instance.start_datetime) - timedelta(hours=deadline_hours)
             is_late = _now >= deadline
         # PAD-73: a proactive decline is never late. This only bites when a coach
         # configures a first reminder that fires AFTER their own cancellation
@@ -3054,8 +3173,10 @@ def _send_invitation_batch(
     # Check waiting list before doing a fresh invite round
     wl_entry = _check_waiting_list(vacancy, instance, coach_id, config, vacancy.current_round_number)
     if wl_entry:
-        _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config)
-        return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
+        if _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config, now=now):
+            return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
+        # PAD-261: another path won the spot, or the class is full. Invite nobody.
+        return []
 
     invitation_groups = config.get_invitation_groups()
     if invitation_groups:
@@ -3365,8 +3486,8 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     for vacancy in open_vacancies:
         instance = vacancy.lesson_instance
 
-        # Skip past or canceled classes
-        if instance.start_datetime <= _now:
+        # Skip past or canceled classes (PAD-256: "started" on the club's clock)
+        if instance.start_datetime <= utc_to_wall_naive(_now):
             vacancy.status = "expired"
             vacancy.save()
             continue
@@ -3505,6 +3626,20 @@ def respond_to_notification(
         return {"action": "declined"}
 
     elif action == "yes":
+        # PAD-261 (invitations rule 10): one winner per vacancy. Lock the
+        # vacancy, then the class, and decide on what is committed now; a second
+        # "yes" for the same last spot waits here, then gets the spot-filled answer.
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+
+        # PAD-68 under the lock: the class may have reached its start while this
+        # answer waited. Decide on the re-read row and expire exactly as the
+        # early check above does.
+        if _instance_is_over(instance, now):
+            _expire_stale_invitations(instance)
+            _retire_invite_message(event)
+            db.session.commit()  # release the lock
+            return {"action": "expired"}
+
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
             event.status = "expired"
@@ -3555,16 +3690,15 @@ def respond_to_notification(
             )
             return {"action": "spot_filled_waiting_list_offered"}
 
-        # Fill the spot
-        _add_player_to_instance(event.player_id, instance)
-        event.status = "confirmed"
-        event.save()
-
+        # Fill the spot. The vacancy is marked before the enrolment so both land
+        # in the enrolment's commit, which is also where the lock ends (PAD-261).
         if vacancy:
             vacancy.status = "filled"
             vacancy.filled_by_player_id = event.player_id
             vacancy.filled_at = utcnow_naive()
-            vacancy.save()
+        _add_player_to_instance(event.player_id, instance)
+        event.status = "confirmed"
+        event.save()
 
         if coach_user_id:
             _send_system_message(
@@ -4075,8 +4209,11 @@ def _check_waiting_list(
         if str(entry.player_id) in restricted_player_ids:
             continue
 
+        user = cp.player.user if cp.player else None
+        # PAD-268 (auth.account-deletion rule 7): never place a deleted account.
+        if user is not None and user.status == "disabled":
+            continue
         if restrictions["excludeUnpaidSubscription"]["enabled"]:
-            user = cp.player.user if cp.player else None
             if not user or user.status != "active":
                 continue
 
@@ -4155,14 +4292,32 @@ def _fill_from_waiting_list(
     instance: LessonInstance,
     coach_id: int,
     config: NotificationConfig,
-) -> None:
+    now: datetime | None = None,
+) -> bool:
+    """Place a waiting-list student into the vacancy. Returns whether it did.
+
+    PAD-261 (waiting-list rule 13): decided under the vacancy-then-class lock.
+    The student is placed only while the vacancy is still open and the class
+    still has room; otherwise nobody is placed and the entry stays active.
+    """
     from padel_app.models import Coach
 
-    _add_player_to_instance(entry.player_id, instance)
+    vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+    if _instance_is_over(instance, now):
+        # PAD-68 under the lock: the class started while this placement waited.
+        # The vacancy expires as _send_invitation_batch's early check expires it.
+        if vacancy.status == "open":
+            vacancy.status = "expired"
+        db.session.commit()  # the expiry, and the end of the lock
+        return False
+    if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.max_players:
+        db.session.commit()  # release the lock; nothing was written
+        return False
 
     vacancy.status = "filled"
     vacancy.filled_by_player_id = entry.player_id
     vacancy.filled_at = utcnow_naive()
+    _add_player_to_instance(entry.player_id, instance)
     vacancy.save()
 
     entry.is_active = False
@@ -4179,11 +4334,11 @@ def _fill_from_waiting_list(
 
     coach = Coach.query.get(coach_id)
     if not coach:
-        return
+        return True
 
     player_user_id = _user_id_for_player(entry.player_id)
     if not player_user_id:
-        return
+        return True
 
     from padel_app.models import Player
 
@@ -4221,6 +4376,7 @@ def _fill_from_waiting_list(
         },
         _coach_only(coach.user_id),
     )
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -4355,7 +4511,7 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
-        if instance.start_datetime <= now:
+        if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
             continue

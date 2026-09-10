@@ -6,13 +6,19 @@ Create Date: 2026-09-10
 
 notifications.reminders rule 14 (audit M6). Idempotent: the table is created
 only if absent, and the backfill inserts one row per existing
-`notification_reminder` message that has no row yet, reading the row's fields
-out of the message's JSON metadata in Python (portable across Postgres and
-SQLite — no JSON operators). The player is the conversation participant who is
-not the sender (the coach sends reminders). Messages whose metadata carries no
-instance id are skipped (nothing to key on), and so are messages whose instance
-has since been deleted (B-059: the row would break the foreign key). No
-behaviour change.
+`notification_reminder` message that has no row yet. The player is the
+conversation participant who is not the sender (the coach sends reminders).
+Messages whose metadata carries no instance id are skipped (nothing to key on),
+and so are messages whose instance has since been deleted (B-059: the row would
+break the foreign key). No behaviour change.
+
+On Postgres the backfill is one INSERT … SELECT (B-059 follow-up). The per-row
+loop below took about five minutes on the production VM for 8,371 reminders, and
+the API is down while the entrypoint migrates. The statement reproduces
+`attempt_from_metadata` in SQL: the same instance-id fallback, integer
+conversion and truthiness. The one difference is that where Python would raise
+on a non-numeric id, the statement skips the row. Other dialects (the SQLite
+test suite) keep the loop, which reads the JSON in Python.
 """
 import json
 from datetime import datetime
@@ -44,6 +50,74 @@ def attempt_from_metadata(metadata, *, sent_at):
         superseded=bool(metadata.get("superseded")),
         expired=bool(metadata.get("expired")),
     )
+
+
+def _truthy(key):
+    """SQL for Python's bool(metadata.get(key)) on the jsonb `md`."""
+    v, t = f"md -> '{key}'", f"md ->> '{key}'"
+    return (
+        f"(CASE jsonb_typeof({v}) WHEN 'boolean' THEN ({t})::boolean "
+        f"WHEN 'number' THEN ({t})::numeric <> 0 WHEN 'string' THEN {t} <> '' "
+        f"WHEN 'array' THEN jsonb_array_length({v}) > 0 WHEN 'object' THEN {v} <> '{{}}'::jsonb "
+        f"ELSE false END)"
+    )
+
+
+def _int_or_null(key):
+    """SQL for Python's int(metadata.get(key)); NULL where int() would raise."""
+    t = f"md ->> '{key}'"
+    return (
+        f"(CASE jsonb_typeof(md -> '{key}') WHEN 'number' THEN trunc(({t})::numeric)::int "
+        f"WHEN 'string' THEN CASE WHEN {t} ~ '^ *[+-]?[0-9]+ *$' THEN btrim({t})::int END "
+        f"WHEN 'boolean' THEN ({t})::boolean::int ELSE NULL END)"
+    )
+
+
+# attempt_from_metadata, the B-059 skip and the player/presence lookups as one
+# SELECT. Its columns are the INSERT's, in order.
+BACKFILL_SELECT = f"""
+SELECT (now() AT TIME ZONE 'utc') AS created_at, (now() AT TIME ZONE 'utc') AS updated_at,
+       r.inst AS lesson_instance_id, pl.player_id, pr.id AS presence_id, r.number,
+       r.message_id, r.sent_at,
+       CASE WHEN r.responded THEN r.sent_at END AS responded_at,
+       CASE WHEN r.responded THEN r.response END AS response,
+       r.superseded, r.expired
+FROM (
+    SELECT m.id AS message_id, m.sent_at, m.sender_id, m.conversation_id,
+           CASE WHEN {_truthy('lessonInstanceId')} THEN {_int_or_null('lessonInstanceId')}
+                ELSE {_int_or_null('instanceId')} END AS inst,
+           CASE WHEN {_truthy('reminderNumber')} THEN coalesce({_int_or_null('reminderNumber')}, 1)
+                ELSE 1 END AS number,
+           {_truthy('responded')} AS responded,
+           md ->> 'response' AS response,
+           {_truthy('superseded')} AS superseded,
+           {_truthy('expired')} AS expired
+    FROM messages m
+    CROSS JOIN LATERAL (SELECT m.msg_metadata::jsonb AS md) j
+    WHERE m.message_type = 'notification_reminder'
+      AND jsonb_typeof(j.md) = 'object'
+      AND NOT EXISTS (SELECT 1 FROM reminder_attempts ra WHERE ra.message_id = m.id)
+) r
+JOIN lesson_instances li ON li.id = r.inst
+CROSS JOIN LATERAL (
+    SELECT p.id AS player_id
+    FROM conversation_participants cp JOIN players p ON p.user_id = cp.user_id
+    WHERE cp.conversation_id = r.conversation_id AND cp.user_id <> r.sender_id
+    ORDER BY p.id LIMIT 1
+) pl
+LEFT JOIN LATERAL (
+    SELECT pz.id FROM presences pz
+    WHERE pz.lesson_instance_id = r.inst AND pz.player_id = pl.player_id
+    ORDER BY pz.id LIMIT 1
+) pr ON true
+ORDER BY r.message_id
+"""
+
+BACKFILL_INSERT = (
+    "INSERT INTO reminder_attempts (created_at, updated_at, lesson_instance_id, player_id, "
+    "presence_id, number, message_id, sent_at, responded_at, response, superseded, expired)"
+    + BACKFILL_SELECT
+)
 
 
 def _has_table(bind, name):
@@ -78,7 +152,12 @@ def upgrade():
     if not (_has_table(bind, "messages") and _has_table(bind, "conversation_participants") and _has_table(bind, "players")):
         return
 
-    # Backfill: reminder messages without a row yet.
+    if bind.dialect.name == "postgresql":
+        # B-059 follow-up: one set-based statement instead of three queries a row.
+        bind.execute(sa.text(BACKFILL_INSERT))
+        return
+
+    # Backfill (other dialects): reminder messages without a row yet.
     rows = bind.execute(
         sa.text(
             "SELECT m.id, m.sent_at, m.sender_id, m.conversation_id, m.msg_metadata FROM messages m "

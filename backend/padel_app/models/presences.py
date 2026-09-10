@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -9,8 +9,7 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class Presence(db.Model, model.Model):
     __tablename__ = "presences"
-    __table_args__ = {"extend_existing": True}
-    
+
     page_title = "Presences"
     model_name = "Presence"
 
@@ -31,9 +30,11 @@ class Presence(db.Model, model.Model):
     status = Column(Enum("present", "absent", name="lesson_presence_status"), nullable=True)
     justification = Column(Enum("justified", "unjustified", name="lesson_presence_justification"), nullable=True)
 
-    invited = Column(Boolean, default=False)
-    confirmed = Column(Boolean, default=False)
-    validated = Column(Boolean, default=False)
+    # PAD-273 (audit M12): NOT NULL with a database default, so a raw insert
+    # can never leave a NULL that `== True` readers silently drop.
+    invited = Column(Boolean, default=False, nullable=False, server_default="0")
+    confirmed = Column(Boolean, default=False, nullable=False, server_default="0")
+    validated = Column(Boolean, default=False, nullable=False, server_default="0")
     # Set when a student cancels their attendance at or after the coach's
     # configured cancellation deadline (but before the class starts). PAD-43.
     late_cancellation = Column(
@@ -44,11 +45,17 @@ class Presence(db.Model, model.Model):
     def name(self):
         return f"<Presence {self.id}"
 
+    # PAD-280: assigned once. A second assignment used to replace the first,
+    # silently dropping extend_existing.
     __table_args__ = (
         UniqueConstraint(
             "player_id", "lesson_instance_id",
             name="uq_presence_player_lesson_instance"
         ),
+        # PAD-263: the unique pair leads with player_id, so the attendance
+        # sheet's per-class lookup needs its own index.
+        Index("ix_presences_lesson_instance_id", "lesson_instance_id"),
+        {"extend_existing": True},
     )
 
     @classmethod

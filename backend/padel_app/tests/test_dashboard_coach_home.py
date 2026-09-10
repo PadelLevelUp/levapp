@@ -384,3 +384,32 @@ def test_delta_is_null_without_a_prior_week_to_compare(app):
     assert seats["deltaPct"] is None
     # And a coach with no classes reads 0%, not a divide-by-zero.
     assert (seats["pct"], seats["filled"], seats["total"]) == (0, 0, 0)
+
+
+# B-058 / dashboard.blocks rule 9: a class that crosses UTC midnight. At 22:30
+# UTC the seeded B1 Class runs 23:15-00:15 UTC. Joining its start date to its
+# end time used to put its end before its start, and every block dropped it.
+LATE = datetime(2026, 8, 4, 22, 30)
+
+
+def test_b031_class_crossing_utc_midnight_stays_on_every_coach_block(app):
+    from padel_app.helpers.dashboard.coach_home import (
+        build_needs_you_block,
+        build_next_class_block,
+        build_schedule_block,
+    )
+
+    coach_id, user_id, _ = _seed(app, now=LATE)
+
+    with app.app_context():
+        hero = build_next_class_block(coach_id=coach_id, now=LATE)
+        queue = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=LATE)
+        schedule = build_schedule_block(coach_id=coach_id, now=LATE)
+
+    assert hero is not None
+    assert hero["data"]["title"] == "B1 Class"
+    assert hero["data"]["minutesUntil"] == 45
+    seats = [i for i in queue["data"]["items"] if i["kind"] == "empty_seats"]
+    assert [s["classTitle"] for s in seats] == ["B1 Class"]
+    assert schedule["data"]["totalCount"] == 2
+    assert [i["title"] for i in schedule["data"]["items"]] == ["B1 Class", "A2 Class"]

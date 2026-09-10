@@ -3,7 +3,7 @@ id: B-012
 title: "Dead Supabase integration left from the Lovable prototype"
 type: layer-drift
 severity: low
-status: fixed
+status: resolved
 affects:
   - frontend/apps/web/src/integrations/supabase/client.ts
   - frontend/apps/web/src/integrations/supabase/types.ts

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -11,6 +11,7 @@ class WaitingListEntry(db.Model, model.Model):
     __tablename__ = "waiting_list_entries"
     __table_args__ = (
         UniqueConstraint("lesson_instance_id", "player_id", name="uq_waiting_session_player"),
+        Index("ix_waiting_list_entries_standing_entry_id", "standing_entry_id"),  # PAD-263
         {"extend_existing": True},
     )
 

@@ -8,6 +8,7 @@ whether a failure mode has been seen before.
 
 **How to navigate:** follow `affects:` to the rule, file, or spec involved; follow
 `related_specs:` to the governing specs. IDs are monotonic and never reused.
+- [B-053](B-053-disabled-account-login-issues-token.md) — both login routes signed in a disabled (deleted, withdrawn or rejected) account (incomplete-rule, high, resolved)
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
 - [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
 - [B-041](B-041-respond-waiting-list-no-offer-check.md) — any player could queue on any class by id: respond_waiting_list never checked for an offer (incomplete-rule, high, resolved in PAD-222)
@@ -24,3 +25,14 @@ whether a failure mode has been seen before.
 - [B-034](B-034-activation-route-open-by-sequential-id.md) — activation routes open by sequential user id: anyone could set any inactive account's password; now a per-account HMAC secret in the link, status check, narrowed fields (incomplete-rule, critical, PAD-254)
 - [B-035](B-035-deleting-a-level-deletes-the-roster.md) — deleting a coach level deleted every player at that level with their notes and evaluations, or 500'd; now unassigns via SET NULL FKs + a delete service (incomplete-rule, critical, PAD-255)
 - [B-059](B-059-batch-migrations-abort-on-rows-referencing-deleted-records.md) — PAD-207's reminder backfill inserted a row for a deleted class and aborted the staging deploy (324 restarts, API 502); PAD-255's FKs had the same blind spot; both now tolerate references to rows that are gone (missing-criterion, high, resolved)
+- [B-036](B-036-coach-current-club-returns-oldest.md) — Coach.current_club returned the oldest club, not the most recently joined; undated memberships must rank oldest on Postgres too (missing-criterion, medium, resolved in PAD-266)
+- [B-054](B-054-model-migration-index-drift.md) — nine model-versus-migration differences on a clean database; `flask db migrate` would drop the two partial unique pending-request indexes (layer-drift, high, open)
+- [B-056](B-056-declined-student-reinvited-same-round.md) — a student who declined an invitation was re-invited in the same round, so the spot never reached anyone else (missing-criterion, medium, resolved)
+- [B-051](B-051-capacity-and-vacancy-check-then-write-without-a-lock.md) — capacity, one-winner-per-vacancy and materialisation were check-then-write with no row lock (incomplete-rule, high, resolved in PAD-261)
+- [B-037](B-037-account-deletion-leaves-the-future-behind.md) — account deletion left enrolments, reminders, pushes, waiting-list credits, legacy login and roster listings behind (missing-dev-spec, medium, resolved in PAD-268)
+- [B-038](B-038-privacy-policy-omits-ai-import-processor.md) — privacy policy does not name the AI import processor (OpenRouter) or the EEA transfer (layer-drift, medium, open — owner action)
+- [B-052](B-052-editor-registry-traps.md) — editor registry traps: Message under "lessage" (404), DeviceToken and LessonInstanceTraining schema 500s; keys are now the lowercased class name, pinned by a registry walk (missing-criterion, low, resolved in PAD-280)
+- [B-046](B-046-lesson-instance-occurrence-not-unique.md) — nothing in the database stops two lesson instances for the same occurrence; the unique constraint needs a duplicate merge first (incomplete-rule, medium, open)
+- [B-049](B-049-profile-rows-orphaned-when-a-user-is-deleted.md) — players.user_id / coaches.user_id nullable and non-unique; deleting a user orphaned its profile and crashed serializers (incomplete-rule, high, triaged in PAD-260)
+- [B-055](B-055-updated-at-local-time-and-never-bumped.md) — updated_at stamped in local time by save() and never bumped by a plain commit; token_blocklist wrote an aware datetime into a naive column (test-defect, low, resolved in PAD-273)
+- [B-058](B-058-event-end-crosses-utc-midnight.md) — a class crossing UTC midnight vanished from both dashboards: `_event_end` joined the start date to the end time (missing-criterion, medium, resolved)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -12,6 +12,7 @@ class Association_PlayerLessonInstance(db.Model, model.Model):
         UniqueConstraint(
             "player_id", "lesson_instance_id", name="uq_player_lesson_instance"
         ),
+        Index("ix_player_in_lesson_instance_lesson_instance_id", "lesson_instance_id"),  # PAD-263
         {"extend_existing": True},
     )
 
@@ -19,9 +20,10 @@ class Association_PlayerLessonInstance(db.Model, model.Model):
     model_name = "Association_PlayerLessonInstance"
 
     id = Column(Integer, primary_key=True)
-    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     lesson_instance_id = Column(
-        Integer, ForeignKey("lesson_instances.id", ondelete="CASCADE")
+        Integer, ForeignKey("lesson_instances.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
     player = relationship("Player", back_populates="lesson_instances_relations")

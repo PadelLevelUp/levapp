@@ -59,7 +59,10 @@ from padel_app.helpers.calendar_helpers import (
 from padel_app.helpers.dashboard.snooze import snoozed_item_ids
 from padel_app.services.presence_overview_service import count_pending_validation
 from padel_app.tools.tools import _safe_int
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+# PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
+# the clock class times are stored in. It goes back to UTC only where it meets
+# an event timestamp (the calendar serializer, the snooze).
 
 # How far ahead the hero and the queue look.
 HERO_SOON_MINUTES = 120
@@ -156,7 +159,19 @@ def _event_start(event: Dict[str, Any]) -> datetime:
 
 
 def _event_end(event: Dict[str, Any]) -> datetime:
-    return _combine(event.get("date"), event.get("endTime"), datetime.min)
+    """The class's real end instant (B-058, dashboard.blocks rule 9).
+
+    ``date`` is the START date, and the strings are UTC. A class that crosses
+    UTC midnight (23:15-00:15 UTC) ends on the next date, so an end time
+    earlier than the start time rolls forward one day. Joining the start date
+    to the end time used to put such a class's end before its start, and every
+    block built on ``load_events`` dropped it.
+    """
+    end = _combine(event.get("date"), event.get("endTime"), datetime.min)
+    start = _combine(event.get("date"), event.get("startTime"), datetime.max)
+    if end is not datetime.min and start is not datetime.max and end < start:
+        end += timedelta(days=1)
+    return end
 
 
 def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> datetime:
@@ -202,7 +217,7 @@ def build_next_class_block(
     Returning ``None`` is intentional: an empty hero would be the largest element
     on the screen saying nothing, which is the flaw this redesign removes.
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     return next_class_block(window, now=now)
 
@@ -289,7 +304,7 @@ def build_needs_you_block(
     Order is fixed — empty seats (soonest first), then replies, then validation —
     because it runs from time-critical to whenever-you-like.
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     items: List[Dict[str, Any]] = []
     items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
@@ -312,7 +327,7 @@ def _empty_seat_items(
     events = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
-    snoozed = snoozed_item_ids(coach_id=coach_id, now=now)
+    snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
     out: List[Dict[str, Any]] = []
     for event in events:
         filled, capacity = fill(event)
@@ -350,8 +365,12 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
         )
         .join(ConversationParticipant, ConversationParticipant.conversation_id == Message.conversation_id)
         .filter(ConversationParticipant.user_id == user_id)
+        .join(User, User.id == Message.sender_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
+        # PAD-268 (auth.account-deletion rule 8): a deleted person cannot read a
+        # reply, so their messages never put a conversation in the queue.
+        .filter(User.status != "disabled")
         .filter(Message.sent_at > func.coalesce(ConversationParticipant.last_read_at, _EPOCH))
         .group_by(Message.conversation_id)
         .subquery()
@@ -362,6 +381,7 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
         .join(User, User.id == Message.sender_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
+        .filter(User.status != "disabled")
         .order_by(Message.sent_at.desc(), Message.id.desc())
         .limit(QUEUE_REPLY_LIMIT * 2)
         .all()
@@ -435,7 +455,7 @@ def build_schedule_block(
     *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """The week ahead. Shows the first few rows and links out for the rest."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     return schedule_block(window)
 
@@ -479,7 +499,7 @@ def build_week_pulse_block(
     *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
     week_end = week_start + timedelta(days=7)
@@ -548,7 +568,12 @@ def _player_activity(*, coach_id: int, now: datetime) -> Tuple[int, int]:
     player_ids = [
         pid
         for (pid,) in db.session.query(Association_CoachPlayer.player_id)
+        .join(Player, Player.id == Association_CoachPlayer.player_id)
+        .join(User, User.id == Player.user_id)
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268 (auth.account-deletion rule 8): a deleted account is not a
+        # player here, in the count or the denominator. The roster row stays.
+        .filter(User.status != "disabled")
         .all()
     ]
     if not player_ids:

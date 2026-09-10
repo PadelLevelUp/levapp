@@ -47,60 +47,6 @@ def is_float(value):
         return False
 
 
-def create_csv_for_model(model):
-    model_name = model.__name__.lower()
-    instances = model.query.all()
-
-    filename = f"data/csv/{model_name}.csv"
-    file_path = current_app.root_path + url_for("static", filename=filename)
-    instances = [instance.get_dict() for instance in instances]
-    if instances:
-        fieldnames = instances[0].keys()
-
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in instances:
-                writer.writerow(row)
-
-    return url_for("static", filename=filename)
-
-
-def upload_csv_to_model(model):
-    model_name = model.__name__.lower()
-    filename = f"data/csv/{model_name}.csv"
-    file_path = current_app.root_path + url_for("static", filename=filename)
-
-    hybrid_properties = get_hybrid_properties(model)
-
-    with open(file_path, mode="r") as csvfile:
-        reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            filtered_data = {
-                k: try_convert(v) for k, v in row.items() if k not in hybrid_properties
-            }
-            if filtered_data.get("name"):
-                existing_instance = model.query.filter_by(
-                    name=filtered_data.get("name")
-                ).first()
-            else:
-                existing_instance = model.query.filter_by(
-                    id=filtered_data.get("id")
-                ).first()
-
-            if existing_instance:
-                existing_instance.update_with_dict(filtered_data)
-                existing_instance.save()
-            else:
-                empty_instance = model()
-                empty_instance.update_with_dict(filtered_data)
-                empty_instance.create()
-
-    return True
-
-
 def get_hybrid_properties(model):
     hybrid_properties = []
     for name, attr in model.__dict__.items():

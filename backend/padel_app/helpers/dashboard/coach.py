@@ -9,7 +9,7 @@ from padel_app.helpers.dashboard.coach_home import (
     build_week_pulse_block,
     load_coach_home_events,
 )
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive
 
 
 def build_coach_dashboard_blocks(*, coach, user_id: int) -> List[Dict[str, Any]]:
@@ -30,7 +30,7 @@ def build_coach_dashboard_blocks(*, coach, user_id: int) -> List[Dict[str, Any]]
 
     # PAD-262 (dashboard.blocks rule 8): one pipeline call over the widest
     # window any block needs; each block cuts its own window from this set.
-    now = utcnow_naive()
+    now = club_now_naive()  # PAD-256: the dashboard's clock is the club's
     events = load_coach_home_events(coach_id=coach.id, now=now)
 
     # Omitted rather than emptied: an empty hero would be the biggest element on

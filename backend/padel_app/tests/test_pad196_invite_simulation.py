@@ -386,8 +386,12 @@ def test_invitation_window_reported_not_applied(app):
         _config(ids["coach_id"], invitation_start_timing={"type": "hours_before", "value": 2})
         now = utcnow_naive().replace(microsecond=0)
         instance = LessonInstance.query.get(ids["instance_id"])
-        instance.start_datetime = now + timedelta(hours=6)
-        instance.end_datetime = now + timedelta(hours=7)
+        # PAD-256: a class time is stored on the club's wall clock (R-023), so a
+        # class "6 hours from now" is Lisbon now + 6 h.
+        from padel_app.utils.dates import utc_to_wall_naive
+
+        instance.start_datetime = utc_to_wall_naive(now) + timedelta(hours=6)
+        instance.end_datetime = utc_to_wall_naive(now) + timedelta(hours=7)
         db.session.commit()
 
         simulation = _simulate(ids, alice, now=now)

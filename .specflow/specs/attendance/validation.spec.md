@@ -100,9 +100,11 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 14. All copy goes through `src/locales/{pt,en}/presences.json`. Default locale is
     `pt`. Counted strings must not be used for the empty case: Portuguese CLDR puts
     0 in the `one` category, so a count renders "0 aula".
-15. Date ranges and time labels are computed and formatted in **UTC**, matching
-    `attendance.history` — `start_datetime` is naive UTC, and a local-time week
-    boundary would move a late class into the neighbouring week.
+15. Date ranges and time labels use the stored digits as they are, matching
+    `attendance.history`. `start_datetime` is Lisbon wall-clock (R-023, PAD-256), and
+    the clients format it without a zone conversion, so a late class never moves into
+    the neighbouring week. The server's default range and the "pending validation"
+    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time.
 16. The players table links each row to that player's existing attendance history
     page rather than reimplementing it.
 17. **Both shells carry the reporting surface too** (PAD-166): the three charts

@@ -22,7 +22,7 @@ Automatically send class reminders to enrolled players at a configured time befo
 7. Reminders sent via in-app messaging (system message in conversation)
 8. Push notification also sent
 9. Only the latest reminder for a given (player, instance) is actionable (PAD-49). When a newer reminder is sent for the same (player, instance), every prior reminder message for that pair that the player has NOT yet actioned is marked **superseded** (`msg_metadata.superseded = true`). A superseded reminder renders its action area as a disabled "expired" indicator instead of live Yes/No buttons; responding to it is a no-op. Reminders the player already actioned (confirmed/declined) keep their existing status badge and are never marked superseded. Superseding is idempotent and is delivered to live clients via a `message_edited` event so the buttons update without a reload.
-10. A reminder is **expired** once its class has started, or the instance is canceled/completed (PAD-68). The class is closed: nothing about its roster can still usefully change.
+10. A reminder is **expired** once its class has started, or the instance is canceled/completed (PAD-68). "Started" is judged on the club's clock: the stored start is Lisbon wall-clock (R-023), compared with Lisbon now by `_instance_is_over` (PAD-256). The class is closed: nothing about its roster can still usefully change.
     - `respond_to_reminder()` on an expired reminder is a no-op returning `{"action": "expired"}`. It does NOT update Presence (the coach's attendance record for a class that happened is authoritative), does NOT create a Vacancy, and does NOT trigger replacement invitations.
     - The un-actioned reminder messages for that (player, instance) are marked `superseded = true` + `expired = true` and pushed to live clients via `message_edited`.
     - Clients also derive expiry from `msg_metadata.startsAt`, so reminders already sitting in message history stop offering Yes/No the moment their class passes, with no data backfill.
@@ -51,6 +51,37 @@ Automatically send class reminders to enrolled players at a configured time befo
     `msg_metadata` (`responded`, `response`, `superseded`, `expired`, `reminderNumber`) is written
     in step with the row and nothing the clients see changes. The migration is idempotent and
     backfills one row per existing `notification_reminder` message from its metadata.
+15. **When a reminder fires, and when a class has started (PAD-256).** A class's `start_datetime`
+    is the Lisbon wall-clock time the coach typed (R-023; decision
+    `2026-09-10-class-time-storage`, option B). The scheduler turns it into a UTC instant before
+    it arms a job:
+    - `hours_before: N` fires N real hours before the class's real start, even across a
+      daylight-saving change;
+    - `days_before: D, time: "HH:MM"` fires at HH:MM on the club's clock, on the class's own date
+      minus D days.
+
+    For reminders, "has the class started" compares the class's wall time with the club's clock,
+    never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
+    armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
+    October, and a class at 23:00 or later got its day-before reminder a day late.
+16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
+    `init_scheduler` returns without starting APScheduler when the process is a migration
+    (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
+    `run`. That holds whether the process was launched as the `flask` console script or as
+    `python -m flask`, which is how the production entrypoint (`backend/scripts/entrypoint.sh`)
+    runs `db upgrade`. Server processes (gunicorn, `flask run`, including `flask --app app.py
+    run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
+    `flask/__main__.py`, the guard missed it, and every deploy's migration started the
+    scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
+    twice.
+    *(Numbered 16 in batch 2: PAD-207 holds 14, PAD-256 15 and PAD-258 17.)*
+
+17. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
+    the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
+    the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
+    written. Before this, any student could "decline" any class: a stray absent Presence was
+    created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
+    replacement invitations for a spot that was never theirs.
 
 ### Acceptance Criteria
 
@@ -125,3 +156,27 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **Then** nothing is pending — the table, not the metadata, is the source of truth
 - **Given** the migration source
 - **Then** the table is created only if absent and the backfill inserts only messages without a row
+
+#### Reminders fire at the club's time in summer and in winter (PAD-256)
+- **Given** a class stored at 14:00 on 2026-07-14 (Lisbon summer, UTC+1) and a reminder timing of
+  24 hours before
+- **When** the scheduler arms the reminder
+- **Then** it fires at 13:00 UTC on 2026-07-13, which is 14:00 in Lisbon
+- **And** for the same class on 2026-01-13 (winter, UTC+0) it fires at 14:00 UTC on 2026-01-12
+
+#### A late class's day-before reminder lands on the day before (PAD-256)
+- **Given** a class stored at 23:30 on 2026-07-14 and a timing of 1 day before at 18:00
+- **When** the scheduler arms the reminder
+- **Then** it fires at 17:00 UTC on 2026-07-13 (18:00 Lisbon), not on 2026-07-14
+
+#### A class that has started gets no reminder (PAD-256)
+- **Given** a class stored at 10:00 on 2026-07-14
+- **When** the reminder pass runs at 09:30 UTC, which is 10:30 in Lisbon
+- **Then** no reminder is sent
+- **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
+
+#### The scheduler does not start inside a migration (PAD-264)
+- **Given** the production entrypoint running `python -m flask --app app.py db upgrade`
+- **When** the app factory runs
+- **Then** APScheduler is not started and no reminder job is rescheduled
+- **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it

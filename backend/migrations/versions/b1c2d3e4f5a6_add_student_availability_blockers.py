@@ -8,7 +8,7 @@ blocks_auto_invitations=True to suppress AUTOMATIC class invitations during
 their unavailable windows. Manual additions by a coach are unaffected.
 
 Revision ID: b1c2d3e4f5a6
-Revises: 7a4c9e2d1f30
+Revises: b3f1c2a7d9e4
 Create Date: 2026-07-03 10:00:00.000000
 
 """

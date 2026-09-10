@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, abort, g, Response
+from flask import Blueprint, Response, abort, current_app, g, jsonify, request
 from werkzeug.exceptions import HTTPException
 from datetime import datetime, timezone
 from dateutil import parser
@@ -7,14 +7,17 @@ import queue
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 
 
+from padel_app.utils.dates import club_now_naive
 from padel_app.models import *
-from padel_app.realtime import subscribe, unsubscribe
+from padel_app.realtime import STOP, stream_count, try_subscribe, unsubscribe
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.serializers.lesson import (
     serialize_lesson_instance,
     serialize_class_instance,
 )
 from padel_app.serializers.user import serialize_user, serialize_user_public
+from padel_app.utils.tokens import issue_access_token
+from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.serializers.presence import serialize_presence, serialize_presences
 from padel_app.serializers.calendar import serialize_calendar_block
 from padel_app.serializers.message import serialize_message
@@ -532,9 +535,22 @@ def require_owned_training_target(coach, class_instance_data):
 # SSE
 # -------------------------------------------------------------------
 
+#: messaging.sse-realtime rule 13 (PAD-277): how long a refused client is told
+#: to wait, and the reconnection delay a plain EventSource adopts from the
+#: stream's first chunk. Our own clients add exponential back-off with jitter.
+SSE_RETRY_AFTER_SECONDS = 10
+SSE_CLIENT_RETRY_MS = 10_000
+
+
 @bp.route("/events")
 @jwt_required(locations=["query_string"])
 def events():
+    from padel_app.config import (
+        DEFAULT_SSE_KEEPALIVE_SECONDS,
+        DEFAULT_SSE_MAX_STREAMS,
+        DEFAULT_SSE_MAX_STREAMS_PER_USER,
+    )
+
     # Read the identity HERE, in the request context — not inside the generator.
     # The generator body runs after this request context has popped, so
     # get_jwt_identity() there would raise. This id is what scopes the stream:
@@ -542,29 +558,67 @@ def events():
     # are delivered to it (messaging.sse-realtime rule 7, B-004).
     subscriber_id = int(get_jwt_identity())
 
+    # Each connected client pins one gunicorn thread for the lifetime of the
+    # stream (1 worker x 64 threads). The slot is taken HERE, before a byte is
+    # streamed, so a full server answers at once instead of queueing the
+    # request behind the streams that already hold every thread. Past the
+    # per-user cap the user's oldest stream is evicted instead (PAD-277, rules
+    # 11-13; baseline in the 2026-08-25 single-VM decision).
+    q, refused = try_subscribe(
+        subscriber_id,
+        max_total=current_app.config.get("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
+        max_per_user=current_app.config.get(
+            "SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER
+        ),
+    )
+    keepalive = current_app.config.get("SSE_KEEPALIVE_SECONDS", DEFAULT_SSE_KEEPALIVE_SECONDS)
+    if q is None:
+        current_app.logger.warning(
+            "SSE stream refused: scope=%s user=%s open_streams=%s",
+            refused,
+            subscriber_id,
+            stream_count(),
+        )
+        refusal = jsonify({"error": "SSE_CAPACITY", "scope": refused})
+        refusal.status_code = 503
+        refusal.headers["Retry-After"] = str(SSE_RETRY_AFTER_SECONDS)
+        return refusal
+
     def stream():
-        # Each connected client pins one gunicorn thread for the lifetime of
-        # this generator. A disconnect is only detected when a write fails, so
-        # q.get() must time out and emit a keep-alive: otherwise a closed tab
-        # whose queue never receives an event leaks its thread forever and the
-        # worker pool eventually starves (prod outage 2026-06-10/11).
-        q = subscribe(subscriber_id)
+        # A disconnect is only detected when a write fails, so q.get() must
+        # time out and emit a keep-alive: otherwise a closed tab whose queue
+        # never receives an event leaks its thread forever and the worker pool
+        # eventually starves (prod outage 2026-06-10/11).
         try:
+            # First chunk at once (rule 14): it flushes the headers, so the
+            # client can tell an accepted stream from a stalled one, and sets
+            # the reconnection delay of any plain EventSource.
+            yield f"retry: {SSE_CLIENT_RETRY_MS}\n: connected\n\n"
             while True:
                 try:
-                    event = q.get(timeout=15)
+                    event = q.get(timeout=keepalive)
                 except queue.Empty:
                     yield ": keep-alive\n\n"
                     continue
+                if event is STOP:
+                    # Evicted by a newer stream of the same user (rule 12).
+                    yield ": evicted\n\n"
+                    return
                 yield f"data: {json.dumps(event)}\n\n"
         finally:
             unsubscribe(subscriber_id, q)
 
-    return Response(
+    response = Response(
         stream(),
         mimetype="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+    # The slot was taken in the request, so it must also be released when the
+    # server closes the response — including a client that hung up before the
+    # generator ever started, which the generator's own `finally` cannot see.
+    # `unsubscribe` is idempotent, so both paths running is harmless.
+    response.call_on_close(lambda: unsubscribe(subscriber_id, q))
+    return response
 
 
 # -------------------------------------------------------------------
@@ -1906,7 +1960,7 @@ def accept_coach_invitation(token):
 
     user = accept_coach_invitation_service(token, data=data)
     return jsonify({
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
     })
 
 
@@ -1955,7 +2009,7 @@ def accept_player_invitation(token):
     data = request.get_json(silent=True) or {}
     user = accept_player_invitation_service(token, data=data)
     return jsonify({
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
     })
 
 
@@ -2088,6 +2142,26 @@ def accept_join_token(token):
 # `@jwt_required()` `PUT /calendar_block/<id>`. Removed.
 
 
+def _player_in_class(player_id, lesson_id, instance_id=None):
+    """PAD-258: an instance link, a presence row, or lesson-level enrolment."""
+    if player_id in (None, ""):
+        return False
+    if instance_id is not None:
+        if Association_PlayerLessonInstance.query.filter_by(
+            player_id=player_id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+        if Presence.query.filter_by(
+            player_id=player_id, lesson_instance_id=instance_id
+        ).first() is not None:
+            return True
+    if lesson_id is not None:
+        return Association_PlayerLesson.query.filter_by(
+            player_id=player_id, lesson_id=lesson_id
+        ).first() is not None
+    return False
+
+
 @bp.post("/class_instance/presences/confirm")
 @jwt_required()
 def confirm_presences():
@@ -2100,7 +2174,31 @@ def confirm_presences():
     )
     from padel_app.utils.dates import utcnow_naive
 
-    data = request.get_json()
+    data = request.get_json() or {}
+    # PAD-258 / audit H4 — attendance.confirm rule 17: this was JWT-only with
+    # no owner check and upserted any player id. Resolve the target the same
+    # way the service does and refuse before anything is materialised.
+    coach = require_coach()
+    ci = data.get("classInstance") or {}
+    event_id = str(ci.get("id") or "")
+    if event_id.startswith("lessoninstance-"):
+        is_instance = True
+    elif event_id.startswith("lesson-"):
+        is_instance = False
+    else:
+        is_instance = bool(ci.get("parentClassId"))
+    target = require_owned_class(
+        coach, "lessoninstance" if is_instance else "lesson", ci.get("originalId")
+    )
+    target_lesson_id = target.lesson_id if is_instance else target.id
+    target_instance_id = target.id if is_instance else None
+    for item in data.get("presences") or []:
+        pid = item.get("playerId")
+        on_roster = pid not in (None, "") and Association_CoachPlayer.query.filter_by(
+            coach_id=coach.id, player_id=pid
+        ).first() is not None
+        if not on_roster and not _player_in_class(pid, target_lesson_id, target_instance_id):
+            abort(403, "Not authorized to record attendance for this player")
     presences = confirm_presences_service(data['classInstance'], data['presences'])
 
     notified_players = []
@@ -2109,7 +2207,8 @@ def confirm_presences():
     if has_absences and presences:
         coach = current_coach()
         instance = presences[0].lesson_instance
-        if instance and instance.start_datetime > utcnow_naive():
+        # PAD-256: class times are wall-clock (R-023).
+        if instance and instance.start_datetime > club_now_naive():
             config = get_or_create_config(coach.id)
             if _is_semi_auto(config):
                 # Semi-automatic: create pending vacancies for the absent

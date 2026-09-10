@@ -229,8 +229,12 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
                 deadline_hours = config.get_cancellation_deadline_hours()
         cancellation_deadline = None
         if obj.start_datetime is not None:
-            cancellation_deadline = (
-                obj.start_datetime - timedelta(hours=deadline_hours)
+            # PAD-256 (attendance.confirm rules 6-7): N real hours before the
+            # real start, sent on the club's wall clock like every class time.
+            from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
+
+            cancellation_deadline = utc_to_wall_naive(
+                wall_to_utc_naive(obj.start_datetime) - timedelta(hours=deadline_hours)
             ).isoformat()
 
         # PAD-73: the proactive-decline window. Computed by the SAME server
@@ -249,6 +253,8 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             proactive_config = NotificationConfig.query.filter_by(
                 coach_id=coach_id
             ).first()
+        from padel_app.utils.dates import utc_to_wall_naive as _utc_to_wall
+
         proactive_deadline_dt = proactive_decline_deadline(obj, proactive_config)
         can_decline_proactively = proactive_decline_window_is_open(
             obj, proactive_config
@@ -281,7 +287,8 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
                 "cancellationDeadlineHours": deadline_hours,
                 "cancellationDeadline": cancellation_deadline,
                 "proactiveDeclineDeadline": (
-                    proactive_deadline_dt.isoformat()
+                    # PAD-256: a UTC instant, sent on the club's wall clock.
+                    _utc_to_wall(proactive_deadline_dt).isoformat()
                     if proactive_deadline_dt is not None
                     else None
                 ),

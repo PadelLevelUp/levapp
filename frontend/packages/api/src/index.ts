@@ -1,6 +1,13 @@
 export type { TokenStorage } from "./storage";
 export { createApiClient, initApi, getApi, type ApiClientOptions } from "./client";
-export { buildEventsUrl } from "./sse";
+export {
+  buildEventsUrl,
+  createSseHub,
+  sseRetryDelay,
+  SSE_RETRY_BASE_MS,
+  SSE_RETRY_MAX_MS,
+} from "./sse";
+export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as adminApi from "./resources/admin";
@@ -14,6 +21,7 @@ export * as classJoinRequestsApi from "./resources/classJoinRequests";
 export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";
 export * as dashboardApi from "./resources/dashboard";
+export * as editorApi from "./resources/editor";
 export * as evaluationApi from "./resources/evaluation";
 export * as fieldsApi from "./resources/fields";
 export * as invitationsApi from "./resources/invitations";

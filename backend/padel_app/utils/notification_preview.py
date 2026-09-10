@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 
 
 @dataclass
@@ -54,7 +54,7 @@ def _min_time_blocked(dt: datetime, instance_start: datetime, restrictions: dict
     min_time = restrictions.get("minTimeBeforeClass", {})
     if not min_time.get("enabled"):
         return False
-    minutes_until = (instance_start - dt).total_seconds() / 60
+    minutes_until = (wall_to_utc_naive(instance_start) - dt).total_seconds() / 60
     return minutes_until < min_time["value"]
 
 
@@ -78,7 +78,7 @@ def preview_notification_schedule(
     Nothing is written to the database.
     """
     from padel_app.models import Association_CoachLessonInstance, LessonInstance
-    from padel_app.scheduler import _compute_timing_dt
+    from padel_app.scheduler import _fire_time_utc
     from padel_app.services.notification_service import get_or_create_config
 
     now = from_dt or utcnow_naive()
@@ -97,8 +97,9 @@ def preview_notification_schedule(
         )
         .filter(
             Association_CoachLessonInstance.coach_id == coach_id,
-            LessonInstance.start_datetime > now,
-            LessonInstance.start_datetime <= end,
+            # PAD-256: class times are wall-clock; the window is UTC.
+            LessonInstance.start_datetime > utc_to_wall_naive(now),
+            LessonInstance.start_datetime <= utc_to_wall_naive(end),
             LessonInstance.status != "canceled",
         )
         .order_by(LessonInstance.start_datetime)
@@ -112,7 +113,7 @@ def preview_notification_schedule(
         title = f"{level_code} — {instance.start_datetime.strftime('%a %d %b %H:%M')}"
 
         for event_type, timing in (("reminder", reminder_timing), ("invite_start", invite_timing)):
-            fire_dt = _compute_timing_dt(instance.start_datetime, timing)
+            fire_dt = _fire_time_utc(instance.start_datetime, timing)
             if fire_dt is None or fire_dt <= now or fire_dt > end:
                 continue
 

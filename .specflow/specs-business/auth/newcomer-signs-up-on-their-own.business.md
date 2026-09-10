@@ -98,8 +98,9 @@ without their knowledge (that case is picked up in
 
 - How a student, once registered, gets onto a coach's roster (QR, invite link, claim) — see
   [[players.coach-builds-roster]].
-- Parental consent for minors (birth date, country, guardian email) — PAD-198 layers onto this
-  form later.
+- Parental consent for minors — its own outcome, [[auth.minor-signs-up-with-a-guardians-consent]]
+  (PAD-198): the same form gains a birth date and a country, and a minor's account waits for a
+  guardian.
 - Email verification. Not in v1 (decision 2026-09-06).
 - Signing in and staying signed in — [[auth.coach-signs-in-and-stays-connected]].
 

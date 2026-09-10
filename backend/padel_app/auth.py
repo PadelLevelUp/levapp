@@ -1,6 +1,8 @@
 from padel_app.models import User, TokenBlocklist
 from flask_jwt_extended import JWTManager
 
+from padel_app.utils.tokens import session_over
+
 def register_jwt_handlers(jwt):
 
     @jwt.unauthorized_loader
@@ -21,6 +23,11 @@ def register_jwt_handlers(jwt):
         if TokenBlocklist.query.filter_by(jti=jti).first() is not None:
             return True
 
+        # auth.token-refresh rule 6 (PAD-269): a session older than the cap is
+        # over, however recently its token was refreshed.
+        if session_over(jwt_payload):
+            return True
+
         # Session kill for deleted/disabled accounts: reject any token
         # belonging to a user whose status is "disabled", regardless of
         # which device/jti issued it. This invalidates all sessions at
@@ -36,6 +43,11 @@ def register_jwt_handlers(jwt):
                 user = User.query.get(user_id)
                 if user is not None and user.status == "disabled":
                     return True
+                # auth.parental-consent rule 4 (PAD-198): no session for a
+                # minor whose guardian has not consented, or has withdrawn —
+                # whatever path issued the token.
+                if user is not None and getattr(user, "guardian_consent_status", None) in ("pending", "revoked"):
+                    return True
 
         return False
 
@@ -43,4 +55,9 @@ def register_jwt_handlers(jwt):
 def setup_login_manager(login_manager):
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        # PAD-268 (auth.account-deletion rule 3): an open legacy session of a
+        # disabled (deleted) account ends; the loader never hands it back.
+        user = User.query.get(int(user_id))
+        if user is None or user.status == "disabled":
+            return None
+        return user

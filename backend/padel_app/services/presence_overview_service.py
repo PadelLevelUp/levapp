@@ -44,10 +44,11 @@ from padel_app.models import (
     LessonInstance,
     Player,
     Presence,
+    User,
 )
 from padel_app.services.attendance_history_service import (
     GRANULARITIES,
-    _as_naive_utc,
+    _as_club_wall,
     _bucket_series,
     _bucket_start,
     pick_granularity,
@@ -62,15 +63,15 @@ def default_overview_range(now: Optional[datetime] = None) -> Tuple[datetime, da
     this tab is a roster-wide overview, and a single month of a small academy can
     be too sparse for the trend chart to say anything.
     """
-    end = _as_naive_utc(now or datetime.now(timezone.utc))
+    end = _as_club_wall(now or datetime.now(timezone.utc))
     end = end.replace(hour=23, minute=59, second=59, microsecond=0)
     start = (end - timedelta(days=89)).replace(hour=0, minute=0, second=0)
     return start, end
 
 
 def _normalize_range(range_start: datetime, range_end: datetime) -> Tuple[datetime, datetime]:
-    start = _as_naive_utc(range_start)
-    end = _as_naive_utc(range_end)
+    start = _as_club_wall(range_start)
+    end = _as_club_wall(range_end)
     if end < start:
         start, end = end, start
     return start, end
@@ -147,6 +148,10 @@ def build_presence_stats(
         )
         .options(joinedload(Player.user))
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268: a deleted account leaves the roster table (privacy policy
+        # §11); build_presence_trend drops it too so the page stays consistent.
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
         .all()
     )
 
@@ -218,6 +223,11 @@ def build_presence_trend(
         _coach_presence_query(coach_id, start, end)
         .with_entities(LessonInstance.start_datetime)
         .filter(Presence.status == "present")
+        # PAD-268: the same player set as the table: a deleted account's
+        # presences stay in the database and on class pages, not in this series.
+        .join(Player, Player.id == Presence.player_id)
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
     )
     if player_ids is not None:
         query = query.filter(Presence.player_id.in_(list(player_ids)))
@@ -300,7 +310,7 @@ def list_pending_validation(
     coach-settable, so validation is derived from the presence rows instead.
     """
     start, end = _normalize_range(range_start, range_end)
-    cutoff = _as_naive_utc(now or datetime.now(timezone.utc))
+    cutoff = _as_club_wall(now or datetime.now(timezone.utc))
 
     instances = (
         db.session.query(LessonInstance)

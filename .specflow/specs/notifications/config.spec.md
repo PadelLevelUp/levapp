@@ -19,7 +19,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 1. One config per coach (upserted on first access)
 2. `auto_notify_enabled` toggles the automatic invitation engine
 3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
-4. `reminder_timing`: `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`
+4. `reminder_timing`: `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
 5. `invitation_start_timing`: when to start sending invitations after a vacancy
 6. `restrictions`: maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
 6a. **(PAD-136)** `quietHours` is a **club-local wall clock** window of **22:00–07:00**, evaluated against
@@ -29,8 +29,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    stored as naive UTC, the check MUST convert to club-local before comparing the hour;
    comparing a UTC hour makes the window drift to 23:00–08:00 local through Portuguese summer
    time (WEST = UTC+1) while reading correctly in winter (WET = UTC+0). Only restrictions with
-   wall-clock semantics need this conversion: `minTimeBeforeClass` (a duration) and `maxTotal`
-   (a count) carry none. `maxInvitesPerStudentPerDay` DOES carry them — see rule 6b.
+   wall-clock semantics need this conversion: `maxTotal` (a count) carries none, and
+   `minTimeBeforeClass` (a duration) only needs the class's wall-clock start turned into an instant
+   (`notifications.invitations` rule 11, PAD-256). `maxInvitesPerStudentPerDay` DOES carry them — see rule 6b.
 6b. **(PAD-144)** `maxInvitesPerStudentPerDay` counts over the **club-local calendar day**
    (`Europe/Lisbon`), not the UTC day. "Per day" is a wall clock the coach reads off their own
    calendar, so the counting window is local midnight → local midnight, and the boundary must be

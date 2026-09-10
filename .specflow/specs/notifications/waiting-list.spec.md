@@ -16,8 +16,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 > this spec is implemented (rules 3a/4a-4d aside, which are pending PAD-128 as noted inline).
 
 ### Entities
-- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id)
-- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active
+- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
+- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active. Unique: one **active** entry per (coach_id, player_id), via the partial unique index `uq_standing_entries_active_coach_player` (PAD-273). `add_standing_waiting_list_entry` deactivates the previous active entry before creating the new one; inactive rows keep the history and may repeat
 
 ### Rules
 1. **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
@@ -114,6 +114,10 @@ Players can join a waiting list for full classes. Standing waiting list entries 
     Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
     created. The check runs before the late-instance no-op of PAD-68, so a player never learns
     whether an arbitrary instance id exists.
+13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
+    and then the class instance, and places the student only while the vacancy is still open and the
+    class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it
+    places nobody and leaves the entry active, and a class that has started also expires the vacancy.
 
 ### Acceptance Criteria
 
@@ -166,6 +170,12 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **Then** no WaitingListEntry exists for them on that instance
 - **And** the offer bubble shows the "declined" badge
 
+#### Only one active standing entry per coach and player
+- **Given** coach `maria` and player `rui` with one active standing entry, and two older inactive ones
+- **When** a second active entry for `maria` and `rui` is written directly
+- **Then** the database refuses it (integrity error); the inactive rows are unaffected
+- **And** `POST /api/app/notify/standing_waiting_list` for `rui` still works, because it deactivates the old entry first
+
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)
 - **When** a new instance is materialized
@@ -209,3 +219,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
+
+#### A placement never takes a spot someone else already won (PAD-261)
+- **Given** a vacancy that another path has just filled, or a class that is already full
+- **When** the waiting list tries to place a student into it
+- **Then** nobody is placed and the waiting-list entry stays active

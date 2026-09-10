@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -28,7 +28,8 @@ class EvaluationEntry(db.Model, model.Model):
 
     score = Column(Float, nullable=False)
     comment = Column(String(500), nullable=True)
-    evaluated_at = Column(DateTime, default=datetime.utcnow)
+    # PAD-273 (audit M12): `.strftime` is called on it, so it can never be NULL.
+    evaluated_at = Column(DateTime, default=datetime.utcnow, nullable=False, server_default=func.now())
 
     @property
     def name(self):

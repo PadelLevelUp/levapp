@@ -45,7 +45,7 @@ from datetime import datetime, timedelta, timezone
 # CLUB-LOCAL, not UTC. PAD-144 moved the constant itself into `utils.dates` so
 # scheduler, student_availability_service and notification_service share ONE
 # definition instead of three drifting copies.
-from padel_app.utils.dates import CLUB_TZ, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, club_now_naive, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 
 # ---------------------------------------------------------------------------
 # Module-level singletons
@@ -82,29 +82,27 @@ def _app_ctx():
 # Timing helpers (pure functions — no Flask dependency)
 # ---------------------------------------------------------------------------
 
-def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetime | None:
-    """Return the absolute UTC datetime for a timing config relative to class start.
+def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> datetime | None:
+    """PAD-256 (R-023): when a timing config fires, as a naive UTC instant.
 
-    Accepted shapes:
-      {"type": "hours_before",       "value": N}
-      {"type": "days_before",        "days": N, "time": "HH:MM"}
-      {"type": "days_before_at_time","days": N, "time": "HH:MM"}
+    ``wall_start`` is a class time as stored: the Lisbon wall clock the coach
+    typed. ``hours_before: N`` counts N real hours back from the class's real
+    start, even across a daylight-saving change. The ``days_before`` variants
+    take the class's OWN wall date minus N days and fire at HH:MM on the club's
+    clock, so a 23:30 class gets its day-before reminder on the day before.
 
-    ``instance_start`` must be a naive UTC datetime, and the return value is
-    naive UTC too (the scheduler arms every job with ``timezone="UTC"``).
-
-    The ``"time"`` field is a CLUB_TZ wall clock, so the day/time variants
-    convert local → UTC; ``hours_before`` is pure delta arithmetic and needs
-    no conversion.
+    Reminders, the proactive-decline deadline and the invitation start all use
+    this (``notifications.reminders`` rule 15, ``attendance.confirm`` rule 10,
+    ``notifications.invitations`` rule 11).
     """
-    if not timing_config:
+    if not timing_config or wall_start is None:
         return None
 
     t = timing_config.get("type")
 
     if t == "hours_before":
         value = int(timing_config.get("value", 24))
-        return instance_start - timedelta(hours=value)
+        return wall_to_utc_naive(wall_start) - timedelta(hours=value)
 
     if t in ("days_before", "days_before_at_time"):
         days = int(timing_config.get("days", 1))
@@ -113,32 +111,18 @@ def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetim
             hour, minute = (int(p) for p in time_str.split(":"))
         except (ValueError, AttributeError):
             hour, minute = 9, 0
-
-        # PAD-134: `hour`/`minute` are the coach's CLUB_TZ wall clock. Stamping
-        # them straight into a naive-UTC datetime made every reminder fire an
-        # hour late through Portuguese summer time (WEST = UTC+1) and on time
-        # in winter (WET = UTC+0) — the reported "sempre 1h depois".
-        #
-        # The day count is taken from the LOCAL calendar day too: a 00:30
-        # Lisbon class is 23:30 UTC the previous day, so a UTC-derived date
-        # would land the reminder a day early.
-        local_start = instance_start.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
-        target_date = local_start.date() - timedelta(days=days)
-        local_target = datetime(
-            target_date.year, target_date.month, target_date.day,
-            hour, minute, tzinfo=CLUB_TZ,
+        target_date = wall_start.date() - timedelta(days=days)
+        return wall_to_utc_naive(
+            datetime(target_date.year, target_date.month, target_date.day, hour, minute)
         )
-        return local_target.astimezone(timezone.utc).replace(tzinfo=None)
 
     return None
 
 
-def _compute_reminder_dt(instance, timing_config: dict) -> datetime | None:
-    return _compute_timing_dt(instance.start_datetime, timing_config)
-
-
 def _compute_invite_start_dt(instance, timing_config: dict) -> datetime | None:
-    return _compute_timing_dt(instance.start_datetime, timing_config)
+    # PAD-256 (notifications.invitations rule 11): a UTC instant, stored as
+    # `Vacancy.invite_not_before` and compared with UTC now.
+    return _fire_time_utc(instance.start_datetime, timing_config)
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +161,8 @@ def _maybe_rearm_reminder(instance, *, func, args, base_job_id, result) -> None:
     next_dt = utcnow_naive() + timedelta(hours=hours)
 
     # Never fire at/after the class start.
-    if instance.start_datetime is not None and next_dt >= instance.start_datetime:
+    # PAD-256: the class time is wall-clock, so compare instants.
+    if instance.start_datetime is not None and next_dt >= wall_to_utc_naive(instance.start_datetime):
         return
 
     retry_id = f"{base_job_id}_retry_{int(next_dt.timestamp())}"
@@ -342,7 +327,8 @@ def init_scheduler(app, test_config=None) -> None:
 
     Skipped in these contexts:
     - Tests:             ``test_config`` is not None
-    - Flask CLI:         ``flask db upgrade``, ``flask shell``, etc.
+    - Flask CLI:         ``flask db upgrade``, ``flask shell``, etc., whether run as
+                         the ``flask`` script or ``python -m flask`` (PAD-264)
     - Werkzeug watcher:  outer watcher process (``WERKZEUG_RUN_MAIN`` set but ≠ "true")
     """
     global _app, _scheduler
@@ -351,9 +337,26 @@ def init_scheduler(app, test_config=None) -> None:
     if test_config is not None:
         return
 
-    # Skip during Flask CLI sub-commands that are not `flask run`
-    argv0 = os.path.basename(sys.argv[0]) if sys.argv else ""
-    if argv0 in ("flask", "flask.exe") and len(sys.argv) > 1 and sys.argv[1] != "run":
+    # Skip every Flask CLI process except `flask run` (PAD-264, audit H12;
+    # notifications.reminders rule 16). The production entrypoint runs
+    # `python -m flask --app app.py db upgrade`, and under `python -m`
+    # sys.argv[0] is ".../flask/__main__.py". The old basename check
+    # ("flask"/"flask.exe") missed that, so APScheduler started inside every
+    # deploy's migration. Options are skipped when looking for the command, so
+    # `flask --app app.py run` is recognised as `run` (the old argv[1] check
+    # read "--app" and skipped it).
+    from padel_app.config import is_migration_invocation
+
+    argv = sys.argv or [""]
+    if is_migration_invocation(argv):
+        return
+    argv0 = argv[0].replace("\\", "/")
+    is_flask_cli = (
+        os.path.basename(argv0) in ("flask", "flask.exe")
+        or argv0.endswith("flask/__main__.py")
+    )
+    command_args = [a for a in argv[1:] if not a.startswith("-")]
+    if is_flask_cli and "run" not in command_args:
         return
 
     # Werkzeug dev-reloader spawns two processes:
@@ -478,7 +481,7 @@ def _reschedule_for_coach(coach_id: int) -> int:
     with _app_ctx():
         from padel_app.models import Association_CoachLessonInstance, LessonInstance
 
-        now = utcnow_naive()
+        now = club_now_naive()  # PAD-256: class times are wall-clock (R-023)
         instances = (
             LessonInstance.query
             .join(
@@ -561,21 +564,25 @@ def schedule_lesson_reminder_jobs(
 
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
-        horizon = cutoff + timedelta(days=horizon_days)
+        # PAD-256: occurrences are wall-clock like the lesson's start, so the
+        # expansion window is too. ``cutoff`` stays the UTC instant the fire
+        # times are compared with below.
+        wall_cutoff = utc_to_wall_naive(cutoff)
+        horizon = wall_cutoff + timedelta(days=horizon_days)
 
         occurrences = expand_occurrences(
             lesson.start_datetime,
             lesson.recurrence_rule,
             lesson.recurrence_end,
-            cutoff,
+            wall_cutoff,
             horizon,
         )
 
         scheduled = 0
         for occ_dt in occurrences:
-            # expand_occurrences returns tz-aware UTC; _compute_timing_dt needs naive UTC
+            # expand_occurrences labels the wall-clock occurrence as UTC; drop the label.
             occ_dt_naive = occ_dt.replace(tzinfo=None) if occ_dt.tzinfo else occ_dt
-            reminder_dt = _compute_timing_dt(occ_dt_naive, config.get_reminder_timing())
+            reminder_dt = _fire_time_utc(occ_dt_naive, config.get_reminder_timing())
 
             if not reminder_dt:
                 continue
@@ -666,7 +673,7 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
 
-        reminder_dt = _compute_reminder_dt(instance, config.get_reminder_timing())
+        reminder_dt = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
         if reminder_dt and reminder_dt > cutoff:
             _scheduler.add_job(
                 func=_run_send_reminders,
@@ -718,7 +725,7 @@ def reschedule_all_future_jobs(coach_id: int) -> None:
     with _app_ctx():
         from padel_app.models import Association_CoachLessonInstance, LessonInstance
 
-        now = utcnow_naive()
+        now = club_now_naive()  # PAD-256: class times are wall-clock (R-023)
         instances = (
             LessonInstance.query
             .join(

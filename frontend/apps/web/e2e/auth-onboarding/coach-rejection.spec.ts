@@ -25,7 +25,7 @@ async function adminToken(page: Page): Promise<string> {
 async function registerVerifiedCoach(page: Page, username: string) {
   const email = `${username}@example.com`;
   const reg = await page.request.post(`${API_AUTH}/register`, {
-    data: { role: "coach", name: `E2E rejected ${username}`, username, email, password: PASSWORD },
+    data: { role: "coach", name: `E2E rejected ${username}`, username, email, password: PASSWORD, birthDate: "2000-01-01", country: "PT" },
   });
   expect(reg.status(), "register").toBe(201);
   const token = ((await reg.json()) as { accessToken: string }).accessToken;

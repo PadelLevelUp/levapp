@@ -73,7 +73,9 @@ class Model:
     __tablename__ = None
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    # PAD-273 (audit M13): bumped on EVERY ORM update, not only through save();
+    # most services commit directly. UTC like everything else (R-023).
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         try:
@@ -110,7 +112,9 @@ class Model:
         return True
 
     def save(self):
-        self.updated_at = datetime.now()
+        # PAD-273: this used to stamp LOCAL time (datetime.now()) into a column
+        # everything else fills with UTC.
+        self.updated_at = datetime.utcnow()
         db.session.commit()
         return True
 
@@ -303,6 +307,11 @@ class Model:
         else:
             ordered_query = self.query.order_by(model_class.id.asc())
         searchable_column, table_columns = self.display_all_info()
+        # settings.admin-editor rule 3 (PAD-267): list pages never print a secret column.
+        from padel_app.tools.redaction import redacted_columns
+
+        hidden = redacted_columns(self)
+        table_columns = [column for column in table_columns if column.get("field") not in hidden]
         pagination = ordered_query.paginate(
             page=page, per_page=per_page, error_out=False
         )
@@ -315,15 +324,20 @@ class Model:
             "objects": pagination.items,
             "pagination": pagination,
             "general_delete_url": url_for("api.delete", model=self.model_name, id=""),
-            "download_csv_url": url_for("api.download_csv", model=self.model_name),
-            "upload_csv_url": url_for("api.upload_csv_to_db", model=self.model_name),
         }
         return data
 
     def get_edit_form(self):
+        # settings.admin-editor rule 3 (PAD-267): a secret column never
+        # pre-fills a form, so the Jinja display page cannot render it. The
+        # only models with redacted columns are not edited through this form by
+        # any service; editor writes drop those keys anyway (strip_redacted).
+        from padel_app.tools.redaction import redacted_columns
+
+        hidden = redacted_columns(self)
         form = self.get_create_form()
         for field in form.fields:
-            field.value = getattr(self, field.name)
+            field.value = None if field.name in hidden else getattr(self, field.name)
         return form
 
     def get_display_data(self):

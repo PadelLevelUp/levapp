@@ -3,7 +3,7 @@ id: B-031
 title: "serialize_user hands email and phone to any authenticated user, and to anyone who can guess a user id"
 type: incomplete-rule
 severity: high
-status: fixed
+status: resolved
 affects:
   - messaging.conversations
   - auth.activate
