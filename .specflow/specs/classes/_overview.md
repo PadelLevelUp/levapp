@@ -16,6 +16,7 @@ The classes domain.
 - `classes.recurrence` — implemented
 - `classes.detail-visibility` — implemented
 - `classes.join-requests` — draft
+- `classes.class-requests` — implementing (PAD-104: a student books a class in the coach's free time)
 
 ## Why it's grouped this way
 
