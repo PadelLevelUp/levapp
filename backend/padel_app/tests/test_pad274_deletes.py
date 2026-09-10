@@ -382,4 +382,8 @@ def test_the_roster_says_which_records_the_coach_can_delete(app, client, world):
     assert deletable[placeholder_id] is True
     assert deletable[world["student_id"]] is False
     assert deletable[half_id] is False
-    assert deletable[gone_id] is False
+    # A deleted account is off the roster altogether (PAD-268), and it had an
+    # account, so a delete is still refused.
+    assert gone_id not in deletable
+    res = _remove(app, client, world, gone_id, "delete")
+    assert res.status_code == 409 and res.get_json()["code"] == "PLAYER_HAS_ACCOUNT"
