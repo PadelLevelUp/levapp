@@ -152,3 +152,57 @@ def test_migration_is_guarded_and_backfills_from_metadata():
     )
     assert mod.attempt_from_metadata({"instanceId": 7, "superseded": True, "expired": True}, sent_at=None)["lesson_instance_id"] == 7
     assert mod.attempt_from_metadata({}, sent_at=None) is None
+
+
+def test_backfill_skips_reminders_whose_instance_was_deleted():
+    """B-059: the staging deploy of #169 crashed in a restart loop on a prod
+    reminder message naming a deleted instance: the backfill's INSERT broke the
+    foreign key and rolled the whole upgrade back. Such messages are skipped
+    (the table cascades on instance delete, so their row could never exist)."""
+    import importlib.util
+    import json
+    import pathlib
+
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    versions = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
+    (path,) = versions.glob("*pad207_reminder_attempts*.py")
+    spec = importlib.util.spec_from_file_location("pad207_mig_b059", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    engine = sa.create_engine("sqlite://")
+
+    @sa.event.listens_for(engine, "connect")
+    def _foreign_keys_on(dbapi_conn, _record):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    with engine.begin() as conn:
+        for ddl in (
+            "CREATE TABLE users (id INTEGER PRIMARY KEY)",
+            "CREATE TABLE players (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id))",
+            "CREATE TABLE lesson_instances (id INTEGER PRIMARY KEY)",
+            "CREATE TABLE presences (id INTEGER PRIMARY KEY, lesson_instance_id INTEGER, player_id INTEGER)",
+            "CREATE TABLE conversation_participants (conversation_id INTEGER, user_id INTEGER)",
+            "CREATE TABLE messages (id INTEGER PRIMARY KEY, sent_at DATETIME, sender_id INTEGER, "
+            "conversation_id INTEGER, message_type VARCHAR(40), msg_metadata TEXT)",
+        ):
+            conn.exec_driver_sql(ddl)
+        conn.exec_driver_sql("INSERT INTO users (id) VALUES (1), (2)")
+        conn.exec_driver_sql("INSERT INTO players (id, user_id) VALUES (3, 2)")
+        conn.exec_driver_sql("INSERT INTO lesson_instances (id) VALUES (10)")
+        conn.exec_driver_sql("INSERT INTO conversation_participants VALUES (5, 1), (5, 2)")
+        # 108 names a live instance; 109 names instance 12, deleted since (the
+        # exact shape of the staging row).
+        for message_id, instance_id in ((108, 10), (109, 12)):
+            conn.execute(
+                sa.text("INSERT INTO messages VALUES (:id, NULL, 1, 5, 'notification_reminder', :meta)"),
+                dict(id=message_id, meta=json.dumps({"lessonInstanceId": instance_id, "reminderNumber": 1})),
+            )
+        with Operations.context(MigrationContext.configure(conn)):
+            mod.upgrade()
+        rows = conn.exec_driver_sql("SELECT message_id, lesson_instance_id, player_id FROM reminder_attempts").fetchall()
+
+    assert [tuple(r) for r in rows] == [(108, 10, 3)]

@@ -64,6 +64,14 @@ def _set_ondelete(table, column, referred, ondelete):
         return
     if fk is not None and fk.get("name"):
         op.drop_constraint(fk["name"], table, type_="foreignkey")
+    # B-059: prod's schema has drifted (its constraints came from create_all,
+    # and some are missing). A column with no constraint can hold ids whose row
+    # is gone, and creating the FK over them aborts the whole deploy. Clear them
+    # first: SET NULL is exactly what the new constraint does when a row goes.
+    op.execute(
+        f"UPDATE {table} SET {column} = NULL "
+        f"WHERE {column} IS NOT NULL AND {column} NOT IN (SELECT id FROM {referred})"
+    )
     op.create_foreign_key(
         f"fk_{table}_{column}", table, referred, [column], ["id"], ondelete=ondelete
     )
