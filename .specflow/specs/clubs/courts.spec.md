@@ -1,6 +1,6 @@
 ---
 id: clubs.courts
-status: implementing
+status: implemented
 depends_on: [clubs.crud, classes.create, classes.edit]
 implements: ../../specs-business/clubs/coach-runs-a-club-and-its-team.business.md
 governed_by: [R-022, R-024]
