@@ -48,6 +48,12 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
    materialized instance — it was committed before the guarded block ran and is therefore valid.
    Waiting list rows staged inside the savepoint may or may not have persisted; rule 3's
    idempotency means a later materialization call reconciles them.
+8. **Materialisation is serialised per series (PAD-261).** `get_or_materialize_instance` looks the
+   occurrence up; a found occurrence takes no lock. A missing one locks the parent lesson row and is
+   looked up again before it is created, so two concurrent callers (the scheduler and a request, say)
+   produce one instance and the second finds the first. The lock ends at the next commit, and a
+   caller that finds the instance under the lock commits at once, so a lookup never holds it. The unique occurrence key
+   follows through the B-046 cleanup plan once duplicates on the staging copy of prod are merged.
 
 ### Acceptance Criteria
 
@@ -81,3 +87,8 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
 - **Given** the same setup
 - **When** opening the SAVEPOINT itself raises
 - **Then** the error surfaced is that failure, never an `UnboundLocalError` from the guard
+
+#### Two callers materialise the same occurrence at once (PAD-261, Postgres)
+- **Given** a recurring occurrence that has never been materialised
+- **When** two callers ask for it at the same moment
+- **Then** exactly one instance exists for that date and both get it

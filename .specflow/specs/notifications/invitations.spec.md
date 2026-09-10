@@ -87,6 +87,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    not invited for it again in that round, whatever they answered: a decline, a timeout and a
    still-open invitation all count. The next round applies its own criteria (B-056).
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
+    vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
+    spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
+    waited on the lock past the start (or across a move to start now) is expired exactly as the early
+    check expires it. A second "yes" for the
+    same last spot waits on the lock, finds the spot taken and gets the normal spot-filled answer and
+    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are created only under
+    the class lock: a departing player has at most one open vacancy (a found one is returned without
+    a lock; a new one is created after looking again under the lock), and structural vacancies are
+    counted again under the same lock and added in one commit. Every locked section ends in a
+    commit, so no lock outlives the decision it protects. The partial unique key on open vacancies
+    is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
 
 ### Acceptance Criteria
 
@@ -228,3 +240,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** eligibility for that group is computed
 - **Then** no student passes (the level rule fails closed)
 - **And** the group does not fall back to the coach's whole roster
+
+#### Two students accept the last spot at once (PAD-261, Postgres)
+- **Given** a class with one open spot and two invited students
+- **When** both answer "yes" at the same moment
+- **Then** exactly one is enrolled and the other gets the spot-filled answer
+
+#### An answer that waits past the start enrols nobody (PAD-261, PAD-68)
+- **Given** a student's "yes" that passed the early "class is over" check
+- **When** the class reaches its start while the answer waits on the lock
+- **Then** nobody is enrolled, the answer is `expired`, and the invitation and the open vacancy are expired
+
+#### A departing player gets one open vacancy (PAD-261)
+- **Given** an open vacancy already exists for a student's absence
+- **When** the absence is processed again
+- **Then** the existing vacancy is returned and no second one is created
