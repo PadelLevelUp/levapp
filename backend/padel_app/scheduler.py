@@ -45,7 +45,7 @@ from datetime import datetime, timedelta, timezone
 # CLUB-LOCAL, not UTC. PAD-144 moved the constant itself into `utils.dates` so
 # scheduler, student_availability_service and notification_service share ONE
 # definition instead of three drifting copies.
-from padel_app.utils.dates import CLUB_TZ, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, club_now_naive, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 
 # ---------------------------------------------------------------------------
 # Module-level singletons
@@ -84,6 +84,10 @@ def _app_ctx():
 
 def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetime | None:
     """Return the absolute UTC datetime for a timing config relative to class start.
+
+    PAD-256: legacy. It reads the stored wall-clock start as UTC. Reminders use
+    ``_fire_time_utc``; the proactive-decline deadline and the invitation start
+    move there in their own PAD-256 changes, and then this function goes.
 
     Accepted shapes:
       {"type": "hours_before",       "value": N}
@@ -133,7 +137,47 @@ def _compute_timing_dt(instance_start: datetime, timing_config: dict) -> datetim
     return None
 
 
+def _fire_time_utc(wall_start: datetime | None, timing_config: dict | None) -> datetime | None:
+    """PAD-256 (R-023): when a timing config fires, as a naive UTC instant.
+
+    ``wall_start`` is a class time as stored: the Lisbon wall clock the coach
+    typed. ``hours_before: N`` counts N real hours back from the class's real
+    start, even across a daylight-saving change. The ``days_before`` variants
+    take the class's OWN wall date minus N days and fire at HH:MM on the club's
+    clock, so a 23:30 class gets its day-before reminder on the day before.
+
+    Reminders use this (``notifications.reminders`` rule 15). The proactive-
+    decline deadline and the invitation start still go through
+    ``_compute_timing_dt`` until their own PAD-256 changes move them here.
+    """
+    if not timing_config or wall_start is None:
+        return None
+
+    t = timing_config.get("type")
+
+    if t == "hours_before":
+        value = int(timing_config.get("value", 24))
+        return wall_to_utc_naive(wall_start) - timedelta(hours=value)
+
+    if t in ("days_before", "days_before_at_time"):
+        days = int(timing_config.get("days", 1))
+        time_str = timing_config.get("time", "09:00")
+        try:
+            hour, minute = (int(p) for p in time_str.split(":"))
+        except (ValueError, AttributeError):
+            hour, minute = 9, 0
+        target_date = wall_start.date() - timedelta(days=days)
+        return wall_to_utc_naive(
+            datetime(target_date.year, target_date.month, target_date.day, hour, minute)
+        )
+
+    return None
+
+
 def _compute_reminder_dt(instance, timing_config: dict) -> datetime | None:
+    # PAD-256: still the legacy arithmetic, because the proactive-decline
+    # deadline (notification_service) reads it. Reminder jobs themselves are
+    # armed with ``_fire_time_utc``.
     return _compute_timing_dt(instance.start_datetime, timing_config)
 
 
@@ -177,7 +221,8 @@ def _maybe_rearm_reminder(instance, *, func, args, base_job_id, result) -> None:
     next_dt = utcnow_naive() + timedelta(hours=hours)
 
     # Never fire at/after the class start.
-    if instance.start_datetime is not None and next_dt >= instance.start_datetime:
+    # PAD-256: the class time is wall-clock, so compare instants.
+    if instance.start_datetime is not None and next_dt >= wall_to_utc_naive(instance.start_datetime):
         return
 
     retry_id = f"{base_job_id}_retry_{int(next_dt.timestamp())}"
@@ -478,7 +523,7 @@ def _reschedule_for_coach(coach_id: int) -> int:
     with _app_ctx():
         from padel_app.models import Association_CoachLessonInstance, LessonInstance
 
-        now = utcnow_naive()
+        now = club_now_naive()  # PAD-256: class times are wall-clock (R-023)
         instances = (
             LessonInstance.query
             .join(
@@ -561,21 +606,25 @@ def schedule_lesson_reminder_jobs(
 
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
-        horizon = cutoff + timedelta(days=horizon_days)
+        # PAD-256: occurrences are wall-clock like the lesson's start, so the
+        # expansion window is too. ``cutoff`` stays the UTC instant the fire
+        # times are compared with below.
+        wall_cutoff = utc_to_wall_naive(cutoff)
+        horizon = wall_cutoff + timedelta(days=horizon_days)
 
         occurrences = expand_occurrences(
             lesson.start_datetime,
             lesson.recurrence_rule,
             lesson.recurrence_end,
-            cutoff,
+            wall_cutoff,
             horizon,
         )
 
         scheduled = 0
         for occ_dt in occurrences:
-            # expand_occurrences returns tz-aware UTC; _compute_timing_dt needs naive UTC
+            # expand_occurrences labels the wall-clock occurrence as UTC; drop the label.
             occ_dt_naive = occ_dt.replace(tzinfo=None) if occ_dt.tzinfo else occ_dt
-            reminder_dt = _compute_timing_dt(occ_dt_naive, config.get_reminder_timing())
+            reminder_dt = _fire_time_utc(occ_dt_naive, config.get_reminder_timing())
 
             if not reminder_dt:
                 continue
@@ -666,7 +715,7 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
 
-        reminder_dt = _compute_reminder_dt(instance, config.get_reminder_timing())
+        reminder_dt = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
         if reminder_dt and reminder_dt > cutoff:
             _scheduler.add_job(
                 func=_run_send_reminders,
@@ -718,7 +767,7 @@ def reschedule_all_future_jobs(coach_id: int) -> None:
     with _app_ctx():
         from padel_app.models import Association_CoachLessonInstance, LessonInstance
 
-        now = utcnow_naive()
+        now = club_now_naive()  # PAD-256: class times are wall-clock (R-023)
         instances = (
             LessonInstance.query
             .join(
