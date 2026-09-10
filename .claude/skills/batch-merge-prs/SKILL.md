@@ -135,9 +135,13 @@ So after every conflict you resolve, and once at the end of integration, typeche
 result — `vite build` does **not** typecheck:
 
 ```bash
-cd "$BATCH/frontend" && npx tsc --noEmit -p apps/web/tsconfig.json && (cd apps/mobile && npx tsc --noEmit)
+cd "$BATCH/frontend" && npx tsc --noEmit -p apps/web/tsconfig.app.json && (cd apps/mobile && npx tsc --noEmit)
 cd "$BATCH/backend"  && .venv/bin/python -c "import padel_app"
 ```
+
+**`tsconfig.app.json`, not `tsconfig.json`** (PAD-189): `apps/web/tsconfig.json` is a solution
+file (`"files": []` + project references), so `tsc -p` on it checks zero files and always
+passes — the exact silent-green failure this step exists to prevent.
 
 Then handle the two things a batch reliably breaks:
 
