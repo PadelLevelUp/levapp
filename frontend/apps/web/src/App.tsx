@@ -31,6 +31,7 @@ import TermsPage from "./pages/TermsPage";
 import SupportPage from "./pages/SupportPage";
 import SettingsPage from "./pages/SettingsPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
+import ClassRequestsPage from "./pages/ClassRequestsPage";
 import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 import TrainingPage from "./pages/TrainingPage";
@@ -142,6 +143,16 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["coach"]}>
                     <PlayersPage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* PAD-104: the coach's class-request inbox (classes.class-requests). */}
+              <Route
+                path="/class-requests"
+                element={
+                  <RoleRoute allowedRoles={["coach"]}>
+                    <ClassRequestsPage />
                   </RoleRoute>
                 }
               />

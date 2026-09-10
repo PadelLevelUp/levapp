@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, abort, g, Response
 from werkzeug.exceptions import HTTPException
-from datetime import timezone
+from datetime import datetime, timezone
 from dateutil import parser
 import json
 import queue
@@ -75,6 +75,16 @@ from padel_app.services.presence_overview_service import (
     list_pending_validation,
     count_pending_validation,
     unvalidate_instance,
+)
+from padel_app.services.class_request_service import (
+    answer_proposal_service,
+    coaches_for_player,
+    create_class_request_service,
+    decide_class_request_service,
+    free_blocks,
+    list_requests_for,
+    serialize_class_request,
+    withdraw_class_request_service,
 )
 from padel_app.services.club_service import (
     create_coach_invitation_service,
@@ -1731,6 +1741,87 @@ def withdraw_club_join_request(request_id):
     coach = require_coach()
     row = withdraw_club_join_request_service(request_id, coach)
     return jsonify(serialize_club_join_request(row))
+
+
+# ── PAD-104: classes.class-requests ──────────────────────────────────────────
+
+
+def _require_student_player():
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can do that")
+    return player
+
+
+@bp.get("/class-requests")
+@jwt_required()
+def list_class_requests():
+    rows = list_requests_for(current_user())
+    return jsonify([serialize_class_request(r) for r in rows])
+
+
+@bp.get("/class-requests/coaches")
+@jwt_required()
+def class_request_coaches():
+    player = _require_student_player()
+    return jsonify(coaches_for_player(player.id))
+
+
+@bp.get("/class-requests/free-blocks")
+@jwt_required()
+def class_request_free_blocks():
+    player = _require_student_player()
+    try:
+        coach_id = int(request.args.get("coachId", ""))
+    except ValueError:
+        abort(400, "coachId is required")
+    coach = Coach.query.get_or_404(coach_id)
+    if Association_CoachPlayer.query.filter_by(player_id=player.id, coach_id=coach.id).first() is None:
+        abort(403, "Not one of your coaches")
+    try:
+        range_start = datetime.fromisoformat(request.args.get("from", ""))
+        range_end = datetime.fromisoformat(request.args.get("to", ""))
+    except ValueError:
+        abort(400, "from and to must be ISO datetimes")
+    range_start, range_end = range_start.replace(tzinfo=None), range_end.replace(tzinfo=None)
+    return jsonify(free_blocks(coach, range_start, range_end))
+
+
+@bp.post("/class-requests")
+@jwt_required()
+def create_class_request():
+    player = _require_student_player()
+    row = create_class_request_service(player, request.get_json() or {})
+    return jsonify(serialize_class_request(row)), 201
+
+
+@bp.post("/class-requests/<int:request_id>/withdraw")
+@jwt_required()
+def withdraw_class_request(request_id):
+    row = withdraw_class_request_service(request_id, current_player())
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/accept-proposal")
+@jwt_required()
+def accept_class_request_proposal(request_id):
+    row = answer_proposal_service(request_id, current_player(), accept=True)
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/decline-proposal")
+@jwt_required()
+def decline_class_request_proposal(request_id):
+    row = answer_proposal_service(request_id, current_player(), accept=False)
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/<any(accept, decline, propose):action>")
+@jwt_required()
+def decide_class_request(request_id, action):
+    coach = require_coach()
+    row = decide_class_request_service(request_id, coach, action=action, data=request.get_json(silent=True) or {})
+    return jsonify(serialize_class_request(row))
 
 
 @bp.get("/coach-invitations/<token>")

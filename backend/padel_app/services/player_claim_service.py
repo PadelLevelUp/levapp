@@ -40,6 +40,7 @@ from padel_app.models import (
     ReminderAttempt,
     Player,
     PlayerClaimRequest,
+    ClassRequest,
     PlayerInvitation,
     PlayerLevelHistory,
     Presence,
@@ -75,6 +76,7 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "replacement_approval_prompts",
     "player_invitations",
     "player_claim_requests",
+    "class_requests",
 })
 
 ALREADY_ACTIVATED = "ALREADY_ACTIVATED"
@@ -238,6 +240,7 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
 
         # d. plain re-points
         PlayerLevelHistory.query.filter_by(player_id=pid).update({"player_id": cid})
+        ClassRequest.query.filter_by(player_id=pid).update({"player_id": cid})  # PAD-104
         NotificationEvent.query.filter_by(player_id=pid).update({"player_id": cid})
         ReminderAttempt.query.filter_by(player_id=pid).update({"player_id": cid})
         Vacancy.query.filter_by(original_player_id=pid).update({"original_player_id": cid})

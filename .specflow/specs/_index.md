@@ -11,7 +11,7 @@ governing leaf spec and its dependencies before touching code.
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
 - `auth/` — Authentication & User Management (12 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
-- `classes/` — Lessons & Instances (10 leaves)
+- `classes/` — Lessons & Instances (11 leaves; `classes.class-requests` added 2026-09-10, PAD-104)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `eligibility/` — Who May Join a Class (4 leaves)
@@ -81,7 +81,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | auth | 5 | 9 | implemented (auth.email-verification draft) |
 | clubs | 3 | 4 | implemented |
 | players | 3 | 11 (+1 deprecated) | implemented |
-| classes | 3 | 10 | implemented (classes.join-requests draft) |
+| classes | 3 | 11 | implemented (classes.join-requests draft; classes.class-requests implemented) |
 | calendar | 2 | 8 | implemented (calendar.student-blockers partial; calendar.mobile-views draft) |
 | eligibility | 1 | 4 | draft |
 | attendance | 2 | 5 | partial |

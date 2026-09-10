@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
   CalendarOff,
+  CalendarPlus,
   Users,
   LayoutDashboard,
   Settings,
@@ -82,6 +83,13 @@ const navItems: NavItem[] = [
     labelKey: "nav.availability",
     path: "/availability",
     roles: ["player"],
+  },
+  {
+    // PAD-104: students book from Availability; the coach answers here.
+    icon: CalendarPlus,
+    labelKey: "nav.classRequests",
+    path: "/class-requests",
+    roles: ["coach"],
   },
   {
     icon: MessageSquare,

@@ -201,6 +201,34 @@ export interface RecurrenceRule {
   interval?: number;
 }
 
+/** PAD-104 (classes.class-requests): a student's ask for a class in the coach's free time. */
+export type ClassRequestStatus = "pending" | "countered" | "accepted" | "declined" | "withdrawn";
+
+export interface ClassRequest {
+  id: number;
+  playerId: string;
+  playerName: string;
+  coachId: string;
+  coachName: string;
+  /** The slot currently on the table (moved by a counter-proposal). */
+  date: string;
+  startTime: string;
+  endTime: string;
+  note: string | null;
+  status: ClassRequestStatus;
+  decidedBy: "coach" | "student" | null;
+  decidedAt: string | null;
+  lessonId: string | null;
+  createdAt: string | null;
+}
+
+/** A window the coach's calendar leaves open (classes.class-requests rule 1). */
+export interface FreeBlock {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;

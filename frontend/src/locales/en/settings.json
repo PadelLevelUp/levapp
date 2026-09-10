@@ -22,7 +22,8 @@
       "club": "Club",
       "account": "Account",
       "myNotifications": "My notifications",
-      "admin": "Admin"
+      "admin": "Admin",
+      "classRequests": "Class requests"
     },
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
@@ -148,7 +149,8 @@
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet.",
-      "adminNavDescription": "Approve registered coaches"
+      "adminNavDescription": "Approve registered coaches",
+      "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar."
     },
     "account": {
       "title": "Account",

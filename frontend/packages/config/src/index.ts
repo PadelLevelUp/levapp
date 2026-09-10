@@ -9,6 +9,7 @@ export * from "./presence-status";
 export * from "./presence-scope";
 export * from "./eligibility-report";
 export * from "./eligibility-tier";
+export * from "./class-request-slots";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./notify-blocked";

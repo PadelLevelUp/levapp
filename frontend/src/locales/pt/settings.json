@@ -22,7 +22,8 @@
       "club": "Clube",
       "account": "Conta",
       "myNotifications": "As minhas notificações",
-      "admin": "Administração"
+      "admin": "Administração",
+      "classRequests": "Pedidos de aula"
     },
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
@@ -148,7 +149,8 @@
       "importNavDescription": "Rever e reverter importações anteriores.",
       "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
       "importHistoryEmpty": "Ainda não há importações.",
-      "adminNavDescription": "Aprovar treinadores registados"
+      "adminNavDescription": "Aprovar treinadores registados",
+      "classRequestsNavDescription": "Os alunos pedem aulas nos horários que o teu calendário deixa livres. Aceita, recusa ou propõe outro horário; um pedido pendente reserva o horário no teu calendário."
     },
     "account": {
       "title": "Conta",
