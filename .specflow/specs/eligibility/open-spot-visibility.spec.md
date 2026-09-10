@@ -36,7 +36,7 @@ separate browse screen. A coach controls whether their open spots are advertised
    materialized, merely because a student looked at their calendar.
 6. Only classes taught by a coach the student is on the roster of are ever shown. This feature never
    exposes classes from a coach the student has no relationship with.
-7. Past classes and classes with status `canceled` or `completed` are never shown as open spots.
+7. Classes that have started (judged on the club's clock, PAD-256) and classes with status `canceled` or `completed` are never shown as open spots.
 8. A student's own availability blocker (`calendar.student-blockers`) suppresses *solicitations*, not
    *discovery*: a blocked window still shows open spots. The student initiates here, so the
    protection the blocker exists to give is not at stake.

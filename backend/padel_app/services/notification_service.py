@@ -478,7 +478,7 @@ def students_failing_eligibility_bar(
         LessonInstance.query
         .filter(
             LessonInstance.id.in_(coach_instance_ids),
-            LessonInstance.start_datetime >= _now,
+            LessonInstance.start_datetime >= utc_to_wall_naive(_now),  # PAD-256
         )
         .order_by(LessonInstance.start_datetime)
         .all()
@@ -503,7 +503,8 @@ def students_failing_eligibility_bar(
                         or getattr(instance.lesson, "title", "")
                         or ""
                     ),
-                    "startDatetime": to_utc_iso(instance.start_datetime),
+                    # PAD-256: the true instant; the client formats it in Europe/Lisbon.
+                    "startDatetime": to_utc_iso(wall_to_utc_naive(instance.start_datetime)),
                     "failures": failures,
                 })
     return out
@@ -1911,7 +1912,8 @@ def _instance_is_over(instance: LessonInstance, now: datetime | None = None) -> 
     if instance.status in ("canceled", "completed"):
         return True
     _now = now or utcnow_naive()
-    return instance.start_datetime is not None and instance.start_datetime <= _now
+    # PAD-256 (R-023): `now` is the UTC instant; the class time is on the club's clock.
+    return instance.start_datetime is not None and instance.start_datetime <= utc_to_wall_naive(_now)
 
 
 def _effective_filled_spots(instance: LessonInstance) -> int:
@@ -3451,8 +3453,8 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     for vacancy in open_vacancies:
         instance = vacancy.lesson_instance
 
-        # Skip past or canceled classes
-        if instance.start_datetime <= _now:
+        # Skip past or canceled classes (PAD-256: "started" on the club's clock)
+        if instance.start_datetime <= utc_to_wall_naive(_now):
             vacancy.status = "expired"
             vacancy.save()
             continue
@@ -4473,7 +4475,7 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
-        if instance.start_datetime <= now:
+        if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
             continue

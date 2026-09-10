@@ -328,7 +328,7 @@ def respond_to_approval(
             or vacancy is None
             or vacancy.status != "open"
             or instance is None
-            or instance.start_datetime <= _now
+            or instance.start_datetime <= utc_to_wall_naive(_now)  # PAD-256: on the club's clock
         )
         if is_stale:
             # No-op decision; mark still-pending prompts whose vacancy closed.

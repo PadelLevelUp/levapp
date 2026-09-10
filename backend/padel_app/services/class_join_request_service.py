@@ -22,7 +22,7 @@ from padel_app.models import (
     StandingWaitingListEntry,
 )
 from padel_app.sql_db import db
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,8 @@ def _is_closed(instance: LessonInstance, now: datetime) -> bool:
     """Rule 14: started, cancelled or completed."""
     if instance.status in ("canceled", "completed"):
         return True
-    return instance.start_datetime is not None and instance.start_datetime <= now
+    # PAD-256 (R-023): `now` is the UTC instant; the class time is on the club's clock.
+    return instance.start_datetime is not None and instance.start_datetime <= utc_to_wall_naive(now)
 
 
 def _is_full(instance: LessonInstance) -> bool:
