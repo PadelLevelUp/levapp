@@ -85,6 +85,14 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 7. If confirmed: Vacancy.status = "filled", player added to instance
 8. If all decline or expire: moves to next round
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
+    vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
+    spots, never copies loaded earlier in the request — and only then enrols. A second "yes" for the
+    same last spot waits on the lock, finds the spot taken and gets the normal spot-filled answer and
+    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are found or created
+    under the class lock: a departing player has at most one open vacancy (get-or-create), and
+    structural vacancies are counted under the same lock. The partial unique key on open vacancies
+    is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
 
 ### Acceptance Criteria
 
@@ -217,3 +225,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** eligibility for that group is computed
 - **Then** no student passes (the level rule fails closed)
 - **And** the group does not fall back to the coach's whole roster
+
+#### Two students accept the last spot at once (PAD-261, Postgres)
+- **Given** a class with one open spot and two invited students
+- **When** both answer "yes" at the same moment
+- **Then** exactly one is enrolled and the other gets the spot-filled answer
+
+#### A departing player gets one open vacancy (PAD-261)
+- **Given** an open vacancy already exists for a student's absence
+- **When** the absence is processed again
+- **Then** the existing vacancy is returned and no second one is created

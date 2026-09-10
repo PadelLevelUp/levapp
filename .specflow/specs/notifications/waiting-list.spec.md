@@ -114,6 +114,9 @@ Players can join a waiting list for full classes. Standing waiting list entries 
     Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
     created. The check runs before the late-instance no-op of PAD-68, so a player never learns
     whether an arbitrary instance id exists.
+13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
+    and then the class instance, and places the student only while the vacancy is still open and the
+    class still has room; otherwise it places nobody and leaves the entry active.
 
 ### Acceptance Criteria
 
@@ -209,3 +212,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
+
+#### A placement never takes a spot someone else already won (PAD-261)
+- **Given** a vacancy that another path has just filled, or a class that is already full
+- **When** the waiting list tries to place a student into it
+- **Then** nobody is placed and the waiting-list entry stays active
