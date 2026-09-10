@@ -110,14 +110,24 @@ export default function CalendarPage() {
     onViewModeChange: writeStoredViewMode,
   });
 
+  // PAD-248: in Mês the phone fetches every week the month grid touches;
+  // otherwise (and always on desktop) the visible week. Both the initial load
+  // and refreshEvents use this range, so a save in Mês keeps the dots.
+  const fetchMonth = isMobile && calendar.viewMode === "month";
+  const fetchFrom = format(
+    fetchMonth ? calendar.monthRange.start : calendar.weekStart,
+    "yyyy-MM-dd'T'00:00:00"
+  );
+  const fetchTo = format(
+    fetchMonth ? calendar.monthRange.end : addDays(calendar.weekStart, 6),
+    "yyyy-MM-dd'T'23:59:59"
+  );
+
   useEffect(() => {
     async function loadEvents() {
       setLoading(true);
       try {
-        const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
-        const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
-
-        const data = await getCalendarEvents(from, to);
+        const data = await getCalendarEvents(fetchFrom, fetchTo);
         setAllEvents(data);
       } catch (err: any) {
         setError(err.message);
@@ -128,7 +138,7 @@ export default function CalendarPage() {
     }
 
     loadEvents();
-  }, [calendar.weekStart]);
+  }, [fetchFrom, fetchTo]);
 
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
@@ -330,9 +340,7 @@ export default function CalendarPage() {
 
 
   const refreshEvents = async () => {
-    const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
-    const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
-    setAllEvents(await getCalendarEvents(from, to));
+    setAllEvents(await getCalendarEvents(fetchFrom, fetchTo));
   };
 
   const handleEventDrop = (event: CalendarEvent, newDate: string, newStartTime: string) => {
@@ -454,7 +462,13 @@ export default function CalendarPage() {
               onNextWeek={() => calendar.navigateWeek("next")}
               onToday={calendar.goToToday}
               weekLabel={calendar.weekLabel}
+              monthLabel={calendar.monthLabel}
+              monthDays={calendar.monthDays}
+              monthStart={calendar.monthStart}
+              onPrevMonth={() => calendar.navigateMonth("prev")}
+              onNextMonth={() => calendar.navigateMonth("next")}
               events={calendar.events}
+              monthEvents={calendar.monthEvents}
               levels={levels}
               onEventClick={handleEventClick}
             />

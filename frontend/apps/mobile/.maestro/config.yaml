@@ -38,6 +38,8 @@ executionOrder:
     - 22-student-attendance-history
     # 31 reads only (switches the calendar to Semana and opens the seeded class).
     - 31-week-view
+    # 30 reads only (switches the calendar to Mês and opens the seeded class).
+    - 30-month-view
     # 28 changes the seeded coach's password and puts it back within itself,
     # so its position is not load bearing; last so a mid-flow failure cannot
     # lock the other flows out.

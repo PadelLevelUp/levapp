@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { clampSheetTop, type SheetBounds } from "@levelup/config";
 import type { CalendarEvent } from "@/types";
 import { DayHeader } from "./DayHeader";
+import { FAB_CLEARANCE_PX } from "./layout";
 import { MobileEventCard } from "./MobileEventCard";
 
 /** Handle row (18px) plus the DayHeader's height: what stays visible at `max`. */
@@ -81,7 +82,12 @@ export function DaySheet({
       <div className="shrink-0">
         <DayHeader day={day} count={events.length} />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-32 pt-3">
+      <div
+        data-testid="calendar-sheet-list"
+        // Rule 18: clear of the floating add buttons at the end of the list.
+        style={{ paddingBottom: FAB_CLEARANCE_PX }}
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pt-3"
+      >
         {events.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">
             {t("calendar.mobile.noClassesScheduled")}

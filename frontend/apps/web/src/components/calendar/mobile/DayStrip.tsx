@@ -30,7 +30,8 @@ export function dayAbbrClass(selected: boolean): string {
   );
 }
 
-function dotColor(event: CalendarEvent, now: Date): string {
+/** A day dot's colour (rule 10) — shared with the Mês grid cells. */
+export function dotColor(event: CalendarEvent, now: Date): string {
   const { variant } = resolveCardVariant(event, { now });
   if (variant === "block") return "hsl(var(--muted-foreground))";
   return cardSurfaceWeb(event.color, variant).backgroundColor ?? "hsl(var(--primary))";
