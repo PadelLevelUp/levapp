@@ -15,6 +15,7 @@ from .player_level_history import PlayerLevelHistory
 from .players import Player
 from .users import User
 from .presences import Presence
+from .reminder_attempts import ReminderAttempt
 from .calendar_blocks import CalendarBlock
 from .conversations import Conversation
 from .conversation_participants import ConversationParticipant
@@ -69,6 +70,7 @@ MODELS = {
     "player": Player,
     "user": User,
     "presence": Presence,
+    "reminderattempt": ReminderAttempt,
     "calendarblock": CalendarBlock,
     "conversation": Conversation,
     "coachplayernote": CoachPlayerNote,
