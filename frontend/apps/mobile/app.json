@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "associatedDomains": ["applinks:levapp.app", "applinks:padellevelup.com", "applinks:www.padellevelup.com"],
+      "associatedDomains": [
+        "applinks:levapp.app",
+        "applinks:padellevelup.com",
+        "applinks:www.padellevelup.com"
+      ],
       "bundleIdentifier": "com.padellevelup.app",
       "infoPlist": {
         "NSAppTransportSecurity": {
@@ -29,12 +33,75 @@
     },
     "android": {
       "package": "com.padellevelup.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "levapp.app",
+              "pathPrefix": "/invite/player/"
+            },
+            {
+              "scheme": "https",
+              "host": "levapp.app",
+              "pathPrefix": "/invite/coach/"
+            },
+            {
+              "scheme": "https",
+              "host": "levapp.app",
+              "pathPrefix": "/register/"
+            },
+            {
+              "scheme": "https",
+              "host": "padellevelup.com",
+              "pathPrefix": "/invite/player/"
+            },
+            {
+              "scheme": "https",
+              "host": "padellevelup.com",
+              "pathPrefix": "/invite/coach/"
+            },
+            {
+              "scheme": "https",
+              "host": "padellevelup.com",
+              "pathPrefix": "/register/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.padellevelup.com",
+              "pathPrefix": "/invite/player/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.padellevelup.com",
+              "pathPrefix": "/invite/coach/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.padellevelup.com",
+              "pathPrefix": "/register/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
