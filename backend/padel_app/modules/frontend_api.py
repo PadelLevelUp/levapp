@@ -15,7 +15,6 @@ from padel_app.serializers.lesson import (
     serialize_class_instance,
 )
 from padel_app.serializers.user import serialize_user, serialize_user_public
-from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.serializers.presence import serialize_presence, serialize_presences
 from padel_app.serializers.calendar import serialize_calendar_block
 from padel_app.serializers.message import serialize_message
@@ -551,25 +550,21 @@ def lesson_instance_detail(instance_id):
     })
 
 
+# auth.activate (PAD-254, B-034): no JWT — the secret is in the link. Both
+# routes 404 without the account's token; the service layer holds the guard.
+
 @bp.get("/register/user/<user_id>")
 def get_user_for_registration(user_id):
-    user = User.query.get_or_404(user_id)
-    # PAD-227 / auth.activate rule 6: public, guessable id — public shape only.
-    payload = serialize_user_public(user)
-    # PAD-105: a coach-created account carries a generated `pending-…`
-    # placeholder username. This form is precisely where the user picks their
-    # own, so hand back an empty field rather than the placeholder — prefilling
-    # it leaks an internal detail and nudges the user into keeping a
-    # machine-generated login.
-    if is_placeholder_username(payload.get("username")):
-        payload["username"] = None
-    return jsonify(payload)
+    from padel_app.services.user_service import registration_lookup_service
+
+    return jsonify(registration_lookup_service(user_id, request.args.get("token")))
 
 
 @bp.post("/activate/user/<user_id>")
 def activate_user(user_id):
-    data = request.get_json() or {}
-    activate_user_service(user_id, data)
+    data = request.get_json(silent=True) or {}
+    token = data.pop("token", None)
+    activate_user_service(user_id, data, token=token)
     return jsonify(success=True)
 
 

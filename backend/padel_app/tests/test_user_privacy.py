@@ -1,6 +1,6 @@
 """PAD-227 / B-031 — contact details never reach a caller who is not the
-owner or the owner's coach (messaging.conversations rule 15, auth.activate
-rule 6)."""
+owner or the owner's coach (messaging.conversations rule 15). The activation
+lookup is governed by auth.activate rule 4 (PAD-254): tokened, tested there."""
 import pytest
 from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash
@@ -102,16 +102,6 @@ def test_coach_own_profile_keeps_contact_details(client, app, world):
     res = client.get("/api/app/coach", headers=_auth(app, world["coach_user"]))
     assert res.status_code == 200
     assert res.get_json()["user"]["email"] == "carla@example.com"
-
-
-def test_activation_lookup_carries_no_contact_details(client, app, world):
-    res = client.get(f"/api/app/register/user/{world['inactive_user']}")
-    assert res.status_code == 200
-    body = res.get_json()
-    assert body["name"] == "Inactive Ines"
-    assert body["isActive"] is False
-    assert body["role"] == "player"
-    assert "email" not in body and "phone" not in body
 
 
 def test_public_shape_has_role(client, app, world):

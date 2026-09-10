@@ -155,6 +155,7 @@ class Player(db.Model, model.Model):
         # the same helper. `add_player`/`edit_player` return THIS dict, so the
         # coach's "notifications cut" signal would disappear right after an edit
         # if the two ever drifted.
+        from padel_app.services.player_service import _activation_token_if_inactive
         from padel_app.services.student_notification_preferences import (
             notification_block_payload,
         )
@@ -174,6 +175,8 @@ class Player(db.Model, model.Model):
             "side": rel.side,
             "userId": self.user_id,
             "isActive": self.user.status == 'active',
+            # auth.activate rule 3 (PAD-254): same key as the roster serializer.
+            "activationToken": _activation_token_if_inactive(self.user),
             # PAD-30: profile-completion signal (password set via PAD-32
             # self-service registration). Distinct from isActive, which a
             # coach-disabled player would fail while still being validated.

@@ -104,8 +104,11 @@ class TestUserPrivilegeFlagsAreNotFormSettable:
             db.session.commit()
             user_id = user.id
 
+            from padel_app.tools.activation_token import activation_token_for
+
+            token = activation_token_for(user)
             activate_user_service(user_id, {"password": "Str0ngPass!",
-                                            "is_superadmin": True})
+                                            "is_superadmin": True}, token=token)
             db.session.commit()
 
             fresh = User.query.get(user_id)

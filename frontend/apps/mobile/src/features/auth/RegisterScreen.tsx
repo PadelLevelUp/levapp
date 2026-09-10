@@ -25,6 +25,10 @@ type Status = "loading" | "ok" | "already-registered" | "invalid";
  * the person fills in their own details to switch it from `inactive` to
  * `active`.
  *
+ * The link carries the account's secret (`?t=`, auth.activate rule 8,
+ * PAD-254). Without it there is nothing to look up — the API 404s for any id —
+ * so the screen renders its invalid state and never calls out.
+ *
  * Two differences from the invite screens, both inherited from the API:
  *
  * - The lookup can succeed and still be a dead end (`isActive` — someone
@@ -39,11 +43,17 @@ type Status = "loading" | "ok" | "already-registered" | "invalid";
  * navigated from. This renders the invalid state instead and lets them tap
  * through, which is also what both invite screens do.
  */
-export function RegisterScreen({ userId }: { userId: string | null }) {
+export function RegisterScreen({
+  userId,
+  token,
+}: {
+  userId: string | null;
+  token: string | null;
+}) {
   const { t } = useTranslation();
 
   const [status, setStatus] = React.useState<Status>(
-    userId ? "loading" : "invalid"
+    userId && token ? "loading" : "invalid"
   );
   const [values, setValues] = React.useState({
     name: "",
@@ -59,14 +69,14 @@ export function RegisterScreen({ userId }: { userId: string | null }) {
   const [submitting, setSubmitting] = React.useState(false);
 
   React.useEffect(() => {
-    if (!userId) {
+    if (!userId || !token) {
       setStatus("invalid");
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const data = await registerApi.registerUser(userId);
+        const data = await registerApi.registerUser(userId, token);
         if (cancelled) return;
         if (data?.isActive) {
           setStatus("already-registered");
@@ -90,7 +100,7 @@ export function RegisterScreen({ userId }: { userId: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, token]);
 
   const goToLogin = React.useCallback(() => {
     router.replace("/login");
@@ -102,7 +112,7 @@ export function RegisterScreen({ userId }: { userId: string | null }) {
   }, []);
 
   const handleSubmit = React.useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !token) return;
 
     const codes = validateAccountForm(registerSchema, values);
     if (Object.keys(codes).length > 0) {
@@ -119,6 +129,7 @@ export function RegisterScreen({ userId }: { userId: string | null }) {
     try {
       await registerApi.activateAccount({
         userId,
+        token,
         content: {
           name: values.name,
           username: values.username,
@@ -140,7 +151,7 @@ export function RegisterScreen({ userId }: { userId: string | null }) {
     } finally {
       setSubmitting(false);
     }
-  }, [t, userId, values]);
+  }, [t, token, userId, values]);
 
   if (status === "loading") {
     return <AccountSetupLoading testID="register-loading" />;
