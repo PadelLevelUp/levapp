@@ -111,14 +111,20 @@ test.describe("PAD-194 courts", () => {
     ]);
     expect(response.status()).toBeLessThan(300);
     const event = (await response.json()) as { court: { name: string } | null; club: { name: string } | null };
-    expect(event.court?.name).toBe("Campo 1");
-    expect(event.club?.name).toBe("E2E Club");
+    try {
+      expect(event.court?.name).toBe("Campo 1");
+      expect(event.club?.name).toBe("E2E Club");
 
-    const card = page.getByTestId("calendar-event-card").filter({ hasText: "PAD-194 Court Class" }).first();
-    await expect(card).toBeVisible({ timeout: 10_000 });
-    await expect(card.getByTestId("calendar-event-place")).toContainText("E2E Club · Campo 1");
+      const card = page.getByTestId("calendar-event-card").filter({ hasText: "PAD-194 Court Class" }).first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+      await expect(card.getByTestId("calendar-event-place")).toContainText("E2E Club · Campo 1");
 
-    await card.click();
-    await expect(page.getByTestId("class-detail-place")).toContainText("E2E Club · Campo 1", { timeout: 10_000 });
+      await card.click();
+      await expect(page.getByTestId("class-detail-place")).toContainText("E2E Club · Campo 1", { timeout: 10_000 });
+    } finally {
+      // Leave no class behind: it sits on today's calendar at the form's default time,
+      // and later specs that create a class at that time hit the overlap warning (PAD-75).
+      await page.request.post(`${API_APP}/remove_class`, { headers, data: { event, scope: "single" } });
+    }
   });
 });
