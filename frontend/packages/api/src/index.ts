@@ -1,6 +1,13 @@
 export type { TokenStorage } from "./storage";
 export { createApiClient, initApi, getApi, type ApiClientOptions } from "./client";
-export { buildEventsUrl } from "./sse";
+export {
+  buildEventsUrl,
+  createSseHub,
+  sseRetryDelay,
+  SSE_RETRY_BASE_MS,
+  SSE_RETRY_MAX_MS,
+} from "./sse";
+export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as adminApi from "./resources/admin";
