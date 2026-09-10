@@ -352,6 +352,12 @@
       "done": "Concluída",
       "event": "Evento / não é aula",
       "fill": "Confirmados / à espera / livres"
+    },
+    "eligibilityConfirm": {
+      "title": "Adicionar alunos que não cumprem a fasquia?",
+      "body": "A inscrição é decisão tua — isto só te diz o que a fasquia diz.",
+      "confirm": "Adicionar mesmo assim",
+      "cancel": "Cancelar"
     }
   }
 }

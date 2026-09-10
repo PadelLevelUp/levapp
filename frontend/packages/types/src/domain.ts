@@ -828,6 +828,36 @@ export interface EligibilityFailure {
   reason: string | null;
 }
 
+/** One failing student from `POST /app/notify/eligibility_check` (PAD-150). */
+export interface EligibilityCheckEntry {
+  playerId: number;
+  name: string | null;
+  failures: EligibilityFailure[];
+}
+
+export interface EligibilityCheckResult {
+  /** Only the students who FAIL — empty means no confirmation is needed. */
+  ineligible: EligibilityCheckEntry[];
+}
+
+/**
+ * One (student, class) pair a newly-saved bar would exclude
+ * (`eligibility.enforcement` rule 9a). Rides on the config save response.
+ */
+export interface EligibilityImpactEntry {
+  playerId: number;
+  name: string | null;
+  instanceId: number;
+  classTitle: string | null;
+  /** Naive-UTC ISO start of the class. */
+  startDatetime: string | null;
+  failures: EligibilityFailure[];
+}
+
+export interface EligibilityImpact {
+  affected: EligibilityImpactEntry[];
+}
+
 export type InviteSimulationGateCode =
   | "auto_notify_disabled"
   | "class_notifications_disabled"

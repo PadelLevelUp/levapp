@@ -67,6 +67,9 @@ import {
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import type { EligibilityCheckEntry } from "@levelup/types";
 import {
   diffInstance,
   EDITABLE_CLASS_FIELDS,
@@ -348,15 +351,18 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const commitEdit = async (scope: "single" | "future") => {
-    if (!draft || !instance || !event) return;
-    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS);
+  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
+  // the bar asks first, naming why. The edit is parked until answered.
+  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
+  const [pendingEdit, setPendingEdit] = React.useState<{
+    changes: Record<string, unknown>;
+    scope: "single" | "future";
+  } | null>(null);
+
+  const finalizeEdit = async (changes: Record<string, unknown>, scope: "single" | "future") => {
+    if (!event) return;
     setEditScopeOpen(false);
     setIsEditing(false);
-    if (Object.keys(changes).length === 0) {
-      setDraft(null);
-      return;
-    }
     try {
       await editClass.mutateAsync({ event, updates: changes, scope });
       toast.success(t("calendar.page.classUpdated"));
@@ -368,6 +374,37 @@ export default function ClassDetailScreen() {
     } finally {
       setDraft(null);
     }
+  };
+
+  const commitEdit = async (scope: "single" | "future") => {
+    if (!draft || !instance || !event) return;
+    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS) as Record<string, unknown>;
+    if (Object.keys(changes).length === 0) {
+      setEditScopeOpen(false);
+      setIsEditing(false);
+      setDraft(null);
+      return;
+    }
+    const added = Array.isArray(changes.addPlayers) ? (changes.addPlayers as Array<string | number>) : [];
+    if (added.length > 0) {
+      try {
+        const { ineligible: failing } = await notificationEngineApi.checkEligibility(
+          event.model,
+          String(event.originalId),
+          event.date,
+          added
+        );
+        if (failing.length > 0) {
+          setEditScopeOpen(false);
+          setIneligible(failing);
+          setPendingEdit({ changes, scope });
+          return;
+        }
+      } catch {
+        // Rule 6: the warning is a courtesy, the enrolment is the coach's.
+      }
+    }
+    await finalizeEdit(changes, scope);
   };
 
   // ── Remind ──
@@ -1243,6 +1280,20 @@ export default function ClassDetailScreen() {
         onConfirm={(scope) => void commitEdit(scope)}
       />
 
+      <EligibilityConfirmDialog
+        open={pendingEdit !== null}
+        ineligible={ineligible}
+        onCancel={() => {
+          setPendingEdit(null);
+          setIneligible([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingEdit;
+          setPendingEdit(null);
+          setIneligible([]);
+          if (parked) void finalizeEdit(parked.changes, parked.scope);
+        }}
+      />
       <OverlapConfirmDialog
         open={overlapOpen}
         onCancel={() => setOverlapOpen(false)}

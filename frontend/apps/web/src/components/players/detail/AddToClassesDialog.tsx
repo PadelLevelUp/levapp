@@ -6,6 +6,9 @@ import { toast } from "sonner";
 
 import type { CalendarEvent, CoachPlayer } from "@/types";
 import { editClass, getClassInstances } from "@/api/classes";
+import { checkEligibility } from "@/api/notificationEngine";
+import { EligibilityConfirmDialog } from "@/components/calendar/EligibilityConfirmDialog";
+import type { EligibilityCheckEntry } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +42,12 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // PAD-150 (eligibility.enforcement rule 7d): this is the other manual-add
+  // path, so it asks the same question. One student, many classes — each
+  // entry here is a CLASS the student fails the bar for (its title and date
+  // stand in for the "name"), one line per failed rule.
+  const [ineligibleClasses, setIneligibleClasses] = useState<EligibilityCheckEntry[]>([]);
+  const [pendingTargets, setPendingTargets] = useState<CalendarEvent[] | null>(null);
 
   const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
 
@@ -87,6 +96,32 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   const handleSave = async () => {
     const targets = classes.filter((c) => selectedIds.has(c.id));
     if (targets.length === 0) return;
+
+    // PAD-150: warn (never block) when the bar says no for any target class.
+    try {
+      const failing: EligibilityCheckEntry[] = [];
+      for (const [index, cls] of targets.entries()) {
+        const { ineligible } = await checkEligibility(
+          cls.model,
+          String(cls.originalId),
+          cls.date,
+          [String(player.playerId)]
+        );
+        const hit = ineligible.find((e) => String(e.playerId) === String(player.playerId));
+        if (hit) failing.push({ playerId: index, name: `${cls.title} · ${cls.date}`, failures: hit.failures });
+      }
+      if (failing.length > 0) {
+        setIneligibleClasses(failing);
+        setPendingTargets(targets);
+        return;
+      }
+    } catch {
+      // Rule 6: the warning is a courtesy, the enrolment is the coach's.
+    }
+    await proceedSave(targets);
+  };
+
+  const proceedSave = async (targets: CalendarEvent[]) => {
     setSaving(true);
 
     let successCount = 0;
@@ -140,6 +175,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   }, [weekStart]);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
@@ -268,5 +304,21 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         </DialogFooter>
       </DialogContent>
     </Dialog>
+      <EligibilityConfirmDialog
+        open={pendingTargets !== null}
+        ineligible={ineligibleClasses}
+        onCancel={() => {
+          setPendingTargets(null);
+          setIneligibleClasses([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingTargets;
+          setPendingTargets(null);
+          setIneligibleClasses([]);
+          if (parked) void proceedSave(parked);
+        }}
+      />
+    </>
+  
   );
 }

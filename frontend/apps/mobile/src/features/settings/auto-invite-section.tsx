@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
+import { EligibilityImpactNote } from "./eligibility-impact-note";
+import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
  * Auto-Invite Engine basic controls, mirroring the top-level portion of
@@ -59,12 +61,19 @@ export function AutoInviteSection() {
     };
   }, []);
 
+  // PAD-150 (rule 9b): who the last saved bar would exclude; null = not saved yet.
+  const [eligibilityImpact, setEligibilityImpact] =
+    React.useState<EligibilityImpactEntry[] | null>(null);
+
   const save = async (patch: Partial<NotificationConfig>) => {
     if (!config) return;
     const previous = config;
     setConfig({ ...config, ...patch });
     try {
-      await notificationEngineApi.updateNotificationConfig(patch);
+      const saved = await notificationEngineApi.updateNotificationConfig(patch);
+      if ("eligibilityRules" in patch) {
+        setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
+      }
     } catch {
       setConfig(previous);
     }
@@ -181,6 +190,7 @@ export function AutoInviteSection() {
             rules={config.eligibilityRules}
             onChange={(eligibilityRules) => void save({ eligibilityRules })}
           />
+          <EligibilityImpactNote affected={eligibilityImpact} />
         </View>
       </CardContent>
     </Card>
