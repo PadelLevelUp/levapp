@@ -64,6 +64,18 @@ Automatically send class reminders to enrolled players at a configured time befo
     never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
     armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
     October, and a class at 23:00 or later got its day-before reminder a day late.
+16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
+    `init_scheduler` returns without starting APScheduler when the process is a migration
+    (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
+    `run`. That holds whether the process was launched as the `flask` console script or as
+    `python -m flask`, which is how the production entrypoint (`backend/scripts/entrypoint.sh`)
+    runs `db upgrade`. Server processes (gunicorn, `flask run`, including `flask --app app.py
+    run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
+    `flask/__main__.py`, the guard missed it, and every deploy's migration started the
+    scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
+    twice.
+    *(Numbered 16 in batch 2: PAD-207 holds 14, PAD-256 15 and PAD-258 17.)*
+
 17. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
     the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
     the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
@@ -162,3 +174,9 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **When** the reminder pass runs at 09:30 UTC, which is 10:30 in Lisbon
 - **Then** no reminder is sent
 - **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
+
+#### The scheduler does not start inside a migration (PAD-264)
+- **Given** the production entrypoint running `python -m flask --app app.py db upgrade`
+- **When** the app factory runs
+- **Then** APScheduler is not started and no reminder job is rescheduled
+- **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it
