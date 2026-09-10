@@ -21,7 +21,7 @@ governing leaf spec and its dependencies before touching code.
 - `messaging/` — Real-Time Messaging (9 leaves)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (4 leaves)
+- `settings/` — User Preferences & Internationalization (5 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267;)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest

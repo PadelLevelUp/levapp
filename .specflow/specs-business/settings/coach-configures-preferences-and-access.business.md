@@ -5,6 +5,7 @@ implemented_by:
   - ../../specs/settings/language.spec.md
   - ../../specs/settings/profile.spec.md
   - ../../specs/settings/role-scope.spec.md
+  - ../../specs/settings/admin-editor.spec.md
 ---
 
 # Coach configures preferences and access
@@ -54,6 +55,9 @@ managing only their own personal profile and preferences.
   values are trimmed before checking.
 - An abbreviation (a short badge shown next to the user's name) defaults to the first letters of the
   first two words of their name when not explicitly set, and can be overridden with up to 4 characters.
+- The LevApp administrator's data browser exists only where it is deliberately switched on (staging
+  and local development; never production by default), only the LevApp superadmin can reach it, and
+  it never shows or changes a password, code or token.
 - The default language is Portuguese; any missing or unresolved translation always falls back to
   Portuguese rather than showing a broken string or placeholder.
 - A user's language preference governs both the app's interface text and the phrasing (weekdays,

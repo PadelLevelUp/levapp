@@ -9,6 +9,7 @@ The settings domain.
 - `settings.language` — draft
 - `settings.profile` — implemented
 - `settings.role-scope` — implemented
+- `settings.admin-editor` — implementing (PAD-175 / PAD-267: the superadmin's data browser — switched on per environment, superadmin-only, secrets redacted; web-only)
 - `settings.tutorials` — implemented — the coach-only Tutorials section and its first walkthrough,
   "Understand invites" (data from `notifications.invite-simulation`)
 
