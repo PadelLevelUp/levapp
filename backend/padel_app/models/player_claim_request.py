@@ -6,7 +6,7 @@ The student is the actor who decides; accepting runs the merge in
 player (partial unique index in the migration; also enforced in the service,
 because SQLite in the test suite does not apply the partial index).
 """
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -16,7 +16,15 @@ from padel_app.utils.dates import utcnow_naive
 
 class PlayerClaimRequest(db.Model, model.Model):
     __tablename__ = "player_claim_requests"
-    __table_args__ = {"extend_existing": True}
+    # The partial unique index migration e3f4a5b6c7d8 created: "one pending claim
+    # per player". Declared so autogenerate stops proposing to drop it (PAD-220).
+    __table_args__ = (
+        Index(
+            "uq_player_claim_request_pending", "player_id", unique=True,
+            postgresql_where=text("status = 'pending'"), sqlite_where=text("status = 'pending'"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Player Claim Requests"
     model_name = "PlayerClaimRequest"

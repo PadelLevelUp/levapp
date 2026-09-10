@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Text
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -15,7 +15,14 @@ class ClassRequest(db.Model, model.Model):
     """
 
     __tablename__ = "class_requests"
-    __table_args__ = {"extend_existing": True}
+    # Created by migration e4b8c2d17a35 (PAD-104); declared so autogenerate
+    # stops proposing to drop them (PAD-220).
+    __table_args__ = (
+        Index("ix_class_requests_coach_id", "coach_id"),
+        Index("ix_class_requests_player_id", "player_id"),
+        Index("ix_class_requests_start_datetime", "start_datetime"),
+        {"extend_existing": True},
+    )
 
     page_title = "Class Requests"
     model_name = "ClassRequest"
