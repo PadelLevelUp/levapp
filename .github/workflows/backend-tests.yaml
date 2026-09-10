@@ -72,4 +72,4 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: pip install . pytest
-      - run: python -m pytest padel_app/tests -q -p no:warnings
+      - run: python -m pytest padel_app/tests -v -p no:warnings -o faulthandler_timeout=120
