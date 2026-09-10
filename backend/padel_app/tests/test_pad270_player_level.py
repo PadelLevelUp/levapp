@@ -64,7 +64,7 @@ def world(app):
                                           assigned_at=datetime.utcnow() - timedelta(days=30)))
         db.session.commit()
         return dict(coach_user_id=coach_user.id, coach_id=coach.id, student_id=student.id,
-                    rel_id=rel.id, level_a=level_a.id, level_b=level_b.id)
+                    rel_id=rel.id, level_a=level_a.id, level_b=level_b.id, club_id=club.id)
 
 
 def _history(world, player_id=None):
@@ -204,7 +204,7 @@ def test_the_calendar_reports_a_class_level_from_its_lesson(app, world):
         start = datetime.utcnow() + timedelta(days=2)
         lesson = Lesson(title="Level fallback", start_datetime=start, end_datetime=start + timedelta(hours=1),
                         is_recurring=False, type="academy", max_players=4, color="#000000", status="active",
-                        default_level_id=world["level_b"])
+                        default_level_id=world["level_b"], club_id=world["club_id"])
         db.session.add(lesson)
         db.session.flush()
         instance = LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
