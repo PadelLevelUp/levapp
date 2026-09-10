@@ -46,6 +46,7 @@ from .waiting_list_entry import WaitingListEntry
 from .standing_waiting_list_entry import StandingWaitingListEntry
 from .bulk_import import BulkImport
 from .needs_you_snooze import NeedsYouSnooze
+from .class_join_request import ClassJoinRequest
 
 MODELS = {
     # NOTE: TokenBlocklist is deliberately excluded — it's internal JWT
@@ -100,4 +101,5 @@ MODELS = {
     "waitinglistentry": WaitingListEntry,
     "standingwaitinglistentry": StandingWaitingListEntry,
     "bulkimport": BulkImport,
+    "classjoinrequest": ClassJoinRequest,
 }

@@ -154,6 +154,22 @@ export interface RecurrenceRule {
   interval?: number;
 }
 
+/**
+ * PAD-131 (classes.join-requests rule 15): a student's ask to attend an open
+ * spot. `pending` until the coach decides; `superseded` when another path
+ * filled the spot first.
+ */
+export interface ClassJoinRequest {
+  id: number;
+  lessonInstanceId: string;
+  playerId: string;
+  playerName: string;
+  coachId: string;
+  status: "pending" | "accepted" | "rejected" | "withdrawn" | "superseded";
+  createdAt: string | null;
+  decidedAt: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
@@ -198,6 +214,10 @@ export interface ClassInstance {
   effectiveOpenSpotsVisible?: boolean;
   openSpotsSource?: "instance" | "lesson" | "coach";
   invitations?: ClassInvitation[];
+  /** PAD-131: coach only — the pending join requests for this class. */
+  joinRequests?: ClassJoinRequest[];
+  /** PAD-131: student only — their latest join request for this class, or null. */
+  myJoinRequest?: ClassJoinRequest | null;
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
   // the student view can render deadline-aware cancel UX.

@@ -389,6 +389,39 @@
       "body": "A inscrição é decisão tua — isto só te diz o que a fasquia diz.",
       "confirm": "Adicionar mesmo assim",
       "cancel": "Cancelar"
+    },
+    "joinRequest": {
+      "request": "Pedir para entrar",
+      "requestHint": "Pede esta vaga a {{coach}}. A decisão é do treinador.",
+      "requestHintNoCoach": "Pede esta vaga ao treinador. A decisão é dele.",
+      "sentTitle": "Pedido enviado",
+      "sentBody": "O treinador foi avisado e vai aceitar ou recusar.",
+      "pending": "Pedido enviado — à espera do treinador",
+      "withdraw": "Retirar pedido",
+      "withdrawn": "Pedido retirado",
+      "rejected": "O treinador não aceitou o teu pedido",
+      "superseded": "A vaga foi ocupada antes de o treinador decidir",
+      "accepted": "O teu pedido foi aceite",
+      "failed": "Não foi possível enviar o pedido",
+      "refusal": {
+        "already_enrolled": "Já estás nesta aula",
+        "class_closed": "Esta aula já não aceita pedidos",
+        "not_visible": "Esta aula não aceita pedidos",
+        "spot_filled": "Esta aula já está cheia",
+        "ineligible": "Não cumpres os critérios de elegibilidade desta aula",
+        "not_pending": "Este pedido já foi decidido"
+      },
+      "coachTitle_one": "{{count}} pedido para entrar",
+      "coachTitle_other": "{{count}} pedidos para entrar",
+      "accept": "Aceitar",
+      "reject": "Recusar",
+      "acceptedToast": "{{name}} está dentro",
+      "rejectedToast": "O pedido de {{name}} foi recusado",
+      "decideFailed": "Não foi possível decidir o pedido",
+      "spotFilledToast": "A aula encheu entretanto — o pedido foi encerrado",
+      "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
+      "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
+      "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
     }
   }
 }

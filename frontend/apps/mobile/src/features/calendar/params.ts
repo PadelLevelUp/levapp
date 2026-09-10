@@ -23,6 +23,9 @@ export type ClassRouteParams = {
    * pre-formatted labels are available). */
   displayDate?: string;
   displayTime?: string;
+  /** PAD-131: "1" when the card was an open spot the student may ask to join. */
+  openSpot?: string;
+  coachName?: string;
 };
 
 export function eventToParams(event: CalendarEvent): ClassRouteParams {
@@ -41,6 +44,8 @@ export function eventToParams(event: CalendarEvent): ClassRouteParams {
     status: event.status ?? "",
     color: event.color ?? "",
     isRecurring: event.isRecurring ? "1" : "0",
+    openSpot: event.openSpot ? "1" : "0",
+    coachName: event.coachName ?? "",
   };
 }
 
@@ -78,6 +83,8 @@ export function paramsToEvent(
       Number.isFinite(participantCount) && first(params.participantCount) !== ""
         ? participantCount
         : undefined,
+    openSpot: first(params.openSpot) === "1",
+    coachName: first(params.coachName) || undefined,
   };
 }
 

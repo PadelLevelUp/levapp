@@ -286,4 +286,19 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         )
         data["levelId"] = str(obj.level_id) if obj.level_id else data["levelId"]
 
+        # PAD-131 (classes.join-requests rule 15): the coach sees the pending
+        # requests; a student sees only their own latest one.
+        from padel_app.services.class_join_request_service import (
+            latest_request_for_player,
+            pending_requests_for_instance,
+            serialize_join_request,
+        )
+        if is_student:
+            mine = latest_request_for_player(obj.id, viewer_player_id)
+            data["myJoinRequest"] = serialize_join_request(mine) if mine else None
+        else:
+            data["joinRequests"] = [
+                serialize_join_request(r) for r in pending_requests_for_instance(obj.id)
+            ]
+
     return data

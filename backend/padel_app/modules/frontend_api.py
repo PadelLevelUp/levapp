@@ -76,6 +76,12 @@ from padel_app.services.presence_overview_service import (
     list_pending_validation,
     unvalidate_instance,
 )
+from padel_app.services.class_join_request_service import (
+    create_join_request_service,
+    decide_join_request_service,
+    serialize_join_request,
+    withdraw_join_request_service,
+)
 from padel_app.services.club_service import (
     create_coach_invitation_service,
     get_coach_invitation_service,
@@ -1532,6 +1538,48 @@ def withdraw_club_join_request(request_id):
     coach = require_coach()
     row = withdraw_club_join_request_service(request_id, coach)
     return jsonify(serialize_club_join_request(row))
+
+
+# ── PAD-131: classes.join-requests (rule 15) ─────────────────────────────────
+
+
+@bp.post("/class-join-requests")
+@jwt_required()
+def create_class_join_request():
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can ask to join a class")
+    data = request.get_json() or {}
+    row, created = create_join_request_service(
+        player, data.get("model"), data.get("originalId"), data.get("date")
+    )
+    return jsonify(serialize_join_request(row)), (201 if created else 200)
+
+
+@bp.post("/class-join-requests/<int:request_id>/withdraw")
+@jwt_required()
+def withdraw_class_join_request(request_id):
+    row = withdraw_join_request_service(request_id, current_player())
+    return jsonify(serialize_join_request(row))
+
+
+@bp.post("/class-join-requests/<int:request_id>/accept")
+@jwt_required()
+def accept_class_join_request(request_id):
+    coach = require_coach()
+    data = request.get_json(silent=True) or {}
+    row = decide_join_request_service(
+        request_id, coach, accept=True, confirm=bool(data.get("confirm"))
+    )
+    return jsonify(serialize_join_request(row))
+
+
+@bp.post("/class-join-requests/<int:request_id>/reject")
+@jwt_required()
+def reject_class_join_request(request_id):
+    coach = require_coach()
+    row = decide_join_request_service(request_id, coach, accept=False)
+    return jsonify(serialize_join_request(row))
 
 
 @bp.get("/coach-invitations/<token>")

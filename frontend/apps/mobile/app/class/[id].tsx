@@ -70,6 +70,7 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import {
   diffInstance,
@@ -210,6 +211,12 @@ export default function ClassDetailScreen() {
     React.useCallback(
       (evt) => {
         if (!isCoach || !event) return;
+        // PAD-131: a student asked to join, or the class filled and the
+        // requests closed → refetch so the requests block is current.
+        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded") {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          return;
+        }
         if (evt.type === "notification_responded") {
           const payload = evt.payload as {
             notificationEventId: number;
@@ -355,6 +362,12 @@ export default function ClassDetailScreen() {
   // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
   // the bar asks first, naming why. The edit is parked until answered.
   const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
+  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
+  const [joinBusy, setJoinBusy] = React.useState(false);
+  const [pendingAccept, setPendingAccept] = React.useState<{
+    id: number;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
   const [pendingEdit, setPendingEdit] = React.useState<{
     changes: Record<string, unknown>;
     scope: "single" | "future";
@@ -518,6 +531,77 @@ export default function ClassDetailScreen() {
 
   // Student-only: their own presence row (the API only ever returns theirs).
   const myPresence = !isCoach ? (instance?.presences ?? [])[0] : undefined;
+
+  // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9) — mirrors web's
+  // ClassDetailSheet: the student asks or withdraws; the coach accepts (a
+  // manual add, so a student who slipped below the bar needs the same
+  // named-reason confirmation) or rejects.
+  const refreshInstance = async () => {
+    if (!event) return;
+    await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+  };
+  const handleJoinRequest = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await classJoinRequestsApi.createClassJoinRequest({
+        model: event.model,
+        originalId: event.originalId,
+        date: event.date,
+      });
+      toast.success(t("calendar.joinRequest.sentTitle"));
+    } catch (err) {
+      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
+      toast.error(
+        refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : t("calendar.joinRequest.failed")
+      );
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleWithdrawJoinRequest = async (id: number) => {
+    setJoinBusy(true);
+    try {
+      await classJoinRequestsApi.withdrawClassJoinRequest(id);
+      toast.success(t("calendar.joinRequest.withdrawn"));
+    } catch {
+      toast.error(t("calendar.joinRequest.failed"));
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleDecideJoinRequest = async (id: number, accept: boolean, confirm = false) => {
+    const req = instance?.joinRequests?.find((r) => r.id === id);
+    setJoinBusy(true);
+    try {
+      if (accept) await classJoinRequestsApi.acceptClassJoinRequest(id, confirm);
+      else await classJoinRequestsApi.rejectClassJoinRequest(id);
+      toast.success(
+        t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
+          name: req?.playerName ?? "",
+        })
+      );
+    } catch (err) {
+      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
+      if (refusal?.code === "ineligible") {
+        setJoinBusy(false);
+        setPendingAccept({ id, ineligible: refusal.ineligible ?? [] });
+        return;
+      }
+      toast.error(
+        refusal?.code === "spot_filled"
+          ? t("calendar.joinRequest.spotFilledToast")
+          : refusal?.code === "class_closed"
+            ? t("calendar.joinRequest.classClosedToast")
+            : t("calendar.joinRequest.decideFailed")
+      );
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
 
   // PAD-170 C5: the gates live in `attendance-decline.ts` so the unit runner can
   // exercise them. The proactive WINDOW is the server's answer
@@ -966,6 +1050,48 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
+          {/* PAD-131 (rules 5, 7, 9): the coach decides each pending request. */}
+          {isCoach && !isEditing && (instance?.joinRequests?.length ?? 0) > 0 ? (
+            <>
+              <Separator />
+              <View className="gap-1" testID="class-join-requests">
+                <Text className="py-1 text-sm font-semibold">
+                  {t("calendar.joinRequest.coachTitle", { count: instance!.joinRequests!.length })}
+                </Text>
+                {instance!.joinRequests!.map((req) => (
+                  <View
+                    key={req.id}
+                    className="flex-row items-center justify-between gap-2 py-1"
+                    testID="class-join-request-row"
+                  >
+                    <Text className="flex-1 text-sm" numberOfLines={1}>
+                      {req.playerName}
+                    </Text>
+                    <View className="flex-row gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={joinBusy}
+                        onPress={() => void handleDecideJoinRequest(req.id, false)}
+                        testID="class-join-reject"
+                      >
+                        <Text>{t("calendar.joinRequest.reject")}</Text>
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={joinBusy}
+                        onPress={() => void handleDecideJoinRequest(req.id, true)}
+                        testID="class-join-accept"
+                      >
+                        <Text>{t("calendar.joinRequest.accept")}</Text>
+                      </Button>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           {/* Invited (N) — coach only, collapsible, live via SSE above. */}
           {isCoach && !isEditing && invitations.length > 0 ? (
             <>
@@ -1022,6 +1148,60 @@ export default function ClassDetailScreen() {
                     ))}
                   </View>
                 ) : null}
+              </View>
+            </>
+          ) : null}
+
+          {/* PAD-131: a student outside the class asks for the open spot
+              (rule 1) or withdraws their pending ask (rule 4). */}
+          {!isCoach &&
+          !isEditing &&
+          !isCanceled &&
+          !myPresence &&
+          (event.openSpot || instance?.myJoinRequest) ? (
+            <>
+              <Separator />
+              <View
+                className="gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                testID="class-join-request"
+              >
+                {instance?.myJoinRequest?.status === "pending" ? (
+                  <>
+                    <Text className="text-sm font-medium">{t("calendar.joinRequest.pending")}</Text>
+                    <Button
+                      variant="outline"
+                      disabled={joinBusy}
+                      onPress={() => void handleWithdrawJoinRequest(instance!.myJoinRequest!.id)}
+                      testID="class-join-withdraw"
+                    >
+                      <Text>{t("calendar.joinRequest.withdraw")}</Text>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {instance?.myJoinRequest && instance.myJoinRequest.status !== "withdrawn" ? (
+                      <Text className="text-xs text-muted-foreground">
+                        {t(`calendar.joinRequest.${instance.myJoinRequest.status}`)}
+                      </Text>
+                    ) : null}
+                    {event.openSpot ? (
+                      <>
+                        <Button
+                          disabled={joinBusy}
+                          onPress={() => void handleJoinRequest()}
+                          testID="class-join-request-button"
+                        >
+                          <Text>{t("calendar.joinRequest.request")}</Text>
+                        </Button>
+                        <Text className="text-xs text-muted-foreground">
+                          {event.coachName
+                            ? t("calendar.joinRequest.requestHint", { coach: event.coachName })
+                            : t("calendar.joinRequest.requestHintNoCoach")}
+                        </Text>
+                      </>
+                    ) : null}
+                  </>
+                )}
               </View>
             </>
           ) : null}
@@ -1312,6 +1492,17 @@ export default function ClassDetailScreen() {
           setPendingEdit(null);
           setIneligible([]);
           if (parked) void finalizeEdit(parked.changes, parked.scope);
+        }}
+      />
+      {/* PAD-131 rule 7: accepting a request is a manual add — same warning. */}
+      <EligibilityConfirmDialog
+        open={pendingAccept !== null}
+        ineligible={pendingAccept?.ineligible ?? []}
+        onCancel={() => setPendingAccept(null)}
+        onConfirm={() => {
+          const parked = pendingAccept;
+          setPendingAccept(null);
+          if (parked) void handleDecideJoinRequest(parked.id, true, true);
         }}
       />
       <OverlapConfirmDialog
