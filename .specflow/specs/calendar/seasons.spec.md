@@ -56,7 +56,8 @@ season each September.
    `{"label", "startDay", "startMonth", "endDay", "endMonth", "wrapsYear", "needsReview",
    "current": {"startDate", "endDate", "label"} | null, "upcoming": {…} | null}` — `current` is the
    occurrence containing today (null in a gap) and `upcoming` the next occurrence starting after
-   today.
+   today. "Today" is the date on the club's clock (PAD-256), not the server's
+   or the UTC date.
 6. `PUT /app/season` (coach) with `{"label"?, "startDay", "startMonth", "endDay", "endMonth"}`
    creates or replaces the coach's definition and answers the rule-5 shape. Rule 2 violations are
    400 `{"error": …, "code": "invalid_season"}` and write nothing. A successful save clears
