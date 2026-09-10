@@ -64,3 +64,32 @@ Neither migration had completed anywhere outside test databases, so editing them
 
 A data-bearing migration must be dry-run on prod's data, not only prod's schema. When that is not
 possible, every backfill and every new constraint must tolerate references to rows that are gone.
+
+## Follow-up (2026-09-10): the backfill is one statement on Postgres
+
+With the orphan skip in place, the staging deploy still answered 502 for about seven and a half
+minutes. The entrypoint runs `flask db upgrade` before gunicorn, and the per-row backfill made up
+to four queries per reminder: about five minutes on the VM for 8,371 reminders. The database sync
+also stopped and restarted the container partway through, so the upgrade ran twice. Production
+would be down as long at promotion.
+
+`358e03e9a3a9` now runs one `INSERT … SELECT` on Postgres (`BACKFILL_INSERT`). It reproduces
+`attempt_from_metadata`, the orphan skip, and the player and presence lookups. SQLite, used by the
+test suite, keeps the loop. Where Python would raise on a non-numeric id, the statement skips the
+row. The migration was edited in place again: production has not run it, and the statement only
+inserts missing rows.
+
+Verification:
+- **Read-only on `padel_app_staging`** (prod's data, 2026-09-10). The statement's SELECT returns
+  the same 8,360 rows the loop wrote, with 0 differences either way on every column. With its
+  `NOT EXISTS` filter it would insert 0 rows. It runs in about 1.0 s on the VM (EXPLAIN ANALYZE,
+  three runs).
+- **Scratch Postgres at `ad97ec649746`,** with 8,403 synthetic reminders in production's shapes and
+  11 orphans:
+  - On identical copies, the loop and the statement wrote the same 8,350 rows, with 0 differing
+    lines.
+  - A second upgrade after `stamp` inserted nothing.
+  - `" 12 "`, and an empty `lessonInstanceId` beside an `instanceId`, resolve as in Python.
+    `"abc"` is skipped.
+  - The chain then upgraded to `93731ca0bea7`.
+- `test_reminder_attempts.py` (SQLite, the loop) still passes.
