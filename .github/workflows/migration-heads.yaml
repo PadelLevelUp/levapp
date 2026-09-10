@@ -1,0 +1,38 @@
+name: Migration history
+
+# PAD-265 (audit H13). Fails a PR whose Alembic history has more than one head,
+# a duplicate revision id, or a down_revision that points nowhere. Both head
+# merges and the multiple-heads outage happened because nothing failed before
+# the image was built; the 2026-09-09 overnight wave then opened three PRs that
+# each revised ad97ec649746.
+#
+# Deliberately tiny: stdlib Python, no install, no database, a few seconds.
+# Applying the migrations for real is backend-tests.yaml's postgres job
+# (PAD-278); this gate answers "is the history linear?" before anything is
+# installed, and its message says how to fix it.
+#
+# No workflow-level `paths:` filter: a required check that is skipped blocks
+# the PR forever (see deploy-staging.yaml), and this one costs seconds.
+
+on:
+  pull_request:
+    branches: [ staging, main ]
+  push:
+    branches: [ staging, main ]
+
+concurrency:
+  group: migration-heads-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  single-head:
+    name: one Alembic head
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Check the migration history
+        run: python backend/scripts/check_alembic_heads.py backend/migrations/versions
