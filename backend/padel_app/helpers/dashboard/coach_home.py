@@ -353,8 +353,12 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
         )
         .join(ConversationParticipant, ConversationParticipant.conversation_id == Message.conversation_id)
         .filter(ConversationParticipant.user_id == user_id)
+        .join(User, User.id == Message.sender_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
+        # PAD-268 (auth.account-deletion rule 8): a deleted person cannot read a
+        # reply, so their messages never put a conversation in the queue.
+        .filter(User.status != "disabled")
         .filter(Message.sent_at > func.coalesce(ConversationParticipant.last_read_at, _EPOCH))
         .group_by(Message.conversation_id)
         .subquery()
@@ -365,6 +369,7 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
         .join(User, User.id == Message.sender_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
+        .filter(User.status != "disabled")
         .order_by(Message.sent_at.desc(), Message.id.desc())
         .limit(QUEUE_REPLY_LIMIT * 2)
         .all()
@@ -551,7 +556,12 @@ def _player_activity(*, coach_id: int, now: datetime) -> Tuple[int, int]:
     player_ids = [
         pid
         for (pid,) in db.session.query(Association_CoachPlayer.player_id)
+        .join(Player, Player.id == Association_CoachPlayer.player_id)
+        .join(User, User.id == Player.user_id)
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268 (auth.account-deletion rule 8): a deleted account is not a
+        # player here, in the count or the denominator. The roster row stays.
+        .filter(User.status != "disabled")
         .all()
     ]
     if not player_ids:

@@ -1208,8 +1208,14 @@ def evaluate_candidates(
         if str(pid) in excluded_player_ids:
             verdicts.append(CandidateVerdict(cp, "excluded_by_coach"))
             continue
+        user = cp.player.user if cp.player else None
+        # PAD-268 (auth.account-deletion rule 7): a deleted account is never a
+        # candidate, whatever "Exclude inactive accounts" says: it can never
+        # attend, and inviting it would spend a slot of the round.
+        if user is not None and user.status == "disabled":
+            verdicts.append(CandidateVerdict(cp, "inactive_account"))
+            continue
         if exclude_inactive:
-            user = cp.player.user if cp.player else None
             if not user or user.status != "active":
                 verdicts.append(CandidateVerdict(cp, "inactive_account"))
                 continue
@@ -4176,8 +4182,11 @@ def _check_waiting_list(
         if str(entry.player_id) in restricted_player_ids:
             continue
 
+        user = cp.player.user if cp.player else None
+        # PAD-268 (auth.account-deletion rule 7): never place a deleted account.
+        if user is not None and user.status == "disabled":
+            continue
         if restrictions["excludeUnpaidSubscription"]["enabled"]:
-            user = cp.player.user if cp.player else None
             if not user or user.status != "active":
                 continue
 

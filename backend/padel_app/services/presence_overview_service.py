@@ -44,6 +44,7 @@ from padel_app.models import (
     LessonInstance,
     Player,
     Presence,
+    User,
 )
 from padel_app.services.attendance_history_service import (
     GRANULARITIES,
@@ -147,6 +148,10 @@ def build_presence_stats(
         )
         .options(joinedload(Player.user))
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268: a deleted account leaves the roster table (privacy policy
+        # §11); build_presence_trend drops it too so the page stays consistent.
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
         .all()
     )
 
@@ -218,6 +223,11 @@ def build_presence_trend(
         _coach_presence_query(coach_id, start, end)
         .with_entities(LessonInstance.start_datetime)
         .filter(Presence.status == "present")
+        # PAD-268: the same player set as the table: a deleted account's
+        # presences stay in the database and on class pages, not in this series.
+        .join(Player, Player.id == Presence.player_id)
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
     )
     if player_ids is not None:
         query = query.filter(Presence.player_id.in_(list(player_ids)))

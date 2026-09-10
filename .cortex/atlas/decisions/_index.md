@@ -11,6 +11,7 @@ a rule — before proposing to change any of them.
 - [2026-09-10 — Sign in with Google, draft](2026-09-10-sign-in-with-google.md) — PAD-252; recommends parking it
 - [2026-09-10 — Class time storage, draft](2026-09-10-class-time-storage.md) — PAD-256; implemented: Lisbon wall-clock (option B), #180–#190
 - [2026-09-10 — Account status, not payment](2026-09-10-account-status-not-payment.md) — the two "subscription" settings read users.status; relabelled on both platforms, ids kept, no payment model (PAD-132)
+- [2026-09-10 — Account deletion keeps the coach's records](2026-09-10-account-deletion-keeps-coach-records.md) — deleting removes the person from the future (sessions, pushes, future classes, waiting lists, engine) and keeps past attendance/evaluations/messages as "Deleted user"; carries the privacy-policy checklist (PAD-268)
 - [2026-09-06 — Open registration and connections](2026-09-06-open-registration-and-connections.md) — anyone registers; roster grows by QR/invite/claim; student↔student by username with block/report; supersedes PAD-137's pending-request model
 - [2026-09-10 — Data-model audit follow-up](2026-09-10-data-model-audit-follow-up.md) — the 2026-09-02 audit re-read on staging; 27 tickets PAD-254…PAD-280 for every open finding; M16 retention deliberately unticketed; §14 alternatives accepted/deferred/rejected on record
 - [2026-09-09 — Production stays on one gunicorn worker until SSE has a shared broker](2026-09-09-single-worker-until-sse-broker.md) — in-memory SSE registry is per-process; scale out needs Redis pub/sub first (R-027)

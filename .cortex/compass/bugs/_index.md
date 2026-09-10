@@ -28,3 +28,5 @@ whether a failure mode has been seen before.
 - [B-054](B-054-model-migration-index-drift.md) — nine model-versus-migration differences on a clean database; `flask db migrate` would drop the two partial unique pending-request indexes (layer-drift, high, open)
 - [B-056](B-056-declined-student-reinvited-same-round.md) — a student who declined an invitation was re-invited in the same round, so the spot never reached anyone else (missing-criterion, medium, resolved)
 - [B-051](B-051-capacity-and-vacancy-check-then-write-without-a-lock.md) — capacity, one-winner-per-vacancy and materialisation were check-then-write with no row lock (incomplete-rule, high, resolved in PAD-261)
+- [B-037](B-037-account-deletion-leaves-the-future-behind.md) — account deletion left enrolments, reminders, pushes, waiting-list credits, legacy login and roster listings behind (missing-dev-spec, medium, resolved in PAD-268)
+- [B-038](B-038-privacy-policy-omits-ai-import-processor.md) — privacy policy does not name the AI import processor (OpenRouter) or the EEA transfer (layer-drift, medium, open — owner action)

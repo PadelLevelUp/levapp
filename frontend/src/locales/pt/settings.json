@@ -155,9 +155,9 @@
     "account": {
       "title": "Conta",
       "deleteAccount": "Eliminar conta",
-      "deleteAccountDescription": "Elimina permanentemente a tua conta e todos os dados associados. Esta ação é permanente e não pode ser anulada.",
+      "deleteAccountDescription": "Elimina a tua conta de forma permanente. Terminas sessão em todos os dispositivos, sais de todas as aulas futuras e listas de espera, e não recebes mais notificações. O teu treinador mantém o registo das aulas que já fizeste, e as mensagens que enviaste ficam na conversa, com o nome \"Deleted user\".",
       "deleteDialogTitle": "Eliminar a tua conta?",
-      "deleteDialogDescription": "Isto vai eliminar permanentemente a tua conta e todos os teus dados, incluindo o teu perfil, aulas, avaliações e mensagens. Esta ação é permanente e não pode ser anulada.",
+      "deleteDialogDescription": "Isto elimina a tua conta de forma permanente: nome, email, telefone, foto, nome de utilizador e palavra-passe, e termina a sessão em todos os dispositivos. Sais de todas as aulas futuras e listas de espera e não recebes mais notificações. Fica apenas o registo do teu treinador, que não é a tua conta: presenças, avaliações e notas das aulas que já fizeste, e as mensagens que enviaste, com o nome \"Deleted user\". Esta ação não pode ser anulada.",
       "deleteConfirm": "Eliminar conta",
       "deleting": "A eliminar...",
       "deleteSuccess": "A tua conta foi eliminada.",

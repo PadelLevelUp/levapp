@@ -155,9 +155,9 @@
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",
-      "deleteAccountDescription": "Permanently delete your account and all associated data. This action is permanent and cannot be undone.",
+      "deleteAccountDescription": "Permanently delete your account. You are signed out everywhere, removed from every upcoming class and waiting list, and get no more notifications. Your coach keeps their record of classes you already took, and the messages you sent stay in your conversation, shown as \"Deleted user\".",
       "deleteDialogTitle": "Delete your account?",
-      "deleteDialogDescription": "This will permanently delete your account and all of your data, including your profile, classes, evaluations, and messages. This action is permanent and cannot be undone.",
+      "deleteDialogDescription": "This permanently deletes your account: your name, email, phone, photo, username and password, and you are signed out on every device. You are removed from every upcoming class and waiting list, and you will get no more notifications. What stays is your coach's record, not your account: attendance, evaluations and notes from classes you already took, and the messages you sent, all shown as \"Deleted user\". This cannot be undone.",
       "deleteConfirm": "Delete account",
       "deleting": "Deleting...",
       "deleteSuccess": "Your account has been deleted.",
