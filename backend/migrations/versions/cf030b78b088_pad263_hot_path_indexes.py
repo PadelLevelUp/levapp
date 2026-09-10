@@ -34,7 +34,7 @@ The models declare the same sixteen indexes, and
 `flask db migrate` does not draft their removal (see ledger B-032).
 
 Revision ID: cf030b78b088
-Revises: ad97ec649746
+Revises: 93731ca0bea7
 Create Date: 2026-09-10
 """
 
@@ -44,7 +44,7 @@ from sqlalchemy import inspect as sa_inspect
 
 
 revision = "cf030b78b088"
-down_revision = "ad97ec649746"
+down_revision = "93731ca0bea7"
 branch_labels = None
 depends_on = None
 
