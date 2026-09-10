@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Union
 from padel_app.tools.calendar_tools import _format_date, _format_time
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
 def _compute_status(
     start_dt: datetime,
@@ -19,8 +19,9 @@ def _compute_status(
     stayed ``scheduled`` while previous days' classes correctly read
     ``completed``.
 
-    ``now`` defaults to the same naive-UTC clock the scheduler uses to compare
-    stored class datetimes (``utcnow_naive``); it is injectable for tests.
+    ``now`` is the UTC instant (default ``utcnow_naive``, injectable for tests).
+    The stored end is Lisbon wall-clock (R-023), so it is compared with ``now``
+    on the club's clock (PAD-256, calendar.view rule 11).
     """
     if now is None:
         now = utcnow_naive()
@@ -47,7 +48,7 @@ def _compute_status(
     # drops any tzinfo, keeping the comparison naive on both sides.
     effective_end = datetime.combine(event_date, end_dt.time())
 
-    return "completed" if effective_end <= now else "scheduled"
+    return "completed" if effective_end <= utc_to_wall_naive(now) else "scheduled"
 
 def _club_ref(lesson):
     club = getattr(lesson, "club", None)

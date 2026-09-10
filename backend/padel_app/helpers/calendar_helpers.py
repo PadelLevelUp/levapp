@@ -293,14 +293,16 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
         effective_open_spots_visible,
         passes_eligibility,
     )
-    from padel_app.utils.dates import utcnow_naive
+    from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 
-    # The route hands over tz-aware UTC bounds while stored datetimes and the
-    # scheduler clock are naive UTC — compare everything on the aware clock.
+    # PAD-256 (R-023): stored class times and the route's bounds are Lisbon
+    # wall-clock, labelled UTC by ensure_utc so they compare with each other.
+    # `now` is a UTC instant, so it moves to the club's clock before it meets them.
     now = now or utcnow_naive()
     now_utc = ensure_utc(now)
+    now_wall = ensure_utc(utc_to_wall_naive(now))
     range_start, range_end = ensure_utc(range_start), ensure_utc(range_end)
-    horizon_start = max(range_start, now_utc)
+    horizon_start = max(range_start, now_wall)
     if horizon_start > range_end:
         return []
 
@@ -320,7 +322,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
 
         def consider(obj, *, override_id=None, override_date=None, occ_start=None):
             start = ensure_utc(occ_start or obj.start_datetime)
-            if start is None or start < now_utc:
+            if start is None or start < now_wall:
                 return
             if getattr(obj, "status", None) in ("canceled", "completed"):
                 return
