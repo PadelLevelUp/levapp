@@ -3,13 +3,14 @@ id: B-036
 title: "Coach.current_club returns the oldest club, not the most recently joined"
 type: missing-criterion
 severity: medium
-status: triaged
+status: resolved
 affects:
   - clubs.crud
   - backend/padel_app/models/coaches.py
   - backend/padel_app/modules/frontend_api.py
 proposed_fix: "Pick the coach_in_club row with the latest created_at (undated rows count as oldest, ties to the higher id) instead of clubs[-1]; add the missing clubs.crud criterion and make rule 3 independent of how the database orders NULLs."
 opened: 2026-09-10T10:20:00Z
+resolved: 2026-09-10T10:20:00Z
 ---
 
 # B-036 — Coach.current_club returns the oldest club, not the most recently joined
@@ -56,4 +57,15 @@ implementation (`git log -S "clubs[-1]"` → 7c59e1cb). Masked because every coa
 
 ### Resolution
 
-_Filled in when the PR lands._
+- Spec changes: `.specflow/specs/clubs/crud.spec.md` — rule 3 precision (undated = oldest, ties to the
+  higher id, independent of the database's NULL ordering) and criterion "Current club is the most
+  recently joined".
+- Tests added: `backend/padel_app/tests/test_pad266_current_club.py` (7; 5 failed on the unfixed code).
+  An explicit `created_at=None` is stamped with `utcnow` by the model mixin's Python-side default, so
+  the helper writes a real NULL with an UPDATE to reproduce legacy rows.
+- Code changes: `Coach.current_club` ranks `clubs_relations` in Python by
+  `(created_at is not None, created_at, id)` instead of taking `clubs[-1]`; the relationship order and
+  the `clubs` property are unchanged.
+- Verified: backend suite 1062 passed; Playwright `e2e/clubs` + `e2e/settings` 96 passed; tsc web and
+  mobile clean.
+- Resolved: 2026-09-10 (PAD-266).
