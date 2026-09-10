@@ -3,7 +3,7 @@ id: B-001
 title: "No rate limiting on login attempts"
 type: missing-criterion
 severity: high
-status: fixed
+status: resolved
 affects:
   - auth.login
   - backend/padel_app/modules/api_auth.py

@@ -3,7 +3,7 @@ id: B-026
 title: "Message send/edit/delete/react never check the caller is a participant"
 type: incomplete-rule
 severity: high
-status: fixed
+status: resolved
 affects:
   - messaging.messages
   - messaging.reactions

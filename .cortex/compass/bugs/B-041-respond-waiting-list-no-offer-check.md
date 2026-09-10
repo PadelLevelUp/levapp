@@ -3,7 +3,7 @@ id: B-041
 title: "respond_waiting_list never checks the caller was offered the list"
 type: incomplete-rule
 severity: high
-status: fixed
+status: resolved
 affects:
   - notifications.waiting-list
   - backend/padel_app/services/notification_service.py

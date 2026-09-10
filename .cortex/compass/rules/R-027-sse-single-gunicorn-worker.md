@@ -1,13 +1,13 @@
 ---
 id: R-027
 title: "SSE fan-out is per-process: one gunicorn worker until a shared broker exists"
-source: ../../atlas/decisions/2026-09-09-single-worker-until-sse-broker.md
+source:
+  - ../../atlas/decisions/2026-09-09-single-worker-until-sse-broker.md
 governs:
   - backend/Dockerfile
   - backend/padel_app/realtime.py
   - .github/workflows/deploy-prod.yaml
   - .github/workflows/deploy-staging.yaml
-check: "backend/Dockerfile's gunicorn CMD keeps `--workers 1` until realtime.publish is backed by a shared broker"
 ---
 
 # R-027 — SSE fan-out is per-process: one gunicorn worker until a shared broker exists
@@ -26,3 +26,5 @@ deploy workflow overrides it. Nobody "scales" prod by adding workers.
 at which point this rule is replaced by one that names the broker as the requirement.
 
 *Surfaced by audit item M19; recorded by PAD-237 (2026-09-09).*
+
+**Check (manual, no automated pattern):** backend/Dockerfile's gunicorn CMD keeps `--workers 1` until realtime.publish is backed by a shared broker.

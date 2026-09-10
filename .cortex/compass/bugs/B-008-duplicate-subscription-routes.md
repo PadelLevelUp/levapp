@@ -3,7 +3,7 @@ id: B-008
 title: "Two byte-identical push-subscription routes in notifications_api.py"
 type: layer-drift
 severity: low
-status: fixed
+status: resolved
 affects:
   - backend/padel_app/modules/notifications_api.py
 proposed_fix: "Collapse to one route, keep the other path as an alias only if a shipped client still calls it (check the iOS binary and sw.js)."
