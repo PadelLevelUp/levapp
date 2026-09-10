@@ -177,6 +177,9 @@ def delete_record(model, record_id):
     model_cls = MODELS.get(model.lower())
     if not model_cls:
         abort(404, f"Model '{model}' not found")
+    # auth.account-profiles rule 3 (PAD-260): users are never hard-deleted here.
+    if model_cls.__tablename__ == "users":
+        return jsonify({"error": "Users are not deleted through the editor; use account deletion (DELETE /api/auth/me)."}), 409
 
     instance = model_cls.query.get_or_404(record_id)
     instance.delete()

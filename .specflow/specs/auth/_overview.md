@@ -20,6 +20,7 @@ The auth domain.
 - `auth.mobile-universal-links` — implemented
 - `auth.mobile-account-creation` — implemented
 - `auth.account-deletion` — implemented (PAD-268: deleting an account removes it from the future, keeps the coach's records)
+- `auth.account-profiles` — implemented (PAD-260: an account has at most one player and one coach profile; a profile never outlives its account)
 
 ## Why it's grouped this way
 

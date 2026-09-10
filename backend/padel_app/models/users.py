@@ -30,9 +30,12 @@ class User(db.Model, model.Model, UserMixin):
     user_image_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     user_image = relationship("Image", foreign_keys=[user_image_id])
     
-    player = relationship("Player", back_populates="user", uselist=False)
+    # auth.account-profiles rule 1 (PAD-260): the database removes the profile
+    # (ON DELETE CASCADE); the ORM must never try to null its user_id.
+    player = relationship("Player", back_populates="user", uselist=False, passive_deletes=True)
     coach = relationship(
-        "Coach", back_populates="user", uselist=False, foreign_keys="Coach.user_id"
+        "Coach", back_populates="user", uselist=False, foreign_keys="Coach.user_id",
+        passive_deletes=True,
     )
     calendar_blocks = relationship("CalendarBlock", back_populates="user")
 

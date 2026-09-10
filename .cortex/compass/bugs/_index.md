@@ -33,3 +33,4 @@ whether a failure mode has been seen before.
 - [B-038](B-038-privacy-policy-omits-ai-import-processor.md) — privacy policy does not name the AI import processor (OpenRouter) or the EEA transfer (layer-drift, medium, open — owner action)
 - [B-052](B-052-editor-registry-traps.md) — editor registry traps: Message under "lessage" (404), DeviceToken and LessonInstanceTraining schema 500s; keys are now the lowercased class name, pinned by a registry walk (missing-criterion, low, resolved in PAD-280)
 - [B-046](B-046-lesson-instance-occurrence-not-unique.md) — nothing in the database stops two lesson instances for the same occurrence; the unique constraint needs a duplicate merge first (incomplete-rule, medium, open)
+- [B-049](B-049-profile-rows-orphaned-when-a-user-is-deleted.md) — players.user_id / coaches.user_id nullable and non-unique; deleting a user orphaned its profile and crashed serializers (incomplete-rule, high, triaged in PAD-260)

@@ -16,7 +16,11 @@ class Coach(db.Model, model.Model):
 
     id = Column(Integer, primary_key=True)
     
-    user_id = Column(Integer, ForeignKey("users.id"))
+    # auth.account-profiles rule 1 (PAD-260): one account, at most one coache profile,
+    # never an orphan. The migration names these fk_coaches_user_id / uq_coaches_user_id.
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     user = relationship("User", back_populates="coach", foreign_keys=[user_id])
 
     # ── auth.coach-approval ─────────────────────────────────────────────────
