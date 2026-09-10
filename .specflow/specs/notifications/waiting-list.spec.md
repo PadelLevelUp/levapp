@@ -116,7 +116,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
     whether an arbitrary instance id exists.
 13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
     and then the class instance, and places the student only while the vacancy is still open and the
-    class still has room; otherwise it places nobody and leaves the entry active.
+    class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it
+    places nobody and leaves the entry active, and a class that has started also expires the vacancy.
 
 ### Acceptance Criteria
 
