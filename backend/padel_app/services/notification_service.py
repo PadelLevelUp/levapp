@@ -2452,6 +2452,24 @@ def _vacancy_has_live_invitations(vacancy: "Vacancy | None") -> bool:
     ).count() > 0
 
 
+def _player_enrolled_in_instance(player_id: int, instance: LessonInstance) -> bool:
+    """Instance link, an existing Presence, or lesson-level enrolment (a
+    recurring series the student belongs to)."""
+    from padel_app.models import Association_PlayerLesson, Association_PlayerLessonInstance
+
+    if Association_PlayerLessonInstance.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first() is not None:
+        return True
+    if Presence.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first() is not None:
+        return True
+    return Association_PlayerLesson.query.filter_by(
+        player_id=player_id, lesson_id=instance.lesson_id
+    ).first() is not None
+
+
 def respond_to_reminder(
     lesson_instance_id: int,
     action: str,
@@ -2477,6 +2495,15 @@ def respond_to_reminder(
     if not player:
         from flask import abort
         abort(403)
+
+    # PAD-258 / audit H4 — notifications.reminders rule 14: only a student who
+    # is IN this class may answer. Before this, any student could "decline"
+    # any class: a stray absent Presence was created below, which lowered
+    # effective_filled_spots, opened a phantom Vacancy and fanned out
+    # replacement invitations for a spot that was never theirs.
+    if not _player_enrolled_in_instance(player.id, instance):
+        from flask import abort
+        abort(403, "Not enrolled in this class")
 
     _now = now or utcnow_naive()
     if _instance_is_over(instance, _now):
