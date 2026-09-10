@@ -138,16 +138,30 @@ docker run --rm -p 80:80 --env-file .env levelup_backend
 ```
 
 
-## Terraform (optional)
+## Terraform
 
-The `terraform/` folder contains IaC for provisioning infra.
+`terraform/` describes the production VM, its static IP, the firewall rules, the buckets and
+the VM's service account. State lives in the versioned bucket `gs://padel-levelup-2026-tfstate`
+under the prefix `levapp/prod` (see `terraform/backend.tf`), never in a checkout. The old local
+state in the pre-monorepo checkout (`levelup/levelup_backend/terraform/terraform.tfstate`,
+serial 11) was migrated there on 2026-09-10 (PAD-230). Don't use it again.
 
 ```bash
+gcloud auth application-default login      # as admin@levapp.app
 cd terraform
-terraform init
-terraform plan
-terraform apply
+terraform init                              # picks up the GCS backend
+terraform plan -var "postgres_password=x"   # any value: the startup script is ignored (below)
 ```
+
+Rules:
+- `terraform plan` must say **No changes** before anything is applied. Nothing may ever destroy
+  or replace `google_compute_instance.levelup`, because Postgres data lives on its boot disk
+  (`/data/postgres`). The instance carries `prevent_destroy` and ignores its startup script,
+  its metadata (the deploy user's ssh-keys) and its boot image. Those change by hand only.
+- Something created by hand is brought in with `terraform import`. Never let a plan create a
+  second copy of it.
+- The Postgres password is still embedded in the VM's startup script. It is due to move out and
+  be rotated.
 
 
 ## Environment Variables

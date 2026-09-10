@@ -35,6 +35,15 @@ resource "google_compute_address" "static_ip" {
 }
 
 resource "google_compute_instance" "levelup" {
+  # PAD-230: the prod VM must never be replaced by Terraform. Postgres data lives on
+  # this boot disk (/data/postgres), and the startup script embeds a secret that
+  # forces replacement on any difference. `metadata` carries the deploy user's
+  # ssh-keys, which were added by hand. Change any of these by hand, on purpose.
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [metadata_startup_script, metadata, boot_disk[0].initialize_params[0].image]
+  }
+
   name         = "levelup-instance"
   machine_type = "e2-micro"
   zone         = var.zone
@@ -91,11 +100,11 @@ resource "google_compute_instance" "levelup" {
 }
 
 resource "google_storage_bucket" "general" {
-  name     = "padel-levelup-2026-storage"
-  location = "europe-west1"
+  name          = "padel-levelup-2026-storage"
+  location      = "europe-west1"
   storage_class = "NEARLINE"
 
-  force_destroy = true
+  force_destroy               = true
   uniform_bucket_level_access = true
 }
 
@@ -108,7 +117,9 @@ resource "google_storage_bucket" "staging" {
   location      = "europe-west1"
   storage_class = "STANDARD"
 
-  force_destroy               = true
+  # PAD-230: false (it was true in config and false once imported). Terraform must
+  # never empty a bucket to delete it; clear it by hand if that is ever intended.
+  force_destroy               = false
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
 }
@@ -151,4 +162,52 @@ resource "google_service_account_iam_member" "vm_sa_can_sign" {
   service_account_id = google_service_account.vm_sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.vm_sa.email}"
+}
+
+# PAD-230: the default network's surviving rules, brought under Terraform. PAD-229 keeps
+# SSH open for the GitHub-hosted deploy runners (atlas decision
+# 2026-09-10-vm-ingress-nginx-only-ssh-stays-open).
+resource "google_compute_firewall" "default_allow_ssh" {
+  name          = "default-allow-ssh"
+  network       = data.google_compute_network.default.name
+  priority      = 65534
+  description   = "Allow SSH from anywhere"
+  source_ranges = ["0.0.0.0/0"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+}
+
+resource "google_compute_firewall" "default_allow_icmp" {
+  name          = "default-allow-icmp"
+  network       = data.google_compute_network.default.name
+  priority      = 65534
+  description   = "Allow ICMP from anywhere"
+  source_ranges = ["0.0.0.0/0"]
+
+  allow {
+    protocol = "icmp"
+  }
+}
+
+resource "google_compute_firewall" "default_allow_internal" {
+  name          = "default-allow-internal"
+  network       = data.google_compute_network.default.name
+  priority      = 65534
+  description   = "Allow internal traffic on the default network"
+  source_ranges = ["10.128.0.0/9"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "icmp"
+  }
 }
