@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import club_now_naive
 from padel_app.models import Presence, LessonInstance
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ def compute_player_kpis(*, player_id: int) -> PlayerKpis:
     schedule's own count, derived in ``player_home`` from the same event load
     the ``schedule_7d`` block uses, so the two can never disagree.
     """
-    now = datetime.now(timezone.utc)
+    now = club_now_naive()  # PAD-256: class times are Lisbon wall-clock
 
     P = Presence
     LI = LessonInstance

@@ -25,7 +25,10 @@ from padel_app.models import (
     Presence,
 )
 from padel_app.serializers.calendar_event import serialize_calendar_event
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+# PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
+# the clock class times are stored in. It goes back to UTC only where it meets
+# an event timestamp (the calendar serializer, the snooze).
 
 from padel_app.helpers.dashboard.coach_home import (
     HERO_LOOKAHEAD_DAYS,
@@ -99,7 +102,7 @@ def _decorate_with_confirmation(player_id: int, events: List[Dict[str, Any]], it
 
 def build_player_next_class_block(*, player_id: int, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
     """The student's soonest class, with their classmates. ``None`` when nothing is scheduled."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     events = load_events(player_id=player_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     block = next_class_block(events, now=now)
     if block is not None:
@@ -112,7 +115,7 @@ def build_player_next_class_block(*, player_id: int, now: Optional[datetime] = N
 
 def build_player_needs_you_block(*, player_id: int, user_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     """Invites to answer (soonest first), then unread replies."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     # PAD-236: the asks come from three sources — the reminder (Presence), the
     # invitation engine (NotificationEvent) and the waiting-list offer (a chat
@@ -157,7 +160,7 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
 
     out: List[Dict[str, Any]] = []
     for instance in rows:
-        event = serialize_calendar_event(instance, now=now)
+        event = serialize_calendar_event(instance, now=wall_to_utc_naive(now))
         filled, capacity = fill(event)
         out.append(
             {
@@ -177,7 +180,7 @@ def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
 
 
 def _class_item(instance: LessonInstance, *, now: datetime) -> Dict[str, Any]:
-    event = serialize_calendar_event(instance, now=now)
+    event = serialize_calendar_event(instance, now=wall_to_utc_naive(now))
     filled, capacity = fill(event)
     return {
         "lessonInstanceId": int(instance.id),
@@ -297,7 +300,7 @@ def _upcoming_events(player_id: int, now: datetime) -> List[Dict[str, Any]]:
 
 
 def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     events = _upcoming_events(player_id, now)
     block = schedule_block(events)
     _decorate_with_confirmation(player_id, events, block["data"]["items"])
@@ -316,7 +319,7 @@ def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) ->
     "Upcoming lessons" is ``len(_upcoming_events(...))`` — the schedule's own
     number (dashboard.blocks rule 3, PAD-235).
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     kpis = compute_player_kpis(player_id=player_id)
     total = int(kpis.lessons_attended) + int(kpis.lessons_missed)
     upcoming = len(_upcoming_events(player_id, now))

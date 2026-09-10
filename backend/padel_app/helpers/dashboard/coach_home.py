@@ -59,7 +59,10 @@ from padel_app.helpers.calendar_helpers import (
 from padel_app.helpers.dashboard.snooze import snoozed_item_ids
 from padel_app.services.presence_overview_service import count_pending_validation
 from padel_app.tools.tools import _safe_int
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+# PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
+# the clock class times are stored in. It goes back to UTC only where it meets
+# an event timestamp (the calendar serializer, the snooze).
 
 # How far ahead the hero and the queue look.
 HERO_SOON_MINUTES = 120
@@ -202,7 +205,7 @@ def build_next_class_block(
     Returning ``None`` is intentional: an empty hero would be the largest element
     on the screen saying nothing, which is the flaw this redesign removes.
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     return next_class_block(window, now=now)
 
@@ -289,7 +292,7 @@ def build_needs_you_block(
     Order is fixed — empty seats (soonest first), then replies, then validation —
     because it runs from time-critical to whenever-you-like.
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     items: List[Dict[str, Any]] = []
     items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
@@ -312,7 +315,7 @@ def _empty_seat_items(
     events = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
-    snoozed = snoozed_item_ids(coach_id=coach_id, now=now)
+    snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
     out: List[Dict[str, Any]] = []
     for event in events:
         filled, capacity = fill(event)
@@ -435,7 +438,7 @@ def build_schedule_block(
     *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """The week ahead. Shows the first few rows and links out for the rest."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     return schedule_block(window)
 
@@ -479,7 +482,7 @@ def build_week_pulse_block(
     *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
     week_end = week_start + timedelta(days=7)

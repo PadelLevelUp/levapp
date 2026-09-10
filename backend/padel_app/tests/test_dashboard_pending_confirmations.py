@@ -166,15 +166,18 @@ def test_tomorrow_window_is_utc_midnight_in_winter():
     assert end == datetime(2025, 1, 16, 0, 0)
 
 
-def test_tomorrow_window_is_shifted_an_hour_in_summer():
-    """August is WEST (UTC+1): 00:00 local == 23:00 UTC the previous day."""
+def test_tomorrow_window_is_in_wall_terms_in_summer():
+    """PAD-256 (dashboard.blocks rule 6): class times are Lisbon wall-clock, so
+    the window is tomorrow's Lisbon midnight to the next, compared directly.
+    PAD-144 expressed it in UTC (23:00-23:00 in summer), which assumed UTC
+    storage."""
     from padel_app.helpers.dashboard.pending import _tomorrow_window
 
     start, end = _tomorrow_window(datetime(2025, 8, 14, 10, 0))
 
-    # 11:00 local on the 14th -> tomorrow is the 15th local, 23:00 UTC 14th.
-    assert start == datetime(2025, 8, 14, 23, 0)
-    assert end == datetime(2025, 8, 15, 23, 0)
+    # 10:00 UTC is 11:00 Lisbon on the 14th -> tomorrow is the 15th.
+    assert start == datetime(2025, 8, 15, 0, 0)
+    assert end == datetime(2025, 8, 16, 0, 0)
 
 
 def test_tomorrow_window_follows_the_local_day_past_utc_midnight():
@@ -187,9 +190,10 @@ def test_tomorrow_window_follows_the_local_day_past_utc_midnight():
 
     start, end = _tomorrow_window(datetime(2025, 8, 14, 23, 30))
 
-    assert start == datetime(2025, 8, 15, 23, 0)   # 00:00 local on the 16th
-    assert end == datetime(2025, 8, 16, 23, 0)
-    assert start != datetime(2025, 8, 15, 0, 0)    # not the naive-UTC answer
+    # PAD-256: in wall-clock terms, the way class times are stored.
+    assert start == datetime(2025, 8, 16, 0, 0)    # 00:00 Lisbon on the 16th
+    assert end == datetime(2025, 8, 17, 0, 0)
+    assert start != datetime(2025, 8, 15, 0, 0)    # not the UTC-date answer
 
 
 def test_tomorrow_window_is_always_exactly_one_calendar_day():

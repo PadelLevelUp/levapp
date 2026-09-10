@@ -7,6 +7,7 @@ one row → re-cap flagged classes), `delete_definition`.
 from datetime import date, datetime, time, timedelta
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import club_now_naive
 from padel_app.tools.season_dates import (
     next_occurrence_after,
     occurrence_containing,
@@ -54,7 +55,7 @@ def serialize_definition(definition, today=None):
     """Rule 5's shape, or `None` when the coach has no definition."""
     if definition is None:
         return None
-    today = today or date.today()
+    today = today or club_now_naive().date()  # PAD-256: the club's date
     markers = _markers(definition)
     return {
         "label": definition.label,
@@ -70,7 +71,7 @@ def serialize_definition(definition, today=None):
 
 
 def current_or_upcoming_occurrence(definition, today=None):
-    today = today or date.today()
+    today = today or club_now_naive().date()  # PAD-256: the club's date
     markers = _markers(definition)
     return occurrence_containing(today, *markers) or next_occurrence_after(today, *markers)
 

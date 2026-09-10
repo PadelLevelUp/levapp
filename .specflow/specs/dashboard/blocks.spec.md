@@ -18,7 +18,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 3. Block types. Both roles share ONE "home" block vocabulary since the coach redesign
    (`helpers/dashboard/coach_home.py`) and PAD-202 (`helpers/dashboard/player_home.py`):
    - `next_class`: the class about to start — title, ISO date, start/end time, `isToday`,
-     `minutesUntil` (only when today and within two hours, else `null`), fill `filled`/`capacity`,
+     `minutesUntil` (only when today and within two hours, else `null`; both on the club's clock, PAD-256), fill `filled`/`capacity`,
      a server-capped roster for the avatar stack, and a calendar deep link. **Omitted entirely**
      when nothing is scheduled in the next 90 days; there is no empty hero.
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
@@ -139,12 +139,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 5. Coach and player get different dashboard payloads
 6. **(PAD-144)** The coach's *pending confirmations* set covers **tomorrow's** classes, where
    "tomorrow" is the next **club-local calendar day** (`Europe/Lisbon`) — the day the coach sees on
-   their own calendar, consistent with `calendar` rule 6 and `notifications.config` rule 6b. The
-   half-open `[start, end)` window must be derived in club-local time and converted back to naive
-   UTC to compare against `LessonInstance.start_datetime` (stored naive UTC). A bare
-   `.replace(hour=0, ...)` on a naive-UTC instant pins the window to UTC midnight, which in
-   Portuguese summer time shifts it an hour: a class at 00:30 local tomorrow is excluded while one
-   at 00:30 local *today* is wrongly included.
+   their own calendar, consistent with `calendar` rule 6 and `notifications.config` rule 6b.
+   `LessonInstance.start_datetime` is stored on the club's wall clock (R-023, PAD-256). So the
+   half-open `[start, end)` window is tomorrow 00:00 to the day after 00:00 in wall-clock terms, and
+   it is compared with `start_datetime` directly, with no UTC conversion. PAD-144 converted the
+   window to naive UTC on the assumption that class times were stored in UTC. In summer that made
+   the window 23:00 to 23:00: a class at 23:30 today was counted as tomorrow's, and one at 23:30
+   tomorrow was left out.
 7. **(PAD-144)** Rule 6 governs more than a count. The same window selects the targets of
    `notify_pending_confirmations`, which actually **sends** messages, so a misaligned boundary does
    not merely misreport a number — it nudges the wrong students about the wrong day's classes.
