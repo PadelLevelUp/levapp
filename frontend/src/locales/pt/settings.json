@@ -585,6 +585,13 @@
       },
       "openSpots": {
         "label": "Mostrar as vagas livres das aulas futuras aos alunos elegíveis (podem pedir para entrar)"
+      },
+      "impact": {
+        "title_one": "{{count}} aluno inscrito deixa de cumprir esta fasquia",
+        "title_other": "{{count}} alunos inscritos deixam de cumprir esta fasquia",
+        "body": "Continuam inscritos — a elegibilidade decide quem entra, nunca quem fica. Se quiseres, remove-os na própria aula.",
+        "none": "Todos os alunos inscritos continuam a cumprir a fasquia.",
+        "line": "{{name}} · {{class}} · {{when}}"
       }
     },
     "admin": {

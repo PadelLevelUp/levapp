@@ -87,6 +87,9 @@ import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
+import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
+import { checkEligibility } from "@/api/notificationEngine";
+import type { EligibilityCheckEntry } from "@levelup/types";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
@@ -142,6 +145,13 @@ export function ClassDetailSheet({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
   const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
+  // PAD-150: a manual add that fails the bar asks first (rule 7d). The pending
+  // edit is parked here until the coach confirms or cancels.
+  const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
+  const [pendingEdit, setPendingEdit] = useState<{
+    changes: Record<string, unknown>;
+    scope: ApplyScope;
+  } | null>(null);
 
   const [isValidating, setIsValidating] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
@@ -448,7 +458,16 @@ export function ClassDetailSheet({
     "openSpotsVisible",
   ] as const;
 
-  const commitEdit = (scope: ApplyScope) => {
+  /** The save itself, once any eligibility warning has been answered. */
+  const finalizeEdit = (changes: Record<string, unknown>, scope: ApplyScope) => {
+    if (!onEdit || !event) return;
+    setEditScopeDialogOpen(false);
+    setIsEditing(false);
+    onEdit(event, changes, scope);
+    setDraft(null);
+  };
+
+  const commitEdit = async (scope: ApplyScope) => {
     if (!canManage || !onEdit) return;
     if (!draft || !event || !classInstance) return;
 
@@ -467,11 +486,30 @@ export function ClassDetailSheet({
       return;
     }
 
-    setEditScopeDialogOpen(false);
-    setIsEditing(false);
+    // PAD-150 (eligibility.enforcement rules 6, 7, 7d): adding students by
+    // hand asks first when the bar says no — and names why. A failed check
+    // never blocks the save: the warning is a courtesy, the enrolment is the
+    // coach's.
+    if (addPlayers.length > 0) {
+      try {
+        const { ineligible: failing } = await checkEligibility(
+          event.model,
+          String(event.originalId),
+          event.date,
+          addPlayers
+        );
+        if (failing.length > 0) {
+          setEditScopeDialogOpen(false);
+          setIneligible(failing);
+          setPendingEdit({ changes: changes as Record<string, unknown>, scope });
+          return;
+        }
+      } catch {
+        // Fall through: rule 6 warns, it never blocks.
+      }
+    }
 
-    onEdit(event, changes, scope);
-    setDraft(null);
+    finalizeEdit(changes as Record<string, unknown>, scope);
   };
 
   const handleDeleteClick = () => {
@@ -1377,6 +1415,22 @@ export function ClassDetailSheet({
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      <EligibilityConfirmDialog
+        open={pendingEdit !== null}
+        ineligible={ineligible}
+        onCancel={() => {
+          // Back to the edit, draft intact — nothing was saved.
+          setPendingEdit(null);
+          setIneligible([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingEdit;
+          setPendingEdit(null);
+          setIneligible([]);
+          if (parked) finalizeEdit(parked.changes, parked.scope);
+        }}
+      />
 
       {/* PAD-73: confirm a PROACTIVE decline. Distinct copy from the plain
           cancellation above — there is no deadline warning to show, because by

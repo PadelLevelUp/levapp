@@ -585,6 +585,13 @@
       },
       "openSpots": {
         "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
+      },
+      "impact": {
+        "title_one": "{{count}} enrolled student no longer meets this bar",
+        "title_other": "{{count}} enrolled students no longer meet this bar",
+        "body": "They stay enrolled — eligibility governs joining, never staying. Remove anyone through the class itself if you wish.",
+        "none": "Every enrolled student still meets the bar.",
+        "line": "{{name}} · {{class}} · {{when}}"
       }
     },
     "admin": {

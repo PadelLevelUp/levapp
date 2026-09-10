@@ -58,6 +58,17 @@ a coach acts by hand. The coach's roster always wins.
    and never blocks, so the save path is unchanged and a client that ignores the check cannot be
    prevented from enrolling anyone. It returns only the students who FAIL, so an empty list means
    "no confirmation needed".
+7d. **(PAD-150) Both shells render the check the same way.** When a class edit ADDS participants,
+    the client calls `eligibility_check` for the added ids first. A non-empty `ineligible` list
+    opens a confirmation listing **each failing student by name with one line per failed rule**,
+    rendered through the shared `describeEligibilityFailure` renderer (`@levelup/config`) so the
+    reason strings are the same ones the invite tutorial already speaks, in the coach's locale.
+    **Confirm** proceeds with the save exactly as before; **Cancel** aborts the whole save and
+    leaves the coach in the edit with their draft intact. An empty list saves without any prompt.
+    A failed check (network error) never blocks the save either — the warning is a courtesy, the
+    enrolment is the coach's. `ManualNotificationModal` is NOT this surface: it sends manual
+    *notifications* and reports availability blockers (`calendar.student-blockers` rule 8); it does
+    not enrol anyone and gets no eligibility prompt.
 8. **Tightening the bar never removes anyone.** Eligibility governs *joining*, never *staying*. No
    retroactive evaluation, no auto-removal, no expiry of existing enrolments.
 9. **Saving a stricter bar reports who it would have excluded**, informationally: "3 enrolled
@@ -70,6 +81,12 @@ a coach acts by hand. The coach's roster always wins.
    because eligibility is relative to the class's level: the same student can clear the bar for one
    class and fail another, so they appear once per class they would fail, with that class named.
    Rule 8 is unaffected — nobody is un-enrolled and nobody is notified.
+9b. **(PAD-150) The report is rendered as an informational note under the eligibility editor**, on
+    both shells, immediately after the save that produced it: a headline with the number of
+    affected students, then one line per (student, class) — name, class title, class date, and
+    the failed rules through the same renderer as 7d. It has no action button, it never blocks,
+    and it clears when the bar is next saved with nobody affected. It is derived from the save
+    response only; the client never re-evaluates the bar itself.
 10. **With an unset bar, automatic placement is unfiltered — and that is the coach's choice, not an
     engine decision.** Rule 2 gates on eligibility, so a coach who has defined no bar will still see
     waiting-list students placed into any of their classes. Rules 4 and 5 apply regardless of whether
@@ -103,6 +120,20 @@ a coach acts by hand. The coach's roster always wins.
 - **When** the coach saves that bar
 - **Then** the response names those 3 under `eligibilityImpact.affected`
 - **And** all 6 remain enrolled and none of them is notified (rule 8)
+
+#### The seeded coach is asked before adding a student who fails the bar (PAD-150)
+- **Given** `e2e-coach` with eligibility `[{level, same_as_class}]` and "E2E Academy Class" at
+  level B1
+- **When** they edit the class and add "E2E Student Three", who has no level
+- **Then** a confirmation names that student with the line "the student has no level assigned"
+- **And** cancelling leaves the class unchanged; confirming enrols them
+
+#### Saving a stricter bar shows the note on the settings page (PAD-150)
+- **Given** `e2e-coach` saving `[{level, same_as_class}]` while "E2E Pending Confirm Class" (B1)
+  has intermediate-level students enrolled
+- **When** the save completes
+- **Then** a note under the eligibility editor names those students and that class
+- **And** they remain enrolled
 
 #### The widest wave stops at the bar
 - **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
@@ -145,3 +176,9 @@ a coach acts by hand. The coach's roster always wins.
 - **Then** an informational note names the 3 students
 - **And** all 6 remain enrolled
 - **And** no notification is sent to any of them
+
+### Notes
+- **[PAD-150, 2026-09-09]** Rules 7d and 9b are the client half of PAD-133 (backend landed in
+  levelup_backend#89). Rendering reuses `describeEligibilityFailure` from the invite tutorial
+  (`tutorials.eligibility.*` keys) so the reasons never fork between the tutorial, the dialog and
+  the note.

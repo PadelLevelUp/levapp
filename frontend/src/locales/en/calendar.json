@@ -383,6 +383,12 @@
         "on": "Visible",
         "off": "Hidden"
       }
+    },
+    "eligibilityConfirm": {
+      "title": "Add students who don't meet the bar?",
+      "body": "Enrolment is your call — this only tells you what the bar says.",
+      "confirm": "Add anyway",
+      "cancel": "Cancel"
     }
   }
 }
