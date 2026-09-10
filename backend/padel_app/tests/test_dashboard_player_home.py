@@ -277,18 +277,40 @@ def test_kpis_carry_their_denominator_and_keep_their_links(app):
     student_id, _, _ = _seed(app, now=now)
 
     with app.app_context():
-        block = build_player_kpi_block(player_id=student_id)
+        block = build_player_kpi_block(player_id=student_id, now=now)
 
     by_label = {i["label"]: i for i in block["data"]["items"]}
     assert list(by_label) == ["Attended", "Missed", "Upcoming lessons", "Invites"]
 
     assert (by_label["Attended"]["value"], by_label["Attended"]["total"]) == (2, 3)
     assert (by_label["Missed"]["value"], by_label["Missed"]["total"]) == (1, 3)
+    # PAD-235 (B-032): the schedule's number, not the confirmed-presence count.
+    # A1 (signed up), Invite (unanswered), Confirmed, Far (12 days) — all four.
+    assert by_label["Upcoming lessons"]["value"] == 4
     # dashboard.navigation rules 6, 11, 11a — unchanged by the restyle.
     assert by_label["Attended"]["href"] == "/attendance"
     assert by_label["Missed"]["href"] == "/absences"
     assert by_label["Upcoming lessons"]["href"] == "/calendar"
     assert "href" not in by_label["Invites"]
+
+
+def test_upcoming_lessons_is_the_schedules_count(app):
+    """dashboard.blocks rule 3 (PAD-235): the tile and schedule_7d.totalCount are one number."""
+    from padel_app.helpers.dashboard.player_home import (
+        build_player_kpi_block,
+        build_player_schedule_block,
+    )
+
+    now = datetime(2026, 8, 4, 10, 0)
+    student_id, _, _ = _seed(app, now=now)
+
+    with app.app_context():
+        kpis = build_player_kpi_block(player_id=student_id, now=now)
+        schedule = build_player_schedule_block(player_id=student_id, now=now)
+
+    upcoming = next(i for i in kpis["data"]["items"] if i["label"] == "Upcoming lessons")
+    assert schedule["data"]["totalCount"] == 4
+    assert upcoming["value"] == schedule["data"]["totalCount"]
 
 
 def test_player_payload_uses_the_home_vocabulary_and_its_own_id(app):

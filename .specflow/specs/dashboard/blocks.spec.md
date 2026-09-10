@@ -54,6 +54,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
      Invites reads "to confirm". `href` policy is `dashboard.navigation` rules 6–7.
+     **(PAD-235, B-032) "Upcoming lessons" is the schedule's number.** Its `value` is the count
+     of scheduled classes the student is enrolled in (signed up, or holding a `Presence`) over
+     the same 30-day window `schedule_7d` lists, derived from the **same event load** — so the
+     tile can never read 0 above a populated list. It is NOT the count of confirmed presences:
+     a student with three unanswered reminders has three upcoming lessons, not zero. "How many
+     of those still need an answer" is the `invite` kind of `needs_you`, and the Invites tile.
    - `messages_overview`: unread count, conversations to reply, latest message, link. Emitted for
      every dashboard because the layout's unread badge feeds off it, but **rendered by neither
      home** — "Unread messages: 0" as the largest card on the screen is the flaw the redesign
@@ -176,6 +182,18 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the `kpi_grid` Attended item is `{ value: 12, total: 15 }` and Missed is
   `{ value: 3, total: 15 }`, with the `href` values of `dashboard.navigation` rules 11 / 11a
   unchanged
+
+#### Upcoming lessons is the schedule's count (PAD-235)
+- **Given** an authenticated student signed up to one class in 45 minutes, invited-but-unanswered
+  on tomorrow's class, confirmed on the day after's, and confirmed on one in 12 days
+- **When** they GET `/api/app/dashboard`
+- **Then** the `kpi_grid` "Upcoming lessons" item has `value: 4` — equal to
+  `schedule_7d.totalCount` — not the 2 confirmed ones
+
+- **Given** the seeded `e2e-student` on the dashboard
+- **When** the page renders
+- **Then** the number on the "Upcoming lessons" tile equals the `totalCount` of the
+  `schedule_7d` block in the same payload
 
 #### Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`

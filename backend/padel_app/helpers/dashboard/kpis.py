@@ -19,7 +19,6 @@ class CoachKpis:
 class PlayerKpis:
     lessons_attended: int
     lessons_missed: int
-    upcoming_lessons: int
     invites_to_confirm: int
 
 
@@ -28,6 +27,10 @@ def compute_player_kpis(*, player_id: int) -> PlayerKpis:
     Compute player KPIs based on Presence + LessonInstance.
 
     Uses LessonInstance.start_datetime as the start timestamp.
+
+    "Upcoming lessons" is deliberately NOT here (PAD-235, B-032): it is the
+    schedule's own count, derived in ``player_home`` from the same event load
+    the ``schedule_7d`` block uses, so the two can never disagree.
     """
     now = datetime.now(timezone.utc)
 
@@ -48,15 +51,6 @@ def compute_player_kpis(*, player_id: int) -> PlayerKpis:
         .scalar()
     ) or 0
 
-    upcoming_lessons = (
-        db.session.query(func.count(P.id))
-        .join(LI, LI.id == P.lesson_instance_id)
-        .filter(P.player_id == player_id)
-        .filter(P.confirmed == True)  # noqa: E712
-        .filter(LI.start_datetime >= now)
-        .scalar()
-    ) or 0
-
     invites_to_confirm = (
         db.session.query(func.count(P.id))
         .join(LI, LI.id == P.lesson_instance_id)
@@ -70,7 +64,6 @@ def compute_player_kpis(*, player_id: int) -> PlayerKpis:
     return PlayerKpis(
         lessons_attended=int(lessons_attended),
         lessons_missed=int(lessons_missed),
-        upcoming_lessons=int(upcoming_lessons),
         invites_to_confirm=int(invites_to_confirm),
     )
 
