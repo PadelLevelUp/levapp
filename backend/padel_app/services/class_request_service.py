@@ -13,24 +13,22 @@ from flask import abort, jsonify, make_response
 
 from padel_app.models import Association_CoachPlayer, CalendarBlock, ClassRequest, Coach, Player
 from padel_app.sql_db import db
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, wall_to_utc_naive
 
-# ── Timezone convention (PAD-256 / audit C3) ─────────────────────────────────
-# Request slots follow EXACTLY the convention class times follow today: the
-# wall-clock the user typed ("2026-09-22", "11:00") is stored as a naive
-# datetime and serialised back unchanged, and "has it started" compares that
-# naive value against `utcnow_naive()` the way `serializers/calendar_event`
-# and the notification engine do. Free blocks are computed in the calendar's
-# own "HH:MM" strings, so a request can never disagree with the calendar it
-# was booked from, and accepting hands the same date/time strings to
-# `add_class_service`, so the created class lands where the calendar showed
-# the slot. When PAD-256 changes what stored class times mean, this module
-# has ONE clock to swap (`_now_wall_clock`) and one parser (`_parse_slot`).
+# ── Timezone convention (PAD-256, option B; R-023) ──────────────────────────
+# A slot is the Lisbon wall-clock the user typed ("2026-09-22", "11:00"),
+# stored naive and serialised back unchanged, exactly like a class time. The
+# module's one clock, `_now_wall_clock`, is the club's clock, so "has it
+# started" and today's free blocks read Lisbon now. A service function's `now`
+# is therefore a wall-clock value; `decided_at` is an event timestamp and is
+# written in UTC (`wall_to_utc_naive`). Free blocks are computed in the
+# calendar's own "HH:MM" strings, so a request never disagrees with the
+# calendar it was booked from.
 
 
 def _now_wall_clock() -> datetime:
-    """'Now' in the same naive space stored class times live in (see above)."""
-    return utcnow_naive()
+    """'Now' on the club's wall clock, the clock slots are stored in (see above)."""
+    return club_now_naive()
 
 
 DAY_START = 8 * 60      # 08:00
@@ -321,7 +319,7 @@ def _close(row: ClassRequest, status: str, by: str, now) -> None:
     _release_hold(row)
     row.status = status
     row.decided_by = by
-    row.decided_at = now
+    row.decided_at = wall_to_utc_naive(now)  # PAD-256: an event timestamp, in UTC
     db.session.commit()
 
 
@@ -331,7 +329,7 @@ def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequ
         abort(403, "Not your request")
     if not row.is_open:
         _refuse("not_open", "This request was already decided")
-    _close(row, "withdrawn", "student", now or utcnow_naive())
+    _close(row, "withdrawn", "student", now or _now_wall_clock())
     who = _name(row.player.user)
     _tell_coach(row, f"{who} retirou o pedido de aula de {_when(row, 'pt')}.",
                 f"{who} withdrew the class request for {_when(row, 'en')}.", kind="withdrawn")
@@ -396,7 +394,7 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
     row.lesson_id = lesson.id
     row.status = "accepted"
     row.decided_by = by
-    row.decided_at = now
+    row.decided_at = wall_to_utc_naive(now)  # PAD-256: an event timestamp, in UTC
     db.session.commit()
 
 

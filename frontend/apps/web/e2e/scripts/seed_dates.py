@@ -36,19 +36,25 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Tuple
+from zoneinfo import ZoneInfo
+
+# PAD-256 (R-023): fixture times are Lisbon wall-clock, like every class time,
+# so the seed's "today" is the date on the club's clock.
+CLUB_TZ = ZoneInfo("Europe/Lisbon")
 
 
 def seed_today(env: dict | None = None) -> datetime:
-    """Midnight (naive UTC) of the day the seed is anchored on.
+    """Midnight of the club's (Lisbon) day the seed is anchored on (PAD-256).
 
     ``E2E_SEED_TODAY=YYYY-MM-DD`` pins it, so a run can be reproduced on any
-    weekday; otherwise it is the real UTC date.
+    weekday; otherwise it is today's date on the club's clock. Between 00:00 and
+    01:00 Lisbon in summer that is already the next UTC day's date.
     """
     env = os.environ if env is None else env
     pinned = env.get("E2E_SEED_TODAY")
     if pinned:
         return datetime.strptime(pinned, "%Y-%m-%d")
-    return datetime.now(timezone.utc).replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0)
+    return datetime.now(CLUB_TZ).replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0)
 
 
 @dataclass(frozen=True)
@@ -78,7 +84,7 @@ def _next_weekday(today: datetime, weekday: int) -> datetime:
 def seed_dates(today: datetime) -> SeedDates:
     today = today.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Future class (next Monday 10:00) — naive UTC, like everything else.
+    # Future class (next Monday 10:00), Lisbon wall-clock like every class time (R-023).
     next_monday = _next_weekday(today, 0)
     academy_start = next_monday.replace(hour=10)
 
@@ -108,7 +114,7 @@ def seed_dates(today: datetime) -> SeedDates:
         for d, justification in ((10, "justified"), (20, "unjustified"), (200, "justified"))
     )
 
-    # Validation fixture: previous week's Wednesday and Thursday at 11:00 UTC —
+    # Validation fixture: previous week's Wednesday and Thursday at 11:00 (Lisbon wall-clock) —
     # always in the past and always an earlier week than today.
     prev_monday = today - timedelta(days=today.weekday() + 7)
     validation_starts = tuple(
