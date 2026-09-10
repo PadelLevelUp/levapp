@@ -70,7 +70,7 @@ export function ValidateClassesDialog({
   roster,
   onValidate,
   onUnvalidate,
-  busyClassId,
+  busyClassIds = [],
 }: {
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
@@ -89,7 +89,11 @@ export function ValidateClassesDialog({
     }>
   ) => Promise<void>;
   onUnvalidate: (lessonInstanceId: number) => Promise<void>;
-  busyClassId?: number | null;
+  /**
+   * PAD-191 (B-033): every class currently being written. A bulk run lists all
+   * of them, so classes 2..N cannot be submitted again mid-run.
+   */
+  busyClassIds?: number[];
 }) {
   const { t, i18n } = useTranslation();
 
@@ -283,7 +287,7 @@ export function ValidateClassesDialog({
               remaining={remainingFor(active)}
               edits={edits[active.lessonInstanceId] ?? {}}
               roster={roster}
-              busy={busyClassId === active.lessonInstanceId}
+              busy={busyClassIds.includes(active.lessonInstanceId)}
               onMark={(playerId, mark) =>
                 setMark(active.lessonInstanceId, playerId, mark)
               }
@@ -343,11 +347,11 @@ export function ValidateClassesDialog({
                 </Button>
                 <Button
                   size="sm"
-                  disabled={!selected.length || busyClassId != null}
+                  disabled={!selected.length || busyClassIds.length > 0}
                   onClick={bulkValidate}
                   data-testid="presences-validate-selected"
                 >
-                  {busyClassId != null && (
+                  {busyClassIds.length > 0 && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   {t("presences.validate.validateSelected", {
@@ -382,7 +386,7 @@ export function ValidateClassesDialog({
                   selected={selected}
                   edits={edits}
                   roster={roster}
-                  busyClassId={busyClassId}
+                  busyClassIds={busyClassIds}
                   remainingFor={remainingFor}
                   onToggleSelect={(id) =>
                     setSelected((prev) =>
@@ -416,7 +420,7 @@ export function ValidateClassesDialog({
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={busyClassId === klass.lessonInstanceId}
+                          disabled={busyClassIds.includes(klass.lessonInstanceId)}
                           onClick={() => onUnvalidate(klass.lessonInstanceId)}
                         >
                           {t("presences.validate.undo")}
@@ -449,7 +453,7 @@ function ClassList({
   selected,
   edits,
   roster,
-  busyClassId,
+  busyClassIds,
   remainingFor,
   onToggleSelect,
   onMark,
@@ -461,7 +465,7 @@ function ClassList({
   selected: number[];
   edits: Edits;
   roster: RosterOption[];
-  busyClassId?: number | null;
+  busyClassIds: number[];
   remainingFor: (klass: PendingValidationClass) => number;
   onToggleSelect: (id: number) => void;
   onMark: (classId: number, playerId: number, mark: PresenceMark) => void;
@@ -526,7 +530,7 @@ function ClassList({
                         remaining={remainingFor(klass)}
                         edits={edits[klass.lessonInstanceId] ?? {}}
                         roster={roster}
-                        busy={busyClassId === klass.lessonInstanceId}
+                        busy={busyClassIds.includes(klass.lessonInstanceId)}
                         onToggleSelect={() =>
                           onToggleSelect(klass.lessonInstanceId)
                         }

@@ -47,6 +47,11 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 7. **Bulk validation never force-approves.** Validating a multi-class selection
    confirms only the classes that satisfy rule 4; the rest are returned to the
    selection with an explanation and must be reviewed individually.
+7a. **(PAD-191, B-033) Every class in a bulk run is guarded.** While a multi-class validation is
+   in flight, the Validate action of **every** class in the run — not only the first — and the
+   bulk button itself are disabled, so a coach cannot submit a queued class twice by tapping it
+   mid-run. The guard is the set of in-flight class ids, not a single id. Both shells: iOS
+   already disables the whole sheet with one `busy` flag; web tracks the set.
 8. **A walk-in can be added to a past class**, and is marked present. This creates
    both the missing `Presence` row **and** the `Association_PlayerLessonInstance`
    row — `effective_filled_spots` counts instance associations, not presences, so
@@ -158,6 +163,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach validates the selection
 - **Then** only the ready class is validated
 - **And** the other stays selected with an explanation naming how many were skipped
+
+#### Every queued class is disabled while a bulk run is in flight (PAD-191)
+- **Given** two ready classes selected for bulk validation
+- **When** the coach validates the selection and the first request is still in flight
+- **Then** the Validate buttons of both classes and the bulk button are disabled
+- **And** once the run completes both classes are validated exactly once
 
 #### Undo reopens a class without erasing it
 - **Given** a validated class
