@@ -1,6 +1,6 @@
 ---
 id: auth.parental-consent
-status: draft
+status: implemented
 depends_on: [auth.register, auth.login, auth.email-verification]
 implements: ../../specs-business/auth/minor-signs-up-with-a-guardians-consent.business.md
 governed_by: [R-022, R-024]

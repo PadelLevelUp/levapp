@@ -1,6 +1,6 @@
 ---
 id: auth.minor-signs-up-with-a-guardians-consent
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/auth/parental-consent.spec.md
 ---

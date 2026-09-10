@@ -13,7 +13,7 @@ The auth domain.
 - `auth.coach-approval` — implemented (LevApp admin approves self-registered coaches; gate is switchable; PAD-210)
 - `auth.email-verification` — draft (6-digit code mailed at self-signup and on a self-service email change; clients hold the person on the code screen; PAD-234)
 - `auth.password-recovery` — draft (email-based password and username recovery: one mail with the username and a single-use 6-digit code; replaces the dead legacy `/auth/forgot_password`; PAD-139)
-- `auth.parental-consent` — draft (birth date + country at sign-up; under the country's age of digital consent the account waits for a guardian's emailed consent, which the guardian can withdraw; PAD-198)
+- `auth.parental-consent` — implemented (birth date + country at sign-up; under the country's age of digital consent the account waits for a guardian's emailed consent, which the guardian can withdraw; PAD-198)
 - `auth.token-refresh` — implemented
 - `auth.push-subscription` — implemented
 - `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
