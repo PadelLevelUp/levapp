@@ -51,7 +51,7 @@ import {
 import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
-import { createEventSource } from "@/api/events";
+import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
@@ -280,10 +280,9 @@ export function ClassDetailSheet({
   useEffect(() => {
     if (!open || !canManage || !token) return;
 
-    const es = createEventSource(token);
-    es.onmessage = (e) => {
+    // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
+    return subscribeAppEvents(token, (data) => {
       try {
-        const data = JSON.parse(e.data);
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
@@ -333,9 +332,8 @@ export function ClassDetailSheet({
             setInvitationsOpen(true);
           }).catch(() => {});
         }
-      } catch { /* ignore parse errors */ }
-    };
-    return () => es.close();
+      } catch { /* a malformed payload must not break the sheet */ }
+    });
   }, [open, canManage, token]);
 
   const active = draft ?? classInstance;

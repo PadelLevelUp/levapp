@@ -96,6 +96,48 @@ def assert_safe_migration_target(host, port=None, env=None):
     )
 
 
+#: messaging.sse-realtime rules 11-14 (PAD-277): one gunicorn worker, 64
+#: threads, and every open SSE stream holds one thread. 40 streams leaves 24
+#: threads for ordinary API requests; 4 per user covers a phone plus a few tabs
+#: once each tab/app shares one connection (past it, the user's OLDEST stream
+#: is evicted). The keep-alive is how a vanished client is noticed.
+DEFAULT_SSE_MAX_STREAMS = 40
+DEFAULT_SSE_MAX_STREAMS_PER_USER = 4
+DEFAULT_SSE_KEEPALIVE_SECONDS = 5
+
+
+def sse_stream_limits(environ=None):
+    """``(total, per_user)`` SSE stream caps from ``SSE_MAX_STREAMS`` and
+    ``SSE_MAX_STREAMS_PER_USER``. A missing, non-numeric or non-positive value
+    falls back to its default: a typo must neither disable the cap nor shut
+    the stream to everyone."""
+    environ = os.environ if environ is None else environ
+
+    def read(name, default):
+        try:
+            value = int(str(environ.get(name, "")).strip())
+        except ValueError:
+            return default
+        return value if value > 0 else default
+
+    return (
+        read("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
+        read("SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER),
+    )
+
+
+def sse_keepalive_seconds(environ=None):
+    """Seconds between SSE keep-alive comments (``SSE_KEEPALIVE_SECONDS``,
+    default 5). A missing, non-numeric or non-positive value falls back to the
+    default."""
+    environ = os.environ if environ is None else environ
+    try:
+        value = int(str(environ.get("SSE_KEEPALIVE_SECONDS", "")).strip())
+    except ValueError:
+        return DEFAULT_SSE_KEEPALIVE_SECONDS
+    return value if value > 0 else DEFAULT_SSE_KEEPALIVE_SECONDS
+
+
 class Config:
     """Base config (shared defaults).
 
@@ -184,6 +226,10 @@ class Config:
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
     PUBLIC_WEB_ORIGIN = os.getenv("PUBLIC_WEB_ORIGIN") or None
+
+    # messaging.sse-realtime rules 11-12 (PAD-277): SSE stream caps.
+    SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
+    SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
 
     # Sessions
     SESSION_PERMANENT = False
