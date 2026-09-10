@@ -208,7 +208,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   // PAD-103: backend roles are mutually exclusive (`["coach"] if user.coach else
   // ["player"]`), so a single flag is enough to decide what this page offers.
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
   const isSuperAdmin = user?.isSuperAdmin === true;
   const tabs = visibleSettingsTabs(isCoach, isSuperAdmin);
@@ -371,6 +371,9 @@ export default function SettingsPage() {
 
     // settings.profile rule 9: a new address is verified right away.
     if (payload.email !== undefined && updated.emailVerification === "pending") {
+      // B-050: the verify screen reads the signed-in user; refresh it first, or a
+      // coach who was already verified is sent straight back here.
+      await refreshUser();
       navigate("/verify-email?next=/settings");
     }
   };
