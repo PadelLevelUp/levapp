@@ -140,13 +140,12 @@ def test_the_claim_merge_records_a_borrowed_level(app, world):
 
 
 def test_an_invitation_records_its_level_once(app, world):
-    from padel_app.services.player_invitation_service import create_player_invitation_service
+    from padel_app.services.player_invitation_service import create_incomplete_player_service
 
     with app.app_context():
-        result = create_player_invitation_service(
+        invitation = create_incomplete_player_service(
             {"coachId": world["coach_id"], "levelId": str(world["level_b"]), "name": "Invited Ines"})
-        player_id = result[0]["playerId"] if isinstance(result, tuple) else result["playerId"]
-        assert _history(world, player_id) == [world["level_b"]]
+        assert _history(world, invitation.player_id) == [world["level_b"]]
 
 
 # --- players.level-history rule 2 --------------------------------------------
