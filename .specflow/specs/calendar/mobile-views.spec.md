@@ -122,13 +122,18 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
     from rule 10; out-of-month cells render at 32% opacity and are not tappable.
 17. **Single-day grid and sheet.** Below the month grid, rule 13's time grid for the selected
-    day only (one full-width column) with rule 3's bottom sheet over it.
+    day only (one full-width column) with rule 3's bottom sheet over it. Its hour range applies rule 13 to the
+    selected day's events alone (08:00–20:00 when that day is empty), so a quiet day is not
+    squeezed by a busy one elsewhere in the month.
 
 #### Controls, roles, chrome
 18. **Add controls are floating action buttons on both shells:** `Add event`
     (`calendar-add-event`, all roles) and `Add class` (`calendar-add-class`, coaches only),
     positioned as the iOS calendar already positions them. At phone widths web no longer
-    renders `CalendarToolbar`; desktop web is unchanged.
+    renders `CalendarToolbar`; desktop web is unchanged. **(PAD-248)** Every list the buttons float
+    over — the Dia card list and the Semana / Mês day sheet — ends with bottom padding taller
+    than the button stack, so the last card can always be scrolled clear of the buttons on both
+    shells.
 19. **Students** see the same three modes, read-only: their enrolled classes and their own
     blockers, with no `Add class` button. Everything else in this spec applies.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
@@ -261,6 +266,12 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Then** `calendar-add-event` and `calendar-add-class` float over the content and the toolbar
   is absent
 - **And** a student sees `calendar-add-event` only
+
+#### Floating add buttons never hide the last card
+- **Given** a coach whose selected day has six classes, at 390×844 on web and on iOS
+- **When** they scroll the Dia list, and then the Semana and Mês day sheets, to their end
+- **Then** the last card ends above the top of both `calendar-add-event` and
+  `calendar-add-class`
 
 #### Labels follow the language
 - **Given** a coach whose language is `pt`, then `en`
