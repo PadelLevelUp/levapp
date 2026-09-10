@@ -20,7 +20,9 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 1. Login accepts `username` (or email) + `password`
 2. Password is verified against bcrypt hash stored in `users.password`
 3. Returns JWT access token with 30-day expiry
-4. Token can be sent via Authorization header or query string (`?token=`)
+4. Token is sent in the `Authorization` header. The `?token=` query string is accepted on the SSE
+   endpoint `/api/app/events` alone, because `EventSource` cannot set headers (R-009; PAD-269 —
+   until then the query string worked on every route and put tokens in access logs).
 5. Token contains user identity (user_id)
 6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
 7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. Account lockout after repeated failures (B-002) stays out of scope.
@@ -38,6 +40,9 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     `disabled` user (deleted, or withdrawn by a guardian) gets 401 `ACCOUNT_DISABLED` (rule 12,
     B-053; `auth.parental-consent` rule 4). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
     PAD-228, PAD-186 and PAD-233 in parallel branches.
+11. **An account with no password yet** (created by a coach, not activated) answers the ordinary
+    401 `Invalid credentials`, never a 500 — the 500 told a caller which usernames exist (PAD-269,
+    audit M11). Numbered 11 to stay clear of rules 6–10 in parallel branches.
 12. **Disabled accounts cannot sign in (B-053).** After the credentials check, a rejected coach
     keeps rule 9's 403 `COACH_REJECTED` with the reason, which drives the re-application button.
     Any other user with `status = disabled`, of either role, gets 401
@@ -97,6 +102,17 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Given** the deleted student `ana`
 - **When** the legacy form POSTs `/auth/login` with her right password
 - **Then** the response is 401 and no Flask-Login session is opened
+
+#### A token in the query string is refused outside the SSE endpoint (PAD-269)
+- **Given** a valid access token for `coach1`
+- **When** they GET `/api/auth/me?token=<the token>` with no `Authorization` header
+- **Then** the response is 401
+- **And** GET `/api/app/events?token=<the token>` is accepted (200, `text/event-stream`)
+
+#### An unactivated account is an ordinary 401 (PAD-269)
+- **Given** a coach-created user `bruno` with no password
+- **When** anyone POSTs `/api/auth/login` with `{"username": "bruno", "password": "anything"}`
+- **Then** the response is 401 `Invalid credentials`, not 500
 
 #### Inactive user login
 - **Given** a user with status `inactive`

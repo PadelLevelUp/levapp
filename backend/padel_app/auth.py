@@ -1,6 +1,8 @@
 from padel_app.models import User, TokenBlocklist
 from flask_jwt_extended import JWTManager
 
+from padel_app.utils.tokens import session_over
+
 def register_jwt_handlers(jwt):
 
     @jwt.unauthorized_loader
@@ -19,6 +21,11 @@ def register_jwt_handlers(jwt):
     def check_if_token_revoked(jwt_header, jwt_payload):
         jti = jwt_payload["jti"]
         if TokenBlocklist.query.filter_by(jti=jti).first() is not None:
+            return True
+
+        # auth.token-refresh rule 6 (PAD-269): a session older than the cap is
+        # over, however recently its token was refreshed.
+        if session_over(jwt_payload):
             return True
 
         # Session kill for deleted/disabled accounts: reject any token

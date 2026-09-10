@@ -5,7 +5,7 @@ a mail failure is logged and never fails the signup or the decision.
 """
 from flask import abort, current_app
 
-from flask_jwt_extended import create_access_token
+from padel_app.utils.tokens import issue_access_token
 from werkzeug.security import check_password_hash
 
 from padel_app.models import Coach, User
@@ -93,7 +93,7 @@ def rejected_coach_of(user):
 
 def login_body(user):
     return {
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
         "user": {"id": user.id, "name": user.name, "role": user.role},
     }
 

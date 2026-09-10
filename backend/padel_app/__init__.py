@@ -78,6 +78,15 @@ def create_app(test_config=None):
         response.headers["Pragma"] = "no-cache"
 
         try:
+            from flask import request as _request
+
+            from padel_app.models import TokenBlocklist
+            from padel_app.utils.tokens import issue_access_token, session_over, session_started_at
+
+            # auth.token-refresh rule 5 (PAD-269): never hand a fresh token back
+            # on the way out.
+            if _request.endpoint in ("auth_api.logout", "auth_api.delete_me"):
+                return response
             jwt_data = get_jwt()
             exp_timestamp = jwt_data.get("exp")
             if exp_timestamp:
@@ -85,8 +94,16 @@ def create_app(test_config=None):
                     datetime.fromtimestamp(exp_timestamp, timezone.utc)
                     - datetime.now(timezone.utc)
                 )
-                if remaining < timedelta(days=15):
-                    new_token = create_access_token(identity=get_jwt_identity())
+                if (
+                    remaining < timedelta(days=15)
+                    # Rule 6: a session past its cap is not extended.
+                    and not session_over(jwt_data)
+                    and TokenBlocklist.query.filter_by(jti=jwt_data.get("jti")).first() is None
+                ):
+                    # Rule 6: the refreshed token keeps the session's login moment.
+                    new_token = issue_access_token(
+                        get_jwt_identity(), auth_time=session_started_at(jwt_data)
+                    )
                     response.headers["X-New-Token"] = new_token
         except Exception:
             pass

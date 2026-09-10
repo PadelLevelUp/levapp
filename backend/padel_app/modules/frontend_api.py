@@ -16,6 +16,8 @@ from padel_app.serializers.lesson import (
     serialize_class_instance,
 )
 from padel_app.serializers.user import serialize_user, serialize_user_public
+from padel_app.utils.tokens import issue_access_token
+from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.serializers.presence import serialize_presence, serialize_presences
 from padel_app.serializers.calendar import serialize_calendar_block
 from padel_app.serializers.message import serialize_message
@@ -1958,7 +1960,7 @@ def accept_coach_invitation(token):
 
     user = accept_coach_invitation_service(token, data=data)
     return jsonify({
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
     })
 
 
@@ -2007,7 +2009,7 @@ def accept_player_invitation(token):
     data = request.get_json(silent=True) or {}
     user = accept_player_invitation_service(token, data=data)
     return jsonify({
-        "accessToken": create_access_token(identity=str(user.id)),
+        "accessToken": issue_access_token(user.id),
     })
 
 
