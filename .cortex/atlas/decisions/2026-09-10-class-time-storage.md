@@ -1,8 +1,9 @@
 ---
 id: decision.2026-09-10-class-time-storage
-title: "Draft for the owner: what stored class times mean (Lisbon wall-clock or true UTC)"
+title: "Stored class times are Lisbon wall-clock (option B, the owner's decision of 2026-09-10)"
 date: 2026-09-10T00:00:00Z
-compass_rules: []
+compass_rules:
+  - R-023
 related_specs:
   - classes.instances
   - calendar.blocks
@@ -12,13 +13,19 @@ supersedes: []
 sources: []
 ---
 
-# Draft for the owner: what stored class times mean
+# Stored class times are Lisbon wall-clock
 
-**Status:** a draft from the PAD-256 investigation (Session A, 2026-09-10). It covers audit
-finding C3. Nothing changes until the owner chooses. PAD-129 and PAD-130 add more date logic and
-wait on this.
+**Status:** accepted. On 2026-09-10 the owner chose option B (relayed by the coordinator). The
+analysis below is the draft it was chosen from (PAD-256, audit finding C3). R-023 is split to
+match. The implementation ships as small code-only PRs, one group of sites at a time:
+1. reminders, including the day-before reminder (PAD-134);
+2. the cancellation and proactive-decline windows;
+3. the invitation window and `invite_not_before`;
+4. the PAD-104 request slots and the test seed's "tomorrow".
 
-## Recommendation
+PAD-129 and PAD-130 follow this rule from now on.
+
+## Decision
 
 Declare the scheduling columns to be **Lisbon wall-clock** (option B), and fix the "now" side of
 every comparison.
@@ -249,7 +256,9 @@ site gets a summer and a winter test pair, as PAD-134 did.
 
 ## Questions for the owner
 
-1. **Option B now, or option A?** The recommendation is B.
+1. **Option B now, or option A?** Answered on 2026-09-10: option B.
 2. **Will LevApp have a club outside Lisbon's time zone in the next six months,** in Spain or the
    Azores? If so, choose A now.
-3. **Who runs the deciding check** on the staging VM before work starts?
+3. **Who runs the deciding check** on the staging VM? It is still open. Option B assumes the rows
+   are wall-clock, which the write paths guarantee. The query only matters if it shows a series
+   with two stored hours.
