@@ -1255,12 +1255,29 @@ def toggle_reaction(message_id):
     return jsonify({"ok": True})
 
 
+#: PAD-237 / messaging.conversations rule 6: POST answers with the same paged
+#: shape GET uses. This is the clients' first-page size
+#: (`CONVERSATION_FIRST_PAGE_SIZE` in @levelup/hooks); a found conversation
+#: with a long history must never come back whole.
+CONVERSATION_FIRST_PAGE_SIZE = 30
+
+
 @bp.post("/conversation")
 @jwt_required()
 def create_conversation():
     data = request.get_json() or {}
     conversation, creator_id = create_conversation_service(data, current_user())
-    return jsonify(serialize_conversation_detail(conversation, user_id=creator_id)), 201
+    messages, has_more = conversation_messages_page(
+        conversation.id, limit=CONVERSATION_FIRST_PAGE_SIZE, before=None
+    )
+    return (
+        jsonify(
+            serialize_conversation_detail(
+                conversation, user_id=creator_id, messages=messages, has_more=has_more
+            )
+        ),
+        201,
+    )
 
 
 @bp.post("/add_class")

@@ -12,7 +12,10 @@ import { openMessages } from "../helpers/navigation";
 // fixture), so no notification-engine spec ever sends it a real message mid-
 // run — which would otherwise bump this conversation's last message to
 // "today" and fail this assertion depending on run order (test-health,
-// 2026-09-09).
+// 2026-09-09, commit 795fec72 — this is PAD-237 item 2's own fixture).
+// The only spec that writes into this thread is unknown-sender-banner
+// (US-215, messages student 3 by username), which sorts AFTER this file, so
+// the "Yesterday" label is intact when this runs.
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
