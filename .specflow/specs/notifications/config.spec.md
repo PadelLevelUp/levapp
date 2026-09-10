@@ -29,8 +29,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    stored as naive UTC, the check MUST convert to club-local before comparing the hour;
    comparing a UTC hour makes the window drift to 23:00–08:00 local through Portuguese summer
    time (WEST = UTC+1) while reading correctly in winter (WET = UTC+0). Only restrictions with
-   wall-clock semantics need this conversion: `minTimeBeforeClass` (a duration) and `maxTotal`
-   (a count) carry none. `maxInvitesPerStudentPerDay` DOES carry them — see rule 6b.
+   wall-clock semantics need this conversion: `maxTotal` (a count) carries none, and
+   `minTimeBeforeClass` (a duration) only needs the class's wall-clock start turned into an instant
+   (`notifications.invitations` rule 11, PAD-256). `maxInvitesPerStudentPerDay` DOES carry them — see rule 6b.
 6b. **(PAD-144)** `maxInvitesPerStudentPerDay` counts over the **club-local calendar day**
    (`Europe/Lisbon`), not the UTC day. "Per day" is a wall clock the coach reads off their own
    calendar, so the counting window is local midnight → local midnight, and the boundary must be

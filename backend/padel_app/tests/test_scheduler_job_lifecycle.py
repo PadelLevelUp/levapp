@@ -310,29 +310,30 @@ class TestSendClassReminders:
 
 
 # ---------------------------------------------------------------------------
-# Tests: _compute_timing_dt correctness
+# Tests: _fire_time_utc correctness (PAD-256; it replaced _compute_timing_dt)
 # ---------------------------------------------------------------------------
 
-class TestComputeTimingDt:
+class TestFireTimeUtc:
     def test_hours_before(self):
-        from padel_app.scheduler import _compute_timing_dt
+        # PAD-256: 10:00 WEST is 09:00 UTC; 48 real hours before is 09:00 UTC.
+        from padel_app.scheduler import _fire_time_utc
         start = datetime(2026, 6, 1, 10, 0)
-        result = _compute_timing_dt(start, {"type": "hours_before", "value": 48})
-        assert result == datetime(2026, 5, 30, 10, 0)
+        result = _fire_time_utc(start, {"type": "hours_before", "value": 48})
+        assert result == datetime(2026, 5, 30, 9, 0)
 
     def test_days_before_at_time(self):
         # PAD-134: "09:00" is a CLUB_TZ wall clock; June is WEST (UTC+1), so
         # the naive-UTC fire time the scheduler arms is 08:00.
-        from padel_app.scheduler import _compute_timing_dt
+        from padel_app.scheduler import _fire_time_utc
         start = datetime(2026, 6, 5, 15, 0)
-        result = _compute_timing_dt(start, {"type": "days_before", "days": 2, "time": "09:00"})
+        result = _fire_time_utc(start, {"type": "days_before", "days": 2, "time": "09:00"})
         assert result == datetime(2026, 6, 3, 8, 0)
 
     def test_empty_config_returns_none(self):
-        from padel_app.scheduler import _compute_timing_dt
-        assert _compute_timing_dt(datetime.utcnow(), {}) is None
-        assert _compute_timing_dt(datetime.utcnow(), None) is None
+        from padel_app.scheduler import _fire_time_utc
+        assert _fire_time_utc(datetime.utcnow(), {}) is None
+        assert _fire_time_utc(datetime.utcnow(), None) is None
 
     def test_missing_type_returns_none(self):
-        from padel_app.scheduler import _compute_timing_dt
-        assert _compute_timing_dt(datetime.utcnow(), {"value": 48}) is None
+        from padel_app.scheduler import _fire_time_utc
+        assert _fire_time_utc(datetime.utcnow(), {"value": 48}) is None

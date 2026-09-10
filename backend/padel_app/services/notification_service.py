@@ -1372,7 +1372,8 @@ def _check_restrictions(
 
     min_time = restrictions.get("minTimeBeforeClass", {})
     if min_time.get("enabled"):
-        minutes_until = (instance.start_datetime - now).total_seconds() / 60
+        # PAD-256 (notifications.invitations rule 11): real minutes to the real start.
+        minutes_until = (wall_to_utc_naive(instance.start_datetime) - now).total_seconds() / 60
         if minutes_until < min_time["value"]:
             return False
 

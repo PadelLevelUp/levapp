@@ -99,6 +99,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     counted again under the same lock and added in one commit. Every locked section ends in a
     commit, so no lock outlives the decision it protects. The partial unique key on open vacancies
     is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
+11. **When the invitation window opens (PAD-256).** `invitation_start_timing` is computed exactly
+    like a reminder (`notifications.reminders` rule 15):
+    - `hours_before` counts real hours before the class's real start;
+    - `days_before` takes the class's own date at HH:MM on the club's clock.
+
+    The result is a UTC instant. `Vacancy.invite_not_before` stores it as naive UTC, because it
+    is a moment the server computes (R-023), and every gate compares it with UTC now.
+    `minTimeBeforeClass` counts real minutes to the class's real start.
 
 ### Acceptance Criteria
 
