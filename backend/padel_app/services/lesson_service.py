@@ -788,6 +788,11 @@ def edit_class_service(data):
     # this tier, [] = everyone, a list = that bar. `scope` picks the tier.
     eligibility_touched = "eligibilityRules" in updates
     eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
+    # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
+    visibility_touched = "openSpotsVisible" in updates
+    open_spots_visible = updates.get("openSpotsVisible")
+    if open_spots_visible is not None:
+        open_spots_visible = bool(open_spots_visible)
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
@@ -820,6 +825,9 @@ def edit_class_service(data):
                 instance.save()
             if eligibility_touched:
                 instance.eligibility_rules = eligibility_rules
+                instance.save()
+            if visibility_touched:
+                instance.open_spots_visible = open_spots_visible
                 instance.save()
             return {"id": instance.id}, 200
 
@@ -860,6 +868,9 @@ def edit_class_service(data):
                 # mid-series (rule 6), so earlier occurrences keep the old bar.
                 lesson_to_edit.eligibility_rules = eligibility_rules
                 lesson_to_edit.save()
+            if visibility_touched:
+                lesson_to_edit.open_spots_visible = open_spots_visible
+                lesson_to_edit.save()
             # A "this and future" edit off a materialized occurrence splits the
             # series into a *new* Lesson (duplicate_lesson_helper). Without this
             # the new lesson carries no reminder jobs at all, so its classes
@@ -895,6 +906,9 @@ def edit_class_service(data):
         if eligibility_touched:
             instance.eligibility_rules = eligibility_rules
             instance.save()
+        if visibility_touched:
+            instance.open_spots_visible = open_spots_visible
+            instance.save()
         # Schedule reminder/invite jobs for this newly materialized instance
         from padel_app.scheduler import _maybe_schedule_instance
         _maybe_schedule_instance(instance)
@@ -918,6 +932,9 @@ def edit_class_service(data):
             lesson_to_edit.save()
         if eligibility_touched:
             lesson_to_edit.eligibility_rules = eligibility_rules
+            lesson_to_edit.save()
+        if visibility_touched:
+            lesson_to_edit.open_spots_visible = open_spots_visible
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:

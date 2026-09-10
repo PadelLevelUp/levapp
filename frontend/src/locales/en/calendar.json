@@ -367,6 +367,22 @@
       },
       "everyoneHint": "No rules for this class — every one of your students may join.",
       "standardHint": "Uses your standard eligibility from Settings → Notifications."
+    },
+    "openSpot": {
+      "chip": "Open spot",
+      "coach": "with {{coach}}",
+      "title": "Open spots",
+      "hint": "Whether eligible students see this class's empty spots in their own calendar.",
+      "source": {
+        "coach": "Standard setting",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "inherit": "Standard",
+        "on": "Visible",
+        "off": "Hidden"
+      }
     }
   }
 }

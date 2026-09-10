@@ -193,6 +193,10 @@ export interface ClassInstance {
   eligibilityRules?: GroupRule[] | null;
   effectiveEligibilityRules?: GroupRule[] | null;
   eligibilitySource?: "instance" | "lesson" | "coach";
+  /** PAD-130: the open-spot toggle at this tier (`null` = inherit), what resolved, and where from. */
+  openSpotsVisible?: boolean | null;
+  effectiveOpenSpotsVisible?: boolean;
+  openSpotsSource?: "instance" | "lesson" | "coach";
   invitations?: ClassInvitation[];
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
@@ -263,6 +267,13 @@ export interface CalendarEvent {
   /** Coach level for this class, used for the block's level chip. */
   levelId?: string | number;
   isTemporary?: boolean;
+  /**
+   * PAD-130 (eligibility.open-spot-visibility rule 10): a class the student is
+   * NOT in but could ask to join — visible, with room, and they are eligible.
+   * Absent on the student's own classes and on every coach event.
+   */
+  openSpot?: boolean;
+  coachName?: string | null;
 }
 
 export interface TimeSlot {
@@ -722,6 +733,8 @@ export interface NotificationConfig {
    * to a vacancy, and only level and absence attributes are valid.
    */
   eligibilityRules?: GroupRule[] | null;
+  /** PAD-130: the coach standard of "advertise empty spots to eligible students". */
+  openSpotsVisible?: boolean;
 }
 
 // ── Replacement approval (semi-automatic mode) ─────────────────────────────

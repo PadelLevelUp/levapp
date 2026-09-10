@@ -123,6 +123,8 @@ def get_config_dict(coach_id: int) -> dict:
         # set. The client must be able to tell "no bar" from "a bar that
         # happens to be empty"; see NotificationConfig.eligibility_rules.
         "eligibilityRules": config.get_eligibility_rules(),
+        # PAD-130: the coach standard of the open-spot toggle (rule 3).
+        "openSpotsVisible": bool(config.open_spots_visible),
     }
 
 
@@ -168,6 +170,8 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
             from flask import abort
             abort(400, "eligibilityRules must be a list or null")
         config.eligibility_rules = rules
+    if "openSpotsVisible" in data:
+        config.open_spots_visible = bool(data["openSpotsVisible"])
 
     config.save()
 
@@ -302,6 +306,41 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
     if config is None:
         return None, "coach"
     return config.get_eligibility_rules(), "coach"
+
+
+def _tier_flag(obj):
+    """A tier's stored visibility: ``None`` = inherit, else the boolean."""
+    value = getattr(obj, "open_spots_visible", None)
+    return value if isinstance(value, bool) else None
+
+
+def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: NotificationConfig | None = None):
+    """``(visible, source)`` — PAD-130, eligibility.open-spot-visibility rules 3, 10.
+
+    The same instance → lesson → coach walk as :func:`effective_eligibility_with_source`;
+    the first tier that is not ``NULL`` wins, and the coach tier defaults to off.
+    """
+    model_name = getattr(class_obj, "model_name", None)
+    if model_name == "LessonInstance" or hasattr(class_obj, "lesson_id"):
+        own = _tier_flag(class_obj)
+        if own is not None:
+            return own, "instance"
+        lesson = getattr(class_obj, "lesson", None)
+    else:
+        lesson = class_obj
+    if lesson is not None:
+        series = _tier_flag(lesson)
+        if series is not None:
+            return series, "lesson"
+    if config is None:
+        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    if config is None:
+        return False, "coach"
+    return bool(config.open_spots_visible), "coach"
+
+
+def effective_open_spots_visible(class_obj, coach_id: int, config: NotificationConfig | None = None) -> bool:
+    return effective_open_spots_visible_with_source(class_obj, coach_id, config)[0]
 
 
 def passes_eligibility(

@@ -582,6 +582,9 @@
         "atMost": "no máximo",
         "greaterThan": "mais de",
         "atLeast": "pelo menos"
+      },
+      "openSpots": {
+        "label": "Mostrar as vagas livres das aulas futuras aos alunos elegíveis (podem pedir para entrar)"
       }
     },
     "admin": {

@@ -181,6 +181,16 @@ export function AutoInviteSection() {
             rules={config.eligibilityRules}
             onChange={(eligibilityRules) => void save({ eligibilityRules })}
           />
+          {/* PAD-130: the coach standard of the open-spot toggle. */}
+          <View className="mt-3 flex-row items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
+            <Text className="flex-1 text-xs">{t("settings.eligibility.openSpots.label")}</Text>
+            <Switch
+              testID="open-spots-visible"
+              accessibilityLabel={t("settings.eligibility.openSpots.label")}
+              checked={config.openSpotsVisible ?? false}
+              onCheckedChange={(openSpotsVisible) => void save({ openSpotsVisible })}
+            />
+          </View>
         </View>
       </CardContent>
     </Card>

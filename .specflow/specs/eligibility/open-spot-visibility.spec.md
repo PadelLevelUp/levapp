@@ -1,6 +1,6 @@
 ---
 id: eligibility.open-spot-visibility
-status: implementing
+status: implemented
 depends_on: [eligibility.cascade, calendar.view]
 implements: ../../specs-business/eligibility/student-discovers-open-spots.business.md
 governed_by: []

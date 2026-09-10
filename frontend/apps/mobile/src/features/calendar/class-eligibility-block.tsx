@@ -19,21 +19,35 @@ import { EligibilitySection } from "@/features/settings/eligibility-section";
 
 const MODES: EligibilityTierMode[] = ["standard", "everyone", "custom"];
 
+type Tier = "instance" | "lesson" | "coach";
+type VisibilityMode = "inherit" | "on" | "off";
+const VISIBILITY_MODES: VisibilityMode[] = ["inherit", "on", "off"];
+
 export function ClassEligibilityBlock({
   current,
   effective,
   source,
   editing,
   onChange,
+  openSpots,
+  effectiveOpenSpots,
+  openSpotsSource,
+  onOpenSpotsChange,
 }: {
   current: GroupRule[] | null;
   effective: GroupRule[] | null;
-  source: "instance" | "lesson" | "coach";
+  source: Tier;
   editing: boolean;
   onChange: (rules: GroupRule[] | null) => void;
+  /** PAD-130: the open-spot toggle at this tier (`null` = inherit). */
+  openSpots?: boolean | null;
+  effectiveOpenSpots?: boolean;
+  openSpotsSource?: Tier;
+  onOpenSpotsChange?: (value: boolean | null) => void;
 }) {
   const { t } = useTranslation();
   const mode = tierMode(current);
+  const visibilityMode: VisibilityMode = openSpots == null ? "inherit" : openSpots ? "on" : "off";
 
   return (
     <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-eligibility">
@@ -92,6 +106,45 @@ export function ClassEligibilityBlock({
             : t("settings.eligibility.allRulesApply")}
         </Text>
       )}
+
+      {/* PAD-130: the same cascade for "advertise this class's empty spots". */}
+      {onOpenSpotsChange ? (
+        <View className="gap-2 border-t border-border pt-2" testID="class-open-spots">
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="text-xs font-medium">{t("calendar.openSpot.title")}</Text>
+            <Badge variant="outline" testID="class-open-spots-source">
+              <Text>
+                {t(`calendar.openSpot.source.${openSpotsSource ?? "coach"}`)} ·{" "}
+                {t(effectiveOpenSpots ? "calendar.openSpot.mode.on" : "calendar.openSpot.mode.off")}
+              </Text>
+            </Badge>
+          </View>
+          {editing ? (
+            <View className="gap-2">
+              <Text className="text-xs text-muted-foreground">{t("calendar.openSpot.hint")}</Text>
+              <View className="flex-row gap-1.5" accessibilityRole="radiogroup">
+                {VISIBILITY_MODES.map((m) => {
+                  const selected = visibilityMode === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      testID={`class-open-spots-mode-${m}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => onOpenSpotsChange(m === "inherit" ? null : m === "on")}
+                      className={cn("rounded-full px-3 py-1.5", selected ? "bg-primary" : "bg-muted")}
+                    >
+                      <Text className={cn("text-xs font-sans-semibold", selected ? "text-primary-foreground" : "text-muted-foreground")}>
+                        {t(`calendar.openSpot.mode.${m}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

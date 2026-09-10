@@ -582,6 +582,9 @@
         "atMost": "at most",
         "greaterThan": "more than",
         "atLeast": "at least"
+      },
+      "openSpots": {
+        "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
       }
     },
     "admin": {

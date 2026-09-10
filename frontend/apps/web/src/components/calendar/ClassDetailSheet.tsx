@@ -444,6 +444,8 @@ export function ClassDetailSheet({
     "notificationsEnabled",
     // PAD-129: the eligibility tier this sheet addresses (null / [] / rules).
     "eligibilityRules",
+    // PAD-130: the open-spot toggle at this tier (null / true / false).
+    "openSpotsVisible",
   ] as const;
 
   const commitEdit = (scope: ApplyScope) => {
@@ -863,6 +865,12 @@ export function ClassDetailSheet({
               editing={isEditing}
               onChange={(eligibilityRules) =>
                 setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+              openSpots={active.openSpotsVisible ?? null}
+              effectiveOpenSpots={active.effectiveOpenSpotsVisible ?? false}
+              openSpotsSource={active.openSpotsSource ?? "coach"}
+              onOpenSpotsChange={(openSpotsVisible) =>
+                setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
               }
             />
           )}

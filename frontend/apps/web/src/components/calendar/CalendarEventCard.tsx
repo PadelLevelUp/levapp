@@ -94,6 +94,16 @@ export function CalendarEventCard({
     }
   }
 
+  // PAD-130 (eligibility.open-spot-visibility rules 2, 11): an offer, not a
+  // commitment — the class's colour as a dashed outline on a plain surface.
+  const isOpenSpot = !!event.openSpot;
+  if (isOpenSpot) {
+    stateStyle.backgroundColor = 'hsl(var(--card))';
+    stateStyle.border = `1.5px dashed ${hex ?? 'hsl(var(--primary))'}`;
+    stateStyle.color = hex ? readableInk(hex) : 'hsl(var(--foreground))';
+    onColor = false;
+  }
+
   const capacity = event.maxPlayers ?? 0;
   const filled = event.participantCount ?? 0;
   const confirmed = event.confirmedCount ?? 0;
@@ -105,6 +115,7 @@ export function CalendarEventCard({
       data-testid="calendar-event-card"
       data-event-state={state}
       data-needs-players={needsPlayers ? 'true' : 'false'}
+      data-open-spot={isOpenSpot ? 'true' : 'false'}
       draggable
       onClick={onClick}
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
@@ -123,6 +134,14 @@ export function CalendarEventCard({
           so the eye can scan a column of levels. */}
       <div className="flex items-start justify-between gap-1">
         <p className={cn('font-semibold leading-tight truncate', isRow ? 'text-sm' : 'text-xs', isBlock && 'text-muted-foreground')}>
+          {isOpenSpot && (
+            <span
+              data-testid="calendar-open-spot-chip"
+              className="mb-0.5 inline-block rounded-full border border-current px-1.5 text-[10px] font-semibold uppercase tracking-wide"
+            >
+              {t('calendar.openSpot.chip')}
+            </span>
+          )}
           {event.title}
         </p>
         {levelCode && !isBlock && (

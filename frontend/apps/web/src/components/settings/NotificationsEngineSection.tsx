@@ -210,6 +210,17 @@ export function NotificationsEngineSection() {
               onChange={(eligibilityRules) => save({ eligibilityRules })}
               disabled={disabled}
             />
+            {/* PAD-130 (eligibility.open-spot-visibility rule 3): the coach standard. */}
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+              <span className="text-xs">{t("settings.eligibility.openSpots.label")}</span>
+              <Switch
+                checked={config.openSpotsVisible ?? false}
+                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible })}
+                disabled={disabled}
+                aria-label={t("settings.eligibility.openSpots.label")}
+                data-testid="open-spots-visible"
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
