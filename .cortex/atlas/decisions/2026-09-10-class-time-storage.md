@@ -15,15 +15,18 @@ sources: []
 
 # Stored class times are Lisbon wall-clock
 
-**Status:** accepted. On 2026-09-10 the owner chose option B (relayed by the coordinator). The
+**Status:** implemented. On 2026-09-10 the owner chose option B (relayed by the coordinator). The
 analysis below is the draft it was chosen from (PAD-256, audit finding C3). R-023 is split to
-match. The implementation ships as small code-only PRs, one group of sites at a time:
-1. reminders, including the day-before reminder (PAD-134);
-2. the cancellation and proactive-decline windows;
-3. the invitation window and `invite_not_before`;
-4. the PAD-104 request slots and the test seed's "tomorrow".
+match. It shipped as six stacked, code-only PRs, each with red-first summer and winter tests:
+1. #180: reminders, including the day-before reminder (PAD-134);
+2. #183: the cancellation and proactive-decline windows;
+3. #184: the invitation window and `invite_not_before`;
+4. #185: the PAD-104 request slots and the test seed's "today";
+5. #187: the engine's class-over checks, calendar status and open spots;
+6. #190: the dashboard windows, pending validation and the season's "today".
 
-PAD-129 and PAD-130 follow this rule from now on.
+The legacy helpers that read a class time as UTC (`_compute_timing_dt`, `_compute_reminder_dt`) are
+gone. PAD-129 and PAD-130 follow this rule from now on.
 
 ## Decision
 
