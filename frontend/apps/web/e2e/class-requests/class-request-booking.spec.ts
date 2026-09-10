@@ -52,7 +52,14 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     const form = page.getByTestId("class-request-form");
     await form.getByTestId("class-request-coach").click();
     await page.getByRole("option", { name: "E2E Coach" }).click();
+    // The form opens on today, whose free slots are already on screen; wait for the
+    // chosen day's blocks before reading a slot, or the label comes from today's list
+    // and the click lands on the re-rendered one (a daytime-only race).
+    const blocksForDay = page.waitForResponse(
+      (r) => r.url().includes("/class-requests/free-blocks") && r.url().includes(day),
+    );
     await form.getByTestId("class-request-date").fill(day);
+    await blocksForDay;
     await expect(form.getByTestId("class-request-free-blocks")).toBeVisible({ timeout: 15_000 });
     const firstSlot = form.getByTestId("class-request-slot").first();
     const start = (await firstSlot.textContent())?.trim() ?? "";

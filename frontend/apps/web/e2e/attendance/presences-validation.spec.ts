@@ -253,6 +253,19 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
       timeout: 20_000,
     });
     await page.unroute("**/api/app/class_instance/presences/confirm");
+
+    // Leave the fixture as the run found it: later specs (dashboard/validation-count,
+    // PAD-201) count the seed's classes awaiting validation. Undo keeps the record
+    // (spec rule 9), so each class returns to the queue.
+    const undoAfter = page.getByRole("button", { name: /^(undo|anular)$/i });
+    for (let i = 0; i < 12 && (await undoAfter.count()) > 0; i++) {
+      const before = await page.locator('[data-testid="presences-class-card"]').count();
+      await undoAfter.first().click();
+      await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(before + 1, {
+        timeout: 15_000,
+      });
+    }
+    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(n);
   });
 });
 

@@ -161,7 +161,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   // redundant there anyway: the avatar menu in the header already links to it
   // on every viewport. The desktop sidebar keeps using `visibleNavItems`
   // unfiltered, so this has no effect above the `md` breakpoint.
-  const mobileNavItems = visibleNavItems.filter(item => item.path !== "/settings");
+  // PAD-104: the coach's class-requests inbox also stays off the bar (PAD-183's 390px budget);
+  // it is still in the desktop sidebar and the mobile drawer.
+  const mobileNavItems = visibleNavItems.filter(
+    item => item.path !== "/settings" && item.path !== "/class-requests",
+  );
 
   const userInitials =
     user?.name

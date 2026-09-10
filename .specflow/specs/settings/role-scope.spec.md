@@ -125,6 +125,10 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
   is a navigation-entry-point decision, not a change to this spec's role-scoped section list —
   see `.cortex/atlas/decisions/2026-09-04-ios-tab-bar-and-theme.md` for the full record, since no
   dev spec governs the main app's tab bar/sidebar structure itself.
+- **[2026-09-10 batch, PAD-104 × PAD-183]** The coach's "Class requests" inbox (PAD-104) is kept off
+  the web mobile bottom bar, by the same filter that drops Settings, because PAD-183 budgets that bar
+  at 390px and the extra item overflowed it in Portuguese (428px). It stays in the desktop sidebar
+  and the mobile drawer; iOS reaches it from Settings (`settings-sections.ts`).
 - **[DEC 2026-09-04, PAD-171 §2, DIV]** iOS stays light-only — an intentional divergence from
   web's dark mode (rule 2/64's "language and theme" toggle still applies to web; on iOS the theme
   preference has no visible effect). Revisit only on user demand. See the same atlas decision file.
