@@ -87,7 +87,7 @@ account it returns exactly those two problems; on clean data it returns no rows.
   code, 2 are guards).
 - Code changes: both `user_id` columns `nullable=False, unique=True, ON DELETE CASCADE`;
   `passive_deletes` on `User.player` / `User.coach`; 409 on user deletes in `/api/editor/user/<id>`
-  and `/api/delete/user/<id>`; migration `4ac05ae43639` (revises `ad97ec649746`).
+  and `/api/delete/user/<id>`; migration `4ac05ae43639` (revises `7794a8acc55b`, PAD-198's migration; merge order #170 → #177 → PAD-198 → PAD-260).
 - Scratch-Postgres dry run: upgrade, idempotent re-run (stamp base + upgrade), downgrade, re-upgrade
   all exit 0; downgrade restores the nullable column and the plain `<table>_user_id_fkey`; deleting a
   user with both profiles removes both (2 -> 0); a database seeded with a NULL player and a shared

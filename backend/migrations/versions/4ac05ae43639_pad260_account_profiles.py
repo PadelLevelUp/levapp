@@ -12,7 +12,7 @@ already migrated database changes nothing. Reversible: the downgrade restores a
 nullable, non-unique user_id with the plain foreign key.
 
 Revision ID: 4ac05ae43639
-Revises: ad97ec649746
+Revises: 7794a8acc55b
 Create Date: 2026-09-10 13:00:00
 """
 import sqlalchemy as sa
@@ -20,7 +20,7 @@ from alembic import op
 from sqlalchemy import inspect
 
 revision = "4ac05ae43639"
-down_revision = "ad97ec649746"
+down_revision = "7794a8acc55b"
 branch_labels = None
 depends_on = None
 
