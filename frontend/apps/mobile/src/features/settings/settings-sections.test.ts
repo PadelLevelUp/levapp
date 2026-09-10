@@ -84,6 +84,8 @@ describe("visibleSections(isCoach = true) — the coach", () => {
       "preferences",
       "calendar",
       "notifications",
+      // PAD-104: the coach's class-requests inbox (web keeps it in the sidebar).
+      "classRequests",
       "tutorials",
       "import",
       "club",

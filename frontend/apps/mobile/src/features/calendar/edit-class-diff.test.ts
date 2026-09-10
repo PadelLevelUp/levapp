@@ -21,6 +21,8 @@ describe("EDITABLE_CLASS_FIELDS", () => {
       "courtId",
       "recurrenceEnd",
       "notificationsEnabled",
+      "eligibilityRules",
+      "openSpotsVisible",
     ]);
   });
 });
