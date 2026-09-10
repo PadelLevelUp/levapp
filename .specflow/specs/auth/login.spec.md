@@ -22,6 +22,8 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 3. Returns JWT access token with 30-day expiry
 4. Token can be sent via Authorization header or query string (`?token=`)
 5. Token contains user identity (user_id)
+6. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
+   token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
 
 ### Acceptance Criteria
 
@@ -35,6 +37,11 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Given** a user with username `coach1` exists
 - **When** they POST to `/api/auth/login` with wrong password
 - **Then** the response status is 401
+
+#### Rejected coach cannot log in (PAD-233)
+- **Given** coach `rui` rejected with reason "not a coach"
+- **When** they POST `/api/auth/login` with the right password
+- **Then** the response is 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
 
 #### Inactive user login
 - **Given** a user with status `inactive`
