@@ -53,6 +53,12 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    Presences table (`/presence_stats`); `/app/users` and the messaging picker already listed active
    accounts only. The no-filter Presences trend (`/presence_trend`) counts the same player set as the
    table, so the KPI tile, the table rows and the trend total stay equal (owner decision 2026-09-10).
+   On the coach home the roster-based and forward-looking numbers leave the account too: the week
+   pulse's active players, both the count and its denominator, and the reply queue, because a
+   deleted person cannot read a reply. Counts of past records stay as they are, consistent with the
+   class pages and the Presences page: the seats filled in classes that already happened, and the
+   validation item's count of classes with an unvalidated presence. Only forward-looking and
+   roster-based counts exclude a deleted account (coordinator decision 2026-09-10).
 9. **The copy says exactly this** on web and iOS (`settings.account.deleteAccountDescription`,
    `settings.account.deleteDialogDescription`, pt and en): what is deleted, what is kept and why.
 10. **A deleting coach** gets rules 1–5 and 8; their classes, roster and club are left untouched
@@ -95,6 +101,14 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 - **When** they open the players list, the class participants picker, the paginated roster or the
   notify / excluded-players search
 - **Then** only the active student is listed, and the missing-level alert does not count the deleted one
+
+#### The coach home counts a deleted student nowhere forward-looking
+- **Given** a coach with four students, all signed up to tomorrow's class
+- **When** one of them deletes their account
+- **Then** the week pulse reads 3 active of 3 players, not 3 of 4
+- **Given** unread messages from two students, one of whom has deleted their account
+- **When** the coach opens the home
+- **Then** the reply queue lists only the student whose account is active
 
 #### The Presences page stays consistent
 - **Given** a deleted student and an active one who both attended a class last week

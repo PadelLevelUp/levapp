@@ -78,7 +78,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      instance is `invited` and not yet `confirmed`, i.e. they have been asked to confirm and have
      not answered (both answers set `confirmed`, see `notifications.reminders`).
    - `week_pulse` (coach only): two metrics with denominators — seats filled this week and active
-     players — never a third.
+     players — never a third. A deleted account is not counted as a player, in the count or the
+     denominator (`auth.account-deletion` rule 8).
    - `kpi_grid` (student only): Attended / Missed / Upcoming lessons / Invites. Every item carries
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
