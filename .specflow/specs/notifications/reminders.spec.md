@@ -51,6 +51,19 @@ Automatically send class reminders to enrolled players at a configured time befo
     `msg_metadata` (`responded`, `response`, `superseded`, `expired`, `reminderNumber`) is written
     in step with the row and nothing the clients see changes. The migration is idempotent and
     backfills one row per existing `notification_reminder` message from its metadata.
+15. **When a reminder fires, and when a class has started (PAD-256).** A class's `start_datetime`
+    is the Lisbon wall-clock time the coach typed (R-023; decision
+    `2026-09-10-class-time-storage`, option B). The scheduler turns it into a UTC instant before
+    it arms a job:
+    - `hours_before: N` fires N real hours before the class's real start, even across a
+      daylight-saving change;
+    - `days_before: D, time: "HH:MM"` fires at HH:MM on the club's clock, on the class's own date
+      minus D days.
+
+    For reminders, "has the class started" compares the class's wall time with the club's clock,
+    never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
+    armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
+    October, and a class at 23:00 or later got its day-before reminder a day late.
 
 ### Acceptance Criteria
 
@@ -125,3 +138,21 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **Then** nothing is pending — the table, not the metadata, is the source of truth
 - **Given** the migration source
 - **Then** the table is created only if absent and the backfill inserts only messages without a row
+
+#### Reminders fire at the club's time in summer and in winter (PAD-256)
+- **Given** a class stored at 14:00 on 2026-07-14 (Lisbon summer, UTC+1) and a reminder timing of
+  24 hours before
+- **When** the scheduler arms the reminder
+- **Then** it fires at 13:00 UTC on 2026-07-13, which is 14:00 in Lisbon
+- **And** for the same class on 2026-01-13 (winter, UTC+0) it fires at 14:00 UTC on 2026-01-12
+
+#### A late class's day-before reminder lands on the day before (PAD-256)
+- **Given** a class stored at 23:30 on 2026-07-14 and a timing of 1 day before at 18:00
+- **When** the scheduler arms the reminder
+- **Then** it fires at 17:00 UTC on 2026-07-13 (18:00 Lisbon), not on 2026-07-14
+
+#### A class that has started gets no reminder (PAD-256)
+- **Given** a class stored at 10:00 on 2026-07-14
+- **When** the reminder pass runs at 09:30 UTC, which is 10:30 in Lisbon
+- **Then** no reminder is sent
+- **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
