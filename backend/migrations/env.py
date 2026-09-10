@@ -5,6 +5,8 @@ from flask import current_app
 
 from alembic import context
 
+from padel_app.tools.alembic_filters import include_object
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -80,7 +82,12 @@ def run_migrations_offline():
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url, target_metadata=get_metadata(), literal_binds=True
+        url=url,
+        target_metadata=get_metadata(),
+        literal_binds=True,
+        # PAD-265 (audit H13): same comparison rules as the online run below.
+        include_object=include_object,
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -108,6 +115,11 @@ def run_migrations_online():
     conf_args = current_app.extensions['migrate'].configure_args
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
+    # PAD-265 (audit H13): never propose dropping APScheduler's job store, and
+    # compare column types. Flask-Migrate already defaults compare_type on;
+    # stating it here keeps a plain Alembic run identical.
+    conf_args.setdefault("include_object", include_object)
+    conf_args.setdefault("compare_type", True)
 
     connectable = get_engine()
 
