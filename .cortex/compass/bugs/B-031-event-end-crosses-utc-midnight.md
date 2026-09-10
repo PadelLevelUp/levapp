@@ -3,13 +3,14 @@ id: B-031
 title: "Classes crossing UTC midnight vanish from both dashboards; _event_end joins start date to end time"
 type: missing-criterion
 severity: medium
-status: open
+status: resolved
 affects:
   - dashboard.blocks
   - backend/padel_app/helpers/dashboard/coach_home.py
   - backend/padel_app/helpers/dashboard/player_home.py
 proposed_fix: "In _event_end, roll the end date forward one day when the end time is earlier than the start time; add a dashboard.blocks criterion and a pinned-clock test on both homes."
 opened: 2026-09-10T00:00:00Z
+resolved: 2026-09-10T00:00:00Z
 ---
 
 # B-031 — Classes crossing UTC midnight vanish from both dashboards
@@ -41,3 +42,8 @@ does not wait on the timezone decision (PAD-256).
 
 **Linear:** could not be filed on 2026-09-10 (the workspace hit its free issue limit); this
 entry is the record. Related: PAD-253, PAD-256.
+
+**Resolution:** `_event_end` rolls the end date forward one day when the end time is earlier
+than the start time. Pinned-clock tests on both homes (`test_b031_*` in
+`test_dashboard_coach_home.py` and `test_dashboard_player_home.py`) build the blocks at 22:30 UTC
+with a 23:15–00:15 UTC class, which stays the hero, on the needs-you queue and on the schedule.
