@@ -10,14 +10,14 @@ Every step is guarded (prod carries objects no revision created; staging is a pr
 so the upgrade is safe to rerun.
 
 Revision ID: 95bfee084ad1
-Revises: PAD-270 (Session D; the coordinator sends the id before this merges)
+Revises: 2c18f5a47c8b (PAD-270)
 """
 import sqlalchemy as sa
 from alembic import op
 
 revision = "95bfee084ad1"
-# PAD-270 PLACEHOLDER: set to Session D's PAD-270 revision id before merging.
-down_revision = "PAD270_REVISION_ID"
+# Chain (coordinator, 2026-09-10): … → 76395824b9cf (PAD-274) → 2c18f5a47c8b (PAD-270) → this.
+down_revision = "2c18f5a47c8b"
 branch_labels = None
 depends_on = None
 
