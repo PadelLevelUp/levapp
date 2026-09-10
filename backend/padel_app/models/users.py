@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Date, DateTime, Integer, String, Text, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -85,6 +85,14 @@ class User(db.Model, model.Model, UserMixin):
     password_reset_attempts = Column(
         Integer, nullable=False, server_default="0", default=0,
     )
+    # ── auth.parental-consent (PAD-198) ──────────────────────────────────────
+    #
+    # Asked at self-sign-up only; coach-created players and every account that
+    # existed before PAD-198 keep NULLs and are never gated.
+    # `guardian_consent_status`: NULL (not required) | pending | granted | revoked.
+    birth_date = Column(Date, nullable=True)
+    country = Column(String(2), nullable=True)
+    guardian_consent_status = Column(String(16), nullable=True)
 
     # ── PAD-112: the student's standing block preferences ────────────────────
     #
