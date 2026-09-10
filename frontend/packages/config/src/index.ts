@@ -8,6 +8,7 @@ export * from "./dateLocale";
 export * from "./presence-status";
 export * from "./presence-scope";
 export * from "./eligibility-report";
+export * from "./eligibility-tier";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";
 export * from "./notify-blocked";

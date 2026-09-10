@@ -89,6 +89,7 @@ import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { checkEligibility } from "@/api/notificationEngine";
 import type { EligibilityCheckEntry } from "@levelup/types";
+import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
@@ -451,6 +452,8 @@ export function ClassDetailSheet({
     "levelId",
     "recurrenceEnd",
     "notificationsEnabled",
+    // PAD-129: the eligibility tier this sheet addresses (null / [] / rules).
+    "eligibilityRules",
   ] as const;
 
   /** The save itself, once any eligibility warning has been answered. */
@@ -887,6 +890,19 @@ export function ClassDetailSheet({
                 />
               </div>
             </div>
+          )}
+
+          {/* PAD-129: which eligibility tier applies, and the override editor in edit mode */}
+          {canManage && event?.type === "class" && active && (
+            <ClassEligibilityBlock
+              current={active.eligibilityRules ?? null}
+              effective={active.effectiveEligibilityRules ?? null}
+              source={active.eligibilitySource ?? "coach"}
+              editing={isEditing}
+              onChange={(eligibilityRules) =>
+                setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+            />
           )}
 
           {/* Color — only in edit mode */}

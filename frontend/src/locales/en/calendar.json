@@ -358,6 +358,22 @@
       "body": "Enrolment is your call — this only tells you what the bar says.",
       "confirm": "Add anyway",
       "cancel": "Cancel"
+    },
+    "eligibility": {
+      "title": "Eligibility",
+      "hint": "Who may join this class. The standard bar applies unless you override it here.",
+      "source": {
+        "coach": "Standard bar",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "standard": "Standard bar",
+        "everyone": "Everyone",
+        "custom": "Custom rules"
+      },
+      "everyoneHint": "No rules for this class — every one of your students may join.",
+      "standardHint": "Uses your standard eligibility from Settings → Notifications."
     }
   }
 }

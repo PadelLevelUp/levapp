@@ -107,6 +107,21 @@ def serialize_lesson_instance(instance):
     }
 
     
+def _eligibility_provenance(obj, coach_id):
+    """``effectiveEligibilityRules`` + ``eligibilitySource`` for a class payload."""
+    if coach_id is None:
+        # A materialised instance may be owned through its own coach
+        # association only (no Association_CoachLesson on the parent).
+        rels = getattr(obj, "coaches_relations", None) or []
+        coach_id = rels[0].coach_id if rels else None
+    if coach_id is None:
+        return {"effectiveEligibilityRules": None, "eligibilitySource": "coach"}
+    from padel_app.services.notification_service import effective_eligibility_with_source
+
+    rules, source = effective_eligibility_with_source(obj, coach_id)
+    return {"effectiveEligibilityRules": rules, "eligibilitySource": source}
+
+
 def serialize_class_instance(obj, viewer_player_id=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
@@ -149,6 +164,10 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         "participants": participants,
         "recurrenceEnd": lesson.recurrence_end.isoformat() if lesson.recurrence_end else None,
         "notificationsEnabled": obj.notifications_enabled if hasattr(obj, "notifications_enabled") else True,
+        # PAD-129 (eligibility.cascade rule 8): the tier this payload addresses,
+        # what actually resolved, and where it came from.
+        "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
+        **_eligibility_provenance(obj, coach_id),
     }
 
     if is_instance:

@@ -263,11 +263,45 @@ def effective_eligibility(class_obj, coach_id: int, config: NotificationConfig |
     missing bar as "exclude everybody"; that state is reserved for a bar that is
     *defined* but unsatisfiable (eligibility.rules rule 2).
     """
+    return effective_eligibility_with_source(class_obj, coach_id, config)[0]
+
+
+def _tier_rules(obj):
+    """A tier's stored bar: ``None`` for no override, else the list (``[]`` included)."""
+    rules = getattr(obj, "eligibility_rules", None)
+    return rules if isinstance(rules, list) else None
+
+
+def effective_eligibility_with_source(class_obj, coach_id: int, config: NotificationConfig | None = None):
+    """``(rules, source)`` — PAD-129, eligibility.cascade rules 1–4.
+
+    Most specific first, and the first tier whose bar is not ``NULL`` wins
+    outright (tiers never merge): ``instance`` (a LessonInstance's own
+    ``eligibility_rules``) → ``lesson`` (its parent's, or the lesson itself for
+    a projected occurrence) → ``coach`` (the standard bar). ``[]`` at a tier is
+    the deliberate "everyone" override and beats the tier below, which is why
+    ``None`` and ``[]`` are kept distinct here.
+
+    A ``Lesson`` passed directly is a non-materialised occurrence (rule 4): it
+    resolves at the lesson tier and creates nothing.
+    """
+    model_name = getattr(class_obj, "model_name", None)
+    if model_name == "LessonInstance" or hasattr(class_obj, "lesson_id"):
+        own = _tier_rules(class_obj)
+        if own is not None:
+            return own, "instance"
+        lesson = getattr(class_obj, "lesson", None)
+    else:
+        lesson = class_obj
+    if lesson is not None:
+        series = _tier_rules(lesson)
+        if series is not None:
+            return series, "lesson"
     if config is None:
         config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
     if config is None:
-        return None
-    return config.get_eligibility_rules()
+        return None, "coach"
+    return config.get_eligibility_rules(), "coach"
 
 
 def passes_eligibility(

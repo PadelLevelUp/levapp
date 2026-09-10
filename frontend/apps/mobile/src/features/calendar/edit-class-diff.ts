@@ -13,6 +13,8 @@ export const EDITABLE_CLASS_FIELDS = [
   "levelId",
   "recurrenceEnd",
   "notificationsEnabled",
+  // PAD-129: the eligibility tier this screen addresses (null / [] / rules).
+  "eligibilityRules",
 ] as const satisfies readonly (keyof ClassInstance)[];
 
 /** Generic before/after diff for scalar/object/array fields — values are
