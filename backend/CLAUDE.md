@@ -7,9 +7,15 @@ Flask + SQLAlchemy + PostgreSQL API for the LevelUp padel coaching platform.
 ```bash
 source .venv/bin/activate
 flask run --port 5000                           # Dev server
-python -m pytest padel_app/tests/ -v            # All tests
+python -m pytest padel_app/tests/ -v            # All tests (sqlite, foreign keys ON — the fast path)
 python -m pytest padel_app/tests/test_<name>.py -v  # Specific file
+LEVAPP_TEST_DB=postgres POSTGRES_PW=… python -m pytest padel_app/tests/   # same suite on Postgres, schema built by the real migrations
 ```
+
+CI (`.github/workflows/backend-tests.yaml`) runs both backends on every PR into `staging`/`main`
+(PAD-278). The Postgres run creates `levelup_pytest_<pid>` on `POSTGRES_HOST:POSTGRES_PORT`
+(default localhost:5432, the E2E server) and drops it afterwards; a model column without a
+migration, or a second Alembic head, fails there.
 
 ## Database
 
@@ -25,7 +31,7 @@ python -m pytest padel_app/tests/test_<name>.py -v  # Specific file
 
 ## Testing Patterns
 
-- Fixtures in `tests/conftest.py`: `app` (SQLite test DB), `client`, `seed_users`, `auth`
+- Fixtures in `tests/conftest.py`: `app` (SQLite with FK enforcement, or Postgres via `LEVAPP_TEST_DB=postgres`), `client`, `seed_users`, `auth` — never branch a test on the backend (compass R-026)
 - `make_coach(app)` from `tests/helpers.py` for creating test coaches
 - Import services inside test body (not at module top) to avoid circular imports
 - Wrap DB operations in `with app.app_context():`
