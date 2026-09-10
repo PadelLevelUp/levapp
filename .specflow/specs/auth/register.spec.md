@@ -73,6 +73,11 @@ create one, or ask to join an existing one — happens right after approval (`cl
     carries `emailVerification: "pending"` (or `"verified"` when the gate is off), and the
     client shows the **Verify your email** screen before any of the destinations in rule 11.
 15. **Per-IP throttle (PAD-228).** `POST /api/auth/register` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_REGISTER` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. The limit exists so the route cannot be used to mass-create accounts or flood the admin approval queue.
+16. **Birth date and country (PAD-198).** The body also carries `birthDate` (`YYYY-MM-DD`) and
+    `country` (ISO alpha-2), both required, and `guardianEmail` when the person is under their
+    country's age of digital consent (`auth.parental-consent` rules 1–2). They are stored on the User.
+17. **A minor's sign-up** answers 201 without an `accessToken` and holds the account for a guardian's
+    consent (`auth.parental-consent` rule 3); rules 11 and 14 apply only once consent is given.
 
 ### Acceptance Criteria
 
@@ -148,5 +153,4 @@ create one, or ask to join an existing one — happens right after approval (`cl
   and 7 (admin approval of coaches, added the same day).
 - Rate limiting: rule 15 (PAD-228).
 - Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
-- PAD-198 will add `birthDate` + `country` to this body and gate activation for minors; leave
-  room in the service for a post-create hook rather than branching inside the route.
+- PAD-198: rules 16–17 and `auth.parental-consent` (rules numbered 16+ because PAD-228 takes 15).

@@ -227,6 +227,11 @@ class Config:
     AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
     AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
     AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
+    # auth.parental-consent (PAD-198): the age of digital consent for a country
+    # with no row in `digital_consent_ages` (the GDPR default), and the legal
+    # documents' version recorded with every guardian consent.
+    DIGITAL_CONSENT_DEFAULT_AGE = int(os.getenv("DIGITAL_CONSENT_DEFAULT_AGE", "16"))
+    LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.

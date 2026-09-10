@@ -22,6 +22,8 @@ async function signUpToVerifyScreen(page: Page, username: string) {
   await page.locator("#signup-email").fill(`${username}@example.com`);
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
+  // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
+  await page.locator("#signup-birthDate").fill("2000-01-01");
   await page.getByTestId("signup-submit").click();
   await expect(page).toHaveURL(/\/verify-email/, { timeout: 15_000 });
   await expect(page.getByTestId("verify-email")).toBeVisible();

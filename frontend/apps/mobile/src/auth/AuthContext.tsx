@@ -19,6 +19,15 @@ import { getPushRegistrar } from "@/lib/push";
 
 export type AuthUser = authApi.MeResponse;
 
+/**
+ * auth.parental-consent rule 3 (PAD-198): an adult's sign-up signs in and
+ * yields the user; a minor's yields where the guardian's mail went and no
+ * session is stored.
+ */
+export type RegisterResult =
+  | { user: AuthUser; guardianPending?: undefined }
+  | { user?: undefined; guardianPending: authApi.GuardianPendingInfo };
+
 type AuthContextType = {
   user: AuthUser | null;
   isAuthenticated: boolean;
@@ -28,9 +37,10 @@ type AuthContextType = {
   /**
    * auth.register: creates the account, then signs in exactly as `login`
    * does. Resolves with the hydrated user so the caller can route on
-   * `coachApproval` / `clubs` without a second `/auth/me`.
+   * `coachApproval` / `clubs` without a second `/auth/me` — or, for a minor
+   * waiting for a guardian (PAD-198), with `guardianPending` and no session.
    */
-  register: (payload: authApi.RegisterPayload) => Promise<AuthUser>;
+  register: (payload: authApi.RegisterPayload) => Promise<RegisterResult>;
   /** Re-reads /auth/me (e.g. after an approval) and updates the session. */
   refreshUser: () => Promise<AuthUser | null>;
   /** Best-effort server invalidation, clears token + state, routes to login. */
@@ -117,12 +127,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     async (payload: authApi.RegisterPayload) => {
       const res = await authApi.register(payload);
+      if (!res.accessToken) {
+        return {
+          guardianPending: {
+            guardianEmail: res.guardianEmail ?? null,
+            resendAvailableInSeconds: res.resendAvailableInSeconds ?? 60,
+          },
+        };
+      }
       await secureTokenStorage.setToken(res.accessToken);
       try {
         const me = await authApi.getMe();
         setUser(me);
         void getPushRegistrar().register();
-        return me;
+        return { user: me };
       } catch (error) {
         await secureTokenStorage.removeToken().catch(() => undefined);
         setUser(null);

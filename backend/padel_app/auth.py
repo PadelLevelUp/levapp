@@ -36,6 +36,11 @@ def register_jwt_handlers(jwt):
                 user = User.query.get(user_id)
                 if user is not None and user.status == "disabled":
                     return True
+                # auth.parental-consent rule 4 (PAD-198): no session for a
+                # minor whose guardian has not consented, or has withdrawn —
+                # whatever path issued the token.
+                if user is not None and getattr(user, "guardian_consent_status", None) in ("pending", "revoked"):
+                    return True
 
         return False
 

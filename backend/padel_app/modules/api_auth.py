@@ -33,6 +33,17 @@ from padel_app.services.password_recovery_service import (
     confirm_recovery,
     request_recovery,
 )
+from padel_app.services.parental_consent_service import (
+    ConsentError,
+    decline_consent,
+    give_consent,
+    last_links_for,
+    pending_body,
+    resend_consent,
+    revoke_consent,
+    view_consent,
+    view_revoke,
+)
 from padel_app.utils.debug_flags import debug_endpoints_enabled
 from padel_app.utils.rate_limit import rate_limited
 
@@ -95,6 +106,10 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
+        # auth.parental-consent rule 11 (PAD-198).
+        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
+        "birthDate": user.birth_date.isoformat() if user.birth_date else None,
+        "country": user.country,
     }
 
 @bp.post("/register")
@@ -109,7 +124,17 @@ def register():
         payload = {"error": exc.message}
         if exc.field:
             payload["field"] = exc.field
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
         return jsonify(payload), exc.status
+
+    if user.guardian_consent_status == "pending":
+        # auth.parental-consent rule 3: no session until a guardian consents.
+        return jsonify({
+            **pending_body(user),
+            "guardianConsent": "pending",
+            "user": {"id": user.id, "name": user.name, "role": user.role, "guardianConsent": "pending"},
+        }), 201
 
     access_token = create_access_token(identity=str(user.id))
     return jsonify({
@@ -204,6 +229,67 @@ def password_recovery_confirm():
     return jsonify(body), 200
 
 
+# ── auth.parental-consent (PAD-198) ────────────────────────────────────────
+
+def _client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return (forwarded.split(",")[0].strip() if forwarded else "") or request.remote_addr
+
+
+def _consent_call(fn, *args, **kwargs):
+    try:
+        return jsonify(fn(*args, **kwargs)), 200
+    except ConsentError as exc:
+        db.session.rollback()
+        return jsonify(exc.payload()), exc.status
+
+
+@bp.post("/guardian-consent/resend")
+def guardian_consent_resend():
+    """Rule 5: a pending minor asks for a new link (credentials, no JWT)."""
+    data = request.get_json(silent=True) or {}
+    return _consent_call(resend_consent, data.get("username"), data.get("password"), data.get("guardianEmail"))
+
+
+@bp.get("/guardian-consent/debug/last-link")
+def guardian_consent_debug_last_link():
+    """Rule 12 — E2E only. 404 unless E2E_DEBUG_ENDPOINTS is on."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    links = last_links_for(request.args.get("email"))
+    if not links["consentUrl"] and not links["revokeUrl"]:
+        return jsonify({"error": "NO_MAIL"}), 404
+    return jsonify(links), 200
+
+
+@bp.get("/guardian-consent/revoke/<token>")
+def guardian_consent_revoke_view(token):
+    return _consent_call(view_revoke, token)
+
+
+@bp.post("/guardian-consent/revoke/<token>")
+def guardian_consent_revoke(token):
+    return _consent_call(revoke_consent, token, request.get_json(silent=True) or {})
+
+
+@bp.get("/guardian-consent/<token>")
+def guardian_consent_view(token):
+    """Rule 7: the consent page's data. Opening it changes nothing."""
+    return _consent_call(view_consent, token)
+
+
+@bp.post("/guardian-consent/<token>")
+def guardian_consent_give(token):
+    """Rule 8: the guardian consents."""
+    return _consent_call(give_consent, token, request.get_json(silent=True) or {}, ip=_client_ip())
+
+
+@bp.post("/guardian-consent/<token>/decline")
+def guardian_consent_decline(token):
+    """Rule 9: the guardian declines before consenting."""
+    return _consent_call(decline_consent, token, request.get_json(silent=True) or {})
+
+
 @bp.post("/login")
 @rate_limited("login")
 def login():
@@ -232,6 +318,11 @@ def login():
     # minor whose guardian withdrew — is refused with a clear code and no token.
     if user.status == "disabled":
         return {"error": "ACCOUNT_DISABLED"}, 401
+
+    # auth.login rule 10 (PAD-198): a minor still waiting for consent is told
+    # where the mail went.
+    if user.guardian_consent_status == "pending":
+        return {"error": "GUARDIAN_CONSENT_PENDING", **pending_body(user)}, 403
 
     access_token = create_access_token(identity=str(user.id))
 

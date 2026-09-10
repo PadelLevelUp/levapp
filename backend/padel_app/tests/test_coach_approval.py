@@ -52,6 +52,8 @@ def _register_coach(client, username="rui", email="rui@example.com"):
             "username": username,
             "email": email,
             "password": "Segura123",
+            "birthDate": "2000-01-01",
+            "country": "PT",
         },
     )
     assert res.status_code == 201, res.get_json()

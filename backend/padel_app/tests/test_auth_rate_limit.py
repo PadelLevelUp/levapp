@@ -102,7 +102,7 @@ def test_register_is_throttled_per_ip(client, app, outbox):
     _clock(app, 1000)
 
     def body(i):
-        return dict(role="student", name=f"S {i}", username=f"stu{i}", email=f"stu{i}@example.com", password="Segura123")
+        return dict(role="student", name=f"S {i}", username=f"stu{i}", email=f"stu{i}@example.com", password="Segura123", birthDate="2000-01-01", country="PT")
 
     assert _post(client, "/api/auth/register", IP_A, **body(1)).status_code == 201
     assert _post(client, "/api/auth/register", IP_A, **body(2)).status_code == 201
