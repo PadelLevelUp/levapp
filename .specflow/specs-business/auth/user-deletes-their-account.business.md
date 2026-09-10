@@ -1,6 +1,6 @@
 ---
 id: auth.user-deletes-their-account
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/auth/account-deletion.spec.md
 ---

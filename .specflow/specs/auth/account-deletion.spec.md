@@ -1,6 +1,6 @@
 ---
 id: auth.account-deletion
-status: implementing
+status: implemented
 depends_on: [auth.login, auth.logout, auth.push-subscription, classes.instance-enrollment, notifications.invitations, notifications.waiting-list]
 implements: ../../specs-business/auth/user-deletes-their-account.business.md
 governed_by: []
@@ -37,17 +37,22 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    - no vacancy is opened and nobody is invited because of it (owner decision 2026-09-10); the coach's
      dashboard needs-you queue already surfaces the empty seat;
    - reminders stop as a consequence: they go to an instance's enrolled players;
-   - every standing waiting-list entry is deactivated with its per-class entries
-     (`_deactivate_standing_entry`), and every other active waiting-list entry is deactivated, so no
-     credit is spent and no placement picks them.
+   - every standing waiting-list entry and every active per-class entry (including the ones a
+     standing entry fanned out) is deactivated in the same transaction as the rest of the cascade,
+     so no credit is spent and no placement picks them.
 7. **The engine never picks a deleted account.** In invitation candidate selection a `disabled`
    account is always an `inactive_account` verdict — never invited, never counted in a round —
    whether or not `restrictions.excludeUnpaidSubscription` is on (that setting still governs
    `inactive` accounts; `notifications.config` rule 7c).
-8. **The coach's records are kept.** Past attendance (presences of classes that already started),
-   evaluations, coach notes, level history, the roster row (`coach_in_player`) and the messages the
-   person sent all stay, shown under "Deleted user". They are the coach's and the counterpart's
-   records, not the deleted person's account.
+8. **The coach's records are kept, off the active roster.** Past attendance (presences of classes
+   that already started), evaluations, coach notes, level history, the roster row (`coach_in_player`)
+   and the messages the person sent all stay, shown under "Deleted user". They are the coach's and
+   the counterpart's records, not the deleted person's account. Per privacy policy §11 the account
+   leaves every roster list and picker: `/app/players`, `/app/coach_players`,
+   `/app/coach_players_paginated` (and its alert counts), `/app/notify/player_search`, and the
+   Presences table (`/presence_stats`); `/app/users` and the messaging picker already listed active
+   accounts only. The no-filter Presences trend (`/presence_trend`) counts the same player set as the
+   table, so the KPI tile, the table rows and the trend total stay equal (owner decision 2026-09-10).
 9. **The copy says exactly this** on web and iOS (`settings.account.deleteAccountDescription`,
    `settings.account.deleteDialogDescription`, pt and en): what is deleted, what is kept and why.
 10. **A deleting coach** gets rules 1–5 and 8; their classes, roster and club are left untouched
@@ -84,6 +89,17 @@ session login still let a disabled user in (audit M10). This leaf states the ful
   deleted student
 - **When** the engine selects the next round
 - **Then** the deleted student is an `inactive_account` verdict and is not invited
+
+#### Roster lists and pickers hide a deleted student
+- **Given** a coach whose roster has a deleted student and an active one
+- **When** they open the players list, the class participants picker, the paginated roster or the
+  notify / excluded-players search
+- **Then** only the active student is listed, and the missing-level alert does not count the deleted one
+
+#### The Presences page stays consistent
+- **Given** a deleted student and an active one who both attended a class last week
+- **Then** `/presence_stats` lists only the active student and the KPI total, the sum of the rows and
+  the `/presence_trend` total are all equal
 
 #### The coach keeps their records
 - **Given** a deleted student with past attendance, an evaluation and a message to their coach

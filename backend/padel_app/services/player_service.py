@@ -106,14 +106,21 @@ def create_player_service(data):
     return player
 
 
+def _is_deleted(player):
+    """PAD-268: a deleted account is ``disabled``; it never appears in a roster
+    list or picker (auth.account-deletion rule 8, privacy policy §11)."""
+    return player is not None and player.user is not None and player.user.status == "disabled"
+
+
 def get_players_list(coach, club):
     """Returns the appropriate player list based on the caller's role."""
     if coach:
-        return coach.players
+        players = coach.players
     elif club:
-        return club.players
+        players = club.players
     else:
-        return Player.query.all()
+        players = Player.query.all()
+    return [p for p in players if not _is_deleted(p)]
 
 
 def _activation_token_if_inactive(user):
@@ -177,6 +184,10 @@ def get_coach_players_list(coach):
             joinedload(Association_CoachPlayer.player).joinedload(Player.user)
         )
         .filter_by(coach_id=coach.id)
+        # PAD-268: the roster row of a deleted account stays, hidden.
+        .join(Association_CoachPlayer.player)
+        .join(Player.user)
+        .filter(User.status != "disabled")
         .order_by(Association_CoachPlayer.id.desc())
         .all()
     )
@@ -211,6 +222,8 @@ def search_coach_players(coach_id, term, limit=20):
         .join(Association_CoachPlayer.player)
         .join(Player.user)
         .filter(User.name.ilike(f"%{escaped}%", escape="\\"))
+        # PAD-268: invited-but-inactive players stay pickable; deleted ones never.
+        .filter(User.status != "disabled")
         .order_by(User.name.asc())
         .limit(limit)
         .all()
@@ -241,6 +254,8 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
 
     # Always join Player/User for sorting and filtering
     query = query.join(Association_CoachPlayer.player).join(Player.user)
+    # PAD-268: a deleted account's roster row stays, hidden from the list.
+    query = query.filter(User.status != "disabled")
 
     if search:
         query = query.filter(User.name.ilike(f"%{search}%"))
@@ -269,7 +284,12 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Compute alert counts across ALL coach players (not just current page)
-    base_query = Association_CoachPlayer.query.filter_by(coach_id=coach.id)
+    base_query = (
+        Association_CoachPlayer.query.filter_by(coach_id=coach.id)
+        .join(Association_CoachPlayer.player)
+        .join(Player.user)
+        .filter(User.status != "disabled")
+    )
     missing_level_count = base_query.filter(Association_CoachPlayer.level_id.is_(None)).count()
     missing_side_count = base_query.filter(Association_CoachPlayer.side.is_(None)).count()
 

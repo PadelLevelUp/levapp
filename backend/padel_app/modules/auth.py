@@ -30,6 +30,10 @@ def login():
             error = "Wrong username"
         elif not check_password_hash(user.password, password):
             error = "Wrong password"
+        elif user.status == "disabled":
+            # PAD-268 (auth.account-deletion rule 3): a deleted or disabled
+            # account never gets a session.
+            error = "This account is disabled"
 
         if error is None:
             login_user(user)

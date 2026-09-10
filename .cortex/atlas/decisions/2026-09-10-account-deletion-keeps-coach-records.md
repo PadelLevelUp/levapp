@@ -26,9 +26,13 @@ profile, classes, evaluations, and messages").
    open item in `auth.account-deletion`: run each seat through the student cancellation path.
 5. **The invitation engine never picks a deleted account**, whatever the coach's "Exclude inactive
    accounts" setting says.
-6. **A deleting coach** gets the account-level parts only; their classes, roster and club are untouched
+6. **The roster row is kept but hidden** (owner, 2026-09-10): a deleted student's `coach_in_player` row
+   stays as the coach's record (level, notes, evaluations hang off it), and every roster list and
+   picker excludes the account, per privacy policy §11.
+7. **A deleting coach** gets the account-level parts only; their classes, roster and club are untouched
    (open item).
-7. **AI import**: document the data flow, no behaviour change.
+8. **AI import**: document the data flow, no behaviour change; the two legal gaps it exposes are
+   owner items (B-038; Linear ticket to follow when the workspace has room).
 
 Specs: `auth.account-deletion` (dev) and `auth.user-deletes-their-account` (business);
 `import.analyze` rule 6.
@@ -40,8 +44,9 @@ Facts the published legal copy must match. Checked against the archived policy
 
 | # | What the product does | Policy section | Status |
 |---|---|---|---|
-| 1 | **Student names go to OpenRouter during import.** The AI import sends the coach's spreadsheet headers, up to 3 sample rows per sheet, up to 15 sample values per column, the student names found in the file and class names to the OpenRouter model provider (default model `inception/mercury-2`), per `import.analyze` rule 6. | §7 (providers), §8 (transfers) | **Check.** §7's provider list does not name AI or LLM processing, and OpenRouter is likely a transfer outside the EEA under §8. |
+| 1a | **Student names go to OpenRouter during import.** The AI import sends the coach's spreadsheet headers, up to 3 sample rows per sheet, up to 15 sample values per column, the student names found in the file and class names to the OpenRouter model provider (default model `inception/mercury-2`), per `import.analyze` rule 6. | §7 (providers) | **Owner item — B-038.** §7's provider list (hosting, storage, email, push, security, operations, support) does not name AI or LLM processing. |
+| 1b | The same import flow sends that data to a provider likely outside the EEA. | §8 (international transfers) | **Owner item — B-038.** §8 covers transfers in general terms; the OpenRouter transfer is not identified. |
 | 2 | Deletion signs the person out everywhere and removes name, email, phone, photo, username and password. | §11 | Matches. |
 | 3 | Deletion keeps past attendance, evaluations, notes, level history and sent messages, anonymised as "Deleted user". | §10, §11 ("preserve records that another user is legally entitled to retain"; content may still contain personal information) | Matches. |
 | 4 | Deletion takes a student out of every future class and waiting list. | §11 ("removes your account from active coach/player relationships") | Matches. |
-| 5 | The coach's roster row for a deleted student (`coach_in_player`, carrying level and notes). | §11 ("removes your account from active coach/player relationships so that it can no longer be used as an active Levapp account") | **Pending decision** (asked 2026-09-10). Today the coach's player list still shows the row as "Deleted user". |
+| 5 | The coach's roster row for a deleted student (`coach_in_player`, carrying level and notes) is kept as the coach's record, but the account is excluded from every roster list and picker (players list, class participants, notify and excluded-players pickers, the Presences table). | §11 ("removes your account from active coach/player relationships so that it can no longer be used as an active Levapp account") | Matches — decided 2026-09-10 (a). |
