@@ -15,12 +15,12 @@ status: active
 The backend has two clocks. Every comparison must use the one that matches its columns.
 
 - **Event timestamps are naive UTC.** This covers `created_at`, `sent_at`, `decided_at`,
-  `expires_at`, `last_activity_at`, `filled_at`, the email and password tokens, and every other
+  `expires_at`, `last_activity_at`, `filled_at`, `vacancies.invite_not_before` (a moment the
+  server computes, not a time anyone typed), the email and password tokens, and every other
   moment the server records. Write and compare them with `utcnow_naive()`.
 - **Scheduling columns are naive Lisbon wall-clock**, exactly the digits the person typed:
   - `lessons`, `lesson_instances`, `calendar_blocks` and `class_requests` — `start_datetime` and
-    `end_datetime`;
-  - `vacancies.invite_not_before`.
+    `end_datetime`.
 
   Compare them with Lisbon "now", which is `club_now_naive()` in `padel_app/utils/dates.py`.
   PAD-256's first implementation PR adds that helper. Never compare them with `utcnow_naive()`.

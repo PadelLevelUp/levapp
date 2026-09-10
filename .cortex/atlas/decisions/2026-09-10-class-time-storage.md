@@ -211,7 +211,9 @@ the series and true-UTC instances. It is more work again, and it pays off with a
   day-before arithmetic uses the wall date directly.
 - `pending.py` uses plain wall dates.
 - `notification_service.py:506` stops labelling a wall value as UTC.
-- `invite_not_before` becomes wall-clock in both timing modes.
+- `invite_not_before` becomes a UTC instant in both timing modes. It is computed by the same
+  helper as reminders, and it is a moment the server computes, not a time anyone typed. (Corrected
+  while implementing PR 3; this draft first said wall-clock.)
 - Quiet hours, the daily quota and every event timestamp stay UTC. They are correct today.
 - R-023 splits into two rules. Event timestamps are naive UTC; the listed scheduling columns are
   naive Lisbon; crossing between them goes through `CLUB_TZ` helpers.
