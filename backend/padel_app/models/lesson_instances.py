@@ -26,7 +26,7 @@ class LessonInstance(db.Model, model.Model):
     end_datetime = Column(DateTime, nullable=False)
     overwrite_title = Column(String(255), nullable=True)
     
-    level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
 
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")

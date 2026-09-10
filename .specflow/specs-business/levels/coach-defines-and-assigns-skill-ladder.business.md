@@ -48,6 +48,9 @@ Coaches, who each build and maintain their own ladder — there's no shared, app
   player at, and when" is always answerable. The same player can hold different levels with different
   coaches.
 - A player's current level is always the most recent assignment on record.
+- Removing a rung from the ladder never removes players: anyone who held that level simply has no
+  level until the coach picks a new one, and their notes and evaluations stay. Classes and open
+  spots at that level likewise just lose the level.
 
 ## Success Metrics
 

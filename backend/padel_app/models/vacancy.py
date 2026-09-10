@@ -28,7 +28,7 @@ class Vacancy(db.Model, model.Model):
     )
     # Snapshotted from the departing player's Association_CoachPlayer at creation time
     side = Column(Enum("left", "right", "both", name="vacancy_side"), nullable=True)
-    level_id = Column(Integer, ForeignKey("coach_levels.id"), nullable=True)
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"), nullable=True)  # PAD-255
 
     status = Column(
         Enum("open", "filled", "expired", name="vacancy_status"),

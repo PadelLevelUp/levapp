@@ -266,3 +266,39 @@ def get_coach_levels(coach_id: int) -> list:
     """
 
     return get_level_ladder(coach_id)
+
+def delete_coach_level_service(coach, level_id):
+    """Remove a rung from the coach's ladder (levels.coach-levels rule 11, PAD-255).
+
+    Deleting a level UNASSIGNS it. Every row that pointed at it — roster rows
+    (with their notes and evaluations), lessons, instances, open vacancies —
+    keeps existing with no level. The database says the same (`ON DELETE SET
+    NULL`, migration 0efff0790eb0); the explicit updates below make it true
+    for any caller and any backend, including the FK-less SQLite test suite,
+    and keep the ORM from cascading through stale relationship state.
+    """
+    from padel_app.models import (
+        Association_CoachPlayer,
+        Lesson,
+        LessonInstance,
+        PlayerLevelHistory,
+        Vacancy,
+    )
+
+    level = CoachLevel.query.filter_by(id=level_id, coach_id=coach.id).first_or_404()
+    for model, column in (
+        (Association_CoachPlayer, Association_CoachPlayer.level_id),
+        (Lesson, Lesson.default_level_id),
+        (LessonInstance, LessonInstance.level_id),
+        (Vacancy, Vacancy.level_id),
+    ):
+        model.query.filter(column == level.id).update({column.key: None}, synchronize_session=False)
+    # History rows of the rung go with it (`level_id` is NOT NULL, ON DELETE
+    # CASCADE in the database); done here too so the FK-less test schema and
+    # a stale ORM identity map agree with Postgres.
+    PlayerLevelHistory.query.filter_by(level_id=level.id).delete(synchronize_session=False)
+    db.session.delete(level)
+    db.session.commit()
+    normalize_display_orders(coach.id)
+    db.session.commit()
+    return level

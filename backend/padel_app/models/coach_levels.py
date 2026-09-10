@@ -23,10 +23,15 @@ class CoachLevel(db.Model, model.Model):
     label = Column(String(100), nullable=False)  # e.g. "A1", "Beginner", "Pro"
     code = Column(String(10), nullable=False)
     
+    # levels.coach-levels rule 11 (PAD-255, B-035): NO delete cascade here.
+    # The one that used to be declared deleted every player at the level —
+    # with their notes and evaluations — whenever the level was removed.
+    # Deleting a level unassigns it (`delete_coach_level_service`; the FK is
+    # ON DELETE SET NULL as well).
     coach_player_relations = relationship(
-        "Association_CoachPlayer", 
+        "Association_CoachPlayer",
         back_populates="level",
-        cascade="all, delete-orphan"
+        passive_deletes=True,
     )
     
     display_order = Column(Integer, default=0)
