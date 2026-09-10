@@ -27,7 +27,8 @@
         "holiday": "Holiday",
         "off_work": "Off work",
         "unavailable": "Unavailable"
-      }
+      },
+      "openAria": "Open {{title}}, {{start}} to {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} class",

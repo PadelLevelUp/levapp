@@ -60,6 +60,15 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     `calendar.mobile-views` rule 10 when that leaf ships: the strip becomes date circles with a
     dot row on both shells — no chips, no `+N`, no internal column scrolling.)**
 
+15. **(PAD-148)** The class/event card in the week grid (`CalendarEventCard`) is a real
+    interactive control: focusable in DOM order, named for screen readers by its title **and**
+    its time range, activatable with **Enter and Space** as well as a pointer click, with a
+    visible focus ring. It stays a `div` carrying `role="button"` rather than becoming a
+    native `<button>` because the same element is the HTML5 drag source for `calendar.drag-drop`
+    and because its subtree contains `div`s and a `role="progressbar"` fill bar, which a
+    `<button>` may not legally contain. Generalised by compass rule **R-026**; iOS already
+    satisfies it (`EventCard`'s `Pressable` has `role="button"` + `accessibilityLabel`).
+
 ### Acceptance Criteria
 
 #### Coach calendar view
@@ -123,3 +132,12 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **And** tapping anywhere in a day's column selects that day — including the empty area below the
   chips, and the whole column on a day with no classes at all; the full-height column is one
   day-select target, not just its header
+
+#### Calendar class card is reachable and activatable by keyboard
+- **Given** a signed-in coach on `/calendar` viewing a week that contains a class
+- **When** they move focus through the page with `Tab`
+- **Then** focus lands on the class card, which exposes an accessible name containing the class
+  title and its start and end times
+- **And** pressing `Enter` on the focused card opens the class detail sheet
+- **And** dragging the card to another slot still reschedules it, exactly as before
+

@@ -99,6 +99,27 @@ export function CalendarEventCard({
   const confirmed = event.confirmedCount ?? 0;
   const showFill = !isBlock && capacity > 0;
 
+  // PAD-148 / R-026. The card carries a click handler, so it has to be a real
+  // control — focusable, named, Enter/Space-activatable, with a focus ring.
+  //
+  // It stays a <div role="button"> rather than becoming a native <button> for
+  // two independent reasons: this same element is the HTML5 drag source for
+  // calendar.drag-drop, and its subtree holds <div>s and a role="progressbar"
+  // fill bar, neither of which a <button> may legally contain.
+  //
+  // A card with no onClick (a calendar block, or a read-only render) is not a
+  // control and must not be announced as one — the same gate iOS applies via
+  // `accessibilityState.disabled` in EventCard.tsx.
+  const interactive = Boolean(onClick);
+  const title = event.title || t('calendar.eventCard.fallbackTitle');
+  // Title AND time range: a week grid holds several classes, and the title
+  // alone does not say which slot the focused one is.
+  const ariaLabel = t('calendar.eventCard.openAria', {
+    title,
+    start: event.startTime,
+    end: event.endTime,
+  });
+
   return (
     <div
       style={{ ...style, ...stateStyle }}
@@ -106,11 +127,26 @@ export function CalendarEventCard({
       data-event-state={state}
       data-needs-players={needsPlayers ? 'true' : 'false'}
       draggable
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? ariaLabel : undefined}
       onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                // Without preventDefault, Space scrolls the grid instead.
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
       onDragEnd={onDragEnd}
       className={cn(
         'flex flex-col rounded-lg cursor-grab active:cursor-grabbing transition-all hover:brightness-95 overflow-hidden',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isRow ? 'gap-1 px-3 py-2.5 rounded-xl' : 'gap-0.5 px-2 py-1.5',
         typeClass(),
         isBlock && 'border border-dashed',
