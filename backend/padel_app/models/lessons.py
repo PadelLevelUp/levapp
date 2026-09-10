@@ -30,7 +30,7 @@ class Lesson(db.Model, model.Model):
     
     type = Column(Enum("academy", "private", name="lesson_type"), nullable=False)
 
-    default_level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    default_level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
     max_players = Column(Integer, nullable=False)
 

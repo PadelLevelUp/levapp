@@ -1982,12 +1982,15 @@ def remove_player():
 @jwt_required()
 def delete_coach_level():
     """PAD-92: previously an anonymous `id`-only delete of any coach's level."""
+    from padel_app.services.coach_service import delete_coach_level_service
+
     data = request.get_json() or {}
     coach = require_coach()
     rel = CoachLevel.query.filter_by(id=_required_int_id(data)).first_or_404()
     if rel.coach_id != coach.id:
         abort(403, "Not authorized to delete this level")
-    rel.delete()
+    # levels.coach-levels rule 11 (PAD-255): unassign, never delete the players.
+    delete_coach_level_service(coach, rel.id)
     return jsonify({"status": "Removed coach levels"}), 200
 
 

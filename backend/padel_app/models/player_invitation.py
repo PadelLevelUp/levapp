@@ -22,7 +22,8 @@ class PlayerInvitation(db.Model, model.Model):
 
     token = Column(String(64), unique=True, nullable=False, index=True)
 
-    invited_by_coach_id = Column(Integer, ForeignKey("coaches.id"))
+    # PAD-255 (audit H7): a deleted coach detaches from the invitations they sent.
+    invited_by_coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="SET NULL"))
     invited_by_coach = relationship("Coach")
 
     status = Column(

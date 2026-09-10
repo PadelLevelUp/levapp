@@ -13,7 +13,7 @@ governed_by: []
 A coach who belongs to a club can invite another coach to join that club via a shareable invite link. Accepting the invitation creates (or links) the coach account and adds them to the club.
 
 ### Entities
-- **CoachInvitation** (`coach_invitations`): club_id (FK → clubs, CASCADE), token (unique), email (optional), invited_by_coach_id (FK → coaches), status (pending|accepted|revoked|expired), expires_at, created_at
+- **CoachInvitation** (`coach_invitations`): club_id (FK → clubs, CASCADE), token (unique), email (optional), invited_by_coach_id (FK → coaches, SET NULL — PAD-255), status (pending|accepted|revoked|expired), expires_at, created_at
 
 ### Rules
 1. Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it

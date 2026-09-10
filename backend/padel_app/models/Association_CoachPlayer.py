@@ -19,7 +19,8 @@ class Association_CoachPlayer(db.Model, model.Model):
     id = Column(Integer, primary_key=True)
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"))
     player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
-    level_id = Column(Integer, ForeignKey("coach_levels.id"), nullable=True)
+    # PAD-255: a deleted level leaves the roster row with no level, never deletes it.
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"), nullable=True)
 
     coach = relationship("Coach", back_populates="players_relations")
     player = relationship("Player", back_populates="coaches_relations")
