@@ -6,6 +6,9 @@
 # Mirrors: apps/web/e2e/auth-onboarding/coach-rejection.spec.ts
 appId: com.padellevelup.app
 ---
+# The backend the API calls hit: -e API_BASE=http://localhost:<port> for an isolated
+# backend, the shared :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - retry:
     maxRetries: 3
     commands:
@@ -27,12 +30,12 @@ appId: com.padellevelup.app
 - waitForAnimationToEnd
 - evalScript: ${output.stamp = String(Date.now())}
 - evalScript: ${output.username = 'maestro-rej-' + output.stamp}
-- evalScript: ${output.reg = json(http.post('http://localhost:5001/api/auth/register', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'coach', name: 'Maestro Rejected', username: output.username, email: output.username + '@example.com', password: 'Segura1234' }) }).body)}
-- evalScript: ${output.code = json(http.get('http://localhost:5001/api/auth/email-verification/debug/last-code?email=' + output.username + '@example.com').body).code}
-- evalScript: ${output.verify = http.post('http://localhost:5001/api/auth/email-verification/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.reg.accessToken }, body: JSON.stringify({ code: output.code }) }).ok}
-- evalScript: ${output.admin = json(http.post('http://localhost:5001/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}
-- evalScript: ${output.coachId = json(http.get('http://localhost:5001/api/app/admin/coach-approvals', { headers: { 'Authorization': 'Bearer ' + output.admin } }).body).filter(function (r) { return r.username === output.username; })[0].coachId}
-- evalScript: ${output.rejected = http.post('http://localhost:5001/api/app/admin/coach-approvals/' + output.coachId + '/reject', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.admin }, body: JSON.stringify({ reason: 'Maestro: not a coach' }) }).ok}
+- evalScript: "${output.reg = json(http.post(output.api + '/api/auth/register', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'coach', name: 'Maestro Rejected', username: output.username, email: output.username + '@example.com', password: 'Segura1234', birthDate: '2000-01-01', country: 'PT' }) }).body)}"
+- evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=' + output.username + '@example.com').body).code}
+- evalScript: "${output.verify = http.post(output.api + '/api/auth/email-verification/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.reg.accessToken }, body: JSON.stringify({ code: output.code }) }).ok}"
+- evalScript: "${output.admin = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = json(http.get(output.api + '/api/app/admin/coach-approvals', { headers: { 'Authorization': 'Bearer ' + output.admin } }).body).filter(function (r) { return r.username === output.username; })[0].coachId}"
+- evalScript: "${output.rejected = http.post(output.api + '/api/app/admin/coach-approvals/' + output.coachId + '/reject', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.admin }, body: JSON.stringify({ reason: 'Maestro: not a coach' }) }).ok}"
 
 # ── Login says why ──
 - retry:
