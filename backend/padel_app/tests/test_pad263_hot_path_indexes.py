@@ -135,16 +135,24 @@ def test_the_migration_creates_exactly_the_indexes_the_models_declare(app):
     assert wheres == {"ix_vacancies_open": OPEN_VACANCY_WHERE}
 
 
+def _sqlite_plan(sql):
+    """EXPLAIN QUERY PLAN is SQLite's syntax. On Postgres (PAD-278's second
+    backend) the planner picks a sequential scan on the near-empty test tables
+    whatever indexes exist, so a plan cannot show the index is used there; the
+    migration and model tests above still pin that each index exists."""
+    if db.engine.dialect.name != "sqlite":
+        pytest.skip("query-plan check is SQLite-only; index presence is pinned by the migration/model tests")
+    return db.session.execute(sa.text(f"EXPLAIN QUERY PLAN {sql}")).all()
+
+
 def test_the_lesson_instance_lookup_uses_the_occurrence_index(app):
     # The query get_or_materialize_instance and calendar_helpers issue for one
     # occurrence: before this index it scanned every instance of every class.
     with app.app_context():
-        plan = db.session.execute(
-            sa.text(
-                "EXPLAIN QUERY PLAN SELECT id FROM lesson_instances "
-                "WHERE lesson_id = 1 AND original_lesson_occurence_date = '2026-09-10'"
-            )
-        ).all()
+        plan = _sqlite_plan(
+            "SELECT id FROM lesson_instances "
+            "WHERE lesson_id = 1 AND original_lesson_occurence_date = '2026-09-10'"
+        )
     assert any("ix_lesson_instances_lesson_id_occurrence_date" in row[-1] for row in plan), plan
 
 
@@ -165,7 +173,7 @@ def test_the_lesson_instance_lookup_uses_the_occurrence_index(app):
 )
 def test_the_hot_lookups_use_their_index(app, sql, index):
     with app.app_context():
-        plan = db.session.execute(sa.text(f"EXPLAIN QUERY PLAN {sql}")).all()
+        plan = _sqlite_plan(sql)
     assert any(index in row[-1] for row in plan), plan
 
 
