@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -16,7 +16,19 @@ class ClassJoinRequest(db.Model, model.Model):
     """
 
     __tablename__ = "class_join_requests"
-    __table_args__ = {"extend_existing": True}
+    # Created by migration a7c31e9f04d2 (PAD-131); declared so autogenerate
+    # stops proposing to drop them (PAD-220). The partial unique index enforces
+    # one pending request; sqlite_where keeps the test database identical.
+    __table_args__ = (
+        Index("ix_class_join_requests_lesson_instance_id", "lesson_instance_id"),
+        Index("ix_class_join_requests_player_id", "player_id"),
+        Index("ix_class_join_requests_coach_id", "coach_id"),
+        Index(
+            "uq_class_join_request_pending", "lesson_instance_id", "player_id", unique=True,
+            postgresql_where=text("status = 'pending'"), sqlite_where=text("status = 'pending'"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Class Join Requests"
     model_name = "ClassJoinRequest"
