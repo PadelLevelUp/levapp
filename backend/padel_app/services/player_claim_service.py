@@ -37,6 +37,7 @@ from padel_app.models import (
     MessageReaction,
     MessageReport,
     NotificationEvent,
+    ReminderAttempt,
     Player,
     PlayerClaimRequest,
     PlayerInvitation,
@@ -60,6 +61,7 @@ from padel_app.utils.dates import utcnow_naive
 #: Every table with a foreign key onto ``players.id`` that the merge handles.
 #: ``test_player_claim_merge.py`` compares this against ``db.metadata``.
 MERGED_PLAYER_FK_TABLES = frozenset({
+    "reminder_attempts",  # notifications.reminders rule 14 (PAD-207)
     "coach_in_player",
     "player_in_club",
     "player_in_lesson",
@@ -237,6 +239,7 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
         # d. plain re-points
         PlayerLevelHistory.query.filter_by(player_id=pid).update({"player_id": cid})
         NotificationEvent.query.filter_by(player_id=pid).update({"player_id": cid})
+        ReminderAttempt.query.filter_by(player_id=pid).update({"player_id": cid})
         Vacancy.query.filter_by(original_player_id=pid).update({"original_player_id": cid})
         Vacancy.query.filter_by(filled_by_player_id=pid).update({"filled_by_player_id": cid})
         ReplacementApprovalPrompt.query.filter_by(declined_player_id=pid).update({"declined_player_id": cid})

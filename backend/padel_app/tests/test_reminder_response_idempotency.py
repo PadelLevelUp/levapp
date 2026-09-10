@@ -291,4 +291,18 @@ def _resend_reminder(ids, instance_id):
     )
     msg.create()
     db.session.commit()
+    # notifications.reminders rule 14 (PAD-207): a reminder IS a
+    # reminder_attempts row; the message is only its delivery record.
+    from padel_app.models import Player, Presence
+    from padel_app.services.reminder_attempt_service import record_attempt
+
+    player = Player.query.filter_by(user_id=ids["student_user_id"]).first()
+    presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player.id).first()
+    record_attempt(
+        message=msg,
+        instance_id=instance_id,
+        player_id=player.id,
+        presence_id=presence.id if presence else None,
+        number=2,
+    )
     return msg

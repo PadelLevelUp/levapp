@@ -2158,19 +2158,12 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         if existing_presence.confirmed:
             continue
 
-        # Count reminders already sent to THIS player for THIS instance.
-        # DB-portable: load this player's reminder Messages and filter in Python
-        # on msg_metadata (no JSON-column SQL, so SQLite tests and Postgres prod
-        # behave identically).
-        conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-        prior_reminders = Message.query.filter_by(
-            conversation_id=conv.id,
-            message_type="notification_reminder",
-        ).all()
-        sent_count = sum(
-            1 for m in prior_reminders
-            if m.msg_metadata and m.msg_metadata.get("instanceId") == instance_id
-        )
+        # Count reminders already sent to THIS player for THIS instance —
+        # notifications.reminders rule 14 (PAD-207): the reminder_attempts
+        # table is the source of truth, not a scan of the conversation.
+        from padel_app.services import reminder_attempt_service as attempts
+
+        sent_count = attempts.count_attempts(instance_id, player_id)
 
         if sent_count >= reminder_count:
             continue
@@ -2193,21 +2186,15 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         # superseded so the frontend renders them disabled/"expired". Reminders the
         # player already responded to are left untouched (they keep their badge).
         from padel_app.serializers.message import serialize_message
-        for m in prior_reminders:
-            if (
-                m.msg_metadata
-                and m.msg_metadata.get("instanceId") == instance_id
-                and not m.msg_metadata.get("responded")
-                and not m.msg_metadata.get("superseded")
-            ):
-                m.msg_metadata = {**m.msg_metadata, "superseded": True}
-                m.save()
+        for attempt in attempts.pending_attempts(instance_id, player_id):
+            changed = attempts.mark_superseded(attempt)
+            if changed is not None:
                 publish(
-                    {"type": "message_edited", "payload": serialize_message(m, None)},
-                    message_recipient_ids(m),
+                    {"type": "message_edited", "payload": serialize_message(changed, None)},
+                    message_recipient_ids(changed),
                 )
 
-        _send_system_message(
+        sent_msg = _send_system_message(
             coach_user_id=coach_user_id,
             player_user_id=player_user_id,
             text=text,
@@ -2225,6 +2212,15 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
                     else None
                 ),
             },
+        )
+        # Rule 14: the row is the record; the message stays the delivery.
+        attempts.record_attempt(
+            message=sent_msg,
+            instance_id=instance_id,
+            player_id=player_id,
+            presence_id=existing_presence.id,
+            number=sent_count + 1,
+            sent_at=now,
         )
         sent_this_round += 1
 
@@ -2255,23 +2251,20 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
     if not coach or not coach.user_id:
         return
 
-    conv = _get_or_create_direct_conversation(coach.user_id, player_user_id)
-    reminders = Message.query.filter_by(
-        conversation_id=conv.id,
-        message_type="notification_reminder",
-    ).all()
-    for m in reminders:
-        if (
-            m.msg_metadata
-            and m.msg_metadata.get("lessonInstanceId") == instance.id
-            and not m.msg_metadata.get("responded")
-            and not m.msg_metadata.get("superseded")
-        ):
-            m.msg_metadata = {**m.msg_metadata, "superseded": True, "expired": True}
-            m.save()
+    # Rule 14 (PAD-207): the pending reminders come from reminder_attempts;
+    # the message metadata is mirrored so the clients see the same flags.
+    from padel_app.models import Player
+    from padel_app.services import reminder_attempt_service as attempts
+
+    player = Player.query.filter_by(user_id=player_user_id).first()
+    if player is None:
+        return
+    for attempt in attempts.pending_attempts(instance.id, player.id):
+        changed = attempts.mark_superseded(attempt, expired=True)
+        if changed is not None:
             publish(
-                {"type": "message_edited", "payload": serialize_message(m, None)},
-                message_recipient_ids(m),
+                {"type": "message_edited", "payload": serialize_message(changed, None)},
+                message_recipient_ids(changed),
             )
 
 
@@ -2394,21 +2387,14 @@ def _pending_reminder_message(
     """
     if not coach_user_id:
         return None
-    from padel_app.models import Message
+    # Rule 14 (PAD-207): reminder_attempts decides what is pending.
+    from padel_app.models import Player
+    from padel_app.services import reminder_attempt_service as attempts
 
-    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-    recent_reminders = Message.query.filter_by(
-        conversation_id=conv.id,
-        message_type="notification_reminder",
-    ).order_by(Message.id.desc()).all()
-    return next(
-        (m for m in recent_reminders
-         if m.msg_metadata
-         and m.msg_metadata.get("lessonInstanceId") == lesson_instance_id
-         and not m.msg_metadata.get("responded")
-         and not m.msg_metadata.get("superseded")),
-        None,
-    )
+    player = Player.query.filter_by(user_id=player_user_id).first()
+    if player is None:
+        return None
+    return attempts.latest_pending_message(lesson_instance_id, player.id)
 
 
 def _mark_answered_message_read(message, user_id: int) -> None:
@@ -2554,15 +2540,19 @@ def respond_to_reminder(
     if reminder_msg is None and _recorded_reminder_action(presence) == action:
         return {"action": _RESPONSE_STATE.get(action, "unknown"), "duplicate": True}
 
-    # Mark the reminder message as responded so the frontend shows the badge on reload
+    # Mark the reminder as responded — on its reminder_attempts row (rule 14),
+    # mirrored onto the message so the frontend shows the badge on reload.
     if reminder_msg is not None:
+        from padel_app.models import ReminderAttempt
         from padel_app.serializers.message import serialize_message
-        reminder_msg.msg_metadata = {
-            **reminder_msg.msg_metadata,
-            "responded": True,
-            "response": action,
-        }
-        reminder_msg.save()
+        from padel_app.services import reminder_attempt_service as attempts
+
+        attempt = ReminderAttempt.query.filter_by(message_id=reminder_msg.id).first()
+        if attempt is not None:
+            attempts.mark_responded(attempt, action, when=now)
+        else:
+            reminder_msg.msg_metadata = {**reminder_msg.msg_metadata, "responded": True, "response": action}
+            reminder_msg.save()
         publish(
             {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
             message_recipient_ids(reminder_msg),
@@ -2885,30 +2875,17 @@ def cancel_attendance(
     # Mark the most recent reminder message as responded ("no") so the UI reflects
     # the cancellation on reload, mirroring respond_to_reminder.
     if coach_user_id:
-        from padel_app.models import Message
         from padel_app.serializers.message import serialize_message
-        conv = _get_or_create_direct_conversation(coach_user_id, acting_user_id)
-        recent_reminders = Message.query.filter_by(
-            conversation_id=conv.id,
-            message_type="notification_reminder",
-        ).order_by(Message.id.desc()).all()
-        reminder_msg = next(
-            (m for m in recent_reminders
-             if m.msg_metadata
-             and m.msg_metadata.get("lessonInstanceId") == lesson_instance_id),
-            None,
-        )
-        if reminder_msg:
-            reminder_msg.msg_metadata = {
-                **reminder_msg.msg_metadata,
-                "responded": True,
-                "response": "no",
-            }
-            reminder_msg.save()
+        from padel_app.services import reminder_attempt_service as attempts
+
+        # Rule 14 (PAD-207): the latest reminder row for this player/instance.
+        attempt = attempts.latest_attempt(lesson_instance_id, player.id)
+        reminder_msg = attempts.mark_responded(attempt, "no", when=now) if attempt is not None else None
+        if reminder_msg is not None:
             publish(
-            {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
-            message_recipient_ids(reminder_msg),
-        )
+                {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
+                message_recipient_ids(reminder_msg),
+            )
 
     _free_spot_for_declining_player(
         instance,
