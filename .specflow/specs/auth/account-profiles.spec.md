@@ -1,6 +1,6 @@
 ---
 id: auth.account-profiles
-status: implementing
+status: implemented
 depends_on: [auth.register, auth.activate, players.create, players.remove, import.revert]
 implements: ../../specs-business/auth/newcomer-creates-and-activates-an-account.business.md
 governed_by: []

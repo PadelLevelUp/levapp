@@ -122,6 +122,9 @@ def delete(model, id):
     if request.method == "POST":
         model_name = model.lower()
         model = MODELS[model_name]
+        # auth.account-profiles rule 3 (PAD-260): users are never hard-deleted here.
+        if model.__tablename__ == "users":
+            return jsonify(success=False, error="Users are not deleted through the editor; use account deletion (DELETE /api/auth/me)."), 409
         obj = model.query.filter_by(id=id).first()
         obj.delete()
         return jsonify(url_for("editor.display_all", model=model_name))
