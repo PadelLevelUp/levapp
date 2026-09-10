@@ -36,7 +36,7 @@ directory (audit M9).
    signed in is sent to the legacy login and a signed-in non-superadmin gets 403. (Until PAD-267 the
    legacy surfaces also let `is_admin` in.)
 3. **Secrets never leave and never change.** Redacted columns: `users.password`,
-   `users.generated_code`, `users.email_verification_code_hash`, `device_tokens.token`,
+   `users.generated_code`, `users.email_verification_code_hash`, `users.password_reset_code_hash` (PAD-139), `device_tokens.token`,
    `push_subscriptions.subscription_json`, `coach_invitations.token`, `player_invitations.token`,
    `coach_join_tokens.token`. They are omitted from every read (list, record, the legacy query, the
    Jinja display pages) and ignored on every write (create, update, the legacy create and edit). A
