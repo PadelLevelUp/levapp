@@ -1138,11 +1138,23 @@ def evaluate_candidates(
 
     active_invite_ids: set = set()
     if getattr(vacancy, "id", None) is not None:
+        from sqlalchemy import or_
+
+        # B-056 (notifications.invitations rule 8): a player already asked for
+        # this vacancy in THIS round is done for the round, whatever they
+        # answered. A decline or a timeout leaves the invitation `expired`, and
+        # without the round clause the decliner was eligible again at once:
+        # the ranking does not change on a decline, so `_send_next_on_decline`
+        # invited the same player straight back and the round never ran out.
+        # Invitations still live from any round keep excluding, as before.
         active_invite_ids = {
             e.player_id
             for e in NotificationEvent.query.filter(
                 NotificationEvent.vacancy_id == vacancy.id,
-                NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                or_(
+                    NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                    NotificationEvent.round_number == wave[1],
+                ),
             ).all()
         }
 
