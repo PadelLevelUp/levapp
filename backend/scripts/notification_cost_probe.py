@@ -141,7 +141,6 @@ def seed(args):
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.calendar_blocks import CalendarBlock
     from padel_app.models.clubs import Club
     from padel_app.models.coach_levels import CoachLevel
@@ -250,8 +249,11 @@ def seed(args):
             instance_ids.append(inst.id)
         first = db.session.get(LessonInstance, instance_ids[0])
         enrolled = players[: args.enrolled]
+        # PAD-259 (classes.instance-enrollment rule 1): the presence row IS the
+        # enrolment, so the seed writes presences only — no shadow junction row,
+        # which phase 2 (PAD-301) drops. On a tree older than PAD-259 the engine
+        # still reads the junction, so these three read as candidates there.
         for p in enrolled:
-            db.session.add(Association_PlayerLessonInstance(player_id=p.id, lesson_instance_id=first.id))
             db.session.add(Presence(lesson_instance_id=first.id, player_id=p.id, invited=True))
         db.session.add(NotificationConfig(coach_id=coach.id, auto_notify_enabled=True))
         vacancy = Vacancy(lesson_instance_id=first.id, coach_id=coach.id, status="open",
