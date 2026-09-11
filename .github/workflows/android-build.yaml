@@ -267,18 +267,8 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            set -euo pipefail
-            adb wait-for-device
-            adb install -r "$RUNNER_TEMP/apk/app-release.apk"
-            # Android 13+: the registrar asks for notification permission at login; grant it
-            # up front so no system dialog interrupts the flows (mobile.android-runtime rule 6).
-            adb shell pm grant com.padellevelup.app android.permission.POST_NOTIFICATIONS
-            adb shell pm list packages | grep -q com.padellevelup.app
-            cd frontend/apps/mobile/.maestro
-            echo "flows: $MAESTRO_FLOWS"
-            # shellcheck disable=SC2086  # MAESTRO_FLOWS is a space-separated list on purpose
-            maestro test --format junit --output "$GITHUB_WORKSPACE/maestro-report.xml" $MAESTRO_FLOWS
+          # The action runs `script:` with /bin/sh (dash): keep the bash in a file.
+          script: bash frontend/apps/mobile/scripts/ci-android-maestro.sh
 
       - name: Collect Maestro output
         if: always()
