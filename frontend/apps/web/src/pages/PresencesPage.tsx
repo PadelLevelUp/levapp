@@ -89,6 +89,9 @@ export default function PresencesPage() {
   const [weekOffset, setWeekOffset] = useState(() =>
     initialWeekOffset(searchParams.get("week"))
   );
+  // PAD-283 (dashboard.blocks rule 10): the dashboard's validation card lands
+  // here with `validate=1`, so the coach is inside the validate view at once.
+  const [openValidate] = useState(() => searchParams.get("validate") === "1");
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
   // PAD-191 (B-033): the SET of classes in flight, not just the first — every
@@ -263,6 +266,7 @@ export default function PresencesPage() {
 
         <div className="sm:max-w-sm">
           <ValidateClassesDialog
+            initialOpen={openValidate}
             pending={queue?.pending ?? []}
             validated={queue?.validated ?? []}
             pendingCount={pendingCount}

@@ -62,6 +62,7 @@ export interface RosterOption {
  * records attendance and stamps `validated=true` in one call.
  */
 export function ValidateClassesDialog({
+  initialOpen,
   pending,
   validated,
   pendingCount,
@@ -73,6 +74,8 @@ export function ValidateClassesDialog({
   onUnvalidate,
   busyClassIds = [],
 }: {
+  /** PAD-283: arrive with the dialog already open (`/presences?validate=1`). */
+  initialOpen?: boolean;
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
   /**
@@ -104,7 +107,7 @@ export function ValidateClassesDialog({
 }) {
   const { t, i18n } = useTranslation();
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen ?? false);
   const [selected, setSelected] = useState<number[]>([]);
   const [edits, setEdits] = useState<Edits>({});
   const [extras, setExtras] = useState<Extras>({});

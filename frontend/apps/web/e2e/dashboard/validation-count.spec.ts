@@ -6,7 +6,7 @@
  * Spec: `dashboard.blocks` rule 3 (validation item), `attendance.validation`
  * rule 18. Fixture: the seed's two "E2E Validation Class" instances in the
  * PREVIOUS week, so on any weekday the card falls back to last week and links
- * to `/presences?week=-1`.
+ * to `/presences?validate=1&week=-1` (PAD-283: with the validate view open).
  */
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
@@ -39,9 +39,10 @@ test("US-201: the validation card and the Presences trigger agree, and the card 
   await expect(trigger).toContainText(/\d+/, { timeout: 15_000 });
   expect(firstNumber(await trigger.textContent())).toBe(cardCount);
 
-  // The dialog opens on the same week the card counted: the fixture classes
-  // are listed without touching the week control.
-  await trigger.click();
+  // PAD-283 (dashboard.blocks rule 10): the card lands INSIDE the validate view
+  // on the week it counted — the fixture classes are listed without pressing
+  // the trigger or touching the week control.
+  await expect(page).toHaveURL(/validate=1/);
   await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(cardCount, {
     timeout: 15_000,
   });
