@@ -27,7 +27,7 @@ describe("classRequestBubbleState (classes.class-requests rule 6, PAD-281)", () 
   });
 
   it("offers the coach the same three answers on the student's counter-proposal", () => {
-    const countered: ClassRequestMessageMeta = { id: 7, status: "pending", kind: "countered", slot: { ...slot, startTime: "17:00", endTime: "18:00" } };
+    const countered: ClassRequestMessageMeta = { id: 7, status: "pending", kind: "counter_proposal", slot: { ...slot, startTime: "17:00", endTime: "18:00" } };
     const back = { ...live, status: "pending" as const, startTime: "17:00", endTime: "18:00" };
     expect(classRequestBubbleState(countered, back, { own: false })).toEqual({ kind: "actions", status: "pending" });
     expect(classRequestBubbleState(countered, back, { own: true })).toEqual({ kind: "waiting", status: "pending" });

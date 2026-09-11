@@ -20,7 +20,7 @@ export interface ClassRequestSlot {
 export interface ClassRequestMessageMeta {
   id: number;
   status: ClassRequestLiveStatus;
-  kind: "requested" | "proposed" | "countered" | "accepted" | "declined" | "withdrawn";
+  kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
   /** The time this message is about (absent on messages sent before PAD-281). */
   slot?: ClassRequestSlot;
 }
@@ -65,8 +65,8 @@ export function classRequestBubbleState(
 ): ClassRequestBubbleState {
   if (!meta) return { kind: "none", status: undefined };
   // A proposal travels one way: the coach's `proposed` waits for the student
-  // (`countered`), the student's `countered` waits for the coach (`pending`).
-  const awaiting = meta.kind === "proposed" ? "countered" : meta.kind === "countered" ? "pending" : null;
+  // (`countered`), the student's `counter_proposal` waits for the coach (`pending`).
+  const awaiting = meta.kind === "proposed" ? "countered" : meta.kind === "counter_proposal" ? "pending" : null;
   if (awaiting === null) return { kind: "none", status: meta.status };
   if (live === undefined) return { kind: "none", status: meta.status };
   if (live === null) return { kind: "outcome", status: meta.status };

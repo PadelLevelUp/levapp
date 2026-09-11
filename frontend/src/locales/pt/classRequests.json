@@ -28,7 +28,8 @@
       "not_open": "Este pedido já foi decidido",
       "not_pending": "O aluno está a responder à tua proposta",
       "not_countered": "Não há proposta para responder",
-      "NO_CLUB": "Entra ou cria um clube antes de aceitar"
+      "NO_CLUB": "Entra ou cria um clube antes de aceitar",
+      "slot_changed": "Essa proposta já não é a que está em cima da mesa"
     },
     "status": {
       "pending": "À espera do treinador",

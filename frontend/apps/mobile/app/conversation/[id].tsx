@@ -840,7 +840,7 @@ export default function ConversationScreen() {
   const hasClassRequestProposal = React.useMemo(
     () =>
       (conversation?.messages ?? []).some(
-        (m) => m.metadata?.classRequest?.kind === "proposed" || m.metadata?.classRequest?.kind === "countered"
+        (m) => m.metadata?.classRequest?.kind === "proposed" || m.metadata?.classRequest?.kind === "counter_proposal"
       ),
     [conversation?.messages]
   );
@@ -860,13 +860,15 @@ export default function ConversationScreen() {
   const handleAnswerClassRequest = async (message: Message, accept: boolean) => {
     const id = message.metadata?.classRequest?.id;
     if (id == null || respondingClassRequestId !== null) return;
-    // `proposed` is the coach's (the student answers); `countered` is the
+    // `proposed` is the coach's (the student answers); `counter_proposal` is the
     // student's (the coach decides through accept / decline).
     const studentAnswers = message.metadata?.classRequest?.kind === "proposed";
     setRespondingClassRequestId(message.id);
     try {
-      if (studentAnswers) await classRequestsApi.answerClassRequestProposal(id, accept);
-      else if (accept) await classRequestsApi.acceptClassRequest(id);
+      const slot = message.metadata?.classRequest?.slot;
+      // The slot the bubble shows travels with the answer (rule 5): a stale bubble gets 409 slot_changed.
+      if (studentAnswers) await classRequestsApi.answerClassRequestProposal(id, accept, slot);
+      else if (accept) await classRequestsApi.acceptClassRequest(id, slot);
       else await classRequestsApi.declineClassRequest(id);
       toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
     } catch (err) {

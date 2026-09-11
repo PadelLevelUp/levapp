@@ -79,10 +79,10 @@ export function MessageBubble({
   // not), which is why the list is fetched here and refreshed by
   // `class_request_changed` in AppLayout. A stale answer gets the server's 409
   // and the bubble re-reads — never an error page.
-  // `proposed` is the coach's proposal (the student answers); `countered` is
+  // `proposed` is the coach's proposal (the student answers); `counter_proposal` is
   // the student's counter-proposal (the coach answers, rule 10).
   const classRequestMeta = message.metadata?.classRequest;
-  const isClassRequestProposal = classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "countered";
+  const isClassRequestProposal = classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
   const studentAnswers = classRequestMeta?.kind === "proposed";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -100,8 +100,9 @@ export function MessageBubble({
     if (!classRequestMeta || responding) return;
     setResponding(true);
     try {
-      if (studentAnswers) await answerClassRequestProposal(classRequestMeta.id, accept);
-      else if (accept) await acceptClassRequest(classRequestMeta.id);
+      // The slot the bubble shows travels with the answer (rule 5): a stale bubble gets 409 slot_changed.
+      if (studentAnswers) await answerClassRequestProposal(classRequestMeta.id, accept, classRequestMeta.slot);
+      else if (accept) await acceptClassRequest(classRequestMeta.id, classRequestMeta.slot);
       else await declineClassRequest(classRequestMeta.id);
       toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
     } catch (err) {

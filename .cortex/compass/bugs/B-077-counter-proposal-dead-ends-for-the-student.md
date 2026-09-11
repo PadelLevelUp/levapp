@@ -92,7 +92,7 @@ code on backend, web, iOS; regression; resolve here.
   Availability picker → counter-proposal → second round → accept from the bubble).
 - Code: `counter_proposal_service` + `POST /app/class-requests/<id>/counter-proposal`;
   `free-blocks?excludeRequestId`; every class-request message carries `slot`, the student's
-  message is kind `countered`; `classRequestBubbleState` (packages/config) drives the proposal
+  message is kind `counter_proposal`; an accept names the slot it accepts (`409 slot_changed` otherwise) and deciding reads lock the row (review of #203); `classRequestBubbleState` (packages/config) drives the proposal
   card on web `MessageBubble` and iOS `message-bubble` (student answers a `proposed`, coach
   answers a `countered`; Propose deep-links to the Availability section / the inbox with
   `?proposeFor=`); the Availability section (web + iOS) gets the third button with a free-block

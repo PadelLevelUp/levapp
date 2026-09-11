@@ -1856,8 +1856,8 @@ def class_request_free_blocks():
     # Rule 10 (PAD-281): re-slotting one's own request — its hold is not busy time.
     exclude_request_id = request.args.get("excludeRequestId", type=int)
     if exclude_request_id is not None:
-        own = ClassRequest.query.get_or_404(exclude_request_id)
-        if own.player_id != player.id:
+        # 403 for a missing id too: the student's routes never reveal which ids exist.
+        if ClassRequest.query.filter_by(id=exclude_request_id, player_id=player.id).first() is None:
             abort(403, "Not your request")
     return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
@@ -1880,14 +1880,14 @@ def withdraw_class_request(request_id):
 @bp.post("/class-requests/<int:request_id>/accept-proposal")
 @jwt_required()
 def accept_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=True)
+    row = answer_proposal_service(request_id, current_player(), accept=True, data=request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 
 @bp.post("/class-requests/<int:request_id>/decline-proposal")
 @jwt_required()
 def decline_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=False)
+    row = answer_proposal_service(request_id, current_player(), accept=False, data=request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 

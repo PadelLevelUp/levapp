@@ -455,7 +455,7 @@ export interface Message {
     classRequest?: {
       id: number;
       status: ClassRequestStatus;
-      kind: "requested" | "proposed" | "countered" | "accepted" | "declined" | "withdrawn";
+      kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
       slot?: { date: string; startTime: string; endTime: string };
     };
     [key: string]: unknown;

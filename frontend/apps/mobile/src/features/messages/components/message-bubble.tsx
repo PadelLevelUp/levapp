@@ -163,7 +163,7 @@ export function MessageBubble({
   // request's live row the screen fetches (class-request-message.ts).
   const classRequestMeta = message.metadata?.classRequest;
   const isClassRequestProposal =
-    classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "countered";
+    classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
   const classRequest = classRequestBubbleState(classRequestMeta, classRequestLive, { own });
 
   // Notification-invite response area, mirrors web's MessageBubble.tsx
