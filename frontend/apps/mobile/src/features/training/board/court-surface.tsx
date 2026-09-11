@@ -175,7 +175,8 @@ export function CourtSurface({
             ) : null}
             <BallDot at={path.from} />
             {all.length > 1 && !compact ? (
-              <G testID={`ball-number-${index}`} x={startV.x + 13} y={startV.y - 24}>
+              {/* Offset per index: several paths may start at one point (basket feeds), so the badges fan out. */}
+              <G testID={`ball-number-${index}`} x={startV.x + 13 + index * 18} y={startV.y - 24}>
                 <Circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
                 <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill="#fff">
                   {index + 1}

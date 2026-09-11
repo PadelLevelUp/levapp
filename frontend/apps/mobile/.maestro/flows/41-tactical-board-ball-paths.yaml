@@ -47,6 +47,12 @@ appId: com.padellevelup.app
 # A fresh board switches to basket mode without a prompt (rule 3).
 - tapOn:
     id: "board-tab-basket"
+# After the tab switch the court sits below the fold on a phone (F's run, 2026-09-11).
+- scrollUntilVisible:
+    element:
+      id: "piece-feeder"
+    direction: DOWN
+    timeout: 15000
 - assertVisible:
     id: "piece-feeder"
 - tapOn:
