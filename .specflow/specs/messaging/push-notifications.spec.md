@@ -95,6 +95,22 @@ Send browser push notifications when a new message arrives and the recipient isn
    Under the test configuration the sender runs inline so existing tests stay deterministic;
    `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
    are untouched: only *when* the HTTP call happens changes.
+11. **Android delivery is prepared on the Expo payload, without Firebase in the repo (PAD-307,
+   Android wave C prep; rule number unconfirmed).** Expo push tokens are platform-neutral: the
+   Expo push service delivers to Android over FCM once the project holds a `google-services.json`
+   and an FCM V1 service-account key — owner steps outside the code. What the code owns:
+   (a) every Expo message carries `channelId: "default"` and `priority: "high"`, so an Android
+   device shows it as a heads-up on the channel the client creates (iOS ignores both fields);
+   (b) `POST /api/notifications/device` accepts `platform` only as `ios` or `android` and answers
+   400 otherwise (missing included) — the value is recorded on `device_tokens.platform` as sent
+   and refreshed on re-registration; no database CHECK constraint is added; (c) when
+   `EXPO_ACCESS_TOKEN` is set and non-empty the sender adds `Authorization: Bearer <token>` to
+   every request to the Expo push API (needed once the Expo project enforces access tokens);
+   unset or empty, the request is byte-for-byte what it was — no behaviour change; (d) the
+   Android client creates the `default` channel at HIGH importance (name "Messages") before
+   asking for permission, and the permission request is the Android 13+ `POST_NOTIFICATIONS`
+   prompt (`requestPermissionsAsync`; a no-op grant below 13). Firebase/EAS steps live in
+   `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
 
 ### Acceptance Criteria
 
@@ -142,3 +158,13 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Given** a web push answered 410 while the browser had already re-subscribed on the same row
 - **When** the cleanup runs
 - **Then** the row with the new endpoint is kept
+
+#### The Expo payload and the device route are Android-ready (PAD-307)
+- **Given** a recipient with a registered device token and `EXPO_ACCESS_TOKEN` unset
+- **When** a push is sent
+- **Then** each message posted to the Expo API carries `channelId: "default"` and `priority: "high"` next to `to`, `title`, `body` and `data`, and the request has no `Authorization` header
+- **And** with `EXPO_ACCESS_TOKEN=abc` the same request carries `Authorization: Bearer abc` and an otherwise identical body
+- **Given** a signed-in user registering a device token
+- **When** `platform` is `android`
+- **Then** the row is stored with `platform = "android"`, and re-registering the same token with `ios` updates it
+- **And** `platform` missing, empty, or any other value (`web`, `IOS`) answers 400 and stores nothing
