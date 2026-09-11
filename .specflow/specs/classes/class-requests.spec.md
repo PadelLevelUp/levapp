@@ -70,8 +70,10 @@ held on the coach's calendar while the request is open.
     {date, startTime, endTime}` while the request is `countered`: the slot is validated exactly
     like a new request (rule 2 length, rule 7 past / free, the request's own hold excluded), the
     hold moves, the request turns `pending` again at the new slot and the coach is told (rule 6,
-    kind `proposed` from the student's side). Rounds are unlimited: the coach may accept,
-    decline or propose again, and so on. Any other status answers `409 not_countered`; another
+    kind `countered` from the student's side). Rounds are unlimited: the coach may accept,
+    decline or propose again, and so on — from the inbox or from that message's bubble, which
+    offers the coach Accept / Decline / Propose another time the same way rule 6 offers the
+    student (Propose opens the inbox on that request). Any other status answers `409 not_countered`; another
     student's request answers `403`. `GET /app/class-requests/free-blocks?…&excludeRequestId=<id>`
     leaves the caller's own hold out of the busy time so the picker can offer it.
 
