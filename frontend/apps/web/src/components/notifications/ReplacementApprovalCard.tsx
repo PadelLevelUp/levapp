@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
 import { respondToApproval } from "@/api/notificationEngine";
-import { lisbonNow } from "@levelup/config";
+import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 
 function formatWindowOpen(iso: string): string {
   const date = new Date(iso);
@@ -42,7 +42,7 @@ export function ReplacementApprovalCard({
 
   // Window state computed at render time
   const windowOpenInFuture =
-    !!bundle.windowOpenAt && new Date(bundle.windowOpenAt).getTime() > lisbonNow().getTime();
+    !!bundle.windowOpenAt && wallClockISOMs(bundle.windowOpenAt) > lisbonNowMs();
   const windowLabel = bundle.windowOpenAt ? formatWindowOpen(bundle.windowOpenAt) : null;
 
   const allStale =

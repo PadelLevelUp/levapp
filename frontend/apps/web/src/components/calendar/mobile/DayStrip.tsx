@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { cardSurfaceWeb, lisbonNow, resolveCardVariant } from "@levelup/config";
+import { cardSurfaceWeb, isClubToday, resolveCardVariant } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
@@ -53,7 +53,7 @@ export function DayStrip({
   onPrev,
   onNext,
   eventsByDay,
-  now = lisbonNow(),
+  now = new Date(),
 }: {
   weekDays: Date[];
   selectedDay: Date;
@@ -84,7 +84,7 @@ export function DayStrip({
           const key = format(day, "yyyy-MM-dd");
           const events = eventsByDay[key] ?? [];
           const selected = isSameDay(day, selectedDay);
-          const today = isSameDay(day, now);
+          const today = isClubToday(day, now);
           const abbr = format(day, "EEE", { locale }).replace(/\.$/, "");
 
           return (

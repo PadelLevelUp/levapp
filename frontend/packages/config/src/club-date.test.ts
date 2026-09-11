@@ -60,3 +60,25 @@ describe("isClubToday", () => {
     expect(config.isClubToday(new Date(2027, 6, 31), now)).toBe(false);
   });
 });
+
+// PAD-295 review (G-1): comparisons run on UTC-anchored digits, which have no DST
+// gaps on any device, so the order is always the digit order.
+describe("lisbonNowMs / wallClockMs / wallClockISOMs", () => {
+  it("lisbonNowMs is Lisbon's digits anchored at UTC: 01:30Z on 2027-03-28 is 02:30 WEST", () => {
+    expect(config.lisbonNowMs(new Date(Date.UTC(2027, 2, 28, 1, 30)))).toBe(Date.UTC(2027, 2, 28, 2, 30));
+  });
+
+  it("wallClockMs anchors stored digits at UTC and is NaN for garbage", () => {
+    expect(config.wallClockMs("2027-03-28", "03:15")).toBe(Date.UTC(2027, 2, 28, 3, 15));
+    expect(Number.isNaN(config.wallClockMs("nope", "03:15"))).toBe(true);
+    expect(Number.isNaN(config.wallClockMs("2027-03-28", ""))).toBe(true);
+  });
+
+  it("wallClockISOMs reads a naive server string as club digits, and an instant through Lisbon", () => {
+    expect(config.wallClockISOMs("2027-07-15T10:30:00")).toBe(Date.UTC(2027, 6, 15, 10, 30));
+    expect(config.wallClockISOMs("2027-07-15T10:30:00.123456")).toBe(Date.UTC(2027, 6, 15, 10, 30));
+    // 09:30Z in July is 10:30 in Lisbon.
+    expect(config.wallClockISOMs("2027-07-15T09:30:00Z")).toBe(Date.UTC(2027, 6, 15, 10, 30));
+    expect(Number.isNaN(config.wallClockISOMs("soon"))).toBe(true);
+  });
+});

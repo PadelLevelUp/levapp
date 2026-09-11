@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, CLASS_REQUEST_DURATIONS, slotOptions } from "@levelup/config";
+import { CLASS_REQUEST_DURATIONS, clubTodayISO, lightTheme, slotOptions } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { ClassRequest } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
@@ -27,8 +27,7 @@ import { cn } from "@/lib/utils";
 const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return clubTodayISO(); // B-060: the club's date, not the device's
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {

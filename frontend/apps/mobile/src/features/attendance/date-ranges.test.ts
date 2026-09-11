@@ -153,3 +153,17 @@ describe("weekBounds (B-060)", () => {
     });
   });
 });
+
+import { weekBounds as wb, weekLabelDates } from "./date-ranges";
+
+// PAD-295 review (G-2): the iOS week label must name the week `weekBounds`
+// queried — both on the club's clock.
+describe("weekLabelDates agrees with weekBounds", () => {
+  it("names the club's week, not the device's", () => {
+    const now = new Date(Date.UTC(2026, 8, 13, 23, 30));
+    const { monday, sunday } = weekLabelDates(0, now);
+    expect(monday.toISOString().slice(0, 10)).toBe(wb(0, now).from);
+    expect(sunday.toISOString().slice(0, 10)).toBe(wb(0, now).to);
+    expect(monday.toISOString().slice(0, 10)).toBe("2026-09-14");
+  });
+});

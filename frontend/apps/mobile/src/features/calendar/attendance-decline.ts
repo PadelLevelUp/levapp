@@ -1,4 +1,4 @@
-import { lisbonNow, localDateTime } from "@levelup/config";
+import { lisbonNowMs, wallClockMs } from "@levelup/config";
 /**
  * The student-side decline gates on the class-detail screen (PAD-170 C5,
  * `attendance.confirm` rules 10–16).
@@ -61,14 +61,14 @@ export function hasDeclined(
 export function hasClassStarted(
   date: string | null | undefined,
   startTime: string | null | undefined,
-  now: number = lisbonNow().getTime()
+  now: number = Date.now()
 ): boolean {
   if (!date) return false;
   // B-060: built from its parts. Hermes may return Invalid Date for an
   // offset-less "YYYY-MM-DDTHH:MM" string, which read as "not started".
-  const startAt = localDateTime(date, startTime || "00:00");
-  const ms = startAt.getTime();
-  return !Number.isNaN(ms) && ms <= now;
+  // Club digits on both sides (PAD-295): `now` is a real instant.
+  const startMs = wallClockMs(date, startTime || "00:00");
+  return !Number.isNaN(startMs) && startMs <= lisbonNowMs(new Date(now));
 }
 
 /**
@@ -80,7 +80,7 @@ export function hasClassStarted(
  */
 export function canDeclineProactively(
   input: DeclineGateInput,
-  now: number = lisbonNow().getTime()
+  now: number = Date.now()
 ): boolean {
   return (
     !input.isCoach &&

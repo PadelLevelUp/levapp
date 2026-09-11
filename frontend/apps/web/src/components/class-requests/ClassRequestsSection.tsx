@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassRequest, FreeBlock } from "@levelup/types";
-import { CLASS_REQUEST_DURATIONS, slotOptions } from "@levelup/config";
+import { CLASS_REQUEST_DURATIONS, clubTodayISO, slotOptions } from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,8 +39,7 @@ import {
 const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return clubTodayISO(); // B-060: the club's date, not the device's
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {

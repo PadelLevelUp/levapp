@@ -167,7 +167,7 @@ describe("readableInk", () => {
 });
 
 describe("resolveEventState", () => {
-  const now = new Date("2026-08-20T12:00:00");
+  const now = new Date("2026-08-20T12:00:00+01:00"); // an instant: 12:00 on the club's clock
 
   it("treats a finished class as past even without a completed status", () => {
     const e = event({ date: "2026-08-20", startTime: "09:00", endTime: "10:00" });
@@ -210,7 +210,7 @@ describe("hasOpenSpots", () => {
 });
 
 describe("findNextEventId", () => {
-  const now = new Date("2026-08-20T12:00:00");
+  const now = new Date("2026-08-20T12:00:00+01:00"); // an instant: 12:00 on the club's clock
 
   it("returns the soonest class that has not finished", () => {
     const past = event({ id: "past", startTime: "09:00", endTime: "10:00" });
@@ -422,5 +422,37 @@ describe("resolveEventState / findNextEventId default to the club's clock (PAD-2
     const e = event({ id: "done", date: "2027-07-15", startTime: "08:30", endTime: "09:30" });
     expect(resolveEventState(e)).toBe("past");
     expect(findNextEventId([e])).toBeUndefined();
+  });
+});
+
+/**
+ * PAD-295 review (G-1): a device in Europe/Madrid has its own DST gap on
+ * 2027-03-28 (02:00–03:00 CET→CEST). Lisbon reads 02:30 WEST at 01:30Z; a
+ * device-local Date built from those digits is pushed into 03:30 CEST, so a
+ * class at 03:15 Lisbon read as past 45 minutes early. Comparing UTC-anchored
+ * digits has no gap. Red under `TZ=Europe/Madrid` on the Date-based code.
+ */
+describe("the club's clock on the device's own DST nights (PAD-295)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("spring: a class ending at 03:15 is still on at 02:30 Lisbon on a Madrid device", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2027, 2, 28, 1, 30)));
+    // 00:45–03:15 Lisbon: a device-local Madrid Date for the 03:15 end lands in
+    // Madrid's gap and becomes 03:15 CEST = 01:15Z, "before" now — wrong.
+    const e = event({ id: "dawn", date: "2027-03-28", startTime: "00:45", endTime: "03:15" });
+    expect(resolveEventState(e)).toBe("future");
+    expect(findNextEventId([e])).toBe("dawn");
+  });
+
+  it("autumn: a 01:45 class is ahead at both 01:30s Lisbon has that night", () => {
+    const e = event({ id: "dusk", date: "2027-10-31", startTime: "01:45", endTime: "02:45" });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2027, 9, 31, 0, 30))); // 01:30 WEST
+    expect(resolveEventState(e)).toBe("future");
+    vi.setSystemTime(new Date(Date.UTC(2027, 9, 31, 1, 30))); // 01:30 WET
+    expect(resolveEventState(e)).toBe("future");
   });
 });
