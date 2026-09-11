@@ -1,19 +1,14 @@
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import {
-  cardSurfaceWeb,
-  layoutDayEvents,
-  resolveCardVariant,
-  type HourRange,
-} from "@levelup/config";
+import { cardSurfaceWeb, GRID_ROW_HEIGHT, layoutDayEvents, resolveCardVariant, type HourRange } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 import { GUTTER_PX } from "./WeekHeaderRow";
 
 /** Pixels per hour on the phone grid. */
-export const ROW_HEIGHT = 44;
+export const ROW_HEIGHT = GRID_ROW_HEIGHT;
 
 /**
  * The Semana time grid — calendar.mobile-views rules 13 and 14.

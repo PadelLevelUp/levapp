@@ -52,5 +52,7 @@ executionOrder:
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
+    # 35 (PAD-286) reads only: swipes the Mês day sheet up and down. (34 is PAD-274's.)
+    - 35-day-sheet-polish
     # 41 creates its own exercise (PAD-289), so its position is not load bearing.
     - 41-tactical-board-ball-paths
