@@ -11,6 +11,7 @@ whether a failure mode has been seen before.
 - [B-053](B-053-disabled-account-login-issues-token.md) — both login routes signed in a disabled (deleted, withdrawn or rejected) account (incomplete-rule, high, resolved)
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
 - [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
+- [B-080](B-080-nightly-prod-backup-is-a-no-op.md) — the nightly prod backup cron reads an unset variable, runs pg_dump on the host and uploads to an empty bucket; prod has had no automatic backup (incomplete-rule, high, open — unverified on the VM)
 - [B-041](B-041-respond-waiting-list-no-offer-check.md) — any player could queue on any class by id: respond_waiting_list never checked for an offer (incomplete-rule, high, resolved in PAD-222)
 - [B-031](B-031-serialize-user-leaks-contact-fields.md) — the users list, the messageable picker and the public activation lookup returned email and phone to anyone (incomplete-rule, high, resolved in PAD-227)
 - [B-030](B-030-needs-you-later-button-does-nothing.md) — "Mais tarde" on a needs-you empty-seats card did nothing on either shell; now a 24h server-side snooze (incomplete-rule, medium, resolved)
