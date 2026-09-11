@@ -17,7 +17,7 @@ sources:
 
 # Draft skeleton: series identity, per-instance overrides, coaches derived from the lesson
 
-**Status:** SKELETON, not decided. Session H, 2026-09-11, against `staging` 72ac170a8. Independent
+**Status:** SPEC WRITTEN on the recommended defaults (coordinator, 2026-09-11): classes.recurrence rules 6–7, classes.edit rule 4, classes.coach-assignment rules 3–4, classes.delete rule 3, entity lines, one business rule. All four columns (series_id, excluded_dates, max_players_override, coach_override_id) and their migration are HELD until the owner answers decisions 9–11; the code-only parts (fork copies every column; overwrite_title only when different; derived overriddenFields) are implemented first. Tests: test_pad275_series_and_overrides.py (held cases skipped with the reason). Session H, 2026-09-11, against `staging` 72ac170a8. Independent
 of PAD-259 at the table level (it touches `lessons` and `lesson_instances`, not enrolment), but it
 is coded after PAD-259 and PAD-271 so the three migrations chain in one order. The audit already
 rejected virtual occurrences plus an exceptions table (follow-up decision of 2026-09-10); this
