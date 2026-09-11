@@ -199,7 +199,11 @@
       "rotateConfirm": "Generate",
       "cancel": "Cancel",
       "noClub": "You need a club before you can share a join code.",
-      "failed": "Could not prepare the join code. Please try again."
+      "failed": "Could not prepare the join code. Please try again.",
+      "liveCode": "You have an active code, valid until {{date}}.",
+      "liveCodeUses": "Students who joined with it: {{count}}",
+      "liveCodeHint": "For security, a code is only shown when it is generated. To show a QR, generate a new code: the current one stops working.",
+      "showNew": "Generate new code"
     },
     "joinCoach": {
       "title": "Join a coach",
@@ -264,6 +268,20 @@
       "settingsTitle": "Link requests",
       "settingsDescription": "Coaches who created a record for you and want to link it to this account.",
       "settingsEmpty": "No pending link requests."
-    }
+    },
+    "disconnectPlayer": "Disconnect",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting…",
+    "disconnected": "Disconnected from {{name}}",
+    "disconnectFailed": "Failed to disconnect. Please try again.",
+    "disconnectConfirmDescription": "{{name}} keeps their account, attendance and level history. Your notes and evaluations of them are deleted.",
+    "deletePlaceholderConfirmDescription": "{{name}} never created an account. The record is deleted with everything below. This cannot be undone.",
+    "confirmDisconnectAria": "Confirm disconnect from player",
+    "removalImpactLoading": "Checking what this removes…",
+    "removalImpactNotes": "Your notes: {{count}}",
+    "removalImpactEvaluations": "Your evaluations: {{count}}",
+    "removalImpactPresences": "Attendance records: {{count}}",
+    "removeRefusedHasAccount": "{{name}} has an account, so you can only disconnect from them.",
+    "removeRefusedOtherCoaches": "Another coach also has {{name}}, so you can only disconnect from them."
   }
 }

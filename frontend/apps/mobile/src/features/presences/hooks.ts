@@ -135,25 +135,5 @@ export function useUnvalidateClass() {
   });
 }
 
-/**
- * Monday–Sunday bounds for a week `offset` weeks from today, in UTC.
- *
- * UTC and bare `YYYY-MM-DD`, identical to the web shell: `start_datetime` is
- * stored naive-UTC, so a local-time boundary would shift the week and drop a
- * late class into the wrong one.
- */
-export function weekBounds(offset: number): { from: string; to: string } {
-  const now = new Date();
-  const dayOfWeek = (now.getUTCDay() + 6) % 7; // Monday-first
-  const monday = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() - dayOfWeek + offset * 7
-    )
-  );
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { from: iso(monday), to: iso(sunday) };
-}
+// B-060: the Presences week is computed on the club's day (attendance/date-ranges).
+export { weekBounds } from "@/features/attendance/date-ranges";

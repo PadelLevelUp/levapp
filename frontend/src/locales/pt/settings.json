@@ -391,7 +391,14 @@
       "savedTitle": "Categorias guardadas",
       "savedMock": "{{count}} categorias atualizadas (simulação).",
       "saved": "{{count}} categorias atualizadas.",
-      "saveFailed": "Não foi possível guardar as categorias"
+      "saveFailed": "Não foi possível guardar as categorias",
+      "deleteCategory": "Eliminar categoria {{name}}",
+      "deleteConfirmTitle": "Eliminar \"{{name}}\"?",
+      "deleteImpact": "Isto elimina {{scores}} pontuações de {{players}} jogadores. Esta ação não pode ser revertida.",
+      "deleteImpactLoading": "A verificar o que esta categoria contém…",
+      "deleteImpactFailed": "Não foi possível verificar o que esta categoria contém. Tenta novamente.",
+      "typeNameToConfirm": "Escreve {{name}} para confirmar",
+      "deleted": "Categoria \"{{name}}\" eliminada"
     },
     "engine": {
       "loading": "A carregar as definições de notificação…",

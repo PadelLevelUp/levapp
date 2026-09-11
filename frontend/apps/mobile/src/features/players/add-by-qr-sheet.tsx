@@ -40,11 +40,14 @@ interface AddByQrSheetProps {
  * system share sheet (which includes Copy — `expo-clipboard` is not a declared
  * dependency, and the sheet is the idiomatic iOS way to move a link anyway).
  * "Generate new code" rotates the token, the only way to retire a leaked one
- * (rule 6), hence the confirm.
+ * (rule 6), hence the confirm. The server keeps only the token's hash
+ * (PAD-269), so with a live code the sheet says until when it works and offers
+ * "Generate new code" to show a fresh QR.
  */
 export function AddByQrSheet({ open, onOpenChange }: AddByQrSheetProps) {
   const { t, i18n } = useTranslation();
   const [token, setToken] = React.useState<joinTokensApi.CoachJoinToken | null>(null);
+  const [live, setLive] = React.useState<joinTokensApi.CoachJoinTokenStatus | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [confirmRotate, setConfirmRotate] = React.useState(false);
@@ -65,9 +68,16 @@ export function AddByQrSheet({ open, onOpenChange }: AddByQrSheetProps) {
     (async () => {
       setLoading(true);
       setError(null);
+      setToken(null);
+      setLive(null);
       try {
-        const active = (await joinTokensApi.getJoinToken()) ?? (await joinTokensApi.mintJoinToken());
-        if (!cancelled) setToken(active);
+        const status = await joinTokensApi.getJoinToken();
+        if (status) {
+          if (!cancelled) setLive(status);
+        } else {
+          const minted = await joinTokensApi.mintJoinToken();
+          if (!cancelled) setToken(minted);
+        }
       } catch (err) {
         if (!cancelled) setError(describeError(err));
       } finally {
@@ -96,6 +106,7 @@ export function AddByQrSheet({ open, onOpenChange }: AddByQrSheetProps) {
     setError(null);
     try {
       setToken(await joinTokensApi.mintJoinToken());
+      setLive(null);
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -103,11 +114,9 @@ export function AddByQrSheet({ open, onOpenChange }: AddByQrSheetProps) {
     }
   };
 
-  const expires = token
-    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(
-        new Date(token.expiresAt)
-      )
-    : "";
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+  const expires = token ? formatDate(token.expiresAt) : "";
 
   return (
     <>
@@ -129,6 +138,21 @@ export function AddByQrSheet({ open, onOpenChange }: AddByQrSheetProps) {
             <Text className="py-4 text-center text-sm text-destructive" testID="add-by-qr-error">
               {error}
             </Text>
+          ) : null}
+
+          {!loading && !error && !token && live ? (
+            <View className="gap-3" testID="add-by-qr-live">
+              <Text className="text-sm text-foreground">
+                {t("players.addByQr.liveCode", { date: formatDate(live.expiresAt) })}
+              </Text>
+              <Text className="text-sm text-muted-foreground" testID="add-by-qr-live-uses">
+                {t("players.addByQr.liveCodeUses", { count: live.uses })}
+              </Text>
+              <Text className="text-xs text-muted-foreground">{t("players.addByQr.liveCodeHint")}</Text>
+              <Button testID="add-by-qr-new" onPress={handleRotate}>
+                <Text>{t("players.addByQr.showNew")}</Text>
+              </Button>
+            </View>
           ) : null}
 
           {!loading && token ? (

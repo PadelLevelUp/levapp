@@ -64,6 +64,14 @@ Send browser push notifications when a new message arrives and the recipient isn
    still arrive in the app; copy that reads as "notifications are off" for the
    whole app is the PAD-195 defect (a coach with push blocked believed the app
    had stopped notifying them)
+9. **Native device tokens are owned per (user, token) (PAD-269).** `POST /api/notifications/device`
+   `{token, platform}` (JWT) records the pair (caller, token) once. `device_tokens` is unique on
+   `(user_id, token)`, and the route never touches another user's row, so posting someone else's
+   Expo token no longer takes their notifications away (it used to reassign the row to the
+   caller). `DELETE /api/notifications/device` `{token}` removes only the caller's row and is
+   idempotent. An Expo `DeviceNotRegistered` receipt deletes every row holding that token. The
+   iOS app unregisters its token on logout, so a shared phone stops getting the previous user's
+   pushes.
 
 ### Acceptance Criteria
 
@@ -87,3 +95,9 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** the app still writes 0 to the icon badge on that fetch and the badge clears
 - **And** reading a conversation in-app (which invalidates the unread count) and a cold launch both end with the badge equal to the fetched count, even when unchanged
 - **And** the badge is never written from a pending or failed fetch, and is cleared on logout
+
+#### Another user's device token is never taken over (PAD-269)
+- **Given** user `ana` registered the Expo token `ExponentPushToken[abc]`
+- **When** user `bruno` POSTs the same token to `/api/notifications/device`
+- **Then** `ana`'s row is unchanged and `bruno` has a row of his own for that token
+- **And** `bruno` posting it again still leaves exactly one row for the pair

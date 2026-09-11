@@ -14,7 +14,8 @@ export interface CreatedCoachInvitation {
 }
 
 export interface PendingCoachInvitation {
-  token: string;
+  /** clubs.coach-invitation rule 7 (PAD-269): an id, never the token (only its hash is stored). */
+  id: number;
   email: string | null;
   expiresAt: string;
   createdAt: string;
@@ -77,5 +78,14 @@ export async function revokeCoachInvitation(
   token: string
 ): Promise<{ success: boolean }> {
   const res = await getApi().post(`/app/coach-invitations/${token}/revoke`);
+  return res.data;
+}
+
+/** Rule 7 (PAD-269): revoke a pending invitation from the club's list, by id. */
+export async function revokeCoachInvitationById(
+  clubId: number,
+  invitationId: number
+): Promise<{ success: boolean }> {
+  const res = await getApi().post(`/app/club/${clubId}/coach-invitations/${invitationId}/revoke`);
   return res.data;
 }

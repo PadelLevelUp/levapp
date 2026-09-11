@@ -17,6 +17,7 @@ from .players import Player
 from .users import User
 from .presences import Presence
 from .reminder_attempts import ReminderAttempt
+from .deletion_audit import DeletionAudit
 from .calendar_blocks import CalendarBlock
 from .conversations import Conversation
 from .conversation_participants import ConversationParticipant
@@ -78,6 +79,7 @@ MODELS = {
     "user": User,
     "presence": Presence,
     "reminderattempt": ReminderAttempt,
+    "deletionaudit": DeletionAudit,
     "calendarblock": CalendarBlock,
     "conversation": Conversation,
     "coachplayernote": CoachPlayerNote,

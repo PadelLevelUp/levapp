@@ -64,7 +64,9 @@ def test_register_device_token_creates_row(client, app):
         assert row.platform == "ios"
 
 
-def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
+def test_another_users_token_is_never_taken_over(client, app):
+    """messaging.push-notifications rule 9 (PAD-269): posting someone else's Expo
+    token no longer reassigns their row; each user owns their (user, token) pair."""
     from padel_app.models import DeviceToken
 
     with app.app_context():
@@ -74,14 +76,12 @@ def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
         user_a_id, user_b_id = user_a.id, user_b.id
 
     token = "ExponentPushToken[shared999]"
-
     resp1 = client.post(
         "/api/notifications/device",
         json={"token": token, "platform": "ios"},
         headers=_auth_header(app, user_a_id),
     )
     assert resp1.status_code == 200
-
     resp2 = client.post(
         "/api/notifications/device",
         json={"token": token, "platform": "android"},
@@ -90,9 +90,33 @@ def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
     assert resp2.status_code == 200
 
     with app.app_context():
-        rows = DeviceToken.query.filter_by(token=token).all()
+        rows = {r.user_id: r for r in DeviceToken.query.filter_by(token=token).all()}
+        assert set(rows) == {user_a_id, user_b_id}
+        assert rows[user_a_id].platform == "ios"
+        assert rows[user_b_id].platform == "android"
+
+
+def test_reregistering_own_token_keeps_one_row(client, app):
+    """Rule 9: the same user posting the same token twice leaves one row."""
+    from padel_app.models import DeviceToken
+
+    with app.app_context():
+        user = _create_user("User C", "device-user-c")
+        db.session.commit()
+        user_id = user.id
+
+    token = "ExponentPushToken[mine123]"
+    for platform in ("ios", "android"):
+        resp = client.post(
+            "/api/notifications/device",
+            json={"token": token, "platform": platform},
+            headers=_auth_header(app, user_id),
+        )
+        assert resp.status_code == 200
+
+    with app.app_context():
+        rows = DeviceToken.query.filter_by(token=token, user_id=user_id).all()
         assert len(rows) == 1
-        assert rows[0].user_id == user_b_id
         assert rows[0].platform == "android"
 
 
@@ -239,6 +263,30 @@ def test_send_expo_push_never_raises_on_http_failure(app):
             result = send_expo_push(["ExponentPushToken[x]"], "T", "B", {})
 
     assert result is False
+
+
+def test_device_not_registered_deletes_every_row_for_the_token(app):
+    """messaging.push-notifications rule 9 (PAD-269): with tokens owned per
+    (user, token), one DeviceNotRegistered receipt retires the token for all."""
+    from padel_app.models import DeviceToken
+    from padel_app.utils.expo_push import send_expo_push
+
+    with app.app_context():
+        a = _create_user("Shared A", "shared-a")
+        b = _create_user("Shared B", "shared-b")
+        db.session.commit()
+        DeviceToken(user_id=a.id, token="ExponentPushToken[gone]", platform="ios").create()
+        DeviceToken(user_id=b.id, token="ExponentPushToken[gone]", platform="ios").create()
+
+        with patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response({
+                "data": [
+                    {"status": "error", "message": "not registered", "details": {"error": "DeviceNotRegistered"}},
+                ]
+            })
+            send_expo_push(["ExponentPushToken[gone]"], "Title", "Body", {})
+
+        assert DeviceToken.query.filter_by(token="ExponentPushToken[gone]").count() == 0
 
 
 def test_send_expo_push_noop_when_no_tokens(app):

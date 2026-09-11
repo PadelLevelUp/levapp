@@ -404,7 +404,9 @@ class Image(db.Model):
     imageable_id = Column(
         Integer, ForeignKey("imageables.imageable_id", ondelete="CASCADE")
     )
-    imageable = relationship("Imageable", back_populates="images", cascade="all")
+    # PAD-274 (audit M15b): no delete cascade on the many-to-one side — deleting
+    # an Image must never delete the object that owns it.
+    imageable = relationship("Imageable", back_populates="images")
 
     def create(self):
         db.session.add(self)
@@ -486,7 +488,7 @@ class Imageable(db.Model):
     imageable_id = Column(Integer, primary_key=True)
     type = Column(String(50))
     __mapper_args__ = {"polymorphic_identity": "imageable", "polymorphic_on": type}
-    images = relationship("Image", back_populates="imageable", cascade="all")
+    images = relationship("Image", back_populates="imageable", cascade="all", passive_deletes=True)
 
     def create(self):
         db.session.add(self)

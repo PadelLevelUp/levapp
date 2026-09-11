@@ -29,8 +29,8 @@ class Association_CoachPlayer(db.Model, model.Model):
     side = Column(Enum("left", "right", "both", name="player_side"), nullable=True)
     notes = Column(String(255), nullable=True)
     
-    notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan")
-    evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan")
+    notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
+    evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
 
     def __repr__(self):
         return f"<CoachPlayer {self.coach.name} - {self.player.name}>"

@@ -31,16 +31,15 @@ def register_device_token():
     if not token:
         abort(400, "token is required")
 
-    # Upsert semantics: a given Expo token maps to exactly one user. If the
-    # token already exists (e.g. reinstall under a different account, or a
-    # shared device), reassign it to the current caller instead of erroring
-    # on the unique constraint.
-    record = DeviceToken.query.filter_by(token=token).first()
+    # messaging.push-notifications rule 9 (PAD-269): a token is owned per
+    # (user, token). Registering upserts the caller's own row and never touches
+    # another user's (it used to reassign it, so anyone who knew a token could
+    # take someone's notifications away).
+    record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
         record = DeviceToken(user_id=user_id, token=token, platform=platform)
         db.session.add(record)
     else:
-        record.user_id = user_id
         record.platform = platform
 
     db.session.commit()

@@ -16,9 +16,10 @@ REDACTED_COLUMNS = {
     }),
     "device_tokens": frozenset({"token"}),
     "push_subscriptions": frozenset({"subscription_json"}),
-    "coach_invitations": frozenset({"token"}),
-    "player_invitations": frozenset({"token"}),
-    "coach_join_tokens": frozenset({"token"}),
+    # PAD-269: these tables keep only the link token's SHA-256; the hash is still never served.
+    "coach_invitations": frozenset({"token_hash"}),
+    "player_invitations": frozenset({"token_hash"}),
+    "coach_join_tokens": frozenset({"token_hash"}),
     "guardian_consents": frozenset({"consent_token_hash", "revoke_token_hash"}),  # PAD-198
 }
 

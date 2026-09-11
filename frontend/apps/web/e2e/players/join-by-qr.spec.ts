@@ -12,11 +12,19 @@ import { openPlayers } from "../helpers/navigation";
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const PASSWORD = "Segura1234";
 
+const JOIN_URL = /\/join\/coach\/[A-Za-z0-9_-]+$/;
+
+/** Opens "Add by QR" and returns the link it shows. PAD-269: the server keeps only the
+ * token's hash, so when a live code exists the dialog offers a new one instead of
+ * showing it again (players.join-token rule 7). */
 async function readJoinUrl(page: Page): Promise<string> {
   await openPlayers(page);
   await page.getByTestId("players-add-by-qr").click();
   const url = page.getByTestId("add-by-qr-url");
-  await expect(url).toHaveValue(/\/join\/coach\/[A-Za-z0-9_-]+$/, { timeout: 10_000 });
+  const live = page.getByTestId("add-by-qr-live");
+  await expect(url.or(live)).toBeVisible({ timeout: 10_000 });
+  if (await live.isVisible()) await page.getByTestId("add-by-qr-new").click();
+  await expect(url).toHaveValue(JOIN_URL, { timeout: 10_000 });
   await expect(page.getByTestId("add-by-qr-code")).toBeVisible();
   const value = await url.inputValue();
   await page.keyboard.press("Escape");
@@ -74,20 +82,36 @@ test("US-212: a coach account opening the link is told it cannot join", async ({
   await expect(page.getByTestId("join-coach-is-coach")).toBeVisible({ timeout: 10_000 });
 });
 
-test("US-212: generating a new code retires the previous link", async ({ browser, page }) => {
+test("US-212: reopening Add by QR offers a new code, which retires the previous link", async ({
+  browser,
+  page,
+}) => {
   await loginAsCoach(page);
   const oldUrl = await readJoinUrl(page);
 
+  // players.join-token rule 7 (PAD-269): the live code is not shown again.
   await openPlayers(page);
   await page.getByTestId("players-add-by-qr").click();
-  await expect(page.getByTestId("add-by-qr-url")).toHaveValue(oldUrl, { timeout: 10_000 });
+  await expect(page.getByTestId("add-by-qr-live")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("add-by-qr-live-uses")).toBeVisible();
+  await expect(page.getByTestId("add-by-qr-url")).toHaveCount(0);
+  await page.getByTestId("add-by-qr-new").click();
+  const url = page.getByTestId("add-by-qr-url");
+  await expect(url).toHaveValue(JOIN_URL, { timeout: 10_000 });
+  await expect(url).not.toHaveValue(oldUrl);
+  const newUrl = await url.inputValue();
+
+  // Rule 6: rotating from the QR screen still asks first and retires the code on screen.
   await page.getByTestId("add-by-qr-rotate").click();
   await page.getByTestId("add-by-qr-rotate-confirm").click();
-  await expect(page.getByTestId("add-by-qr-url")).not.toHaveValue(oldUrl, { timeout: 10_000 });
+  await expect(url).not.toHaveValue(newUrl, { timeout: 10_000 });
+  await expect(url).toHaveValue(JOIN_URL);
 
   const context = await browser.newContext();
   const visitor = await context.newPage();
-  await visitor.goto(new URL(oldUrl).pathname);
-  await expect(visitor.getByTestId("join-coach-invalid")).toBeVisible({ timeout: 10_000 });
+  for (const retired of [oldUrl, newUrl]) {
+    await visitor.goto(new URL(retired).pathname);
+    await expect(visitor.getByTestId("join-coach-invalid")).toBeVisible({ timeout: 10_000 });
+  }
   await context.close();
 });
