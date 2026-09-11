@@ -99,4 +99,11 @@ clock on any device"; one-line client notes on reminders rule 10 and semi-auto-a
   `ReplacementApprovalCard`; next-class gates and today rings on both shells.
 - Not run: a simulator walk in a non-Lisbon zone (the simulator follows the host clock); iOS is
   covered by the shared helper's tests and the mobile unit tests in four zones.
+- Review follow-up (Session G, same day): comparisons moved from a device-local wall-clock
+  Date to UTC-anchored digits (`lisbonNowMs` vs `wallClockMs` / `wallClockISOMs`) because a
+  device's own DST gap can push the local Date (Europe/Madrid, 2027-03-28: a class ending 03:15
+  read as past 45 min early — red under `TZ=Europe/Madrid`, green in five zones after);
+  `lisbonNow()` is rendering-only and branded `ClubWallClock`. Three more sites switched: iOS
+  `approvalCardState.windowOpenAt`, and the ValidateClasses week label on both shells now comes
+  from `weekBounds` (`weekLabelDates`). Five B-060 strays fixed with `clubTodayISO`.
 - Resolved: 2026-09-11 (PAD-295).
