@@ -120,7 +120,8 @@ The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. 
 There is no Android SDK on the development Macs by decision (PAD-290 §7). The GitHub Actions
 workflow **Android build** (`.github/workflows/android-build.yaml`) is the Android toolchain:
 
-- `apk` job — `expo prebuild -p android` + `gradlew assembleRelease` on the runner. The APK is
+- `apk` job — `expo prebuild -p android` + `gradlew assembleRelease` on the runner, built for
+  `arm64-v8a` (phones) and `x86_64` (the CI emulator) only. The APK is
   signed with the Expo template's debug keystore (installable, JS bundled, no Metro) and uploaded
   as the artefact **`levapp-android-apk`** (`app-release.apk`). Its JS points at
   `http://10.0.2.2:5001/api` — the emulator's alias for the runner — and cleartext HTTP is
