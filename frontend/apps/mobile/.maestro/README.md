@@ -166,3 +166,16 @@ the conversation opened:
 ```bash
 bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDID
 ```
+
+**Android lane (PAD-306):** the flow is tagged `ios-only` and `scripts/ci-android-maestro.sh`
+runs Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push
+exists (PAD-290 wave C, FCM through the Expo push service). Tag any other simulator-only flow
+the same way.
+
+## Flow 23's credentials (PAD-306)
+
+`flows/23-club-join-request.yaml` logs in as an **approved coach with no club**. The E2E seed
+(`apps/web/e2e/scripts/seed.py`) creates `e2e-coach-noclub` / `E2eCoach123!` for it, and both
+runners pass the pair as `MAESTRO_COACH_NOCLUB_USERNAME` / `MAESTRO_COACH_NOCLUB_PASSWORD`
+(`-e`); export either variable to point the flow at an account prepared by hand. The flow gives
+that coach a club, so it relies on the DB reset every runner does first.
