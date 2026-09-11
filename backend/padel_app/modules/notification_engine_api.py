@@ -704,7 +704,9 @@ def debug_reset_presence():
     presence.validated = False
     presence.status = None
     presence.justification = None
-    presence.late_cancellation = False
+    presence.response = "none"  # PAD-271 M5
+    presence.responded_at = None
+    presence.recorded_by = None
 
     db.session.commit()
     return jsonify({"ok": True, "playerId": player.id})

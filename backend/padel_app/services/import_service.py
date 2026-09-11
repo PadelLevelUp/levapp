@@ -566,6 +566,9 @@ def bulk_create_presences(rows, coach):
                 p = enrol(player.id, instance, "import", invited=True, confirmed=True, validated=True)
                 p.status = status
                 p.justification = justification
+                # PAD-271 M5: an imported sheet is a confirmed answer recorded by the import.
+                from padel_app.services.presence_response import record_response
+                record_response(p, "confirmed", recorded_by="import")
                 p.save()
                 created_ids["presences"].append(p.id)
 
