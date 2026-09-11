@@ -3,7 +3,7 @@ id: B-068
 title: "A nested app context removed the outer context's session, leaving it idle in a transaction"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - backend/padel_app/sql_db.py
   - backend/padel_app/tests/conftest.py
@@ -11,6 +11,7 @@ affects:
   - R-007
 proposed_fix: "Scope db.session per app context (scopefunc = id(app_ctx), as Flask-SQLAlchemy 3 does) so a nested context only removes its own session; reorder the test; the conftest alarm names the test and fails the run."
 opened: 2026-09-11T12:10:00Z
+resolved: 2026-09-11T12:33:00Z
 ---
 
 # B-068 — A nested app context removed the outer context's session, leaving it idle in a transaction
@@ -81,4 +82,17 @@ touches `db.session` or `Model.query`.
 
 ### Resolution
 
-(pending — PAD-291)
+- Rule: R-007 extended (one context, one session) — 35d82582f.
+- Code: `backend/padel_app/sql_db.py` scopes `db.session` per app context
+  (`scopefunc = id(app_ctx)`); `test_scheduler_job_lifecycle.py` seeds before entering its
+  context; `conftest.py` attributes a leaked session to its test and fails the run, keeps
+  #201's safety net, and scopes both terminate queries to our own client backends (an
+  autovacuum worker raised InsufficientPrivilege at session end) — ffa5ba59b.
+- Tests: `backend/padel_app/tests/test_pad291_session_scope.py` (2, red on both backends first).
+- Proof (2026-09-11, ~/levapp-wt-g, Postgres 14): full Postgres suite with `gc.collect()`
+  disabled — 1557 passed, 5 skipped, exit 0, no "leaked database sessions" section; SQLite
+  1562 passed. Net restored afterwards.
+- Sweep of product code for sessions outliving their context: nothing found (details in the
+  PAD-291 PR body); one follow-up question noted on `stream_import_analysis` running its
+  coach-level lookup outside a request context.
+- Resolved: 2026-09-11 in PAD-291.
