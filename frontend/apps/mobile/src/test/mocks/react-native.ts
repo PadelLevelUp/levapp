@@ -65,3 +65,28 @@ export function __resetReactNativeMock(): void {
   listeners.clear();
   Platform.OS = "ios";
 }
+
+type BackListener = () => boolean | null | undefined;
+const backListeners: BackListener[] = [];
+
+/**
+ * Mirrors RN's BackHandler: listeners run newest first and the first one that
+ * returns true consumes the press. `remove()` genuinely unsubscribes.
+ */
+export const BackHandler = {
+  addEventListener(_event: "hardwareBackPress", handler: BackListener) {
+    backListeners.push(handler);
+    return {
+      remove() {
+        const i = backListeners.indexOf(handler);
+        if (i >= 0) backListeners.splice(i, 1);
+      },
+    };
+  },
+};
+
+/** Test-only: press back; true when a listener consumed it. */
+export function __emitHardwareBack(): boolean {
+  for (const handler of [...backListeners].reverse()) if (handler()) return true;
+  return false;
+}

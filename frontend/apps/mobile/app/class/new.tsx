@@ -15,7 +15,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -41,6 +40,7 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
@@ -294,7 +294,7 @@ export default function NewClassScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={keyboardAvoidingBehavior()}
       >
         <ScrollView
           className="flex-1"
