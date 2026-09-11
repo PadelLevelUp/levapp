@@ -51,7 +51,8 @@ class Lesson(db.Model, model.Model):
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(
-        "Association_CoachLesson", back_populates="lesson", cascade="all, delete-orphan"
+        "Association_CoachLesson", back_populates="lesson", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     club_id = Column(
@@ -76,6 +77,7 @@ class Lesson(db.Model, model.Model):
         "Association_PlayerLesson",
         back_populates="lesson",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -84,7 +86,8 @@ class Lesson(db.Model, model.Model):
 
     # One-to-many: Lesson -> LessonInstance
     instances = relationship(
-        "LessonInstance", back_populates="lesson", cascade="all, delete-orphan"
+        "LessonInstance", back_populates="lesson", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self):

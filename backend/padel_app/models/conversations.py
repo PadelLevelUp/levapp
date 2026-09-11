@@ -62,12 +62,14 @@ class Conversation(db.Model, model.Model):
         # this delete-orphan cascade, and the service reads the pointed-at rows
         # in a single `id IN (...)` query instead.
         foreign_keys="Message.conversation_id",
+        passive_deletes=True,
     )
 
     participants = relationship(
         "ConversationParticipant",
         back_populates="conversation",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     @property

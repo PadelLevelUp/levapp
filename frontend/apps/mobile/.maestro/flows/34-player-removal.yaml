@@ -1,0 +1,196 @@
+# Mirrors: apps/web/e2e/players/player-removal.spec.ts and
+# apps/web/e2e/settings/evaluation-category-delete.spec.ts (PAD-274, B-057).
+# - E2E Student has an account: the button says Disconnect, the confirmation
+#   lists the coach's notes and evaluations and no attendance, and Cancel
+#   leaves the student alone.
+# - A placeholder this flow creates says Delete, lists its attendance too, and
+#   is deleted.
+# - A category this flow saves asks for its typed name before it is deleted;
+#   the confirm stays disabled until the name matches.
+# Self-contained: it deletes only what it creates, so its position in the
+# suite is not load bearing.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+
+# ── 1. A student with an account: Disconnect, never Delete ──
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-remove"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-remove"
+    text: "Disconnect"
+- tapOn:
+    id: "player-remove"
+- extendedWaitUntil:
+    visible:
+      text: "Your notes: .*"
+    timeout: 15000
+- assertNotVisible:
+    text: "Attendance records: .*"
+- tapOn:
+    text: "Cancel removing player"
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 10000
+- tapOn:
+    text: "Back to players"
+
+# ── 2. A placeholder this flow creates: Delete ──
+- extendedWaitUntil:
+    visible:
+      id: "players-add"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Removal Placeholder"
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- tapOn:
+    id: "players-search"
+- eraseText: 30
+- inputText: "Maestro Removal"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Removal Placeholder.*"
+    timeout: 20000
+- tapOn:
+    text: ".*Maestro Removal Placeholder.*"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-remove"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-remove"
+    text: "Delete Player"
+- tapOn:
+    id: "player-remove"
+- extendedWaitUntil:
+    visible:
+      text: "Attendance records: 0"
+    timeout: 15000
+- tapOn:
+    id: "player-remove-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      text: ".*Maestro Removal Placeholder.*"
+    timeout: 20000
+
+# ── 3. A category saved here asks for its typed name ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-categories-add"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-categories-add"
+- tapOn:
+    id: "evaluation-category-name-new"
+- inputText: "Maestro Cat"
+# Dismiss the keyboard: with it up, the save button "is visible" to Maestro but the
+# tap lands on the keyboard (keyboard-occlusion trap, PAD-198).
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 25%"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-categories-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-categories-save"
+- extendedWaitUntil:
+    visible:
+      text: ".*categories updated.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Remove category Maestro Cat"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    text: "Remove category Maestro Cat"
+- extendedWaitUntil:
+    visible:
+      text: "This deletes 0 scores across 0 players.*"
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: false
+- tapOn:
+    id: "evaluation-category-delete-name"
+- inputText: "Maestro"
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: false
+- inputText: " Cat"
+# hideKeyboard fails on iOS here ("Couldn't hide the keyboard"); Enter blurs the
+# single-line input and dismisses it instead.
+- pressKey: Enter
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: true
+- tapOn:
+    id: "evaluation-category-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Cat.*deleted.*"
+    timeout: 15000

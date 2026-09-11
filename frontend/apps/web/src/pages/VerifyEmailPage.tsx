@@ -132,6 +132,9 @@ const VerifyEmailPage = () => {
           setError(left > 0 ? t("auth.verifyEmail.invalidCode", { count: left }) : t("auth.verifyEmail.invalidCodeLocked"));
         } else if (status === 410) {
           setError(t("auth.verifyEmail.expired"));
+        } else if (status === 429) {
+          // auth.email-verification rule 13 (PAD-269): the per-IP throttle.
+          setError(t("auth.login.rateLimited", { seconds: data?.retryAfterSeconds ?? 60 }));
         } else {
           setError(t("auth.login.networkError"));
         }

@@ -27,8 +27,10 @@ Students who want a class outside the coach's published schedule, and the coach 
    ask for the same time.
 4. The coach accepts (the class is created with the student in it), declines, or proposes a
    different time.
-5. A proposed time goes back to the student, who accepts or declines it.
-6. Both sides are told in chat at every step.
+5. A proposed time goes back to the student, who accepts it, declines it, or proposes another
+   time — and the coach answers again, as many rounds as it takes.
+6. Both sides are told in chat at every step, and the message that asks a question can be
+   answered right there.
 
 ## Business Rules
 
@@ -36,7 +38,8 @@ Students who want a class outside the coach's published schedule, and the coach 
   everything else inside the day.
 - A pending request holds its slot on the coach's calendar; the hold disappears the moment the
   request is decided or withdrawn.
-- Only the coach decides; a counter-proposal is the coach's to make and the student's to answer.
+- Only the coach can book the class or refuse the request outright; either side may propose
+  another time, and the other side always gets to answer.
 - Every state change — new request, accepted, declined, counter-proposed, proposal answered,
   withdrawn — reaches the other side through the existing notification channels.
 

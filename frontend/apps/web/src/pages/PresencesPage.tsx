@@ -21,29 +21,10 @@ import {
   validateClassPresences,
 } from "@/api/presences";
 import { getCoachPlayers } from "@/api/players";
-import { toIsoDate } from "@/components/attendance/dateRanges";
+import { toIsoDate, weekBounds } from "@/components/attendance/dateRanges";
 import type { PendingValidation, PresencePlayerStats, PresenceStats, PresenceTrend } from "@/types";
 import { chartScope, narrowedTotals } from "@levelup/config";
 
-/**
- * Monday–Sunday bounds for a week `offset` weeks from today, in UTC.
- *
- * UTC and bare `YYYY-MM-DD`, matching `dateRanges.ts` — `start_datetime` is
- * stored naive-UTC, so building these from a local-time `Date` would shift the
- * week boundary by the UTC offset and drop a late-evening Sunday class into the
- * wrong week. Same drift PAD-33 and PAD-114 both had to chase down.
- */
-function weekBounds(offset: number): { from: string; to: string } {
-  const now = new Date();
-  const dayOfWeek = (now.getUTCDay() + 6) % 7; // Monday-first
-  const monday = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek + offset * 7)
-  );
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  // Bare dates: the endpoint expands `to` to end-of-day itself.
-  return { from: toIsoDate(monday), to: toIsoDate(sunday) };
-}
 
 /**
  * `?week=<offset>` — the dashboard's validation card lands here on the week it
@@ -89,6 +70,9 @@ export default function PresencesPage() {
   const [weekOffset, setWeekOffset] = useState(() =>
     initialWeekOffset(searchParams.get("week"))
   );
+  // PAD-283 (dashboard.blocks rule 10): the dashboard's validation card lands
+  // here with `validate=1`, so the coach is inside the validate view at once.
+  const [openValidate] = useState(() => searchParams.get("validate") === "1");
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
   // PAD-191 (B-033): the SET of classes in flight, not just the first — every
@@ -263,6 +247,7 @@ export default function PresencesPage() {
 
         <div className="sm:max-w-sm">
           <ValidateClassesDialog
+            initialOpen={openValidate}
             pending={queue?.pending ?? []}
             validated={queue?.validated ?? []}
             pendingCount={pendingCount}

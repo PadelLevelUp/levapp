@@ -50,7 +50,8 @@ function bearer(token: string) {
 }
 
 const COACH_ONLY_TABS = ["calendar", "notifications", "import", "club"] as const;
-const SHARED_TABS = ["profile", "preferences", "account"] as const;
+// PAD-287 (settings.role-scope rule 2): My connections is shared, just before Account.
+const SHARED_TABS = ["profile", "preferences", "connections", "account"] as const;
 
 // ---------------------------------------------------------------------------
 // UI — what each role is offered

@@ -189,7 +189,7 @@
       },
       "hints": {
         "select": "Tap a piece to select it (it gets a ring), then tap the destination to move it.",
-        "ball": "Draw the ball's path. Tap the midpoint of the line to switch between flat and lob.",
+        "ball": "Draw the ball's path. Each pair of taps adds a numbered path; tap a line's midpoint to toggle between flat and lob.",
         "movement": "Tap the player and then the destination — this creates the dashed movement path.",
         "cone": "Tap the court to place a cone. Select a cone and press Delete to remove it.",
         "player": "Tap the court to place the next player (max 4).",
@@ -204,6 +204,15 @@
       "undo": "Undo",
       "deleteSelected": "Delete selected",
       "ballStyleToggle": "Toggle flat / lob",
+      "balls": {
+        "title": "Ball paths",
+        "item": "Path {{n}}",
+        "up": "Move path {{n}} up",
+        "down": "Move path {{n}} down",
+        "remove": "Remove path {{n}}",
+        "flat": "flat",
+        "lob": "lob"
+      },
       "teams": {
         "a": "TEAM A",
         "b": "TEAM B"
@@ -238,7 +247,7 @@
         "step": "Step",
         "auto": "▶ AUTO",
         "stop": "■ Stop",
-        "hint": "Each step holds one ball path and the players' movements. Step advances one; AUTO plays them all."
+        "hint": "Each step holds the ball's paths, in order, and the players' movements. Passo advances one; AUTO plays them all."
       }
     }
   }

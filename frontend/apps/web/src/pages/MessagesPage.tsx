@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
@@ -47,6 +47,16 @@ export default function MessagesPage() {
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  // PAD-284 (dashboard.blocks rule 10): a reply card used to send
+  // `/messages?conversationId=<id>`, which this page ignored — the message
+  // never opened. The server now emits `/messages/<id>`; the old shape is
+  // still honoured here so a cached payload lands on the thread too.
+  const location = useLocation();
+  useEffect(() => {
+    const legacy = new URLSearchParams(location.search).get("conversationId");
+    if (!id && legacy) navigate(`/messages/${legacy}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, location.search]);
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 

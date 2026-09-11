@@ -1,9 +1,4 @@
-import {
-  cardSurfaceNative,
-  lightTheme,
-  resolveCardVariant,
-  type CalendarSurfaces,
-} from "@levelup/config";
+import { cardSurfaceNative, lightTheme, resolveCardVariant, type CalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** Up to three dots per day, in start order — calendar.mobile-views rule 10. */

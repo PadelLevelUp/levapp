@@ -98,9 +98,8 @@ def send_expo_push(
                 logger.warning(
                     "Deleting stale Expo device token (DeviceNotRegistered): %s", token
                 )
-                stale = DeviceToken.query.filter_by(token=token).first()
-                if stale:
-                    db.session.delete(stale)
+                # Rule 9 (PAD-269): several users may hold the token; retire it for all.
+                if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
                 logger.warning(
@@ -113,10 +112,12 @@ def send_expo_push(
 def send_expo_push_to_user(
     user_id, title, body, data: dict | None = None, badge: int | None = None
 ) -> bool:
-    """Convenience wrapper: look up the user's registered device tokens and
-    send. Best-effort — no-ops (and never raises) when the user has no
-    registered devices, mirroring the semantics of send_push_notification's
-    "no subscription -> return False" behaviour.
+    """Look up the user's registered device tokens on the caller and hand the
+    HTTP call to the bounded sender (PAD-294; messaging.push-notifications
+    rule 10). Best-effort — no-ops (and never raises) when the user has no
+    registered devices, mirroring send_push_notification's "no subscription
+    -> return False". Returns False too when the queue is full and the push
+    was dropped (logged). Inline under the test config.
     """
     if not user_id:
         return False
@@ -126,4 +127,7 @@ def send_expo_push_to_user(
     ]
     if not tokens:
         return False
-    return send_expo_push(tokens, title, body, data, badge=badge)
+    from padel_app.utils.push_sender import submit
+
+    return submit(send_expo_push, tokens, title, body, data, badge=badge,
+                  label=f"expo push for user {user_id}")

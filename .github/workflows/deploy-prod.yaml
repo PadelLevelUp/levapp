@@ -189,15 +189,37 @@ jobs:
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 2
 
+    # PAD-296 (B-080, R-028): the script reads its bucket from ~/.backup.env, which
+    # this step writes. BACKUP_BUCKET comes from the repository variable of that
+    # name (Settings → Variables), defaulting to the Terraform-managed backups
+    # bucket; the webhook is optional. The nightly run FAILS LOUDLY (exit 1,
+    # "BACKUP FAILED" in ~/backup.log, ~/backup.status) — a missing bucket is
+    # a failure, not a skip. Nothing here runs a backup: the first run is the
+    # owner's or a cleared session's (`bash ~/backup.sh`, then
+    # `bash ~/backup.sh restore-check`), so a production read never happens
+    # implicitly inside a deploy.
     - name: Install nightly backup cron
       uses: appleboy/ssh-action@v1.2.5
+      env:
+        BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       with:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        envs: BACKUP_BUCKET,DISCORD_WEBHOOK_URL
         script: |
+          set -euo pipefail
           chmod +x /home/${{ secrets.GCE_USER }}/backup.sh
+          umask 077
+          {
+            echo "BACKUP_BUCKET=${BACKUP_BUCKET:-gs://padel-levelup-2026-backups}"
+            echo "BACKUP_RETENTION_DAYS=14"
+            echo "BACKUP_DATABASES=padel_app padel_app_staging"
+            [ -n "${DISCORD_WEBHOOK_URL:-}" ] && echo "DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}"
+          } > /home/${{ secrets.GCE_USER }}/.backup.env
           (crontab -l 2>/dev/null | grep -v backup.sh; echo "0 3 * * * /home/${{ secrets.GCE_USER }}/backup.sh >> /home/${{ secrets.GCE_USER }}/backup.log 2>&1") | crontab -
+          echo "backup cron installed; bucket: $(grep BACKUP_BUCKET /home/${{ secrets.GCE_USER }}/.backup.env)"
 
   frontend:
     needs: [ changes, backend ]

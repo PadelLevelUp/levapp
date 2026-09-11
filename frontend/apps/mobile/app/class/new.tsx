@@ -1,11 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
-import {
-  CLASS_COLOR_SWATCHES,
-  findOverlappingEvent,
-  seasonOccurrenceContaining,
-  lightTheme,
-} from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, clubTodayISO, findOverlappingEvent, lightTheme, seasonOccurrenceContaining } from "@levelup/config";
 import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import { classFormSchema } from "@levelup/validation";
 import { useQuery } from "@tanstack/react-query";
@@ -78,7 +73,7 @@ export default function NewClassScreen() {
   const initialDate =
     typeof params.date === "string" && DATE_RE.test(params.date)
       ? params.date
-      : format(new Date(), "yyyy-MM-dd");
+      : clubTodayISO(); // B-060: the club's date
 
   const [name, setName] = React.useState("");
   // Stable value in state, translated label derived — otherwise the trigger

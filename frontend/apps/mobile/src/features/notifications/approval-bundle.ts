@@ -13,6 +13,7 @@
  * mobile screens are not unit-testable in this repo (see vitest.config.ts).
  */
 
+import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 import type {
   ApprovalAction,
   ApprovalBundle,
@@ -116,9 +117,10 @@ export function approvalCardState(
       staleVacancyIds.includes(vacancy.vacancyId)
     );
 
+  // `windowOpenAt` is a naive club wall-clock string; `now` is a real instant.
+  // Club digits on both sides (PAD-295), like web's ReplacementApprovalCard.
   const windowOpenInFuture =
-    !!bundle.windowOpenAt &&
-    new Date(bundle.windowOpenAt).getTime() > now.getTime();
+    !!bundle.windowOpenAt && wallClockISOMs(bundle.windowOpenAt) > lisbonNowMs(now);
 
   return {
     windowOpenInFuture,

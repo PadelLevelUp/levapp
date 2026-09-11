@@ -73,3 +73,16 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install . pytest
       - run: python -m pytest padel_app/tests -q -p no:warnings
+      # PAD-299: the same drift gate deploy-staging runs (PAD-220), on every PR.
+      # The pytest run above builds its own throwaway schema and drops it, so
+      # migrate a fresh database to head and ask flask db check whether the
+      # models describe it. B-062: an index a migration created but no model
+      # declared passed both pytest jobs and only failed at the deploy.
+      - name: Models match the migrations (flask db check)
+        env:
+          FLASK_APP: padel_app
+          POSTGRES_DB: drift_check
+        run: |
+          PGPASSWORD="$POSTGRES_PW" psql -h localhost -U padel_app_user -d postgres -c 'CREATE DATABASE drift_check'
+          python -m flask db upgrade
+          python -m flask db check

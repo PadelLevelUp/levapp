@@ -148,6 +148,10 @@ export default function VerifyEmailScreen() {
           );
         } else if (status === 410) {
           setError(t("auth.verifyEmail.expired"));
+        } else if (status === 429) {
+          // auth.email-verification rule 13 (PAD-269): the per-IP throttle.
+          const retry = (data as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds ?? 60;
+          setError(t("auth.login.rateLimited", { seconds: retry }));
         } else {
           setError(t("auth.login.networkError"));
         }

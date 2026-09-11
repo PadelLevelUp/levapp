@@ -143,6 +143,31 @@ export interface SeasonDefinitionInput {
   endMonth: number;
 }
 
+/**
+ * players.remove rule 7 (PAD-274): `GET /app/player/{id}/removal_impact`.
+ * `disconnect` for a student with an account (only the link, with this coach's
+ * notes and evaluations, goes); `delete` only for an unclaimed placeholder the
+ * coach created, which also takes its presences.
+ */
+export type PlayerRemovalAction = "disconnect" | "delete";
+
+export interface PlayerRemovalImpact {
+  action: PlayerRemovalAction;
+  notes: number;
+  evaluations: number;
+  /** Present only when `action` is `delete`. */
+  presences?: number;
+}
+
+/** evaluations.categories rule 7 (PAD-274): `GET /app/evaluation_category/{id}/impact`. */
+export interface EvaluationCategoryImpact {
+  name: string;
+  /** Scores recorded in the category, all deleted with it. */
+  scores: number;
+  /** How many of the coach's players have at least one of those scores. */
+  players: number;
+}
+
 export interface CoachPlayer {
   id: string;
   coachId: string;
@@ -165,6 +190,12 @@ export interface CoachPlayer {
    * student who registered on their own can claim. Absent on older payloads.
    */
   claimable?: boolean,
+  /**
+   * players.remove rule 5 (PAD-274): true when this coach may delete the record:
+   * a placeholder (never activated, no password, whatever the username) that no
+   * other coach has. Otherwise the coach can only disconnect. Absent on older payloads.
+   */
+  deletable?: boolean,
   /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
@@ -447,6 +478,17 @@ export interface Message {
      */
     cancellationDeadline?: string;
     superseded?: boolean;
+    /**
+     * classes.class-requests rule 6 (PAD-281): every class-request message
+     * names its request, the status at send time, what happened (`kind`) and
+     * the slot it is about, so the proposal bubble can offer the answers.
+     */
+    classRequest?: {
+      id: number;
+      status: ClassRequestStatus;
+      kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
+      slot?: { date: string; startTime: string; endTime: string };
+    };
     [key: string]: unknown;
   };
 }
@@ -1043,7 +1085,8 @@ export interface InviteSimulationRule {
 
 export interface InviteSimulationRound {
   number: number;
-  kind: "group" | "legacy";
+  /** PAD-279: only invitation groups exist; the legacy rounds are gone. */
+  kind: "group";
   label: string;
   /** Empty = everyone eligible */
   rules: InviteSimulationRule[];

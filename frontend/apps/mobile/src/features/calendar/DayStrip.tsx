@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, nativeCalendarSurfaces } from "@levelup/config";
+import { isClubToday, lightTheme, nativeCalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -59,7 +59,7 @@ export function DayStrip({
           const key = format(day, "yyyy-MM-dd");
           const events = eventsByDay[key] ?? [];
           const selected = isSameDay(day, selectedDay);
-          const today = isToday(day);
+          const today = isClubToday(day);
           const abbr = format(day, "EEE", { locale }).replace(/\.$/, "").toUpperCase();
           const dots = dayDotColors(events, SURFACES);
 

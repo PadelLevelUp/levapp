@@ -17,6 +17,7 @@ from .players import Player
 from .users import User
 from .presences import Presence
 from .reminder_attempts import ReminderAttempt
+from .deletion_audit import DeletionAudit
 from .calendar_blocks import CalendarBlock
 from .conversations import Conversation
 from .conversation_participants import ConversationParticipant
@@ -51,6 +52,7 @@ from .needs_you_snooze import NeedsYouSnooze
 from .class_request import ClassRequest
 from .class_join_request import ClassJoinRequest
 from .digital_consent_age import DigitalConsentAge
+from .app_setting import AppSetting
 from .guardian_consent import GuardianConsent
 
 MODELS = {
@@ -77,6 +79,7 @@ MODELS = {
     "user": User,
     "presence": Presence,
     "reminderattempt": ReminderAttempt,
+    "deletionaudit": DeletionAudit,
     "calendarblock": CalendarBlock,
     "conversation": Conversation,
     "coachplayernote": CoachPlayerNote,

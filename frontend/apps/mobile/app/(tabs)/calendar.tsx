@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { findNextEventId, lightTheme } from "@levelup/config";
+import { findNextEventId, isClubToday, lightTheme } from "@levelup/config";
 import {
   useCalendar,
   useCalendarEvents,
@@ -7,7 +7,7 @@ import {
   type CalendarViewMode,
 } from "@levelup/hooks";
 import type { CalendarEvent } from "@levelup/types";
-import { addDays, format, isToday } from "date-fns";
+import { addDays, format } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -124,7 +124,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   // the WEEK containing today — the same rule the web view uses.
   const nextEventId = React.useMemo(
     () =>
-      (isMonth ? calendar.monthDays : calendar.weekDays).some((d) => isToday(d))
+      (isMonth ? calendar.monthDays : calendar.weekDays).some((d) => isClubToday(d))
         ? findNextEventId(events ?? [])
         : undefined,
     [events, isMonth, calendar.monthDays, calendar.weekDays]

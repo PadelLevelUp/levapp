@@ -14,7 +14,7 @@ provenance:
 ### Intent
 The redesigned court diagram editor ("Quadro Tático") that a coach uses inside exercise
 create/edit, on web and iOS alike. It replaces `training.court-diagram`'s single static element
-list with a mode-aware board — **Situações de jogo** (2v2 tactics, one ball), **Exercícios de
+list with a mode-aware board — **Situações de jogo** (2v2 tactics, the ball's paths in order), **Exercícios de
 cesto** (basket feeding drills) and **Magnético** (free board with pen) — whose diagram is an
 ordered sequence of steps that can be stepped through (Passo) or animated (AUTO).
 
@@ -45,7 +45,12 @@ type PieceColor = "white" | "green" | "blue" | "red" | "amber";                 
 type BallPath = { from: Point; to: Point; style: "flat" | "lob" };                      // plana | lob
 type Movement = { pieceId: string; to: Point };                                        // dashed path for a player
 
-type Step = { id: string; ball?: BallPath; movements: Movement[] };
+type Step = {
+  id: string;
+  balls?: BallPath[];   // PAD-289: the step's ball paths, in order; numbered 1..n on the court
+  ball?: BallPath;      // always balls[0] when balls is non-empty — read fallback + older builds
+  movements: Movement[];
+};
 
 interface CourtDiagramV2 {
   version: 2;
@@ -89,10 +94,12 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 8. Tools: Selecionar, Bola, Movimentação, Cone. Selecionar supports **both** tap-to-select then
    tap-destination (the canvas hint) **and** drag. The active tool shows the canvas hint copy
    (pt-PT, informal *tu*) below the toolbar.
-9. Bola draws the current step's ball path from a first tap/press to a second (or a drag).
-   A round handle at the path midpoint toggles `style` between `flat` (straight line) and `lob`
-   (quadratic curve bowed 12 % of the surface width to the right of travel, matching the canvas
-   `M58,20 Q70,50 40,80`). One ball path per step ("uma bola").
+9. Bola draws a ball path for the current step from a first tap/press to a second (or a drag)
+   and **appends** it to the step's ordered list (`balls`; PAD-289 — it used to replace the one
+   path). A round handle at each path's midpoint toggles that path's `style` between `flat`
+   (straight line) and `lob` (quadratic curve bowed 12 % of the surface width to the right of
+   travel, matching the canvas `M58,20 Q70,50 40,80`). Rule 23 says how several paths are
+   numbered, reordered and removed.
 10. Movimentação: tap a player then a destination → a dashed movement for that player in the
     current step. A player has at most one movement per step; drawing again replaces it.
 11. Cone places a cone at the tapped point; selecting a cone and pressing delete/eraser removes it.
@@ -107,8 +114,8 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     `basket` when a coach was present, otherwise `game`. Legacy coordinates (280×520 viewBox,
     20-unit padding) map to percent as `x% = (x−20)/240·100`, `y% = (y−20)/480·100`.
 13. The exercise-card thumbnail (web `ExerciseCard.tsx`, mobile exercises tab) renders v2 and
-    legacy diagrams through the same shared renderer, showing the starting position and the
-    first step's ball path.
+    legacy diagrams through the same shared renderer, showing the starting position and **every**
+    ball path of the first step (PAD-289), without handles or numbers.
 
 **Exercícios de cesto (basket mode)** — wave 2
 14. Starting position: A1 (30 %, 18 %), A2 (60 %, 18 %), one feeder at (46 %, 55 %). The
@@ -132,10 +139,26 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     steps. Wave 1 ships exactly one implicit step; the step UI arrives in wave 4.
 19. **Passo** advances the board to the end state of the next step without animation and wraps
     to the starting position after the last step.
-20. **▶ AUTO** animates every step in order: the ball travels its path (flat: linear, lob: along
-    the quadratic) while each moved player travels its dashed path, 800 ms per step, then the
-    next step starts. AUTO becomes ■ while playing; any edit stops playback and returns to the
+20. **▶ AUTO** animates every step in order: the ball travels the step's paths **one after the
+    other, in their order** (flat: linear, lob: along the quadratic), 800 ms per path, while each
+    moved player travels its dashed path over the whole step — so a step lasts 800 ms × max(1,
+    paths) (`stepDurationMs`, PAD-289) — then the next step starts. AUTO becomes ■ while playing; any edit stops playback and returns to the
     starting position. Nothing bounces (design-system motion rule).
+
+**Several ball paths per step** — PAD-289 (founders' note 2026-09-11)
+23. A step holds an **ordered list** of ball paths, `balls`. Each new Bola path is appended; the
+    court numbers the paths **1..n at each path's start** whenever a step has more than one, and a
+    compact list under the step strip shows them in order with ▲ ▼ (reorder) and ✕ (remove) per
+    path. Reordering renumbers; removing the only path leaves the step without a ball. In basket
+    mode every feed starts at the feeder, so consecutive feeds are simply several numbered paths.
+    Undo covers adding, reordering, removing and toggling a path exactly as it covers any other
+    mutation (rule 4; the history stores whole diagrams).
+24. **Compatibility.** `balls` is the source of truth on read: a step with `balls` uses it; a step
+    with only `ball` (every diagram saved before PAD-289, and every legacy upgrade, rule 12) reads
+    as `[ball]`. On write the board always mirrors `ball = balls[0]` (absent when there are no
+    paths) so an installed build that predates PAD-289 keeps showing the first path. The legacy
+    upgrade is unchanged: each v1 arrow still becomes its own single-path step. No migration —
+    the backend stores the diagram JSON opaquely.
 
 **Platform**
 21. Web and iOS ship every wave together (R-024). The mobile board reuses the shared
@@ -248,3 +271,27 @@ the shared reducer carries the iOS behaviour coverage in unit tests.
   handle allows. Wave 1 ships the toggle only.
 - OPEN: the design-system skill readme still claims the navy redesign is not in production;
   `packages/config/src/tokens.ts` shows it is. Update the skill separately.
+
+#### Several ball paths in one step are numbered and kept in order (PAD-289)
+- **Given** the board in game mode with the Bola tool
+- **When** the coach draws a path from (58 %, 20 %) to (40 %, 80 %) and then a second from (40 %, 80 %) to (70 %, 30 %)
+- **Then** both paths are drawn, numbered 1 and 2 at their starts, and the step's `balls` holds them in that order with `ball` equal to the first
+- **And** toggling the second path's handle makes only that path a lob
+
+#### A ball path can be reordered and removed (PAD-289)
+- **Given** a step with two ball paths
+- **When** the coach presses ▲ on the second path
+- **Then** it becomes path 1 and the numbers on the court swap
+- **When** the coach presses ✕ on path 2
+- **Then** one path remains, no number is shown, and undo brings the removed path back
+
+#### Playback plays a step's paths in order (PAD-289)
+- **Given** a step with two flat paths
+- **When** the coach presses ▶ AUTO
+- **Then** the ball travels the first path and then the second, the step taking 1,600 ms, and Passo still advances one whole step
+
+#### Thumbnails and older diagrams (PAD-289)
+- **Given** one exercise saved before PAD-289 (`ball` only) and one saved after (`balls` with two paths)
+- **When** the exercise list renders
+- **Then** the first card shows its one path and the second shows both
+- **And** opening the older exercise reads `ball` as the only path and saving it writes `balls` plus the mirrored `ball`

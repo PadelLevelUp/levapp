@@ -194,3 +194,39 @@ describe("reminderResponseOutcome", () => {
     expect(reminderResponseOutcome(null).write).toBe("no");
   });
 });
+
+import { afterEach, beforeEach, vi } from "vitest";
+
+/**
+ * PAD-295 / B-066 — notifications.reminders rule 10: `startsAt` and
+ * `cancellationDeadline` are naive club wall-clock strings, so the default clock
+ * must be the club's. Under `TZ=Asia/Tokyo` device-time code expires the
+ * reminder eight hours early.
+ */
+describe("reminderState defaults to the club's clock (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // 09:00 UTC on 15 July 2027 = 10:00 in Lisbon (summer).
+    vi.setSystemTime(new Date(Date.UTC(2027, 6, 15, 9, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a reminder for a class at 10:30 Lisbon is still answerable on any device", () => {
+    const s = reminderState({ startsAt: "2027-07-15T10:30:00" }, null);
+    expect(s.superseded).toBe(false);
+    expect(s.showResponseButtons).toBe(true);
+  });
+
+  it("a reminder for a class at 09:30 Lisbon is expired on any device", () => {
+    const s = reminderState({ startsAt: "2027-07-15T09:30:00" }, null);
+    expect(s.superseded).toBe(true);
+  });
+
+  it("a deadline at 09:45 Lisbon makes the cancel late, a deadline at 10:15 does not", () => {
+    const base = { responded: true, response: "yes", startsAt: "2027-07-15T10:30:00" } as const;
+    expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T09:45:00" }, null).isLateCancellation).toBe(true);
+    expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T10:15:00" }, null).isLateCancellation).toBe(false);
+  });
+});

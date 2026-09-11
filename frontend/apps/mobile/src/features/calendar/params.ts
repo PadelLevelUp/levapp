@@ -25,6 +25,8 @@ export type ClassRouteParams = {
   displayTime?: string;
   /** PAD-131: "1" when the card was an open spot the student may ask to join. */
   openSpot?: string;
+  /** PAD-285: "1" opens the class with the Notificar picker already open. */
+  notify?: string;
   coachName?: string;
 };
 

@@ -27,12 +27,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      A `validation` item (PAD-190 / PAD-201, B-045) carries `count` — the number of **classes**
      with at least one unvalidated presence, derived by `attendance.validation` rule 18's
      `count_pending_validation` for one Monday–Sunday UTC week — plus `weekOffset` (`0` for the
-     current week, `-1` for the previous) and `href` (`/presences` or `/presences?week=-1`). The
+     current week, `-1` for the previous) and `href` (`/presences?validate=1` or
+     `/presences?validate=1&week=-1`). The
      server counts the current week first and falls back to the previous week when the current
      one has nothing pending, so a Monday-morning coach still sees the weekend's backlog. The
      item is omitted when both weeks are clean. Both shells open the Presences tab **on that
-     week**, and the tab's own trigger reads the same endpoint for the same bounds, so the two
-     numbers are one number.
+     week, inside the validate view** (rule 10), and the tab's own trigger reads the same
+     endpoint for the same bounds, so the two numbers are one number.
      - student: the **asks** — `invite`, `vacancy_invite`, `waiting_list_offer` — merged and
        ordered soonest class first, together capped at 5 → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
@@ -169,6 +170,19 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    start date to `endTime` put its end before its start, and every block built on the shared
    window silently dropped it: the coach hero, needs-you empty seats, next 7 days and week
    pulse, and the student hero and schedule.
+10. **(PAD-283 / PAD-284 / PAD-285, B-078) Where a needs-you item lands.** An item's `href` is
+   the web path; iOS maps it through `features/dashboard/routes.ts` (`dashboardRoute`, pure).
+   Per kind:
+   - `validation` → `/presences?validate=1` (or `…&week=-1`): the Presences tab on that week
+     **with the validate view already open** (`attendance.validation` rule 19), so the coach
+     is one tap from validating, not two.
+   - `reply` → `/messages/<conversationId>`: **that conversation**, on the thread (web route
+     `/messages/:id`; iOS `/conversation/[id]`). Web still honours the pre-PAD-284
+     `?conversationId=` shape by redirecting to the route.
+   - `empty_seats` ("Convidar") → `class_href` **plus `&notify=1`**: the class detail with the
+     Notificar picker already open (web `ClassDetailSheet` `openNotify`; iOS `/class/[id]`
+     `notify` param), for a coach only. The hero and the schedule keep the plain link.
+   - the student's asks and KPIs keep `dashboard.navigation` rules 6–8 / 11.
 
 ### Acceptance Criteria
 
@@ -209,8 +223,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 
 - **Given** a coach with one such class this week and two last week
 - **When** they GET `/api/app/dashboard`
-- **Then** the item has `count: 1`, `weekOffset: 0` and `href: "/presences"` — the current week
-  wins whenever it has work
+- **Then** the item has `count: 1`, `weekOffset: 0` and `href: "/presences?validate=1"` — the
+  current week wins whenever it has work
 
 - **Given** a coach whose only unvalidated class ended three weeks ago
 - **When** they GET `/api/app/dashboard`
@@ -218,8 +232,21 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 
 - **Given** the seeded `e2e-coach` on the dashboard
 - **When** they press **Review** on the validation card
-- **Then** they land on `/presences` (never the 404 page) and the tab's trigger shows the same
-  number of classes the card showed
+- **Then** they land on `/presences?validate=1…` (never the 404 page), the validate view is
+  already open on that week, and the tab's trigger shows the same number of classes the card
+  showed
+
+#### A reply card opens the conversation (PAD-284, B-078)
+- **Given** the seeded `e2e-coach` with an unread message from `e2e-student`
+- **When** they press the reply card on the dashboard
+- **Then** they are on `/messages/<that conversation>` with the thread visible — on iOS, on the
+  conversation screen, not the Messages tab
+
+#### "Convidar" opens the class on Notificar (PAD-285)
+- **Given** the seeded `e2e-coach` with an under-capacity class in the next 7 days
+- **When** they press **Convidar** on its card
+- **Then** the calendar opens that class with the "Notificar alunos" picker already up; the
+  same card's hero link and schedule row open the class without it
 
 #### Player dashboard
 - **Given** an authenticated player enrolled in 2 classes this week

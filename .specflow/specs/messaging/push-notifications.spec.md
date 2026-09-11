@@ -66,6 +66,37 @@ Send browser push notifications when a new message arrives and the recipient isn
    still arrive in the app; copy that reads as "notifications are off" for the
    whole app is the PAD-195 defect (a coach with push blocked believed the app
    had stopped notifying them)
+9. **Native device tokens are owned per (user, token) (PAD-269).** `POST /api/notifications/device`
+   `{token, platform}` (JWT) records the pair (caller, token) once. `device_tokens` is unique on
+   `(user_id, token)`, and the route never touches another user's row, so posting someone else's
+   Expo token no longer takes their notifications away (it used to reassign the row to the
+   caller). `DELETE /api/notifications/device` `{token}` removes only the caller's row and is
+   idempotent. An Expo `DeviceNotRegistered` receipt deletes every row holding that token. The
+   iOS app unregisters its token on logout, so a shared phone stops getting the previous user's
+   pushes.
+
+10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
+   PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
+   caller — the subscription or device-token lookup, the unread badge — then hands the HTTP call
+   to `padel_app/utils/push_sender.py`: one FIFO worker thread behind a queue of bounded size
+   (`PUSH_QUEUE_MAX`, default 500). The caller's DB connection is never held across the network
+   round trip, so a slow or timed-out push service (10 s per call) cannot stall the scheduler's
+   executor or a request. The stale-token cleanups (`DeviceNotRegistered`, web push 404/410) run
+   in the worker under their own app context and session. **Full queue:** the *oldest* queued
+   push is dropped with a WARNING naming it and the new one is queued — the newest push is the most
+   recent event (a reminder, a fresh message) and push is best-effort already (rules 4 and 8);
+   blocking the engine would be worse than a missed alert. **Provider outage:** after three
+   consecutive deliveries slower than 8 s (the HTTP timeout is 10 s) the sender pauses for 60 s and
+   drops pushes with a WARNING instead of queueing hundreds that would each wait out the timeout;
+   delivery resumes after the pause. Worker and inline mode share one `_execute` path, so a
+   sender's exception is logged and swallowed identically in tests and in production. The queue is
+   drained for up to five seconds at process exit, inside the ten-second stop grace `docker stop`
+   gives the container on deploy. The web-push 404/410 cleanup deletes the subscription row only
+   while it still holds the subscription the push was sent to — a browser that re-subscribed while
+   the push was on the wire keeps its new endpoint. Per-recipient order is preserved (one worker).
+   Under the test configuration the sender runs inline so existing tests stay deterministic;
+   `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
+   are untouched: only *when* the HTTP call happens changes.
 
 ### Acceptance Criteria
 
@@ -89,3 +120,27 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** the app still writes 0 to the icon badge on that fetch and the badge clears
 - **And** reading a conversation in-app (which invalidates the unread count) and a cold launch both end with the badge equal to the fetched count, even when unchanged
 - **And** the badge is never written from a pending or failed fetch, and is cleared on logout
+
+#### Another user's device token is never taken over (PAD-269)
+- **Given** user `ana` registered the Expo token `ExponentPushToken[abc]`
+- **When** user `bruno` POSTs the same token to `/api/notifications/device`
+- **Then** `ana`'s row is unchanged and `bruno` has a row of his own for that token
+- **And** `bruno` posting it again still leaves exactly one row for the pair
+
+#### Push is sent off the calling thread and never holds the engine (PAD-294)
+- **Given** a student with a registered device token and a push service that answers after 300 ms
+- **When** the engine sends them a system message
+- **Then** `_send_system_message` returns before the push round trip completes, the HTTP call runs on the sender's worker thread, and the push is still delivered with the same payload
+- **And** when the push service answers `DeviceNotRegistered`, the token row is deleted by the worker
+- **And** when the queue is full, the push is dropped with a warning and the caller is not blocked
+
+#### The sender drops the oldest push, pauses on a provider outage, keeps a re-subscribed browser (PAD-294 review)
+- **Given** the worker is busy and the queue is full
+- **When** one more push is submitted
+- **Then** the oldest queued push is dropped with a warning naming it and the new one is queued
+- **Given** three deliveries in a row took longer than 8 s
+- **When** the next push is submitted
+- **Then** it is dropped with a warning and nothing is queued until the 60 s pause ends
+- **Given** a web push answered 410 while the browser had already re-subscribed on the same row
+- **When** the cleanup runs
+- **Then** the row with the new endpoint is kept

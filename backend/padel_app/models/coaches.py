@@ -53,12 +53,13 @@ class Coach(db.Model, model.Model):
     clubs_relations = relationship(
         "Association_CoachClub", back_populates="coach", cascade="all, delete-orphan",
         order_by="desc(Association_CoachClub.created_at)",
+        passive_deletes=True,
     )
     
-    evaluation_categories = relationship("EvaluationCategory", back_populates="coach", cascade="all, delete-orphan")
+    evaluation_categories = relationship("EvaluationCategory", back_populates="coach", cascade="all, delete-orphan", passive_deletes=True)
 
     # calendar.seasons rule 1 (PAD-82): at most one recurring season per coach.
-    season = relationship("CoachSeason", back_populates="coach", cascade="all, delete-orphan", uselist=False)
+    season = relationship("CoachSeason", back_populates="coach", cascade="all, delete-orphan", uselist=False, passive_deletes=True)
     
     @property
     def name(self):
@@ -93,6 +94,7 @@ class Coach(db.Model, model.Model):
         "Association_CoachLesson",
         back_populates="coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -104,6 +106,7 @@ class Coach(db.Model, model.Model):
         "Association_CoachLessonInstance",
         back_populates="coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -115,6 +118,7 @@ class Coach(db.Model, model.Model):
         "Association_CoachPlayer",
         back_populates="coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -122,12 +126,14 @@ class Coach(db.Model, model.Model):
         return [rel.player for rel in self.players_relations]
 
     levels = relationship(
-        "CoachLevel", back_populates="coach", cascade="all, delete-orphan"
+        "CoachLevel", back_populates="coach", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Player levels tracked by this coach
     player_levels = relationship(
-        "PlayerLevelHistory", back_populates="coach", cascade="all, delete-orphan"
+        "PlayerLevelHistory", back_populates="coach", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self):
@@ -178,6 +184,7 @@ class Coach(db.Model, model.Model):
         foreign_keys="Exercise.owner_coach_id",
         back_populates="owner_coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Training: all exercise access (owner + follower)
@@ -185,6 +192,7 @@ class Coach(db.Model, model.Model):
         "Association_CoachExercise",
         back_populates="coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Training: exercise groups owned by this coach
@@ -193,6 +201,7 @@ class Coach(db.Model, model.Model):
         foreign_keys="ExerciseGroup.owner_coach_id",
         back_populates="owner_coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Training: all exercise group access (owner + follower)
@@ -200,4 +209,5 @@ class Coach(db.Model, model.Model):
         "Association_CoachExerciseGroup",
         back_populates="coach",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )

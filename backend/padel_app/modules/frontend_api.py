@@ -88,6 +88,7 @@ from padel_app.services.class_request_service import (
     list_requests_for,
     serialize_class_request,
     withdraw_class_request_service,
+    counter_proposal_service,
 )
 from padel_app.services.class_join_request_service import (
     create_join_request_service,
@@ -100,6 +101,7 @@ from padel_app.services.club_service import (
     get_coach_invitation_service,
     accept_coach_invitation_service,
     revoke_coach_invitation_service,
+    revoke_coach_invitation_by_id_service,
     list_coach_invitations_service,
     search_clubs_service,
     serialize_club_search_result,
@@ -1425,6 +1427,34 @@ def admin_approve_coach(coach_id):
     return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
 
 
+@bp.get("/admin/settings")
+@jwt_required()
+def admin_get_settings():
+    """auth.coach-approval rule 9 (PAD-238/PAD-279): the operator settings."""
+    from padel_app.services.app_settings_service import admin_settings_payload
+
+    require_superadmin()
+    return jsonify(admin_settings_payload())
+
+
+@bp.put("/admin/settings")
+@jwt_required()
+def admin_put_settings():
+    from padel_app.services.app_settings_service import (
+        admin_settings_payload,
+        set_coach_approval_required,
+    )
+
+    admin = require_superadmin()
+    data = request.get_json(silent=True) or {}
+    if "coachApprovalRequired" in data:
+        value = data["coachApprovalRequired"]
+        if not isinstance(value, bool):
+            abort(400, "coachApprovalRequired must be a boolean")
+        set_coach_approval_required(value, updated_by_user_id=admin.id)
+    return jsonify(admin_settings_payload())
+
+
 @bp.post("/admin/coach-approvals/<int:coach_id>/reject")
 @jwt_required()
 def admin_reject_coach(coach_id):
@@ -1673,7 +1703,8 @@ def list_coach_invitations(club_id):
     invitations = list_coach_invitations_service(club_id, coach)
     return jsonify([
         {
-            "token": inv.token,
+            # clubs.coach-invitation rule 7 (PAD-269): an id, never the token
+            "id": inv.id,
             "email": inv.email,
             "expiresAt": inv.expires_at.isoformat(),
             "createdAt": inv.created_at.isoformat() if inv.created_at else None,
@@ -1852,7 +1883,13 @@ def class_request_free_blocks():
     except ValueError:
         abort(400, "from and to must be ISO datetimes")
     range_start, range_end = range_start.replace(tzinfo=None), range_end.replace(tzinfo=None)
-    return jsonify(free_blocks(coach, range_start, range_end))
+    # Rule 10 (PAD-281): re-slotting one's own request — its hold is not busy time.
+    exclude_request_id = request.args.get("excludeRequestId", type=int)
+    if exclude_request_id is not None:
+        # 403 for a missing id too: the student's routes never reveal which ids exist.
+        if ClassRequest.query.filter_by(id=exclude_request_id, player_id=player.id).first() is None:
+            abort(403, "Not your request")
+    return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
 
 @bp.post("/class-requests")
@@ -1873,14 +1910,22 @@ def withdraw_class_request(request_id):
 @bp.post("/class-requests/<int:request_id>/accept-proposal")
 @jwt_required()
 def accept_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=True)
+    row = answer_proposal_service(request_id, current_player(), accept=True, data=request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 
 @bp.post("/class-requests/<int:request_id>/decline-proposal")
 @jwt_required()
 def decline_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=False)
+    row = answer_proposal_service(request_id, current_player(), accept=False, data=request.get_json(silent=True) or {})
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/counter-proposal")
+@jwt_required()
+def counter_class_request_proposal(request_id):
+    """Rule 10 (PAD-281): the student proposes another time back to the coach."""
+    row = counter_proposal_service(request_id, _require_student_player(), request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 
@@ -1969,6 +2014,15 @@ def accept_coach_invitation(token):
 def revoke_coach_invitation(token):
     coach = require_coach()
     revoke_coach_invitation_service(token, coach)
+    return jsonify({"success": True})
+
+
+@bp.post("/club/<int:club_id>/coach-invitations/<int:invitation_id>/revoke")
+@jwt_required()
+def revoke_coach_invitation_by_id(club_id, invitation_id):
+    """clubs.coach-invitation rule 7 (PAD-269): revoke from the club's list by id."""
+    coach = require_coach()
+    revoke_coach_invitation_by_id_service(club_id, invitation_id, coach)
     return jsonify({"success": True})
 
 
@@ -2428,8 +2482,20 @@ def remove_player():
     assert_acting_coach(coach, data.get("coachId"))
     require_own_roster_relation(coach, data.get("playerId"))
     data["coachId"] = coach.id
-    result, status = remove_player_service(data)
+    # players.remove rules 4-6 (PAD-274): disconnect, or delete a placeholder; audited.
+    result, status = remove_player_service(data, actor_user_id=coach.user_id)
     return jsonify(result), status
+
+
+@bp.get("/player/<int:player_id>/removal_impact")
+@jwt_required()
+def player_removal_impact_route(player_id):
+    """players.remove rule 7 (PAD-274): which removal the coach gets, and what it takes."""
+    from padel_app.services.player_service import player_removal_impact
+
+    coach = require_coach()
+    require_own_roster_relation(coach, player_id)
+    return jsonify(player_removal_impact(coach.id, player_id)), 200
 
 
 @bp.post("/delete/coach_level")
@@ -2457,8 +2523,24 @@ def delete_evaluation_category():
     rel = EvaluationCategory.query.filter_by(id=_required_int_id(data)).first_or_404()
     if rel.coach_id != coach.id:
         abort(403, "Not authorized to delete this evaluation category")
-    rel.delete()
+    # evaluations.categories rule 7 (PAD-274): the scores go with it; audited.
+    from padel_app.services.coach_service import delete_evaluation_category_service
+
+    delete_evaluation_category_service(rel, actor_user_id=coach.user_id)
     return jsonify({"status": "Removed evaluation categories"}), 200
+
+
+@bp.get("/evaluation_category/<int:category_id>/impact")
+@jwt_required()
+def evaluation_category_impact_route(category_id):
+    """evaluations.categories rule 7 (PAD-274): what deleting this category removes."""
+    from padel_app.services.coach_service import evaluation_category_impact
+
+    coach = require_coach()
+    category = EvaluationCategory.query.filter_by(id=category_id).first_or_404()
+    if category.coach_id != coach.id:
+        abort(403, "Not authorized to read this evaluation category")
+    return jsonify(evaluation_category_impact(category)), 200
 
 
 @bp.post("/delete/coach_note")
@@ -2510,6 +2592,17 @@ def import_analyze():
 
     file_bytes = file.read()
 
+    # import.analyze rule 7 (PAD-293, B-070): the SSE body below is iterated
+    # after Flask has popped this request's context, so nothing inside the
+    # stream may touch the database. Everything the analysis needs from it is
+    # read HERE and handed in; a failure here is a normal error response, not a
+    # warning the stream would swallow.
+    from padel_app.services.coach_service import get_coach_levels
+
+    existing_levels = [
+        {"code": level.code, "label": level.label} for level in get_coach_levels(coach.id)
+    ]
+
     # Optional: user can select which tables to import via query param or form field.
     # e.g. ?tables=Players,Classes,Presences  or  form field "tables"
     # If not provided, defaults to all tables.
@@ -2525,6 +2618,7 @@ def import_analyze():
             file_bytes,
             coach_id=coach.id,
             requested_tables=requested_tables,
+            existing_levels=existing_levels,
         ),
         mimetype="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},

@@ -8,19 +8,13 @@ import {
   parseISO,
   isWithinInterval,
   isSameDay,
-  isToday,
   addMonths,
   subMonths,
   isSameMonth,
   startOfMonth,
   endOfDay,
 } from "date-fns";
-import {
-  buildMonthGrid,
-  formatMonthLabel,
-  formatWeekRangeLabel,
-  resolveDateLocale,
-} from "@levelup/config";
+import { buildMonthGrid, formatMonthLabel, formatWeekRangeLabel, isClubToday, lisbonNow, resolveDateLocale } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** The phone calendar's three modes (calendar.mobile-views rule 1). */
@@ -55,7 +49,7 @@ interface UseCalendarOptions {
 
 /** Today when the week shows it, otherwise the week's first day (rule 2). */
 function defaultSelection(weekDays: Date[]): Date {
-  return weekDays.find((d) => isToday(d)) ?? weekDays[0];
+  return weekDays.find((d) => isClubToday(d)) ?? weekDays[0];
 }
 
 export function useCalendar(
@@ -69,7 +63,7 @@ export function useCalendar(
     initialViewMode = "day",
     onViewModeChange,
   } = options;
-  const [currentDate, setCurrentDate] = useState(() => initialDate ?? new Date());
+  const [currentDate, setCurrentDate] = useState(() => initialDate ?? lisbonNow());
 
   // Keyed on the week's time value: PAD-248 lets `selectDay` move the anchor,
   // and selecting another day of the same week must keep the same Date object
@@ -141,7 +135,7 @@ export function useCalendar(
   }, []);
 
   const goToToday = useCallback(() => {
-    const now = new Date();
+    const now = lisbonNow();
     setCurrentDate(now);
     setSelectedDay(now);
   }, []);
@@ -154,7 +148,7 @@ export function useCalendar(
       const target = startOfMonth(
         direction === "next" ? addMonths(currentDate, 1) : subMonths(currentDate, 1)
       );
-      const now = new Date();
+      const now = lisbonNow();
       const next = isSameMonth(now, target) ? now : target;
       setCurrentDate(next);
       setSelectedDay(next);

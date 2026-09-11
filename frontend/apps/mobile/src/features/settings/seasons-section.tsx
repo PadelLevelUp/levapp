@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { seasonsApi } from "@levelup/api";
-import { lightTheme, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
+import { clubTodayISO, lightTheme, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
 import type { SeasonDefinition } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -128,7 +128,7 @@ export function SeasonsSection() {
   );
 
   const preview = React.useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = clubTodayISO(); // B-060: the club's date
     const current = seasonOccurrenceContaining(today, draft);
     if (current) return { key: "settings.seasons.previewCurrent", ...current };
     const upcoming = nextSeasonOccurrence(today, draft);

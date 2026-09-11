@@ -19,26 +19,61 @@ import { openPlayers } from "../helpers/navigation";
 
 const PLAYER = "E2E Student";
 
+const CARD_NAME = new RegExp(`open player ${PLAYER}`, "i");
+
 /**
- * Walk forward with Tab from the search box until `target` holds focus.
+ * Walk forward with Tab from the search box until the focused element IS the
+ * card — judged by its accessible name, not by node identity, because the
+ * list re-renders (new nodes) whenever a fetch lands, and a stale node
+ * comparison reads as "walked past" when nothing walked anywhere.
  * This is the sweep's repro step, not a proxy for it: a `tabIndex`-less card
  * is skipped by this loop exactly as it was skipped by the human tabbing.
  */
-async function tabUntilFocused(page: Page, target: Locator, maxTabs = 12) {
+async function tabUntilFocused(page: Page, name: RegExp, maxTabs = 12) {
   for (let i = 0; i < maxTabs; i++) {
     await page.keyboard.press("Tab");
-    if (await target.evaluate((el) => el === document.activeElement)) return i + 1;
+    const label = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
+    if (name.test(label)) return i + 1;
   }
   return -1;
 }
 
+/**
+ * Hardening (wave 3): the search is debounced and fetched server-side. The
+ * original helper returned as soon as a matching card was visible — which the
+ * UNFILTERED first page already satisfies — so under load the debounced fetch
+ * landed mid-Tab-loop, re-rendered the list and dropped focus to <body>.
+ * Now the helper waits for THAT fetch and for the list to settle on it.
+ */
 async function findCard(page: Page): Promise<Locator> {
+  const searched = page.waitForResponse(
+    (r) => /\/app\/coach_players/.test(r.url()) && /[?&]search=/.test(r.url()) && r.status() === 200,
+  );
   await page.getByPlaceholder("Search players...").fill(PLAYER);
-  const card = page
-    .getByRole("button", { name: new RegExp(`open player ${PLAYER}`, "i") })
-    .first();
+  await searched;
+  const card = page.getByRole("button", { name: CARD_NAME }).first();
   await expect(card, "the player card must be exposed as a button").toBeVisible();
+  // Every remaining card is a search hit: the filtered page has replaced the unfiltered one.
+  await expect
+    .poll(async () => {
+      const names = await page.getByRole("button", { name: /open player/i }).evaluateAll((els) =>
+        els.map((el) => el.getAttribute("aria-label") ?? ""),
+      );
+      return names.length > 0 && names.every((n) => CARD_NAME.test(n));
+    }, { message: "the list must have settled on the search result" })
+    .toBe(true);
   return card;
+}
+
+/** Put focus in the search box and prove it is there before the Tab walk starts. */
+async function focusSearch(page: Page) {
+  const search = page.getByPlaceholder("Search players...");
+  await expect
+    .poll(async () => {
+      await search.focus();
+      return search.evaluate((el) => el === document.activeElement);
+    }, { message: "focus must be in the search box before tabbing" })
+    .toBe(true);
 }
 
 test.describe("PAD-148: player card keyboard access", () => {
@@ -48,10 +83,10 @@ test.describe("PAD-148: player card keyboard access", () => {
     await loginAsCoach(page);
     await openPlayers(page);
 
-    const card = await findCard(page);
+    await findCard(page);
 
-    await page.getByPlaceholder("Search players...").focus();
-    const tabs = await tabUntilFocused(page, card);
+    await focusSearch(page);
+    const tabs = await tabUntilFocused(page, CARD_NAME);
     expect(tabs, "Tab must reach the player card, not walk past it").toBeGreaterThan(0);
 
     await page.keyboard.press("Enter");
@@ -65,7 +100,12 @@ test.describe("PAD-148: player card keyboard access", () => {
     await openPlayers(page);
 
     const card = await findCard(page);
-    await card.focus();
+    await expect
+      .poll(async () => {
+        await card.focus();
+        return page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
+      }, { message: "the card must hold focus before Space is pressed" })
+      .toMatch(CARD_NAME);
 
     const scrollBefore = await page.evaluate(() => window.scrollY);
     await page.keyboard.press(" ");

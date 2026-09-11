@@ -62,6 +62,21 @@ appId: com.padellevelup.app
       - inputText: ${PASSWORD}
       - tapOn:
           id: "login-submit"
+      # players.join-token rule 8: a student with no coach lands on "Connect
+      # with a coach" (e2e-student-3 in the seed). Its "Go to dashboard" is the
+      # explicit way through; every other account never shows it.
+      - extendedWaitUntil:
+          visible:
+            id: "connect-go-dashboard"
+          timeout: 8000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "connect-go-dashboard"
+          commands:
+            - tapOn:
+                id: "connect-go-dashboard"
       - extendedWaitUntil:
           visible:
             id: "screen-dashboard"

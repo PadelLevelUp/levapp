@@ -16,7 +16,8 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 
 ### Entities
 - **CREATES:** CoachJoinToken (`coach_join_tokens`): coach_id (FK → coaches, CASCADE), club_id
-  (FK → clubs, CASCADE), token (unique, indexed, `secrets.token_urlsafe(32)`), expires_at,
+  (FK → clubs, CASCADE), token_hash (unique, indexed: the SHA-256 hex of a `secrets.token_urlsafe(32)` token; the token
+  itself is never stored, PAD-269), expires_at,
   is_active (bool), uses (int, default 0), created_at
 - **READS:** Coach, Club, User, Player
 - **WRITES:** Association_CoachPlayer, Association_PlayerClub
@@ -24,8 +25,11 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 ### Rules
 1. `POST /api/app/coach/join-token` — `require_coach()`. Deactivates the coach's current active
    token (if any) and creates a new one bound to the coach and their `current_club`, expiring
-   in 7 days. Returns `{token, url, expiresAt, clubName}`. A coach with no club is 409 `NO_CLUB`.
-2. `GET /api/app/coach/join-token` — the coach's active, unexpired token or `null`.
+   in 7 days. Returns `{token, url, expiresAt, clubName}`, the only response that ever carries the
+   token. A coach with no club is 409 `NO_CLUB`.
+2. `GET /api/app/coach/join-token` — the coach's active, unexpired token as
+   `{active: true, expiresAt, clubName, uses}`, or `null`. It carries no token, path or url:
+   only the hash is stored (PAD-269), so a code can be shown only when it is minted.
 3. `url` is `<web origin>/join/coach/<token>`. PAD-184's universal links route
    `/join/coach/:token` into the iOS app; the web page is the fallback.
 4. `GET /api/app/join-tokens/<token>` is public: `{coachName, clubName, clubLogoUrl}` — enough for
@@ -42,9 +46,12 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 7. Coach UI — Players tab → "Add by QR" (web: dialog; iOS: sheet). Shows the QR (rendered
    client-side from `url`, no server image), the URL as copyable text, the expiry, a Share
    button on iOS, and "Generate new code" (rotate) with a confirm that the old one stops
-   working. Web and iOS.
+   working. With no live code the sheet mints one on open. With a live one (rule 2) it shows
+   when that code expires and how many students joined, and **Generate new code** to show a
+   fresh QR, saying that the current code stops working (PAD-269). Web and iOS.
 8. Student UI — "Connect with a coach" screen: reached after student signup (`auth.register`
-   rule 11), from the dashboard when the student has no coach, and from Settings → Account. "Has
+   rule 11), from the dashboard when the student has no coach, and from Settings → My
+   connections (PAD-287; it was Settings → Account). "Has
    no coach" means `GET /api/auth/me` returns `coaches: []` — never inferred from an empty
    calendar (a connected student with no classes this week was shown "Not connected to a coach
    yet?", TestFlight 2026-09-07). It explains "scan your coach's QR with your camera, or paste the link here" and
@@ -118,14 +125,26 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 - **And** a student with `coaches: []` does see it
 
 #### Coach sees the QR on both platforms
-- **Given** an authenticated coach on the Players tab
+- **Given** an authenticated coach on the Players tab with no live code
 - **When** they open "Add by QR"
 - **Then** a QR code, the same link as text, the expiry and "Generate new code" are shown
 - **And** the same sheet exists on iOS with a Share action
+
+#### The token is stored only as a hash (PAD-269)
+- **Given** a coach who mints a code and receives token `T`
+- **Then** the row's `token_hash` is the SHA-256 hex of `T` and no column holds `T`
+- **And** `GET /api/app/coach/join-token` answers `{active: true, expiresAt, clubName, uses}` with no `token`, `path` or `url`
+- **And** `GET /api/app/join-tokens/T` is still 200
+
+#### Reopening Add by QR offers a new code (PAD-269)
+- **Given** a coach with a live code minted earlier
+- **When** they open "Add by QR" on web or iOS
+- **Then** the sheet shows the code's expiry, the number of students who joined and "Generate new code"
+- **And** generating shows a new QR, and the earlier code is 410 from then on
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 3;
   design lifted from PAD-127's proposal.
 - QR rendering libraries: web `qrcode.react` (or `qrcode` + canvas), iOS `react-native-qrcode-svg`.
-  Both render from the URL string; nothing is stored server-side beyond the token.
+  Both render from the URL string; nothing is stored server-side beyond the token's hash.
 - OPEN: tell the coach when someone joins (system message)? v1: no.

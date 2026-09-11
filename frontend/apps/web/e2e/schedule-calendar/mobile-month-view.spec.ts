@@ -293,4 +293,48 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     await expect(addEvent).toBeVisible();
     await expect(addClass).toBeVisible();
   });
+
+  // PAD-286 — rule 17: "The Mês sheet rises past half of the screen".
+  test("US-286-1: the Mês sheet rises over the month grid past half of the screen, and back down", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    await mockCalendar(page, MONTH_EVENTS);
+    await openMonth(page);
+
+    const sheet = page.getByTestId("calendar-day-sheet");
+    const monthGrid = page.getByTestId("calendar-month-grid");
+    const addEvent = page.getByTestId("calendar-add-event");
+    const dragHandleBy = async (dy: number) => {
+      const box = (await page.getByTestId("calendar-sheet-handle").boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y + dy, { steps: 8 });
+      await page.mouse.up();
+    };
+
+    const gridBox = (await monthGrid.boundingBox())!;
+    const resting = (await sheet.boundingBox())!;
+    // At rest the sheet sits over the day grid, below the month grid.
+    expect(resting.y).toBeGreaterThanOrEqual(gridBox.y + gridBox.height - 1);
+
+    // Dragged up past the maximum it stops one hour row (44px) below the top of
+    // the month grid and is taller than half of the 844px viewport.
+    await dragHandleBy(-900);
+    const raised = (await sheet.boundingBox())!;
+    expect(raised.height).toBeGreaterThan(844 / 2);
+    expect(Math.abs(raised.y - (gridBox.y + 44))).toBeLessThanOrEqual(1);
+    // The weekday header row (30px, MONTH_WEEKDAY_HEADER_HEIGHT) stays fully visible.
+    expect(raised.y).toBeGreaterThanOrEqual(gridBox.y + 30);
+    await expect(addEvent).toHaveCount(0);
+
+    // All the way down: the month grid is uncovered and the buttons are back.
+    await dragHandleBy(900);
+    const lowered = (await sheet.boundingBox())!;
+    expect(lowered.y).toBeGreaterThanOrEqual(gridBox.y + gridBox.height - 1);
+    await expect(addEvent).toBeVisible();
+  });
+
 });

@@ -403,7 +403,7 @@ def explain_player(
     vacancy, _ = _hypothetical_vacancy(instance, coach_id, departing_player_id)
     round_failures = []
     for number, kind, _rules in invitation_waves(config):
-        wave = ("group", number) if kind == "group" else ("round", number)
+        wave = ("group", number)
         verdicts = evaluate_candidates(
             vacancy, instance, coach_id, config,
             wave=wave, explain=True, only_player_ids=[player_id],

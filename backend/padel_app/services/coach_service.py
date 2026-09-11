@@ -302,3 +302,31 @@ def delete_coach_level_service(coach, level_id):
     normalize_display_orders(coach.id)
     db.session.commit()
     return level
+
+
+def evaluation_category_impact(category):
+    """evaluations.categories rule 7 (PAD-274): what deleting a category removes —
+    every score recorded in it, and how many of the coach's players have one."""
+    from padel_app.models import EvaluationEntry
+
+    scores = EvaluationEntry.query.filter_by(category_id=category.id)
+    return {
+        "name": category.name,
+        "scores": scores.count(),
+        "players": scores.with_entities(EvaluationEntry.coach_player_id).distinct().count(),
+    }
+
+
+def delete_evaluation_category_service(category, actor_user_id=None):
+    """Delete a category and its scores, recording what went in ``deletion_audit``
+    in the same transaction (evaluations.categories rule 7, PAD-274)."""
+    from padel_app.services.deletion_audit_service import record_deletion
+
+    impact = evaluation_category_impact(category)
+    record_deletion(
+        actor_user_id=actor_user_id, entity="evaluation_category", entity_id=category.id,
+        action="deleted", label=category.name,
+        details={"coach_id": category.coach_id, "scores": impact["scores"], "players": impact["players"]},
+    )
+    category.delete()
+    return impact

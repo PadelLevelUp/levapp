@@ -1,3 +1,4 @@
+import { lisbonNowMs, wallClockMs } from "@levelup/config";
 /**
  * The student-side decline gates on the class-detail screen (PAD-170 C5,
  * `attendance.confirm` rules 10–16).
@@ -63,9 +64,11 @@ export function hasClassStarted(
   now: number = Date.now()
 ): boolean {
   if (!date) return false;
-  const startAt = new Date(`${date}T${startTime || "00:00"}`);
-  const ms = startAt.getTime();
-  return !Number.isNaN(ms) && ms <= now;
+  // B-060: built from its parts. Hermes may return Invalid Date for an
+  // offset-less "YYYY-MM-DDTHH:MM" string, which read as "not started".
+  // Club digits on both sides (PAD-295): `now` is a real instant.
+  const startMs = wallClockMs(date, startTime || "00:00");
+  return !Number.isNaN(startMs) && startMs <= lisbonNowMs(new Date(now));
 }
 
 /**

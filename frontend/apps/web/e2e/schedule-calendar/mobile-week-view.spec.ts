@@ -344,4 +344,48 @@ test.describe("PAD-247: phone calendar Semana view", () => {
       "true"
     );
   });
+
+  // PAD-286 — rule 3: "The grab handle is obvious and easy to catch".
+  test("US-286-2: the handle is a primary pill on a 28px row, and the day header drags the sheet", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    await mockCalendar(page);
+    await openWeek(page);
+
+    const sheet = page.getByTestId("calendar-day-sheet");
+    const handle = page.getByTestId("calendar-sheet-handle");
+    const handleBox = (await handle.boundingBox())!;
+    expect(handleBox.height).toBeGreaterThanOrEqual(28);
+
+    const pill = handle.locator("span").first();
+    const pillBox = (await pill.boundingBox())!;
+    expect(pillBox.width).toBeCloseTo(40, 0);
+    expect(pillBox.height).toBeCloseTo(5, 0);
+    // The pill is the `primary` token, whatever hsl the theme resolves it to.
+    const primary = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.className = "bg-primary";
+      document.body.appendChild(probe);
+      const colour = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return colour;
+    });
+    await expect(pill).toHaveCSS("background-color", primary);
+
+    // A drag that starts on the day header moves the sheet too.
+    const initial = Number(await sheet.getAttribute("data-sheet-top"));
+    const heading = sheet.getByRole("heading", { level: 3 });
+    const hb = (await heading.boundingBox())!;
+    const x = hb.x + hb.width / 2;
+    const y = hb.y + hb.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y - 120, { steps: 6 });
+    await page.mouse.up();
+    const after = Number(await sheet.getAttribute("data-sheet-top"));
+    expect(after).toBeLessThan(initial);
+    expect(initial - after).toBeGreaterThanOrEqual(100);
+  });
+
 });

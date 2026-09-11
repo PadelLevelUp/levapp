@@ -104,7 +104,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `attendance.history`. `start_datetime` is Lisbon wall-clock (R-023, PAD-256), and
     the clients format it without a zone conversion, so a late class never moves into
     the neighbouring week. The server's default range and the "pending validation"
-    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time.
+    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time. The
+    clients' presets and the Presences week are computed on the club's day too (B-060).
 16. The players table links each row to that player's existing attendance history
     page rather than reimplementing it.
 17. **Both shells carry the reporting surface too** (PAD-166): the three charts
@@ -161,6 +162,11 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `validation` queue item calls the same function (`dashboard.blocks` rule 3), so the two
     surfaces show one number. The tab accepts `?week=<offset>` (web query string, iOS route
     param) as its initial week so the dashboard can land the coach on the week it counted.
+19. **(PAD-283) `validate=1` opens the validate view.** The tab also accepts `?validate=1`
+    (web query string, iOS route param): the page renders with the validate dialog / sheet
+    already open, on the week `?week` selects, so the dashboard's validation card
+    (`dashboard.blocks` rule 10) lands the coach inside the list of classes to validate.
+    Closing it leaves the coach on the tab as if they had opened it by hand.
 
 ### Acceptance Criteria
 
@@ -175,6 +181,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the page renders
 - **Then** the validate trigger counts the previous week's classes and the dialog opens on
   that week
+
+#### The tab opens inside the validate view when asked (PAD-283)
+- **Given** the coach arrives at `/presences?validate=1&week=-1`
+- **When** the page renders
+- **Then** the validate dialog (web) / sheet (iOS) is already open, listing the previous
+  week's classes, without pressing the trigger
 
 #### A past class with everyone answered is ready to confirm
 - **Given** a class that ended yesterday where every enrolled player confirmed or declined
