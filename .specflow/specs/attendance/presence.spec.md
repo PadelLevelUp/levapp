@@ -13,7 +13,7 @@ governed_by: []
 Track player attendance for each class instance, including invitation, confirmation, and validation status.
 
 ### Entities
-- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup)
+- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup) Serialized rows also carry `cancelledByStudent` and `cancelledAt` (derived, PAD-288 — `attendance.confirm` rule 23).
 - Unique constraint: (player_id, lesson_instance_id)
 
 ### Rules
@@ -31,6 +31,7 @@ Track player attendance for each class instance, including invitation, confirmat
 4. Absent players can be marked justified or unjustified
 5. `validated=True` means the coach has finalized the attendance record
 6. **The row is the enrolment (PAD-259, unconfirmed number).** A presence exists for exactly the players who hold a spot on the occurrence; there is no separate per-occurrence enrolment record. Planned (row exists), intends to come (the student's answer) and was there (the coach's record) are three separate facts on it — see `classes.instance-enrollment` rules 1–2
+7. **Cancelled by the student is derived, not stored (PAD-288, unconfirmed number).** A serialized presence exposes `cancelledByStudent` = `status = absent` ∧ `justification = justified` ∧ `validated = false`, and `cancelledAt` = the row's `updated_at` as a UTC instant when that holds, else null. The coach validating the sheet (rule 5) ends the label; no column is added.
 
 ### Acceptance Criteria
 
