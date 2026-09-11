@@ -1425,6 +1425,34 @@ def admin_approve_coach(coach_id):
     return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
 
 
+@bp.get("/admin/settings")
+@jwt_required()
+def admin_get_settings():
+    """auth.coach-approval rule 9 (PAD-238/PAD-279): the operator settings."""
+    from padel_app.services.app_settings_service import admin_settings_payload
+
+    require_superadmin()
+    return jsonify(admin_settings_payload())
+
+
+@bp.put("/admin/settings")
+@jwt_required()
+def admin_put_settings():
+    from padel_app.services.app_settings_service import (
+        admin_settings_payload,
+        set_coach_approval_required,
+    )
+
+    admin = require_superadmin()
+    data = request.get_json(silent=True) or {}
+    if "coachApprovalRequired" in data:
+        value = data["coachApprovalRequired"]
+        if not isinstance(value, bool):
+            abort(400, "coachApprovalRequired must be a boolean")
+        set_coach_approval_required(value, updated_by_user_id=admin.id)
+    return jsonify(admin_settings_payload())
+
+
 @bp.post("/admin/coach-approvals/<int:coach_id>/reject")
 @jwt_required()
 def admin_reject_coach(coach_id):

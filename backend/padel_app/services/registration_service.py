@@ -160,14 +160,19 @@ def _assert_unique(username, email):
 def register_user_service(data):
     """Create the account and return the active `User`.
 
-    Coach accounts start `pending` unless `COACH_APPROVAL_REQUIRED` is off.
+    Coach accounts start `pending` unless the coach-approval gate is off
+    (`app_settings.coach_approval_required`, else `COACH_APPROVAL_REQUIRED`).
     Any `club` key in the body is ignored: the club is chosen after approval.
     """
     role, name, username, email, password = validate_registration(data)
     birth_date, country, guardian_email, minor = validate_consent_fields(data, email)
     _assert_unique(username, email)
 
-    approval_required = bool(current_app.config.get("COACH_APPROVAL_REQUIRED", True))
+    # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,
+    # the env flag is the fallback.
+    from padel_app.services.app_settings_service import coach_approval_required
+
+    approval_required = coach_approval_required()
 
     try:
         user = User(

@@ -621,6 +621,10 @@
       }
     },
     "admin": {
+      "coachApprovalRequired": "Novos treinadores precisam de aprovação",
+      "coachApprovalRequiredDescription": "Ligado: quem se regista como treinador fica a aguardar a tua aprovação. Desligado: entra logo aprovado e escolhe o clube. Não altera treinadores já registados.",
+      "coachApprovalFromEnvironment": "Valor por omissão do servidor — ainda não foi alterado aqui.",
+      "coachApprovalSaved": "Definição guardada.",
       "emailUnverified": "Email por confirmar",
       "title": "Administração",
       "description": "Ferramentas da equipa LevApp.",

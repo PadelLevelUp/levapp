@@ -621,6 +621,10 @@
       }
     },
     "admin": {
+      "coachApprovalRequired": "New coaches need approval",
+      "coachApprovalRequiredDescription": "On: anyone who signs up as a coach waits for your approval. Off: they are approved at once and pick their club. Existing coaches are not affected.",
+      "coachApprovalFromEnvironment": "Server default — never changed here yet.",
+      "coachApprovalSaved": "Setting saved.",
       "emailUnverified": "Email not verified",
       "title": "Admin",
       "description": "LevApp team tools.",

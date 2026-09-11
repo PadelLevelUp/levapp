@@ -1043,7 +1043,8 @@ export interface InviteSimulationRule {
 
 export interface InviteSimulationRound {
   number: number;
-  kind: "group" | "legacy";
+  /** PAD-279: only invitation groups exist; the legacy rounds are gone. */
+  kind: "group";
   label: string;
   /** Empty = everyone eligible */
   rules: InviteSimulationRule[];
