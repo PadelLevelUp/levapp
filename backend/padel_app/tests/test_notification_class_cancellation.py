@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 PATCHES = [
@@ -99,6 +100,8 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     for player in enrolled_players:
         db.session.add(Association_PlayerLessonInstance(player_id=player.id,
                                                          lesson_instance_id=instance.id))
+        db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id,
+                                invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()
     return instance
 

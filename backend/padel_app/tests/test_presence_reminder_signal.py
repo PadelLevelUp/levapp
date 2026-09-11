@@ -11,6 +11,7 @@ from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
 from padel_app.tests.test_notification_reminder_flow import (
+    _presence,
     PATCHES,
     _seed_coach_and_student,
     _seed_instance,
@@ -55,10 +56,7 @@ def test_only_the_reminded_player_carries_reminder_sent_at(app, client):
 
     with app.app_context():
         # Both hold an invited=True row before any message exists.
-        db.session.add(
-            Presence(lesson_instance_id=instance_id, player_id=ids["student_id"], invited=True, confirmed=False)
-        )
-        db.session.commit()
+        _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
     headers = _bearer(app, ids["coach_user_id"])
     before = client.get(f"/api/app/lesson_instance/{instance_id}/presences", headers=headers).get_json()
@@ -128,8 +126,8 @@ def test_an_invitation_counts_as_a_message_that_reached_the_player(app, client):
             coach_id=ids["coach_id"], lesson_instance_id=instance_id, player_id=ids["student_id"],
             type="manual", round_number=1, status="sent", message_id=msg.id,
         ))
-        db.session.add(Presence(lesson_instance_id=instance_id, player_id=ids["student_id"], invited=True, confirmed=False))
         db.session.commit()
+        _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
     rows = client.get(
         f"/api/app/lesson_instance/{instance_id}/presences", headers=_bearer(app, ids["coach_user_id"])

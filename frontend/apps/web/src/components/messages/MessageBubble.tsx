@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
 import { respondToNotification, respondToReminder, cancelAttendance, respondToWaitingList } from '@/api/notificationEngine';
+import { reminderAnswerOutcome, reminderRecordedState } from './reminder-answer';
 import { toast } from 'sonner';
 import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 import { useNavigate } from 'react-router-dom';
@@ -56,7 +57,7 @@ export function MessageBubble({
   const [responding, setResponding] = useState(false);
   // PAD-124: 'expired' is set only by the waiting-list offer, whose backend can
   // reject a late answer (PAD-68) — the invite and reminder branches never see it.
-  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | 'expired' | null>(null);
+  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | 'not_enrolled' | 'expired' | null>(null);
   // PAD-46: when the cancellation deadline has passed, require an explicit
   // confirmation of the "late cancellation" before cancelling (still allowed).
   const [confirmingLateCancel, setConfirmingLateCancel] = useState(false);
@@ -142,13 +143,11 @@ export function MessageBubble({
     setResponding(true);
     try {
       const result = await respondToReminder(instanceId, action);
-      // PAD-68: the backend rejects responses to a class that already started.
-      // Don't paint a confirmed/absent badge for an answer it did not record.
-      if (result.action === "expired") {
-        toast.error(t("messages.reminderExpired"));
-        return;
-      }
-      setLocalResponse(result.action === "confirmed" ? 'accepted' : 'declined');
+      // Trust the SERVER's action, not the tap (PAD-68 "expired" records
+      // nothing; PAD-259 "not_enrolled" settles without an absent badge).
+      const outcome = reminderAnswerOutcome(result.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.local !== null) setLocalResponse(outcome.local);
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     } finally {
@@ -376,12 +375,10 @@ export function MessageBubble({
 
         {/* Reminder response area */}
         {isReminder && !isMine && (() => {
-          const confirmed =
-            localResponse === 'accepted' ||
-            (localResponse === null && alreadyResponded && message.metadata?.response === "yes");
-          const declined =
-            localResponse === 'declined' ||
-            (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
+          const { confirmed, declined, notEnrolled } = reminderRecordedState(
+            message.metadata,
+            localResponse
+          );
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
           const classInFuture = !startsAt || wallClockISOMs(startsAt) > lisbonNowMs();
@@ -448,6 +445,14 @@ export function MessageBubble({
                     )
                   )}
                 </>
+              ) : notEnrolled ? (
+                <span
+                  data-testid="message-reminder-not-enrolled"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70"
+                >
+                  <MinusCircle className="w-3.5 h-3.5" />
+                  {t("messages.reminderNotEnrolled")}
+                </span>
               ) : declined ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
