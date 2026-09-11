@@ -422,15 +422,19 @@ class NotificationConfig(db.Model, model.Model):
             return
         if not isinstance(data, dict):
             return
+        # The count, spacing and invitation-start keys are read whatever the
+        # shape: the old getters read them off the stored dict, nested or flat
+        # (the reminders form and the reminder-flow E2E POST the flat shape
+        # with reminderCount — batch-4 regression US-REM-08, PAD-49).
+        if "reminderCount" in data:
+            self.reminder_count = max(1, _int_or(data.get("reminderCount"), DEFAULT_REMINDER_COUNT))
+        if "hoursBetweenReminders" in data:
+            hours = _hours_or(data.get("hoursBetweenReminders"), DEFAULT_HOURS_BETWEEN_REMINDERS, minimum=0)
+            self.hours_between_reminders = hours if hours > 0 else float(DEFAULT_HOURS_BETWEEN_REMINDERS)
+        if "invitationStart" in data:
+            self._set_timing("invitation_start", data.get("invitationStart"))
         if "firstReminder" in data:
             self._set_timing("reminder", data.get("firstReminder"))
-            if "reminderCount" in data:
-                self.reminder_count = max(1, _int_or(data.get("reminderCount"), DEFAULT_REMINDER_COUNT))
-            if "hoursBetweenReminders" in data:
-                hours = _hours_or(data.get("hoursBetweenReminders"), DEFAULT_HOURS_BETWEEN_REMINDERS, minimum=0)
-                self.hours_between_reminders = hours if hours > 0 else float(DEFAULT_HOURS_BETWEEN_REMINDERS)
-            if "invitationStart" in data:
-                self._set_timing("invitation_start", data.get("invitationStart"))
         elif "type" in data:
             self._set_timing("reminder", data)
 

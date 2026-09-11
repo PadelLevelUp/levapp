@@ -330,3 +330,20 @@ def test_a_none_reminder_timing_reads_back_as_none_and_schedules_nothing(app):
         # Picking a real timing again works as before.
         cfg.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 24}}
         assert cfg.get_reminder_timing() == {"type": "hours_before", "value": 24}
+
+
+def test_a_flat_reminder_timing_with_counts_keeps_its_counts(app):
+    """Batch-4 regression (Session E, US-REM-08 / PAD-49): the reminders form and
+    tests may POST the FLAT shape {type, value, reminderCount, hoursBetweenReminders};
+    before #208 get_reminder_count() read reminderCount off the stored dict whatever
+    its shape, so the count must survive the flat branch of the setter too."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    with app.app_context():
+        cfg = NotificationConfig(coach_id=1)
+        cfg.reminder_timing = {"type": "hours_before", "value": 48, "reminderCount": 2, "hoursBetweenReminders": 1,
+                               "invitationStart": {"type": "hours_before", "value": 3}}
+        assert cfg.get_reminder_timing() == {"type": "hours_before", "value": 48}
+        assert cfg.get_reminder_count() == 2
+        assert cfg.get_hours_between_reminders() == 1
+        assert cfg.get_invitation_start_timing() == {"type": "hours_before", "value": 3}
