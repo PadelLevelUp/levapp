@@ -1,6 +1,6 @@
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { isInMonth } from "@levelup/config";
+import { isInMonth, lisbonNow, MONTH_WEEKDAY_HEADER_HEIGHT } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
@@ -29,11 +29,15 @@ export function MonthGrid({
 }) {
   const { t, i18n } = useTranslation();
   const locale = dateFnsLocale(i18n.language);
-  const now = new Date();
+  const now = lisbonNow();
 
   return (
     <div data-testid="calendar-month-grid" className="shrink-0 bg-background px-2.5 pb-3">
-      <div className="grid grid-cols-7 pt-2.5" aria-hidden="true">
+      <div
+        className="grid grid-cols-7 items-start overflow-hidden pt-2.5"
+        style={{ height: MONTH_WEEKDAY_HEADER_HEIGHT }}
+        aria-hidden="true"
+      >
         {monthDays.slice(0, 7).map((d) => (
           <span
             key={d.toISOString()}
@@ -48,7 +52,7 @@ export function MonthGrid({
           const key = format(day, "yyyy-MM-dd");
           const inMonth = isInMonth(day, monthStart);
           const selected = inMonth && isSameDay(day, selectedDay);
-          const today = inMonth && isToday(day);
+          const today = inMonth && isSameDay(day, now);
           const events = inMonth ? eventsByDay[key] ?? [] : [];
           return (
             <button

@@ -160,6 +160,22 @@ export function newStep(): Step {
   return { id: newPieceId("s"), movements: [] };
 }
 
+/**
+ * A step's ball paths in order (rule 24): `balls` wins; a step saved before
+ * PAD-289 (or produced by the legacy upgrade) carries only `ball`, read as one path.
+ */
+export function stepBalls(step: Step | undefined): BallPath[] {
+  if (!step) return [];
+  if (Array.isArray(step.balls)) return step.balls;
+  return step.ball ? [step.ball] : [];
+}
+
+/** Write a step's paths, mirroring `ball = balls[0]` for older builds (rule 24). */
+export function withBalls(step: Step, balls: BallPath[]): Step {
+  const { ball: _previous, ...rest } = step;
+  return balls.length ? { ...rest, balls, ball: balls[0] } : { ...rest, balls };
+}
+
 export function newDiagram(mode: BoardMode): CourtDiagramV2 {
   const start = mode === "basket" ? BASKET_START_POSITION : mode === "game" ? GAME_START_POSITION : [];
   return { version: 2, mode, pieces: start.map((p) => ({ ...p })), steps: [] };
@@ -255,8 +271,28 @@ export function movementPathD(from: Point, to: Point): string {
 
 // ── Steps and playback (rules 18–20) ─────────────────────────────────────────
 
-/** How long one step takes on ▶ AUTO (rule 20). */
+/** How long one ball path takes on ▶ AUTO (rule 20). */
 export const STEP_DURATION_MS = 800;
+
+/** A step lasts 800 ms per ball path, at least one (rule 20, PAD-289). */
+export function stepDurationMs(step: Step | undefined): number {
+  return STEP_DURATION_MS * Math.max(1, stepBalls(step).length);
+}
+
+/**
+ * Where ▶ AUTO is `elapsedMs` after it started: the step and its 0..1
+ * parameter, or null once every step has played. Shared by both shells so a
+ * step with several paths lasts the same on web and iOS.
+ */
+export function playbackFrameAt(d: CourtDiagramV2, elapsedMs: number): { step: number; t: number } | null {
+  let start = 0;
+  for (let i = 0; i < d.steps.length; i++) {
+    const duration = stepDurationMs(d.steps[i]);
+    if (elapsedMs < start + duration) return { step: i, t: (elapsedMs - start) / duration };
+    start += duration;
+  }
+  return null;
+}
 
 function lerp(a: Point, b: Point, t: number): Point {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
@@ -301,8 +337,9 @@ export function pointOnBallPath(path: BallPath, t: number): Point {
 }
 
 /**
- * One frame of ▶ AUTO (rule 20): the pieces part-way along their movements and
- * the ball part-way along its path, t in [0, 1].
+ * One frame of ▶ AUTO (rule 20): the pieces part-way along their movements
+ * over the whole step, and the ball part-way along the step's paths taken one
+ * after the other (PAD-289), t in [0, 1].
  */
 export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { pieces: Piece[]; ball?: Point } {
   const step = d.steps[index];
@@ -317,7 +354,14 @@ export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { 
       piece.y = at.y;
     }
   }
-  return { pieces, ball: step.ball ? pointOnBallPath(step.ball, k) : undefined };
+  const balls = stepBalls(step);
+  let ball: Point | undefined;
+  if (balls.length) {
+    const scaled = k * balls.length;
+    const i = Math.min(balls.length - 1, Math.floor(scaled));
+    ball = pointOnBallPath(balls[i], k >= 1 ? 1 : scaled - i);
+  }
+  return { pieces, ball };
 }
 
 // ── Pen strokes (rule 16) ────────────────────────────────────────────────────

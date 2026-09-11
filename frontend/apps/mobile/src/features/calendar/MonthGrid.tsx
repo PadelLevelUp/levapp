@@ -1,6 +1,6 @@
-import { isInMonth, nativeCalendarSurfaces } from "@levelup/config";
+import { isClubToday, isInMonth, MONTH_WEEKDAY_HEADER_HEIGHT, nativeCalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -37,10 +37,17 @@ export function MonthGrid({
 
   return (
     <View testID="calendar-month-grid" className="bg-background px-2.5 pb-3">
-      <View className="flex-row pt-2.5" accessibilityElementsHidden>
+      {/* Fixed height, no font scaling: the sheet's maximum (rule 17) is one grid row
+          below this grid's top and must always leave the header visible. */}
+      <View
+        className="flex-row overflow-hidden pt-2.5"
+        style={{ height: MONTH_WEEKDAY_HEADER_HEIGHT }}
+        accessibilityElementsHidden
+      >
         {monthDays.slice(0, 7).map((d) => (
           <Text
             key={d.toISOString()}
+            allowFontScaling={false}
             className="flex-1 pb-2 text-center text-[9.5px] font-sans-bold tracking-wider text-muted-foreground"
           >
             {format(d, "EEE", { locale }).replace(/\.$/, "").toUpperCase()}
@@ -52,7 +59,7 @@ export function MonthGrid({
           const key = format(day, "yyyy-MM-dd");
           const inMonth = isInMonth(day, monthStart);
           const selected = inMonth && isSameDay(day, selectedDay);
-          const today = inMonth && isToday(day);
+          const today = inMonth && isClubToday(day);
           const events = inMonth ? eventsByDay[key] ?? [] : [];
           const dots = dayDotColors(events, SURFACES);
           return (

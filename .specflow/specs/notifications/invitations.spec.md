@@ -75,7 +75,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    instance nor its parent lesson defines one), every level rule in an invitation group evaluates
    to "no candidate passes" â€” a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
-   coach's entire roster. The same applies to the legacy rounds `same_level` criterion.
+   coach's entire roster. (The legacy `rounds` vocabulary was removed by PAD-279; an empty
+   `invitation_groups` list resolves to the built-in groups â€” `notifications.config` rule 12.)
 5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
    `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
    be able to run the batch processor concurrently with the scheduler.
@@ -110,6 +111,18 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     The result is a UTC instant. `Vacancy.invite_not_before` stores it as naive UTC, because it
     is a moment the server computes (R-023), and every gate compares it with UTC now.
     `minTimeBeforeClass` counts real minutes to the class's real start.
+
+12. **A wave costs a bounded number of statements, whatever the roster size (PAD-276, audit M17).**
+   `evaluate_candidates` reads the roster once (player and user eager-loaded), asks for the
+   roster's availability blockers in one `calendar_blocks` query
+   (`blocked_user_ids_for_window`) and the ranking asks for every survivor's attendance in
+   one `presences` query (`_attendance_stats_for`). Per-candidate work is in-memory; a
+   300-student roster evaluates in ~13 statements, not ~900. The verdicts and the ranking
+   are exactly those of the per-player functions (`user_is_blocked_for_window`,
+   `_attendance_stats`), which delegate to the batched ones. Measured and reproducible with
+   `backend/scripts/notification_cost_probe.py`; the send path (~30 statements and 6
+   commits per invitation sent) and the blocking push calls are recorded in the
+   2026-09-11 notification-engine-cost decision, not changed here.
 
 ### Acceptance Criteria
 
@@ -266,3 +279,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** an open vacancy already exists for a student's absence
 - **When** the absence is processed again
 - **Then** the existing vacancy is returned and no second one is created
+
+#### A wave costs the same for a big roster as for a small one (PAD-276)
+- Given a coach with 6 roster students and another with 60, each roster with recurring availability blockers and attendance history, and one open vacancy each
+- When the widest wave is evaluated and ranked for each vacancy
+- Then the 60-student wave issues no more SQL statements than the 6-student wave plus two, and fewer than 60 in total
+- And every blocked student's verdict is `unavailable`, every other student is `invited`, and the batched attendance stats equal the per-player stats for every survivor (0.0/0.0 for a student with no history)

@@ -16,7 +16,8 @@ implemented_by:
 Anyone — a coach or a student — can create their own LevApp account from the login screen, on
 web or on the iPhone app, without being invited by somebody who already has one. A student lands
 in an empty app with one clear next step: connect with a coach. A coach lands in a waiting room
-until the LevApp admin approves them — for now, every new coach is checked by hand — and then
+until the LevApp admin approves them — every new coach is checked by hand while the admin keeps
+that gate switched on in Settings — and then
 picks their club: create one, or ask an existing club to let them in. Nobody has to find the web
 app first, and nobody's login is created for them by someone else.
 

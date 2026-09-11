@@ -7,7 +7,7 @@ import { dayDotColors, MAX_DAY_DOTS } from "./day-dots";
  * calendar.mobile-views rule 10 — the Dia strip shows dots, never chips.
  * Criterion: "Dia strip shows dots, never chips".
  */
-const NOW = new Date("2026-09-08T12:00:00");
+const NOW = new Date("2026-09-08T12:00:00+01:00"); // an instant: 12:00 on the club's clock
 const SURFACES = nativeCalendarSurfaces("light");
 
 function event(overrides: Partial<CalendarEvent>): CalendarEvent {

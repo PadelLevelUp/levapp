@@ -31,14 +31,27 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    and `settings.language`, which are per-user, not per-coach.)
 2. Student-visible Settings sections are exactly: **Profile**, **Preferences** (language + theme
    only), **Notifications preferences** (PAD-112 — the student's own class-invitation block
-   toggles and reason, see notifications.student-block-preferences) and **Account** (delete
-   account, legal links). Note this is a *different* section from the coach-only **Notifications**
-   engine configuration of rule 3: they must carry distinct section ids so that hiding the coach
-   one can never hide the student one.
+   toggles and reason, see notifications.student-block-preferences), **My connections** and
+   **Account** (delete account, legal links). Note this is a *different* section from the
+   coach-only **Notifications** engine configuration of rule 3: they must carry distinct section
+   ids so that hiding the coach one can never hide the student one.
+   **(PAD-287) My connections** (section id `connections`, both roles, placed just before
+   Account) is where a person's links to other people live, and nothing about it is new
+   behaviour — it regroups what used to sit under Account (owner decision 2026-09-11: the
+   2026-09-06 connections model stands; no pending friend requests, no player↔player links):
+   - a student sees their pending **claim requests** (`players.claim` rule 4) and the
+     **"Connect with a coach"** entry (`players.join-token` rule 8: username, link or QR);
+   - a coach sees **"Add students by link or QR"**, which opens the Players page's existing
+     invite dialog (`players.join-token` rule 7) — a way in, not a second copy of it;
+   - both see **Blocked users** (`messaging.block-and-report` rule 10).
+   Account keeps only account deletion and the legal links. On web the avatar menu also offers
+   "My connections" directly (`/settings?tab=connections`); on iOS the initials open Settings,
+   where the section is in the list.
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
-   levels** and **evaluation categories**.
+   levels** and **evaluation categories**. A coach also sees the shared **My connections** and
+   **Account** sections of rule 2.
 4. The section list is defined **once per shell** and drives both that shell's nav and the pane
    it renders, so the two can never disagree about what a role may see. Each entry states its
    audience explicitly — `everyone` / `coach` / `student`, one total field rather than independent

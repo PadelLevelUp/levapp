@@ -84,8 +84,12 @@ def _drop_database(settings, name):
         settings,
         [
             (
+                # Only our own client backends: a non-superuser cannot end an
+                # autovacuum worker (it raised InsufficientPrivilege twice on
+                # 2026-09-11), and DROP DATABASE signals those itself.
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                "WHERE datname = %s AND pid <> pg_backend_pid() "
+                "AND usename = current_user AND backend_type = 'client backend'",
                 (name,),
             ),
             (f'DROP DATABASE IF EXISTS "{name}"', None),
@@ -125,39 +129,66 @@ def postgres_test_database_uri():
 
 
 
-#: Sessions `_truncate_all` found still idle in a transaction (Postgres only).
-#: Fixture output is captured, so they are listed in the terminal summary.
+#: Sessions still idle in a transaction after a test released its app (Postgres
+#: only), attributed to the test. Fixture output is captured, so they are listed
+#: in the terminal summary — and a non-empty list fails the run (B-068, R-007):
+#: this is the alarm, not the fix.
 _LEAKED_SESSIONS = []
+_LEAKED_PIDS = set()
+
+#: Backends of OUR role that are idle inside a transaction on this throwaway
+#: database. `usename = current_user` because a non-superuser may only end its
+#: own backends — pg_terminate_backend on anyone else's raises.
+_IDLE_IN_TX = (
+    "FROM pg_stat_activity WHERE datname = current_database() "
+    "AND pid <> pg_backend_pid() AND usename = current_user "
+    "AND state LIKE 'idle in transaction%%'"
+)
+
+
+def _record_leaked_sessions(label):
+    """Append every idle-in-transaction backend not yet recorded, tagged ``label``."""
+    rows = db.session.execute(text(
+        f"SELECT pid, left(regexp_replace(query, '\\s+', ' ', 'g'), 200) {_IDLE_IN_TX}"
+    )).all()
+    for pid, query in rows:
+        if pid not in _LEAKED_PIDS:
+            _LEAKED_PIDS.add(pid)
+            _LEAKED_SESSIONS.append(f"{label}: session {pid}: {query}")
+    return len(rows)
 
 
 def pytest_terminal_summary(terminalreporter):
     if _LEAKED_SESSIONS:
-        terminalreporter.section("leaked database sessions (released before TRUNCATE)")
+        terminalreporter.section(
+            "leaked database sessions (idle in transaction after the test — run FAILED)"
+        )
         for line in _LEAKED_SESSIONS:
             terminalreporter.write_line(line)
+        terminalreporter.write_line(
+            "A session outlived its app context (compass R-007, B-068). Seed helpers that "
+            "push their own context go BEFORE the outer block touches db.session/Model.query."
+        )
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if _LEAKED_SESSIONS and session.exitstatus == 0:
+        session.exitstatus = 1
 
 
 def _truncate_all(app):
     tables = ", ".join(f'"{t.name}"' for t in reversed(db.metadata.sorted_tables))
-    idle_in_tx = (
-        "FROM pg_stat_activity WHERE datname = current_database() "
-        "AND pid <> pg_backend_pid() AND state LIKE 'idle in transaction%%'"
-    )
     with app.app_context():
         # A connection an earlier test left checked out inside a transaction
         # holds locks that make this TRUNCATE wait forever: backend-tests'
         # Postgres job hung here in CI (run 34519232824, in the setup of the
         # second TestDeleteCancelsJobs test in test_scheduler_job_lifecycle).
-        # The leaked session is kept alive by a reference cycle. Record it (the
-        # terminal summary lists it, so the leak stays findable), collect cycles
-        # to release it, end anything still idle in a transaction on this
-        # throwaway database, and fail fast rather than hang if a lock is held.
-        for pid, query in db.session.execute(text(
-            f"SELECT pid, left(regexp_replace(query, '\\s+', ' ', 'g'), 200) {idle_in_tx}"
-        )).all():
-            _LEAKED_SESSIONS.append(f"session {pid}: {query}")
+        # Safety net, kept after B-068 fixed the leak itself: record anything
+        # the per-test check missed, collect cycles to release it, end whatever
+        # is still idle in a transaction, and fail fast rather than hang.
+        _record_leaked_sessions("before TRUNCATE (unattributed)")
         gc.collect()
-        db.session.execute(text(f"SELECT pg_terminate_backend(pid) {idle_in_tx}")).all()
+        db.session.execute(text(f"SELECT pg_terminate_backend(pid) {_IDLE_IN_TX}")).all()
         db.session.execute(text("SET LOCAL lock_timeout = '15s'"))
         db.session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
         db.session.commit()
@@ -169,8 +200,10 @@ def _truncate_all(app):
 # ---------------------------------------------------------------------------
 
 @contextlib.contextmanager
-def _test_app(postgres_uri, extra_config=None):
-    """A test app on the selected backend; ``extra_config`` is merged on top."""
+def _test_app(postgres_uri, extra_config=None, nodeid="?"):
+    """A test app on the selected backend; ``extra_config`` is merged on top.
+
+    ``nodeid`` names the test in the leaked-sessions summary."""
     config = {**BASE_TEST_CONFIG, **(extra_config or {})}
 
     if postgres_uri is not None:
@@ -182,6 +215,11 @@ def _test_app(postgres_uri, extra_config=None):
             yield app
         finally:
             with app.app_context():
+                db.session.remove()
+                # The alarm (B-068): a session this test left idle in a
+                # transaction is attributed to it here, before the next test's
+                # safety net releases it.
+                _record_leaked_sessions(nodeid)
                 db.session.remove()
                 db.get_engine(app).dispose()
         return
@@ -200,13 +238,13 @@ def _test_app(postgres_uri, extra_config=None):
 
 
 @pytest.fixture
-def app(postgres_test_database_uri):
-    with _test_app(postgres_test_database_uri) as app:
+def app(postgres_test_database_uri, request):
+    with _test_app(postgres_test_database_uri, nodeid=request.node.nodeid) as app:
         yield app
 
 
 @pytest.fixture
-def app_with_config(postgres_test_database_uri):
+def app_with_config(postgres_test_database_uri, request):
     """Factory for a test that needs extra app config (e.g. cookie sessions).
 
     ``app_with_config({"SECRET_KEY": "…"})`` returns an app on the SAME backend
@@ -215,7 +253,7 @@ def app_with_config(postgres_test_database_uri):
     """
     with contextlib.ExitStack() as stack:
         yield lambda extra_config=None: stack.enter_context(
-            _test_app(postgres_test_database_uri, extra_config)
+            _test_app(postgres_test_database_uri, extra_config, nodeid=request.node.nodeid)
         )
 
 

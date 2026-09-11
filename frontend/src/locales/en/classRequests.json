@@ -28,7 +28,8 @@
       "not_open": "This request was already decided",
       "not_pending": "The student is answering your proposal",
       "not_countered": "There is no proposal to answer",
-      "NO_CLUB": "Join or create a club before accepting"
+      "NO_CLUB": "Join or create a club before accepting",
+      "slot_changed": "That proposal is no longer the one on the table"
     },
     "status": {
       "pending": "Waiting for the coach",
@@ -60,6 +61,22 @@
     "withdrawn": "Request withdrawn",
     "answered": "Answer sent",
     "decideFailed": "Could not update the request",
-    "history": "Earlier requests"
+    "history": "Earlier requests",
+    "counterProposed": "Proposal sent to the coach",
+    "pickAnotherTime": "Pick another time",
+    "bubble": {
+      "accept": "Accept",
+      "decline": "Decline",
+      "propose": "Propose another time",
+      "waiting": "Waiting for the student",
+      "superseded": "Replaced by a newer proposal",
+      "outcome": {
+        "pending": "Waiting for the coach",
+        "countered": "New time proposed",
+        "accepted": "Class booked",
+        "declined": "Declined",
+        "withdrawn": "Request withdrawn"
+      }
+    }
   }
 }

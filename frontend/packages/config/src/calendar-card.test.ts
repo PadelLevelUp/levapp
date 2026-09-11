@@ -24,7 +24,7 @@ import { lightTheme } from "./tokens";
  * not filled", "Canceled is red and only red is canceled", "Empty seats go
  * amber on the bar, not on the card".
  */
-const NOW = new Date("2026-09-08T12:00:00");
+const NOW = new Date("2026-09-08T12:00:00+01:00"); // an instant: 12:00 on the club's clock
 
 function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   return {

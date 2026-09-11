@@ -39,6 +39,8 @@ import {
   Upload,
   User,
   UserX,
+  Link2,
+  QrCode,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
@@ -72,6 +74,7 @@ type SettingsTab =
   | "myNotifications"
   | "import"
   | "club"
+  | "connections"
   | "account"
   | "admin";
 
@@ -127,6 +130,8 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "tutorials", labelKey: "settings.nav.tutorials", icon: <GraduationCap className="w-4 h-4" />, audience: "coach" },
   { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, audience: "coach" },
   { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, audience: "coach" },
+  // PAD-287 (settings.role-scope rule 2): the connection actions, out of Account.
+  { id: "connections", labelKey: "settings.nav.connections", icon: <Link2 className="w-4 h-4" />, audience: "everyone" },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
   // auth.coach-approval rule 7: the LevApp admin approves self-registered coaches here.
   { id: "admin", labelKey: "settings.nav.admin", icon: <ShieldCheck className="w-4 h-4" />, audience: "superadmin" },
@@ -244,7 +249,12 @@ export default function SettingsPage() {
   }, [isCoach]);
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
-  const [tab, setTab] = useState<SettingsTab>("preferences");
+  // PAD-287: `/settings?tab=<id>` (the avatar menu's "My connections") lands on
+  // that section; an unknown or disallowed id falls back through `activeTab`.
+  const [tab, setTab] = useState<SettingsTab>(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
+  });
   // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
   // first and opens one on tap. Landing straight inside Preferences with a
   // section picker above it hid what else existed and made the page read as a
@@ -687,6 +697,57 @@ export default function SettingsPage() {
             )}
 
             {/* ACCOUNT */}
+            {/* PAD-287 (settings.role-scope rule 2): My connections — the actions
+                that used to sit under Account, regrouped. Nothing here is new. */}
+            {activeTab === "connections" && (
+              <Card data-testid="settings-connections">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="w-5 h-5" />
+                    {t("settings.connections.title")}
+                  </CardTitle>
+                  <CardDescription>{t("settings.connections.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {!isCoach && (
+                    /* players.claim rule 4: the second place a student can answer a
+                       coach's link request (the first is the dashboard banner). */
+                    <ClaimRequestsList variant="list" />
+                  )}
+                  {!isCoach && (
+                    /* players.join-token rule 8: Settings → My connections is one of
+                       the three ways a student reaches "Connect with a coach". */
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <span className="text-sm">{t("players.connect.settingsLink")}</span>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/connect" data-testid="settings-connect-coach">
+                          {t("players.connect.go")}
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                  {isCoach && (
+                    /* players.join-token rule 7: the invite dialog lives on Players;
+                       this is a way in, not a second copy of it. */
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <div className="min-w-0">
+                        <p className="text-sm">{t("settings.connections.addByQr")}</p>
+                        <p className="text-xs text-muted-foreground">{t("settings.connections.addByQrHint")}</p>
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/players?addByQr=1" data-testid="settings-add-by-qr">
+                          <QrCode className="w-4 h-4 mr-1" />
+                          {t("settings.connections.open")}
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                  <Separator />
+                  <BlockedUsersSection />
+                </CardContent>
+              </Card>
+            )}
+
             {activeTab === "account" && (
               <Card>
                 <CardHeader>
@@ -699,25 +760,6 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <BlockedUsersSection />
-                  <Separator />
-                  {!isCoach && (
-                    /* players.claim rule 4: the second place a student can answer a
-                       coach's link request (the first is the dashboard banner). */
-                    <ClaimRequestsList variant="list" />
-                  )}
-                  {!isCoach && (
-                    /* players.join-token rule 8: Settings → Account is one of the
-                       three ways a student reaches "Connect with a coach". */
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
-                      <span className="text-sm">{t("players.connect.settingsLink")}</span>
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/connect" data-testid="settings-connect-coach">
-                          {t("players.connect.go")}
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
                   <AccountSection />
                   <Separator />
                   <p className="text-xs text-muted-foreground">

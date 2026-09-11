@@ -18,7 +18,7 @@ interface StoredDiagram {
   version?: number;
   mode?: string;
   pieces: Array<{ kind: string }>;
-  steps: Array<{ ball: { style: string } }>;
+  steps: Array<{ ball: { style: string }; balls?: Array<{ style: string; from: { x: number } }> }>;
 }
 
 /** Tap the court at a percent position of the playing surface. */
@@ -285,4 +285,55 @@ test("US-69: AUTO animates the steps, reads stop while playing, and ends back at
   await expect(page.getByTestId("playback-ball")).toHaveCount(0);
   // Editing view again: step 2 shows A1 where step 1 left it (no movement in step 1 → start).
   await expectPieceAt(page, "a1", 108.8, 156);
+});
+
+// ── PAD-289 — several ball paths per step (rules 9, 23, 24) ───────────────────
+
+test("US-70: two ball paths in one step are numbered, reorderable, removable and saved in order", async ({ page, request }) => {
+  await openNewExercise(page, "Two Paths");
+  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await tapCourt(page, 58, 20);
+  await tapCourt(page, 40, 80);
+  await expect(page.getByTestId("ball-path")).toBeVisible();
+  await expect(page.getByTestId("ball-number-0")).toHaveCount(0); // one path: no numbers
+
+  await tapCourt(page, 40, 80);
+  await tapCourt(page, 70, 30);
+  await expect(page.getByTestId("ball-path-1")).toBeVisible();
+  await expect(page.getByTestId("ball-number-0")).toHaveText("1");
+  await expect(page.getByTestId("ball-number-1")).toHaveText("2");
+  await expect(page.getByTestId("board-ball-0")).toBeVisible();
+  await expect(page.getByTestId("board-ball-1")).toBeVisible();
+
+  // Only the addressed path toggles.
+  await page.getByTestId("ball-style-handle-1").click();
+  await expect(page.getByTestId("ball-path-1")).toHaveAttribute("d", /Q/);
+  await expect(page.getByTestId("ball-path")).not.toHaveAttribute("d", /Q/);
+
+  // Reorder: the lob becomes path 1.
+  await page.getByTestId("board-ball-1-up").click();
+  await expect(page.getByTestId("ball-path")).toHaveAttribute("d", /Q/);
+  await expect(page.getByTestId("ball-path-1")).not.toHaveAttribute("d", /Q/);
+
+  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await expect(page.getByText("Two Paths")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
+  const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });
+  const list = (await res.json()) as Array<{ name: string; diagram?: StoredDiagram }>;
+  const saved = list.find((e) => e.name === "Two Paths");
+  expect(saved?.diagram?.steps[0].balls?.map((b) => b.style)).toEqual(["lob", "flat"]);
+  expect(saved?.diagram?.steps[0].ball.style).toBe("lob"); // mirrored first path (rule 24)
+
+  // The thumbnail shows both paths (only this exercise has a second one, so the
+  // suffixed id is unique on the list); reopening, remove one and undo brings it back.
+  await expect(page.getByTestId("thumb-ball-path-1")).toHaveCount(1);
+  await page.getByRole("heading", { name: "Two Paths" }).click();
+  await expect(page.getByTestId("ball-path-1")).toBeVisible({ timeout: 5000 });
+  await page.getByTestId("board-ball-1-remove").click();
+  await expect(page.getByTestId("ball-path-1")).toHaveCount(0);
+  await expect(page.getByTestId("ball-number-0")).toHaveCount(0);
+  await page.getByRole("button", { name: /^undo$/i }).click();
+  await expect(page.getByTestId("ball-path-1")).toBeVisible();
 });

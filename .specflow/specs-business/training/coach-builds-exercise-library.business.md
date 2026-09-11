@@ -29,7 +29,7 @@ Coaches building and maintaining their own exercise library.
    beginner to expert, and which player levels it targets.
 2. On the tactical board ("Quadro Tático") the coach picks the kind of drill — a 2v2 game
    situation, a basket-feeding drill, or a free magnetic board — places players and cones,
-   draws the ball's path (flat or lob) and each player's movement, and can add further steps
+   draws the ball's paths in order (each flat or lob) and each player's movement, and can add further steps
    so the drill plays back step by step or as an animation. Web and the iOS app show the same
    board.
 3. The coach browses and filters their exercise library by type and difficulty.
@@ -43,7 +43,8 @@ Coaches building and maintaining their own exercise library.
 - Every exercise and group has one owning coach; other coaches can be given read-only
   ("follower") access.
 - An exercise's court diagram is a starting position (players in Team A / Team B, a feeder, cones,
-  loose balls, pen strokes) plus an ordered list of steps; each step has at most one ball path and
+  loose balls, pen strokes) plus an ordered list of steps; each step has an ordered list of ball
+  paths (numbered on the court when there is more than one — a serve, its return, the volley…) and
   any number of player movements. Diagrams drawn before the tactical board keep working and are
   upgraded silently the next time they are edited.
 - An exercise can belong to more than one group at once.

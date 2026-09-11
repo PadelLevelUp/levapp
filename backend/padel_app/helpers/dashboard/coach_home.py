@@ -345,7 +345,10 @@ def _empty_seat_items(
                 "timeLabel": event.get("startTime"),
                 "filled": filled,
                 "capacity": capacity,
-                "href": class_href(event),
+                # PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class
+                # with Notificar already open; the hero and the schedule keep
+                # the plain calendar link.
+                "href": class_href(event) + "&notify=1",
             }
         )
     return out
@@ -400,7 +403,9 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
                 "personName": sender.name,
                 "initials": _initials(sender.name),
                 "preview": (message.text or "").strip(),
-                "href": f"/messages?conversationId={conversation_id}",
+                # PAD-284 (dashboard.blocks rule 10): the web conversation route;
+                # iOS maps it to its conversation screen (`dashboardRoute`).
+                "href": f"/messages/{conversation_id}",
             }
         )
         if len(out) >= QUEUE_REPLY_LIMIT:
@@ -423,7 +428,9 @@ def week_bounds(now: datetime, offset: int) -> Tuple[datetime, datetime]:
 
 
 def validation_href(week_offset: int) -> str:
-    return "/presences" if week_offset == 0 else f"/presences?week={week_offset}"
+    """PAD-283 (dashboard.blocks rule 10): the Presences tab with the validate
+    view already open, on the week the card counted."""
+    return "/presences?validate=1" if week_offset == 0 else f"/presences?validate=1&week={week_offset}"
 
 
 def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:

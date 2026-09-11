@@ -25,9 +25,10 @@ PATCHES = (
     "padel_app.services.notification_service.send_push_notification",
 )
 
-ROUNDS = [
-    {"id": 1, "criteria": [], "criteria_values": {}, "description": "Everyone"},
-    {"id": 2, "criteria": [], "criteria_values": {}, "description": "Everyone again"},
+# Two waves that admit everyone (PAD-279: invitation groups, not legacy rounds).
+GROUPS = [
+    {"id": "1", "rules": []},
+    {"id": "2", "rules": []},
 ]
 
 
@@ -88,7 +89,7 @@ def _seed():
     db.session.add(NotificationConfig(
         coach_id=coach.id,
         auto_notify_enabled=True,
-        rounds=ROUNDS,
+        invitation_groups=GROUPS,
         restrictions={"maxSimultaneous": {"enabled": True, "value": 1},
                       "maxTotal": {"enabled": False, "value": 10}},
     ))

@@ -79,6 +79,11 @@ export default function TabsLayout() {
           });
           void queryClient.invalidateQueries({ queryKey: ["conversations"] });
         }
+        // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
+        // Availability section render off the request's live row.
+        if (evt.type === "class_request_changed") {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+        }
       },
       [queryClient]
     )

@@ -130,6 +130,36 @@ resource "google_storage_bucket_iam_member" "staging_instance_rw" {
   member = "serviceAccount:${google_service_account.vm_sa.email}"
 }
 
+# PAD-296 (B-080, compass R-028): the nightly `backup.sh` streams pg_dump output
+# here from the VM. Private (public access prevention enforced), objects older
+# than 30 days are deleted by the bucket (the script prunes at 14, this is the
+# backstop), never emptied by Terraform. The VM service account needs objectAdmin:
+# create for the upload, list + delete for the pruning.
+resource "google_storage_bucket" "backups" {
+  name          = "padel-levelup-2026-backups"
+  location      = "europe-west1"
+  storage_class = "STANDARD"
+
+  force_destroy               = false
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+resource "google_storage_bucket_iam_member" "backups_instance_rw" {
+  bucket = google_storage_bucket.backups.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.vm_sa.email}"
+}
+
 resource "google_service_account" "vm_sa" {
   account_id   = "levelup-vm-sa"
   display_name = "Padel App VM SA"

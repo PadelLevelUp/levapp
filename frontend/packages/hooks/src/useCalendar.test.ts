@@ -154,3 +154,30 @@ describe("useCalendar month", () => {
     expect(result.current.monthEvents.map((e) => e.id)).toEqual(["a", "b"]);
   });
 });
+
+/**
+ * PAD-295 / B-066 — calendar.view rule 16: the initial day and `Hoje` are the
+ * club's today. At 23:30 UTC on 9 September Lisbon is already on the 10th
+ * (summer, UTC+1); a device in UTC or the Americas still says the 9th.
+ */
+describe("useCalendar today is the club's today (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 8, 9, 23, 30)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("starts on the club's today", () => {
+    const { result } = renderHook(() => useCalendar([]));
+    expect(day(result.current.selectedDay)).toBe("2026-09-10");
+  });
+
+  it("goToToday reselects the club's today", () => {
+    const { result } = renderHook(() => useCalendar([]));
+    act(() => result.current.selectDay(new Date(2026, 8, 3)));
+    act(() => result.current.goToToday());
+    expect(day(result.current.selectedDay)).toBe("2026-09-10");
+  });
+});

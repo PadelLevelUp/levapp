@@ -47,6 +47,8 @@ function readDeepLink(search: string) {
   return {
     classId: params.get("classId"),
     date: parsedDate && isValid(parsedDate) ? parsedDate : null,
+    // PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class with Notificar open.
+    notify: params.get("notify") === "1",
   };
 }
 
@@ -86,6 +88,8 @@ export default function CalendarPage() {
   // Frozen at first render: the calendar must open on the deep-linked week straight
   // away, so the very first events fetch already targets the right range.
   const [deepLink] = useState(() => readDeepLink(window.location.search));
+  // PAD-285: `&notify=1` on the deep link opens the sheet with Notificar open.
+  const [notifyOnOpen, setNotifyOnOpen] = useState(false);
   const [pendingClassId, setPendingClassId] = useState<string | null>(
     deepLink.classId
   );
@@ -149,6 +153,7 @@ export default function CalendarPage() {
 
     const next = new URLSearchParams(searchParams);
     next.delete("classId");
+    next.delete("notify");
     next.delete("date");
     setSearchParams(next, { replace: true });
     // Runs once — the guard above makes it a no-op afterwards.
@@ -212,7 +217,10 @@ export default function CalendarPage() {
     if (!pendingClassId || !eventsLoadedOnce) return;
 
     const match = allEvents.find((e) => e.id === pendingClassId);
-    if (match) handleEventClick(match);
+    if (match) {
+      setNotifyOnOpen(deepLink.notify);
+      handleEventClick(match);
+    }
 
     setPendingClassId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,7 +530,11 @@ export default function CalendarPage() {
         open={!!selectedClassEvent}
         players={coachPlayers}
         levels={levels}
-        onClose={() => setSelectedClassEvent(null)}
+        onClose={() => {
+          setSelectedClassEvent(null);
+          setNotifyOnOpen(false);
+        }}
+        openNotify={notifyOnOpen}
         canManage={canManageClasses}
         onDelete={canManageClasses ? handleDeleteClass : undefined}
         onEdit={canManageClasses ? handleEditClass : undefined}

@@ -28,7 +28,8 @@
       "not_open": "Este pedido já foi decidido",
       "not_pending": "O aluno está a responder à tua proposta",
       "not_countered": "Não há proposta para responder",
-      "NO_CLUB": "Entra ou cria um clube antes de aceitar"
+      "NO_CLUB": "Entra ou cria um clube antes de aceitar",
+      "slot_changed": "Essa proposta já não é a que está em cima da mesa"
     },
     "status": {
       "pending": "À espera do treinador",
@@ -60,6 +61,22 @@
     "withdrawn": "Pedido retirado",
     "answered": "Resposta enviada",
     "decideFailed": "Não foi possível atualizar o pedido",
-    "history": "Pedidos anteriores"
+    "history": "Pedidos anteriores",
+    "counterProposed": "Proposta enviada ao treinador",
+    "pickAnotherTime": "Escolhe outro horário",
+    "bubble": {
+      "accept": "Aceitar",
+      "decline": "Recusar",
+      "propose": "Propor outro horário",
+      "waiting": "À espera do aluno",
+      "superseded": "Substituída por uma proposta mais recente",
+      "outcome": {
+        "pending": "À espera do treinador",
+        "countered": "Novo horário proposto",
+        "accepted": "Aula marcada",
+        "declined": "Recusado",
+        "withdrawn": "Pedido retirado"
+      }
+    }
   }
 }

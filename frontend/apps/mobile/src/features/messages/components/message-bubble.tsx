@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { classRequestBubbleState, lightTheme, type ClassRequestLive } from "@levelup/config";
 import type { Message, MessageStatus } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -120,6 +120,16 @@ type MessageBubbleProps = {
   respondingWaitingList?: boolean;
   /** Fires when the user taps Yes/No on a waiting_list_offer message. */
   onRespondWaitingList?: (action: "yes" | "no") => void;
+  /** classes.class-requests rule 6 (PAD-281): the live row of the request a
+   * proposal message is about — `undefined` while loading, `null` when the
+   * list does not hold it. The bubble derives what it offers from this. */
+  classRequestLive?: ClassRequestLive | null;
+  /** True while an answer to the proposal is in flight. */
+  respondingClassRequest?: boolean;
+  /** Accept / decline the coach's proposal from the bubble. */
+  onAnswerClassRequest?: (accept: boolean) => void;
+  /** "Propose another time": opens the Availability picker on the request. */
+  onCounterClassRequest?: () => void;
 };
 
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
@@ -140,9 +150,21 @@ export function MessageBubble({
   onCancelAttendance,
   respondingWaitingList,
   onRespondWaitingList,
+  classRequestLive,
+  respondingClassRequest,
+  onAnswerClassRequest,
+  onCounterClassRequest,
   onScrollToReply,
 }: MessageBubbleProps) {
   const { t } = useTranslation();
+
+  // PAD-281 / B-077: the coach's proposal is a question in chat, so its answers
+  // live on this bubble. Same derivation as web's MessageBubble, off the
+  // request's live row the screen fetches (class-request-message.ts).
+  const classRequestMeta = message.metadata?.classRequest;
+  const isClassRequestProposal =
+    classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
+  const classRequest = classRequestBubbleState(classRequestMeta, classRequestLive, { own });
 
   // Notification-invite response area, mirrors web's MessageBubble.tsx
   // messageType === "notification_invite" block: own messages show a
@@ -637,6 +659,106 @@ export function MessageBubble({
                   </Text>
                 </Pressable>
               </>
+            )}
+          </View>
+        ) : null}
+
+        {/* Class-request proposal (classes.class-requests rule 6, PAD-281),
+            mirroring web's block: the student answers here or goes to pick
+            another time; the coach sees it waiting; a decided or superseded
+            proposal shows where it ended up. */}
+        {isClassRequestProposal && classRequest.kind !== "none" ? (
+          <View
+            testID={`class-request-proposal-actions-${classRequestMeta?.id ?? ""}`}
+            accessibilityValue={{ text: classRequest.kind }}
+            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+          >
+            {classRequest.kind === "actions" ? (
+              <>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    testID="class-request-bubble-accept"
+                    accessibilityLabel={t("classRequests.bubble.accept")}
+                    role="button"
+                    disabled={respondingClassRequest}
+                    onPress={() => onAnswerClassRequest?.(true)}
+                    className={cn(
+                      "flex-1 items-center rounded-xl bg-primary px-3 py-1.5",
+                      respondingClassRequest && "opacity-50"
+                    )}
+                  >
+                    <Text className="text-sm font-medium text-primary-foreground">
+                      {t("classRequests.bubble.accept")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    testID="class-request-bubble-decline"
+                    accessibilityLabel={t("classRequests.bubble.decline")}
+                    role="button"
+                    disabled={respondingClassRequest}
+                    onPress={() => onAnswerClassRequest?.(false)}
+                    className={cn(
+                      "flex-1 items-center rounded-xl bg-muted px-3 py-1.5",
+                      respondingClassRequest && "opacity-50"
+                    )}
+                  >
+                    <Text className="text-sm font-medium text-foreground">
+                      {t("classRequests.bubble.decline")}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Pressable
+                  testID="class-request-bubble-propose"
+                  accessibilityLabel={t("classRequests.bubble.propose")}
+                  role="button"
+                  disabled={respondingClassRequest}
+                  onPress={() => onCounterClassRequest?.()}
+                  className={cn(
+                    "items-center rounded-xl border border-border bg-background px-3 py-1.5",
+                    respondingClassRequest && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {t("classRequests.bubble.propose")}
+                  </Text>
+                </Pressable>
+              </>
+            ) : classRequest.kind === "waiting" ? (
+              <Text className="text-xs italic text-muted-foreground">
+                {t(
+                  classRequestMeta?.kind === "proposed"
+                    ? "classRequests.bubble.waiting"
+                    : "classRequests.bubble.outcome.pending"
+                )}
+              </Text>
+            ) : classRequest.kind === "superseded" ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70">
+                <Ionicons name="time-outline" size={14} color={lightTheme.mutedForeground} />
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {t("classRequests.bubble.superseded")}
+                </Text>
+              </View>
+            ) : (
+              <View
+                className={cn(
+                  "flex-row items-center gap-1.5 rounded-full px-3 py-1.5",
+                  classRequest.status === "accepted" ? "bg-success/15" : "bg-muted"
+                )}
+              >
+                <Ionicons
+                  name={classRequest.status === "accepted" ? "checkmark" : "close"}
+                  size={14}
+                  color={classRequest.status === "accepted" ? ACCEPTED_ICON_COLOR : lightTheme.mutedForeground}
+                />
+                <Text
+                  className={cn(
+                    "text-xs font-medium",
+                    classRequest.status === "accepted" ? "text-success" : "text-muted-foreground"
+                  )}
+                >
+                  {t(`classRequests.bubble.outcome.${classRequest.status ?? "pending"}`)}
+                </Text>
+              </View>
             )}
           </View>
         ) : null}

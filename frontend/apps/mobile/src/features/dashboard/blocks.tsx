@@ -45,7 +45,7 @@ import {
   useRespondReminder,
   useRespondWaitingListOffer,
 } from "@/features/calendar/hooks";
-import { parseDashboardItemId } from "@/features/calendar/params";
+import { dashboardRoute } from "@/features/dashboard/routes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,46 +57,15 @@ import { cn } from "@/lib/utils";
  */
 export function canGo(href: string | undefined): href is string {
   if (!href) return false;
-  return ["/calendar", "/messages", "/players", "/presences", "/attendance", "/absences"].some(
-    (p) => href.startsWith(p),
-  );
+  return dashboardRoute(href) !== null;
 }
 
 export function go(href: string, hint?: { title?: string; timeLabel?: string }) {
-  if (href.startsWith("/calendar")) {
-    const query = href.split("?")[1] ?? "";
-    const params = new URLSearchParams(query);
-    const classId = params.get("classId") ?? "";
-    const parsed = classId ? parseDashboardItemId(classId) : null;
-    if (parsed) {
-      router.push({
-        pathname: "/class/[id]",
-        params: {
-          id: classId,
-          model: parsed.model,
-          originalId: String(parsed.originalId),
-          date: params.get("date") ?? parsed.date,
-          startTime: hint?.timeLabel ?? "",
-          title: hint?.title ?? "",
-          isRecurring: parsed.date ? "1" : "0",
-        },
-      });
-      return;
-    }
-    router.push("/(tabs)/calendar");
-  } else if (href.startsWith("/messages")) router.push("/(tabs)/messages");
-  else if (href.startsWith("/players")) router.push("/(tabs)/players");
-  // PAD-201: the validation card lands on the Presences tab ON the week it
-  // counted (`/presences?week=-1`), so the number tapped is the number shown.
-  else if (href.startsWith("/presences")) {
-    const week = new URLSearchParams(href.split("?")[1] ?? "").get("week") ?? "0";
-    router.push({ pathname: "/(tabs)/presences", params: { week } });
-  }
-  // PAD-162: the student's "Attended" KPI.
-  else if (href.startsWith("/attendance")) router.push("/attendance" as never);
-  // PAD-163: the student's "Missed" KPI, same backend contract
-  // (helpers/dashboard/player.py emits `/absences` for both shells).
-  else if (href.startsWith("/absences")) router.push("/absences" as never);
+  // dashboard.blocks rule 10: the mapping lives in routes.ts (pure, unit-tested).
+  const route = dashboardRoute(href, hint);
+  if (!route) return;
+  if ("params" in route) router.push({ pathname: route.pathname, params: route.params } as never);
+  else router.push(route.pathname as never);
 }
 
 /* ── primitives ──────────────────────────────────────────────────────────── */

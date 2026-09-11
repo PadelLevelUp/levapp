@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { format, isToday, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { findNextEventId } from "@levelup/config";
+import { findNextEventId, isClubToday } from "@levelup/config";
 import type { CalendarViewMode } from "@levelup/hooks";
 import type { CalendarEvent, CoachLevel } from "@/types";
 import { DayHeader } from "./DayHeader";
@@ -115,7 +115,7 @@ export function MobileCalendar({
   // range contains today. Requiring the SELECTED DAY to be today meant tapping
   // the day the next class actually falls on showed nothing.
   const nextEventId = useMemo(
-    () => (visibleDays.some((d) => isToday(d)) ? findNextEventId(visibleEvents) : undefined),
+    () => (visibleDays.some((d) => isClubToday(d)) ? findNextEventId(visibleEvents) : undefined),
     [visibleEvents, visibleDays]
   );
 

@@ -312,7 +312,7 @@ function ReplyCard({ item }: { item: DashboardNeedsYouReply }) {
     // Mobile has no buttons at all — the card IS the target, which keeps the
     // touch area far larger than 44px. Desktop adds inline actions but the card
     // stays clickable, so the behaviour never contradicts itself.
-    <ActionCard accent="accent" className="flex items-center gap-3" onClick={open}>
+    <ActionCard accent="accent" className="flex items-center gap-3" onClick={open} testId="dashboard-queue-reply">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-bold text-secondary-foreground">
         {item.initials}
       </span>
