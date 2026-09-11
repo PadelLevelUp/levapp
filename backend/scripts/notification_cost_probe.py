@@ -317,6 +317,13 @@ def probe_engine(app, ids, args, push_stub):
 
         # A3: the full batch send (default restrictions: 3 per batch, 10 total),
         # at round 1 (level+side) and at round 3 (everyone passes the rules).
+        def _flush():
+            try:
+                from padel_app.utils.push_sender import flush
+                flush(timeout=30)
+            except ImportError:
+                pass
+
         res["send_batch"] = {}
         for rnd in (1, 3):
             vacancy.current_round_number = rnd
@@ -326,8 +333,12 @@ def probe_engine(app, ids, args, push_stub):
             with counting(engine, counter), timed(res, f"send_batch_ms_r{rnd}"):
                 with patch.object(ns, "publish"), patch.object(ns, "send_push_notification"):
                     sent = ns._send_invitation_batch(vacancy, instance, config, c0["coach_id"])
+            caller_ms = res[f"send_batch_ms_r{rnd}"]
+            _flush()
             snap = counter.snapshot()
             snap["invited"] = len(sent)
+            snap["caller_ms"] = caller_ms
+            snap["threads"] = sorted(push_stub.threads)
             snap["push_calls"] = push_stub.calls
             snap["push_ms"] = round(push_stub.total_ms, 1)
             snap["pool_checked_out_during_push"] = push_stub.max_checked_out
@@ -345,7 +356,11 @@ def probe_engine(app, ids, args, push_stub):
         with counting(engine, counter), timed(res, "tick_ms"):
             with patch.object(ns, "publish"), patch.object(ns, "send_push_notification"):
                 processed = ns.process_invitation_batches()
+        tick_caller_ms = res["tick_ms"]
+        _flush()
         res["tick"] = counter.snapshot()
+        res["tick"]["caller_ms"] = tick_caller_ms
+        res["tick"]["threads"] = sorted(push_stub.threads)
         res["tick"]["vacancies_processed"] = processed
         res["tick"]["push_calls"] = push_stub.calls
         res["tick"]["push_ms"] = round(push_stub.total_ms, 1)
@@ -424,6 +439,11 @@ def probe_push(app, ids, args, push_stub):
         with patch.object(ns, "publish"), patch.object(ns, "send_push_notification"):
             with timed(res, "send_reminders_ms"):
                 out = ns.send_class_reminders(c0["instance_ids"][0])
+            try:
+                from padel_app.utils.push_sender import flush
+                flush(timeout=30)
+            except ImportError:
+                pass
         res["send_reminders"] = {
             "result": {k: v for k, v in out.items() if not isinstance(v, (list, dict))},
             "push_calls": push_stub.calls,
@@ -507,6 +527,8 @@ def main():
     ap.add_argument("--history", type=int, default=8, help="past classes per coach with a presence per student")
     ap.add_argument("--blocks-pct", type=int, default=10, help="%% of students with a recurring availability blocker")
     ap.add_argument("--push-latency-ms", type=int, default=150, help="stubbed Expo round-trip")
+    ap.add_argument("--push-inline", action="store_true",
+                    help="PAD-294: run the push sender inline (the pre-PAD-294 shape) instead of on its worker")
     ap.add_argument("--json", help="write the full result here")
     ap.add_argument("--keep-db", action="store_true")
     args = ap.parse_args()
@@ -516,7 +538,8 @@ def main():
     _run_admin(settings, [(f'CREATE DATABASE "{DB_NAME}"', None)])
     uri = (f"postgresql://{settings['user']}:{settings['password']}"
            f"@{settings['host']}:{settings['port']}/{DB_NAME}")
-    app = create_app({**BASE_TEST_CONFIG, "SQLALCHEMY_DATABASE_URI": uri})
+    app = create_app({**BASE_TEST_CONFIG, "SQLALCHEMY_DATABASE_URI": uri,
+                      "PUSH_SENDER_INLINE": bool(args.push_inline)})
     result = {"seed": vars(args), "db": DB_NAME, "when": datetime.utcnow().isoformat(timespec="seconds")}
     try:
         with app.app_context():
@@ -557,15 +580,17 @@ def main():
     for r, sb in e["send_batch"].items():
         print(f"   send_batch {r}: {sb['statements']} stmts, {sb['commits']} commits, "
               f"{sb['invited']} invited, {sb['push_calls']} pushes "
-              f"({sb['push_ms']} ms on the wire) in {sb['ms']} ms")
+              f"({sb['push_ms']} ms on the wire, on {sb.get('threads')}) — caller returned in {sb['caller_ms']} ms")
     print(f"   tick ({e['tick']['vacancies_processed']} vacancies): {e['tick']['statements']} stmts, "
-          f"{e['tick']['commits']} commits, {e['tick']['push_ms']} ms on the wire, {e['tick_ms']} ms total")
+          f"{e['tick']['commits']} commits, {e['tick']['push_ms']} ms on the wire on {e['tick'].get('threads')} — "
+          f"caller returned in {e['tick']['caller_ms']} ms")
     print(f"   idle tick: {e['idle_tick']['statements']} stmts in {e['idle_tick_ms']} ms")
     print(f"   standing fan-out: {e['fan_out']['statements']} stmts / {e['fan_out']['instances']} instances "
           f"= {e['fan_out']['per_instance']}/instance in {e['fan_out_ms']} ms")
     print(f"B  send_class_reminders: {p['send_reminders']['push_calls']} pushes, "
-          f"{p['send_reminders']['push_ms']} ms on the wire of {p['send_reminders_ms']} ms; "
-          f"pool checked out during push: {p['send_reminders']['pool_checked_out_during_push']}")
+          f"{p['send_reminders']['push_ms']} ms on the wire on {p['send_reminders']['threads']}; "
+          f"caller returned in {p['send_reminders_ms']} ms; pool checked out during push: "
+          f"{p['send_reminders']['pool_checked_out_during_push']}")
     print(f"C  startup: {j['startup_reschedule']['statements']} stmts {j['startup_reschedule']['by_kind']}, "
           f"{j['startup_reschedule']['commits']} commits, {j['jobs_after_startup']} jobs {j['job_id_families']}, "
           f"{j['startup_reschedule_ms']} ms; table {j['apscheduler_jobs_bytes']} B; "
