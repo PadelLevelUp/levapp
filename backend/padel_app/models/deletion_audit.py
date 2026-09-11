@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, ForeignKey, Integer, String
+from sqlalchemy import JSON, Column, ForeignKey, Index, Integer, String
 
 from padel_app import model
 from padel_app.sql_db import db
@@ -15,7 +15,12 @@ class DeletionAudit(db.Model, model.Model):
     """
 
     __tablename__ = "deletion_audit"
-    __table_args__ = {"extend_existing": True}
+    # Declared here too so the drift gate (flask db check, PAD-220) sees the same
+    # schema the PAD-274 migration built; without it autogenerate wants to drop it.
+    __table_args__ = (
+        Index("ix_deletion_audit_entity", "entity", "entity_id"),
+        {"extend_existing": True},
+    )
 
     page_title = "Deletion Audit"
     model_name = "DeletionAudit"
