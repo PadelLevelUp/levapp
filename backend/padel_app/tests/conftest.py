@@ -21,6 +21,7 @@ CI runs both (`.github/workflows/backend-tests.yaml`). Locally::
 Test code is backend-agnostic: it only ever sees the ``app`` fixture.
 """
 import contextlib
+import gc
 import os
 import pathlib
 import tempfile
@@ -122,9 +123,42 @@ def postgres_test_database_uri():
     _drop_database(settings, name)
 
 
+
+
+#: Sessions `_truncate_all` found still idle in a transaction (Postgres only).
+#: Fixture output is captured, so they are listed in the terminal summary.
+_LEAKED_SESSIONS = []
+
+
+def pytest_terminal_summary(terminalreporter):
+    if _LEAKED_SESSIONS:
+        terminalreporter.section("leaked database sessions (released before TRUNCATE)")
+        for line in _LEAKED_SESSIONS:
+            terminalreporter.write_line(line)
+
+
 def _truncate_all(app):
     tables = ", ".join(f'"{t.name}"' for t in reversed(db.metadata.sorted_tables))
+    idle_in_tx = (
+        "FROM pg_stat_activity WHERE datname = current_database() "
+        "AND pid <> pg_backend_pid() AND state LIKE 'idle in transaction%%'"
+    )
     with app.app_context():
+        # A connection an earlier test left checked out inside a transaction
+        # holds locks that make this TRUNCATE wait forever: backend-tests'
+        # Postgres job hung here in CI (run 34519232824, in the setup of the
+        # second TestDeleteCancelsJobs test in test_scheduler_job_lifecycle).
+        # The leaked session is kept alive by a reference cycle. Record it (the
+        # terminal summary lists it, so the leak stays findable), collect cycles
+        # to release it, end anything still idle in a transaction on this
+        # throwaway database, and fail fast rather than hang if a lock is held.
+        for pid, query in db.session.execute(text(
+            f"SELECT pid, left(regexp_replace(query, '\\s+', ' ', 'g'), 200) {idle_in_tx}"
+        )).all():
+            _LEAKED_SESSIONS.append(f"session {pid}: {query}")
+        gc.collect()
+        db.session.execute(text(f"SELECT pg_terminate_backend(pid) {idle_in_tx}")).all()
+        db.session.execute(text("SET LOCAL lock_timeout = '15s'"))
         db.session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
         db.session.commit()
         db.session.remove()
