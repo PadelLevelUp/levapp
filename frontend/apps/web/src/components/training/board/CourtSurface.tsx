@@ -301,7 +301,7 @@ function BallPathLayer({
     <g data-index={index}>
       <path data-testid={tid(`ball-path${suffix}`)} data-style={path.style} d={ballPathD(path)} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={compact ? 1.5 : 2} strokeLinecap="round" />
       {numbered && !compact ? (
-        {/* Offset per index: several paths may start at one point (basket feeds), so the badges fan out. */}
+        // Offset per index: several paths may start at one point (basket feeds), so the badges fan out.
         <g data-testid={`ball-number-${index}`} transform={`translate(${from.x + 13 + index * 18} ${from.y - 24})`} pointerEvents="none">
           <circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
           <text textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill="#fff">{index + 1}</text>
