@@ -23,18 +23,28 @@ name: Android build
 # packages or this file (path filtering inside the job, like every other
 # workflow here — a workflow-level filter would report "skipped", not
 # "success"); and workflow_dispatch with a `flows` input once the file is on
-# staging. A branch gets its run by opening a (draft) PR. Wave B changes the
-# default flow list below on its own branch when it needs more coverage.
+# staging. A branch gets its run by opening a (draft) PR.
+#
+# Flow policy (PAD-298, agreed with the coordinator): a pull request runs the
+# SMOKE list only — login, Semana, Mês and the Android evidence flow, ~6 min after
+# the APK — so mobile-touching PRs and batch PRs do not pay the ~75 min of the
+# whole suite. The WHOLE suite (`.` = the workspace in config.yaml's flowsOrder,
+# continueOnFailure) runs nightly on the schedule below and on demand through
+# workflow_dispatch (its `flows` input defaults to `.`). The maestro job's
+# timeout is sized for the whole suite.
 
 on:
   pull_request:
     branches: [ staging ]
+  schedule:
+    # Nightly full Android suite, 03:00 UTC (staging's HEAD).
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       flows:
-        description: "Maestro flows to run (space-separated, relative to apps/mobile/.maestro)"
+        description: "Maestro flows to run (space-separated, relative to apps/mobile/.maestro; `.` = the whole suite)"
         type: string
-        default: "flows/01-login.yaml"
+        default: "."
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -42,7 +52,8 @@ concurrency:
 
 env:
   NODE_VERSION: "24.15.0"
-  MAESTRO_FLOWS_DEFAULT: "."  # the whole workspace in config.yaml's order, continueOnFailure (PAD-298 full Android run)
+  # The PR smoke list; `.` (nightly / dispatch) is the whole suite — see the flow policy above.
+  MAESTRO_FLOWS_SMOKE: "flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml"
   # The runner as seen from inside the emulator.
   EMULATOR_HOST_API_URL: "http://10.0.2.2:5001/api"
   APK_PATH: frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
@@ -59,6 +70,9 @@ jobs:
 
       - uses: dorny/paths-filter@v3
         id: filter
+        # The diff filter is a pull-request concept; a schedule or dispatch run
+        # always builds (their steps gate on the event name instead).
+        if: github.event_name == 'pull_request'
         with:
           filters: |
             mobile:
@@ -69,23 +83,23 @@ jobs:
               - '.github/workflows/android-build.yaml'
 
       - uses: actions/setup-node@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - uses: actions/setup-java@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         with:
           distribution: temurin
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
 
       - name: Install workspace dependencies
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         working-directory: frontend
         run: npm ci
 
@@ -93,7 +107,7 @@ jobs:
       # produce a manifest with no cleartext permission. Same command a release
       # build would run; only the flag differs.
       - name: A store prebuild carries no cleartext permission
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         working-directory: frontend/apps/mobile
         env:
           CI: "1"
@@ -110,7 +124,7 @@ jobs:
           rm -rf android
 
       - name: Prebuild the CI test app (cleartext to the runner allowed)
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         working-directory: frontend/apps/mobile
         env:
           CI: "1"
@@ -124,7 +138,7 @@ jobs:
           chmod +x android/gradlew
 
       - name: Gradle assembleRelease (debug keystore, JS bundled)
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         working-directory: frontend/apps/mobile/android
         env:
           CI: "1"
@@ -138,7 +152,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,x86_64
 
       - name: APK summary
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         run: |
           set -euo pipefail
           ls -la "$APK_PATH"
@@ -151,7 +165,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
         with:
           name: levapp-android-apk
           path: ${{ env.APK_PATH }}
@@ -161,7 +175,7 @@ jobs:
   maestro:
     name: Maestro on an Android emulator
     needs: apk
-    if: github.event_name == 'workflow_dispatch' || needs.apk.outputs.built == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.apk.outputs.built == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 100  # the full ~36-flow suite is ~60 min of emulator time (PAD-298)
     services:
@@ -185,7 +199,8 @@ jobs:
       FLASK_APP: padel_app
       FLASK_ENV: development
       JWT_SECRET_KEY: e2e-test-secret
-      MAESTRO_FLOWS: ${{ github.event.inputs.flows || '.' }}
+      # dispatch input → `.` on the nightly schedule → the PR smoke list.
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || env.MAESTRO_FLOWS_SMOKE }}
     steps:
       - uses: actions/checkout@v4
 

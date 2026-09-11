@@ -170,8 +170,15 @@ bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDI
 ## Android (PAD-298, wave B)
 
 The same flows run on the CI emulator lane (`.github/workflows/android-build.yaml`, PAD-297:
-API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLOWS`). Deltas
-against the iOS suite — `mobile.android-runtime` rule 8:
+API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLOWS`).
+
+**Flow policy.** A pull request runs the smoke list only (`01-login`, `31-week-view`,
+`32-month-view`, `36-android-evidence` — about 6 minutes after the APK). The whole suite
+(config.yaml's order, continue-on-failure, ~60 minutes of emulator time) runs nightly at
+03:00 UTC on staging and on demand: Actions → "Android build" → Run workflow with
+`flows` = `.` (the default). Read failures in the `maestro-results` artefact.
+
+Deltas against the iOS suite — `mobile.android-runtime` rule 8:
 
 - **`- back` is meaningful.** On Android it closes the newest open dialog / select / menu,
   drops a raised day sheet back to rest, or goes back a screen. iOS flows still tap the
