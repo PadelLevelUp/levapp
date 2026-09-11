@@ -10,6 +10,7 @@ a rule — before proposing to change any of them.
 `supersedes:` to the decision it replaced, and `sources:` to the raw material.
 - [2026-09-11 — Android / Google Play scoping, DRAFT](2026-09-11-android-scoping.md) — PAD-290; what PAD-216 already prepared, the iOS-only inventory, Expo-push-over-FCM, no sign-in requirement on Play, a CI Gradle lane, five waves (9–13 eng. days + store lead time) and twelve owner decisions
 - [2026-09-11 — Session lifecycle (M8/M8b): one transaction per operation, opt-in first](2026-09-11-request-scoped-transactions.md) — DRAFT; 188 mixin commits counted; options A savepoints / B request-scoped commit / C opt-in unit of work (recommended) / D slim the mixin; pilot: add_player_service is atomic
+- [2026-09-11 — Owner infra runbooks, DRAFT](2026-09-11-owner-infra-runbooks.md) — PAD-187 DKIM (Cloudflare, selector google, absent today), Postgres password rotation (14 places, one role for prod+staging, 3–5 min window, backup first: B-080), retiring the legacy tfstate copies (4 files + levelup.zip, REPLACE-trap guard rails)
 - [2026-09-10 — Sign in with Google, draft](2026-09-10-sign-in-with-google.md) — PAD-252; recommends parking it
 - [2026-09-10 — Class time storage, draft](2026-09-10-class-time-storage.md) — PAD-256; implemented: Lisbon wall-clock (option B), #180–#190
 - [2026-09-10 — Account status, not payment](2026-09-10-account-status-not-payment.md) — the two "subscription" settings read users.status; relabelled on both platforms, ids kept, no payment model (PAD-132)
