@@ -334,7 +334,7 @@ export function readableInkNative(
  * `new Date(y, m, d, h, min)` is local time on every engine, which is what a
  * class time means — a class at 10:00 is at 10:00 where the club is.
  */
-function localDateTime(date: string, time: string): Date {
+export function localDateTime(date: string, time: string): Date {
   const [y, m, d] = date.split("-").map(Number);
   const [hh, mm] = time.split(":").map(Number);
   if ([y, m, d, hh, mm].some((n) => !Number.isFinite(n))) return new Date(NaN);

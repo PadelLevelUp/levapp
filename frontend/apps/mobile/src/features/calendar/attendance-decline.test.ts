@@ -137,3 +137,26 @@ describe("canCancelAttendance", () => {
     expect(canCancelAttendance({ ...student, ownPresence: undefined })).toBe(false);
   });
 });
+
+// ── B-060: Hermes may not parse an offset-less "YYYY-MM-DDTHH:MM" string ────
+describe("hasClassStarted on Hermes (B-060)", () => {
+  it("still sees a class that has started when string parsing yields Invalid Date", () => {
+    const RealDate = Date;
+    class HermesDate extends RealDate {
+      constructor(...args: unknown[]) {
+        if (args.length === 1 && typeof args[0] === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(args[0])) {
+          super(NaN);
+        } else {
+          super(...(args as ConstructorParameters<DateConstructor>));
+        }
+      }
+    }
+    vi.stubGlobal("Date", HermesDate);
+    try {
+      const halfAnHourIn = new RealDate(2026, 8, 10, 18, 30).getTime();
+      expect(hasClassStarted("2026-09-10", "18:00", halfAnHourIn)).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, CalendarRange } from "lucide-react";
-import { nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
+import { clubTodayISO, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
 import type { SeasonDefinition } from "@/types";
 import { deleteSeason, getSeason, saveSeason } from "@/api/seasons";
 
@@ -96,7 +96,7 @@ export function SeasonsSection() {
   // Rule 12: the preview reads the current-or-upcoming occurrence of the DRAFT,
   // so the coach sees the dates change as they pick.
   const preview = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = clubTodayISO(); // B-060: the club's date
     const current = seasonOccurrenceContaining(today, draft);
     if (current) return { key: "settings.seasons.previewCurrent", ...current };
     const upcoming = nextSeasonOccurrence(today, draft);

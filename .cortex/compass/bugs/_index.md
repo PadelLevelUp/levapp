@@ -36,3 +36,4 @@ whether a failure mode has been seen before.
 - [B-049](B-049-profile-rows-orphaned-when-a-user-is-deleted.md) — players.user_id / coaches.user_id nullable and non-unique; deleting a user orphaned its profile and crashed serializers (incomplete-rule, high, triaged in PAD-260)
 - [B-055](B-055-updated-at-local-time-and-never-bumped.md) — updated_at stamped in local time by save() and never bumped by a plain commit; token_blocklist wrote an aware datetime into a naive column (test-defect, low, resolved in PAD-273)
 - [B-058](B-058-event-end-crosses-utc-midnight.md) — a class crossing UTC midnight vanished from both dashboards: `_event_end` joined the start date to the end time (missing-criterion, medium, resolved)
+- [B-060](B-060-client-date-parsing-and-utc-presets.md) — client dates: bare dates parsed as UTC (wrong weekday west of UTC), presets and weeks on the UTC day, a Hermes-unsafe parse in the decline guard (incomplete-rule, medium, resolved)
