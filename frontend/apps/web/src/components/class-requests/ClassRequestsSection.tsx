@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassRequest, FreeBlock } from "@levelup/types";
-import { CLASS_REQUEST_DURATIONS, clubTodayISO, slotOptions } from "@levelup/config";
+import { CLASS_REQUEST_DURATIONS, FIRST_FREE_DAY_HORIZON_DAYS, clubTodayISO, firstFreeDay, slotOptions } from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,13 @@ const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
   return clubTodayISO(); // B-060: the club's date, not the device's
+}
+
+/** Rule 11 (PAD-302): the last day the booking form looks at for its default date. */
+function horizonIso(): string {
+  const [y, m, d] = todayIso().split("-").map(Number);
+  const end = new Date(Date.UTC(y, m - 1, d + FIRST_FREE_DAY_HORIZON_DAYS));
+  return end.toISOString().slice(0, 10);
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {
@@ -76,6 +83,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [coaches, setCoaches] = useState<ClassRequestCoach[]>([]);
   const [coachId, setCoachId] = useState("");
   const [date, setDate] = useState(todayIso());
+  // Rule 11 (PAD-302): a date the student typed is never overridden by the coach default.
+  const dateTouched = useRef(false);
   const [duration, setDuration] = useState<number>(60);
   const [blocks, setBlocks] = useState<FreeBlock[] | null>(null);
   const [slot, setSlot] = useState<{ startTime: string; endTime: string } | null>(null);
@@ -118,6 +127,22 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
       })
       .catch(() => setCoaches([]));
   }, [role, booking]);
+
+  // Rule 11 (PAD-302): once a coach is picked, open on the first day that still
+  // has a free block (today if any remains) instead of an empty picker.
+  useEffect(() => {
+    if (role !== "student" || !booking || !coachId || dateTouched.current) return;
+    let cancelled = false;
+    const today = todayIso();
+    getFreeBlocks(coachId, `${today}T00:00:00`, `${horizonIso()}T23:59:00`)
+      .then((rows) => {
+        if (!cancelled && !dateTouched.current) setDate(firstFreeDay(rows, today));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [role, booking, coachId]);
 
   useEffect(() => {
     if (!booking || !coachId || !date) {
@@ -322,7 +347,17 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class-request-date">{t("classRequests.date")}</Label>
-                <Input id="class-request-date" type="date" min={todayIso()} value={date} onChange={(e) => setDate(e.target.value)} data-testid="class-request-date" />
+                <Input
+                  id="class-request-date"
+                  type="date"
+                  min={todayIso()}
+                  value={date}
+                  onChange={(e) => {
+                    dateTouched.current = true;
+                    setDate(e.target.value);
+                  }}
+                  data-testid="class-request-date"
+                />
               </div>
               <div className="space-y-2">
                 <Label>{t("classRequests.duration")}</Label>
