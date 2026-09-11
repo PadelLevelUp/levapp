@@ -71,11 +71,11 @@ appId: com.padellevelup.app
 - assertNotVisible:
     id: "unknown-sender-banner"
 
-# ── Settings → Account → Blocked users → Unblock ──
+# ── Settings → My connections → Blocked users → Unblock (PAD-287 moved the list) ──
 - tapOn:
     id: "header-account"
 - tapOn:
-    id: "settings-nav-account"
+    id: "settings-nav-connections"
 - extendedWaitUntil:
     visible:
       id: "blocked-users"

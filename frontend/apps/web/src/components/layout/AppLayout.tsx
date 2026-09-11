@@ -15,8 +15,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-} from "lucide-react";
+  LogOut, Link2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -434,6 +433,15 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               >
                 <Settings className="w-4 h-4 mr-2" />
                 {t("nav.settings")}
+              </DropdownMenuItem>
+
+              {/* PAD-287: straight to the My connections section (settings.role-scope rule 2). */}
+              <DropdownMenuItem
+                onClick={() => navigate("/settings?tab=connections")}
+                data-testid="user-menu-connections"
+              >
+                <Link2 className="w-4 h-4 mr-2" />
+                {t("settings.nav.connections")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

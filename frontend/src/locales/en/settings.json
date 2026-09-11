@@ -23,7 +23,8 @@
       "account": "Account",
       "myNotifications": "My notifications",
       "admin": "Admin",
-      "classRequests": "Class requests"
+      "classRequests": "Class requests",
+      "connections": "My connections"
     },
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
@@ -150,7 +151,8 @@
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet.",
       "adminNavDescription": "Approve registered coaches",
-      "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar."
+      "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar.",
+      "connectionsNavDescription": "Your coach, your students and the people you have blocked."
     },
     "account": {
       "title": "Account",
@@ -637,6 +639,13 @@
       "rejectDialogDescription": "The coach loses access to coach features. The reason is for internal record only.",
       "reason": "Reason (optional)",
       "reasonPlaceholder": "e.g. not a coach"
+    },
+    "connections": {
+      "title": "My connections",
+      "description": "Who is linked to you: your coach, your students and the people you have blocked.",
+      "addByQr": "Add students by link or QR code",
+      "addByQrHint": "Opens the join code on the Players page.",
+      "open": "Open"
     }
   }
 }

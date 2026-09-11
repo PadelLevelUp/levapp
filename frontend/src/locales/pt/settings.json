@@ -23,7 +23,8 @@
       "account": "Conta",
       "myNotifications": "As minhas notificações",
       "admin": "Administração",
-      "classRequests": "Pedidos de aula"
+      "classRequests": "Pedidos de aula",
+      "connections": "As minhas ligações"
     },
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
@@ -150,7 +151,8 @@
       "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
       "importHistoryEmpty": "Ainda não há importações.",
       "adminNavDescription": "Aprovar treinadores registados",
-      "classRequestsNavDescription": "Os alunos pedem aulas nos horários que o teu calendário deixa livres. Aceita, recusa ou propõe outro horário; um pedido pendente reserva o horário no teu calendário."
+      "classRequestsNavDescription": "Os alunos pedem aulas nos horários que o teu calendário deixa livres. Aceita, recusa ou propõe outro horário; um pedido pendente reserva o horário no teu calendário.",
+      "connectionsNavDescription": "O teu treinador, os teus alunos e as pessoas que bloqueaste."
     },
     "account": {
       "title": "Conta",
@@ -637,6 +639,13 @@
       "rejectDialogDescription": "O treinador fica sem acesso às funcionalidades de treinador. O motivo é apenas para registo interno.",
       "reason": "Motivo (opcional)",
       "reasonPlaceholder": "Ex.: não é treinador"
+    },
+    "connections": {
+      "title": "As minhas ligações",
+      "description": "Quem está ligado a ti: o teu treinador, os teus alunos e as pessoas que bloqueaste.",
+      "addByQr": "Adicionar alunos por ligação ou código QR",
+      "addByQrHint": "Abre o código de adesão na página Jogadores.",
+      "open": "Abrir"
     }
   }
 }
