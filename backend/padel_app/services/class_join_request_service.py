@@ -83,7 +83,7 @@ def _coach_id_for(instance: LessonInstance):
 
 
 def _is_enrolled(instance: LessonInstance, player_id: int) -> bool:
-    return any(rel.player_id == player_id for rel in instance.players_relations)
+    return player_id in instance.enrolled_player_ids  # PAD-259
 
 
 def _is_closed(instance: LessonInstance, now: datetime) -> bool:

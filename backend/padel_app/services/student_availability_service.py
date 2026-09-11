@@ -179,7 +179,7 @@ def blocked_players_for_instance(instance, player_ids=None):
     if instance is None:
         return []
     if player_ids is None:
-        player_ids = [rel.player_id for rel in instance.players_relations]
+        player_ids = sorted(instance.enrolled_player_ids)  # PAD-259
 
     blocked_ids = blocked_player_ids_for_window(
         player_ids, instance.start_datetime, instance.end_datetime

@@ -25,6 +25,14 @@ export interface DeclineGateInput {
   isCoach: boolean;
   /** The class itself is cancelled; there is nothing left to decline. */
   isCanceled: boolean;
+  /**
+   * PAD-288 / PAD-282 (`attendance.confirm` rule 20): the student holds a
+   * place on this occurrence — they appear in `participants`, which for a
+   * student viewer only ever lists themselves. A presence row is NOT required:
+   * a class the app has not opened yet has none, and the server materialises
+   * it when the student cancels.
+   */
+  isParticipant: boolean;
   /** The student's own presence, or undefined when they have none. */
   ownPresence: OwnPresenceLike | null | undefined;
   /** The server's answer to "is the proactive window still open". */
@@ -85,7 +93,7 @@ export function canDeclineProactively(
   return (
     !input.isCoach &&
     !input.isCanceled &&
-    input.ownPresence != null &&
+    input.isParticipant &&
     !hasDeclined(input.ownPresence) &&
     input.canDeclineProactively === true &&
     !hasClassStarted(input.date, input.startTime, now)
@@ -94,15 +102,19 @@ export function canDeclineProactively(
 
 /**
  * Whether to offer the plain cancel-attendance action. Unlike the proactive
- * decline this is NOT gated on the window or on the class having started — it
- * is the existing behaviour and stays exactly as it was, so a student can still
- * cancel late.
+ * decline this is NOT gated on the window, so a student can still cancel late.
+ * It is gated on the class not having started (`attendance.confirm` rules 4
+ * and 9) and on being a participant — not on a presence row existing (rule 20).
  */
-export function canCancelAttendance(input: DeclineGateInput): boolean {
+export function canCancelAttendance(
+  input: DeclineGateInput,
+  now: number = Date.now()
+): boolean {
   return (
     !input.isCoach &&
     !input.isCanceled &&
-    input.ownPresence != null &&
-    input.ownPresence.status !== "absent"
+    input.isParticipant &&
+    input.ownPresence?.status !== "absent" &&
+    !hasClassStarted(input.date, input.startTime, now)
   );
 }

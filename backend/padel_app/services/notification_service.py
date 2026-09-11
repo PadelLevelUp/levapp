@@ -35,14 +35,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from padel_app.sql_db import db
 from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
     Association_CoachLessonInstance,
     Association_CoachPlayer,
-    Association_PlayerLessonInstance,
     LessonInstance,
     NotificationConfig,
     NotificationEvent,
@@ -465,7 +464,8 @@ def students_failing_eligibility_bar(
 
     out = []
     for instance in instances:
-        for rel in list(getattr(instance, "players_relations", []) or []):
+        # PAD-259: the presence row is the enrolment.
+        for rel in list(getattr(instance, "presences", []) or []):
             cp = Association_CoachPlayer.query.filter_by(
                 coach_id=coach_id, player_id=rel.player_id
             ).first()
@@ -1113,7 +1113,7 @@ def evaluate_candidates(
     invitations in flight — the ``already_invited`` lookup is skipped rather
     than let SQLAlchemy match the NULL-vacancy rows manual notifications leave.
     """
-    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    enrolled_ids = set(instance.enrolled_player_ids)  # PAD-259
     departing_id = getattr(vacancy, "original_player_id", None)
 
     active_invite_ids: set = set()
@@ -1806,7 +1806,9 @@ def collect_cancellation_recipients(source) -> list[dict]:
     instance_id = source.id if isinstance(source, LessonInstance) else None
 
     recipients: list[dict] = []
-    for rel in list(getattr(source, "players_relations", []) or []):
+    # PAD-259: an instance's roster is its presences; a Lesson's is the series roster.
+    roster_rows = source.presences if isinstance(source, LessonInstance) else getattr(source, "players_relations", [])
+    for rel in list(roster_rows or []):
         player = getattr(rel, "player", None) or Player.query.get(rel.player_id)
         player_user_id = player.user_id if player else None
         if not player_user_id:
@@ -1909,27 +1911,11 @@ def _effective_filled_spots(instance: LessonInstance) -> int:
 
 
 def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
-    existing_assoc = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player_id,
-        lesson_instance_id=instance.id,
-    ).first()
-    if not existing_assoc:
-        Association_PlayerLessonInstance(
-            player_id=player_id,
-            lesson_instance_id=instance.id,
-        ).create()
+    # PAD-259 (classes.instance-enrollment rule 4): the one writer. A fill is a
+    # presence row that is already answered "yes".
+    from padel_app.services.lesson_service import enrol
 
-    existing_presence = Presence.query.filter_by(
-        player_id=player_id,
-        lesson_instance_id=instance.id,
-    ).first()
-    if not existing_presence:
-        Presence(
-            lesson_instance_id=instance.id,
-            player_id=player_id,
-            invited=True,
-            confirmed=True,
-        ).create()
+    enrol(player_id, instance, "fill", confirmed=True)
 
     # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
     # — invitation "yes", waiting-list placement, accepted request — converges
@@ -2202,7 +2188,7 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
             _log.info("send_class_reminders: instance %s start_datetime in the past — skipping", instance_id)
         return _no_send
 
-    player_count = len(list(instance.players_relations))
+    player_count = len(list(instance.presences))  # PAD-259
     if _log:
         _log.info(
             "send_class_reminders: instance=%s start=%s players=%d — sending",
@@ -2268,7 +2254,7 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         for entry in blocked_players_for_instance(instance)
     }
     for entry in preference_blocked_players(
-        [rel.player_id for rel in instance.players_relations], kind="all",
+        [p.player_id for p in instance.presences], kind="all",
     ):
         _blocked_by_id[entry["playerId"]] = entry
     blocked = list(_blocked_by_id.values())
@@ -2280,27 +2266,14 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
             instance_id, len(blocked),
         )
 
-    for rel in instance.players_relations:
-        player_id = rel.player_id
+    # PAD-259: the presence rows ARE the roster; nothing is created here.
+    for existing_presence in list(instance.presences):
+        player_id = existing_presence.player_id
         if int(player_id) in blocked_ids:
             continue
         player_user_id = _user_id_for_player(player_id)
         if not player_user_id or not coach_user_id:
             continue
-
-        # Ensure a Presence record exists for this player
-        existing_presence = Presence.query.filter_by(
-            player_id=player_id,
-            lesson_instance_id=instance_id,
-        ).first()
-        if not existing_presence:
-            existing_presence = Presence(
-                lesson_instance_id=instance_id,
-                player_id=player_id,
-                invited=True,
-                confirmed=False,
-            )
-            existing_presence.create()
 
         # Stop reminding a student as soon as they have responded.
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
@@ -2609,14 +2582,10 @@ def _vacancy_has_live_invitations(vacancy: "Vacancy | None") -> bool:
 
 
 def _player_enrolled_in_instance(player_id: int, instance: LessonInstance) -> bool:
-    """Instance link, an existing Presence, or lesson-level enrolment (a
-    recurring series the student belongs to)."""
-    from padel_app.models import Association_PlayerLesson, Association_PlayerLessonInstance
+    """A Presence on the occurrence (the enrolment, PAD-259) or lesson-level
+    enrolment (a recurring series the student belongs to)."""
+    from padel_app.models import Association_PlayerLesson
 
-    if Association_PlayerLessonInstance.query.filter_by(
-        player_id=player_id, lesson_instance_id=instance.id
-    ).first() is not None:
-        return True
     if Presence.query.filter_by(
         player_id=player_id, lesson_instance_id=instance.id
     ).first() is not None:
@@ -2674,16 +2643,25 @@ def respond_to_reminder(
         lesson_instance_id=lesson_instance_id,
     ).first()
     if presence is None:
-        # PAD-69: a response must always be durably recorded. Without a Presence
-        # row the answer is silently dropped and the next reminder pass sees the
-        # student as "never responded" and re-reminds them.
-        presence = Presence(
-            lesson_instance_id=lesson_instance_id,
-            player_id=player.id,
-            invited=True,
-            confirmed=False,
-        )
-        presence.create()
+        # PAD-259 (classes.instance-enrollment rule 7, owner decision 2026-09-11):
+        # the student was taken off this date after the reminder went out and
+        # is still on the series roster (that is how they passed the guard).
+        # PAD-69's intent stands — the answer is never silently lost — but
+        # "recorded" now means: on the reminder attempt, so the bubble settles
+        # and no follow-up fires. It never puts them back in the class and never
+        # opens a spot that was not theirs.
+        from padel_app.serializers.message import serialize_message
+        from padel_app.services import reminder_attempt_service as attempts
+
+        attempt = attempts.latest_attempt(lesson_instance_id, player.id)
+        if attempt is not None:
+            edited = attempts.mark_responded(attempt, "not_enrolled", when=now)
+            if edited is not None:
+                publish(
+                    {"type": "message_edited", "payload": serialize_message(edited, None)},
+                    message_recipient_ids(edited),
+                )
+        return {"action": "not_enrolled"}
 
     coach_rel = Association_CoachLessonInstance.query.filter_by(
         lesson_instance_id=lesson_instance_id
@@ -2916,10 +2894,59 @@ def proactive_decline_window_is_open(
     return (now or utcnow_naive()) < deadline
 
 
+def _resolve_occurrence_for_student(player, model, original_id, date):
+    """attendance.confirm rule 18: the occurrence a student's cancel targets,
+    from the calendar event's (model, originalId, date). A Lesson occurrence
+    with no row is authorised on the series roster FIRST, then materialised.
+    Returns the instance, or aborts (400/403/404/409) having written nothing."""
+    from dateutil import parser
+    from flask import abort
+    from padel_app.models import Association_PlayerLesson, Lesson
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.tools.calendar_tools import expand_occurrences
+
+    kind = (model or "").lower()
+    if kind == "lessoninstance":
+        return LessonInstance.query.get_or_404(original_id)
+    if kind != "lesson":
+        abort(400, "model must be Lesson or LessonInstance")
+    lesson = Lesson.query.get_or_404(original_id)
+    if not date:
+        abort(400, "date is required for a Lesson")
+    try:
+        occ_date = parser.isoparse(str(date)).date()
+    except (TypeError, ValueError):
+        abort(400, "date must be an ISO date")
+
+    on_roster = Association_PlayerLesson.query.filter_by(
+        player_id=player.id, lesson_id=lesson.id
+    ).first() is not None
+    if not on_roster:
+        abort(403, description="You are not enrolled in this class.")
+
+    day_start = datetime.combine(occ_date, time.min)
+    day_end = day_start + timedelta(days=1)
+    produced = [
+        occ for occ in expand_occurrences(
+            lesson.start_datetime, lesson.recurrence_rule, lesson.recurrence_end, day_start, day_end
+        )
+        if occ.date() == occ_date
+    ]
+    if not produced:
+        abort(404, description="No class on that date.")
+    occ_start = produced[0].replace(tzinfo=None)
+    if utc_to_wall_naive(utcnow_naive()) >= occ_start:
+        abort(409, description="Class has already started; attendance can no longer be cancelled.")
+    return get_or_materialize_instance(lesson, occ_date)
+
+
 def cancel_attendance(
-    lesson_instance_id: int,
-    acting_user_id: int,
+    lesson_instance_id: int | None = None,
+    acting_user_id: int | None = None,
     *,
+    model: str | None = None,
+    original_id=None,
+    date=None,
     now: datetime | None = None,
 ) -> dict:
     """Cancel a previously-confirmed attendance for the acting player.
@@ -2940,56 +2967,34 @@ def cancel_attendance(
     """
     from flask import abort
     from padel_app.models import Coach, Player
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
 
-    instance = LessonInstance.query.get_or_404(lesson_instance_id)
+    player = Player.query.filter_by(user_id=acting_user_id).first()
+    if not player:
+        abort(403)
+
+    if lesson_instance_id is None:
+        # PAD-288 / PAD-282 (attendance.confirm rule 18): the calendar event's
+        # (model, originalId, date). Authorised on the series roster before
+        # anything is materialised.
+        instance = _resolve_occurrence_for_student(player, model, original_id, date)
+        lesson_instance_id = instance.id
+    else:
+        instance = LessonInstance.query.get_or_404(lesson_instance_id)
 
     _now = now or utcnow_naive()
     # PAD-256 (attendance.confirm rule 9): "started" is judged on the club's clock.
     if instance.start_datetime is not None and utc_to_wall_naive(_now) >= instance.start_datetime:
         abort(409, description="Class has already started; attendance can no longer be cancelled.")
 
-    player = Player.query.filter_by(user_id=acting_user_id).first()
-    if not player:
-        abort(403)
-
-    # PAD-73 / PAD-88 / PAD-115: authorize on ENROLMENT, not on the presence row.
-    # Being a player is not enough — a student may only decline their OWN place
-    # in a class they are actually in. Previously this function proceeded even
-    # when no Presence existed, which let any signed-in student drive
-    # `_ensure_vacancy_for_player` (and, inside the invitation window, a real
-    # fan-out) against an arbitrary lesson instance.
-    is_enrolled = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player.id,
-        lesson_instance_id=lesson_instance_id,
-    ).first() is not None
-    if not is_enrolled:
-        abort(403, description="You are not enrolled in this class.")
-
+    # PAD-73 / PAD-88 / PAD-115 / PAD-259: authorize on ENROLMENT — since PAD-259
+    # that is the presence row itself (attendance.confirm rule 14). A student may
+    # only decline their OWN place in a class they are actually in.
     presence = Presence.query.filter_by(
         player_id=player.id,
         lesson_instance_id=lesson_instance_id,
     ).first()
     if presence is None:
-        # PAD-73, mirroring the PAD-69 fix in ``respond_to_reminder``: an
-        # enrolment does not guarantee a Presence row. ``create_lesson_instance_helper``
-        # writes ``Association_PlayerLessonInstance`` from the lesson's
-        # ``player_ids`` but no Presence — only ``get_or_materialize_instance``
-        # does that, on a different path. Without this, a student enrolled in a
-        # coach-created one-off instance would have their decline accepted and
-        # their coach notified while ``status``/``justification`` were never
-        # written: the absence would not be justified and, because
-        # ``effective_filled_spots`` counts declines via ``status == "absent"``,
-        # the spot would never actually free up even though a vacancy was opened.
-        presence = Presence(
-            lesson_instance_id=lesson_instance_id,
-            player_id=player.id,
-            invited=True,
-            confirmed=False,
-        )
-        presence.create()
+        abort(403, description="You are not enrolled in this class.")
 
     coach_rel = Association_CoachLessonInstance.query.filter_by(
         lesson_instance_id=lesson_instance_id
@@ -4149,7 +4154,7 @@ def _check_waiting_list(
     # `waiting_list_placed` message is sent, and the real spot is never offered
     # to anybody. Unconditional: applies whether or not a bar is defined
     # (eligibility.enforcement rule 10).
-    already_in_class_ids = {rel.player_id for rel in instance.players_relations}
+    already_in_class_ids = set(instance.enrolled_player_ids)  # PAD-259
     already_in_class_ids |= {
         p.player_id
         for p in Presence.query.filter_by(
@@ -4412,7 +4417,7 @@ def get_notification_groups(
         if obj is None:
             return []
         level_id = effective_level_id(obj)
-        enrolled_ids = {rel.player_id for rel in obj.players_relations}
+        enrolled_ids = set(obj.enrolled_player_ids)  # PAD-259
         already_notified_ids = {
             e.player_id
             for e in NotificationEvent.query.filter(

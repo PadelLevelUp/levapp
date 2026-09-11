@@ -170,7 +170,7 @@ def _simulation_inputs(coach):
         departing_player_id = int(data.get("departingPlayerId"))
     except (TypeError, ValueError):
         abort(400, "departingPlayerId is required")
-    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    enrolled_ids = set(instance.enrolled_player_ids)  # PAD-259
     if departing_player_id not in enrolled_ids:
         abort(400, "departingPlayerId must be enrolled in this class")
     return data, instance, departing_player_id
@@ -410,8 +410,15 @@ def cancel_attendance_endpoint():
     """
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
-    lesson_instance_id = int(data.get("lessonInstanceId"))
-    result = cancel_attendance(lesson_instance_id, user_id)
+    # attendance.confirm rule 18 (PAD-288/PAD-282): either the instance id or the
+    # calendar event's (model, originalId, date), materialised on demand.
+    if data.get("lessonInstanceId") is not None:
+        result = cancel_attendance(int(data.get("lessonInstanceId")), user_id)
+    else:
+        result = cancel_attendance(
+            None, user_id,
+            model=data.get("model"), original_id=data.get("originalId"), date=data.get("date"),
+        )
     return jsonify(result)
 
 
@@ -568,7 +575,6 @@ def debug_schedule_reminder_test():
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
     from padel_app.scheduler import schedule_instance_jobs, _fire_time_utc, ensure_scheduler_ready
@@ -628,17 +634,11 @@ def debug_schedule_reminder_test():
     db.session.add(Association_CoachLessonInstance(
         coach_id=coach.id, lesson_instance_id=instance.id))
 
-    for student in (student1, student2):
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=student.id, lesson_instance_id=instance.id))
-        db.session.add(Presence(
-            lesson_instance_id=instance.id,
-            player_id=student.id,
-            invited=True,
-            confirmed=False,
-        ))
-
     db.session.commit()
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
+
+    for student in (student1, student2):
+        enrol(student.id, instance, "coach")
 
     # Schedule the reminder job — fires at class_start - 48h = now + seconds_until_fire
     schedule_instance_jobs(instance.id, coach.id)
@@ -682,9 +682,6 @@ def debug_reset_presence():
     if not _debug_endpoints_enabled():
         abort(404)
 
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
 
@@ -697,28 +694,11 @@ def debug_reset_presence():
         abort(404, "Seeded user not found")
     player = user.player
 
-    LessonInstance.query.get_or_404(lesson_instance_id)
+    instance = LessonInstance.query.get_or_404(lesson_instance_id)
 
-    enrolment = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player.id,
-        lesson_instance_id=lesson_instance_id,
-    ).first()
-    if enrolment is None:
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=player.id,
-            lesson_instance_id=lesson_instance_id,
-        ))
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
-    presence = Presence.query.filter_by(
-        player_id=player.id,
-        lesson_instance_id=lesson_instance_id,
-    ).first()
-    if presence is None:
-        presence = Presence(
-            player_id=player.id,
-            lesson_instance_id=lesson_instance_id,
-        )
-        db.session.add(presence)
+    presence = enrol(player.id, instance, "coach")
     presence.invited = True
     presence.confirmed = False
     presence.validated = False

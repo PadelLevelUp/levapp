@@ -23,6 +23,92 @@ from padel_app.helpers.calendar_helpers import (
 
 
 # ---------------------------------------------------------------------------
+# Enrolment (PAD-259, classes.instance-enrollment rules 1-4, 9)
+# ---------------------------------------------------------------------------
+
+def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
+    """Put a player on one occurrence. THE single writer (rule 4).
+
+    The `Presence` row is the enrolment (rule 1). Idempotent: an existing row is
+    returned untouched — its response and attendance are never reset. Phase 1
+    also writes the shadow `player_in_lesson_instance` row, which nothing reads
+    and phase 2 drops.
+    """
+    from padel_app.models.presences import ENROLMENT_SOURCES
+
+    if source not in ENROLMENT_SOURCES:
+        raise ValueError(f"unknown enrolment_source {source!r}")
+    player_id = int(player_id)
+
+    presence = Presence.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if presence is None:
+        presence = Presence(
+            lesson_instance_id=instance.id,
+            player_id=player_id,
+            invited=invited,
+            confirmed=confirmed,
+            validated=validated,
+            enrolment_source=source,
+        )
+        db.session.add(presence)
+
+    shadow = Association_PlayerLessonInstance.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if shadow is None:
+        db.session.add(Association_PlayerLessonInstance(
+            player_id=player_id, lesson_instance_id=instance.id
+        ))
+    db.session.commit()
+    db.session.expire(instance, ["players_relations", "presences"])
+    return presence
+
+
+def unenrol(player_id, instance) -> bool:
+    """Take a player off one occurrence: the presence row goes, the shadow row
+    goes, and any reminder still waiting for their answer is retired so the
+    bubble shows no live Yes/No (rule 7). Returns whether a row existed."""
+    from padel_app.services import reminder_attempt_service as attempts
+
+    player_id = int(player_id)
+    existed = False
+    for attempt in attempts.pending_attempts(instance.id, player_id):
+        attempts.mark_superseded(attempt)
+    presence = Presence.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if presence is not None:
+        db.session.delete(presence)
+        existed = True
+    shadow = Association_PlayerLessonInstance.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if shadow is not None:
+        db.session.delete(shadow)
+    db.session.commit()
+    db.session.expire(instance, ["players_relations", "presences"])
+    return existed
+
+
+def reconcile_enrolment(instance_id=None) -> list:
+    """Pairs (player_id, lesson_instance_id) where presences and the shadow
+    junction disagree (rule 9). Empty means the two tables agree."""
+    pres = db.session.query(Presence.player_id, Presence.lesson_instance_id)
+    junc = db.session.query(
+        Association_PlayerLessonInstance.player_id,
+        Association_PlayerLessonInstance.lesson_instance_id,
+    )
+    if instance_id is not None:
+        pres = pres.filter(Presence.lesson_instance_id == instance_id)
+        junc = junc.filter(Association_PlayerLessonInstance.lesson_instance_id == instance_id)
+    a = {tuple(r) for r in pres.all()}
+    b = {tuple(r) for r in junc.all()}
+    return sorted(a ^ b)
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 
@@ -154,14 +240,11 @@ def get_or_materialize_instance(lesson: Lesson, date):
     instance.add_to_session()
     instance.flush()
 
+    # PAD-259 (classes.instance-enrollment rule 4): the roster is copied onto
+    # the occurrence through the single writer; create_lesson_instance_helper
+    # already enrolled every roster player, so this is idempotent.
     for rel in lesson.players_relations:
-        Presence(
-            lesson_instance_id=instance.id,
-            player_id=rel.player_id,
-            invited=True,
-            confirmed=False,
-            validated=False,
-        ).add_to_session()
+        enrol(rel.player_id, instance, "roster")
 
     instance.save()
 
@@ -267,11 +350,11 @@ def create_lesson_instance_helper(data, parent_lesson=None):
         if pid not in remove_ids and not (pid in seen or seen.add(pid))
     ]
 
+    # PAD-259: the presence row is the enrolment. Players copied from the
+    # series roster are `roster`; anyone else on the form is `coach`.
+    roster_ids = {r.player_id for r in parent_lesson.players_relations}
     for pid in player_ids:
-        Association_PlayerLessonInstance(
-            player_id=pid,
-            lesson_instance_id=lesson_instance.id,
-        ).create()
+        enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
 
     for coach_id in instance_data.get('coach_ids', []):
         Association_CoachLessonInstance(
@@ -301,24 +384,13 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     lesson_instance.update_with_dict(values)
     lesson_instance.save()
 
+    # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
+    # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
-        Association_PlayerLessonInstance(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).create()
+        enrol(player_id, lesson_instance, "coach")
 
     for player_id in data.get("remove_player_ids", []):
-        rel = Association_PlayerLessonInstance.query.filter_by(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).first()
-        rel.delete()
-        presence = Presence.query.filter_by(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).first()
-        if presence:
-            presence.delete()
+        unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_schedule_instance
@@ -364,21 +436,10 @@ def add_presences(lesson_instance, payload):
             # that field the single source of truth, so it cannot be patched
             # per-surface). This mirrors what the vacancy-fill path already
             # does in `notification_service._add_player_to_instance`.
-            assoc_exists = Association_PlayerLessonInstance.query.filter_by(
-                player_id=player_id,
-                lesson_instance_id=lesson_instance_id,
-            ).first()
-            if not assoc_exists:
-                Association_PlayerLessonInstance(
-                    player_id=player_id,
-                    lesson_instance_id=lesson_instance_id,
-                ).create()
-
-            presence_obj = Presence(
-                player_id=player_id,
-                lesson_instance_id=lesson_instance_id,
-            )
-            form = presence_obj.get_create_form()
+            # PAD-259: the presence row IS the enrolment, so the walk-in is
+            # enrolled through the single writer and then marked (rule 4).
+            presence_obj = enrol(player_id, lesson_instance, "walk_in", invited=False)
+            form = presence_obj.get_edit_form()
 
         fake_request = JsonRequestAdapter(data, form)
         values = form.set_values(fake_request)
@@ -389,11 +450,7 @@ def add_presences(lesson_instance, payload):
         values["validated"] = True
 
         presence_obj.update_with_dict(values)
-
-        if existing:
-            presence_obj.save()
-        else:
-            presence_obj.create()
+        presence_obj.save()
 
         created_presences.append(presence_obj)
 

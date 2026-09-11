@@ -551,6 +551,17 @@ export default function ClassDetailScreen() {
 
   // Student-only: their own presence row (the API only ever returns theirs).
   const myPresence = !isCoach ? (instance?.presences ?? [])[0] : undefined;
+  // PAD-288 / PAD-282 (`attendance.confirm` rule 20): a student is a
+  // participant iff they appear in `participants` — the serializer only ever
+  // lists the viewer. A class the app has not opened yet has no presence row,
+  // and the student must still be able to cancel it.
+  const isParticipant = !isCoach && (instance?.participants?.length ?? 0) > 0;
+  const cancelTarget: number | { model: string; originalId: string | number; date: string } | null =
+    myPresence?.lessonInstanceId != null
+      ? Number(myPresence.lessonInstanceId)
+      : event
+        ? { model: event.model, originalId: event.originalId, date: active?.date ?? event.date }
+        : null;
 
   // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9) — mirrors web's
   // ClassDetailSheet: the student asks or withdraws; the coach accepts (a
@@ -629,6 +640,7 @@ export default function ClassDetailScreen() {
   const declineGate = {
     isCoach,
     isCanceled,
+    isParticipant,
     ownPresence: myPresence,
     canDeclineProactively: instance?.canDeclineProactively,
     date: active?.date ?? event.date,
@@ -640,10 +652,10 @@ export default function ClassDetailScreen() {
 
   const handleCancelAttendance = async () => {
     setCancelOpen(false);
-    if (!myPresence) return;
+    if (cancelTarget == null) return;
     setFeedback(null);
     try {
-      await cancelAttendance.mutateAsync(Number(myPresence.lessonInstanceId));
+      await cancelAttendance.mutateAsync(cancelTarget);
       setFeedback(t("classDetail.spotReleased"));
     } catch {
       setFeedback(t("classDetail.couldNotCancelAttendance"));
@@ -656,10 +668,10 @@ export default function ClassDetailScreen() {
   // differs: freeing the spot early is a favour, not a cancellation.
   const handleProactiveDecline = async () => {
     setProactiveDeclineOpen(false);
-    if (!myPresence) return;
+    if (cancelTarget == null) return;
     setFeedback(null);
     try {
-      await cancelAttendance.mutateAsync(Number(myPresence.lessonInstanceId));
+      await cancelAttendance.mutateAsync(cancelTarget);
       toast.success(t("calendar.detail.proactiveDeclineDone"));
     } catch {
       toast.error(t("calendar.detail.proactiveDeclineFailed"));
@@ -1204,6 +1216,7 @@ export default function ClassDetailScreen() {
           !isEditing &&
           !isCanceled &&
           !myPresence &&
+          !isParticipant &&
           (event.openSpot || instance?.myJoinRequest) ? (
             <>
               <Separator />
@@ -1252,8 +1265,9 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {/* Student: own status + cancel attendance */}
-          {!isCoach && myPresence ? (
+          {/* Student: own status + cancel attendance. PAD-288/PAD-282: shown
+              for a participant even before the occurrence has a presence row. */}
+          {!isCoach && (myPresence || isParticipant) ? (
             <>
               <Separator />
               <View className="gap-2">
@@ -1263,21 +1277,21 @@ export default function ClassDetailScreen() {
                 <View className="flex-row items-center gap-2">
                   <Badge
                     variant={
-                      myPresence.status === "absent"
+                      myPresence?.status === "absent"
                         ? "destructive"
-                        : myPresence.confirmed
+                        : myPresence?.confirmed
                           ? "success"
                           : "secondary"
                     }
                   >
                     <Text>
-                      {myPresence.status === "present"
+                      {myPresence?.status === "present"
                         ? t("calendar.attendance.present")
-                        : myPresence.status === "absent"
+                        : myPresence?.status === "absent"
                           ? t("calendar.attendance.absent")
-                          : myPresence.confirmed
+                          : myPresence?.confirmed
                             ? t("classDetail.statusConfirmed")
-                            : myPresence.invited
+                            : myPresence?.invited
                               ? t("classDetail.statusInvited")
                               : t("classDetail.statusRegistered")}
                     </Text>

@@ -20,8 +20,10 @@ sources:
 
 # Draft for the owner: one source of truth for per-occurrence enrolment
 
-**Status:** DRAFT, not decided. Written by Session H on 2026-09-11 from the code on `staging`
-(72ac170a8) for the coordinator to put in front of the owner. Nothing below is implemented.
+**Status:** DECIDED (option A, owner in person, 2026-09-11) and phase 1 IMPLEMENTING on
+feature/pad-259 (migration `fed5ed4916a8`, chained after #208's `390bf6e8be12`, lands in batch 5).
+Written by Session H on 2026-09-11 from the code on `staging` (72ac170a8); the analysis below is
+the draft the decision was taken from.
 Once the owner picks an option this file becomes the decision record and PAD-259 is coded to it;
 PAD-271 (vacancy reconciliation, presence response enum) and PAD-288 (early cancellation) are
 built on top of it, and PAD-282 is fixed by it.

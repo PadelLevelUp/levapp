@@ -13,6 +13,7 @@ const NOW = new Date("2026-09-06T12:00:00").getTime();
 const student = {
   isCoach: false,
   isCanceled: false,
+  isParticipant: true,
   ownPresence: { status: "confirmed", justification: null } as {
     status?: string | null;
     justification?: string | null;
@@ -104,8 +105,16 @@ describe("canDeclineProactively", () => {
     ).toBe(false);
   });
 
-  it("is not offered to someone with no presence on this class", () => {
-    expect(canDeclineProactively({ ...student, ownPresence: null })).toBe(false);
+  it("is not offered to someone who is not a participant of this class", () => {
+    expect(
+      canDeclineProactively({ ...student, isParticipant: false, ownPresence: null })
+    ).toBe(false);
+  });
+
+  it("PAD-288: is offered on a virtual occurrence — participant, no presence row yet", () => {
+    // `attendance.confirm` rule 20: the gate is participation, not a row. The
+    // server materialises the occurrence when the student declines.
+    expect(canDeclineProactively({ ...student, ownPresence: undefined })).toBe(true);
   });
 
   it("is not offered on a cancelled class", () => {
@@ -131,10 +140,24 @@ describe("canCancelAttendance", () => {
     ).toBe(false);
   });
 
-  it("is not offered to a coach, on a cancelled class, or with no presence", () => {
+  it("is not offered to a coach, on a cancelled class, or to a non-participant", () => {
     expect(canCancelAttendance({ ...student, isCoach: true })).toBe(false);
     expect(canCancelAttendance({ ...student, isCanceled: true })).toBe(false);
-    expect(canCancelAttendance({ ...student, ownPresence: undefined })).toBe(false);
+    expect(
+      canCancelAttendance({ ...student, isParticipant: false, ownPresence: undefined })
+    ).toBe(false);
+  });
+
+  it("PAD-282: is offered on a class the app has not opened yet — participant, no presence row", () => {
+    // A class booked through the student's own request for tomorrow has no
+    // instance row and no presence; the student must still be able to cancel.
+    expect(canCancelAttendance({ ...student, ownPresence: undefined })).toBe(true);
+  });
+
+  it("is hidden once the class has started (rule 9)", () => {
+    expect(
+      canCancelAttendance({ ...student, date: "2026-09-06", startTime: "09:00" })
+    ).toBe(false);
   });
 });
 

@@ -52,3 +52,6 @@ executionOrder:
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
+    # 42 (PAD-282/PAD-288) books, accepts, cancels and deletes its own class, so
+    # its position is not load bearing. Not yet run.
+    - 42-cancel-requested-class

@@ -985,6 +985,22 @@ def _seed_lesson_instances() -> SeedResult:
                     )
                 )
                 result.inserted += 1
+            # PAD-259: the presence row IS the enrolment; the junction above is
+            # only the phase-1 shadow. Seed both in the same transaction.
+            if not Presence.query.filter_by(
+                player_id=player_link.player_id, lesson_instance_id=instance.id
+            ).first():
+                db.session.add(
+                    Presence(
+                        lesson_instance_id=instance.id,
+                        player_id=player_link.player_id,
+                        invited=True,
+                        confirmed=False,
+                        validated=False,
+                        enrolment_source="roster",
+                    )
+                )
+                result.inserted += 1
 
     db.session.flush()
     return result
@@ -1121,8 +1137,9 @@ def _seed_messages() -> SeedResult:
 def _seed_presences() -> SeedResult:
     result = SeedResult()
 
-    links = Association_PlayerLessonInstance.query.all()
-    grouped: dict[int, list[Association_PlayerLessonInstance]] = defaultdict(list)
+    # PAD-259: enrolments are presence rows; this pass only sets attendance.
+    links = Presence.query.all()
+    grouped: dict[int, list[Presence]] = defaultdict(list)
     for link in links:
         grouped[link.lesson_instance_id].append(link)
 

@@ -1,0 +1,147 @@
+# PAD-282 / PAD-288 — mirrors apps/web/e2e/class-requests/pad282-cancel-requested-class.spec.ts
+# (`attendance.confirm` rules 18–20). A class the coach accepted from the
+# student's own request for the NEXT free day has no instance row and no
+# presence yet; the student must still see "Cancel attendance" on its detail,
+# and cancelling must record the decline (the server materialises the
+# occurrence on demand).
+#
+# Order: not load bearing — the flow books, accepts and cancels its own class,
+# and the coach deletes it at the end. NOT YET RUN (no simulator in the
+# session that wrote it; Session H, 2026-09-11). First-run notes:
+# - The request form's date is a DatePickerInput (see flow 13's picker note);
+#   this flow confirms the picker's default and books the FIRST free slot it
+#   offers, so the class lands on whatever day the form defaults to. If that
+#   day has no free slot the flow fails at `class-request-slot`.
+# - `class-not-attending` and `class-cancel-attendance` are the class screen's
+#   testIDs (app/class/[id].tsx).
+appId: com.padellevelup.app
+---
+# ── Student books a class request ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-book"
+    timeout: 15000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-form"
+    timeout: 15000
+- tapOn:
+    id: "class-request-coach"
+- tapOn: "E2E Coach"
+- tapOn:
+    id: "class-request-date"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-date-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-request-date-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-slot"
+    timeout: 20000
+- tapOn:
+    id: "class-request-slot"
+    index: 0
+- tapOn:
+    id: "class-request-send"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-row"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+
+# ── Coach accepts it (Settings → class requests) ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn: "Class requests"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-accept"
+    timeout: 15000
+- tapOn:
+    id: "class-request-accept"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-request-accept"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+
+# ── Student opens the class from the calendar and cancels ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+# The accepted class is titled with the student's name.
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        text: "E2E Student"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-cancel-attendance"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-cancel-attendance"
+- extendedWaitUntil:
+    visible:
+      id: "class-cancel-attendance-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-cancel-attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-not-attending"
+    timeout: 20000
+- runFlow: ../subflows/logout.yaml
+
+# ── Coach removes the class it created ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        text: "E2E Student"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-delete"
+    timeout: 20000
+- tapOn:
+    id: "class-delete"
+- extendedWaitUntil:
+    visible:
+      id: "class-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-delete-confirm"
