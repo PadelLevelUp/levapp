@@ -62,3 +62,6 @@ executionOrder:
     # 42 (PAD-282/PAD-288) books, accepts, cancels and deletes its own class, so
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class
+    # 48 books, cancels and removes its own class through the API (PAD-288), so its
+    # position is not load bearing.
+    - 48-early-cancellation

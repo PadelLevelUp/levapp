@@ -29,6 +29,11 @@ interface AttendanceRowProps {
    */
   reminderSent?: boolean;
   confirmed?: boolean;
+  /**
+   * PAD-288 (`attendance.confirm` rule 23): the UTC instant of the student's
+   * own cancellation, when the presence says so (`cancelledByStudent`).
+   */
+  cancelledAt?: string | null;
 }
 
 export function AttendanceRow({
@@ -38,8 +43,9 @@ export function AttendanceRow({
   disabled = false,
   reminderSent,
   confirmed,
+  cancelledAt,
 }: AttendanceRowProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const name = player.user?.name ?? t("calendar.attendance.playerFallback");
 
   const getInitials = (n: string) => {
@@ -126,6 +132,13 @@ export function AttendanceRow({
               {t("calendar.attendance.justified")}
             </Badge>
           )}
+        {cancelledAt && (
+          <span data-testid="attendance-cancelled-by-student" className="text-xs text-muted-foreground">
+            {t("calendar.detail.cancelledByStudentAt", {
+              when: new Date(cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+            })}
+          </span>
+        )}
         {attendance.status === "absent" &&
           attendance.justification === "unjustified" && (
             <Badge variant="destructive">

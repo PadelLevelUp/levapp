@@ -194,6 +194,7 @@
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
       "notAttending": "Not attending",
       "notAttendingJustified": "Justified absence",
+      "cancelledByStudentAt": "Cancelled by the student on {{when}}",
       "colorOption": "Color {{color}}",
       "invitedCount": "Invited ({{count}})",
       "club": "Club",

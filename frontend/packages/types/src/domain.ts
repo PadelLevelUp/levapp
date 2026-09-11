@@ -365,6 +365,13 @@ export interface Presence {
    * server-side from the messages themselves (`attendance.presence` rule 1a).
    */
   reminderSentAt?: string | null;
+  /**
+   * PAD-288 (`attendance.confirm` rule 23): derived server-side — the student's
+   * own decline, not yet validated by the coach — with the UTC instant of that
+   * write. Both shells render "cancelled by the student · <when>" off these.
+   */
+  cancelledByStudent?: boolean;
+  cancelledAt?: string | null;
 
   player?: Player;
 }
