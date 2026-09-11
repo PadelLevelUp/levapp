@@ -20,9 +20,12 @@ resource "google_compute_firewall" "http-https" {
   source_ranges = ["0.0.0.0/0"]
 }
 
-# Postgres is deliberately NOT reachable from the internet. It listens only on
-# the VM, and the app connects over the VM-internal address. To reach the shared
-# database from a workstation, forward it over SSH instead of opening the port:
+# Postgres is deliberately NOT reachable from the internet. Its container is
+# published on 127.0.0.1 only (PAD-292, B-069) and sits on the `levelup_net`
+# docker network, where the app containers reach it by name — the same rule the
+# app containers follow (PAD-229: only nginx faces the internet). To reach the
+# shared database from a workstation, forward it over SSH instead of opening the
+# port:
 #
 #   gcloud compute ssh levelup-instance --zone europe-west1-b -- -N -L 5434:localhost:5432
 #
@@ -82,16 +85,24 @@ resource "google_compute_instance" "levelup" {
     mkdir -p /data/postgres
     chmod 700 /data/postgres
 
+    # The deploys attach the app containers to this network; Postgres joins it so
+    # they reach it as `postgres`, and the host publishes 5432 on loopback only
+    # (PAD-292, B-069) — the SSH tunnel above still works, nothing else can bind.
+    docker network create levelup_net || true
+
     if [ ! "$(docker ps -a -q -f name=postgres)" ]; then
       docker run -d \
         --name postgres \
+        --restart unless-stopped \
+        --network levelup_net \
         -e POSTGRES_USER=padel_app_user \
         -e POSTGRES_PASSWORD=${var.postgres_password} \
         -e POSTGRES_DB=padel_app \
-        -p 5432:5432 \
+        -p 127.0.0.1:5432:5432 \
         -v /data/postgres:/var/lib/postgresql/data \
         postgres:15
     else
+      docker network connect levelup_net postgres || true
       docker start postgres
     fi
   EOT
