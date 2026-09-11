@@ -12,8 +12,7 @@ import {
   ballPathMidpoint,
   movementPathD,
   swatchHex as swatch,
-  toView,
-} from "@levelup/config";
+  toView, stepBalls } from "@levelup/config";
 import { cn } from "@/lib/utils";
 
 /** A path being drawn: first point placed, second one following the pointer. */
@@ -44,7 +43,7 @@ export interface CourtSurfaceProps {
   onPointerMove?: (e: React.PointerEvent<SVGSVGElement>) => void;
   onPointerUp?: (e: React.PointerEvent<SVGSVGElement>) => void;
   onPiecePointerDown?: (piece: Piece, e: React.PointerEvent<SVGGElement>) => void;
-  onBallHandleClick?: () => void;
+  onBallHandleClick?: (pathIndex: number) => void;
 }
 
 const vb = `0 0 ${VIEW_W} ${VIEW_H}`;
@@ -175,8 +174,19 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
         );
       })}
 
-      {/* ball path */}
-      {step?.ball ? <BallPathLayer path={step.ball} compact={compact} tid={tid} handleLabel={ballHandleLabel} onHandleClick={onBallHandleClick} /> : null}
+      {/* ball paths, in order (PAD-289, rules 9, 13, 23) */}
+      {stepBalls(step).map((path, index, all) => (
+        <BallPathLayer
+          key={`ball-${index}`}
+          path={path}
+          index={index}
+          numbered={all.length > 1}
+          compact={compact}
+          tid={tid}
+          handleLabel={ballHandleLabel}
+          onHandleClick={onBallHandleClick ? () => onBallHandleClick(index) : undefined}
+        />
+      ))}
 
       {playbackBall ? (
         <circle data-testid="playback-ball" cx={toView(playbackBall).x} cy={toView(playbackBall).y} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} pointerEvents="none" />
@@ -266,12 +276,18 @@ function Waypoint({ at }: { at: Point }) {
 
 function BallPathLayer({
   path,
+  index,
+  numbered,
   compact,
   tid,
   handleLabel,
   onHandleClick,
 }: {
   path: NonNullable<CourtDiagramV2["steps"][number]["ball"]>;
+  /** Position in the step's ordered paths; the first keeps the un-suffixed test ids. */
+  index: number;
+  /** Show the 1-based number at the path's start (rule 23: only when a step has several). */
+  numbered: boolean;
   compact: boolean;
   tid: (name: string) => string;
   handleLabel?: string;
@@ -280,9 +296,16 @@ function BallPathLayer({
   const from = toView(path.from);
   const mid = toView(ballPathMidpoint(path));
   const lob = path.style === "lob";
+  const suffix = index === 0 ? "" : `-${index}`;
   return (
-    <g>
-      <path data-testid={tid("ball-path")} data-style={path.style} d={ballPathD(path)} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={compact ? 1.5 : 2} strokeLinecap="round" />
+    <g data-index={index}>
+      <path data-testid={tid(`ball-path${suffix}`)} data-style={path.style} d={ballPathD(path)} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={compact ? 1.5 : 2} strokeLinecap="round" />
+      {numbered && !compact ? (
+        <g data-testid={`ball-number-${index}`} transform={`translate(${from.x + 13} ${from.y - 24})`} pointerEvents="none">
+          <circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+          <text textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill="#fff">{index + 1}</text>
+        </g>
+      ) : null}
       {!compact ? (
         <>
           <Waypoint at={path.from} />
@@ -292,7 +315,7 @@ function BallPathLayer({
       <circle cx={from.x} cy={from.y - 14} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />
       {!compact ? (
         <g
-          data-testid="ball-style-handle"
+          data-testid={`ball-style-handle${suffix}`}
           role="button"
           aria-label={handleLabel}
           tabIndex={0}

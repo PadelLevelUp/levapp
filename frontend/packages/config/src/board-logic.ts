@@ -17,8 +17,7 @@ import {
   newDiagram,
   newStep,
   removePlayer,
-  simplifyStroke,
-} from "./court-diagram";
+  simplifyStroke, stepBalls, withBalls } from "./court-diagram";
 
 /** Every tool across the three modes; each mode shows its own subset (see `toolsForMode`). */
 export type BoardTool = "select" | "ball" | "movement" | "cone" | "player" | "feeder" | "pen";
@@ -162,18 +161,47 @@ export function boardDragEnd(d: CourtDiagramV2, id: string, position: Point, sta
   return moveOrRecord(d, state, id, position);
 }
 
-export function boardToggleBallStyle(d: CourtDiagramV2, stepIndex = 0): CourtDiagramV2 {
-  const ball = d.steps[stepIndex]?.ball;
-  if (!ball) return d;
-  const style = ball.style === "lob" ? "flat" : "lob";
-  return withStep(d, stepIndex, (s) => ({ ...s, ball: s.ball ? { ...s.ball, style } : s.ball }));
+/** Flip one path of the step between plana and lob (rules 9, 23). */
+export function boardToggleBallStyle(d: CourtDiagramV2, stepIndex = 0, pathIndex = 0): CourtDiagramV2 {
+  const balls = stepBalls(d.steps[stepIndex]);
+  const path = balls[pathIndex];
+  if (!path) return d;
+  const style = path.style === "lob" ? "flat" : "lob";
+  return withStep(d, stepIndex, (s) => withBalls(s, balls.map((b, i) => (i === pathIndex ? { ...b, style } : b))));
 }
 
-/** True when `pt` lands on the plana/lob handle of the step's ball path. */
-export function ballHandleHit(d: CourtDiagramV2, pt: Point, radius = HIT_RADIUS, stepIndex = 0): boolean {
-  const ball = d.steps[stepIndex]?.ball;
-  if (!ball) return false;
-  return distance(ballPathMidpoint(ball), pt) <= radius;
+/**
+ * The index of the path whose plana/lob handle `pt` lands on (the nearest when
+ * two overlap), or -1 when none (rule 23).
+ */
+export function ballHandleHit(d: CourtDiagramV2, pt: Point, radius = HIT_RADIUS, stepIndex = 0): number {
+  let best = -1;
+  let bestDistance = Infinity;
+  stepBalls(d.steps[stepIndex]).forEach((path, i) => {
+    const dist = distance(ballPathMidpoint(path), pt);
+    if (dist <= radius && dist < bestDistance) {
+      best = i;
+      bestDistance = dist;
+    }
+  });
+  return best;
+}
+
+/** Move path `from` to position `to` in the step's order (rule 23); unchanged when out of range. */
+export function boardMoveBallPath(d: CourtDiagramV2, stepIndex: number, from: number, to: number): CourtDiagramV2 {
+  const balls = stepBalls(d.steps[stepIndex]);
+  if (from === to || from < 0 || to < 0 || from >= balls.length || to >= balls.length) return d;
+  const next = [...balls];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return withStep(d, stepIndex, (s) => withBalls(s, next));
+}
+
+/** Remove one path of the step (rule 23); removing the last leaves the step without a ball. */
+export function boardRemoveBallPath(d: CourtDiagramV2, stepIndex: number, pathIndex: number): CourtDiagramV2 {
+  const balls = stepBalls(d.steps[stepIndex]);
+  if (pathIndex < 0 || pathIndex >= balls.length) return d;
+  return withStep(d, stepIndex, (s) => withBalls(s, balls.filter((_, i) => i !== pathIndex)));
 }
 
 /**
@@ -221,7 +249,7 @@ function removeAny(d: CourtDiagramV2, id: string): CourtDiagramV2 {
 
 /** True when switching mode would lose something (rule 3). */
 export function boardHasContent(d: CourtDiagramV2): boolean {
-  if (d.steps.some((s) => s.ball || s.movements.length > 0)) return true;
+  if (d.steps.some((s) => stepBalls(s).length || s.movements.length > 0)) return true;
   const start = d.mode === "basket" ? BASKET_START_POSITION : d.mode === "game" ? GAME_START_POSITION : [];
   if (d.pieces.length !== start.length) return true;
   return d.pieces.some((p, i) => {
@@ -275,14 +303,16 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
         if (!feeder || feeder.kind !== "feeder") return { state };
         return {
           state: { ...state, pending: null },
-          diagram: withStep(d, state.stepIndex, (s) => ({ ...s, ball: { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" } })),
+          // PAD-289: each feed is appended to the step's ordered paths (rule 23)
+          diagram: withStep(d, state.stepIndex, (s) => withBalls(s, [...stepBalls(s), { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" }])),
         };
       }
       const pending = state.pending;
       if (pending && pending.kind === "ball" && distance(pending.from, pt) >= MIN_PATH_LENGTH) {
         return {
           state: { ...state, pending: null },
-          diagram: withStep(d, state.stepIndex, (s) => ({ ...s, ball: { from: pending.from, to: pt, style: "flat" } })),
+          // PAD-289: appended, never replaced (rules 9, 23)
+          diagram: withStep(d, state.stepIndex, (s) => withBalls(s, [...stepBalls(s), { from: pending.from, to: pt, style: "flat" }])),
         };
       }
       return { state: { ...state, pending: { kind: "ball", from: pt } } };

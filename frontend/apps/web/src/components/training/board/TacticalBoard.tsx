@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, ChevronLeft, ChevronRight, Circle, MousePointer2, Pencil, Plus, Route, ShoppingBasket, Trash2, Triangle, Undo2, User, UserPlus } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Circle, MousePointer2, Pencil, Plus, Route, ShoppingBasket, Trash2, Triangle, Undo2, User, UserPlus, X } from "lucide-react";
 import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, Piece, PieceColor, Point } from "@/types/training";
 import {
-  INITIAL_BOARD_STATE,
-  MAX_BASKET_PLAYERS,
-  STEP_DURATION_MS,
-  SWATCHES,
   addPlayer,
   boardAddStep,
-  boardDeleteStep,
   boardDeleteSelected,
+  boardDeleteStep,
   boardDragEnd,
   boardHasContent,
+  boardMoveBallPath,
   boardPress,
+  boardRemoveBallPath,
   boardSelectTool,
   boardSetColor,
   boardSetStep,
@@ -23,15 +21,20 @@ import {
   clampPercent,
   clientToPercent,
   defaultToolForMode,
+  INITIAL_BOARD_STATE,
   interpolateStep,
+  MAX_BASKET_PLAYERS,
   piecesAtStep,
+  playbackFrameAt,
   playerCount,
+  stepBalls,
   stepCount,
+  SWATCHES,
   swatchHex as swatch,
   toolsForMode,
-  upgradeCourtDiagram,
   type BoardState,
   type BoardTool,
+  upgradeCourtDiagram,
 } from "@levelup/config";
 import {
   AlertDialog,
@@ -143,17 +146,16 @@ export function TacticalBoard({ value, onChange, className }: Props) {
     if (diagram.steps.length === 0) return;
     stopPlayback();
     const startedAt = Date.now();
-    const total = diagram.steps.length;
     setPlaying(true);
     setPlayback({ step: 0, t: 0 });
     timer.current = setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const step = Math.floor(elapsed / STEP_DURATION_MS);
-      if (step >= total) {
+      // PAD-289 (rule 20): a step lasts 800 ms per ball path; the shared scheduler decides.
+      const frame = playbackFrameAt(diagram, Date.now() - startedAt);
+      if (!frame) {
         stopPlayback();
         return;
       }
-      setPlayback({ step, t: (elapsed % STEP_DURATION_MS) / STEP_DURATION_MS });
+      setPlayback(frame);
     }, 16);
   };
 
@@ -296,6 +298,8 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   const frame = playback ? interpolateStep(diagram, playback.step, playback.t) : null;
   const viewDiagram: CourtDiagramV2 = frame ? { ...diagram, pieces: frame.pieces, steps: [] } : { ...diagram, pieces: stepPieces };
   const steps = diagram.steps.length;
+  // PAD-289 (rule 23): the current step's ball paths, for the list under the step strip.
+  const balls = mode === "magnetic" ? [] : stepBalls(diagram.steps[state.stepIndex]);
   const selectedPiece = state.selectedId ? diagram.pieces.find((p) => p.id === state.selectedId) : undefined;
   const canDelete = !!selectedPiece && boardDeleteSelected(diagram, state).diagram !== undefined;
   const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
@@ -458,6 +462,27 @@ export function TacticalBoard({ value, onChange, className }: Props) {
         </button>
       </div>
 
+      {/* ball paths of the current step (PAD-289, rule 23) */}
+      {balls.length > 0 ? (
+        <div data-testid="board-balls" className="flex flex-wrap items-center gap-2 px-6 pb-3">
+          <span className="text-[11px] font-semibold text-sidebar-foreground/70">{t("training.board.balls.title")}</span>
+          {balls.map((path, i) => (
+            <span key={`ball-row-${i}`} data-testid={`board-ball-${i}`} className="flex items-center gap-0.5 rounded-full border border-white/15 py-0.5 pl-2.5 pr-1 text-[11px] text-white">
+              <span className="mr-1">{t("training.board.balls.item", { n: i + 1 })} · {t(`training.board.balls.${path.style}`)}</span>
+              <button type="button" aria-label={t("training.board.balls.up", { n: i + 1 })} title={t("training.board.balls.up", { n: i + 1 })} data-testid={`board-ball-${i}-up`} disabled={i === 0} onClick={() => commit(boardMoveBallPath(diagram, state.stepIndex, i, i - 1))} className="rounded-full p-1 text-sidebar-foreground/70 hover:text-white disabled:opacity-40">
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <button type="button" aria-label={t("training.board.balls.down", { n: i + 1 })} title={t("training.board.balls.down", { n: i + 1 })} data-testid={`board-ball-${i}-down`} disabled={i === balls.length - 1} onClick={() => commit(boardMoveBallPath(diagram, state.stepIndex, i, i + 1))} className="rounded-full p-1 text-sidebar-foreground/70 hover:text-white disabled:opacity-40">
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <button type="button" aria-label={t("training.board.balls.remove", { n: i + 1 })} title={t("training.board.balls.remove", { n: i + 1 })} data-testid={`board-ball-${i}-remove`} onClick={() => commit(boardRemoveBallPath(diagram, state.stepIndex, i))} className="rounded-full p-1 text-sidebar-foreground/70 hover:text-white">
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       {/* court */}
       <div className="flex justify-center px-6 pb-5 pt-1">
         <div className="relative w-full max-w-[340px] rounded-[10px] bg-[#0D1B31] px-4 pt-[22px] pb-[22px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -479,7 +504,7 @@ export function TacticalBoard({ value, onChange, className }: Props) {
             onPointerMove={onCourtPointerMove}
             onPointerUp={onCourtPointerUp}
             onPiecePointerDown={onPiecePointerDown}
-            onBallHandleClick={() => commit(boardToggleBallStyle(diagram, state.stepIndex))}
+            onBallHandleClick={(pathIndex) => commit(boardToggleBallStyle(diagram, state.stepIndex, pathIndex))}
           />
         </div>
       </div>

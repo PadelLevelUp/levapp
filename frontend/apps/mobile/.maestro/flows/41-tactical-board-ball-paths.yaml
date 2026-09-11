@@ -1,0 +1,104 @@
+# PAD-289 — training.tactical-board rules 9, 23, 24: in Situações de jogo the
+# Bola tool appends paths; two paths are numbered on the court, the list under
+# the step strip reorders and removes them, and the first path keeps the
+# un-suffixed ids the wave-1 flow (28) relies on.
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board.spec.ts (US-70)
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- tapOn:
+    id: "exercise-add"
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Two Paths"
+- hideKeyboard
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+- tapOn:
+    id: "board-tool-ball"
+- assertVisible:
+    id: "board-hint-ball"
+
+# ── First path: A1's corner to B1's corner (percent of the court) ──
+- tapOn:
+    id: "court-surface"
+    point: "58%,20%"
+- tapOn:
+    id: "court-surface"
+    point: "40%,80%"
+- assertVisible:
+    id: "ball-path-flat"
+- assertNotVisible:
+    id: "ball-number-0"
+
+# ── Second path is appended, both are numbered ──
+- tapOn:
+    id: "court-surface"
+    point: "40%,80%"
+- tapOn:
+    id: "court-surface"
+    point: "70%,30%"
+- assertVisible:
+    id: "ball-path-1-flat"
+- assertVisible:
+    id: "ball-number-0"
+- assertVisible:
+    id: "ball-number-1"
+- assertVisible:
+    id: "board-ball-1"
+
+# ── Toggle only the second path, then move it up ──
+- tapOn:
+    id: "ball-style-handle-1"
+- assertVisible:
+    id: "ball-path-1-lob"
+- assertVisible:
+    id: "ball-path-flat"
+- tapOn:
+    id: "board-ball-1-up"
+- assertVisible:
+    id: "ball-path-lob"
+- assertVisible:
+    id: "ball-path-1-flat"
+
+# ── Remove path 2, undo brings it back ──
+- tapOn:
+    id: "board-ball-1-remove"
+- assertNotVisible:
+    id: "ball-path-1-flat"
+- assertNotVisible:
+    id: "ball-number-0"
+- tapOn:
+    id: "board-undo"
+- assertVisible:
+    id: "ball-path-1-flat"
+
+# ── Save and come back: both paths and the thumbnail survive ──
+- scrollUntilVisible:
+    element:
+      id: "exercise-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-save"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Two Paths.*"
+    timeout: 15000
+- assertVisible:
+    id: "thumb-ball-path-1-flat"
