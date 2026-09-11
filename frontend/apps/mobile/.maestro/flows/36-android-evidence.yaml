@@ -8,6 +8,8 @@
 # - android-month-raised: Mês with the sheet dragged up, then `back` (rule 3 —
 #   the sheet drops back and the add buttons return)
 # - android-date-picker: the Android date dialog from a new class (rule 4)
+# - android-composer-keyboard: the chat composer with the keyboard up (rule 2 —
+#   the send button must stay visible under edge-to-edge)
 appId: com.padellevelup.app
 ---
 - launchApp
@@ -66,3 +68,26 @@ appId: com.padellevelup.app
     id: "class-date"
 - takeScreenshot: android-date-picker
 - back
+# Rule 2, the riskiest keyboard site: the chat composer under edge-to-edge.
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 15000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "message-input"
+    timeout: 15000
+- tapOn:
+    id: "message-input"
+- inputText: "Android"
+- takeScreenshot: android-composer-keyboard
+- assertVisible:
+    id: "message-send"
