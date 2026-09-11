@@ -91,8 +91,8 @@ add a column and keep the old one for a release before dropping. No client chang
 (`name`, `levelId`, `maxPlayers`, `coachId`) keep their meaning. Web and iOS ship nothing, and the
 PR body says so.
 
-## Open questions for the owner
+## Decisions
 
-1. Single-occurrence delete as an exclusion (`excluded_dates`) rather than a fork: yes/no.
-2. Reconnect historical forks by heuristic, or leave them as separate series.
-3. Keep `coach_in_lesson_instance` for multi-coach occurrences, or the single `coach_override_id`.
+1. Single-occurrence delete is an exclusion (`excluded_dates`), never a fork: YES, decided 2026-09-11 (coordinator, owner informed).
+2. Reconnect historical forks by heuristic: NO — they stay separate series; `series_id = id` for every existing lesson, decided 2026-09-11 (coordinator, owner informed).
+3. Multi-coach occurrences: KEEP `coach_in_lesson_instance`; no `coach_override_id`, no data move; the code reads a primary coach through one helper (`coaches_for(instance)` = the instance's junction rows if any, else the lesson's; `primary_coach(instance)` = the first), decided 2026-09-11 (coordinator, owner informed).
