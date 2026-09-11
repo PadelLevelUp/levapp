@@ -13,15 +13,15 @@ governed_by: []
 Coaches configure the notification engine: timing, restrictions, matching rules, tiebreakers, and message templates.
 
 ### Entities
-- **NotificationConfig** (`notification_configs`): coach_id (unique), auto_notify_enabled, invitation_mode (automatic|semi_automatic), priority_criteria (JSON), restrictions (JSON), rounds (JSON), notification_groups (JSON), message_templates (JSON), reminder_timing (JSON), invitation_start_timing (JSON), invitation_groups (JSON), tiebreakers (JSON) — plus, **pending PAD-128/PAD-130**: eligibility_rules (JSON, nullable), open_spots_visible (bool, nullable)
+- **NotificationConfig** (`notification_configs`), one row per coach (PAD-279, audit M21). **Typed columns** for every scalar setting: auto_notify_enabled, invitation_mode (automatic|semi_automatic), reminder_type / reminder_value / reminder_time (the first reminder), invitation_start_type / invitation_start_value / invitation_start_time (the invitation window), reminder_count, hours_between_reminders, cancellation_deadline_hours, max_simultaneous_enabled / max_simultaneous_value, max_total_enabled / max_total_value, min_time_before_class_enabled / min_time_before_class_value, max_invites_per_student_per_day_enabled / max_invites_per_student_per_day_value, quiet_hours_enabled, max_inactive_time_enabled / max_inactive_time_value, exclude_inactive_accounts, excluded_players_enabled, open_spots_visible (nullable). **List-shaped JSON** stays JSON, stamped by `schema_version`: priority_criteria, notification_groups, message_templates, invitation_groups, tiebreakers, excluded_player_ids, eligibility_rules (nullable — see 7a). The former `rounds`, `invitation_start_timing`, `reminder_timing` and `restrictions` JSON columns no longer exist.
 
 ### Rules
 1. One config per coach (upserted on first access)
 2. `auto_notify_enabled` toggles the automatic invitation engine
 3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
-4. `reminder_timing`: `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
-5. `invitation_start_timing`: when to start sending invitations after a vacancy
-6. `restrictions`: maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
+4. First reminder timing (`reminder_type`, `reminder_value`, `reminder_time`; on the wire `reminderTiming.firstReminder`): `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
+5. Invitation window (`invitation_start_type`, `invitation_start_value`, `invitation_start_time`; on the wire `reminderTiming.invitationStart`): when to start sending invitations after a vacancy. One home only — the duplicate `invitation_start_timing` column and its precedence dance are gone (PAD-279)
+6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
 6a. **(PAD-136)** `quietHours` is a **club-local wall clock** window of **22:00–07:00**, evaluated against
    the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. The bounds are
    currently fixed constants — `quietHours` carries only `{enabled}` and no start/end — so
@@ -65,7 +65,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
 10. Updating timing configs reschedules all future scheduler jobs
-11. `cancellationDeadlineHours` (default 24): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
+11. `cancellation_deadline_hours` (default 24; on the wire `restrictions.cancellationDeadlineHours`): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
+
+12. **Typed storage, stable wire shape (PAD-279, audit M21).** Every scalar setting lives in its own
+   typed column with a database default; nothing scalar is read out of a JSON blob any more, so a
+   NULL can never be "defaulted" into a filter (the idiom behind PAD-122). The list-shaped settings
+   that remain JSON carry `schema_version` (1 today) so a later shape change can be migrated by
+   version instead of by sniffing keys. `GET|POST /api/app/notify/config` keeps its camelCase shape
+   exactly — `restrictions` and `reminderTiming` are composed from and decomposed into the columns
+   server-side, and a POST that omits a restriction key leaves that column at its default, as the
+   merge-over-defaults read always did — so neither client changes for this rule. The legacy
+   `rounds` are gone with their column: an empty `invitation_groups` list now resolves to the
+   built-in three groups (same level and side, same level, everyone), which is the same three
+   waves `rounds` fell back to, so nobody's invitations change. The one-off migration backfills
+   every row from its old JSON; a row whose blob does not parse or carries a wrong type keeps the
+   column defaults for the unreadable part (the value the old getter returned for it), is logged,
+   and is never skipped or failed.
 
 ### Acceptance Criteria
 
@@ -92,3 +107,15 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Then** a "Cancellation deadline" control is shown with an hours-before-class value defaulting to 24
 - **And** changing the value and saving persists it via POST `/app/notify/config` under `restrictions.cancellationDeadlineHours`
 - **And** the new value survives a page reload
+
+#### The config API keeps its shape over typed columns (PAD-279)
+- **Given** a coach whose settings were saved before PAD-279 as JSON blobs — a nested `reminderTiming`, a `restrictions` object with a non-default `maxSimultaneous` and `cancellationDeadlineHours`, and an `invitation_start_timing` column of its own
+- **When** the migration runs and the coach loads GET `/api/app/notify/config`
+- **Then** `reminderTiming`, `restrictions` and the resolved invitation window read exactly as before, from the typed columns, and no `rounds` key is present
+- **And** running the migration a second time changes nothing
+- **And** a row whose old blob is not valid JSON keeps every default for that blob and the migration still completes
+
+#### An empty invitation-group list means the built-in groups (PAD-279)
+- **Given** a coach whose `invitation_groups` is `[]`
+- **When** a vacancy opens
+- **Then** the engine runs the three built-in groups in order, exactly the waves the removed `rounds` fallback produced
