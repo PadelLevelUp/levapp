@@ -84,8 +84,13 @@ def _drop_database(settings, name):
         settings,
         [
             (
+                # Client sessions only: after DDL-heavy tests (the PAD-279 migration
+                # walk) an autovacuum worker may still be on the database, and a
+                # non-superuser cannot terminate it ("must be a superuser to
+                # terminate superuser process"); DROP DATABASE waits it out instead.
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                "WHERE datname = %s AND pid <> pg_backend_pid() "
+                "AND backend_type = 'client backend'",
                 (name,),
             ),
             (f'DROP DATABASE IF EXISTS "{name}"', None),
