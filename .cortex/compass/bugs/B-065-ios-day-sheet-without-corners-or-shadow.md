@@ -3,12 +3,13 @@ id: B-065
 title: "iOS calendar day sheet renders flat: no 20pt top corners, no upward shadow, unlike web"
 type: missing-criterion
 severity: low
-status: triaged
+status: resolved
 affects:
   - calendar.mobile-views
   - frontend/apps/mobile/src/features/calendar/DaySheet.tsx
 proposed_fix: "Split the sheet into an outer view that casts the upward navy shadow with explicit shadow props and an inner view that clips to the 20pt top corners; pin it with a criterion in calendar.mobile-views and a Maestro screenshot on the simulator."
 opened: 2026-09-11T13:20:00Z
+resolved: 2026-09-11T14:30:00Z
 ---
 
 # B-065 — iOS calendar day sheet renders flat: no 20pt top corners, no upward shadow
@@ -69,4 +70,15 @@ shadow (`0 -10px 24px` navy `#0B1524` at 14%) and the iOS outer/inner split; new
 
 ### Resolution
 
-_(pending — PAD-286)_
+- Spec changes: `.specflow/specs/calendar/mobile-views.spec.md` rule 3 (shadow named, iOS
+  outer/inner split) + criterion "The iOS sheet has the web sheet's corners and shadow".
+- Tests added: `apps/mobile/src/features/calendar/sheet-chrome.test.ts` (pins radius 20, offset
+  0/−10, navy at 14%, radius 12, 28pt handle row; watched red on the PAD-247 values first);
+  Maestro flow `35-day-sheet-polish` (handle present, Mês swipe up/down).
+- Code changes: `apps/mobile/src/features/calendar/DaySheet.tsx` is now an outer view carrying
+  the upward shadow from `sheet-chrome.ts` (no overflow) around an inner view that clips to the
+  20pt top corners; `sheet-chrome.ts` holds the numbers.
+- Evidence: flow 35 passed on the pinned iPhone 17 Pro simulator (37/37 steps, 2026-09-11
+  14:23); screenshots in Semana and Mês show the rounded corners with a shadow above the
+  sheet's edge, matching web. Attached to the PAD-286 PR.
+- Resolved: 2026-09-11 (PAD-286).
