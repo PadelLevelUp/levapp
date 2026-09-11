@@ -39,16 +39,31 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
-# The accepted class is titled with the student's name.
+# The accepted class is titled with the student's name. The phone calendar
+# (calendar.mobile-views) shows titles only in the selected day's card list and
+# remembers its last mode on the device, so: force Dia, page the strip to the
+# week that holds the class's day, select that day, then tap the card.
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
 - repeat:
-    times: 3
+    times: 2
     while:
       notVisible:
-        text: "E2E Student"
+        id: "calendar-day-${output.tomorrow}"
     commands:
       - tapOn:
           id: "calendar-next-week"
       - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.tomorrow}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
 - tapOn: "E2E Student"
 - extendedWaitUntil:
     visible:
@@ -71,6 +86,14 @@ appId: com.padellevelup.app
     visible:
       id: "class-not-attending"
     timeout: 20000
+# Class detail is a root-stack screen without the tab header, so leave it with
+# its own back button before logout.yaml looks for `header-account`.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
 - runFlow: ../subflows/logout.yaml
 
 # ── Coach removes the class it created (API, same as the web spec's cleanup) ──
