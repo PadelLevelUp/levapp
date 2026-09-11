@@ -18,14 +18,42 @@ appId: com.padellevelup.app
     id: "players-add-by-qr"
 - assertVisible:
     id: "add-by-qr-sheet"
-- assertVisible:
-    id: "add-by-qr-url"
+# PAD-269: only the token's hash is stored, so with a live code the sheet offers a
+# new one instead of showing it again (players.join-token rule 7).
+- runFlow:
+    when:
+      visible:
+        id: "add-by-qr-live"
+    commands:
+      - tapOn:
+          id: "add-by-qr-new"
+- extendedWaitUntil:
+    visible:
+      id: "add-by-qr-url"
+    timeout: 10000
 - tapOn:
     id: "add-by-qr-rotate"
 - tapOn:
     id: "add-by-qr-rotate-confirm"
 - assertVisible:
     id: "add-by-qr-url"
+- tapOn:
+    id: "add-by-qr-close"
+# Reopening with a live code says until when it works and offers a new code.
+- tapOn:
+    id: "players-add-by-qr"
+- extendedWaitUntil:
+    visible:
+      id: "add-by-qr-live"
+    timeout: 10000
+- assertNotVisible:
+    id: "add-by-qr-url"
+- tapOn:
+    id: "add-by-qr-new"
+- extendedWaitUntil:
+    visible:
+      id: "add-by-qr-url"
+    timeout: 10000
 - tapOn:
     id: "add-by-qr-close"
 # Student side: the Connect screen rejects something that is not a coach link.

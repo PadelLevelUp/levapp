@@ -48,7 +48,9 @@ the invite-link half of the journey.
    signs in or creates an account if needed, sees "Join {coach} at {club}?", and confirms. They
    appear on the coach's roster immediately, with no level yet, so the coach's "missing level"
    filter picks them up. The QR stays valid for a week and serves the whole class; the coach can
-   regenerate it at any time, which retires the old one.
+   regenerate it at any time, which retires the old one. The code is not kept once it is shown:
+   opening "Add by QR" again while it is live says until when it works and how many students
+   joined, and showing a QR again means generating a new one.
 7. A student who received a coach-created record *and* had registered on their own — before the
    coach knew, or after — does not end up as two people. If they open the invite link while signed
    in, the page offers "link this to my account"; the coach's record (level, attendance, notes,
@@ -107,3 +109,5 @@ dashboard exists in the codebase.
   student the actor.
 - OPEN: whether the coach should get a message when someone joins via QR, beyond the roster
   updating. v1: no.
+- OPEN (PAD-269, 2026-09-10): the owner has yet to confirm "generate a new code" in place of
+  showing the live one again. The coordinator decided it for now, so the reopen screen stays minimal.

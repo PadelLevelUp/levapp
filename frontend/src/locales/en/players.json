@@ -199,7 +199,11 @@
       "rotateConfirm": "Generate",
       "cancel": "Cancel",
       "noClub": "You need a club before you can share a join code.",
-      "failed": "Could not prepare the join code. Please try again."
+      "failed": "Could not prepare the join code. Please try again.",
+      "liveCode": "You have an active code, valid until {{date}}.",
+      "liveCodeUses": "Students who joined with it: {{count}}",
+      "liveCodeHint": "For security, a code is only shown when it is generated. To show a QR, generate a new code: the current one stops working.",
+      "showNew": "Generate new code"
     },
     "joinCoach": {
       "title": "Join a coach",

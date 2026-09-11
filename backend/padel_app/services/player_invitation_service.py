@@ -62,7 +62,7 @@ def create_incomplete_player_service(data, now=None):
 
 
 def get_player_invitation_service(token, now=None):
-    invitation = PlayerInvitation.query.filter_by(token=token).first()
+    invitation = PlayerInvitation.by_token(token)
     if invitation is None:
         abort(404, "Invitation not found")
 
@@ -128,7 +128,7 @@ def claim_player_invitation_service(token, user, now=None):
 
 
 def revoke_player_invitation_service(token, coach):
-    invitation = PlayerInvitation.query.filter_by(token=token).first()
+    invitation = PlayerInvitation.by_token(token)
     if invitation is None:
         abort(404, "Invitation not found")
 

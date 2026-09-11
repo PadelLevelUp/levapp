@@ -1,6 +1,7 @@
 """Per-IP sliding-window throttle for the public auth routes (PAD-228).
 
-auth.login rule 7, auth.register rule 15, auth.password-recovery rule 10: at
+auth.login rule 7, auth.register rule 15, auth.password-recovery rule 10 and
+auth.email-verification rule 13 (PAD-269): at
 most N requests per window per client IP and scope, from the config knobs
 `AUTH_RATE_LIMIT_<SCOPE>` ("count/seconds"; "0" disables that scope) and the
 master switch `AUTH_RATE_LIMIT_ENABLED`. Over the limit the request is not
@@ -82,7 +83,7 @@ def limiter_for(app):
 
 def rate_limited(scope):
     """Decorate a view with the per-IP throttle for `scope` (`login`,
-    `register`, `recovery`). Reads the config on every request so tests and
+    `register`, `recovery`, `verification`). Reads the config on every request so tests and
     operators can change the knob without a restart."""
 
     def decorator(view):

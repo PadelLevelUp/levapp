@@ -199,7 +199,11 @@
       "rotateConfirm": "Gerar",
       "cancel": "Cancelar",
       "noClub": "Precisas de um clube antes de partilhar um código.",
-      "failed": "Não foi possível preparar o código. Tenta novamente."
+      "failed": "Não foi possível preparar o código. Tenta novamente.",
+      "liveCode": "Tens um código ativo, válido até {{date}}.",
+      "liveCodeUses": "Alunos que se juntaram com ele: {{count}}",
+      "liveCodeHint": "Por segurança, um código só é mostrado quando é gerado. Para mostrares um QR, gera um novo código: o atual deixa de funcionar.",
+      "showNew": "Gerar novo código"
     },
     "joinCoach": {
       "title": "Juntar-me a um treinador",
