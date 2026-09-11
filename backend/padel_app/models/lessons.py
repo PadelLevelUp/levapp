@@ -163,8 +163,8 @@ class Lesson(db.Model, model.Model):
             "original_lesson_occurence_date": self.start_datetime.date(),
             "start_datetime": self.start_datetime,
             "end_datetime": self.end_datetime,
-            "overwrite_title": self.title,
-            "title": self.title,
+            # PAD-275 (classes.edit rule 4): no title copy — NULL inherits the
+            # lesson's title, so a series rename reaches every occurrence.
             "level": self.default_level_id,
             "level_id": self.default_level_id,
             "notifications_enabled": self.notifications_enabled,

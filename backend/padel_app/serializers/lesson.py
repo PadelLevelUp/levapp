@@ -99,7 +99,7 @@ def serialize_lesson_instance(instance):
 
         "status": instance.status,
         "notes": instance.notes,
-        "overriddenFields": instance.overridden_fields,
+        "overriddenFields": overridden_fields_for(instance),
 
         "name": lesson.title if lesson else None,
         "color": lesson.color if lesson else None,
@@ -133,6 +133,24 @@ def _eligibility_provenance(obj, coach_id):
         "effectiveOpenSpotsVisible": visible,
         "openSpotsSource": visible_source,
     }
+
+
+def overridden_fields_for(instance) -> list:
+    """The overrides a materialised occurrence carries, derived from its
+    columns (classes.edit rule 4, PAD-275). The `overridden_fields` text column
+    is never read: it was never written."""
+    lesson = getattr(instance, "lesson", None)
+    out = []
+    if getattr(instance, "overwrite_title", None):
+        out.append("title")
+    level_id = getattr(instance, "level_id", None)
+    if level_id is not None and (lesson is None or level_id != lesson.default_level_id):
+        out.append("level")
+    if lesson is not None and getattr(instance, "max_players", None) not in (None, lesson.max_players):
+        out.append("maxPlayers")
+    if getattr(instance, "notes", None):
+        out.append("notes")
+    return out
 
 
 def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -> dict:
@@ -267,11 +285,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             {
                 "parentClassId": str(lesson.id),
                 "notes": obj.notes,
-                "overriddenFields": (
-                    json.loads(obj.overridden_fields)
-                    if obj.overridden_fields
-                    else []
-                ),
+                # PAD-275 (classes.edit rule 4): derived from the override columns.
+                "overriddenFields": overridden_fields_for(obj),
                 "presences": presences,
                 "invitations": [
                     {

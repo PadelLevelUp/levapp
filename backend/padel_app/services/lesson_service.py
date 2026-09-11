@@ -373,7 +373,12 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     instance_data['max_players'] = (
         instance_data.get('max_players') or parent_lesson.max_players
     )
-    instance_data['overwrite_title'] = instance_data.get('title')
+    # PAD-275 (classes.edit rule 4): overrides are nullable, NULL inherits.
+    # A title equal to the parent's is not an override.
+    _title = instance_data.get('title')
+    instance_data['overwrite_title'] = (
+        _title if _title and _title != parent_lesson.title else None
+    )
 
     lesson_instance = LessonInstance()
     form = lesson_instance.get_create_form()
@@ -434,13 +439,20 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         )
 
     data = transform_to_datetime(lesson_instance, data)
-    data['overwrite_title'] = data.get('title')
+    # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
+    # override; the form adapter drops None, so the clear happens below.
+    _title = data.get('title')
+    _parent_title = lesson_instance.lesson.title if lesson_instance.lesson else None
+    _clears_title = bool(_title) and _title == _parent_title
+    data['overwrite_title'] = _title if _title and not _clears_title else None
 
     form = lesson_instance.get_edit_form()
     fake_request = JsonRequestAdapter(data, form)
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    if _clears_title:
+        lesson_instance.overwrite_title = None
     lesson_instance.save()
 
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
@@ -602,22 +614,20 @@ def edit_lesson_helper(data, lesson=None):
 
 
 def duplicate_lesson_helper(old_lesson):
-    new_lesson = Lesson(
-        title=old_lesson.title,
-        type=old_lesson.type,
-        status=old_lesson.status,
-        color=old_lesson.color,
-        max_players=old_lesson.max_players,
-        default_level_id=old_lesson.default_level_id,
-        is_recurring=old_lesson.is_recurring,
-        recurrence_rule=old_lesson.recurrence_rule,
-        recurrence_end=old_lesson.recurrence_end,
-        recurs_until_season_end=old_lesson.recurs_until_season_end,
-        start_datetime=old_lesson.start_datetime,
-        end_datetime=old_lesson.end_datetime,
-        club_id=old_lesson.club_id,
-        court_id=old_lesson.court_id,
-    )
+    """Copy a lesson row — every mapped column except the identity and the
+    timestamps (classes.recurrence rule 6, PAD-275). Built from the mapper so a
+    column added later cannot be forgotten (the hand list used to drop
+    `description` and `notifications_enabled`). The caller sets the recurrence
+    bounds it changes."""
+    from sqlalchemy import inspect as sa_inspect
+
+    skip = {"id", "created_at", "updated_at"}
+    columns = {
+        attr.key: getattr(old_lesson, attr.key)
+        for attr in sa_inspect(Lesson).column_attrs
+        if attr.key not in skip
+    }
+    new_lesson = Lesson(**columns)
 
     new_lesson.create()
 
