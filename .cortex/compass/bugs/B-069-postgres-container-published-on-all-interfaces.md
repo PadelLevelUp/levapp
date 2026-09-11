@@ -36,38 +36,55 @@ implicit. This entry makes it explicit.
    VM; the live container has to be re-created by hand.
 2. The deploy workflows do not run Postgres. Their `ports: ["5432:5432"]` lines are the
    PAD-220 drift-gate `services:` on the GitHub runner — changing them changes nothing on the VM.
-3. The app containers run on `--network levelup_net` and read `POSTGRES_HOST` from
-   `/home/<deploy user>/.env.staging` and `.env.prod` on the VM (not in the repo). If that host
-   is the VM-internal address, a loopback-only publish breaks prod and staging: a bridge-network
-   container cannot reach the host's `127.0.0.1`. Postgres must join `levelup_net` and the
-   env files must point at `postgres` **before** the publish changes.
+3. **The app containers reach the database at `POSTGRES_HOST=10.132.0.2`** — the VM's internal
+   IP — set in `backend/.env.prod` and `backend/.env.staging`. Those two files are **tracked
+   templates that every deploy scp's to the VM**, so a VM-side edit is overwritten by the next
+   deploy. A bridge-network container cannot reach the host's `127.0.0.1`, so a loopback-only
+   publish with the IP still in the env files takes prod and staging down. The host change
+   therefore lives in the repo (`POSTGRES_HOST=postgres`), the container name on `levelup_net`,
+   and `postgres` joins `PRODUCTION_POSTGRES_HOSTS` so the PAD-95 migration guard keeps
+   failing closed on it.
 
 ### Change Plan
 
-**Files to modify:** `backend/terraform/main.tf` (startup script + comment). Workflows untouched.
+**Files to modify:** `backend/terraform/main.tf` (startup script + comment), `backend/.env.prod`
+and `backend/.env.staging` (`POSTGRES_HOST=postgres`), `backend/padel_app/config.py`
+(`"postgres"` in `PRODUCTION_POSTGRES_HOSTS`), `test_config_database_host.py` (red-first).
+Workflows untouched.
 
-**Then (on the VM, owner or coordinator-approved SSH — permission-gated):**
+**Then, on the VM (owner or coordinator-approved SSH — permission-gated), in this order:**
 ```
-# 1. read-only: what is there today
+# A. read-only: what is there today
 sudo docker inspect postgres --format '{{json .HostConfig.PortBindings}} {{json .NetworkSettings.Networks}}'
-grep -H POSTGRES_HOST ~/.env.staging ~/.env.prod
-sudo ss -ltnp | grep 5432
-# 2. no downtime: reachable by name from the app network
+grep -H POSTGRES_HOST ~/.env.staging ~/.env.prod          # 10.132.0.2 until the batch-4 deploy lands
+sudo ss -ltnp | grep 5432                                  # 0.0.0.0:5432 today
+
+# B. BEFORE the deploy that carries this change (no downtime): make `postgres` resolvable on the app network
 sudo docker network connect levelup_net postgres || true
-sed -i 's/^POSTGRES_HOST=.*/POSTGRES_HOST=postgres/' ~/.env.staging ~/.env.prod   # takes effect on the next deploy of each
-# 3. re-create on loopback — the ONE container serving BOTH prod and staging DBs is down for seconds; owner runs this; data stays on /data/postgres
+sudo docker update --restart unless-stopped postgres
+sudo docker exec padelapp_staging getent hosts postgres    # prints the container's levelup_net address
+
+# C. the batch-4 staging deploy (and the next prod promotion) re-create the app containers with
+#    POSTGRES_HOST=postgres from the new env templates — verify each:
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5100/api/app/healthz   # staging 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/app/healthz   # prod 200, after promotion
+#    Until prod is promoted, prod still uses 10.132.0.2 — do NOT run step D before both are on `postgres`.
+
+# D. re-create Postgres on loopback — the ONE container serving BOTH prod and staging DBs is down
+#    for seconds; owner runs this; data stays on /data/postgres
 sudo docker stop postgres && sudo docker rm postgres
 sudo docker run -d --name postgres --restart unless-stopped --network levelup_net \
   -e POSTGRES_USER=padel_app_user -e POSTGRES_PASSWORD='<current password>' -e POSTGRES_DB=padel_app \
   -p 127.0.0.1:5432:5432 -v /data/postgres:/var/lib/postgresql/data postgres:15
-# 4. verify
-sudo ss -ltnp | grep 5432            # 127.0.0.1:5432 only
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5100/api/app/healthz   # staging 200
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/app/healthz   # prod 200
+
+# E. verify
+sudo ss -ltnp | grep 5432                                  # 127.0.0.1:5432 only
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5100/api/app/healthz   # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/app/healthz   # 200
 ```
-Order matters: step 2 before step 3, and each app container picks up `POSTGRES_HOST=postgres`
-only when its deploy re-creates it — so run step 3 after the batch-4 staging deploy and the
-next prod promotion, or restart the app containers by hand after it.
+Step B before C, C (both environments) before D. The SSH tunnel for workstations
+(`-L 5434:localhost:5432`) keeps working: it lands on the VM's loopback. If the password rotation
+runbook (2026-09-11 owner infra runbooks) runs first, step D uses the NEW password.
 
 ### Resolution
 
