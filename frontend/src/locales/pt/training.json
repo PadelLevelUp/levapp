@@ -189,7 +189,7 @@
       },
       "hints": {
         "select": "Toca numa peça para a selecionar (fica com um anel), depois toca no destino para a mover.",
-        "ball": "Desenha a trajetória da bola. Toca no ponto a meio da linha para alternar entre plana e lob.",
+        "ball": "Desenha a trajetória da bola. Cada par de toques acrescenta uma trajetória numerada; toca no ponto a meio de uma linha para alternar entre plana e lob.",
         "movement": "Toca no jogador e depois no destino — cria o percurso tracejado do movimento.",
         "cone": "Toca no campo para colocar um cone. Seleciona um cone e prime Delete para o remover.",
         "player": "Toca no campo para colocar o próximo jogador (máximo 4).",
@@ -204,6 +204,15 @@
       "undo": "Anular",
       "deleteSelected": "Eliminar selecionado",
       "ballStyleToggle": "Alternar plana / lob",
+      "balls": {
+        "title": "Trajetórias da bola",
+        "item": "Trajetória {{n}}",
+        "up": "Subir a trajetória {{n}}",
+        "down": "Descer a trajetória {{n}}",
+        "remove": "Remover a trajetória {{n}}",
+        "flat": "plana",
+        "lob": "lob"
+      },
       "teams": {
         "a": "EQUIPA A",
         "b": "EQUIPA B"
@@ -238,7 +247,7 @@
         "step": "Passo",
         "auto": "▶ AUTO",
         "stop": "■ Parar",
-        "hint": "Cada passo tem uma trajetória de bola e os movimentos dos jogadores. Passo avança um; AUTO anima todos."
+        "hint": "Cada passo tem as trajetórias da bola, por ordem, e os movimentos dos jogadores. Passo avança um; AUTO anima todos."
       }
     }
   }

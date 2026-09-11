@@ -36,6 +36,14 @@ appId: com.padellevelup.app
     visible:
       text: "Maestro unknown sender"
     timeout: 15000
+# The conversation is a root-stack screen with its own header: leave it before
+# reaching the tabs' avatar (the back control is labelled, not id'd).
+- tapOn:
+    text: "Back|Voltar"
+- extendedWaitUntil:
+    visible:
+      id: "tab-messages"
+    timeout: 15000
 - runFlow: ../subflows/logout.yaml
 
 # ── Recipient: e2e-student-3 sees the banner ──
@@ -46,8 +54,14 @@ appId: com.padellevelup.app
       PASSWORD: E2eStudent3123!
 - tapOn:
     id: "tab-messages"
+# The row's accessibility label carries the sender's name (the preview text is
+# not part of it), so open the conversation by the sender.
+- extendedWaitUntil:
+    visible:
+      text: ".*E2E Student.*"
+    timeout: 20000
 - tapOn:
-    text: "Maestro unknown sender"
+    text: ".*E2E Student.*"
 - extendedWaitUntil:
     visible:
       id: "unknown-sender-banner"
@@ -71,11 +85,19 @@ appId: com.padellevelup.app
 - assertNotVisible:
     id: "unknown-sender-banner"
 
-# ── Settings → Account → Blocked users → Unblock ──
+# ── Settings → My connections → Blocked users → Unblock (PAD-287 moved the list) ──
+# The conversation is a root-stack screen with its own header: leave it before
+# reaching the tabs' avatar (the back control is labelled, not id'd).
+- tapOn:
+    text: "Back|Voltar"
+- extendedWaitUntil:
+    visible:
+      id: "tab-messages"
+    timeout: 15000
 - tapOn:
     id: "header-account"
 - tapOn:
-    id: "settings-nav-account"
+    id: "settings-nav-connections"
 - extendedWaitUntil:
     visible:
       id: "blocked-users"

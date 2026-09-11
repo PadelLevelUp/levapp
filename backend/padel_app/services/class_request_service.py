@@ -5,7 +5,8 @@ Free time is inferred from the coach's calendar (rule 1); the requested slot
 is held by a plain CalendarBlock while the request is open (rule 3); accept
 creates a one-off private class through the same path as "Add class"
 (rule 4); every transition is mirrored into the coach ↔ student direct
-conversation (rule 6).
+conversation (rule 6). PAD-281 (rule 10): the student may answer a proposal
+with another time, and the loop runs until someone accepts or closes it.
 """
 from datetime import datetime, timedelta
 
@@ -218,6 +219,22 @@ def _when(row: ClassRequest, locale: str) -> str:
     return f"{weekday} {d.strftime('%d/%m')} {span}"
 
 
+def _meta(row: ClassRequest, kind: str) -> dict:
+    """The `metadata.classRequest` every class-request message carries (rule 6).
+
+    PAD-281: `slot` is the time the message is about, so a chat bubble can tell
+    the live proposal from an older round's — the request itself only knows the
+    slot currently on the table."""
+    return {"classRequest": {
+        "id": row.id, "status": row.status, "kind": kind,
+        "slot": {
+            "date": row.start_datetime.date().isoformat(),
+            "startTime": row.start_datetime.strftime("%H:%M"),
+            "endTime": row.end_datetime.strftime("%H:%M"),
+        },
+    }}
+
+
 def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     """A message from the student's side in the direct conversation, pushed to the coach."""
     from padel_app.models import Message
@@ -237,7 +254,7 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     conv = _get_or_create_direct_conversation(coach_user.id, player_user.id)
     msg = Message(
         text=text, sender_id=player_user.id, conversation_id=conv.id, message_type="text",
-        msg_metadata={"classRequest": {"id": row.id, "status": row.status, "kind": kind}},
+        msg_metadata=_meta(row, kind),
     )
     msg.create()
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
@@ -260,7 +277,7 @@ def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     text = pt if _locale_of(player_user) == "pt" else en
     _send_system_message(
         coach_user.id, player_user.id, text,
-        msg_metadata={"classRequest": {"id": row.id, "status": row.status, "kind": kind}},
+        msg_metadata=_meta(row, kind),
     )
     publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [player_user.id])
 
@@ -279,6 +296,20 @@ def list_requests_for(user) -> list:
     return q.order_by(ClassRequest.id.desc()).all()
 
 
+def _validated_slot(coach: Coach, data: dict, *, now, exclude_request_id=None):
+    """Rules 2 and 7: a well-formed slot of 30–180 minutes, not started, inside
+    a free block (the request's own hold excluded when re-slotting one)."""
+    start, end = _parse_slot(data.get("date"), data.get("startTime"), data.get("endTime"))
+    length = (end - start).total_seconds() / 60
+    if length < MIN_LEN or length > MAX_LEN:
+        abort(400, f"a class is between {MIN_LEN} and {MAX_LEN} minutes")
+    if start < now:
+        _refuse("in_the_past", "That time has already passed")
+    if not _slot_is_free(coach, start, end, now=now, exclude_request_id=exclude_request_id):
+        _refuse("slot_taken", "That time is not free any more")
+    return start, end
+
+
 def create_class_request_service(player: Player, data: dict, *, now=None) -> ClassRequest:
     now = now or _now_wall_clock()
     try:
@@ -287,14 +318,7 @@ def create_class_request_service(player: Player, data: dict, *, now=None) -> Cla
         abort(400, "coachId is required")
     coach = Coach.query.get_or_404(coach_id)
     _require_roster(player.id, coach.id)
-    start, end = _parse_slot(data.get("date"), data.get("startTime"), data.get("endTime"))
-    length = (end - start).total_seconds() / 60
-    if length < MIN_LEN or length > MAX_LEN:
-        abort(400, f"a class is between {MIN_LEN} and {MAX_LEN} minutes")
-    if start < now:
-        _refuse("in_the_past", "That time has already passed")
-    if not _slot_is_free(coach, start, end, now=now):
-        _refuse("slot_taken", "That time is not free any more")
+    start, end = _validated_slot(coach, data, now=now)
 
     row = ClassRequest(
         player_id=player.id, coach_id=coach.id, start_datetime=start, end_datetime=end,
@@ -315,6 +339,27 @@ def create_class_request_service(player: Player, data: dict, *, now=None) -> Cla
     return row
 
 
+def _lock(request_id) -> ClassRequest:
+    """The request row, locked for update (B-051 pattern): every decision is a
+    check-then-write, and two answers racing for the same slot must serialise."""
+    row = ClassRequest.query.filter_by(id=request_id).with_for_update().first()
+    if row is None:
+        abort(404)
+    return row
+
+
+def _require_slot_match(row: ClassRequest, data: dict | None) -> None:
+    """Rule 5 (PAD-281 review): an accept that names a slot books only that slot.
+    A stale bubble (cached list, second device, a push tapped late) sends the slot
+    it showed; when it is no longer the one on the table, nothing is booked."""
+    slot = (data or {}).get("slot")
+    if not slot:
+        return
+    live = (row.start_datetime.date().isoformat(), row.start_datetime.strftime("%H:%M"), row.end_datetime.strftime("%H:%M"))
+    if (slot.get("date"), slot.get("startTime"), slot.get("endTime")) != live:
+        _refuse("slot_changed", "That proposal is no longer the one on the table")
+
+
 def _close(row: ClassRequest, status: str, by: str, now) -> None:
     _release_hold(row)
     row.status = status
@@ -324,7 +369,7 @@ def _close(row: ClassRequest, status: str, by: str, now) -> None:
 
 
 def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequest:
-    row = ClassRequest.query.get_or_404(request_id)
+    row = _lock(request_id)
     if player is None or row.player_id != player.id:
         abort(403, "Not your request")
     if not row.is_open:
@@ -336,14 +381,16 @@ def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequ
     return row
 
 
-def answer_proposal_service(request_id, player, *, accept: bool, now=None) -> ClassRequest:
-    """Rule 5: the student answers the coach's counter-proposal."""
+def answer_proposal_service(request_id, player, *, accept: bool, data=None, now=None) -> ClassRequest:
+    """Rule 5: the student answers the coach's counter-proposal (`data.slot`, when
+    sent, must be the slot on the table)."""
     now = now or _now_wall_clock()
-    row = ClassRequest.query.get_or_404(request_id)
+    row = _lock(request_id)
     if player is None or row.player_id != player.id:
         abort(403, "Not your request")
     if row.status != "countered":
         _refuse("not_countered", "There is no proposal to answer")
+    _require_slot_match(row, data)
     if accept:
         _create_class_and_accept(row, by="student", now=now)
         who = _name(row.player.user)
@@ -354,6 +401,29 @@ def answer_proposal_service(request_id, player, *, accept: bool, now=None) -> Cl
         who = _name(row.player.user)
         _tell_coach(row, f"{who} recusou a proposta de {_when(row, 'pt')}.",
                     f"{who} declined the proposal for {_when(row, 'en')}.", kind="declined")
+    return row
+
+
+def counter_proposal_service(request_id, player, data: dict, *, now=None) -> ClassRequest:
+    """Rule 10 (PAD-281): the student answers the coach's proposal with another
+    time. The slot is validated like a new request (the request's own hold does
+    not count as busy), the hold moves, the request is `pending` again and the
+    coach is told from the student's side. Rounds are unlimited."""
+    now = now or _now_wall_clock()
+    row = _lock(request_id)
+    if player is None or row.player_id != player.id:
+        abort(403, "Not your request")
+    if row.status != "countered":
+        _refuse("not_countered", "There is no proposal to answer")
+    coach = row.coach
+    start, end = _validated_slot(coach, data or {}, now=now, exclude_request_id=row.id)
+    row.start_datetime, row.end_datetime = start, end
+    row.status = "pending"
+    _place_hold(row, coach, _locale_of(coach.user))
+    db.session.commit()
+    who = _name(row.player.user)
+    _tell_coach(row, f"{who} propôs outro horário: {_when(row, 'pt')}. Aceitas?",
+                f"{who} proposed another time: {_when(row, 'en')}. Do you accept?", kind="counter_proposal")
     return row
 
 
@@ -402,7 +472,7 @@ def decide_class_request_service(request_id, coach, *, action: str, data=None, n
     """Rule 4: ``accept`` | ``decline`` | ``propose``."""
     now = now or _now_wall_clock()
     data = data or {}
-    row = ClassRequest.query.get_or_404(request_id)
+    row = _lock(request_id)
     _require_owner(row, coach)
     if not row.is_open:
         _refuse("not_open", "This request was already decided")
@@ -410,6 +480,7 @@ def decide_class_request_service(request_id, coach, *, action: str, data=None, n
     if action == "accept":
         if row.status != "pending":
             _refuse("not_pending", "Only a pending request can be accepted; the student is answering your proposal")
+        _require_slot_match(row, data)
         _create_class_and_accept(row, by="coach", now=now)
         _tell_student(row, f"Aula marcada: {_when(row, 'pt')}. O treinador aceitou o teu pedido.",
                       f"Class booked: {_when(row, 'en')}. The coach accepted your request.", kind="accepted")
@@ -422,11 +493,8 @@ def decide_class_request_service(request_id, coach, *, action: str, data=None, n
         return row
 
     if action == "propose":
-        start, end = _parse_slot(data.get("date"), data.get("startTime"), data.get("endTime"))
-        if start < now:
-            _refuse("in_the_past", "That time has already passed")
-        if not _slot_is_free(coach, start, end, now=now, exclude_request_id=row.id):
-            _refuse("slot_taken", "That time is not free on your calendar")
+        # The same validation as a new request (rules 2 and 7), the request's own hold excluded.
+        start, end = _validated_slot(coach, data, now=now, exclude_request_id=row.id)
         row.start_datetime, row.end_datetime = start, end
         row.status = "countered"
         _place_hold(row, coach, _locale_of(coach.user))

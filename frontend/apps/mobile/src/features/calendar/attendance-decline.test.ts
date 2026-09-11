@@ -6,9 +6,10 @@ import {
   hasDeclined,
 } from "./attendance-decline";
 
-// The class in every fixture starts at 18:00 on 2026-09-10; "now" is pinned a
-// few days before it unless a test moves it.
-const NOW = new Date("2026-09-06T12:00:00").getTime();
+// The class in every fixture starts at 18:00 on 2026-09-10 (club wall clock); "now"
+// is pinned a few days before it, on the club's clock (Lisbon summer, UTC+1) so the
+// file passes in any zone (PAD-295), unless a test moves it.
+const NOW = new Date("2026-09-06T12:00:00+01:00").getTime();
 
 const student = {
   isCoach: false,
@@ -56,7 +57,7 @@ describe("hasClassStarted", () => {
   });
 
   it("is true exactly at the start instant", () => {
-    const startAt = new Date("2026-09-06T18:00:00").getTime();
+    const startAt = new Date("2026-09-06T18:00:00+01:00").getTime(); // the instant of 18:00 club time
     expect(hasClassStarted("2026-09-06", "18:00", startAt)).toBe(true);
   });
 
@@ -176,10 +177,50 @@ describe("hasClassStarted on Hermes (B-060)", () => {
     }
     vi.stubGlobal("Date", HermesDate);
     try {
-      const halfAnHourIn = new RealDate(2026, 8, 10, 18, 30).getTime();
+      // The instant of 18:30 on the club's clock (PAD-295: fixtures are instants).
+      const halfAnHourIn = new RealDate("2026-09-10T18:30:00+01:00").getTime();
       expect(hasClassStarted("2026-09-10", "18:00", halfAnHourIn)).toBe(true);
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+/**
+ * PAD-295 / B-066 — attendance.confirm rule 9, criterion "Started and late
+ * cancellation are judged on the club's clock on any device". The default clock
+ * is the club's, so `TZ=Asia/Tokyo` gives the same answers as Lisbon.
+ */
+describe("hasClassStarted defaults to the club's clock (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // 09:00 UTC on 15 July 2027 = 10:00 in Lisbon (summer).
+    vi.setSystemTime(new Date(Date.UTC(2027, 6, 15, 9, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a class starting in 30 Lisbon minutes has not started on any device", () => {
+    expect(hasClassStarted("2027-07-15", "10:30")).toBe(false);
+  });
+
+  it("a class that started 30 Lisbon minutes ago has started on any device", () => {
+    expect(hasClassStarted("2027-07-15", "09:30")).toBe(true);
+  });
+});
+
+// PAD-295 review (G-1): the device's own DST gap must not move the comparison.
+describe("hasClassStarted on a Madrid device during its spring gap (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2027, 2, 28, 1, 30))); // 02:30 in Lisbon
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a 03:15 class has not started at 02:30 Lisbon, whatever the device's gap", () => {
+    expect(hasClassStarted("2027-03-28", "03:15")).toBe(false);
   });
 });

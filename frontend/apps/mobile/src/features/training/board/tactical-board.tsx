@@ -1,20 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  HIT_RADIUS,
-  INITIAL_BOARD_STATE,
-  MAX_BASKET_PLAYERS,
-  STEP_DURATION_MS,
-  SWATCHES,
-  VIEW_H,
-  VIEW_W,
   addPlayer,
-  boardAddStep,
-  boardDeleteStep,
   ballHandleHit,
+  boardAddStep,
   boardDeleteSelected,
+  boardDeleteStep,
   boardDragEnd,
   boardHasContent,
+  boardMoveBallPath,
   boardPress,
+  boardRemoveBallPath,
   boardSelectTool,
   boardSetColor,
   boardSetStep,
@@ -24,19 +19,27 @@ import {
   clampPercent,
   clientToPercent,
   defaultToolForMode,
+  HIT_RADIUS,
   hitTestPiece,
+  INITIAL_BOARD_STATE,
   interpolateStep,
   lightTheme,
+  MAX_BASKET_PLAYERS,
   piecesAtStep,
+  playbackFrameAt,
   playerCount,
   popHistory,
   pushHistory,
+  stepBalls,
   stepCount,
+  SWATCHES,
   swatchHex as swatch,
   toolsForMode,
-  upgradeCourtDiagram,
   type BoardState,
   type BoardTool,
+  upgradeCourtDiagram,
+  VIEW_H,
+  VIEW_W,
 } from "@levelup/config";
 import type { AnyCourtDiagram, BoardMode, CourtDiagramV2, PieceColor, Point } from "@levelup/types";
 import * as React from "react";
@@ -162,17 +165,16 @@ export function TacticalBoard({ value, onChange }: Props) {
     if (diagram.steps.length === 0) return;
     stopPlayback();
     const startedAt = Date.now();
-    const total = diagram.steps.length;
     setPlaying(true);
     setPlayback({ step: 0, t: 0 });
     timer.current = setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const step = Math.floor(elapsed / STEP_DURATION_MS);
-      if (step >= total) {
+      // PAD-289 (rule 20): a step lasts 800 ms per ball path; the shared scheduler decides.
+      const frame = playbackFrameAt(diagram, Date.now() - startedAt);
+      if (!frame) {
         stopPlayback();
         return;
       }
-      setPlayback({ step, t: (elapsed % STEP_DURATION_MS) / STEP_DURATION_MS });
+      setPlayback(frame);
     }, 16);
   };
 
@@ -219,8 +221,9 @@ export function TacticalBoard({ value, onChange }: Props) {
       return;
     }
     const radius = touchRadius();
-    if (ballHandleHit(d, pt, radius, s.stepIndex)) {
-      c(boardToggleBallStyle(d, s.stepIndex));
+    const handleIndex = ballHandleHit(d, pt, radius, s.stepIndex);
+    if (handleIndex >= 0) {
+      c(boardToggleBallStyle(d, s.stepIndex, handleIndex));
       return;
     }
     const hit = hitTestPiece(piecesAtStep(d, s.stepIndex), pt, radius);
@@ -319,6 +322,8 @@ export function TacticalBoard({ value, onChange }: Props) {
   const frame = playback ? interpolateStep(diagram, playback.step, playback.t) : null;
   const viewDiagram: CourtDiagramV2 = frame ? { ...diagram, pieces: frame.pieces, steps: [] } : { ...diagram, pieces: stepPieces };
   const steps = diagram.steps.length;
+  // PAD-289 (rule 23): the current step's ball paths, for the list under the step strip.
+  const balls = mode === "magnetic" ? [] : stepBalls(diagram.steps[state.stepIndex]);
   const canDelete = !!state.selectedId && boardDeleteSelected(diagram, state).diagram !== undefined;
   const canAddPlayer = mode === "basket" && playerCount(diagram) < MAX_BASKET_PLAYERS;
   const courtHeight = layout.width > 0 ? (layout.width * VIEW_H) / VIEW_W : 0;
@@ -461,6 +466,29 @@ export function TacticalBoard({ value, onChange }: Props) {
           <Text className="font-sans-bold text-xs text-primary-foreground">{playing ? t("training.board.playback.stop") : t("training.board.playback.auto")}</Text>
         </Pressable>
       </View>
+
+      {/* ball paths of the current step (PAD-289, rule 23) */}
+      {balls.length > 0 ? (
+        <View testID="board-balls" className="flex-row flex-wrap items-center gap-2 px-3 pb-3">
+          <Text className="font-sans-semibold text-[11px] text-white/70">{t("training.board.balls.title")}</Text>
+          {balls.map((path, i) => (
+            <View key={`ball-row-${i}`} testID={`board-ball-${i}`} className="flex-row items-center rounded-full border border-white/15 py-0.5 pl-2.5 pr-1">
+              <Text className="mr-1 text-[11px] text-white">
+                {t("training.board.balls.item", { n: i + 1 })} · {t(`training.board.balls.${path.style}`)}
+              </Text>
+              <Pressable testID={`board-ball-${i}-up`} accessibilityRole="button" accessibilityLabel={t("training.board.balls.up", { n: i + 1 })} disabled={i === 0} onPress={() => commit(boardMoveBallPath(diagram, state.stepIndex, i, i - 1))} className={cn("h-9 w-8 items-center justify-center", i === 0 && "opacity-40")}>
+                <Ionicons name="chevron-up" size={14} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+              <Pressable testID={`board-ball-${i}-down`} accessibilityRole="button" accessibilityLabel={t("training.board.balls.down", { n: i + 1 })} disabled={i === balls.length - 1} onPress={() => commit(boardMoveBallPath(diagram, state.stepIndex, i, i + 1))} className={cn("h-9 w-8 items-center justify-center", i === balls.length - 1 && "opacity-40")}>
+                <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+              <Pressable testID={`board-ball-${i}-remove`} accessibilityRole="button" accessibilityLabel={t("training.board.balls.remove", { n: i + 1 })} onPress={() => commit(boardRemoveBallPath(diagram, state.stepIndex, i))} className="h-9 w-8 items-center justify-center">
+                <Ionicons name="close" size={14} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {/* court */}
       <View className="items-center px-4 pb-4">

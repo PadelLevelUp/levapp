@@ -111,3 +111,13 @@ export function weekBounds(offset: number, now: Date = new Date()): AttendanceRa
   const sunday = new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 6));
   return { from: toIsoDate(monday), to: toIsoDate(sunday) };
 }
+
+/**
+ * The Monday and Sunday of `weekBounds(offset)` as UTC-midnight Dates, for a
+ * label formatted with `timeZone: "UTC"` — so the label can only ever name the
+ * week the query asked for (PAD-295).
+ */
+export function weekLabelDates(offset: number, now: Date = new Date()): { monday: Date; sunday: Date } {
+  const { from, to } = weekBounds(offset, now);
+  return { monday: new Date(`${from}T00:00:00Z`), sunday: new Date(`${to}T00:00:00Z`) };
+}

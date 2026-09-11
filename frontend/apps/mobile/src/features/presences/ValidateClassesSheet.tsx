@@ -20,6 +20,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import type { ValidatePayload } from "./hooks";
+import { weekLabelDates } from "@/features/attendance/date-ranges";
 import {
   availableRoster,
   clearValidated,
@@ -194,19 +195,9 @@ export function ValidateClassesSheet({
   }
 
   const weekLabel = React.useMemo(() => {
-    // UTC throughout, matching `weekBounds` — the label must name the same week
-    // the screen actually queried.
-    const now = new Date();
-    const dow = (now.getUTCDay() + 6) % 7;
-    const monday = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate() - dow + weekOffset * 7
-      )
-    );
-    const sunday = new Date(monday);
-    sunday.setUTCDate(monday.getUTCDate() + 6);
+    // Derived from the same `weekBounds` the screen queries (club's week, B-060)
+    // and formatted in UTC, so the label always names the week actually queried.
+    const { monday, sunday } = weekLabelDates(weekOffset);
     const fmt = new Intl.DateTimeFormat(i18n.language, {
       day: "numeric",
       month: "short",

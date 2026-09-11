@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prebuild:ios": "expo prebuild -p ios --clean",
-    "verify:splash": "bash scripts/verify-native-splash.sh"
+    "verify:splash": "bash scripts/verify-native-splash.sh",
+    "prebuild:android": "expo prebuild -p android --clean"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",

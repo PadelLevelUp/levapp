@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +15,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Check, Loader2, X } from "lucide-react";
 import {
+  type AdminSettings,
   type PendingCoach,
   approveCoach,
+  getAdminSettings,
   listPendingCoaches,
   rejectCoach,
+  updateAdminSettings,
 } from "@/api/admin";
 
 /**
@@ -35,11 +39,15 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
   const [busyId, setBusyId] = useState<number | null>(null);
   const [rejecting, setRejecting] = useState<PendingCoach | null>(null);
   const [reason, setReason] = useState("");
+  // auth.coach-approval rule 9 (PAD-279): the approval gate is an app setting.
+  const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [savingSetting, setSavingSetting] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const rows = await listPendingCoaches();
+      const [rows, current] = await Promise.all([listPendingCoaches(), getAdminSettings()]);
       setPending(rows);
+      setSettings(current);
       onCountChange?.(rows.length);
     } catch {
       toast({ variant: "destructive", title: t("settings.admin.loadFailed") });
@@ -47,6 +55,18 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
       setLoading(false);
     }
   }, [onCountChange, t, toast]);
+
+  const handleToggleApproval = async (value: boolean) => {
+    setSavingSetting(true);
+    try {
+      setSettings(await updateAdminSettings({ coachApprovalRequired: value }));
+      toast({ title: t("settings.admin.coachApprovalSaved") });
+    } catch {
+      toast({ variant: "destructive", title: t("settings.admin.actionFailed") });
+    } finally {
+      setSavingSetting(false);
+    }
+  };
 
   useEffect(() => {
     void refresh();
@@ -92,6 +112,34 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
 
   return (
     <div className="space-y-4" data-testid="admin-coach-approvals">
+      {settings && (
+        <div
+          className="flex items-start justify-between gap-4 rounded-lg border p-3"
+          data-testid="admin-coach-approval-required"
+        >
+          <div className="min-w-0 space-y-1">
+            <Label htmlFor="admin-coach-approval-required-switch" className="font-medium">
+              {t("settings.admin.coachApprovalRequired")}
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {t("settings.admin.coachApprovalRequiredDescription")}
+            </p>
+            {settings.source === "environment" && (
+              <p className="text-xs text-muted-foreground" data-testid="admin-coach-approval-source-env">
+                {t("settings.admin.coachApprovalFromEnvironment")}
+              </p>
+            )}
+          </div>
+          <Switch
+            id="admin-coach-approval-required-switch"
+            data-testid="admin-coach-approval-required-switch"
+            checked={settings.coachApprovalRequired}
+            disabled={savingSetting}
+            onCheckedChange={(val) => void handleToggleApproval(val)}
+          />
+        </div>
+      )}
+
       <div>
         <h3 className="font-medium">{t("settings.admin.pendingCoaches")}</h3>
         <p className="text-sm text-muted-foreground">{t("settings.admin.pendingCoachesDescription")}</p>

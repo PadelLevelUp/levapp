@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { messagesApi, notificationEngineApi } from "@levelup/api";
+import { classRequestsApi, messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
@@ -9,7 +9,7 @@ import {
   useConversationThread,
 } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -832,6 +832,67 @@ export default function ConversationScreen() {
     }
   };
 
+  // ── Class-request proposal (classes.class-requests rule 6, PAD-281) ──
+  // The bubble renders off the request's LIVE row, not the metadata frozen at
+  // send time, so the list is fetched here (one row for the whole thread) and
+  // refreshed by `class_request_changed` in the tabs layout. Only threads that
+  // hold a proposal message pay for it.
+  const hasClassRequestProposal = React.useMemo(
+    () =>
+      (conversation?.messages ?? []).some(
+        (m) => m.metadata?.classRequest?.kind === "proposed" || m.metadata?.classRequest?.kind === "counter_proposal"
+      ),
+    [conversation?.messages]
+  );
+  const liveClassRequests = useQuery({
+    queryKey: queryKeys.classRequests,
+    queryFn: classRequestsApi.listClassRequests,
+    enabled: hasClassRequestProposal,
+  });
+  const classRequestLiveFor = (message: Message) => {
+    const id = message.metadata?.classRequest?.id;
+    if (id == null || liveClassRequests.data === undefined) return undefined;
+    return liveClassRequests.data.find((r) => r.id === id) ?? null;
+  };
+  const [respondingClassRequestId, setRespondingClassRequestId] = React.useState<
+    string | number | null
+  >(null);
+  const handleAnswerClassRequest = async (message: Message, accept: boolean) => {
+    const id = message.metadata?.classRequest?.id;
+    if (id == null || respondingClassRequestId !== null) return;
+    // `proposed` is the coach's (the student answers); `counter_proposal` is the
+    // student's (the coach decides through accept / decline).
+    const studentAnswers = message.metadata?.classRequest?.kind === "proposed";
+    setRespondingClassRequestId(message.id);
+    try {
+      const slot = message.metadata?.classRequest?.slot;
+      // The slot the bubble shows travels with the answer (rule 5): a stale bubble gets 409 slot_changed.
+      if (studentAnswers) await classRequestsApi.answerClassRequestProposal(id, accept, slot);
+      else if (accept) await classRequestsApi.acceptClassRequest(id, slot);
+      else await classRequestsApi.declineClassRequest(id);
+      toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
+    } catch (err) {
+      // A stale bubble (the request moved on) gets the server's 409 code and
+      // re-reads — never an error screen.
+      const refusal = classRequestsApi.classRequestRefusal(err);
+      toast.error(
+        refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong")
+      );
+    } finally {
+      setRespondingClassRequestId(null);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+    }
+  };
+  const handleCounterClassRequest = (message: Message) => {
+    const id = message.metadata?.classRequest?.id;
+    if (id == null) return;
+    if (message.metadata?.classRequest?.kind === "proposed") {
+      router.push({ pathname: "/(tabs)/availability", params: { proposeFor: String(id) } });
+    } else {
+      router.push({ pathname: "/settings", params: { section: "classRequests", proposeFor: String(id) } });
+    }
+  };
+
   // ── Delete own message (launched from the long-press context menu) ──
   const handleConfirmDelete = async () => {
     if (!confirmingDelete) return;
@@ -1108,6 +1169,10 @@ export default function ConversationScreen() {
                       ? undefined
                       : (action) => void handleRespondToInvite(item, action)
                   }
+                  classRequestLive={classRequestLiveFor(item)}
+                  respondingClassRequest={respondingClassRequestId === item.id}
+                  onAnswerClassRequest={(accept) => void handleAnswerClassRequest(item, accept)}
+                  onCounterClassRequest={() => handleCounterClassRequest(item)}
                 />
               );
             }}

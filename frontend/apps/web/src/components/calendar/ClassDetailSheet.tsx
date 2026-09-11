@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, parseISODate } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, lisbonNowMs, parseISODate, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -109,6 +109,8 @@ interface ClassDetailSheetProps {
   event: CalendarEvent | null;
   open: boolean;
   onClose: () => void;
+  /** PAD-285 (dashboard.blocks rule 10): open with the Notificar picker already up. */
+  openNotify?: boolean;
 
   players: CoachPlayer[];
   levels: CoachLevel[];
@@ -131,6 +133,7 @@ export function ClassDetailSheet({
   event,
   open,
   onClose,
+  openNotify,
   players,
   levels,
   canManage,
@@ -186,6 +189,11 @@ export function ClassDetailSheet({
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  // PAD-285: the dashboard's "Convidar" lands here with Notificar to open — once
+  // the sheet is up for a coach, and only for this opening.
+  useEffect(() => {
+    if (open && openNotify && canManage && event?.type === "class") setShowNotifyModal(true);
+  }, [open, openNotify, canManage, event?.type]);
   const [sendingReminders, setSendingReminders] = useState(false);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
@@ -443,8 +451,9 @@ export function ClassDetailSheet({
   // PAD-46: a STUDENT viewer (canManage=false) is enrolled in this instance iff
   // they appear in participants — the serializer only ever returns the viewer's
   // own player for a student, so a non-empty list means "I'm a participant".
-  const classStartAt = new Date(`${active.date}T${active.startTime}`);
-  const classStarted = !Number.isNaN(classStartAt.getTime()) && classStartAt.getTime() <= Date.now();
+  // Club digits on both sides (attendance.confirm rule 9, PAD-295).
+  const classStartMs = wallClockMs(active.date, active.startTime);
+  const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -452,13 +461,11 @@ export function ClassDetailSheet({
     (active.participants?.length ?? 0) > 0;
   // Deadline-aware messaging: at/after (start - cancellationDeadlineHours) but
   // before start → "late cancellation" warning (still allowed).
-  const cancellationDeadline = active.cancellationDeadline
-    ? new Date(active.cancellationDeadline)
-    : null;
+  const cancellationDeadlineMs = active.cancellationDeadline
+    ? wallClockISOMs(active.cancellationDeadline)
+    : NaN;
   const isLateCancellation =
-    !!cancellationDeadline &&
-    !Number.isNaN(cancellationDeadline.getTime()) &&
-    Date.now() >= cancellationDeadline.getTime();
+    !Number.isNaN(cancellationDeadlineMs) && lisbonNowMs() >= cancellationDeadlineMs;
   // PAD-73: the student's own presence row. The serializer only ever returns the
   // viewer's own presence for a student, so `presences[0]` IS "my presence".
   // Deriving the declined state from it (rather than from local component state)

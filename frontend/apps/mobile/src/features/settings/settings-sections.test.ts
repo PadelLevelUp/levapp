@@ -46,11 +46,13 @@ describe("visibleSections(isCoach = false) — the student", () => {
     expect(idsFor(false)).toContain("myNotifications");
   });
 
-  it("offers exactly Profile, Preferences, My notifications and Account", () => {
+  it("offers exactly Profile, Preferences, My notifications, My connections and Account", () => {
+    // PAD-287 (settings.role-scope rule 2): My connections sits just before Account.
     expect(idsFor(false)).toEqual([
       "profile",
       "preferences",
       "myNotifications",
+      "connections",
       "account",
     ]);
   });
@@ -89,8 +91,19 @@ describe("visibleSections(isCoach = true) — the coach", () => {
       "tutorials",
       "import",
       "club",
+      // PAD-287: shared with the student, just before Account.
+      "connections",
       "account",
     ]);
+  });
+});
+
+describe("My connections (PAD-287, settings.role-scope rule 2)", () => {
+  it("is offered to both roles", () => {
+    const section = SETTINGS_SECTIONS.find((s) => s.id === "connections");
+    expect(section?.audience).toBe("everyone");
+    expect(idsFor(false)).toContain("connections");
+    expect(idsFor(true)).toContain("connections");
   });
 });
 

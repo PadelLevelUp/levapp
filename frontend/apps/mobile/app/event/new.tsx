@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { clubTodayISO, lightTheme } from "@levelup/config";
 import type { CalendarBlockType } from "@levelup/types";
 import { classFormSchema } from "@levelup/validation";
 import { addMonths, format } from "date-fns";
@@ -67,7 +67,7 @@ export default function NewEventScreen() {
   const initialDate =
     typeof params.date === "string" && DATE_RE.test(params.date)
       ? params.date
-      : format(new Date(), "yyyy-MM-dd");
+      : clubTodayISO(); // B-060: the club's date
 
   const [type, setType] = React.useState<Option>(TYPE_OPTIONS[0]);
   const [title, setTitle] = React.useState("");

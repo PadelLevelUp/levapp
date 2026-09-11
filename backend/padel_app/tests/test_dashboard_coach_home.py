@@ -173,7 +173,7 @@ def test_queue_orders_empty_seats_then_replies_then_validation(app):
     validation = block["data"]["items"][1]
     assert validation["count"] == 1
     assert validation["weekOffset"] == -1
-    assert validation["href"] == "/presences?week=-1"
+    assert validation["href"] == "/presences?validate=1&week=-1"  # PAD-283: validate view open
     assert "classCount" not in validation
 
 
@@ -246,7 +246,7 @@ def test_validation_item_prefers_the_current_week(app):
     validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
     assert validation["count"] == 1, "only this week's class, not last week's too"
     assert validation["weekOffset"] == 0
-    assert validation["href"] == "/presences"
+    assert validation["href"] == "/presences?validate=1"  # PAD-283: validate view open
 
 
 def test_validation_item_counts_classes_not_presences(app):

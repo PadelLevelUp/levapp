@@ -1,17 +1,18 @@
 import {
+  ballPathD,
+  ballPathMidpoint,
   BOUNDARY_INSET,
   COURT_COLORS,
+  movementPathD,
   NET_Y,
   PLAYER_RADIUS,
   SERVICE_LINES_Y,
-  VIEW_H,
-  VIEW_W,
-  ballPathD,
-  ballPathMidpoint,
-  movementPathD,
+  stepBalls,
   swatchHex as swatch,
   toView,
   type PendingPath,
+  VIEW_H,
+  VIEW_W,
 } from "@levelup/config";
 import type { CourtDiagramV2, Piece, PieceColor, Point } from "@levelup/types";
 import * as React from "react";
@@ -152,26 +153,40 @@ export function CourtSurface({
         );
       })}
 
-      {step?.ball ? (
-        <G>
-          <Path
-            testID={tid(step.ball.style === "lob" ? "ball-path-lob" : "ball-path-flat")}
-            d={ballPathD(step.ball)}
-            fill="none"
-            stroke={COURT_COLORS.ballPath}
-            strokeWidth={compact ? 1.5 : 2}
-            strokeLinecap="round"
-          />
-          {!compact ? (
-            <>
-              <Waypoint at={step.ball.from} />
-              <Waypoint at={step.ball.to} />
-            </>
-          ) : null}
-          <BallDot at={step.ball.from} />
-          {!compact ? <BallHandle at={ballPathMidpoint(step.ball)} lob={step.ball.style === "lob"} /> : null}
-        </G>
-      ) : null}
+      {/* ball paths, in order (PAD-289, rules 9, 13, 23) */}
+      {stepBalls(step).map((path, index, all) => {
+        const suffix = index === 0 ? "" : `-${index}`;
+        const startV = toView(path.from);
+        return (
+          <G key={`ball-${index}`}>
+            <Path
+              testID={tid(index === 0 ? `ball-path-${path.style}` : `ball-path-${index}-${path.style}`)}
+              d={ballPathD(path)}
+              fill="none"
+              stroke={COURT_COLORS.ballPath}
+              strokeWidth={compact ? 1.5 : 2}
+              strokeLinecap="round"
+            />
+            {!compact ? (
+              <>
+                <Waypoint at={path.from} />
+                <Waypoint at={path.to} />
+              </>
+            ) : null}
+            <BallDot at={path.from} />
+            {all.length > 1 && !compact ? (
+              // Offset per index: several paths may start at one point (basket feeds), so the badges fan out.
+              <G testID={`ball-number-${index}`} x={startV.x + 13 + index * 18} y={startV.y - 24}>
+                <Circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+                <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill="#fff">
+                  {index + 1}
+                </SvgText>
+              </G>
+            ) : null}
+            {!compact ? <BallHandle at={ballPathMidpoint(path)} lob={path.style === "lob"} testID={`ball-style-handle${suffix}`} /> : null}
+          </G>
+        );
+      })}
 
       {playbackBall ? (
         <Circle testID="playback-ball" cx={toView(playbackBall).x} cy={toView(playbackBall).y} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />
@@ -253,10 +268,10 @@ function BallDot({ at }: { at: Point }) {
   return <Circle cx={v.x} cy={v.y - 14} r={6.5} fill={COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />;
 }
 
-function BallHandle({ at, lob }: { at: Point; lob: boolean }) {
+function BallHandle({ at, lob, testID = "ball-style-handle" }: { at: Point; lob: boolean; testID?: string }) {
   const v = toView(at);
   return (
-    <G x={v.x} y={v.y} testID="ball-style-handle">
+    <G x={v.x} y={v.y} testID={testID}>
       <Circle r={lob ? 12 : 10} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={lob ? 3 : 1} />
       <Circle r={9} fill="#fff" stroke={COURT_COLORS.frame} strokeWidth={2} />
     </G>

@@ -50,7 +50,10 @@ export default function PlayersPage() {
 
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  // PAD-287: Settings → My connections lands here with `addByQr=1`.
+  const [qrDialogOpen, setQrDialogOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("addByQr") === "1"
+  );
 
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
   const [levels, setLevels] = useState<CoachLevel[]>([]);

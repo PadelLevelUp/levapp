@@ -478,6 +478,17 @@ export interface Message {
      */
     cancellationDeadline?: string;
     superseded?: boolean;
+    /**
+     * classes.class-requests rule 6 (PAD-281): every class-request message
+     * names its request, the status at send time, what happened (`kind`) and
+     * the slot it is about, so the proposal bubble can offer the answers.
+     */
+    classRequest?: {
+      id: number;
+      status: ClassRequestStatus;
+      kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
+      slot?: { date: string; startTime: string; endTime: string };
+    };
     [key: string]: unknown;
   };
 }
@@ -1074,7 +1085,8 @@ export interface InviteSimulationRule {
 
 export interface InviteSimulationRound {
   number: number;
-  kind: "group" | "legacy";
+  /** PAD-279: only invitation groups exist; the legacy rounds are gone. */
+  kind: "group";
   label: string;
   /** Empty = everyone eligible */
   rules: InviteSimulationRule[];

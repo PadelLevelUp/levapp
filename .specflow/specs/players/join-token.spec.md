@@ -50,7 +50,8 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    when that code expires and how many students joined, and **Generate new code** to show a
    fresh QR, saying that the current code stops working (PAD-269). Web and iOS.
 8. Student UI — "Connect with a coach" screen: reached after student signup (`auth.register`
-   rule 11), from the dashboard when the student has no coach, and from Settings → Account. "Has
+   rule 11), from the dashboard when the student has no coach, and from Settings → My
+   connections (PAD-287; it was Settings → Account). "Has
    no coach" means `GET /api/auth/me` returns `coaches: []` — never inferred from an empty
    calendar (a connected student with no classes this week was shown "Not connected to a coach
    yet?", TestFlight 2026-09-07). It explains "scan your coach's QR with your camera, or paste the link here" and

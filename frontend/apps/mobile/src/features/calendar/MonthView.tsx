@@ -10,7 +10,8 @@ import { MonthNav } from "./MonthNav";
  * The Mês mode — calendar.mobile-views rules 15–17 (PAD-248). React Native
  * port of apps/web's `MonthView`: month nav, month grid, then the selected
  * day's single-column time grid with the day sheet over it (hour range from
- * that day's events alone).
+ * that day's events alone). The month grid goes into `GridWithSheet` as
+ * `above` so the sheet can rise over it (PAD-286).
  */
 export function MonthView({
   monthLabel,
@@ -46,14 +47,16 @@ export function MonthView({
   return (
     <View className="flex-1">
       <MonthNav monthLabel={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} />
-      <MonthGrid
-        monthDays={monthDays}
-        monthStart={monthStart}
-        selectedDay={selectedDay}
-        onSelectDay={onSelectDay}
-        eventsByDay={eventsByDay}
-      />
       <GridWithSheet
+        above={
+          <MonthGrid
+            monthDays={monthDays}
+            monthStart={monthStart}
+            selectedDay={selectedDay}
+            onSelectDay={onSelectDay}
+            eventsByDay={eventsByDay}
+          />
+        }
         days={days}
         selectedDay={selectedDay}
         onSelectDay={onSelectDay}

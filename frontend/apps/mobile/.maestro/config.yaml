@@ -52,6 +52,13 @@ executionOrder:
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
+    # 35 (PAD-286) reads only: swipes the Mês day sheet up and down. (34 is PAD-274's.)
+    - 35-day-sheet-polish
+    # 40 flips the approval gate and restores it within itself (PAD-279/PAD-238), so its
+    # position is not load bearing.
+    - 40-admin-coach-approval-switch
+    # 41 creates its own exercise (PAD-289), so its position is not load bearing.
+    - 41-tactical-board-ball-paths
     # 42 (PAD-282/PAD-288) books, accepts, cancels and deletes its own class, so
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class

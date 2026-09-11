@@ -88,6 +88,7 @@ from padel_app.services.class_request_service import (
     list_requests_for,
     serialize_class_request,
     withdraw_class_request_service,
+    counter_proposal_service,
 )
 from padel_app.services.class_join_request_service import (
     create_join_request_service,
@@ -1428,6 +1429,34 @@ def admin_approve_coach(coach_id):
     return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
 
 
+@bp.get("/admin/settings")
+@jwt_required()
+def admin_get_settings():
+    """auth.coach-approval rule 9 (PAD-238/PAD-279): the operator settings."""
+    from padel_app.services.app_settings_service import admin_settings_payload
+
+    require_superadmin()
+    return jsonify(admin_settings_payload())
+
+
+@bp.put("/admin/settings")
+@jwt_required()
+def admin_put_settings():
+    from padel_app.services.app_settings_service import (
+        admin_settings_payload,
+        set_coach_approval_required,
+    )
+
+    admin = require_superadmin()
+    data = request.get_json(silent=True) or {}
+    if "coachApprovalRequired" in data:
+        value = data["coachApprovalRequired"]
+        if not isinstance(value, bool):
+            abort(400, "coachApprovalRequired must be a boolean")
+        set_coach_approval_required(value, updated_by_user_id=admin.id)
+    return jsonify(admin_settings_payload())
+
+
 @bp.post("/admin/coach-approvals/<int:coach_id>/reject")
 @jwt_required()
 def admin_reject_coach(coach_id):
@@ -1856,7 +1885,13 @@ def class_request_free_blocks():
     except ValueError:
         abort(400, "from and to must be ISO datetimes")
     range_start, range_end = range_start.replace(tzinfo=None), range_end.replace(tzinfo=None)
-    return jsonify(free_blocks(coach, range_start, range_end))
+    # Rule 10 (PAD-281): re-slotting one's own request — its hold is not busy time.
+    exclude_request_id = request.args.get("excludeRequestId", type=int)
+    if exclude_request_id is not None:
+        # 403 for a missing id too: the student's routes never reveal which ids exist.
+        if ClassRequest.query.filter_by(id=exclude_request_id, player_id=player.id).first() is None:
+            abort(403, "Not your request")
+    return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
 
 @bp.post("/class-requests")
@@ -1877,14 +1912,22 @@ def withdraw_class_request(request_id):
 @bp.post("/class-requests/<int:request_id>/accept-proposal")
 @jwt_required()
 def accept_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=True)
+    row = answer_proposal_service(request_id, current_player(), accept=True, data=request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 
 @bp.post("/class-requests/<int:request_id>/decline-proposal")
 @jwt_required()
 def decline_class_request_proposal(request_id):
-    row = answer_proposal_service(request_id, current_player(), accept=False)
+    row = answer_proposal_service(request_id, current_player(), accept=False, data=request.get_json(silent=True) or {})
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/counter-proposal")
+@jwt_required()
+def counter_class_request_proposal(request_id):
+    """Rule 10 (PAD-281): the student proposes another time back to the coach."""
+    row = counter_proposal_service(request_id, _require_student_player(), request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 
@@ -2548,6 +2591,17 @@ def import_analyze():
 
     file_bytes = file.read()
 
+    # import.analyze rule 7 (PAD-293, B-070): the SSE body below is iterated
+    # after Flask has popped this request's context, so nothing inside the
+    # stream may touch the database. Everything the analysis needs from it is
+    # read HERE and handed in; a failure here is a normal error response, not a
+    # warning the stream would swallow.
+    from padel_app.services.coach_service import get_coach_levels
+
+    existing_levels = [
+        {"code": level.code, "label": level.label} for level in get_coach_levels(coach.id)
+    ]
+
     # Optional: user can select which tables to import via query param or form field.
     # e.g. ?tables=Players,Classes,Presences  or  form field "tables"
     # If not provided, defaults to all tables.
@@ -2563,6 +2617,7 @@ def import_analyze():
             file_bytes,
             coach_id=coach.id,
             requested_tables=requested_tables,
+            existing_levels=existing_levels,
         ),
         mimetype="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},

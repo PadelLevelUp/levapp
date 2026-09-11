@@ -27,6 +27,7 @@ export type SettingsSectionId =
   | "tutorials"
   | "import"
   | "club"
+  | "connections"
   | "account"
   | "admin";
 
@@ -126,6 +127,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     descriptionKey: "settings.club.description",
     icon: "business-outline",
     audience: "coach",
+  },
+  {
+    // PAD-287 (settings.role-scope rule 2): the connection actions that used
+    // to sit under Account — the student's coach link and claim requests, the
+    // coach's invite-by-link/QR entry, and Blocked users for both.
+    id: "connections",
+    labelKey: "settings.nav.connections",
+    descriptionKey: "settings.mobile.connectionsNavDescription",
+    icon: "link-outline",
+    audience: "everyone",
   },
   {
     id: "account",

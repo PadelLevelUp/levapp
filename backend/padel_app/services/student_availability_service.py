@@ -104,11 +104,23 @@ def user_is_blocked_for_window(user_id, window_start, window_end):
     """
     if user_id is None:
         return False
+    return user_id in blocked_user_ids_for_window([user_id], window_start, window_end)
+
+
+def blocked_user_ids_for_window(user_ids, window_start, window_end):
+    """PAD-276 (audit M17): the set of ``user_ids`` with an availability blocker
+    (blocks_auto_invitations=True) whose one-time or recurring occurrence
+    overlaps [window_start, window_end) — ONE ``calendar_blocks`` query for the
+    whole list instead of one per user. Same predicate as
+    :func:`user_is_blocked_for_window`, which now delegates here."""
+    ids = [uid for uid in (user_ids or []) if uid is not None]
+    if not ids:
+        return set()
 
     win_start = ensure_utc(window_start)
     win_end = ensure_utc(window_end)
     if win_start is None or win_end is None:
-        return False
+        return set()
 
     # Widen the expansion range by a day on each side so a block that starts
     # just before the window (but overlaps it) is still surfaced.
@@ -118,13 +130,16 @@ def user_is_blocked_for_window(user_id, window_start, window_end):
     blocks = (
         CalendarBlock.query
         .filter(
-            CalendarBlock.user_id == user_id,
+            CalendarBlock.user_id.in_(ids),
             CalendarBlock.blocks_auto_invitations.is_(True),
         )
         .all()
     )
 
+    blocked = set()
     for block in blocks:
+        if block.user_id in blocked:
+            continue
         duration = (block.end_datetime - block.start_datetime)
         occurrences = expand_occurrences(
             block.start_datetime,
@@ -137,9 +152,10 @@ def user_is_blocked_for_window(user_id, window_start, window_end):
             occ_start = ensure_utc(occ_start)
             occ_end = occ_start + duration
             if _windows_overlap(win_start, win_end, occ_start, occ_end):
-                return True
+                blocked.add(block.user_id)
+                break
 
-    return False
+    return blocked
 
 
 def blocked_player_ids_for_window(player_ids, window_start, window_end):
@@ -152,13 +168,19 @@ def blocked_player_ids_for_window(player_ids, window_start, window_end):
     """
     from padel_app.models import Player
 
-    blocked = set()
-    for player_id in player_ids or []:
-        player = Player.query.get(player_id)
-        user_id = player.user_id if player else None
-        if user_is_blocked_for_window(user_id, window_start, window_end):
-            blocked.add(int(player_id))
-    return blocked
+    ids = [int(pid) for pid in (player_ids or [])]
+    if not ids:
+        return set()
+    # PAD-276: one players query and one calendar_blocks query for the list.
+    user_by_player = {
+        p.id: p.user_id
+        for p in Player.query.filter(Player.id.in_(ids)).all()
+        if p.user_id is not None
+    }
+    blocked_users = blocked_user_ids_for_window(
+        list(user_by_player.values()), window_start, window_end
+    )
+    return {pid for pid in ids if user_by_player.get(pid) in blocked_users}
 
 
 def blocked_players_for_instance(instance, player_ids=None):

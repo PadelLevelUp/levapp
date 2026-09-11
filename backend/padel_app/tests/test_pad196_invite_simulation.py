@@ -244,18 +244,19 @@ def test_matches_engine_level_bar(app):
         assert two_steps_away not in engine_first
 
 
-def test_matches_engine_legacy_rounds(app):
-    """AC "The simulation invites exactly who the engine invites — legacy rounds"."""
+def test_matches_engine_empty_groups(app):
+    """AC "The simulation invites exactly who the engine invites — empty groups"
+    (PAD-279): `[]` is the built-in three groups, for the engine and the simulation."""
     ids = _seed(app, eligibility_rules=None, max_players=1)
     with app.app_context():
         alice, _ = _mixed_roster(ids)
-        _config(ids["coach_id"], invitation_groups=[])  # [] -> engine uses get_rounds()
+        _config(ids["coach_id"], invitation_groups=[])  # [] -> the built-in groups
         _no_batch_cap(ids["coach_id"])
         now = utcnow_naive()
 
         simulation = _simulate(ids, alice, now=now)
-        assert simulation["rounds"], "legacy rounds must be simulated"
-        assert all(r["kind"] == "legacy" for r in simulation["rounds"])
+        assert [r["number"] for r in simulation["rounds"]] == [1, 2, 3]
+        assert all(r["kind"] == "group" for r in simulation["rounds"])
 
         vacancy = _real_vacancy(ids, alice)
         assert _engine_full_queue_ids(ids, vacancy) == _queue_ids(simulation)

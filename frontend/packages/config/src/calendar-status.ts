@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "@levelup/types";
+import { lisbonNowMs, wallClockMs } from "./club-date";
 import { darkTheme, lightTheme } from "./tokens";
 
 /**
@@ -350,6 +351,17 @@ export function eventTimes(event: CalendarEvent): { start: Date; end: Date } {
   return { start, end };
 }
 
+/**
+ * The same start/end as UTC-anchored digits, for COMPARISONS (PAD-295): no
+ * device zone, no DST gap, and the midnight roll is an exact 24 h.
+ */
+export function eventTimesMs(event: CalendarEvent): { startMs: number; endMs: number } {
+  const startMs = wallClockMs(event.date, event.startTime);
+  let endMs = wallClockMs(event.date, event.endTime);
+  if (endMs < startMs) endMs += 24 * 60 * 60 * 1000;
+  return { startMs, endMs };
+}
+
 export function hasOpenSpots(event: CalendarEvent): boolean {
   return (
     event.type === "class" &&
@@ -369,14 +381,16 @@ export function findNextEventId(
   events: CalendarEvent[],
   now: Date = new Date()
 ): string | undefined {
+  // `now` is a real instant; the club's digits come from lisbonNowMs (rule 16).
+  const nowMs = lisbonNowMs(now);
   let best: { id: string; start: number } | undefined;
   for (const e of events) {
     if (e.type !== "class") continue;
     if (e.status === "canceled" || e.status === "completed") continue;
-    const { start, end } = eventTimes(e);
-    if (Number.isNaN(start.getTime()) || end < now) continue;
-    if (!best || start.getTime() < best.start) {
-      best = { id: e.id, start: start.getTime() };
+    const { startMs, endMs } = eventTimesMs(e);
+    if (Number.isNaN(startMs) || endMs < nowMs) continue;
+    if (!best || startMs < best.start) {
+      best = { id: e.id, start: startMs };
     }
   }
   return best?.id;
@@ -389,8 +403,9 @@ export function resolveEventState(
   if (event.type === "block") return "block";
   if (event.status === "canceled") return "canceled";
 
-  const { end } = eventTimes(event);
-  if (event.status === "completed" || (!Number.isNaN(end.getTime()) && end < now)) {
+  // `now` is a real instant; compared as club digits (rule 16, PAD-295).
+  const { endMs } = eventTimesMs(event);
+  if (event.status === "completed" || (!Number.isNaN(endMs) && endMs < lisbonNowMs(now))) {
     return "past";
   }
   return isNext ? "next" : "future";

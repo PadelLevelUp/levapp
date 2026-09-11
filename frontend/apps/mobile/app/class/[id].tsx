@@ -208,6 +208,16 @@ export default function ClassDetailScreen() {
 
   // ── Notify / invited ──
   const [showNotify, setShowNotify] = React.useState(false);
+  // PAD-285 (dashboard.blocks rule 10): the dashboard's "Convidar" arrives with
+  // `notify=1` — open Notificar as soon as the class is on screen, once.
+  const notifyParam = Array.isArray(params.notify) ? params.notify[0] : params.notify;
+  const autoNotifiedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (notifyParam === "1" && isCoach && !isPending && !autoNotifiedRef.current) {
+      autoNotifiedRef.current = true;
+      setShowNotify(true);
+    }
+  }, [notifyParam, isCoach, isPending]);
   const [invitationsOpen, setInvitationsOpen] = React.useState(false);
 
   // ── Training planning ──

@@ -155,7 +155,8 @@ test("US-215: Report and block from the banner, then Unblock from Settings → A
 
   // Settings → Account lists the sender; Unblock restores the composer.
   await openSettings(page);
-  await page.getByRole("button", { name: /^(account|conta)$/i }).first().click();
+  // PAD-287: Blocked users moved from Account to My connections.
+  await page.getByTestId("settings-nav-connections").first().click();
   const list = page.getByTestId("blocked-users");
   await expect(list).toBeVisible({ timeout: 5000 });
   await expect(list).toContainText("E2E Student");

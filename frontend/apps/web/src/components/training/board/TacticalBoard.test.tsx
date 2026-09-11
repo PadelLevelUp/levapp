@@ -383,3 +383,36 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
     expect(screen.getByRole("button", { name: "training.board.playback.auto" })).toBeInTheDocument();
   });
 });
+
+// ── PAD-289 — several ball paths per step ────────────────────────────────────
+describe("several ball paths per step (PAD-289)", () => {
+  it("appends a second path, numbers both, toggles only one, reorders and removes", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.click(screen.getByRole("radio", { name: "training.board.tools.ball" }));
+    tapCourt(58, 20);
+    tapCourt(40, 80);
+    tapCourt(40, 80);
+    tapCourt(70, 30);
+    let d = lastDiagram(onChange);
+    expect(d.steps[0].balls).toHaveLength(2);
+    expect(d.steps[0].ball).toEqual(d.steps[0].balls?.[0]);
+    expect(screen.getByTestId("ball-number-0")).toHaveTextContent("1");
+    expect(screen.getByTestId("ball-number-1")).toHaveTextContent("2");
+
+    fireEvent.click(screen.getByTestId("ball-style-handle-1"));
+    d = lastDiagram(onChange);
+    expect(d.steps[0].balls?.map((b) => b.style)).toEqual(["flat", "lob"]);
+
+    fireEvent.click(screen.getByTestId("board-ball-1-up"));
+    d = lastDiagram(onChange);
+    expect(d.steps[0].balls?.map((b) => b.style)).toEqual(["lob", "flat"]);
+    expect(d.steps[0].ball?.style).toBe("lob");
+
+    fireEvent.click(screen.getByTestId("board-ball-0-remove"));
+    d = lastDiagram(onChange);
+    expect(d.steps[0].balls).toHaveLength(1);
+    expect(d.steps[0].ball?.style).toBe("flat");
+    expect(screen.queryByTestId("ball-number-0")).toBeNull();
+  });
+});

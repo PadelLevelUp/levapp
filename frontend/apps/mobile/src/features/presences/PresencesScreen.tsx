@@ -76,13 +76,18 @@ export function PresencesScreen() {
   // `week` — the dashboard's validation card sends the coach to the week it
   // counted (dashboard.navigation rule 9a). Re-synced on every arrival: the
   // tab stays mounted, so an initial-state read alone would only work once.
-  const { week: weekParam } = useLocalSearchParams<{ week?: string }>();
+  const { week: weekParam, validate: validateParam } = useLocalSearchParams<{ week?: string; validate?: string }>();
 
   const [weekOffset, setWeekOffset] = React.useState(() => parseWeekParam(weekParam));
   React.useEffect(() => {
     if (weekParam !== undefined) setWeekOffset(parseWeekParam(weekParam));
   }, [weekParam]);
-  const [sheetOpen, setSheetOpen] = React.useState(false);
+  // PAD-283 (dashboard.blocks rule 10): the dashboard's validation card lands
+  // here with `validate=1`, so the coach is inside the validate view at once.
+  const [sheetOpen, setSheetOpen] = React.useState(validateParam === "1");
+  React.useEffect(() => {
+    if (validateParam === "1") setSheetOpen(true);
+  }, [validateParam]);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [columnsOpen, setColumnsOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
