@@ -3,7 +3,7 @@ id: B-066
 title: "Web and iOS judge 'has it started', 'past', 'next', deadlines and today on device time; right only on a Lisbon device"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - attendance.confirm
   - calendar.view
@@ -18,6 +18,7 @@ affects:
   - frontend/apps/mobile/src/features/messages/reminder-state.ts
 proposed_fix: "lisbonNow() / isClubToday() in @levelup/config next to B-060's clubTodayISO; every client comparison of a stored wall-clock value with now uses them; red-first unit tests under TZ=Asia/Tokyo and TZ=America/Sao_Paulo, a Playwright case with timezoneId."
 opened: 2026-09-11T14:40:00Z
+resolved: 2026-09-11T15:00:00Z
 ---
 
 # B-066 — Web and iOS judge "has it started" on device time
@@ -83,4 +84,19 @@ clock on any device"; one-line client notes on reminders rule 10 and semi-auto-a
 
 ### Resolution
 
-_(pending — PAD-295)_
+- Spec changes: attendance.confirm rules 7, 9 + criterion; calendar.view rule 16 + criterion;
+  notifications.reminders rule 10; notifications.semi-auto-approval (windowOpenAt).
+- Tests added: `packages/config/src/club-date.test.ts` (lisbonNow, isClubToday),
+  `calendar-status.test.ts` (default clock), `packages/hooks/src/useCalendar.test.ts` (club's
+  today), iOS `attendance-decline.test.ts` and `reminder-state.test.ts` (default clock; the
+  attendance fixture's "now" anchored on the club's clock), Playwright
+  `schedule-calendar/club-clock.spec.ts` (US-295-1, `timezoneId: Asia/Tokyo`). All watched red
+  under `TZ=Asia/Tokyo` / `TZ=America/Sao_Paulo` on the device-time code; green in Tokyo,
+  São Paulo, Lisbon and UTC after.
+- Code changes: `lisbonNow()` / `isClubToday()` in `@levelup/config`; defaults in
+  `calendar-status.ts`, `useCalendar.ts`, iOS `day-dots.ts`, `attendance-decline.ts`,
+  `reminder-state.ts`; explicit comparisons in `ClassDetailSheet`, `MessageBubble`,
+  `ReplacementApprovalCard`; next-class gates and today rings on both shells.
+- Not run: a simulator walk in a non-Lisbon zone (the simulator follows the host clock); iOS is
+  covered by the shared helper's tests and the mobile unit tests in four zones.
+- Resolved: 2026-09-11 (PAD-295).
