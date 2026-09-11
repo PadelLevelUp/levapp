@@ -151,22 +151,36 @@ export function layoutDayEvents<T extends GridEventLike>(
 }
 
 export interface SheetBounds {
-  /** Highest the sheet may go: one hour row of grid stays visible. */
+  /** Highest the sheet may go: one hour row of the container's top stays visible. */
   min: number;
   /** Lowest the sheet may go: only its handle and header remain. */
   max: number;
-  /** Where it opens: roughly 40 % of the grid covered. */
+  /** Where it opens: roughly 40 % of the day grid covered. */
   initial: number;
 }
 
-/** Rule 3: the sheet's travel, measured as its top edge from the grid's top. */
+/**
+ * Rules 3 and 17: the sheet's travel, measured as its top edge from the top of
+ * the container it is dragged in. In Semana the container is the time grid. In
+ * Mês (PAD-286) it is the month grid plus the single-day grid, and `gridTop`
+ * is where the day grid starts inside it: the sheet still rests over the day
+ * grid, but dragged up it stops one row below the top of the month grid, so
+ * it can cover more than half of a phone screen.
+ */
 export function sheetTopBounds(
-  gridHeight: number,
-  { rowHeight, collapsedHeight }: { rowHeight: number; collapsedHeight: number }
+  containerHeight: number,
+  {
+    rowHeight,
+    collapsedHeight,
+    gridTop = 0,
+  }: { rowHeight: number; collapsedHeight: number; gridTop?: number }
 ): SheetBounds {
   const min = rowHeight;
-  const max = gridHeight - collapsedHeight;
-  const initial = clampSheetTop(Math.round(gridHeight * 0.6), { min, max });
+  const max = containerHeight - collapsedHeight;
+  const initial = clampSheetTop(gridTop + Math.round((containerHeight - gridTop) * 0.6), {
+    min,
+    max,
+  });
   return { min, max, initial };
 }
 

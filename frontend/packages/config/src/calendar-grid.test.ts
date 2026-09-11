@@ -144,3 +144,37 @@ describe("isSheetRaised", () => {
     expect(isSheetRaised(50, tight)).toBe(true);
   });
 });
+
+/**
+ * PAD-286 — calendar.mobile-views rule 17: in Mês the sheet's container is the
+ * month grid plus the single-day grid, and `gridTop` says where the day grid
+ * starts inside it. Criterion: "The Mês sheet rises past half of the screen".
+ */
+describe("sheetTopBounds with a month grid above the day grid (gridTop)", () => {
+  it("rests over the day grid, not over the month grid", () => {
+    // 574pt container: 300pt of month grid, 274pt of day grid.
+    const b = sheetTopBounds(574, { rowHeight: 44, collapsedHeight: 104, gridTop: 300 });
+    expect(b.initial).toBe(300 + Math.round(274 * 0.6));
+    expect(b.initial).toBeGreaterThanOrEqual(300);
+  });
+
+  it("rises to one hour row below the top of the month grid, so it covers more than half a phone", () => {
+    const b = sheetTopBounds(574, { rowHeight: 44, collapsedHeight: 104, gridTop: 300 });
+    expect(b.min).toBe(44);
+    expect(b.max).toBe(574 - 104);
+    // Sheet height at its highest, on an 844pt phone.
+    expect(574 - b.min).toBeGreaterThan(844 / 2);
+  });
+
+  it("is the old behaviour when gridTop is 0 or omitted", () => {
+    expect(sheetTopBounds(420, { rowHeight: 40, collapsedHeight: 94, gridTop: 0 })).toEqual(
+      sheetTopBounds(420, { rowHeight: 40, collapsedHeight: 94 })
+    );
+  });
+
+  it("keeps the resting height inside the bounds when the day grid is tiny", () => {
+    const b = sheetTopBounds(400, { rowHeight: 44, collapsedHeight: 104, gridTop: 360 });
+    expect(b.initial).toBe(b.max);
+    expect(isSheetRaised(b.initial, b)).toBe(false);
+  });
+});

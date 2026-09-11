@@ -8,17 +8,31 @@ import { EmptyState } from "@/components/empty-state";
 import { DayHeader } from "./DayHeader";
 import { EventCard } from "./EventCard";
 import { FAB_CLEARANCE } from "./layout";
+import {
+  SHEET_COLLAPSED_HEIGHT,
+  SHEET_HANDLE_HEIGHT,
+  SHEET_SHADOW,
+  SHEET_TOP_RADIUS,
+} from "./sheet-chrome";
 
-/** Handle row (18pt) plus the DayHeader's height: what stays visible at `max`. */
-export const SHEET_COLLAPSED_HEIGHT = 18 + 76;
+export { SHEET_COLLAPSED_HEIGHT };
+
+const TOP_CORNERS = {
+  borderTopLeftRadius: SHEET_TOP_RADIUS,
+  borderTopRightRadius: SHEET_TOP_RADIUS,
+} as const;
 
 /**
  * The day sheet over the Semana / Mês grid — calendar.mobile-views rule 3.
  * React Native port of apps/web's `DaySheet`: absolutely positioned in the
- * grid container, its top edge `top` pt down, dragged on the handle with the
- * gesture handler and clamped by the shared `clampSheetTop`. The pan runs
- * on the JS thread (`runOnJS(true)`) — the same pattern as the tactical
- * board — because the sheet's position is plain React state.
+ * grid container, its top edge `top` pt down, dragged on the handle row or the
+ * day header with the gesture handler and clamped by the shared
+ * `clampSheetTop`. The pan runs on the JS thread (`runOnJS(true)`) — the same
+ * pattern as the tactical board — because the sheet's position is plain React
+ * state.
+ *
+ * Two nested views (B-065): the outer one casts the upward shadow and must not
+ * clip, the inner one clips the content to the rounded top corners.
  */
 export function DaySheet({
   top,
@@ -59,48 +73,53 @@ export function DaySheet({
     <View
       testID="calendar-day-sheet"
       accessibilityValue={{ min: bounds.min, max: bounds.max, now: top }}
-      style={{ position: "absolute", left: 0, right: 0, bottom: 0, top }}
-      className="overflow-hidden rounded-t-[20px] bg-background shadow-lg"
+      style={{ position: "absolute", left: 0, right: 0, bottom: 0, top, ...TOP_CORNERS, ...SHEET_SHADOW }}
+      className="bg-background"
     >
-      <GestureDetector gesture={pan}>
-        <View
-          testID="calendar-sheet-handle"
-          accessibilityRole="adjustable"
-          accessibilityLabel={t("calendar.sheet.handle")}
-          className="h-[18px] items-center justify-center"
+      <View style={TOP_CORNERS} className="flex-1 overflow-hidden bg-background">
+        <GestureDetector gesture={pan}>
+          <View testID="calendar-sheet-grab">
+            <View
+              testID="calendar-sheet-handle"
+              accessibilityRole="adjustable"
+              accessibilityLabel={t("calendar.sheet.handle")}
+              style={{ height: SHEET_HANDLE_HEIGHT }}
+              className="items-center justify-center"
+            >
+              <View className="h-[5px] w-10 rounded-full bg-primary" />
+            </View>
+            <DayHeader day={day} count={events.length} />
+          </View>
+        </GestureDetector>
+        <ScrollView
+          testID="calendar-sheet-list"
+          className="flex-1"
+          contentContainerClassName="gap-3 px-5 pt-3"
+          // Rule 18: clear of the floating add buttons at the end of the list.
+          contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
         >
-          <View className="h-1 w-8 rounded-full bg-border" />
-        </View>
-      </GestureDetector>
-      <DayHeader day={day} count={events.length} />
-      <ScrollView
-        testID="calendar-sheet-list"
-        className="flex-1"
-        contentContainerClassName="gap-3 px-5 pt-3"
-        // Rule 18: clear of the floating add buttons at the end of the list.
-        contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
-      >
-        {events.length === 0 ? (
-          <EmptyState
-            icon="calendar-outline"
-            title={t("calendar.mobile.noClasses")}
-            message={t("calendar.mobile.noClassesScheduled")}
-            className="py-8"
-          />
-        ) : (
-          events.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              onPress={onEventPress}
-              isNext={event.id === nextEventId}
-              levelCode={
-                event.levelId !== undefined ? levelCodeById.get(String(event.levelId)) : undefined
-              }
+          {events.length === 0 ? (
+            <EmptyState
+              icon="calendar-outline"
+              title={t("calendar.mobile.noClasses")}
+              message={t("calendar.mobile.noClassesScheduled")}
+              className="py-8"
             />
-          ))
-        )}
-      </ScrollView>
+          ) : (
+            events.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                onPress={onEventPress}
+                isNext={event.id === nextEventId}
+                levelCode={
+                  event.levelId !== undefined ? levelCodeById.get(String(event.levelId)) : undefined
+                }
+              />
+            ))
+          )}
+        </ScrollView>
+      </View>
     </View>
   );
 }
