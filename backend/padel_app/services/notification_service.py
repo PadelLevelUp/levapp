@@ -3383,6 +3383,53 @@ def trigger_invitations(
 # Recurring batch processor (called by APScheduler every 2 minutes)
 # ---------------------------------------------------------------------------
 
+def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
+    """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
+
+    A Vacancy is a promise that a spot is open; ``effective_filled_spots`` is the
+    truth it follows. While the instance has more open vacancies than open spots,
+    one is marked ``filled``: the enrolled player's own (``original_player_id``)
+    first, else one with no live invitation, else the oldest. Its ``sent`` /
+    ``queued`` invitations expire and their messages are retired. Never opens
+    anything; a class that is over is left to the expiry path. Flushes inside a
+    unit of work and commits outside one (PAD-272), so it composes with
+    ``lesson_service.enrol``. Returns the vacancies it closed.
+    """
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    if instance is None or _instance_is_over(instance):
+        return []
+    db.session.expire(instance, ["presences"])
+    open_spots = max(0, (instance.max_players or 0) - _effective_filled_spots(instance))
+    open_vacancies = (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
+        .order_by(Vacancy.id.asc())
+        .all()
+    )
+    closed = []
+    while len(open_vacancies) > open_spots:
+        pick = next(
+            (v for v in open_vacancies
+             if filled_by_player_id is not None and v.original_player_id == filled_by_player_id),
+            None,
+        ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
+          or open_vacancies[0]
+        open_vacancies.remove(pick)
+        pick.status = "filled"
+        pick.filled_by_player_id = filled_by_player_id
+        pick.filled_at = utcnow_naive()
+        for event in NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == pick.id,
+            NotificationEvent.status.in_(("sent", "queued")),
+        ).all():
+            event.status = "expired"
+            _retire_invite_message(event)
+        closed.append(pick)
+    if closed:
+        commit_or_flush()
+    return closed
+
+
 def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     For each open vacancy, check if enough time has passed since last activity.
@@ -3403,7 +3450,20 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     open_vacancies = Vacancy.query.filter_by(status="open").all()
     processed = 0
 
+    # PAD-271 (rule 13): capacity is the truth a vacancy follows. Close what a
+    # coach edit, an import or any other write left open for a full class,
+    # once per instance, before deciding anything below.
+    closed_ids = set()
+    seen_instances = set()
     for vacancy in open_vacancies:
+        if vacancy.lesson_instance_id in seen_instances:
+            continue
+        seen_instances.add(vacancy.lesson_instance_id)
+        closed_ids.update(v.id for v in reconcile_vacancies(vacancy.lesson_instance))
+
+    for vacancy in open_vacancies:
+        if vacancy.id in closed_ids:
+            continue
         instance = vacancy.lesson_instance
 
         # Skip past or canceled classes (PAD-256: "started" on the club's clock)
@@ -3695,14 +3755,16 @@ def coach_respond_to_notification(
             event.save()
             return {"action": "spot_filled"}
 
-        _add_player_to_instance(event.player_id, instance)
-        event.status = "confirmed"
-        event.save()
-
+        # PAD-271: the vacancy is marked BEFORE the enrolment so enrol()'s
+        # reconciliation finds it already closed and closes nothing else.
         if vacancy:
             vacancy.status = "filled"
             vacancy.filled_by_player_id = event.player_id
             vacancy.filled_at = utcnow_naive()
+        _add_player_to_instance(event.player_id, instance)
+        event.status = "confirmed"
+        event.save()
+        if vacancy:
             vacancy.save()
 
         # Expire other pending invitations for this vacancy

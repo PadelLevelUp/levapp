@@ -517,6 +517,12 @@ class TestProcessInvitationBatches:
         with patch(
             "padel_app.services.notification_service.expire_stale_invitations",
             return_value=0,
+        ), patch(
+            # PAD-271 (invitations rule 13): the tick also reconciles vacancies
+            # with capacity, a real query per instance. Stubbed for the same
+            # reason; DB-backed coverage in test_pad271_vacancy_reconcile.py.
+            "padel_app.services.notification_service.reconcile_vacancies",
+            return_value=[],
         ):
             yield
 

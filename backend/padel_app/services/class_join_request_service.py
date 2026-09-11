@@ -265,8 +265,9 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
                 request=serialize_join_request(row),
             )
 
-    # Rule 6: enrol exactly as the engine does; attribute the vacancy.
-    _add_player_to_instance(row.player_id, instance)
+    # Rule 6: enrol exactly as the engine does; attribute the vacancy. The
+    # vacancy is marked BEFORE the enrolment (PAD-271, invitations rule 13) so
+    # enrol()'s own reconciliation finds it closed and closes nothing else.
     vacancy = (
         Vacancy.query
         .filter_by(lesson_instance_id=instance.id, status="open")
@@ -281,6 +282,8 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":
             vacancy.approval_status = "approved"
+    _add_player_to_instance(row.player_id, instance)
+    if vacancy is not None:
         vacancy.save()
 
     # Rule 10: retire the invitations still out for this spot, as a "yes" would.
