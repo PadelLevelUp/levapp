@@ -17,8 +17,10 @@ Specs: the Entities sections of classes.instances, classes.enrollment,
 classes.create, classes.coach-assignment, attendance.presence, calendar.blocks,
 players.level-history, notifications.invitations and notifications.waiting-list.
 
-The lesson_instances occurrence index is deliberately NOT unique; B-046 holds
-the plan for the constraint.
+The lesson_instances occurrence index was deliberately NOT unique here; PAD-303
+(B-046) replaced it with the unique `uq_lesson_instance_occurrence`, pinned by
+test_pad303_unique_occurrence_and_open_vacancy.py, so this file no longer expects
+the plain index on the model — the migration still declares it (it created it).
 """
 import importlib.util
 from pathlib import Path
@@ -38,11 +40,16 @@ MIGRATION_FILE = (
     / "cf030b78b088_pad263_hot_path_indexes.py"
 )
 
-EXPECTED = {
+#: Created by cf030b78b088 and dropped again by PAD-303's 5f2a0bb50712, which
+#: replaced it with a unique index on the same columns (B-046).
+SUPERSEDED_BY_PAD303 = {
     "ix_lesson_instances_lesson_id_occurrence_date": (
         "lesson_instances",
         ["lesson_id", "original_lesson_occurence_date"],
     ),
+}
+
+EXPECTED = {
     "ix_lesson_instances_start_datetime": ("lesson_instances", ["start_datetime"]),
     "ix_presences_lesson_instance_id": ("presences", ["lesson_instance_id"]),
     "ix_player_in_lesson_instance_lesson_instance_id": (
@@ -130,7 +137,7 @@ def test_the_open_vacancy_index_is_partial(app):
 def test_the_migration_creates_exactly_the_indexes_the_models_declare(app):
     migration = _load_migration()
     declared = {name: (table, list(cols)) for name, table, cols, _ in migration.INDEXES}
-    assert declared == EXPECTED
+    assert declared == {**EXPECTED, **SUPERSEDED_BY_PAD303}
     wheres = {name: where for name, _, _, where in migration.INDEXES if where}
     assert wheres == {"ix_vacancies_open": OPEN_VACANCY_WHERE}
 
@@ -153,7 +160,8 @@ def test_the_lesson_instance_lookup_uses_the_occurrence_index(app):
             "SELECT id FROM lesson_instances "
             "WHERE lesson_id = 1 AND original_lesson_occurence_date = '2026-09-10'"
         )
-    assert any("ix_lesson_instances_lesson_id_occurrence_date" in row[-1] for row in plan), plan
+    # PAD-303: the unique index on the same columns serves the lookup now.
+    assert any("uq_lesson_instance_occurrence" in row[-1] for row in plan), plan
 
 
 @pytest.mark.parametrize(

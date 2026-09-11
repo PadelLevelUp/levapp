@@ -9,10 +9,12 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class LessonInstance(db.Model, model.Model):
     __tablename__ = "lesson_instances"
-    # PAD-263: the occurrence lookup and the calendar range. Not unique yet:
-    # PAD-85 duplicates may remain on prod (ledger B-046).
+    # PAD-303 (B-046, classes.instances rule 9): the occurrence key is unique —
+    # one instance per (lesson, occurrence date). It supersedes PAD-263's plain
+    # index on the same columns and still serves the materialisation lookup and
+    # the calendar range. NULL occurrence dates (legacy rows) are not covered.
     __table_args__ = (
-        Index("ix_lesson_instances_lesson_id_occurrence_date", "lesson_id", "original_lesson_occurence_date"),
+        Index("uq_lesson_instance_occurrence", "lesson_id", "original_lesson_occurence_date", unique=True),
         Index("ix_lesson_instances_start_datetime", "start_datetime"),
         {"extend_existing": True},
     )
