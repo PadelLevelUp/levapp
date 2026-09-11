@@ -144,6 +144,9 @@ appId: com.padellevelup.app
 - tapOn:
     id: "evaluation-category-name-new"
 - inputText: "Maestro Cat"
+# Dismiss the keyboard: with it up, the save button "is visible" to Maestro but the
+# tap lands on the keyboard (keyboard-occlusion trap, PAD-198).
+- pressKey: Enter
 - swipe:
     start: "50%, 45%"
     end: "50%, 25%"
@@ -179,7 +182,9 @@ appId: com.padellevelup.app
     id: "evaluation-category-delete-confirm"
     enabled: false
 - inputText: " Cat"
-- hideKeyboard
+# hideKeyboard fails on iOS here ("Couldn't hide the keyboard"); Enter blurs the
+# single-line input and dismisses it instead.
+- pressKey: Enter
 - assertVisible:
     id: "evaluation-category-delete-confirm"
     enabled: true
