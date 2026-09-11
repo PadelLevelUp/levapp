@@ -15,7 +15,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 `eligibility.rules`. They decide priority; they never decide permission.
 
 ### Entities
-- **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
+- **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
 - **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
@@ -124,7 +124,52 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    commits per invitation sent) and the blocking push calls are recorded in the
    2026-09-11 notification-engine-cost decision, not changed here.
 
+13. **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
+   2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
+   (`LessonInstance.effective_filled_spots`, `calendar.view` rule 9) is the truth it follows.
+   - **Every enrolment closes a vacancy.** `enrol()` (`classes.instance-enrollment` rule 4) is
+     the one place a spot gets taken, so after it writes the row it reconciles the instance:
+     while the instance has more open vacancies than open spots, one open vacancy is marked
+     `filled` — the departing player's own if the enrolled player is that player, else a vacancy
+     with no live invitation, else the oldest — with `filled_by_player_id` set to the enrolled
+     player and `filled_at` to now, and its `sent` invitations expire with their messages retired
+     (rule 7's fill message is not re-sent; the fill paths that already marked their own vacancy
+     find nothing left to close).
+   - **The tick reconciles too.** `process_invitation_batches()` runs the same reconciliation
+     on every open vacancy's instance before it sends anything, so a coach edit, an import or a
+     raw write that never called `enrol()` cannot leave the engine inviting for a full class.
+     A dismissed vacancy stays open (`notifications.semi-auto-approval` rule 7) until the class
+     is full or over, and then closes like any other.
+   - A vacancy on a started, cancelled or completed class expires (rule 5 today, unchanged).
+   - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
+     decline, cancellation and structural paths.
+
 ### Acceptance Criteria
+
+#### A coach add closes the open vacancy (rule 13)
+- **Given** instance 10 with `max_players=2`, Alice enrolled, Bob declined (his vacancy open with
+  one invitation `sent` to Carol)
+- **When** the coach adds Dave to instance 10
+- **Then** Bob's vacancy is `filled` with `filled_by_player_id` = Dave, Carol's invitation is
+  `expired` and her message retired, and no batch is sent for that vacancy on the next tick
+
+#### The tick closes a vacancy the engine would otherwise keep inviting for (rule 13)
+- **Given** instance 10 full (2/2 presences, none absent) and an open structural vacancy that
+  nothing has closed
+- **When** `process_invitation_batches()` runs
+- **Then** the vacancy is `filled` (`filled_by_player_id` null) and no invitation is sent
+
+#### Only as many vacancies close as spots were taken (rule 13)
+- **Given** instance 10 with `max_players=4`, Alice enrolled, and two open structural vacancies
+- **When** the coach adds Bob
+- **Then** exactly one vacancy is `filled` and one stays `open`
+
+#### A dismissed vacancy closes only when the class is full (rule 13)
+- **Given** instance 10 with `max_players=2`, Alice enrolled and Bob's vacancy `open` with
+  `approval_status=dismissed`
+- **When** the tick runs
+- **Then** the vacancy stays `open`
+- **And** when the coach adds Carol, it is `filled` with `approval_status` still `dismissed`
 
 #### Empty invitation groups advance one round per tick (PAD-87)
 - **Given** a coach with eight invitation groups, the first seven matching nobody on the roster and the eighth open to everyone

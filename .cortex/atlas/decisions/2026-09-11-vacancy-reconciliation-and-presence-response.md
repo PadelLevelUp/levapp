@@ -17,7 +17,7 @@ sources:
 
 # Draft skeleton: vacancies reconcile with capacity, one presence response enum
 
-**Status:** SKELETON, not decided. Session H, 2026-09-11. Gated on the PAD-259 decision: the
+**Status:** SPEC WRITTEN on the recommended defaults (coordinator, 2026-09-11): M4 as `notifications.invitations` rule 13 (coded, no migration); M5 as `attendance.presence` rule 7, HELD before its migration until the owner answers decisions 6–8. Ledger B-072. Session H, 2026-09-11. Gated on the PAD-259 decision: the
 response enum lives on whichever row the owner makes the enrolment. Written against `staging`
 72ac170a8. To be filled in once PAD-259 is chosen; two PRs as the audit suggested.
 
@@ -42,7 +42,7 @@ service and derived by the calendar.
    has `effective_filled_spots >= max_players`, mark it `filled` (or `expired` when the class is
    over, which `_send_invitation_batch` already does) and retire its live invitations with the
    spot-filled message. Idempotent; runs before any batch is sent.
-3. `open + dismissed` becomes `expired` with `approval_status=dismissed` kept as the reason.
+3. ~~`open + dismissed` becomes `expired`~~ DROPPED (Session H, 2026-09-11): `notifications.semi-auto-approval` rule 7 says a dismissed vacancy REMAINS OPEN for the manual flow; reconciliation closes it only when the class is full or over, like any other.
 4. Dead states: decide per value whether to write it or drop it from the enum. Proposed: drop
    `NotificationEvent.queued` and `Lesson.ended`; keep `LessonInstance.rescheduled` only if the
    PAD-275 per-instance time override starts writing it, else drop.

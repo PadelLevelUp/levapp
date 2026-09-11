@@ -13,7 +13,7 @@ governed_by: []
 Track player attendance for each class instance, including invitation, confirmation, and validation status.
 
 ### Entities
-- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup)
+- **Presence** (`presences`): lesson_instance_id, player_id, status (present|absent|null), justification (justified|unjustified|null), invited (bool), confirmed (bool), validated (bool), enrolment_source (roster|coach|fill|walk_in|import|unknown, PAD-259), response / responded_at / recorded_by (PAD-271 rule 7, held) — unique on (player_id, lesson_instance_id), indexed on lesson_instance_id (the unique pair leads with player_id, so it cannot serve a per-class lookup)
 - Unique constraint: (player_id, lesson_instance_id)
 
 ### Rules
@@ -31,6 +31,7 @@ Track player attendance for each class instance, including invitation, confirmat
 4. Absent players can be marked justified or unjustified
 5. `validated=True` means the coach has finalized the attendance record
 6. **The row is the enrolment (PAD-259, unconfirmed number).** A presence exists for exactly the players who hold a spot on the occurrence; there is no separate per-occurrence enrolment record. Planned (row exists), intends to come (the student's answer) and was there (the coach's record) are three separate facts on it — see `classes.instance-enrollment` rules 1–2
+7. **One response field (PAD-271, audit M5; number self-assigned, unconfirmed; HELD — the column and its migration wait for the owner's answers to decisions 6–8 of the 2026-09-11 list).** The student's answer is one field, `response` (`none` default | `confirmed` | `declined` | `cancelled` | `proactive_decline`), with `responded_at` (UTC) and `recorded_by` (`student` | `coach` | `system` | `import`), written only by the student's own actions (reminder yes/no, cancel, proactive decline) and the import. The coach's record stays `status` / `justification` / `validated` and never moves `response`. `invited` and `confirmed` become derived on read (`invited` always true, `confirmed` = `response != none`) until both shells read `response`, then drop. `late_cancellation` stays a column (decision 8, default keep). Backfill from the flags: `status=absent AND validated=false` → `declined` (`cancelled` where `late_cancellation`), `confirmed AND status IS DISTINCT FROM absent` → `confirmed`, else `none`; `responded_at` from the latest reminder attempt where one exists. Stored as a CHECK-constrained string like `enrolment_source`
 
 ### Acceptance Criteria
 
