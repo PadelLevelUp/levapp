@@ -1,0 +1,295 @@
+name: Android build
+
+# PAD-297 (Android wave A, child of PAD-290): the first Android lane.
+#
+#   apk      — `expo prebuild -p android` + `gradlew assembleRelease` on the
+#              GitHub runner (JDK 17 and the Android SDK are preinstalled; nothing
+#              is installed on any developer machine). The release APK is signed
+#              with the Expo template's DEBUG keystore — installable, JS bundled,
+#              no Metro — and uploaded as the artefact `levapp-android-apk`.
+#              Its JS is bundled with EXPO_PUBLIC_API_URL=http://10.0.2.2:5001/api
+#              (the emulator's alias for the runner) and cleartext HTTP allowed
+#              by apps/mobile/plugins/with-ci-cleartext, which only acts when
+#              LEVAPP_CI_APK=1 is set at prebuild. The job proves that too: it
+#              prebuilds WITHOUT the flag first and fails if that manifest
+#              carries the permission, so a store build can never inherit it.
+#   maestro  — Postgres 15 service, the backend's real migrations + the E2E
+#              seed into an isolated database (levelup_ci_android — never
+#              levelup_test), Flask on :5001, an x86_64 API 34 emulator (KVM),
+#              and Maestro running MAESTRO_FLOWS against the APK. Results
+#              (junit + Maestro's screenshots/logs) are uploaded always.
+#
+# Triggers: pull requests into staging that touch the mobile app, the shared
+# packages or this file (path filtering inside the job, like every other
+# workflow here — a workflow-level filter would report "skipped", not
+# "success"); and workflow_dispatch with a `flows` input once the file is on
+# staging. A branch gets its run by opening a (draft) PR. Wave B changes the
+# default flow list below on its own branch when it needs more coverage.
+
+on:
+  pull_request:
+    branches: [ staging ]
+  workflow_dispatch:
+    inputs:
+      flows:
+        description: "Maestro flows to run (space-separated, relative to apps/mobile/.maestro)"
+        type: string
+        default: "flows/01-login.yaml"
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.15.0"
+  MAESTRO_FLOWS_DEFAULT: "flows/01-login.yaml"
+  # The runner as seen from inside the emulator.
+  EMULATOR_HOST_API_URL: "http://10.0.2.2:5001/api"
+  APK_PATH: frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+jobs:
+  apk:
+    name: APK (prebuild + Gradle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      built: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'frontend/apps/mobile/**'
+              - 'frontend/packages/**'
+              - 'frontend/package.json'
+              - 'frontend/package-lock.json'
+              - '.github/workflows/android-build.yaml'
+
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+
+      - name: Install workspace dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      # The guard the coordinator asked for: a prebuild WITHOUT LEVAPP_CI_APK must
+      # produce a manifest with no cleartext permission. Same command a release
+      # build would run; only the flag differs.
+      - name: A store prebuild carries no cleartext permission
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install
+          if grep -q "usesCleartextTraffic" android/app/src/main/AndroidManifest.xml; then
+            echo "::error::the manifest of a prebuild WITHOUT LEVAPP_CI_APK carries usesCleartextTraffic — a store build would inherit it"
+            grep -n "usesCleartextTraffic" android/app/src/main/AndroidManifest.xml
+            exit 1
+          fi
+          echo "store manifest: no cleartext permission (as required)"
+          rm -rf android
+
+      - name: Prebuild the CI test app (cleartext to the runner allowed)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          LEVAPP_CI_APK: "1"
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install
+          grep -q 'android:usesCleartextTraffic="true"' android/app/src/main/AndroidManifest.xml \
+            || { echo "::error::CI prebuild did not set usesCleartextTraffic — the emulator could not reach Flask"; exit 1; }
+          chmod +x android/gradlew
+
+      - name: Gradle assembleRelease (debug keystore, JS bundled)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        working-directory: frontend/apps/mobile/android
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_PUBLIC_API_URL: ${{ env.EMULATOR_HOST_API_URL }}
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: APK summary
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        run: |
+          set -euo pipefail
+          ls -la "$APK_PATH"
+          {
+            echo "### levapp-android-apk"
+            echo ""
+            echo "- file: \`app-release.apk\` ($(du -h "$APK_PATH" | cut -f1)), signed with the Expo template debug keystore"
+            echo "- sha256: \`$(sha256sum "$APK_PATH" | cut -d' ' -f1)\`"
+            echo "- API URL baked in: \`$EMULATOR_HOST_API_URL\` (emulator lane only — not a store build)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.mobile == 'true'
+        with:
+          name: levapp-android-apk
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  maestro:
+    name: Maestro on an Android emulator
+    needs: apk
+    if: github.event_name == 'workflow_dispatch' || needs.apk.outputs.built == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: padel_app_user
+          POSTGRES_PASSWORD: padel_app_test
+          POSTGRES_DB: postgres
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U padel_app_user"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Isolation (PAD-218 rules): this lane owns its own database name.
+      E2E_DB_NAME: levelup_ci_android
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: padel_app_user
+      POSTGRES_PW: padel_app_test
+      FLASK_APP: padel_app
+      FLASK_ENV: development
+      JWT_SECRET_KEY: e2e-test-secret
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || 'flows/01-login.yaml' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      # reset-test-db.sh activates backend/.venv, so give it one.
+      - name: Backend venv
+        run: |
+          python -m venv backend/.venv
+          backend/.venv/bin/pip install --quiet ./backend
+
+      - name: Migrate + seed the isolated database
+        env:
+          POSTGRES_DB: ${{ env.E2E_DB_NAME }}
+        run: bash frontend/apps/web/e2e/scripts/reset-test-db.sh
+
+      - name: Start Flask on :5001 (reachable from the emulator as 10.0.2.2)
+        env:
+          POSTGRES_DB: ${{ env.E2E_DB_NAME }}
+        run: |
+          set -euo pipefail
+          cd backend
+          nohup .venv/bin/flask run --host 0.0.0.0 --port 5001 --no-reload > "$RUNNER_TEMP/flask.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5001/api/app/healthz >/dev/null; then echo "flask up"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::Flask did not answer on :5001"; cat "$RUNNER_TEMP/flask.log"; exit 1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: levapp-android-apk
+          path: ${{ runner.temp }}/apk
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api34-default-x86_64-v1
+
+      - name: Create the AVD snapshot (cache miss only)
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD snapshot generated for the cache"
+
+      - name: Install the APK and run Maestro
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb wait-for-device
+            adb install -r "$RUNNER_TEMP/apk/app-release.apk"
+            adb shell pm list packages | grep -q com.padellevelup.app
+            cd frontend/apps/mobile/.maestro
+            echo "flows: $MAESTRO_FLOWS"
+            # shellcheck disable=SC2086  # MAESTRO_FLOWS is a space-separated list on purpose
+            maestro test --format junit --output "$GITHUB_WORKSPACE/maestro-report.xml" $MAESTRO_FLOWS
+
+      - name: Collect Maestro output
+        if: always()
+        run: |
+          mkdir -p maestro-results
+          cp -r ~/.maestro/tests maestro-results/ 2>/dev/null || true
+          cp maestro-report.xml maestro-results/ 2>/dev/null || true
+          cp "$RUNNER_TEMP/flask.log" maestro-results/ 2>/dev/null || true
+          ls -R maestro-results | head -50
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maestro-results
+          path: maestro-results
+          if-no-files-found: warn
+          retention-days: 14
