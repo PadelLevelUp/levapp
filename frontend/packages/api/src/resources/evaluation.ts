@@ -1,4 +1,4 @@
-import type { EvaluationCategory, EvaluationEntryPayload } from "@levelup/types";
+import type { EvaluationCategory, EvaluationCategoryImpact, EvaluationEntryPayload } from "@levelup/types";
 import { getApi } from "../client";
 
 export async function getEvaluationCategories(): Promise<EvaluationCategory[]> {
@@ -17,3 +17,10 @@ export async function addEvaluationCategories(payload: { name: string; scaleMin:
 export async function deleteEvaluationCategory(id: string): Promise<void> {
   await getApi().post("/app/delete/evaluation_category", { id: id });
 }
+
+/** evaluations.categories rule 7 (PAD-274): what deleting this category removes. */
+export async function getEvaluationCategoryImpact(id: string): Promise<EvaluationCategoryImpact> {
+  const res = await getApi().get(`/app/evaluation_category/${id}/impact`);
+  return res.data;
+}
+

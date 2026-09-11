@@ -1,4 +1,4 @@
-import type { CoachPlayer, CoachNote, Player, PlayerProfile } from "@levelup/types";
+import type { CoachPlayer, CoachNote, Player, PlayerProfile, PlayerRemovalAction, PlayerRemovalImpact } from "@levelup/types";
 import { getApi } from "../client";
 
 const COACH_PLAYERS_CACHE_TTL_MS = 60_000;
@@ -142,7 +142,33 @@ export async function deleteCoachNote(note: CoachNote): Promise<void> {
   await getApi().post("/app/delete/coach_note", { id: note.id });
 }
 
-export async function removePlayer(coachId: string, playerId: string): Promise<void> {
-  await getApi().post("/app/remove_player", { coachId, playerId });
+/**
+ * players.remove (PAD-274): `disconnect` from a student, or `delete` an
+ * unclaimed placeholder. A `delete` of anyone with an account is refused with
+ * 409 `PLAYER_HAS_ACCOUNT` (see `removePlayerErrorCode`).
+ */
+export async function removePlayer(
+  coachId: string,
+  playerId: string,
+  action?: PlayerRemovalAction,
+): Promise<void> {
+  await getApi().post("/app/remove_player", action ? { coachId, playerId, action } : { coachId, playerId });
   invalidateCoachPlayersCache();
+}
+
+/** players.remove rule 7: which removal this coach gets, and what it takes. */
+export async function getPlayerRemovalImpact(playerId: string): Promise<PlayerRemovalImpact> {
+  const res = await getApi().get(`/app/player/${playerId}/removal_impact`);
+  return res.data;
+}
+
+export type RemovePlayerErrorCode = "PLAYER_HAS_ACCOUNT" | "PLAYER_HAS_OTHER_COACHES" | "INVALID_ACTION";
+
+/** The refusal code of a failed `removePlayer`, or null for any other failure. */
+export function removePlayerErrorCode(err: unknown): RemovePlayerErrorCode | null {
+  const data = (err as { response?: { data?: unknown } } | null)?.response?.data;
+  const code = data && typeof data === "object" ? (data as { code?: unknown }).code : undefined;
+  return code === "PLAYER_HAS_ACCOUNT" || code === "PLAYER_HAS_OTHER_COACHES" || code === "INVALID_ACTION"
+    ? code
+    : null;
 }

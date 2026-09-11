@@ -29,7 +29,8 @@ class EvaluationCategory(db.Model, model.Model):
     scale_max = Column(Integer, default=10)
 
     entries = relationship(
-        "EvaluationEntry", back_populates="category", cascade="all, delete-orphan"
+        "EvaluationEntry", back_populates="category", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property

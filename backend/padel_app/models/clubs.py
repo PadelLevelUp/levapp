@@ -29,7 +29,8 @@ class Club(db.Model, model.Model):
 
     # Many-to-many: Club ↔ Coaches
     coaches_relations = relationship(
-        "Association_CoachClub", back_populates="club", cascade="all, delete-orphan"
+        "Association_CoachClub", back_populates="club", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -38,7 +39,8 @@ class Club(db.Model, model.Model):
 
     # Many-to-many: Club ↔ Players
     players_relations = relationship(
-        "Association_PlayerClub", back_populates="club", cascade="all, delete-orphan"
+        "Association_PlayerClub", back_populates="club", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -47,10 +49,11 @@ class Club(db.Model, model.Model):
 
     # One-to-many: Club ↔ Lessons
     # clubs.courts (PAD-194): the club's courts, in display order.
-    courts = relationship("Court", back_populates="club", cascade="all, delete-orphan", order_by="Court.position")
+    courts = relationship("Court", back_populates="club", cascade="all, delete-orphan", order_by="Court.position", passive_deletes=True)
 
     lessons = relationship(
-        "Lesson", back_populates="club", cascade="all, delete-orphan"
+        "Lesson", back_populates="club", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self):
