@@ -55,9 +55,16 @@ it is designed to be switched off later without a data change.
    (`/api/auth/me`, `PATCH /api/auth/me`, `DELETE /api/auth/me`, `/api/auth/logout`) stay open.
    `POST /api/app/club` and `POST /api/app/club/<id>/join-requests` go through `require_coach()`
    so a pending coach can neither create nor request a club.
-9. Switching the gate off later: a config flag `COACH_APPROVAL_REQUIRED` (default `true`). When
-   `false`, `auth.register` creates coaches as `approved` and the admin section shows nothing
-   pending. No column or client change is needed to turn it off.
+9. **Switching the gate off is an admin setting (PAD-238 item 3, shipped by PAD-279).** The
+   `app_settings` table holds `coach_approval_required` (JSON value, `updated_at`,
+   `updated_by_user_id`). `auth.register` reads it through `app_settings_service`: a stored row
+   wins; with no row the process falls back to the `COACH_APPROVAL_REQUIRED` env flag (default
+   `true`), so an environment that never touched the setting behaves as before. When the gate is
+   off, coaches are created `approved` and the admin section shows nothing pending. The superadmin
+   reads and flips it with `GET|PUT /api/app/admin/settings` (`{coachApprovalRequired, source}`,
+   `source` = `database` | `environment`; 403 for anyone else) from a switch at the top of the
+   Settings → Admin section, on web and iOS. Flipping it never changes an existing coach's
+   `approval_status`.
 10. **Rejection disables the login (PAD-233, owner decision 2026-09-09).** `reject` also sets
     the coach's `users.status` to `disabled`. The JWT blocklist loader already refuses every
     token of a `disabled` user, so the coach is signed out on every device at once (the next
@@ -151,7 +158,16 @@ it is designed to be switched off later without a data change.
 - **And** approving removes the row; the section is absent for a non-superadmin
 - **And** the same section exists on iOS
 
-#### Approval email is branded and in the coach's language
+#### Admin switches the approval gate off and on (PAD-238, PAD-279)
+- **Given** `admin` signed in on the web, no `app_settings` row and the env flag at its default
+- **When** they open Settings → Admin
+- **Then** the "New coaches need approval" switch is on and reads its value from the environment
+- **When** they switch it off
+- **Then** `GET /api/app/admin/settings` answers `{coachApprovalRequired: false, source: "database"}` and a coach who registers now is created `approved` and lands on the club step
+- **When** they switch it back on
+- **Then** the next self-registered coach is `pending` again
+- **And** an ordinary coach gets 403 on both endpoints and never sees the switch
+- **And** the same switch exists on iOS
 - **Given** pending coach `rui` with `language = pt` and a captured mail transport
 - **When** `admin` approves `rui`
 - **Then** one mail goes to `rui@example.com` with subject `A tua conta de treinador foi aprovada`, an HTML part that contains the LevApp mark and a link to the web origin, and a text part

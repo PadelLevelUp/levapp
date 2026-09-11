@@ -55,7 +55,6 @@ from padel_app.models.notification_config import (
     DEFAULT_NOTIFICATION_GROUPS,
     DEFAULT_PRIORITY_CRITERIA,
     DEFAULT_RESTRICTIONS,
-    DEFAULT_ROUNDS,
     default_templates_for_locale,
     resolve_message_template,
 )
@@ -112,11 +111,9 @@ def get_config_dict(coach_id: int) -> dict:
         "invitationMode": config.get_invitation_mode(),
         "priorityCriteria": config.get_priority_criteria(),
         "restrictions": config.get_restrictions(),
-        "rounds": config.get_rounds(),
         "notificationGroups": config.get_notification_groups(),
         "messageTemplates": config.get_message_templates(locale),
         "reminderTiming": config.reminder_timing,
-        "invitationStartTiming": config.get_invitation_start_timing(),
         "invitationGroups": config.get_invitation_groups(),
         "tiebreakers": config.get_tiebreakers(),
         # PAD-128 — null when unset, and deliberately NOT defaulted to a rule
@@ -145,8 +142,6 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
         config.restrictions = data["restrictions"]
-    if "rounds" in data:
-        config.rounds = data["rounds"]
     if "notificationGroups" in data:
         config.notification_groups = data["notificationGroups"]
     if "messageTemplates" in data:
@@ -1016,94 +1011,16 @@ class CandidateVerdict:
         return self.stage == "invited"
 
 
-def legacy_round_rules(round_cfg: dict) -> list[dict]:
-    """A legacy round's criteria in the structured `{attribute, operation,
-    value}` shape invitation groups already use, so one client renderer covers
-    both vocabularies."""
-    values = round_cfg.get("criteria_values", {}) or {}
-    rules = []
-    for criterion in round_cfg.get("criteria", []) or []:
-        if criterion == "same_level":
-            rules.append({"attribute": "level", "operation": "same_level", "value": None})
-        elif criterion == "same_side":
-            rules.append({"attribute": "side", "operation": "same_side", "value": None})
-        elif criterion == "max_unjustified_absences":
-            rules.append({
-                "attribute": "unjustified_absences",
-                "operation": "max_unjustified_absences",
-                "value": values.get("max_unjustified_absences", 0),
-            })
-    return rules
-
-
-def _legacy_round_failures(
-    round_cfg: dict,
-    cp: Association_CoachPlayer,
-    vacancy: Vacancy,
-    instance: LessonInstance,
-    coach_id: int,
-    *,
-    short_circuit: bool,
-) -> list:
-    """The legacy `rounds` criteria, evaluated exactly as `get_eligible_students`
-    always has (PAD-86 fail-closed level, PAD-15 inclusive side), reported in
-    the PAD-133 record shape."""
-    failures: list = []
-    values = round_cfg.get("criteria_values", {}) or {}
-    vacancy_level_id, vacancy_level = _vacancy_level(vacancy, instance)
-
-    for criterion in round_cfg.get("criteria", []) or []:
-        if criterion == "same_level":
-            if vacancy_level_id is None:
-                failures.append({
-                    "attribute": "level", "operation": "same_level",
-                    "actual": getattr(cp.level, "code", None), "threshold": None,
-                    "ladder_distance": None, "reason": "class_has_no_level",
-                })
-            elif cp.level_id != vacancy_level_id:
-                failures.append({
-                    "attribute": "level", "operation": "same_level",
-                    "actual": getattr(cp.level, "code", None),
-                    "threshold": getattr(vacancy_level, "code", None),
-                    "ladder_distance": None, "reason": None,
-                })
-        elif criterion == "same_side":
-            if vacancy.side is not None and not _side_eligible(cp.side, vacancy.side):
-                failures.append({
-                    "attribute": "side", "operation": "same_side",
-                    "actual": cp.side, "threshold": vacancy.side,
-                    "ladder_distance": None, "reason": None,
-                })
-        elif criterion == "max_unjustified_absences":
-            max_abs = values.get("max_unjustified_absences", 0)
-            count = _unjustified_absence_count(cp.player_id, coach_id)
-            if count > max_abs:
-                failures.append({
-                    "attribute": "unjustified_absences",
-                    "operation": "max_unjustified_absences",
-                    "actual": count, "threshold": max_abs,
-                    "ladder_distance": None, "reason": None,
-                })
-        if failures and short_circuit:
-            return failures
-    return failures
-
-
-def _wave_rules(config: NotificationConfig, wave: tuple) -> tuple[list | None, dict | None]:
-    """`(group_rules, round_cfg)` for a wave — exactly one of the two is set,
-    or both are None when the wave does not exist in this coach's config."""
-    kind, number = wave
-    if kind == "group":
-        groups = config.get_invitation_groups()
-        idx = int(number) - 1
-        if idx < 0 or idx >= len(groups):
-            return None, None
-        return (groups[idx].get("rules", []) or []), None
-    rounds = config.get_rounds()
-    round_cfg = next((r for r in rounds if r["id"] == number), None)
-    if round_cfg is None:
-        return None, None
-    return None, round_cfg
+def _wave_rules(config: NotificationConfig, wave: tuple) -> list | None:
+    """The rules of an invitation-group wave, or None when the wave does not
+    exist in this coach's config. PAD-279 removed the legacy ``rounds``
+    vocabulary; ``("group", n)`` is the only wave kind."""
+    _kind, number = wave
+    groups = config.get_invitation_groups()
+    idx = int(number) - 1
+    if idx < 0 or idx >= len(groups):
+        return None
+    return groups[idx].get("rules", []) or []
 
 
 def evaluate_candidates(
@@ -1118,8 +1035,8 @@ def evaluate_candidates(
 ) -> list[CandidateVerdict]:
     """Tag every roster player with the FIRST stage that drops them for ``wave``.
 
-    ``wave`` is ``("group", group_index)`` (1-based, invitation groups) or
-    ``("round", round_number)`` (legacy rounds). Stages are tried in
+    ``wave`` is ``("group", group_index)`` (1-based, invitation groups; the
+    legacy ``("round", n)`` kind went with PAD-279). Stages are tried in
     ``CANDIDATE_STAGES`` order and a player who passes them all is ``invited``.
 
     ``explain=False`` is the engine's hot path: it stops at the first failure
@@ -1168,8 +1085,8 @@ def evaluate_candidates(
         excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
     exclude_inactive = bool(restrictions["excludeUnpaidSubscription"]["enabled"])
 
-    group_rules, round_cfg = _wave_rules(config, wave)
-    wave_exists = group_rules is not None or round_cfg is not None
+    group_rules = _wave_rules(config, wave)
+    wave_exists = group_rules is not None
 
     # PAD-28 (availability blockers) and PAD-112 (auto-invite opt-out) are two
     # independent questions — "are they free at THIS hour?" and "do they want
@@ -1248,14 +1165,9 @@ def evaluate_candidates(
         if not wave_exists:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": []}))
             continue
-        if group_rules is not None:
-            failures = _group_rule_failures(
-                group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain
-            )
-        else:
-            failures = _legacy_round_failures(
-                round_cfg, cp, vacancy, instance, coach_id, short_circuit=not explain
-            )
+        failures = _group_rule_failures(
+            group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain
+        )
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
             continue
@@ -1299,10 +1211,6 @@ def _get_eligible_students_for_group(
     )
 
 
-# ---------------------------------------------------------------------------
-# Eligible students — new criteria-based version
-# ---------------------------------------------------------------------------
-
 def get_eligible_students(
     vacancy: Vacancy,
     instance: LessonInstance,
@@ -1310,31 +1218,21 @@ def get_eligible_students(
     config: NotificationConfig,
     round_number: int,
 ) -> list[Association_CoachPlayer]:
-    """
-    Returns coach_player relations for students eligible for the given vacancy and round,
-    ranked by the configured priority criteria.
-    """
-    return _rank_invited(
-        evaluate_candidates(vacancy, instance, coach_id, config, wave=("round", round_number)),
-        config,
-        vacancy,
-    )
+    """The roster students eligible for wave ``round_number`` (1-based), ranked
+    by the coach's priority criteria. Since PAD-279 a round IS an invitation
+    group — the legacy ``rounds`` vocabulary is gone — so this public name and
+    ``_get_eligible_students_for_group`` are the same function."""
+    return _get_eligible_students_for_group(vacancy, instance, coach_id, config, round_number)
 
 
 def invitation_waves(config: NotificationConfig) -> list[tuple]:
     """Every wave of this coach's engine, in the order it widens:
-    ``(number, kind, rules)`` — invitation groups when any are configured,
-    otherwise the legacy rounds. One definition, used by the engine's round
-    counter, the approval prompt and the simulation."""
-    groups = config.get_invitation_groups()
-    if groups:
-        return [
-            (idx, "group", list(g.get("rules", []) or []))
-            for idx, g in enumerate(groups, start=1)
-        ]
+    ``(number, "group", rules)``. One definition, used by the engine's round
+    counter, the approval prompt and the simulation. An empty group list is
+    the built-in three (``get_invitation_groups``; PAD-279 removed rounds)."""
     return [
-        (r["id"], "legacy", legacy_round_rules(r))
-        for r in config.get_rounds()
+        (idx, "group", list(g.get("rules", []) or []))
+        for idx, g in enumerate(config.get_invitation_groups(), start=1)
     ]
 
 
@@ -1350,7 +1248,7 @@ def ordered_invite_rounds(
     seen: set = set()
     rounds = []
     for number, kind, rules in invitation_waves(config):
-        wave = ("group", number) if kind == "group" else ("round", number)
+        wave = ("group", number)
         ranked = _rank_invited(
             evaluate_candidates(vacancy, instance, coach_id, config, wave=wave),
             config,
@@ -3198,11 +3096,7 @@ def _send_invitation_batch(
         # PAD-261: another path won the spot, or the class is full. Invite nobody.
         return []
 
-    invitation_groups = config.get_invitation_groups()
-    if invitation_groups:
-        eligible = _get_eligible_students_for_group(vacancy, instance, coach_id, config, vacancy.current_round_number)
-    else:
-        eligible = get_eligible_students(vacancy, instance, coach_id, config, vacancy.current_round_number)
+    eligible = _get_eligible_students_for_group(vacancy, instance, coach_id, config, vacancy.current_round_number)
 
     if not eligible:
         # PAD-87 / notifications.invitations rule 3c: an empty round advances
@@ -3300,8 +3194,7 @@ def _send_invitation_batch(
 
 
 def _round_max_count(config: NotificationConfig) -> int:
-    invitation_groups = config.get_invitation_groups()
-    return len(invitation_groups) if invitation_groups else len(config.get_rounds())
+    return len(config.get_invitation_groups())
 
 
 def _defer_next_round(
@@ -4240,36 +4133,10 @@ def _check_waiting_list(
         if not passes_eligibility(cp, instance, coach_id, eligibility_rules):
             continue
 
-        if invitation_groups:
-            # All active waiting list entries compete; no group-criteria filter
-            eligible_entries.append((entry, cp))
-        else:
-            # Legacy rounds-based filter
-            rounds = config.get_rounds()
-            round_cfg = next((r for r in rounds if r["id"] == round_number), None)
-            if round_cfg is None:
-                continue
-            criteria = round_cfg.get("criteria", [])
-            criteria_values = round_cfg.get("criteria_values", {})
-            passes = True
-            for criterion in criteria:
-                if criterion == "same_level":
-                    # PAD-86: fail closed — no level anywhere, nobody passes.
-                    vacancy_level_id, _ = _vacancy_level(vacancy, instance)
-                    if vacancy_level_id is None or cp.level_id != vacancy_level_id:
-                        passes = False
-                        break
-                elif criterion == "same_side":
-                    if vacancy.side is not None and not _side_eligible(cp.side, vacancy.side):
-                        passes = False
-                        break
-                elif criterion == "max_unjustified_absences":
-                    max_abs = criteria_values.get("max_unjustified_absences", 0)
-                    if _unjustified_absence_count(entry.player_id, coach_id) > max_abs:
-                        passes = False
-                        break
-            if passes:
-                eligible_entries.append((entry, cp))
+        # All active waiting-list entries compete; there is no wave-criteria
+        # filter on the fill path (PAD-279 removed the legacy rounds filter
+        # that only ever ran for a coach with an empty group list).
+        eligible_entries.append((entry, cp))
 
     if not eligible_entries:
         return None

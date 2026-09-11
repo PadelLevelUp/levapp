@@ -57,8 +57,8 @@ that what the tutorial shows and what the engine does can never disagree.
    - `auto_invites_off` — the student switched automatic invitations off
      (`notifications.student-block-preferences`)
    - `no_round_matched` — passed everything above but matched no round; `details` carry the
-     structured failures per round, from `_group_rule_failures`, in both vocabularies (invitation
-     groups and legacy rounds)
+     structured failures per round, from `_group_rule_failures` (invitation groups only — the
+     legacy rounds vocabulary was removed by PAD-279)
    - `invited` — survives, with the round that admits them
    The engine keeps the survivors; the simulation keeps everything. The two existing functions
    keep their signatures and return values, so every existing invitation test passes untouched.
@@ -144,11 +144,10 @@ that what the tutorial shows and what the engine does can never disagree.
 - **Then** the two ordered lists are identical
 - **And** a student two ladder steps away is in neither
 
-#### The simulation invites exactly who the engine invites — legacy rounds
-- **Given** a coach whose `invitation_groups` is `NULL`, so the engine uses `get_rounds()`
-- **When** the engine queue and the simulation are computed for the same departing player
-- **Then** the two ordered lists are identical
-- **And** every simulated round has `kind: "legacy"`
+#### The simulation invites exactly who the engine invites — empty groups (PAD-279)
+- **Given** a coach whose `invitation_groups` is `[]`
+- **When** the simulation runs
+- **Then** its rounds are the three built-in groups, every round has `kind: "group"`, and the queue and first batch match the engine's
 
 #### The simulation writes nothing
 - **Given** a coach in semi-automatic mode with an active standing waiting-list entry whose

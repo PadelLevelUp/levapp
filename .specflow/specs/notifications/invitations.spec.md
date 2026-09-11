@@ -75,7 +75,8 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    instance nor its parent lesson defines one), every level rule in an invitation group evaluates
    to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
-   coach's entire roster. The same applies to the legacy rounds `same_level` criterion.
+   coach's entire roster. (The legacy `rounds` vocabulary was removed by PAD-279; an empty
+   `invitation_groups` list resolves to the built-in groups — `notifications.config` rule 12.)
 5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
    `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
    be able to run the batch processor concurrently with the scheduler.
