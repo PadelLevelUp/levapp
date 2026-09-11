@@ -52,8 +52,9 @@ reporting it is one tap away.
 9. **Report** from the banner opens the existing report dialog pre-targeted at the most recent
    message from the other participant, with a preset reason `unsolicited` selectable; the dialog
    offers "Report and block", which performs rule 4 then rule 1.
-10. Settings → Account (both roles, `settings.role-scope` rule 2) shows "Blocked users" from
-    `GET /api/app/blocked-users` with Unblock per row. Web and iOS.
+10. Settings → My connections (both roles, `settings.role-scope` rule 2; PAD-287 moved it out
+    of Account) shows "Blocked users" from `GET /api/app/blocked-users` with Unblock per row.
+    Web and iOS.
 
 ### Acceptance Criteria
 
@@ -99,7 +100,7 @@ reporting it is one tap away.
 
 #### Blocked list is manageable in Settings
 - **Given** `ana` has blocked `bruno`
-- **When** `ana` opens Settings → Account on web
+- **When** `ana` opens Settings → My connections on web
 - **Then** "Blocked users" lists `bruno` with Unblock, and unblocking removes the row
 - **And** the same list exists on iOS
 
