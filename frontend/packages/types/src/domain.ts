@@ -447,6 +447,17 @@ export interface Message {
      */
     cancellationDeadline?: string;
     superseded?: boolean;
+    /**
+     * classes.class-requests rule 6 (PAD-281): every class-request message
+     * names its request, the status at send time, what happened (`kind`) and
+     * the slot it is about, so the proposal bubble can offer the answers.
+     */
+    classRequest?: {
+      id: number;
+      status: ClassRequestStatus;
+      kind: "requested" | "proposed" | "countered" | "accepted" | "declined" | "withdrawn";
+      slot?: { date: string; startTime: string; endTime: string };
+    };
     [key: string]: unknown;
   };
 }

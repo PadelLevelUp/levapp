@@ -3,7 +3,8 @@ id: B-077
 title: "The coach's counter-proposal dead-ends: the student is asked in chat but cannot answer there, and cannot propose another time anywhere"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-09-11T14:10:00Z
 affects:
   - classes.class-requests
   - backend/padel_app/services/class_request_service.py
@@ -83,4 +84,17 @@ code on backend, web, iOS; regression; resolve here.
 
 ### Resolution
 
-Pending (PAD-281).
+- Spec changes: `.specflow/specs/classes/class-requests.spec.md` (rules 5, 6, new rule 10, two
+  criteria), `.specflow/specs-business/classes/student-books-a-class.business.md` (journey 5, 6).
+- Tests added: `backend/padel_app/tests/test_pad281_counter_proposal.py` (5, red first),
+  `frontend/packages/config/src/class-request-message.test.ts` (8, red first),
+  `frontend/apps/web/e2e/class-requests/class-request-counter-proposal.spec.ts` (chat bubble →
+  Availability picker → counter-proposal → second round → accept from the bubble).
+- Code: `counter_proposal_service` + `POST /app/class-requests/<id>/counter-proposal`;
+  `free-blocks?excludeRequestId`; every class-request message carries `slot`, the student's
+  message is kind `countered`; `classRequestBubbleState` (packages/config) drives the proposal
+  card on web `MessageBubble` and iOS `message-bubble` (student answers a `proposed`, coach
+  answers a `countered`; Propose deep-links to the Availability section / the inbox with
+  `?proposeFor=`); the Availability section (web + iOS) gets the third button with a free-block
+  picker; `class_request_changed` invalidates the live row on both shells.
+- Resolved: 2026-09-11 (PAD-281).

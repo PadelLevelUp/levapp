@@ -88,6 +88,7 @@ from padel_app.services.class_request_service import (
     list_requests_for,
     serialize_class_request,
     withdraw_class_request_service,
+    counter_proposal_service,
 )
 from padel_app.services.class_join_request_service import (
     create_join_request_service,
@@ -1852,7 +1853,13 @@ def class_request_free_blocks():
     except ValueError:
         abort(400, "from and to must be ISO datetimes")
     range_start, range_end = range_start.replace(tzinfo=None), range_end.replace(tzinfo=None)
-    return jsonify(free_blocks(coach, range_start, range_end))
+    # Rule 10 (PAD-281): re-slotting one's own request — its hold is not busy time.
+    exclude_request_id = request.args.get("excludeRequestId", type=int)
+    if exclude_request_id is not None:
+        own = ClassRequest.query.get_or_404(exclude_request_id)
+        if own.player_id != player.id:
+            abort(403, "Not your request")
+    return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
 
 @bp.post("/class-requests")
@@ -1881,6 +1888,14 @@ def accept_class_request_proposal(request_id):
 @jwt_required()
 def decline_class_request_proposal(request_id):
     row = answer_proposal_service(request_id, current_player(), accept=False)
+    return jsonify(serialize_class_request(row))
+
+
+@bp.post("/class-requests/<int:request_id>/counter-proposal")
+@jwt_required()
+def counter_class_request_proposal(request_id):
+    """Rule 10 (PAD-281): the student proposes another time back to the coach."""
+    row = counter_proposal_service(request_id, _require_student_player(), request.get_json(silent=True) or {})
     return jsonify(serialize_class_request(row))
 
 

@@ -25,9 +25,12 @@ export async function listClassRequestCoaches(): Promise<ClassRequestCoach[]> {
   return res.data;
 }
 
-/** Rule 1: the coach's free blocks between two ISO datetimes. */
-export async function getFreeBlocks(coachId: string, from: string, to: string): Promise<FreeBlock[]> {
-  const res = await getApi().get("/app/class-requests/free-blocks", { params: { coachId, from, to } });
+/** Rule 1: the coach's free blocks between two ISO datetimes. Rule 10: pass the
+ * student's own request id to leave its hold out of the busy time. */
+export async function getFreeBlocks(coachId: string, from: string, to: string, excludeRequestId?: number): Promise<FreeBlock[]> {
+  const params: Record<string, string | number> = { coachId, from, to };
+  if (excludeRequestId != null) params.excludeRequestId = excludeRequestId;
+  const res = await getApi().get("/app/class-requests/free-blocks", { params });
   return res.data;
 }
 
@@ -62,6 +65,12 @@ export async function proposeClassRequest(id: number, slot: ClassRequestSlot): P
 /** Rule 5: the student answers the proposal. */
 export async function answerClassRequestProposal(id: number, accept: boolean): Promise<ClassRequest> {
   const res = await getApi().post(`/app/class-requests/${id}/${accept ? "accept-proposal" : "decline-proposal"}`);
+  return res.data;
+}
+
+/** Rule 10 (PAD-281): the student proposes another time; the request is `pending` again. */
+export async function counterProposeClassRequest(id: number, slot: ClassRequestSlot): Promise<ClassRequest> {
+  const res = await getApi().post(`/app/class-requests/${id}/counter-proposal`, slot);
   return res.data;
 }
 

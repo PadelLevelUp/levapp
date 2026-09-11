@@ -60,6 +60,22 @@
     "withdrawn": "Pedido retirado",
     "answered": "Resposta enviada",
     "decideFailed": "Não foi possível atualizar o pedido",
-    "history": "Pedidos anteriores"
+    "history": "Pedidos anteriores",
+    "counterProposed": "Proposta enviada ao treinador",
+    "pickAnotherTime": "Escolhe outro horário",
+    "bubble": {
+      "accept": "Aceitar",
+      "decline": "Recusar",
+      "propose": "Propor outro horário",
+      "waiting": "À espera do aluno",
+      "superseded": "Substituída por uma proposta mais recente",
+      "outcome": {
+        "pending": "À espera do treinador",
+        "countered": "Novo horário proposto",
+        "accepted": "Aula marcada",
+        "declined": "Recusado",
+        "withdrawn": "Pedido retirado"
+      }
+    }
   }
 }

@@ -60,6 +60,22 @@
     "withdrawn": "Request withdrawn",
     "answered": "Answer sent",
     "decideFailed": "Could not update the request",
-    "history": "Earlier requests"
+    "history": "Earlier requests",
+    "counterProposed": "Proposal sent to the coach",
+    "pickAnotherTime": "Pick another time",
+    "bubble": {
+      "accept": "Accept",
+      "decline": "Decline",
+      "propose": "Propose another time",
+      "waiting": "Waiting for the student",
+      "superseded": "Replaced by a newer proposal",
+      "outcome": {
+        "pending": "Waiting for the coach",
+        "countered": "New time proposed",
+        "accepted": "Class booked",
+        "declined": "Declined",
+        "withdrawn": "Request withdrawn"
+      }
+    }
   }
 }
