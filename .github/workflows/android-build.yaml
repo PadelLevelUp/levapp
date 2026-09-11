@@ -42,7 +42,7 @@ concurrency:
 
 env:
   NODE_VERSION: "24.15.0"
-  MAESTRO_FLOWS_DEFAULT: "flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml"
+  MAESTRO_FLOWS_DEFAULT: "."  # the whole workspace in config.yaml's order, continueOnFailure (PAD-298 full Android run)
   # The runner as seen from inside the emulator.
   EMULATOR_HOST_API_URL: "http://10.0.2.2:5001/api"
   APK_PATH: frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
@@ -163,7 +163,7 @@ jobs:
     needs: apk
     if: github.event_name == 'workflow_dispatch' || needs.apk.outputs.built == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 100  # the full ~36-flow suite is ~60 min of emulator time (PAD-298)
     services:
       postgres:
         image: postgres:15
@@ -185,7 +185,7 @@ jobs:
       FLASK_APP: padel_app
       FLASK_ENV: development
       JWT_SECRET_KEY: e2e-test-secret
-      MAESTRO_FLOWS: ${{ github.event.inputs.flows || 'flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml' }}
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || '.' }}
     steps:
       - uses: actions/checkout@v4
 
