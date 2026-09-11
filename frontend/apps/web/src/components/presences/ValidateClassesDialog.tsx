@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import type { PendingValidationClass, PendingValidationPlayer } from "@/types";
 
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
+import { weekLabelDates } from "@/components/attendance/dateRanges";
 import {
   effectiveMark,
   fromMark,
@@ -225,15 +226,9 @@ export function ValidateClassesDialog({
   }
 
   const weekLabel = useMemo(() => {
-    // UTC throughout, and formatted in UTC, so the label always names the same
-    // week the page actually queried (see `weekBounds` in PresencesPage).
-    const now = new Date();
-    const dow = (now.getUTCDay() + 6) % 7; // Monday-first
-    const monday = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow + weekOffset * 7)
-    );
-    const sunday = new Date(monday);
-    sunday.setUTCDate(monday.getUTCDate() + 6);
+    // Derived from the same `weekBounds` the page queries (club's week, B-060) and
+    // formatted in UTC, so the label always names the week actually queried.
+    const { monday, sunday } = weekLabelDates(weekOffset);
     const fmt = new Intl.DateTimeFormat(i18n.language, {
       day: "numeric",
       month: "short",

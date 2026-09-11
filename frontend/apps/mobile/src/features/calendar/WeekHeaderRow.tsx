@@ -1,9 +1,10 @@
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import * as React from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
+import { isClubToday } from "@levelup/config";
 
 /** Width of the hour-label gutters the columns must line up with (rule 12). */
 export const GUTTER_PT = 26;
@@ -30,7 +31,7 @@ export function WeekHeaderRow({
       {weekDays.map((day) => {
         const key = format(day, "yyyy-MM-dd");
         const selected = isSameDay(day, selectedDay);
-        const today = isToday(day);
+        const today = isClubToday(day);
         return (
           <Pressable
             key={key}

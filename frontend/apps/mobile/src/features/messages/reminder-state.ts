@@ -1,3 +1,5 @@
+import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+
 /**
  * What an attendance-reminder message offers the student (PAD-151).
  *
@@ -65,7 +67,9 @@ export function reminderState(
 
   const startsAt = metadata?.startsAt;
   // Cancellation is only offered while the class is still ahead.
-  const classInFuture = !startsAt || new Date(startsAt).getTime() > now.getTime();
+  // Club digits on both sides (PAD-295): `now` is a real instant.
+  const nowMs = lisbonNowMs(now);
+  const classInFuture = !startsAt || wallClockISOMs(startsAt) > nowMs;
 
   // PAD-49: a newer reminder for the same class supersedes this one, so its
   // Yes/No stops being actionable. PAD-68: a reminder for a class that has
@@ -80,7 +84,7 @@ export function reminderState(
   // about. Absent on older reminders → no warning, exactly as before.
   const deadlineIso = metadata?.cancellationDeadline;
   const isLateCancellation =
-    !!deadlineIso && new Date(deadlineIso).getTime() <= now.getTime();
+    !!deadlineIso && wallClockISOMs(deadlineIso) <= nowMs;
 
   return {
     confirmed,

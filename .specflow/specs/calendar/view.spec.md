@@ -69,6 +69,15 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     `<button>` may not legally contain. Generalised by compass rule **R-026**; iOS already
     satisfies it (`EventCard`'s `Pressable` has `role="button"` + `accessibilityLabel`).
 
+16. **(PAD-295; rule number unconfirmed)** On both clients, every comparison of a class, block,
+    deadline or window time with "now" uses the **club's clock**, never the device's: `past` versus
+    upcoming (`resolveEventState`), the next-class highlight and its "visible range contains
+    today" gate (`findNextEventId`), the today ring in the strip, week header and month grid, and
+    the `Hoje` / initial-day selection in `useCalendar`. The clock is `lisbonNow()` in
+    `@levelup/config` — a `Date` whose local fields carry the `Europe/Lisbon` wall clock, with the
+    same UTC fallback as `clubTodayISO` — and `isClubToday()` for day matching. Stored times are
+    Lisbon wall-clock digits (R-023), so this is the client half of rule 11's server comparison.
+
 ### Acceptance Criteria
 
 #### Coach calendar view
@@ -132,6 +141,14 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **And** tapping anywhere in a day's column selects that day — including the empty area below the
   chips, and the whole column on a day with no classes at all; the full-height column is one
   day-select target, not just its header
+
+#### Past and next are judged on the club's clock on any device (PAD-295)
+- **Given** a device in `Asia/Tokyo` while the club's clock reads 10:00 on a summer day
+- **And** two classes today, `08:30–09:30` and `10:30–11:30`
+- **When** the coach views the day on web and on iOS
+- **Then** the first card is `past` and the second is `next`
+- **And** the strip's today ring and `Hoje` land on the club's date, even between 23:00 and 01:00
+  Lisbon when the device's date differs
 
 #### Calendar class card is reachable and activatable by keyboard
 - **Given** a signed-in coach on `/calendar` viewing a week that contains a class

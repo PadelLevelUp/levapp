@@ -8,6 +8,7 @@ import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
 import { respondToNotification, respondToReminder, cancelAttendance, respondToWaitingList } from '@/api/notificationEngine';
 import { toast } from 'sonner';
+import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -337,7 +338,7 @@ export function MessageBubble({
             (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
-          const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
+          const classInFuture = !startsAt || wallClockISOMs(startsAt) > lisbonNowMs();
           // PAD-49: a newer reminder for the same class supersedes this one → its
           // Yes/No buttons stop being actionable and show an "expired" indicator.
           // PAD-68: a reminder for a class that has already started is expired for
@@ -350,7 +351,7 @@ export function MessageBubble({
           // The deadline is absent on older reminders → no warning, same as before.
           const deadlineIso = message.metadata?.cancellationDeadline;
           const isLateCancellation =
-            !!deadlineIso && new Date(deadlineIso).getTime() <= Date.now();
+            !!deadlineIso && wallClockISOMs(deadlineIso) <= lisbonNowMs();
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
