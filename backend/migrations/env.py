@@ -13,7 +13,10 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+# disable_existing_loggers=False: an Alembic run mid-session (the PAD-279
+# migration-walk test) must not silence loggers the tests capture — the default
+# True disables every logger that already exists (batch-4 red on PR #212).
+fileConfig(config.config_file_name, disable_existing_loggers=False)
 logger = logging.getLogger('alembic.env')
 
 
