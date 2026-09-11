@@ -39,12 +39,19 @@ held on the coach's calendar while the request is open.
    `countered`. A coach with no club cannot accept (409 `NO_CLUB`, the class needs one).
 5. **The student answers a proposal**: `accept-proposal` behaves exactly like the coach's accept
    (the class is created at the proposed slot); `decline-proposal` closes the request as
-   `declined` with `decided_by: student`. A student may `withdraw` while the request is
-   `pending` or `countered`.
+   `declined` with `decided_by: student`; `counter-proposal` sends another time back to the
+   coach (rule 10). A student may `withdraw` while the request is `pending` or `countered`.
 6. **Every transition notifies the other side** through the coach ↔ student direct conversation
    (the request as a message from the student's side with coach push; accept / decline /
    proposal as system messages to the student; the student's answer back from the student's
-   side) — the same channels invitations and cancellations already use.
+   side) — the same channels invitations and cancellations already use. **The proposal is
+   answerable where it is announced (PAD-281, B-077):** every class-request message carries
+   `metadata.classRequest {id, status, kind, slot}`, and while the request's live status is
+   still `countered` at that slot the proposal bubble on web and iOS offers Accept / Decline /
+   Propose another time (the last opens the student's Availability section on that request).
+   Once the status or the slot has moved on, the bubble shows the outcome instead, and a late
+   answer degrades to the `409 not_countered` refusal, never an error page. The push for a
+   proposal deep-links to the conversation, so it lands on those actions.
 7. **Requests for the past are refused**, and a slot that is no longer free (another request or a
    class landed meanwhile) answers `409 slot_taken`.
 8. **Times follow the class-time convention (PAD-256, option B; R-023).**
@@ -59,6 +66,14 @@ held on the coach's calendar while the request is open.
      is an event timestamp and is stored in UTC (`wall_to_utc_naive(now)`).
 9. `GET /app/class-requests` lists the caller's own requests (a student's, or every request
    addressed to the coach), newest first, with `playerName` / `coachName`.
+10. **The student counter-proposes (PAD-281).** `POST /app/class-requests/<id>/counter-proposal
+    {date, startTime, endTime}` while the request is `countered`: the slot is validated exactly
+    like a new request (rule 2 length, rule 7 past / free, the request's own hold excluded), the
+    hold moves, the request turns `pending` again at the new slot and the coach is told (rule 6,
+    kind `proposed` from the student's side). Rounds are unlimited: the coach may accept,
+    decline or propose again, and so on. Any other status answers `409 not_countered`; another
+    student's request answers `403`. `GET /app/class-requests/free-blocks?…&excludeRequestId=<id>`
+    leaves the caller's own hold out of the busy time so the picker can offer it.
 
 ### Acceptance Criteria
 
@@ -85,6 +100,23 @@ held on the coach's calendar while the request is open.
 - **Then** the request is `countered`, the hold moved to 15:00–16:00 and the student is told
 - **When** the student accepts the proposal
 - **Then** the class exists at 15:00–16:00
+
+#### The student counter-proposes and the loop continues
+- **Given** a `countered` request at 15:00–16:00 (the coach's proposal)
+- **When** the student proposes 17:00–18:00
+- **Then** the request is `pending` at 17:00–18:00, the hold sits at 17:00–18:00 and the coach
+  is told from the student's side
+- **When** the coach accepts
+- **Then** the class exists at 17:00–18:00
+- **And** a student who answers a proposal that is no longer on the table is refused with
+  `409 not_countered` and sees the outcome, not an error
+
+#### The proposal is answerable in chat
+- **Given** the coach proposed 15:00–16:00 and the student opens the conversation
+- **When** the proposal bubble renders
+- **Then** it offers Accept, Decline and Propose another time
+- **When** the student accepts from the bubble
+- **Then** the request is `accepted` and the bubble shows "Class booked"
 
 #### Decline and withdraw release the hold
 - **Given** a pending request
