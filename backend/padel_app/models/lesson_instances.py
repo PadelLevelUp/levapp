@@ -54,7 +54,11 @@ class LessonInstance(db.Model, model.Model):
     )
     
     notes = Column(Text, nullable=True)
+    # PAD-275 (classes.edit rule 4): the copied capacity stays as a shadow for
+    # one release, written from the effective value; readers use
+    # `effective_max_players`. NULL override inherits the lesson's capacity.
     max_players = Column(Integer, nullable=False)
+    max_players_override = Column(Integer, nullable=True)
     overridden_fields = Column(Text)
 
     presences = relationship(
@@ -82,6 +86,18 @@ class LessonInstance(db.Model, model.Model):
     @property
     def title(self):
         return self.overwrite_title or self.lesson.title
+
+    @property
+    def effective_max_players(self):
+        """Capacity of this occurrence (PAD-275, classes.edit rule 4): the
+        override when set, else the lesson's. Every capacity comparison reads
+        this, never the copied `max_players` column."""
+        if self.max_players_override is not None:
+            return self.max_players_override
+        lesson = self.lesson
+        if lesson is not None and lesson.max_players is not None:
+            return lesson.max_players
+        return self.max_players
 
     @property
     def players(self):

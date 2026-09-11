@@ -34,3 +34,9 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **When** coach edits with scope `future` to start at 11:00
 - **Then** the parent lesson template is updated
 - **And** all future instances reflect the new time
+
+#### Capacity is an override only when it differs (rule 4)
+- **Given** a class of 4 and a materialised occurrence of it
+- **When** the occurrence is read
+- **Then** `max_players_override` is NULL and `effective_max_players` is 4
+- **And** raising the class to 6 makes the occurrence's effective capacity 6, while setting the occurrence's own capacity to 2 makes it 2 and lists `maxPlayers` in `overriddenFields`

@@ -103,7 +103,7 @@ def serialize_lesson_instance(instance):
 
         "name": lesson.title if lesson else None,
         "color": lesson.color if lesson else None,
-        "maxPlayers": instance.max_players,
+        "maxPlayers": instance.effective_max_players,
     }
 
     
@@ -172,11 +172,14 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
     is_instance = obj.model_name == "LessonInstance"
     lesson = obj.lesson if is_instance else obj
 
-    coach_id = (
-        lesson.coaches_relations[0].coach.id
-        if lesson.coaches_relations
-        else None
+    # PAD-275 rule 4: an occurrence's coach is its own when it has one, else
+    # the lesson's; a template's is the lesson's first.
+    from padel_app.services.lesson_service import primary_coach
+
+    _coach = primary_coach(obj) if is_instance else (
+        lesson.coaches_relations[0].coach if lesson.coaches_relations else None
     )
+    coach_id = _coach.id if _coach is not None else None
 
     # PAD-259: an instance's roster is its presences (classes.instance-enrollment
     # rule 6); a Lesson template's is the series roster.
