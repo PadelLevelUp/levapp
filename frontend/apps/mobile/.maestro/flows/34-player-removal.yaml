@@ -50,13 +50,13 @@ appId: com.padellevelup.app
 - assertNotVisible:
     text: "Attendance records: .*"
 - tapOn:
-    text: "Cancel removing player"
+    id: "player-remove-cancel"
 - extendedWaitUntil:
     notVisible:
       text: "Your notes: .*"
     timeout: 10000
 - tapOn:
-    text: "Back to players"
+    id: "player-back"
 
 # ── 2. A placeholder this flow creates: Delete ──
 - extendedWaitUntil:

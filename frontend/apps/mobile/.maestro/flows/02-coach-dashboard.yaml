@@ -6,6 +6,13 @@
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
+# The KPI row sits below the needs-you cards on a taller phone (PAD-304, Android
+# 2400px emulator); scrolling is a no-op when it is already visible.
+- scrollUntilVisible:
+    element:
+      id: "dashboard-kpi-players"
+    direction: DOWN
+    timeout: 20000
 - extendedWaitUntil:
     visible:
       id: "dashboard-kpi-players"

@@ -47,12 +47,27 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-date"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-date-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-date-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-date-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-date-confirm"
 - assertVisible:
     id: "blocker-date"
     text: ${output.today}
@@ -66,12 +81,27 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-start-time"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-start-time-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-start-time-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-start-time-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-start-time-confirm"
 - assertVisible:
     id: "blocker-start-time"
     text: "18:00"
@@ -84,12 +114,27 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-end-time"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-end-time-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-end-time-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-end-time-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-end-time-confirm"
 - assertVisible:
     id: "blocker-end-time"
     text: "20:00"

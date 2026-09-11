@@ -186,8 +186,14 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
 - **Notification permission.** Android 13+ shows a system dialog at push registration; the
   lane grants `POST_NOTIFICATIONS` with `adb shell pm grant` before the flows, so no flow
   handles it.
-- **Keyboard.** `pressKey: Enter` still dismisses a single-line input; `hideKeyboard` is
-  expected to work on Android (it fails on iOS in this app).
+- **Keyboard.** `pressKey: Enter` still dismisses a single-line input; `hideKeyboard` works on
+  Android (it fails on iOS in this app) — flows use `runFlow: { when: { platform: Android } }`
+  blocks for it (06, 20).
+- **Taps by label text miss on Android.** `tapOn: "<accessibilityLabel>"` found nothing on the
+  emulator (16, 34); every control a flow taps needs a testID (`class-notify-cancel`,
+  `player-back`, `player-remove-cancel` were added, PAD-304).
+- **Platform-conditional steps** (`runFlow: when: platform: Android|iOS`) carry the iOS
+  workarounds (Select percent taps in 12, picker `-confirm` in 13) next to the Android path.
 - **Select portals** are in the Android a11y tree as ordinary views — the iOS workaround
   (percent taps in `12-settings-language`) stays until both are verified.
 - **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by

@@ -39,6 +39,20 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "class-save"
+# The seeded Monday already has a class; when the overlap dialog appears (it did
+# on the Android emulator, PAD-304), proceed by id rather than by label text.
+- extendedWaitUntil:
+    visible:
+      id: "overlap-confirm"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "overlap-confirm"
+    commands:
+      - tapOn:
+          id: "overlap-confirm"
 
 # ── Back on the calendar the new class appears in the Monday list ──
 - extendedWaitUntil:

@@ -53,7 +53,7 @@ concurrency:
 env:
   NODE_VERSION: "24.15.0"
   # The PR smoke list; `.` (nightly / dispatch) is the whole suite — see the flow policy above.
-  MAESTRO_FLOWS_SMOKE: "flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml"
+  MAESTRO_FLOWS_SMOKE: "flows/02-coach-dashboard.yaml flows/03-class-management.yaml flows/05-class-deletion.yaml flows/06-add-player.yaml flows/12-settings-language.yaml flows/13-student-availability.yaml flows/16-class-notify-remind.yaml flows/20-add-player-invite.yaml flows/34-player-removal.yaml"
   # The runner as seen from inside the emulator.
   EMULATOR_HOST_API_URL: "http://10.0.2.2:5001/api"
   APK_PATH: frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
@@ -201,7 +201,7 @@ jobs:
       JWT_SECRET_KEY: e2e-test-secret
       # dispatch input → `.` on the nightly schedule → the PR smoke list.
       # (the `env` context is not available in a job-level env block, so the smoke list is spelled out here too)
-      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml' }}
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/02-coach-dashboard.yaml flows/03-class-management.yaml flows/05-class-deletion.yaml flows/06-add-player.yaml flows/12-settings-language.yaml flows/13-student-availability.yaml flows/16-class-notify-remind.yaml flows/20-add-player-invite.yaml flows/34-player-removal.yaml' }}
     steps:
       - uses: actions/checkout@v4
 

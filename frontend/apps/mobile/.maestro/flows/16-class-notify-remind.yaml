@@ -37,7 +37,9 @@ appId: com.padellevelup.app
     visible:
       id: "class-notify-search"
     timeout: 15000
-- tapOn: "Cancel notify"
+# By id: the accessibilityLabel text "Cancel notify" does not match on Android (PAD-304).
+- tapOn:
+    id: "class-notify-cancel"
 - extendedWaitUntil:
     notVisible:
       id: "class-notify-search"

@@ -63,9 +63,22 @@ appId: com.padellevelup.app
           id: "settings-language-select"
           retryTapIfNoChange: false
       - waitForAnimationToEnd
-      - tapOn:
-          point: "22%,61%"
-          retryTapIfNoChange: false
+      # Android exposes the Select options as ordinary views: tap by id. iOS keeps
+      # the percent tap (the portal is invisible to its a11y tree) — PAD-304.
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - tapOn:
+                id: "settings-language-pt"
+                retryTapIfNoChange: false
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                point: "22%,61%"
+                retryTapIfNoChange: false
       - extendedWaitUntil:
           visible:
             text: "Language preference saved."
@@ -95,9 +108,22 @@ appId: com.padellevelup.app
           id: "settings-language-select"
           retryTapIfNoChange: false
       - waitForAnimationToEnd
-      - tapOn:
-          point: "22%,65%"
-          retryTapIfNoChange: false
+      # Android exposes the Select options as ordinary views: tap by id. iOS keeps
+      # the percent tap (the portal is invisible to its a11y tree) — PAD-304.
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - tapOn:
+                id: "settings-language-en"
+                retryTapIfNoChange: false
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                point: "22%,65%"
+                retryTapIfNoChange: false
       - extendedWaitUntil:
           visible:
             text: "Language preference saved."
