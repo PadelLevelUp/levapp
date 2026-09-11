@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, parseISODate } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, lisbonNow, parseISODate } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -435,7 +435,7 @@ export function ClassDetailSheet({
   // they appear in participants — the serializer only ever returns the viewer's
   // own player for a student, so a non-empty list means "I'm a participant".
   const classStartAt = new Date(`${active.date}T${active.startTime}`);
-  const classStarted = !Number.isNaN(classStartAt.getTime()) && classStartAt.getTime() <= Date.now();
+  const classStarted = !Number.isNaN(classStartAt.getTime()) && classStartAt.getTime() <= lisbonNow().getTime();
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -449,7 +449,7 @@ export function ClassDetailSheet({
   const isLateCancellation =
     !!cancellationDeadline &&
     !Number.isNaN(cancellationDeadline.getTime()) &&
-    Date.now() >= cancellationDeadline.getTime();
+    lisbonNow().getTime() >= cancellationDeadline.getTime();
   // PAD-73: the student's own presence row. The serializer only ever returns the
   // viewer's own presence for a student, so `presences[0]` IS "my presence".
   // Deriving the declined state from it (rather than from local component state)

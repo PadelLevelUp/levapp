@@ -1,3 +1,5 @@
+import { lisbonNow } from "@levelup/config";
+
 /**
  * What an attendance-reminder message offers the student (PAD-151).
  *
@@ -48,7 +50,7 @@ export type ReminderState = {
 export function reminderState(
   metadata: ReminderMetadata | null | undefined,
   localResponse: "accepted" | "declined" | null = null,
-  now: Date = new Date()
+  now: Date = lisbonNow()
 ): ReminderState {
   const alreadyResponded = !!metadata?.responded;
 

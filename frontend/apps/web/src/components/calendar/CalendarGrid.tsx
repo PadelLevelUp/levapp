@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { findNextEventId, groupOverlappingEvents } from '@levelup/config';
-import { format, isToday } from 'date-fns';
+import { findNextEventId, groupOverlappingEvents, isClubToday } from "@levelup/config";
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent, CoachLevel } from '@/types';
 import { CalendarEventCard } from './CalendarEventCard';
@@ -59,7 +59,7 @@ export function CalendarGrid({
   );
 
   const nextEventId = useMemo(
-    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    () => (weekDays.some((d) => isClubToday(d)) ? findNextEventId(events) : undefined),
     [events, weekDays]
   );
 
@@ -235,7 +235,7 @@ export function CalendarGrid({
         {weekDays.map((day) => {
           const dayStr = format(day, 'yyyy-MM-dd');
           const dayEvents = getEventsForDay(day);
-          const dayIsToday = isToday(day);
+          const dayIsToday = isClubToday(day);
           const ghostTime = dropTarget?.day === dayStr ? dropTarget.time : null;
 
           return (

@@ -38,3 +38,52 @@ export function clubTodayUtcDate(now: Date = new Date()): Date {
   const [y, m, d] = clubTodayISO(now).split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
+
+/**
+ * "Now" on the club's clock (PAD-295, B-066): a local `Date` whose fields carry
+ * the Europe/Lisbon wall clock, so it orders correctly against the digits of a
+ * stored class time (`localDateTime`), a reminder's `startsAt`, a
+ * `cancellationDeadline` or a `windowOpenAt` — whatever zone the device is in.
+ * Never compare it with a real instant. Same fallback as `clubTodayISO`.
+ */
+export function lisbonNow(now: Date = new Date()): Date {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: CLUB_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(now);
+    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    const [y, m, d, h, mi, s] = ["year", "month", "day", "hour", "minute", "second"].map(get);
+    if ([y, m, d, h, mi, s].every(Number.isFinite)) {
+      // Some engines print midnight as "24" with hour12: false.
+      return new Date(y, m - 1, d, h === 24 ? 0 : h, mi, s, now.getMilliseconds());
+    }
+  } catch {
+    // no zone data on this runtime: fall through to the UTC wall clock
+  }
+  return new Date(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    now.getUTCSeconds(),
+    now.getMilliseconds()
+  );
+}
+
+/** Whether a local calendar `day` is today on the club's clock. */
+export function isClubToday(day: Date, now: Date = new Date()): boolean {
+  const today = lisbonNow(now);
+  return (
+    day.getFullYear() === today.getFullYear() &&
+    day.getMonth() === today.getMonth() &&
+    day.getDate() === today.getDate()
+  );
+}

@@ -1,9 +1,4 @@
-import {
-  cardSurfaceNative,
-  lightTheme,
-  resolveCardVariant,
-  type CalendarSurfaces,
-} from "@levelup/config";
+import { cardSurfaceNative, lightTheme, lisbonNow, resolveCardVariant, type CalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** Up to three dots per day, in start order — calendar.mobile-views rule 10. */
@@ -18,7 +13,7 @@ export const MAX_DAY_DOTS = 3;
 export function dayDotColors(
   events: CalendarEvent[],
   surfaces: CalendarSurfaces,
-  now: Date = new Date()
+  now: Date = lisbonNow()
 ): string[] {
   return events.slice(0, MAX_DAY_DOTS).map((event) => {
     const { variant } = resolveCardVariant(event, { now });

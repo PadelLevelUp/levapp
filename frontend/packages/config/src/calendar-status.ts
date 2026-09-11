@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "@levelup/types";
+import { lisbonNow } from "./club-date";
 import { darkTheme, lightTheme } from "./tokens";
 
 /**
@@ -367,7 +368,7 @@ export function hasOpenSpots(event: CalendarEvent): boolean {
  */
 export function findNextEventId(
   events: CalendarEvent[],
-  now: Date = new Date()
+  now: Date = lisbonNow()
 ): string | undefined {
   let best: { id: string; start: number } | undefined;
   for (const e of events) {
@@ -384,7 +385,7 @@ export function findNextEventId(
 
 export function resolveEventState(
   event: CalendarEvent,
-  { now = new Date(), isNext = false }: { now?: Date; isNext?: boolean } = {}
+  { now = lisbonNow(), isNext = false }: { now?: Date; isNext?: boolean } = {}
 ): EventVisualState {
   if (event.type === "block") return "block";
   if (event.status === "canceled") return "canceled";

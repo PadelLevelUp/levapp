@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import {
   contrastTextOn,
@@ -392,5 +392,35 @@ describe("withAlpha", () => {
     // callers must default; this asserts the failure is at least detectable.
     expect(withAlpha("hsl(var(--foreground))", 0.5)).toBeUndefined();
     expect(withAlpha(undefined, 0.5)).toBeUndefined();
+  });
+});
+
+/**
+ * PAD-295 / B-066 — calendar.view rule 16, criterion "Past and next are judged on
+ * the club's clock on any device". Stored times are Lisbon wall-clock digits, so
+ * the default `now` must be the club's clock, not the device's. Run under
+ * `TZ=Asia/Tokyo` or `TZ=America/Sao_Paulo` this fails on device-time code and
+ * passes in Lisbon and UTC — exactly the bug.
+ */
+describe("resolveEventState / findNextEventId default to the club's clock (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // 09:00 UTC on 15 July 2027 = 10:00 in Lisbon (summer).
+    vi.setSystemTime(new Date(Date.UTC(2027, 6, 15, 9, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a class starting in 30 Lisbon minutes is upcoming and next, whatever the device zone", () => {
+    const e = event({ id: "soon", date: "2027-07-15", startTime: "10:30", endTime: "11:30" });
+    expect(resolveEventState(e)).toBe("future");
+    expect(findNextEventId([e])).toBe("soon");
+  });
+
+  it("a class that ended 30 Lisbon minutes ago is past, whatever the device zone", () => {
+    const e = event({ id: "done", date: "2027-07-15", startTime: "08:30", endTime: "09:30" });
+    expect(resolveEventState(e)).toBe("past");
+    expect(findNextEventId([e])).toBeUndefined();
   });
 });

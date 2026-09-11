@@ -1,6 +1,6 @@
-import { isInMonth, nativeCalendarSurfaces } from "@levelup/config";
+import { isClubToday, isInMonth, nativeCalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -52,7 +52,7 @@ export function MonthGrid({
           const key = format(day, "yyyy-MM-dd");
           const inMonth = isInMonth(day, monthStart);
           const selected = inMonth && isSameDay(day, selectedDay);
-          const today = inMonth && isToday(day);
+          const today = inMonth && isClubToday(day);
           const events = inMonth ? eventsByDay[key] ?? [] : [];
           const dots = dayDotColors(events, SURFACES);
           return (
