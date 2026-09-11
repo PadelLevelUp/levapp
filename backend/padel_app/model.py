@@ -66,6 +66,14 @@ def _signing_credentials():
     return _SIGNING_CREDENTIALS
 
 
+def _commit_or_flush():
+    """PAD-272: commit, unless a unit of work is open on this thread — then
+    flush, and the unit commits once at its end (tools/unit_of_work.py)."""
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    commit_or_flush()
+
+
 class Model:
 
     _name = None
@@ -99,7 +107,7 @@ class Model:
         if inspect(self).key is not None:
             inspect(self).key = None
         db.session.add(self)
-        db.session.commit()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def add_to_session(self):
@@ -108,14 +116,14 @@ class Model:
 
     def delete(self):
         db.session.delete(self)
-        db.session.commit()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def save(self):
         # PAD-273: this used to stamp LOCAL time (datetime.now()) into a column
         # everything else fills with UTC.
         self.updated_at = datetime.utcnow()
-        db.session.commit()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def logout(self):
