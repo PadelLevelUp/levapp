@@ -21,6 +21,11 @@ jobs:
           sudo docker ps -a
           echo "=== padelapp logs (tail 200) ==="
           sudo docker logs padelapp --tail 200 2>&1 || true
+          echo "=== nightly backup (PAD-296, R-028) ==="
+          cat ~/backup.status 2>/dev/null || echo "no ~/backup.status yet — the backup has never run"
+          tail -n 5 ~/backup.log 2>/dev/null || echo "no ~/backup.log"
+          BUCKET=$(grep -s '^BACKUP_BUCKET=' ~/.backup.env | cut -d= -f2-)
+          if [ -n "$BUCKET" ]; then gsutil ls -l "$BUCKET/padel_app/" 2>&1 | tail -n 3; else echo "no ~/.backup.env — deploy-prod has not run since PAD-296"; fi
           echo "=== postgres activity ==="
           PG=$(sudo docker ps --format '{{.Names}}' | grep -i -m1 'postgres\|db' || true)
           echo "PG container: ${PG:-none}"
