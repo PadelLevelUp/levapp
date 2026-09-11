@@ -22,7 +22,14 @@ test("US-35: coach adds a new player manually", async ({ page }) => {
 
   // Player should appear in the list. With 31 players sorted by name asc and
   // PAGE_SIZE=25, "New E2E Player" lands on page 2 — use search to find them.
+  // PAD-300 (load flake, B-079): the search is debounced and fetched — the
+  // same shape as PAD-148's keyboard spec. Wait for THAT fetch, then assert.
+  const searched = page.waitForResponse(
+    (r) => /\/app\/coach_players/.test(r.url()) && /[?&]search=/.test(r.url()) && r.status() === 200,
+    { timeout: 30_000 }
+  );
   await page.getByPlaceholder(/search/i).first().fill("New E2E Player");
+  await searched;
   await expect(page.getByText("New E2E Player")).toBeVisible({ timeout: 8000 });
 });
 
