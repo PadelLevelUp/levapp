@@ -22,6 +22,7 @@ future ``players.id`` FK cannot silently orphan rows on merge.
 from flask import abort
 from sqlalchemy import func
 
+from padel_app.services.level_service import set_roster_level
 from padel_app.models import (
     Association_CoachPlayer,
     Association_PlayerClub,
@@ -138,8 +139,9 @@ def _merge_coach_relations(placeholder_id, claimant_id):
             rel.player_id = claimant_id
             claimant_rels[rel.coach_id] = rel
             continue
-        if mine.level_id is None:
-            mine.level_id = rel.level_id
+        if mine.level_id is None and rel.level_id is not None:
+            # PAD-270 (B-061): a borrowed level is an assignment; record it.
+            set_roster_level(mine, rel.level_id)
         if mine.side is None:
             mine.side = rel.side
         if not mine.notes:

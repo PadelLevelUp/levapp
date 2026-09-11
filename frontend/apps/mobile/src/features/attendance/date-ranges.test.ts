@@ -104,3 +104,52 @@ describe("isValidCustomRange", () => {
     expect(isValidCustomRange("2026-01-01", "")).toBe(false);
   });
 });
+
+// ── B-060: presets and weeks are computed on the club's day ────────────────
+import * as ranges from "./date-ranges";
+
+describe("presets use the club's day (B-060)", () => {
+  it("1m at 23:30 UTC on 31 July is August: it is already 00:30 in Lisbon", () => {
+    expect(ranges.presetRange("1m", new Date(Date.UTC(2027, 6, 31, 23, 30)))).toEqual({
+      from: "2027-08-01",
+      to: "2027-08-31",
+    });
+  });
+
+  it("1m at 23:30 UTC on 31 January is still January (Lisbon is UTC in winter)", () => {
+    expect(ranges.presetRange("1m", new Date(Date.UTC(2027, 0, 31, 23, 30)))).toEqual({
+      from: "2027-01-01",
+      to: "2027-01-31",
+    });
+  });
+
+  it("1w at 23:30 UTC on Sunday 18 July is the next week: it is Monday in Lisbon", () => {
+    expect(ranges.presetRange("1w", new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
+      from: "2027-07-19",
+      to: "2027-07-25",
+    });
+  });
+});
+
+describe("weekBounds (B-060)", () => {
+  it("is the club's week: 23:30 UTC on Sunday 18 July is Monday 19 July in Lisbon", () => {
+    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
+      from: "2027-07-19",
+      to: "2027-07-25",
+    });
+  });
+
+  it("moves by whole weeks", () => {
+    expect(ranges.weekBounds(-1, new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
+      from: "2027-07-12",
+      to: "2027-07-18",
+    });
+  });
+
+  it("in winter, 23:30 UTC on Sunday 17 January is still that Sunday", () => {
+    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 0, 17, 23, 30)))).toEqual({
+      from: "2027-01-11",
+      to: "2027-01-17",
+    });
+  });
+});

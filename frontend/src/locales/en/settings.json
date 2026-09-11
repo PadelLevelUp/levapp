@@ -391,7 +391,14 @@
       "savedTitle": "Categories saved",
       "savedMock": "{{count}} categories updated (mock).",
       "saved": "{{count}} categories updated.",
-      "saveFailed": "Failed to save categories"
+      "saveFailed": "Failed to save categories",
+      "deleteCategory": "Delete category {{name}}",
+      "deleteConfirmTitle": "Delete \"{{name}}\"?",
+      "deleteImpact": "This deletes {{scores}} scores across {{players}} players. This cannot be undone.",
+      "deleteImpactLoading": "Checking what this category holds…",
+      "deleteImpactFailed": "Could not check what this category holds. Please try again.",
+      "typeNameToConfirm": "Type {{name}} to confirm",
+      "deleted": "Category \"{{name}}\" deleted"
     },
     "engine": {
       "loading": "Loading notification settings…",

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Court } from '@/types';
 import { listCurrentClubCourts } from '@/api/courts';
 import { format, addMonths, addDays, startOfWeek } from 'date-fns';
+import { addMonthsToIsoDate, weekdayOfIsoDate } from '@/lib/dateOnly';
 import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -184,7 +185,7 @@ export function AddClassSheet({
 
   useEffect(() => {
     if (!isRecurring || !date) return;
-    const weekday = new Date(date).getDay();
+    const weekday = weekdayOfIsoDate(date);
     setSelectedDays(prev => prev.includes(weekday) ? prev : [weekday, ...prev]);
   }, [isRecurring, date]);
 
@@ -285,7 +286,7 @@ export function AddClassSheet({
     setUnavailableStudents([]);
 
     const computedEndDate = isRecurring
-      ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
+      ? endDate || addMonthsToIsoDate(date, 1)
       : null;
 
     const data = {

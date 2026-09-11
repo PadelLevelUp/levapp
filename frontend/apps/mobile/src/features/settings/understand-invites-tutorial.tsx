@@ -19,6 +19,7 @@ import type {
 } from "@levelup/types";
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
+import { clubTodayISO } from "@levelup/config";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +49,7 @@ import { cn } from "@/lib/utils";
 const WEEKS_AHEAD = 4;
 
 function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return clubTodayISO(date); // B-060: that instant's date on the club's clock
 }
 
 function isPickableClass(event: CalendarEvent): boolean {

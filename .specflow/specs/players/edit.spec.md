@@ -14,7 +14,8 @@ Coaches update player information, including level, side preference, and persona
 
 ### Rules
 1. Coach can update: name, email, phone, level_id, side. The `side` accepts `left`, `right`, or `both`.
-2. Level changes create a PlayerLevelHistory entry (audit trail)
+2. Level changes create a PlayerLevelHistory entry (audit trail), through the one writer
+   `set_roster_level` (players.level-history rule 1). Before PAD-270 an edit wrote none (B-061).
 3. Only the associated coach can edit their players
 
 ### Acceptance Criteria

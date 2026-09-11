@@ -20,7 +20,7 @@ import {
   createCoachInvitation,
   getCoachClub,
   listCoachInvitations,
-  revokeCoachInvitation,
+  revokeCoachInvitationById,
 } from "@/api/invitations";
 import {
   type ClubJoinRequest,
@@ -57,7 +57,7 @@ export function ClubSection({
   const [invitations, setInvitations] = useState<PendingCoachInvitation[]>([]);
 
   const [creating, setCreating] = useState(false);
-  const [revokingToken, setRevokingToken] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
@@ -154,17 +154,18 @@ export function ClubSection({
     }
   };
 
-  const handleRevoke = async (token: string) => {
+  // clubs.coach-invitation rule 7 (PAD-269): the list carries ids, never tokens.
+  const handleRevoke = async (invitationId: number) => {
     if (!club) return;
-    setRevokingToken(token);
+    setRevokingId(invitationId);
     try {
-      await revokeCoachInvitation(token);
+      await revokeCoachInvitationById(club.id, invitationId);
       await refreshInvitations(club.id);
       toast({ title: t("settings.club.invitationRevoked") });
     } catch {
       toast({ variant: "destructive", title: t("settings.club.revokeFailed") });
     } finally {
-      setRevokingToken(null);
+      setRevokingId(null);
     }
   };
 
@@ -454,7 +455,7 @@ export function ClubSection({
           <div className="space-y-2">
             {invitations.map((inv) => (
               <div
-                key={inv.token}
+                key={inv.id}
                 className="flex items-center justify-between rounded-lg border p-3"
               >
                 <div className="min-w-0">
@@ -468,11 +469,11 @@ export function ClubSection({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleRevoke(inv.token)}
-                  disabled={revokingToken === inv.token}
+                  onClick={() => handleRevoke(inv.id)}
+                  disabled={revokingId === inv.id}
                   aria-label={t("settings.club.revokeInvitation")}
                 >
-                  {revokingToken === inv.token ? (
+                  {revokingId === inv.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <X className="w-4 h-4 mr-1" />

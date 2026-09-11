@@ -98,9 +98,8 @@ def send_expo_push(
                 logger.warning(
                     "Deleting stale Expo device token (DeviceNotRegistered): %s", token
                 )
-                stale = DeviceToken.query.filter_by(token=token).first()
-                if stale:
-                    db.session.delete(stale)
+                # Rule 9 (PAD-269): several users may hold the token; retire it for all.
+                if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
                 logger.warning(

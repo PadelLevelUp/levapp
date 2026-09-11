@@ -17,6 +17,19 @@ def _is_claimable_user(user):
     )
 
 
+def _is_placeholder_user(user):
+    """players.remove rule 5 (PAD-274): never activated and no password, whatever
+    the username. Such a record has no account anyone can log into."""
+    return bool(user is not None and user.password is None and user.status == "inactive")
+
+
+def _is_deletable_by_coach(player):
+    """players.remove rule 5: a placeholder that no other coach has. The coach
+    count is read only for placeholders, so listing a roster adds no query per
+    student with an account."""
+    return bool(player is not None and _is_placeholder_user(player.user) and len(player.coaches_relations) <= 1)
+
+
 class Player(db.Model, model.Model):
     __tablename__ = "players"
     __table_args__ = {"extend_existing": True}
@@ -38,6 +51,7 @@ class Player(db.Model, model.Model):
         "Association_PlayerLesson",
         back_populates="player",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     @property
@@ -52,12 +66,14 @@ class Player(db.Model, model.Model):
         "Presence",
         back_populates="player",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     lesson_instances_relations = relationship(
         "Association_PlayerLessonInstance",
         back_populates="player",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -65,7 +81,8 @@ class Player(db.Model, model.Model):
         return [rel.lesson_instance for rel in self.lesson_instances_relations]
 
     clubs_relations = relationship(
-        "Association_PlayerClub", back_populates="player", cascade="all, delete-orphan"
+        "Association_PlayerClub", back_populates="player", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -73,7 +90,8 @@ class Player(db.Model, model.Model):
         return [rel.club for rel in self.clubs_relations]
 
     coaches_relations = relationship(
-        "Association_CoachPlayer", back_populates="player", cascade="all, delete-orphan"
+        "Association_CoachPlayer", back_populates="player", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     @property
@@ -85,14 +103,9 @@ class Player(db.Model, model.Model):
         "PlayerLevelHistory", 
         back_populates="player", 
         cascade="all, delete-orphan",
-        order_by="desc(PlayerLevelHistory.assigned_at)"
+        order_by="desc(PlayerLevelHistory.assigned_at)",
+        passive_deletes=True,
     )
-    
-    @property
-    def level(self):
-        if self.level_history:
-            return self.level_history[0]
-        return None
 
     def __repr__(self):
         return f"<Player {self.name}>"
@@ -188,4 +201,7 @@ class Player(db.Model, model.Model):
             # PAD-213: a never-activated placeholder the coach may link to an
             # existing account (players.claim rule 1).
             "claimable": _is_claimable_user(self.user),
+            # players.remove rule 5 (PAD-274): whether this coach may delete the
+            # record; otherwise the apps offer Disconnect.
+            "deletable": _is_deletable_by_coach(self),
         }

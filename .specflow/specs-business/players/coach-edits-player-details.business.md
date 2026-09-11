@@ -25,17 +25,24 @@ that player.
    preference (left, right, or both — "both" meaning the player can fill either side).
 2. If the level changed, that change is captured in the player's level history automatically, the same
    as any other level assignment (see `levels.coach-defines-and-assigns-skill-ladder`).
-3. If a student stops training with this coach, the coach removes them from their roster.
-4. Removing a player only ends this coach's relationship with them — the student's account, and any
-   relationship they have with other coaches, is untouched.
+3. If a student stops training with this coach, the coach disconnects from them. The confirmation
+   says what goes with the link: this coach's notes and evaluations of the student.
+4. Disconnecting only ends this coach's relationship with them — the student's account, their
+   attendance and level history, and any relationship they have with other coaches are untouched.
+5. A player who never activated and never set a password (a placeholder, with no account) can be
+   deleted outright instead. That is the only delete a coach has.
 
 ## Business Rules
 
 - Only the coach associated with a player may edit or remove that player.
 - Editing a player's level always produces a level-history entry — there's no way to change a level
   quietly, off the record.
-- Removing a player deletes the coach-student association only; the underlying account and person
-  always survive, and can still belong to other coaches.
+- A coach can never delete a student who has an account. Taking such a student off the roster is a
+  disconnect: it deletes the coach-student association and that coach's own notes and evaluations
+  only; the account, attendance and level history always survive, and can still belong to other
+  coaches. There is no exception for a student's only coach.
+- A coach may delete a placeholder (never activated, no password), and only if no other coach has it.
+- Every disconnect and every delete is recorded: who did it, to whom, and what went with it.
 
 ## Success Metrics
 
