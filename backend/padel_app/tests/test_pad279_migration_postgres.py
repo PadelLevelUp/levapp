@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
     reason="walks the real Alembic revision; Postgres backend only",
 )
 
-PARENT = "501dcb2c12f5"
+PARENT = "95bfee084ad1"  # batch 3 head
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "migrations")
 
 OLD_ROWS = [

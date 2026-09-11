@@ -1,11 +1,11 @@
 """PAD-279 (audit M21): typed NotificationConfig columns, app_settings table, legacy rounds gone
 
 Revision ID: 390bf6e8be12
-Revises: 501dcb2c12f5
+Revises: 95bfee084ad1
 Create Date: 2026-09-11
 
-HELD until batch 3 lands; the coordinator re-points ``down_revision`` to the
-chain id it sends (expected 95bfee084ad1) before this can merge.
+Chained after batch 3's head 95bfee084ad1 (coordinator, 2026-09-11); batch 4's
+chain is 95bfee084ad1 <- 390bf6e8be12, a single head.
 
 What it does, in order, every step guarded so the revision is idempotent and
 safe on a prod-shaped database (staging is a copy of prod, PAD-200/220):
@@ -44,7 +44,7 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "390bf6e8be12"
-down_revision = "501dcb2c12f5"
+down_revision = "95bfee084ad1"
 branch_labels = None
 depends_on = None
 
