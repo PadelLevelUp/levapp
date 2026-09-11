@@ -9,6 +9,11 @@ import { ReplacementApprovalCard } from '@/components/notifications/ReplacementA
 import { respondToNotification, respondToReminder, cancelAttendance, respondToWaitingList } from '@/api/notificationEngine';
 import { toast } from 'sonner';
 import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@levelup/hooks';
+import { classRequestBubbleState } from '@levelup/config';
+import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -68,6 +73,47 @@ export function MessageBubble({
   const approvalBundle = isReplacementApproval
     ? (message.metadata as unknown as ApprovalBundle | undefined)
     : undefined;
+
+  // classes.class-requests rule 6 (PAD-281, B-077): the coach's proposal is a
+  // question in chat, so its answers live on this bubble. What it offers is
+  // derived from the request's LIVE row (the request moves on; the bubble does
+  // not), which is why the list is fetched here and refreshed by
+  // `class_request_changed` in AppLayout. A stale answer gets the server's 409
+  // and the bubble re-reads — never an error page.
+  // `proposed` is the coach's proposal (the student answers); `counter_proposal` is
+  // the student's counter-proposal (the coach answers, rule 10).
+  const classRequestMeta = message.metadata?.classRequest;
+  const isClassRequestProposal = classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
+  const studentAnswers = classRequestMeta?.kind === "proposed";
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const liveRequests = useQuery({
+    queryKey: queryKeys.classRequests,
+    queryFn: listClassRequests,
+    enabled: isClassRequestProposal,
+  });
+  const liveRequest = liveRequests.data === undefined
+    ? undefined
+    : (liveRequests.data.find((r) => r.id === classRequestMeta?.id) ?? null);
+  const classRequestState = classRequestBubbleState(classRequestMeta, liveRequest, { own: isMine });
+
+  const handleAnswerProposal = async (accept: boolean) => {
+    if (!classRequestMeta || responding) return;
+    setResponding(true);
+    try {
+      // The slot the bubble shows travels with the answer (rule 5): a stale bubble gets 409 slot_changed.
+      if (studentAnswers) await answerClassRequestProposal(classRequestMeta.id, accept, classRequestMeta.slot);
+      else if (accept) await acceptClassRequest(classRequestMeta.id, classRequestMeta.slot);
+      else await declineClassRequest(classRequestMeta.id);
+      toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
+    } catch (err) {
+      const refusal = classRequestRefusal(err);
+      toast.error(refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
+    } finally {
+      setResponding(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+    }
+  };
 
   const handleRespond = async (action: "yes" | "no") => {
     const eventId = message.metadata?.notificationEventId;
@@ -493,6 +539,66 @@ export function MessageBubble({
             </div>
           );
         })()}
+
+        {/* Class-request proposal (classes.class-requests rule 6, PAD-281). The
+            student answers here — accept, decline, or go and pick another time;
+            the coach sees their proposal waiting; a decided or superseded one
+            shows where it ended up. */}
+        {isClassRequestProposal && classRequestState.kind !== "none" && classRequestMeta && (
+          <div
+            className="flex flex-wrap gap-2 mt-1.5 ml-1"
+            data-testid="class-request-proposal-actions"
+            data-state={classRequestState.kind}
+            data-request-id={classRequestMeta.id}
+          >
+            {classRequestState.kind === "actions" ? (
+              <>
+                <button
+                  onClick={() => handleAnswerProposal(true)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-accept"
+                >
+                  {responding ? "…" : t("classRequests.bubble.accept")}
+                </button>
+                <button
+                  onClick={() => handleAnswerProposal(false)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-decline"
+                >
+                  {t("classRequests.bubble.decline")}
+                </button>
+                <button
+                  onClick={() => navigate(`${studentAnswers ? "/availability" : "/class-requests"}?proposeFor=${classRequestMeta.id}`)}
+                  disabled={responding}
+                  className="w-full py-1.5 px-3 text-sm font-medium rounded-xl border border-border bg-background text-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-propose"
+                >
+                  {t("classRequests.bubble.propose")}
+                </button>
+              </>
+            ) : classRequestState.kind === "waiting" ? (
+              <span className="text-xs text-muted-foreground italic">
+                {t(studentAnswers ? "classRequests.bubble.waiting" : "classRequests.bubble.outcome.pending")}
+              </span>
+            ) : classRequestState.kind === "superseded" ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70">
+                <Clock className="w-3.5 h-3.5" />
+                {t("classRequests.bubble.superseded")}
+              </span>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full ${
+                  classRequestState.status === "accepted" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {classRequestState.status === "accepted" ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                {t(`classRequests.bubble.outcome.${classRequestState.status ?? "pending"}`)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (

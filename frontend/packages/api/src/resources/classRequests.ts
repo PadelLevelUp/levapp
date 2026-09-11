@@ -25,9 +25,12 @@ export async function listClassRequestCoaches(): Promise<ClassRequestCoach[]> {
   return res.data;
 }
 
-/** Rule 1: the coach's free blocks between two ISO datetimes. */
-export async function getFreeBlocks(coachId: string, from: string, to: string): Promise<FreeBlock[]> {
-  const res = await getApi().get("/app/class-requests/free-blocks", { params: { coachId, from, to } });
+/** Rule 1: the coach's free blocks between two ISO datetimes. Rule 10: pass the
+ * student's own request id to leave its hold out of the busy time. */
+export async function getFreeBlocks(coachId: string, from: string, to: string, excludeRequestId?: number): Promise<FreeBlock[]> {
+  const params: Record<string, string | number> = { coachId, from, to };
+  if (excludeRequestId != null) params.excludeRequestId = excludeRequestId;
+  const res = await getApi().get("/app/class-requests/free-blocks", { params });
   return res.data;
 }
 
@@ -43,8 +46,10 @@ export async function withdrawClassRequest(id: number): Promise<ClassRequest> {
   return res.data;
 }
 
-export async function acceptClassRequest(id: number): Promise<ClassRequest> {
-  const res = await getApi().post(`/app/class-requests/${id}/accept`);
+/** Rule 5: `slot` is the slot the caller is looking at; the server refuses (409 slot_changed)
+ * when it is no longer the one on the table, so a stale bubble never books an unseen time. */
+export async function acceptClassRequest(id: number, slot?: ClassRequestSlot): Promise<ClassRequest> {
+  const res = await getApi().post(`/app/class-requests/${id}/accept`, slot ? { slot } : {});
   return res.data;
 }
 
@@ -59,9 +64,15 @@ export async function proposeClassRequest(id: number, slot: ClassRequestSlot): P
   return res.data;
 }
 
-/** Rule 5: the student answers the proposal. */
-export async function answerClassRequestProposal(id: number, accept: boolean): Promise<ClassRequest> {
-  const res = await getApi().post(`/app/class-requests/${id}/${accept ? "accept-proposal" : "decline-proposal"}`);
+/** Rule 5: the student answers the proposal; `slot` is the one they are looking at (see acceptClassRequest). */
+export async function answerClassRequestProposal(id: number, accept: boolean, slot?: ClassRequestSlot): Promise<ClassRequest> {
+  const res = await getApi().post(`/app/class-requests/${id}/${accept ? "accept-proposal" : "decline-proposal"}`, slot ? { slot } : {});
+  return res.data;
+}
+
+/** Rule 10 (PAD-281): the student proposes another time; the request is `pending` again. */
+export async function counterProposeClassRequest(id: number, slot: ClassRequestSlot): Promise<ClassRequest> {
+  const res = await getApi().post(`/app/class-requests/${id}/counter-proposal`, slot);
   return res.data;
 }
 
@@ -71,6 +82,7 @@ export type ClassRequestRefusalCode =
   | "not_open"
   | "not_pending"
   | "not_countered"
+  | "slot_changed"
   | "NO_CLUB";
 
 /** The `409 {code, …}` body of a refused request/decision, or null. */

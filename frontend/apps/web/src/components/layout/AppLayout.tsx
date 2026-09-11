@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@levelup/hooks";
 import {
   Calendar,
   CalendarOff,
@@ -175,6 +177,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     user?.username?.slice(0, 2).toUpperCase() ??
     "U";
 
+  const queryClient = useQueryClient();
+
   useEffect(() => {
     void refreshUnreadCount().catch((e) => {
       console.warn("refreshUnreadCount failed", e);
@@ -192,8 +196,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       if (data.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
         void refreshUnreadCount();
       }
+      // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
+      // Availability section render off the request's live row.
+      if (data.type === "class_request_changed") {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      }
     });
-  }, [refreshUnreadCount, token]);
+  }, [refreshUnreadCount, token, queryClient]);
   
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">

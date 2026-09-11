@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
@@ -98,7 +98,13 @@ export default function SettingsScreen() {
   const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
   const isSuperAdmin = (me ?? user)?.isSuperAdmin === true;
 
-  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(null);
+  // PAD-281: the chat bubble's "Propose another time" on a student's
+  // counter-proposal opens the coach's class-requests pane on that request.
+  const params = useLocalSearchParams<{ section?: string; proposeFor?: string }>();
+  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(
+    params.section === "classRequests" ? "classRequests" : null
+  );
+  const proposeFor = params.proposeFor ? Number(params.proposeFor) : null;
 
   // Web's drill-in resets because navigating away unmounts SettingsPage.
   // Popping this screen off the stack unmounts it too, so the reset is
@@ -127,7 +133,7 @@ export default function SettingsScreen() {
       case "notifications":
         return <AutoInviteSection />;
       case "classRequests":
-        return <ClassRequestsSection role="coach" />;
+        return <ClassRequestsSection role="coach" proposeFor={proposeFor} />;
       case "connections":
         return <ConnectionsSection />;
       case "myNotifications":

@@ -1,7 +1,8 @@
 /**
  * classes.class-requests (PAD-104) — mirrors web's ClassRequestsSection:
  * student books a class in the coach's free time and manages their own
- * requests; coach accepts / declines / proposes another time.
+ * requests (withdraw, or answer a proposal: accept / decline / propose another
+ * time — rule 10, PAD-281); coach accepts / declines / proposes another time.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -37,7 +38,14 @@ function statusVariant(status: ClassRequest["status"]): "default" | "secondary" 
   return "secondary";
 }
 
-export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
+export function ClassRequestsSection({
+  role,
+  proposeFor,
+}: {
+  role: "student" | "coach";
+  /** Rule 10: open the "propose another time" picker on this request (from the chat bubble). */
+  proposeFor?: number | null;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const requests = useQuery({ queryKey: queryKeys.classRequests, queryFn: classRequestsApi.listClassRequests });
@@ -51,6 +59,18 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [note, setNote] = React.useState("");
   const [proposingId, setProposingId] = React.useState<number | null>(null);
   const [proposal, setProposal] = React.useState({ date: "", startTime: "10:00", endTime: "11:00" });
+  const [counteringId, setCounteringId] = React.useState<number | null>(null);
+  // From the chat bubble's "Propose another time": the student's picker on a
+  // countered request, the coach's form on a pending one.
+  React.useEffect(() => {
+    if (proposeFor == null || !requests.data) return;
+    const row = requests.data.find((r) => r.id === proposeFor);
+    if (row && role === "student" && row.status === "countered") setCounteringId(proposeFor);
+    if (row && role === "coach" && row.status === "pending") {
+      setProposingId(proposeFor);
+      setProposal({ date: row.date, startTime: row.startTime, endTime: row.endTime });
+    }
+  }, [proposeFor, role, requests.data]);
 
   const coaches = useQuery({
     queryKey: queryKeys.classRequestCoaches,
@@ -107,6 +127,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     onSuccess: (_data, vars) => {
       toast.success(t(vars.okKey));
       setProposingId(null);
+      setCounteringId(null);
     },
     onError: (err) => toast.error(refusalText(err, t("classRequests.decideFailed"))),
     onSettled: () => invalidate(),
@@ -122,7 +143,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
     const busy = act.isPending;
     return (
-      <View key={r.id} className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-request-row">
+      <View key={r.id} className="gap-2 rounded-lg border border-border bg-card p-3" testID={`class-request-row-${r.status}`}>
         <View className="flex-row items-start justify-between gap-2">
           <View className="min-w-0 flex-1">
             <Text className="font-medium">
@@ -137,14 +158,24 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
         </View>
 
         {role === "student" && r.status === "countered" ? (
-          <View className="flex-row gap-2">
+          <View className="flex-row flex-wrap gap-2">
             <Button size="sm" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.answerClassRequestProposal(r.id, true), okKey: "classRequests.accepted" })} testID="class-request-accept-proposal">
               <Text>{t("classRequests.acceptProposal")}</Text>
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.answerClassRequestProposal(r.id, false), okKey: "classRequests.answered" })}>
+            <Button size="sm" variant="outline" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.answerClassRequestProposal(r.id, false), okKey: "classRequests.answered" })} testID="class-request-decline-proposal">
               <Text>{t("classRequests.declineProposal")}</Text>
             </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onPress={() => setCounteringId(counteringId === r.id ? null : r.id)} testID="class-request-counter">
+              <Text>{t("classRequests.propose")}</Text>
+            </Button>
           </View>
+        ) : null}
+        {role === "student" && r.status === "countered" && counteringId === r.id ? (
+          <CounterProposalPicker
+            request={r}
+            busy={busy}
+            onSend={(s) => act.mutate({ fn: () => classRequestsApi.counterProposeClassRequest(r.id, s), okKey: "classRequests.counterProposed" })}
+          />
         ) : null}
         {role === "student" && OPEN.has(r.status) ? (
           <Button size="sm" variant="ghost" disabled={busy} onPress={() => act.mutate({ fn: () => classRequestsApi.withdrawClassRequest(r.id), okKey: "classRequests.withdrawn" })} testID="class-request-withdraw">
@@ -323,5 +354,88 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+
+/**
+ * Rule 10 (PAD-281) — mirrors web's CounterProposalPicker: the student picks
+ * another time for a countered request from the coach's free blocks, with the
+ * request's own hold left out of the busy time.
+ */
+function CounterProposalPicker({
+  request,
+  busy,
+  onSend,
+}: {
+  request: ClassRequest;
+  busy: boolean;
+  onSend: (slot: { date: string; startTime: string; endTime: string }) => void;
+}) {
+  const { t } = useTranslation();
+  const [date, setDate] = React.useState(request.date);
+  const initialLen = React.useMemo(() => {
+    const [sh, sm] = request.startTime.split(":").map(Number);
+    const [eh, em] = request.endTime.split(":").map(Number);
+    const len = eh * 60 + em - (sh * 60 + sm);
+    return (CLASS_REQUEST_DURATIONS as readonly number[]).includes(len) ? len : 60;
+  }, [request.startTime, request.endTime]);
+  const [duration, setDuration] = React.useState<Option>({ value: String(initialLen), label: t("classRequests.minutes", { count: initialLen }) });
+  const [slot, setSlot] = React.useState<{ startTime: string; endTime: string } | null>(null);
+  const durationMin = Number(duration?.value ?? 60);
+  const blocks = useQuery({
+    queryKey: queryKeys.classRequestFreeBlocks(request.coachId, date, request.id),
+    queryFn: () => classRequestsApi.getFreeBlocks(request.coachId, `${date}T00:00:00`, `${date}T23:59:00`, request.id),
+    enabled: !!date,
+  });
+  React.useEffect(() => setSlot(null), [date, durationMin]);
+  const starts = React.useMemo(
+    () => (blocks.data ?? []).flatMap((b) => slotOptions(b, durationMin)),
+    [blocks.data, durationMin]
+  );
+
+  return (
+    <View className="gap-3 rounded-md bg-muted/40 p-3" testID="class-request-counter-form">
+      <Label>{t("classRequests.pickAnotherTime")}</Label>
+      <DatePickerInput testID="class-request-counter-date" label={t("classRequests.date")} value={date} onChange={setDate} />
+      <View className="gap-2">
+        <Label>{t("classRequests.duration")}</Label>
+        <Select value={duration} onValueChange={setDuration}>
+          <SelectTrigger accessibilityLabel={t("classRequests.duration")}>
+            <SelectValue placeholder={t("classRequests.duration")} />
+          </SelectTrigger>
+          <SelectContent>
+            {CLASS_REQUEST_DURATIONS.map((d) => (
+              <SelectItem key={d} value={String(d)} label={t("classRequests.minutes", { count: d })} />
+            ))}
+          </SelectContent>
+        </Select>
+      </View>
+      {blocks.data && blocks.data.length === 0 ? (
+        <Text className="text-sm text-muted-foreground">{t("classRequests.noFreeBlocks")}</Text>
+      ) : null}
+      {starts.length > 0 ? (
+        <View className="flex-row flex-wrap gap-1.5" testID="class-request-counter-slots">
+          {starts.map((s) => {
+            const selected = slot?.startTime === s.startTime;
+            return (
+              <Pressable
+                key={s.startTime}
+                onPress={() => setSlot(s)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                className={cn("rounded-full border px-3 py-1.5", selected ? "border-primary bg-primary" : "border-border bg-background")}
+                testID="class-request-counter-slot"
+              >
+                <Text className={cn("text-sm", selected && "text-primary-foreground")}>{s.startTime}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      <Button size="sm" disabled={busy || !slot} onPress={() => slot && onSend({ date, ...slot })} testID="class-request-counter-send">
+        <Text>{t("classRequests.proposeSend")}</Text>
+      </Button>
+    </View>
   );
 }
