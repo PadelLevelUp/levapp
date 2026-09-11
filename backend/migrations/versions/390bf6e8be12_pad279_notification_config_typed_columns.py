@@ -167,8 +167,18 @@ def _int(value, default, name, problems):
 
 
 def _bool(value, default, name, problems):
+    """A boolean the old code read by truthiness: accept the shapes an older
+    client or a hand edit may have stored (0/1, "true"/"false"), refuse the rest."""
     if isinstance(value, bool):
         return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("true", "1", "yes", "on"):
+            return True
+        if lowered in ("false", "0", "no", "off", ""):
+            return False
     problems.append(f"{name}: not a boolean ({value!r})")
     return default
 
@@ -191,28 +201,39 @@ def typed_from_json(reminder_timing, invitation_start_timing, restrictions):
     first = None
     invitation = None
     if isinstance(rt, dict):
+        # The old getters read these keys off the dict whatever its shape.
+        if "reminderCount" in rt:
+            values["reminder_count"] = max(
+                1, _int(rt.get("reminderCount"), 1, "reminder_timing.reminderCount", problems)
+            )
+        if "hoursBetweenReminders" in rt:
+            try:
+                hours = float(rt.get("hoursBetweenReminders"))
+                values["hours_between_reminders"] = hours if hours > 0 else 24.0
+            except (TypeError, ValueError):
+                problems.append("reminder_timing.hoursBetweenReminders: not a number")
+        if "invitationStart" in rt:
+            invitation = rt.get("invitationStart")
         if "firstReminder" in rt:
             first = rt.get("firstReminder")
-            if "reminderCount" in rt:
-                values["reminder_count"] = max(
-                    1, _int(rt.get("reminderCount"), 1, "reminder_timing.reminderCount", problems)
-                )
-            if "hoursBetweenReminders" in rt:
-                try:
-                    hours = float(rt.get("hoursBetweenReminders"))
-                    values["hours_between_reminders"] = hours if hours > 0 else 24.0
-                except (TypeError, ValueError):
-                    problems.append("reminder_timing.hoursBetweenReminders: not a number")
-            if "invitationStart" in rt:
-                invitation = rt.get("invitationStart")
         elif "type" in rt:
             first = rt  # flat legacy shape
+        else:
+            # Neither shape: the old getter returned this dict itself, the
+            # scheduler found no `type` and fired NOTHING. Keep that — it is the
+            # one shape whose backfill would change what students receive —
+            # as the explicit `none` timing (coordinator decision, PR #208).
+            first = {"type": "none"}
+            problems.append("reminder_timing: no firstReminder/type — kept as no reminder (type 'none')")
     elif rt is not None:
         problems.append("reminder_timing: not an object")
 
-    (values["reminder_type"], values["reminder_value"], values["reminder_time"]) = _timing(
-        first, DEFAULT_REMINDER, "reminder_timing.firstReminder", problems
-    )
+    if isinstance(first, dict) and first.get("type") == "none":
+        values["reminder_type"], values["reminder_value"], values["reminder_time"] = "none", DEFAULT_REMINDER[1], None
+    else:
+        (values["reminder_type"], values["reminder_value"], values["reminder_time"]) = _timing(
+            first, DEFAULT_REMINDER, "reminder_timing.firstReminder", problems
+        )
     if invitation is None:
         invitation = ist
     (values["invitation_start_type"], values["invitation_start_value"],
@@ -278,6 +299,8 @@ def json_from_typed(row) -> dict:
     def timing(t, value, time_str):
         if t == "hours_before":
             return {"type": t, "value": value}
+        if t == "none":
+            return {"type": "none"}
         return {"type": t, "days": value, "time": time_str or "09:00"}
 
     reminder_timing = {
@@ -374,7 +397,8 @@ def upgrade():
                     row["id"], "; ".join(problems),
                 )
             bind.execute(stmt, {"id": row["id"], **values})
-        log.info("PAD-279 backfill: %d rows, %d with unreadable parts", len(rows), problem_rows)
+        summary = "PAD-279 backfill: %d rows, %d with unreadable parts (see the warnings above)"
+        (log.warning if problem_rows else log.info)(summary, len(rows), problem_rows)
 
     # 4. drop the blobs
     existing = _columns(TABLE)

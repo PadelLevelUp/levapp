@@ -80,7 +80,13 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    waves `rounds` fell back to, so nobody's invitations change. The one-off migration backfills
    every row from its old JSON; a row whose blob does not parse or carries a wrong type keeps the
    column defaults for the unreadable part (the value the old getter returned for it), is logged,
-   and is never skipped or failed.
+   and is never skipped or failed. A stored `reminder_timing` with neither `firstReminder` nor
+   `type` is a timing the scheduler could never fire; it is kept as **no reminder** (`reminder_type =
+   "none"`, which the scheduler still schedules nothing for — the only shape whose backfill would
+   otherwise change what students receive) and is logged, while any `reminderCount` /
+   `hoursBetweenReminders` / `invitationStart` it does carry are kept. The coach turns reminders on
+   by picking a timing in Settings, as before. Booleans stored as `0`/`1` or `"true"`/`"false"` by an older client are read the
+   way the old truthiness check read them, not reset to the default.
 
 ### Acceptance Criteria
 
@@ -119,3 +125,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Given** a coach whose `invitation_groups` is `[]`
 - **When** a vacancy opens
 - **Then** the engine runs the three built-in groups in order, exactly the waves the removed `rounds` fallback produced
+
+#### A timing the scheduler could not fire becomes the default, its counts survive (PAD-279)
+- **Given** a coach whose stored `reminder_timing` is `{"reminderCount": 2, "hoursBetweenReminders": 6}` (no `firstReminder`, no `type`) and whose `restrictions` carry `"enabled": 1` and `"enabled": "false"` values
+- **When** the migration runs
+- **Then** the row still sends no reminder (`reminder_type = "none"`, the scheduler creates no reminder job), is logged with its id, and `reminderCount` is 2 and `hoursBetweenReminders` is 6
+- **And** the `1` reads as enabled and the `"false"` as disabled

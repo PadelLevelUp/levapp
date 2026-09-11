@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, JSON, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -145,6 +145,18 @@ def _int_or(value, default):
         return default
 
 
+def _bool_or(value, default):
+    """Booleans the way the old restrictions blob was read (by truthiness), but
+    with the string spellings an older client may send handled explicitly."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return bool(default)
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return bool(value)
+
+
 def _hours_or(value, default, *, minimum):
     try:
         hours = float(value)
@@ -156,6 +168,10 @@ def _hours_or(value, default, *, minimum):
 def _compose_timing(t, value, time_str):
     if t == "hours_before":
         return {"type": t, "value": value}
+    if t == "none":
+        # PAD-279 backfill of a timing the scheduler could never fire: still
+        # fires nothing (`scheduler._fire_time_utc` schedules no job for it).
+        return {"type": "none"}
     return {"type": t, "days": value, "time": time_str or "09:00"}
 
 
@@ -166,6 +182,8 @@ def _decompose_timing(data, default):
     if not isinstance(data, dict):
         data = default
     t = data.get("type")
+    if t == "none":
+        return "none", default.get("value", 24), None
     if t == "hours_before":
         return t, _int_or(data.get("value"), default.get("value", 24)), None
     if t in ("days_before", "days_before_at_time"):
@@ -214,19 +232,19 @@ class NotificationConfig(db.Model, model.Model):
     cancellation_deadline_hours = Column(Float, nullable=False, default=24.0, server_default="24")
     # Restrictions (rule 6); the wire keys are unchanged, including
     # excludeUnpaidSubscription -> exclude_inactive_accounts (rule 7c, PAD-132).
-    max_simultaneous_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    max_simultaneous_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     max_simultaneous_value = Column(Integer, nullable=False, default=3, server_default="3")
-    max_total_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    max_total_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     max_total_value = Column(Integer, nullable=False, default=10, server_default="10")
-    min_time_before_class_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    min_time_before_class_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     min_time_before_class_value = Column(Integer, nullable=False, default=30, server_default="30")
-    max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     max_invites_per_student_per_day_value = Column(Integer, nullable=False, default=3, server_default="3")
-    quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
-    max_inactive_time_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    max_inactive_time_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     max_inactive_time_value = Column(Integer, nullable=False, default=120, server_default="120")
-    exclude_inactive_accounts = Column(Boolean, nullable=False, default=False, server_default="false")
-    excluded_players_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    exclude_inactive_accounts = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    excluded_players_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     # List-shaped settings stay JSON, stamped by schema_version (1 today).
     schema_version = Column(Integer, nullable=False, default=1, server_default="1")
@@ -317,15 +335,15 @@ class NotificationConfig(db.Model, model.Model):
         for key, enabled_col, value_col in self._RESTRICTION_PAIRS:
             sub = data.get(key)
             sub = sub if isinstance(sub, dict) else {}
-            setattr(self, enabled_col, bool(sub.get("enabled", DEFAULT_RESTRICTIONS[key]["enabled"])))
+            setattr(self, enabled_col, _bool_or(sub.get("enabled"), DEFAULT_RESTRICTIONS[key]["enabled"]))
             setattr(self, value_col, _int_or(sub.get("value"), DEFAULT_RESTRICTIONS[key]["value"]))
         quiet = data.get("quietHours")
-        self.quiet_hours_enabled = bool(quiet.get("enabled", False)) if isinstance(quiet, dict) else False
+        self.quiet_hours_enabled = _bool_or(quiet.get("enabled"), False) if isinstance(quiet, dict) else False
         excl = data.get("excludeUnpaidSubscription")
-        self.exclude_inactive_accounts = bool(excl.get("enabled", False)) if isinstance(excl, dict) else False
+        self.exclude_inactive_accounts = _bool_or(excl.get("enabled"), False) if isinstance(excl, dict) else False
         players = data.get("excludedPlayers")
         players = players if isinstance(players, dict) else {}
-        self.excluded_players_enabled = bool(players.get("enabled", False))
+        self.excluded_players_enabled = _bool_or(players.get("enabled"), False)
         ids = players.get("playerIds")
         self.excluded_player_ids = [str(i) for i in ids if i is not None] if isinstance(ids, list) else []
         self.cancellation_deadline_hours = _hours_or(

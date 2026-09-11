@@ -14,6 +14,7 @@ Three things are pinned here:
 import importlib.util
 import json
 import pathlib
+from datetime import datetime
 
 import pytest
 from flask_jwt_extended import create_access_token
@@ -278,3 +279,54 @@ def test_backfill_keeps_defaults_for_a_blob_that_does_not_parse():
     assert values["max_total_enabled"] is True
     assert len(problems) >= 3
     assert any("reminder_timing" in p for p in problems)
+
+
+def test_backfill_keeps_the_counts_of_a_timing_the_scheduler_could_not_fire_and_reads_loose_booleans():
+    """Review findings 1 and 2 on PR #208: the degenerate dict is logged, not silent,
+    and its counts survive; 0/1 and "true"/"false" booleans are read, not reset."""
+    mod = _migration()
+    values, problems = mod.typed_from_json(
+        reminder_timing=json.dumps({"reminderCount": 2, "hoursBetweenReminders": 6}),
+        invitation_start_timing=None,
+        restrictions=json.dumps({
+            "maxSimultaneous": {"enabled": 1, "value": 5},
+            "maxTotal": {"enabled": "false", "value": 10},
+            "quietHours": {"enabled": "TRUE"},
+            "excludeUnpaidSubscription": {"enabled": 0},
+        }),
+    )
+    assert values["reminder_type"] == "none"  # fired nothing before, fires nothing after
+    assert values["reminder_count"] == 2 and values["hours_between_reminders"] == 6
+    assert any("no firstReminder/type" in p for p in problems)
+    assert values["max_simultaneous_enabled"] is True and values["max_simultaneous_value"] == 5
+    assert values["max_total_enabled"] is False
+    assert values["quiet_hours_enabled"] is True
+    assert values["exclude_inactive_accounts"] is False
+    assert not any("enabled" in p for p in problems)
+
+
+def test_the_restrictions_setter_reads_loose_booleans_too(app):
+    from padel_app.models.notification_config import NotificationConfig
+
+    with app.app_context():
+        cfg = NotificationConfig(coach_id=1, restrictions={
+            "maxSimultaneous": {"enabled": "false", "value": 3},
+            "quietHours": {"enabled": 1},
+        })
+        assert cfg.max_simultaneous_enabled is False
+        assert cfg.quiet_hours_enabled is True
+
+
+def test_a_none_reminder_timing_reads_back_as_none_and_schedules_nothing(app):
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.scheduler import _fire_time_utc
+
+    with app.app_context():
+        cfg = NotificationConfig(coach_id=1)
+        cfg.reminder_type = "none"
+        assert cfg.get_reminder_timing() == {"type": "none"}
+        assert cfg.reminder_timing["firstReminder"] == {"type": "none"}
+        assert _fire_time_utc(datetime(2026, 9, 20, 10, 0), cfg.get_reminder_timing()) is None
+        # Picking a real timing again works as before.
+        cfg.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 24}}
+        assert cfg.get_reminder_timing() == {"type": "hours_before", "value": 24}

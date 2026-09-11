@@ -18,6 +18,10 @@ class AppSetting(db.Model):
     """
 
     __tablename__ = "app_settings"
+    # Every model in this package carries extend_existing (models/MODELS.md
+    # skeleton; DigitalConsentAge too): the test app factory imports the models
+    # package more than once per process, and a second class definition on the
+    # same MetaData would otherwise raise. Not a sign of a duplicate table.
     __table_args__ = {"extend_existing": True}
 
     key = Column(String(64), primary_key=True)
