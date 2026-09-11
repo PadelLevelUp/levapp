@@ -115,6 +115,29 @@ The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. 
 
 [`API-CONTRACT.md`](API-CONTRACT.md) documents the full backend surface (auth scheme, rolling `X-New-Token` refresh, every endpoint with request/response shapes), derived from the Flask source. The typed client in `packages/api` targets it — do not invent endpoints.
 
+## Android (PAD-297, wave A): the CI lane
+
+There is no Android SDK on the development Macs by decision (PAD-290 §7). The GitHub Actions
+workflow **Android build** (`.github/workflows/android-build.yaml`) is the Android toolchain:
+
+- `apk` job — `expo prebuild -p android` + `gradlew assembleRelease` on the runner. The APK is
+  signed with the Expo template's debug keystore (installable, JS bundled, no Metro) and uploaded
+  as the artefact **`levapp-android-apk`** (`app-release.apk`). Its JS points at
+  `http://10.0.2.2:5001/api` — the emulator's alias for the runner — and cleartext HTTP is
+  allowed by `plugins/with-ci-cleartext`, which acts only when `LEVAPP_CI_APK=1` is set at
+  prebuild; the job first prebuilds WITHOUT the flag and fails if that manifest carries the
+  permission, so a store build can never inherit it.
+- `maestro` job — Postgres 15 + the real migrations + the E2E seed into `levelup_ci_android`,
+  Flask on `:5001`, an x86_64 API 34 emulator, and Maestro running the flows in
+  `MAESTRO_FLOWS` (default `flows/01-login.yaml`). `maestro-results` carries the junit report,
+  Maestro's screenshots/logs and the Flask log, on success and on failure.
+
+Runs on every pull request into `staging` that touches `apps/mobile`, `packages/*` or the
+workflow, so a branch gets its run by opening a (draft) PR. `workflow_dispatch` (input `flows`)
+works once the file is on `staging`. To run more flows on a branch, change the default list in
+the workflow on that branch. `npm run prebuild:android` regenerates `android/` locally for anyone
+who does have the SDK; `android/` is gitignored like `ios/`.
+
 ## Releasing: regenerate the native project first
 
 `apps/mobile/ios/` is **gitignored and only regenerated when `expo prebuild` is

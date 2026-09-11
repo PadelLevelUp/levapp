@@ -119,7 +119,8 @@
           "color": "#1355DC",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "./plugins/with-ci-cleartext"
     ],
     "experiments": {
       "tsconfigPaths": false
