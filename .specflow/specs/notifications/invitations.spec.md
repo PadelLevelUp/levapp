@@ -160,7 +160,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Then** the vacancy is `filled` (`filled_by_player_id` null) and no invitation is sent
 
 #### Only as many vacancies close as spots were taken (rule 13)
-- **Given** instance 10 with `max_players=4`, Alice enrolled, and two open structural vacancies
+- **Given** instance 10 with `max_players=3`, Alice enrolled, and two open structural vacancies
+  (as many as its open spots)
 - **When** the coach adds Bob
 - **Then** exactly one vacancy is `filled` and one stays `open`
 

@@ -68,6 +68,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
     player_id = int(player_id)
     key = dict(player_id=player_id, lesson_instance_id=instance.id)
 
+    created = Presence.query.filter_by(**key).first() is None
     presence = _get_or_insert(
         Presence,
         lambda: Presence(
@@ -81,6 +82,14 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         lambda: Association_PlayerLessonInstance(**key),
         **key,
     )
+    db.session.expire(instance, ["players_relations", "presences"])
+    if created:
+        # PAD-271 (notifications.invitations rule 13): a spot was taken, so a
+        # vacancy the capacity no longer supports closes in the same unit of
+        # work. An idempotent re-call took no spot and closes nothing.
+        from padel_app.services.notification_service import reconcile_vacancies
+
+        reconcile_vacancies(instance, filled_by_player_id=player_id)
     commit_or_flush()
     db.session.expire(instance, ["players_relations", "presences"])
     return presence
