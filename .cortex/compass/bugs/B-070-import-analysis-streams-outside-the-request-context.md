@@ -3,13 +3,14 @@ id: B-070
 title: "The AI import analysis streams outside the request context, so the coach's existing levels are silently ignored"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - import.analyze
   - backend/padel_app/modules/frontend_api.py
   - backend/padel_app/services/ai_service.py
 proposed_fix: "Read the coach's level ladder in the view, inside the request context, and inject it into the pipeline; nothing inside the stream touches the database, and the lookup no longer swallows exceptions."
 opened: 2026-09-11T13:35:00Z
+resolved: 2026-09-11T13:40:00Z
 ---
 
 # B-070 — The AI import analysis streams outside the request context, so the coach's existing levels are silently ignored
@@ -61,4 +62,11 @@ failed read is an error response, never a warning.
 
 ### Resolution
 
-(pending — PAD-293)
+- Spec: `import.analyze` rule 7 + criterion "Spreadsheet levels map onto the coach's existing
+  levels" — 6a55bc666.
+- Code: `frontend_api.import_analyze` reads the ladder inside the request and passes
+  `existing_levels`; `ai_service.ImportPipeline`/`stream_import_analysis` take it and never
+  reach for the database — 1a224090a.
+- Tests: `test_pad293_import_analyze_context.py` (2; the first red with `[] == ['INI']`).
+- Regression: SQLite 1562 passed; Postgres on the touched files 38 passed.
+- Resolved: 2026-09-11 in PAD-293.
