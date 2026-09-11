@@ -1,7 +1,7 @@
 """PAD-271 M5: one presence response field; late_cancellation derived; dead status values dropped
 
 Revision ID: 7558c350c002
-Revises: fed5ed4916a8
+Revises: 5f2a0bb50712
 Create Date: 2026-09-11
 
 Decided 2026-09-11 (coordinator, owner informed), attendance.presence rule 7.
@@ -41,7 +41,7 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "7558c350c002"
-down_revision = "fed5ed4916a8"
+down_revision = "5f2a0bb50712"
 branch_labels = None
 depends_on = None
 
