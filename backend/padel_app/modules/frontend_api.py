@@ -2510,6 +2510,17 @@ def import_analyze():
 
     file_bytes = file.read()
 
+    # import.analyze rule 7 (PAD-293, B-070): the SSE body below is iterated
+    # after Flask has popped this request's context, so nothing inside the
+    # stream may touch the database. Everything the analysis needs from it is
+    # read HERE and handed in; a failure here is a normal error response, not a
+    # warning the stream would swallow.
+    from padel_app.services.coach_service import get_coach_levels
+
+    existing_levels = [
+        {"code": level.code, "label": level.label} for level in get_coach_levels(coach.id)
+    ]
+
     # Optional: user can select which tables to import via query param or form field.
     # e.g. ?tables=Players,Classes,Presences  or  form field "tables"
     # If not provided, defaults to all tables.
@@ -2525,6 +2536,7 @@ def import_analyze():
             file_bytes,
             coach_id=coach.id,
             requested_tables=requested_tables,
+            existing_levels=existing_levels,
         ),
         mimetype="text/event-stream",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
