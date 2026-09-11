@@ -45,9 +45,17 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    keys, and the day's event cards sorted by `startTime`. In `Dia` it is inline below the
    week strip. In `Semana` and `Mês` it is a **bottom sheet** over the time grid: a grab
    handle, 20px top radius, an upward shadow, drag-resizable between a minimum that shows
-   the header only and a maximum that leaves one hour-row of grid visible, defaulting to
-   roughly 40% of the grid height. Web resizes with pointer events; iOS with the gesture
-   handler. The card list inside the sheet scrolls.
+   the header only and a maximum that leaves one hour-row of grid visible (in `Mês` the
+   travel is wider — rule 17), defaulting to roughly 40% of the grid height. Web resizes
+   with pointer events; iOS with the gesture handler. The card list inside the sheet
+   scrolls. **(PAD-286)** The grab handle is a 40×5 `primary` pill centred on a 28px row —
+   not the `border` grey of the canvas, which read as a divider — and the whole area from
+   that row through the day header is the drag surface, so the sheet is caught without
+   aiming at the pill; the `calendar-sheet-handle` id stays on the handle row. The corners
+   and the shadow are the same on both shells: 20px top corners and a shadow cast upward
+   (`0 -10px 24px` of navy `#0B1524` at 14%). On iOS that means the shadow lives on the
+   sheet's outer view and the corner clipping on an inner one, because a view that clips
+   its children also clips its own shadow (B-065).
 4. **Empty day.** A selected day with no events shows the existing
    `calendar.mobile.noClassesScheduled` line in place of the card list.
 
@@ -124,7 +132,12 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 17. **Single-day grid and sheet.** Below the month grid, rule 13's time grid for the selected
     day only (one full-width column) with rule 3's bottom sheet over it. Its hour range applies rule 13 to the
     selected day's events alone (08:00–20:00 when that day is empty), so a quiet day is not
-    squeezed by a busy one elsewhere in the month.
+    squeezed by a busy one elsewhere in the month. **(PAD-286)** The sheet's travel spans
+    the month grid as well as the single-day grid: at rest it sits at rule 3's default
+    height over the day grid, and dragged up it stops one hour-row below the top of the
+    month grid, so on a phone it covers more than half of the screen; the month grid is
+    under it until it is dragged back down. Rule 18's "raised" test is unchanged — raised
+    still means above the resting height.
 
 #### Controls, roles, chrome
 18. **Add controls are floating action buttons on both shells:** `Add event`
@@ -246,6 +259,27 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Then** the sheet stops at the maximum and at least one hour row of the grid stays visible
 - **And** dragging it down past the minimum leaves the sheet header visible
 
+#### The grab handle is obvious and easy to catch
+- **Given** `Semana` at 390×844 on web and on iOS
+- **When** the sheet renders
+- **Then** the handle row is at least 28px tall and its pill is 40×5 in the `primary` colour
+- **And** a drag that starts on the day header moves the sheet exactly as a drag on the pill
+  does
+
+#### The Mês sheet rises past half of the screen
+- **Given** `Mês` at 390×844 on web and on iOS with the sheet at its resting height
+- **When** the coach drags the handle up past the maximum
+- **Then** the sheet stops with its top one hour-row below the top of the month grid, and its
+  height is more than half of the viewport
+- **And** dragging it back down to its lowest position uncovers the month grid and the add
+  buttons return (rule 18)
+
+#### The iOS sheet has the web sheet's corners and shadow
+- **Given** `Semana` on iOS
+- **When** the sheet renders over the grid
+- **Then** its top corners are rounded by 20pt and a shadow is visible above its top edge, as
+  on web (B-065)
+
 #### Month grid dims other months and marks days
 - **Given** `Mês` on September 2026 (starts on a Tuesday)
 - **When** the grid renders
@@ -313,4 +347,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   the bar only.
 - The canvas's seven-item tab bar is frame chrome; the product bar is six items (decision
   2026-09-04).
+- **PAD-286 (2026-09-11, founders' notes):** the handle becomes a `primary` pill on a 28px
+  row with the day header as part of the drag surface, the `Mês` sheet travels over the month
+  grid, and the iOS sheet gets the corners and shadow rule 3 always asked for (B-065).
 - OPEN: none.
