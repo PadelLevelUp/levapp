@@ -1,6 +1,6 @@
 """
 PAD-294 — push goes out off the calling thread through a bounded in-process
-sender (messaging.push-notifications rule 9 and its criterion).
+sender (messaging.push-notifications rule 10 and its criterion).
 
 The DB lookups stay on the caller; the HTTP call runs on the sender's worker;
 a full queue drops with a warning instead of blocking; the stale-token cleanup

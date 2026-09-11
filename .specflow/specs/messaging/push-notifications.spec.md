@@ -65,7 +65,7 @@ Send browser push notifications when a new message arrives and the recipient isn
    whole app is the PAD-195 defect (a coach with push blocked believed the app
    had stopped notifying them)
 
-9. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
+10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
    PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
    caller — the subscription or device-token lookup, the unread badge — then hands the HTTP call
    to `padel_app/utils/push_sender.py`: one FIFO worker thread behind a queue of bounded size

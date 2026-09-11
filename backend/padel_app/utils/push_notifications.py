@@ -34,7 +34,7 @@ def send_push_notification(user_id, title, body, url="/"):
         "url": url,
     })
 
-    # PAD-294 (messaging.push-notifications rule 9): the lookup above ran on
+    # PAD-294 (messaging.push-notifications rule 10): the lookup above ran on
     # the caller; the network call runs on the bounded sender's worker, so the
     # caller's DB connection is not held across the round trip. Inline under
     # the test config. Returns False when the queue is full (dropped, logged).

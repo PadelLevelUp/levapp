@@ -1,4 +1,4 @@
-"""Bounded in-process push sender (PAD-294; messaging.push-notifications rule 9).
+"""Bounded in-process push sender (PAD-294; messaging.push-notifications rule 10).
 
 Every push channel does its database work on the caller (subscription or
 device-token lookup, the unread badge), then hands the HTTP call here. One

@@ -115,7 +115,7 @@ def send_expo_push_to_user(
 ) -> bool:
     """Look up the user's registered device tokens on the caller and hand the
     HTTP call to the bounded sender (PAD-294; messaging.push-notifications
-    rule 9). Best-effort — no-ops (and never raises) when the user has no
+    rule 10). Best-effort — no-ops (and never raises) when the user has no
     registered devices, mirroring send_push_notification's "no subscription
     -> return False". Returns False too when the queue is full and the push
     was dropped (logged). Inline under the test config.
