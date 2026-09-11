@@ -194,6 +194,10 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
   `player-back`, `player-remove-cancel` were added, PAD-304).
 - **Platform-conditional steps** (`runFlow: when: platform: Android|iOS`) carry the iOS
   workarounds (Select percent taps in 12, picker `-confirm` in 13) next to the Android path.
+- **The system navigation bar is transparent** (edge-to-edge): a list's last row can sit under
+  the 3-button bar and a centre tap hits Home (the Settings logout row, ~1 run in 5). Screens
+  pad their scroll content by the bottom safe-area inset (`app/settings.tsx`); a flow should
+  not need `centerElement` (it times out at the end of the content on iOS).
 - **Select portals** are in the Android a11y tree as ordinary views — the iOS workaround
   (percent taps in `12-settings-language`) stays until both are verified.
 - **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by
