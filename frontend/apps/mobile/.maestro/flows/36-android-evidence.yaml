@@ -12,7 +12,19 @@
 #   the send button must stay visible under edge-to-edge)
 appId: com.padellevelup.app
 ---
+# Same start as subflows/login.yaml: a previous flow may have left the coach
+# signed in, in which case the app restores to the tabs and we log out first.
 - launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "tab-dashboard"
+    file: ../subflows/logout.yaml
 - extendedWaitUntil:
     visible:
       id: "login-username"
