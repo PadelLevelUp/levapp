@@ -8,6 +8,7 @@ a rule — before proposing to change any of them.
 
 **How to navigate:** follow `compass_rules:` to the rules a decision produced,
 `supersedes:` to the decision it replaced, and `sources:` to the raw material.
+- [2026-09-11 — Android / Google Play scoping, DRAFT](2026-09-11-android-scoping.md) — PAD-290; what PAD-216 already prepared, the iOS-only inventory, Expo-push-over-FCM, no sign-in requirement on Play, a CI Gradle lane, five waves (9–13 eng. days + store lead time) and twelve owner decisions
 - [2026-09-10 — Sign in with Google, draft](2026-09-10-sign-in-with-google.md) — PAD-252; recommends parking it
 - [2026-09-10 — Class time storage, draft](2026-09-10-class-time-storage.md) — PAD-256; implemented: Lisbon wall-clock (option B), #180–#190
 - [2026-09-10 — Account status, not payment](2026-09-10-account-status-not-payment.md) — the two "subscription" settings read users.status; relabelled on both platforms, ids kept, no payment model (PAD-132)
