@@ -413,10 +413,10 @@ def cancel_attendance_endpoint():
     # attendance.confirm rule 18 (PAD-288/PAD-282): either the instance id or the
     # calendar event's (model, originalId, date), materialised on demand.
     if data.get("lessonInstanceId") is not None:
-        result = cancel_attendance(int(data.get("lessonInstanceId")), user_id)
+        result = cancel_attendance(user_id, lesson_instance_id=int(data.get("lessonInstanceId")))
     else:
         result = cancel_attendance(
-            None, user_id,
+            user_id,
             model=data.get("model"), original_id=data.get("originalId"), date=data.get("date"),
         )
     return jsonify(result)

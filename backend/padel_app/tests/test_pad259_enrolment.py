@@ -153,3 +153,73 @@ def test_shadow_and_presences_agree_after_every_path(app):
         edit_lesson_instance_helper({**_edit_payload(instance), "remove_player_ids": [carol]}, instance)
         assert reconcile_enrolment() == []
         assert LessonInstance.query.get(instance_id).enrolled_player_ids == {ids["student_id"], dave, eve}
+
+
+# ── rule 4: the unique pair is the lock ──
+
+def test_enrol_survives_a_concurrent_insert_of_the_same_pair(app):
+    """Two callers pass the check for the same (player, instance); the loser's
+    insert hits uq_presence_player_lesson_instance and enrol() re-reads the
+    winner's row instead of raising. Simulated by a lookup that misses once
+    while the row already exists."""
+    from unittest.mock import patch
+
+    from padel_app.models import LessonInstance, Presence
+    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+    from padel_app.services import lesson_service
+    from padel_app.tests.test_notification_reminder_flow import _seed_instance
+
+    ids = _seed_coach_and_student(app)
+    instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=48)
+
+    class _MissOnce:
+        """Presence, but the first ``query.filter_by(...).first()`` says None."""
+
+        def __init__(self, real):
+            self._real = real
+            self.misses = 1
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+        def __call__(self, **kwargs):
+            return self._real(**kwargs)
+
+        @property
+        def query(self):
+            outer = self
+            real_query = self._real.query
+
+            class _Query:
+                def filter_by(self, **key):
+                    fq = real_query.filter_by(**key)
+
+                    class _Result:
+                        def first(self_):
+                            if outer.misses:
+                                outer.misses -= 1
+                                return None
+                            return fq.first()
+
+                        def one(self_):
+                            return fq.one()
+
+                    return _Result()
+
+            return _Query()
+
+    with app.app_context():
+        instance = db.session.get(LessonInstance, instance_id)
+        existing = Presence.query.filter_by(
+            player_id=ids["student_id"], lesson_instance_id=instance_id
+        ).one()
+        with patch.object(lesson_service, "Presence", _MissOnce(Presence)):
+            returned = lesson_service.enrol(ids["student_id"], instance, "coach")
+        assert returned.id == existing.id
+        assert Presence.query.filter_by(player_id=ids["student_id"], lesson_instance_id=instance_id).count() == 1
+        assert Association_PlayerLessonInstance.query.filter_by(
+            player_id=ids["student_id"], lesson_instance_id=instance_id
+        ).count() == 1
+        assert lesson_service.reconcile_enrolment(instance_id) == []
+        # The session is still usable after the rolled-back savepoint.
+        db.session.commit()

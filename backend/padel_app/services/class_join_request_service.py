@@ -103,22 +103,12 @@ def _is_full(instance: LessonInstance) -> bool:
 def resolve_instance(model: str, original_id, date_str, *, now=None) -> LessonInstance:
     """The instance a request attaches to — materialising a recurrence
     occurrence when needed (rule 2, the one student action that creates one)."""
-    from dateutil import parser
-    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.lesson_service import get_or_materialize_instance, parse_event_target
 
-    kind = (model or "").lower()
+    kind, target, occ_date = parse_event_target(model, original_id, date_str)
     if kind == "lessoninstance":
-        return LessonInstance.query.get_or_404(original_id)
-    if kind != "lesson":
-        abort(400, "model must be Lesson or LessonInstance")
-    lesson = Lesson.query.get_or_404(original_id)
-    if not date_str:
-        abort(400, "date is required for a Lesson")
-    try:
-        occ_date = parser.isoparse(date_str).date()
-    except (TypeError, ValueError):
-        abort(400, "date must be an ISO date")
-    return get_or_materialize_instance(lesson, occ_date)
+        return target
+    return get_or_materialize_instance(target, occ_date)
 
 
 def _localized(coach_user, pt: str, en: str) -> str:

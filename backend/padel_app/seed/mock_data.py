@@ -33,7 +33,9 @@ from padel_app.models import (
 )
 from padel_app.models.Association_CoachExercise import Association_CoachExercise
 from padel_app.models.Association_CoachExerciseGroup import Association_CoachExerciseGroup
+from padel_app.services.lesson_service import enrol
 from padel_app.sql_db import db
+from padel_app.tools.unit_of_work import unit_of_work
 from padel_app.utils.dates import club_now_naive
 
 
@@ -913,6 +915,11 @@ def _seed_lessons() -> SeedResult:
 
 
 def _seed_lesson_instances() -> SeedResult:
+    with unit_of_work():
+        return _seed_lesson_instances_in_uow()
+
+
+def _seed_lesson_instances_in_uow() -> SeedResult:
     result = SeedResult()
 
     for row in MOCK_LESSON_INSTANCES:
@@ -972,34 +979,14 @@ def _seed_lesson_instances() -> SeedResult:
                 result.inserted += 1
 
         player_links = Association_PlayerLesson.query.filter_by(lesson_id=lesson.id).all()
+        # PAD-259 (classes.instance-enrollment rule 4): the presence row IS the
+        # enrolment and the single writer creates it (plus the phase-1 shadow).
         for player_link in player_links:
-            existing = Association_PlayerLessonInstance.query.filter_by(
-                player_id=player_link.player_id,
-                lesson_instance_id=instance.id,
-            ).first()
-            if not existing:
-                db.session.add(
-                    Association_PlayerLessonInstance(
-                        player_id=player_link.player_id,
-                        lesson_instance_id=instance.id,
-                    )
-                )
-                result.inserted += 1
-            # PAD-259: the presence row IS the enrolment; the junction above is
-            # only the phase-1 shadow. Seed both in the same transaction.
-            if not Presence.query.filter_by(
+            already = Presence.query.filter_by(
                 player_id=player_link.player_id, lesson_instance_id=instance.id
-            ).first():
-                db.session.add(
-                    Presence(
-                        lesson_instance_id=instance.id,
-                        player_id=player_link.player_id,
-                        invited=True,
-                        confirmed=False,
-                        validated=False,
-                        enrolment_source="roster",
-                    )
-                )
+            ).first() is not None
+            enrol(player_link.player_id, instance, "roster")
+            if not already:
                 result.inserted += 1
 
     db.session.flush()

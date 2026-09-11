@@ -52,9 +52,12 @@ def _scratch():
     conn.exec_driver_sql("INSERT INTO lesson_instances (id, lesson_id) VALUES (10, 1)")
     # Player 1 is on the series roster; player 2 was added to this date only.
     conn.exec_driver_sql("INSERT INTO player_in_lesson (player_id, lesson_id) VALUES (1, 1)")
-    # Three junction rows without a presence; player 99 no longer exists.
+    # Three junction rows without a presence; player 99 no longer exists. The
+    # (2, 10) pair is duplicated: the scratch junction has no unique, the shape
+    # a create_all-era prod could hold, and DISTINCT must make ONE presence of it.
     conn.exec_driver_sql(
-        "INSERT INTO player_in_lesson_instance (player_id, lesson_instance_id) VALUES (1, 10), (2, 10), (99, 10)"
+        "INSERT INTO player_in_lesson_instance (player_id, lesson_instance_id) "
+        "VALUES (1, 10), (2, 10), (2, 10), (99, 10)"
     )
     # A presence with no junction row (kept, stays 'unknown').
     conn.exec_driver_sql(
@@ -84,11 +87,14 @@ def test_backfill_inserts_stamps_skips_orphans_and_logs_its_counts(caplog):
         (3, 1, 1, 0, "unknown"),  # pre-existing, no junction row: kept as is
     ]
     text = caplog.text
-    assert "junction_without_presence_before=3" in text
-    assert "presences_inserted=2" in text
+    assert "junction_without_presence_before=4" in text  # the duplicate counts twice here
+    assert "presences_inserted=2" in text               # DISTINCT: one presence per pair
     assert "junction_without_presence_after=1" in text  # the orphan, skipped
     assert "capacity_changes=1" in text
+    assert "junction_duplicate_pairs=1" in text
     assert "orphan junction rows skipped=1" in text
+    # Rule 9, one-directional: no non-orphan junction row is left without a presence.
+    assert conn.exec_driver_sql(mod.MISSING_NON_ORPHAN).scalar() == 0
 
     # Idempotent: a second run inserts nothing and changes nothing.
     before = _rows(conn)
@@ -114,7 +120,8 @@ def test_upgrade_fails_when_a_junction_row_is_left_without_a_presence():
     mod = _load()
     conn = _scratch()
     original = mod.BACKFILL_INSERT
-    # Sabotage: the backfill covers only the roster player.
+    # Sabotage: the backfill covers only the roster player. The orphan row (99)
+    # alone would NOT trip it: the assertion excludes orphans by design.
     mod.BACKFILL_INSERT = original + " AND j.player_id = 1"
     try:
         with pytest.raises(RuntimeError, match="PAD-259 backfill incomplete"):

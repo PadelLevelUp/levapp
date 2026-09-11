@@ -2,8 +2,10 @@ from datetime import datetime, timedelta, time
 import json
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from padel_app.sql_db import db
+from padel_app.tools.unit_of_work import commit_or_flush, unit_of_work
 from padel_app.models import (
     Lesson,
     LessonInstance,
@@ -26,6 +28,26 @@ from padel_app.helpers.calendar_helpers import (
 # Enrolment (PAD-259, classes.instance-enrollment rules 1-4, 9)
 # ---------------------------------------------------------------------------
 
+def _get_or_insert(model, build, **key):
+    """Check-then-insert made race-safe by the unique pair itself (rule 4): the
+    insert runs in a SAVEPOINT, and a concurrent winner's IntegrityError rolls
+    only that savepoint back and re-reads the row (the B-046 step-4 shape).
+    Works the same on SQLite (tests) and Postgres."""
+    row = model.query.filter_by(**key).first()
+    if row is not None:
+        return row
+    savepoint = db.session.begin_nested()
+    try:
+        row = build()
+        db.session.add(row)
+        db.session.flush()
+        savepoint.commit()
+        return row
+    except IntegrityError:
+        savepoint.rollback()
+        return model.query.filter_by(**key).one()
+
+
 def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
     """Put a player on one occurrence. THE single writer (rule 4).
 
@@ -33,35 +55,33 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
     returned untouched — its response and attendance are never reset. Phase 1
     also writes the shadow `player_in_lesson_instance` row, which nothing reads
     and phase 2 drops.
+
+    Transactions (PAD-272): flushes inside a unit of work and commits outside
+    one, so a caller that enrols a whole roster under ``with unit_of_work():``
+    gets one commit, and the PAD-261 accept path keeps its row lock until its
+    own commit.
     """
     from padel_app.models.presences import ENROLMENT_SOURCES
 
     if source not in ENROLMENT_SOURCES:
         raise ValueError(f"unknown enrolment_source {source!r}")
     player_id = int(player_id)
+    key = dict(player_id=player_id, lesson_instance_id=instance.id)
 
-    presence = Presence.query.filter_by(
-        player_id=player_id, lesson_instance_id=instance.id
-    ).first()
-    if presence is None:
-        presence = Presence(
-            lesson_instance_id=instance.id,
-            player_id=player_id,
-            invited=invited,
-            confirmed=confirmed,
-            validated=validated,
-            enrolment_source=source,
-        )
-        db.session.add(presence)
-
-    shadow = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player_id, lesson_instance_id=instance.id
-    ).first()
-    if shadow is None:
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=player_id, lesson_instance_id=instance.id
-        ))
-    db.session.commit()
+    presence = _get_or_insert(
+        Presence,
+        lambda: Presence(
+            invited=invited, confirmed=confirmed, validated=validated,
+            enrolment_source=source, **key,
+        ),
+        **key,
+    )
+    _get_or_insert(
+        Association_PlayerLessonInstance,
+        lambda: Association_PlayerLessonInstance(**key),
+        **key,
+    )
+    commit_or_flush()
     db.session.expire(instance, ["players_relations", "presences"])
     return presence
 
@@ -87,25 +107,53 @@ def unenrol(player_id, instance) -> bool:
     ).first()
     if shadow is not None:
         db.session.delete(shadow)
-    db.session.commit()
+    commit_or_flush()
     db.session.expire(instance, ["players_relations", "presences"])
     return existed
 
 
 def reconcile_enrolment(instance_id=None) -> list:
-    """Pairs (player_id, lesson_instance_id) where presences and the shadow
-    junction disagree (rule 9). Empty means the two tables agree."""
-    pres = db.session.query(Presence.player_id, Presence.lesson_instance_id)
-    junc = db.session.query(
-        Association_PlayerLessonInstance.player_id,
-        Association_PlayerLessonInstance.lesson_instance_id,
+    """Junction pairs (player_id, lesson_instance_id) that have NO presence
+    (rule 9). One-directional on purpose: a presence with no shadow row is what
+    option A is for and never needs one; a shadow row with no presence would be
+    an enrolment the code cannot see. Empty is the phase-2 gate."""
+    q = (
+        db.session.query(
+            Association_PlayerLessonInstance.player_id,
+            Association_PlayerLessonInstance.lesson_instance_id,
+        )
+        .outerjoin(
+            Presence,
+            (Presence.player_id == Association_PlayerLessonInstance.player_id)
+            & (Presence.lesson_instance_id == Association_PlayerLessonInstance.lesson_instance_id),
+        )
+        .filter(Presence.id.is_(None))
     )
     if instance_id is not None:
-        pres = pres.filter(Presence.lesson_instance_id == instance_id)
-        junc = junc.filter(Association_PlayerLessonInstance.lesson_instance_id == instance_id)
-    a = {tuple(r) for r in pres.all()}
-    b = {tuple(r) for r in junc.all()}
-    return sorted(a ^ b)
+        q = q.filter(Association_PlayerLessonInstance.lesson_instance_id == instance_id)
+    return sorted(tuple(r) for r in q.all())
+
+
+def parse_event_target(model, original_id, date):
+    """The object a calendar event's (model, originalId, date) names:
+    ``("lessoninstance", instance, None)`` or ``("lesson", lesson, occ_date)``.
+    Shared by the join-request and cancel paths (they diverge after this)."""
+    from dateutil import parser
+    from flask import abort
+
+    kind = (model or "").lower()
+    if kind == "lessoninstance":
+        return kind, LessonInstance.query.get_or_404(original_id), None
+    if kind != "lesson":
+        abort(400, "model must be Lesson or LessonInstance")
+    lesson = Lesson.query.get_or_404(original_id)
+    if not date:
+        abort(400, "date is required for a Lesson")
+    try:
+        occ_date = parser.isoparse(str(date)).date()
+    except (TypeError, ValueError):
+        abort(400, "date must be an ISO date")
+    return kind, lesson, occ_date
 
 
 # ---------------------------------------------------------------------------
@@ -242,11 +290,12 @@ def get_or_materialize_instance(lesson: Lesson, date):
 
     # PAD-259 (classes.instance-enrollment rule 4): the roster is copied onto
     # the occurrence through the single writer; create_lesson_instance_helper
-    # already enrolled every roster player, so this is idempotent.
-    for rel in lesson.players_relations:
-        enrol(rel.player_id, instance, "roster")
-
-    instance.save()
+    # already enrolled every roster player, so this is idempotent. One unit of
+    # work (PAD-272): the roster lands in one commit, not N+1.
+    with unit_of_work():
+        for rel in lesson.players_relations:
+            enrol(rel.player_id, instance, "roster")
+        instance.save()
 
     # Schedule reminder + invitation-start jobs for this new instance
     from padel_app.scheduler import _maybe_schedule_instance
@@ -353,8 +402,9 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     # PAD-259: the presence row is the enrolment. Players copied from the
     # series roster are `roster`; anyone else on the form is `coach`.
     roster_ids = {r.player_id for r in parent_lesson.players_relations}
-    for pid in player_ids:
-        enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
+    with unit_of_work():
+        for pid in player_ids:
+            enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
 
     for coach_id in instance_data.get('coach_ids', []):
         Association_CoachLessonInstance(

@@ -112,3 +112,36 @@ def test_an_answer_from_a_removed_player_is_recorded_but_enrols_nobody(app):
         assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 0
         attempt = ReminderAttempt.query.filter_by(lesson_instance_id=instance_id, player_id=ids["student_id"]).one()
         assert attempt.responded_at is not None or attempt.superseded is True
+
+
+# ── rule 7, the corner J's review named: no presence AND no reminder attempt ──
+
+def test_an_answer_with_no_presence_and_no_attempt_is_not_enrolled_and_says_so(app, caplog):
+    """A reminder message older than PAD-207's attempt table has no row to
+    record the answer on. The answer is still `not_enrolled`, nothing is
+    written, and the log says the answer could not be recorded — PAD-69's
+    "never silently lost" holds by being loud."""
+    import logging
+
+    from padel_app.models import Association_PlayerLesson, LessonInstance, NotificationEvent, Presence, ReminderAttempt, Vacancy
+    from padel_app.services.lesson_service import unenrol
+    from padel_app.services.notification_service import respond_to_reminder
+
+    ids = _seed_coach_and_student(app)
+    instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=48)
+    caplog.set_level(logging.INFO)
+    with app.app_context():
+        instance = db.session.get(LessonInstance, instance_id)
+        db.session.add(Association_PlayerLesson(player_id=ids["student_id"], lesson_id=instance.lesson_id))
+        db.session.commit()
+        unenrol(ids["student_id"], db.session.get(LessonInstance, instance_id))
+        assert ReminderAttempt.query.filter_by(lesson_instance_id=instance_id).count() == 0
+
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            result = respond_to_reminder(instance_id, "no", ids["student_user_id"], now=datetime.utcnow())
+        assert result == {"action": "not_enrolled"}
+        assert Presence.query.filter_by(lesson_instance_id=instance_id).count() == 0
+        assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
+        assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 0
+        assert ReminderAttempt.query.filter_by(lesson_instance_id=instance_id).count() == 0
+    assert "answer not recorded (pre-PAD-207 message)" in caplog.text

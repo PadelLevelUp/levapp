@@ -1245,7 +1245,7 @@ class TestCancelAttendance:
 
         with app.app_context():
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                result = cancel_attendance(instance_id, ids["student_user_id"])
+                result = cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             assert result["action"] == "declined"
             presence = Presence.query.filter_by(
@@ -1271,7 +1271,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             vacancy = Vacancy.query.filter_by(
                 lesson_instance_id=instance_id,
@@ -1293,7 +1293,7 @@ class TestCancelAttendance:
             future_now = datetime.utcnow() + timedelta(hours=72)
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 with pytest.raises(Conflict):
-                    cancel_attendance(instance_id, ids["student_user_id"], now=future_now)
+                    cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=future_now)
 
             # Presence unchanged (still confirmed, no absent status).
             presence = Presence.query.filter_by(
@@ -1327,7 +1327,7 @@ class TestCancelAttendance:
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 # now = current time → start is ~48h away → 24h before the
                 # deadline → NOT late.
-                result = cancel_attendance(instance_id, ids["student_user_id"])
+                result = cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             assert result["action"] == "declined"
             presence = Presence.query.filter_by(
@@ -1367,7 +1367,7 @@ class TestCancelAttendance:
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 result = cancel_attendance(
-                    instance_id, ids["student_user_id"], now=now
+                    ids["student_user_id"], lesson_instance_id=instance_id, now=now
                 )
 
             assert result["action"] == "declined"
@@ -1415,7 +1415,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             # Exactly one coach-facing cancellation message.
             msgs = self._coach_cancellation_messages(
@@ -1467,7 +1467,7 @@ class TestCancelAttendance:
             # now = +30h → 18h before start → past the 24h deadline → late.
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
-                cancel_attendance(instance_id, ids["student_user_id"], now=now)
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=now)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id
@@ -1510,7 +1510,7 @@ class TestCancelAttendance:
             # now = +30h → 18h before start → past the 24h deadline → late.
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"], now=now)
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=now)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id
@@ -1547,7 +1547,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id

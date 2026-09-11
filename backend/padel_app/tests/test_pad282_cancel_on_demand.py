@@ -77,7 +77,7 @@ def test_cancel_by_model_and_date_materialises_the_requested_class(app):
     with app.app_context():
         with patch(PATCHES[0]), patch(PATCHES[1]):
             result = cancel_attendance(
-                None, uid, model="Lesson", original_id=lesson_id, date=tomorrow.isoformat()
+                uid, model="Lesson", original_id=lesson_id, date=tomorrow.isoformat()
             )
         assert result["action"] == "declined"
         assert result["proactive"] in (True, False)
@@ -191,7 +191,7 @@ def test_cancel_ten_days_out_is_proactive_and_holds_invitations(app):
     with app.app_context():
         with patch(PATCHES[0]), patch(PATCHES[1]):
             result = cancel_attendance(
-                None, uid, model="Lesson", original_id=lesson_id, date=day.isoformat()
+                uid, model="Lesson", original_id=lesson_id, date=day.isoformat()
             )
         assert result == {"action": "declined", "proactive": True}
         instance = LessonInstance.query.filter_by(lesson_id=lesson_id).one()
@@ -221,7 +221,7 @@ def test_a_student_off_the_roster_cannot_materialise_by_cancelling(app):
 
     with app.app_context():
         with pytest.raises(HTTPException) as exc, patch(PATCHES[0]), patch(PATCHES[1]):
-            cancel_attendance(None, stranger_uid, model="Lesson", original_id=lesson_id, date=day.isoformat())
+            cancel_attendance(stranger_uid, model="Lesson", original_id=lesson_id, date=day.isoformat())
         assert exc.value.code == 403
         assert LessonInstance.query.filter_by(lesson_id=lesson_id).count() == 0
         assert Presence.query.filter_by(player_id=stranger).count() == 0
@@ -243,7 +243,7 @@ def test_a_date_outside_the_recurrence_is_refused(app):
     with app.app_context():
         with pytest.raises(HTTPException) as exc, patch(PATCHES[0]), patch(PATCHES[1]):
             cancel_attendance(
-                None, uid, model="Lesson", original_id=lesson_id, date=(day + timedelta(days=1)).isoformat()
+                uid, model="Lesson", original_id=lesson_id, date=(day + timedelta(days=1)).isoformat()
             )
         assert exc.value.code == 404
         assert LessonInstance.query.filter_by(lesson_id=lesson_id).count() == 0

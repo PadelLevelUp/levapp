@@ -2600,6 +2600,17 @@ def respond_to_reminder(
                     {"type": "message_edited", "payload": serialize_message(edited, None)},
                     message_recipient_ids(edited),
                 )
+        else:
+            # Only a reminder message older than PAD-207's attempt table lands
+            # here; say so, because "never silently lost" is the PAD-69 promise.
+            from flask import current_app, has_app_context
+
+            if has_app_context():
+                current_app.logger.info(
+                    "respond_to_reminder: no presence and no reminder attempt for player %s "
+                    "on instance %s — answer not recorded (pre-PAD-207 message)",
+                    player.id, lesson_instance_id,
+                )
         return {"action": "not_enrolled"}
 
     coach_rel = Association_CoachLessonInstance.query.filter_by(
@@ -2838,24 +2849,15 @@ def _resolve_occurrence_for_student(player, model, original_id, date):
     from the calendar event's (model, originalId, date). A Lesson occurrence
     with no row is authorised on the series roster FIRST, then materialised.
     Returns the instance, or aborts (400/403/404/409) having written nothing."""
-    from dateutil import parser
     from flask import abort
-    from padel_app.models import Association_PlayerLesson, Lesson
-    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.models import Association_PlayerLesson
+    from padel_app.services.lesson_service import get_or_materialize_instance, parse_event_target
     from padel_app.tools.calendar_tools import expand_occurrences
 
-    kind = (model or "").lower()
+    kind, target, occ_date = parse_event_target(model, original_id, date)
     if kind == "lessoninstance":
-        return LessonInstance.query.get_or_404(original_id)
-    if kind != "lesson":
-        abort(400, "model must be Lesson or LessonInstance")
-    lesson = Lesson.query.get_or_404(original_id)
-    if not date:
-        abort(400, "date is required for a Lesson")
-    try:
-        occ_date = parser.isoparse(str(date)).date()
-    except (TypeError, ValueError):
-        abort(400, "date must be an ISO date")
+        return target
+    lesson = target
 
     on_roster = Association_PlayerLesson.query.filter_by(
         player_id=player.id, lesson_id=lesson.id
@@ -2880,9 +2882,9 @@ def _resolve_occurrence_for_student(player, model, original_id, date):
 
 
 def cancel_attendance(
-    lesson_instance_id: int | None = None,
-    acting_user_id: int | None = None,
+    acting_user_id: int,
     *,
+    lesson_instance_id: int | None = None,
     model: str | None = None,
     original_id=None,
     date=None,
@@ -4088,13 +4090,9 @@ def _check_waiting_list(
     # `waiting_list_placed` message is sent, and the real spot is never offered
     # to anybody. Unconditional: applies whether or not a bar is defined
     # (eligibility.enforcement rule 10).
-    already_in_class_ids = set(instance.enrolled_player_ids)  # PAD-259
-    already_in_class_ids |= {
-        p.player_id
-        for p in Presence.query.filter_by(
-            lesson_instance_id=instance.id, status="absent"
-        ).all()
-    }
+    # PAD-259: a presence row of any status is in the class; the one who
+    # declined keeps their row, so one set covers both cases.
+    already_in_class_ids = set(instance.enrolled_player_ids)
 
     # PAD-122: the restrictions the invitation path has always honoured but the
     # fill path skipped entirely (eligibility.enforcement rule 5). Also

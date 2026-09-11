@@ -5,77 +5,31 @@
 # and cancelling must record the decline (the server materialises the
 # occurrence on demand).
 #
-# Order: not load bearing — the flow books, accepts and cancels its own class,
-# and the coach deletes it at the end. NOT YET RUN (no simulator in the
-# session that wrote it; Session H, 2026-09-11). First-run notes:
-# - The request form's date is a DatePickerInput (see flow 13's picker note);
-#   this flow confirms the picker's default and books the FIRST free slot it
-#   offers, so the class lands on whatever day the form defaults to. If that
-#   day has no free slot the flow fails at `class-request-slot`.
+# Order: not load bearing — the flow books and accepts its own class through
+# the API (like the web spec), cancels it in the student UI, and removes it
+# through the API at the end. Session F's first run (2026-09-11) showed the
+# request form is not automatable here (coach Select in a Portal; picker
+# defaults to a day with no free slot), so the form stays flow 13's subject.
+# Backend for the API calls: -e API_BASE=http://localhost:<port>, else :5001.
+# NOT YET RUN to completion; run scheduled in the next simulator window.
 # - `class-not-attending` and `class-cancel-attendance` are the class screen's
 #   testIDs (app/class/[id].tsx).
 appId: com.padellevelup.app
 ---
-# ── Student books a class request ──
-- runFlow: ../subflows/login-student.yaml
-- tapOn:
-    id: "tab-availability"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-book"
-    timeout: 15000
-- tapOn:
-    id: "class-request-book"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-form"
-    timeout: 15000
-- tapOn:
-    id: "class-request-coach"
-- tapOn: "E2E Coach"
-- tapOn:
-    id: "class-request-date"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-date-confirm"
-    timeout: 10000
-- tapOn:
-    id: "class-request-date-confirm"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-slot"
-    timeout: 20000
-- tapOn:
-    id: "class-request-slot"
-    index: 0
-- tapOn:
-    id: "class-request-send"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-row"
-    timeout: 15000
-- runFlow: ../subflows/logout.yaml
-
-# ── Coach accepts it (Settings → class requests) ──
-- runFlow: ../subflows/login-coach.yaml
-- tapOn:
-    id: "header-account"
-- extendedWaitUntil:
-    visible:
-      id: "screen-settings"
-    timeout: 15000
-- tapOn: "Class requests"
-- extendedWaitUntil:
-    visible:
-      id: "class-request-accept"
-    timeout: 15000
-- tapOn:
-    id: "class-request-accept"
-- extendedWaitUntil:
-    notVisible:
-      id: "class-request-accept"
-    timeout: 15000
-- runFlow: ../subflows/logout.yaml
+# ── Book and accept through the API (Session F's run, 2026-09-11: the form's coach
+# Select lives in a Portal the iOS a11y tree hides, and the picker defaults to a
+# day with no free slot; the request form itself is flow 13's subject, this flow's
+# subject is the cancel UI). Same calls as the web spec.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.tomorrow + '&to=' + output.tomorrow, { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0]}"
+- evalScript: "${output.endTime = (function (t) { var h = parseInt(t.split(':')[0], 10) + 1; return (h < 10 ? '0' + h : '' + h) + ':' + t.split(':')[1]; })(output.slot.startTime)}"
+- evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.tomorrow, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
+- assertTrue: "${output.accepted == true}"
 
 # ── Student opens the class from the calendar and cancels ──
 - runFlow: ../subflows/login-student.yaml
@@ -119,29 +73,7 @@ appId: com.padellevelup.app
     timeout: 20000
 - runFlow: ../subflows/logout.yaml
 
-# ── Coach removes the class it created ──
-- runFlow: ../subflows/login-coach.yaml
-- tapOn:
-    id: "tab-calendar"
-- repeat:
-    times: 3
-    while:
-      notVisible:
-        text: "E2E Student"
-    commands:
-      - tapOn:
-          id: "calendar-next-week"
-      - waitForAnimationToEnd
-- tapOn: "E2E Student"
-- extendedWaitUntil:
-    visible:
-      id: "class-delete"
-    timeout: 20000
-- tapOn:
-    id: "class-delete"
-- extendedWaitUntil:
-    visible:
-      id: "class-delete-confirm"
-    timeout: 10000
-- tapOn:
-    id: "class-delete-confirm"
+# ── Coach removes the class it created (API, same as the web spec's cleanup) ──
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.tomorrow + 'T00:00:00&to=' + output.tomorrow + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { if (http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }).ok) { n++; } } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"

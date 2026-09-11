@@ -61,6 +61,27 @@ WHERE NOT EXISTS (SELECT 1 FROM players pl WHERE pl.id = j.player_id)
    OR NOT EXISTS (SELECT 1 FROM lesson_instances li WHERE li.id = j.lesson_instance_id)
 """
 
+#: junction rows that are NOT orphans and still have no presence — must be 0
+#: after the backfill (the assertion; consistent data with orphans passes).
+MISSING_NON_ORPHAN = """
+SELECT count(*) FROM player_in_lesson_instance j
+LEFT JOIN presences p
+  ON p.player_id = j.player_id AND p.lesson_instance_id = j.lesson_instance_id
+WHERE p.id IS NULL
+  AND EXISTS (SELECT 1 FROM players pl WHERE pl.id = j.player_id)
+  AND EXISTS (SELECT 1 FROM lesson_instances li WHERE li.id = j.lesson_instance_id)
+"""
+
+#: duplicate (player, instance) pairs in the junction. uq_player_lesson_instance
+#: exists on prod (Session E, 2026-09-11: 0 duplicates of 4,420 rows), so this is
+#: logged, never repaired here; DISTINCT below keeps the backfill safe regardless.
+JUNCTION_DUPLICATES = """
+SELECT count(*) FROM (
+  SELECT player_id, lesson_instance_id FROM player_in_lesson_instance
+  GROUP BY player_id, lesson_instance_id HAVING count(*) > 1
+) d
+"""
+
 #: instances whose filled count differs between the old formula (junction rows
 #: minus absent presences) and the new one (presences minus absent presences).
 CAPACITY_CHANGES = """
@@ -76,18 +97,22 @@ SELECT count(*) FROM (
 ) counts WHERE old_count <> new_count
 """
 
-#: The single-statement backfill. Portable: CURRENT_TIMESTAMP and TRUE/FALSE
-#: literals are accepted by Postgres and SQLite (3.23+) alike.
+#: The single-statement backfill. Portable: TRUE/FALSE literals are accepted by
+#: Postgres and SQLite (3.23+) alike; the timestamp expression is substituted per
+#: dialect (Postgres: UTC, whatever the session time zone; SQLite: UTC already).
+#: DISTINCT: a duplicate junction pair must never become two presences. status and
+#: justification are left to their NULL default: under DISTINCT Postgres types a bare
+#: NULL as text and refuses the enum columns.
 BACKFILL_INSERT = """
-INSERT INTO presences (lesson_instance_id, player_id, status, justification, invited, confirmed,
+INSERT INTO presences (lesson_instance_id, player_id, invited, confirmed,
                        validated, late_cancellation, enrolment_source, created_at, updated_at)
-SELECT j.lesson_instance_id, j.player_id, NULL, NULL, TRUE, FALSE, FALSE, FALSE,
+SELECT DISTINCT j.lesson_instance_id, j.player_id, TRUE, FALSE, FALSE, FALSE,
        CASE WHEN EXISTS (
               SELECT 1 FROM player_in_lesson pl
               JOIN lesson_instances li ON li.id = j.lesson_instance_id
               WHERE pl.lesson_id = li.lesson_id AND pl.player_id = j.player_id)
             THEN 'roster' ELSE 'coach' END,
-       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+       {now}, {now}
 FROM player_in_lesson_instance j
 WHERE EXISTS (SELECT 1 FROM players pl WHERE pl.id = j.player_id)
   AND EXISTS (SELECT 1 FROM lesson_instances li WHERE li.id = j.lesson_instance_id)
@@ -151,21 +176,25 @@ def upgrade():
     # 2. Counts before, the backfill, counts after.
     before = _scalar(MISSING)
     orphans = _scalar(ORPHANS)
+    duplicates = _scalar(JUNCTION_DUPLICATES)
     capacity_changes = _scalar(CAPACITY_CHANGES)
-    inserted = bind.execute(sa.text(BACKFILL_INSERT)).rowcount
+    now_sql = "CURRENT_TIMESTAMP" if sqlite else "(now() AT TIME ZONE 'UTC')"
+    inserted = bind.execute(sa.text(BACKFILL_INSERT.format(now=now_sql))).rowcount
     bind.execute(sa.text(STAMP_EXISTING))
     after = _scalar(MISSING)
+    uncovered = _scalar(MISSING_NON_ORPHAN)
 
-    # 3. The four numbers the deploy watch compares with the staging run.
+    # 3. The numbers the deploy watch compares with the staging run.
     log.info(
         "PAD-259 backfill: junction_without_presence_before=%s presences_inserted=%s "
-        "junction_without_presence_after=%s capacity_changes=%s (orphan junction rows skipped=%s)",
-        before, inserted, after, capacity_changes, orphans,
+        "junction_without_presence_after=%s capacity_changes=%s junction_duplicate_pairs=%s "
+        "(orphan junction rows skipped=%s)",
+        before, inserted, after, capacity_changes, duplicates, orphans,
     )
-    if after != orphans:
+    if uncovered != 0:
         raise RuntimeError(
-            f"PAD-259 backfill incomplete: {after} junction row(s) still have no presence "
-            f"but only {orphans} orphan row(s) were expected to be skipped"
+            f"PAD-259 backfill incomplete: {uncovered} non-orphan junction row(s) still have "
+            f"no presence (orphans skipped: {orphans})"
         )
 
 

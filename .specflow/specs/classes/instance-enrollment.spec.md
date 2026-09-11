@@ -45,8 +45,11 @@ three separate fields on it. Decision record:
    create and edit-add (`coach`), the engine's `_add_player_to_instance` (`fill`), the attendance
    sheet walk-in (`walk_in`), the presences import (`import`). It is idempotent — an existing row is
    returned untouched, its response and attendance never reset — and in phase 1 it also writes the
-   shadow junction row. `unenrol(player_id, instance)` deletes the row and the shadow. No other code
-   constructs a `Presence` for an enrolment.
+   shadow junction row. It is race-safe without a lock: the unique pair is the lock, so the insert
+   runs in a savepoint and a concurrent winner's collision is rolled back and re-read. It flushes
+   inside a unit of work and commits outside one (PAD-272), so a roster materialises in one commit.
+   `unenrol(player_id, instance)` deletes the row and the shadow. No other code constructs a
+   `Presence` for an enrolment.
 5. **Capacity** is presences minus those with `status = 'absent'`, floored at 0 — the same
    arithmetic as before, now over one table (`calendar.view` rules 8–9, `LessonInstance.effective_filled_spots`).
 6. **Reads.** "Is this player in this occurrence", the class-detail participants list, the engine's
@@ -68,9 +71,11 @@ three separate fields on it. Decision record:
    instances whose filled count changed) and fails if the "after" count is not equal to the orphan
    count of rows it was told to skip. On Postgres the backfill is one statement; SQLite (tests)
    may loop. A second run inserts nothing.
-9. **Reconcile check.** `reconcile_enrolment()` returns the `(player_id, lesson_instance_id)` pairs
-   where presences and the shadow junction disagree; the test suite asserts it is empty after every
-   write path, and it is run once on the staging copy of prod before phase 2 drops the junction.
+9. **Reconcile check, one-directional.** `reconcile_enrolment()` returns the shadow junction pairs
+   `(player_id, lesson_instance_id)` that have no presence — an enrolment the code could not see.
+   A presence with no shadow row is what option A is for and never needs one, so it is not a
+   difference. The test suite asserts the list is empty after every write path, and it is run once
+   on the staging copy of prod before phase 2 drops the junction (the phase-2 gate).
 
 ### Acceptance Criteria
 
@@ -114,6 +119,12 @@ three separate fields on it. Decision record:
 - **When** she answers the old reminder with `no`
 - **Then** the response is `{"action": "not_enrolled"}` and the reminder attempt is marked responded
 - **And** no `Presence` and no `Vacancy` exist for Alice on instance 10, and no invitation is sent
+
+#### What the student sees after a not_enrolled answer (rule 7)
+- **Given** Alice, removed from instance 10 after her reminder was sent, opens the old reminder bubble on web and on iOS
+- **When** she taps No and the server answers `{"action": "not_enrolled"}`
+- **Then** the bubble shows the settled "This class no longer includes you" state, never "not attending" / "absent", and offers no Yes/No or cancel
+- **And** after a reload the same state renders from `msg_metadata.response === "not_enrolled"` on both shells
 
 #### Backfill creates the missing presences and logs its counts
 - **Given** a database at the parent revision with three junction rows lacking a presence, one of
