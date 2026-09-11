@@ -52,3 +52,5 @@ executionOrder:
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
+    # 41 creates its own exercise (PAD-289), so its position is not load bearing.
+    - 41-tactical-board-ball-paths

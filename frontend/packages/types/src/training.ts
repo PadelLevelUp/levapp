@@ -110,6 +110,13 @@ export interface Movement {
 
 export interface Step {
   id: string;
+  /**
+   * PAD-289 (training.tactical-board rules 23–24): the step's ball paths in
+   * order, numbered 1..n on the court. Read through `stepBalls()` in
+   * @levelup/config, which falls back to `ball` for diagrams saved before.
+   */
+  balls?: BallPath[];
+  /** Always `balls[0]` when `balls` is non-empty (mirrored on write for older builds). */
   ball?: BallPath;
   movements: Movement[];
 }
