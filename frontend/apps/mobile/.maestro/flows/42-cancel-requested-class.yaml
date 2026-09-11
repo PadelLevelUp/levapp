@@ -1,0 +1,102 @@
+# PAD-282 / PAD-288 — mirrors apps/web/e2e/class-requests/pad282-cancel-requested-class.spec.ts
+# (`attendance.confirm` rules 18–20). A class the coach accepted from the
+# student's own request for the NEXT free day has no instance row and no
+# presence yet; the student must still see "Cancel attendance" on its detail,
+# and cancelling must record the decline (the server materialises the
+# occurrence on demand).
+#
+# Order: not load bearing — the flow books and accepts its own class through
+# the API (like the web spec), cancels it in the student UI, and removes it
+# through the API at the end. Session F's first run (2026-09-11) showed the
+# request form is not automatable here (coach Select in a Portal; picker
+# defaults to a day with no free slot), so the form stays flow 13's subject.
+# Backend for the API calls: -e API_BASE=http://localhost:<port>, else :5001.
+# NOT YET RUN to completion; run scheduled in the next simulator window.
+# - `class-not-attending` and `class-cancel-attendance` are the class screen's
+#   testIDs (app/class/[id].tsx).
+appId: com.padellevelup.app
+---
+# ── Book and accept through the API (Session F's run, 2026-09-11: the form's coach
+# Select lives in a Portal the iOS a11y tree hides, and the picker defaults to a
+# day with no free slot; the request form itself is flow 13's subject, this flow's
+# subject is the cancel UI). Same calls as the web spec.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.tomorrow + '&to=' + output.tomorrow, { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0]}"
+- evalScript: "${output.endTime = (function (t) { var h = parseInt(t.split(':')[0], 10) + 1; return (h < 10 ? '0' + h : '' + h) + ':' + t.split(':')[1]; })(output.slot.startTime)}"
+- evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.tomorrow, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
+- assertTrue: "${output.accepted == true}"
+
+# ── Student opens the class from the calendar and cancels ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+# The accepted class is titled with the student's name. The phone calendar
+# (calendar.mobile-views) shows titles only in the selected day's card list and
+# remembers its last mode on the device, so: force Dia, page the strip to the
+# week that holds the class's day, select that day, then tap the card.
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.tomorrow}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.tomorrow}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-cancel-attendance"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-cancel-attendance"
+- extendedWaitUntil:
+    visible:
+      id: "class-cancel-attendance-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-cancel-attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-not-attending"
+    timeout: 20000
+# Class detail is a root-stack screen without the tab header, so leave it with
+# its own back button before logout.yaml looks for `header-account`.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+
+# ── Coach removes the class it created (API, same as the web spec's cleanup) ──
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.tomorrow + 'T00:00:00&to=' + output.tomorrow + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { if (http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }).ok) { n++; } } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"

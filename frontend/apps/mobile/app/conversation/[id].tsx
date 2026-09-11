@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   View,
   type NativeScrollEvent,
@@ -68,6 +67,7 @@ import {
   updateMessageInCache,
 } from "@/features/messages/utils";
 import { useAppEvents } from "@/lib/sse";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
  * How long the thread may stay hidden waiting to be anchored (PAD-224 rule 9).
@@ -1009,7 +1009,7 @@ export default function ConversationScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={keyboardAvoidingBehavior()}
         // This screen draws its own header inside the view (headerShown:false
         // above), so this frame already starts below the header and runs to the
         // bottom of the screen. React Native ADDS this offset to the avoided

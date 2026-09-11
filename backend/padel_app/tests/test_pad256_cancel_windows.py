@@ -103,7 +103,7 @@ def test_late_cancellation_flag_uses_the_club_clock(app, wall_start, utc_now, la
 
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, user_id, player_id = _seed(wall_start)
-        result = cancel_attendance(instance_id, user_id, now=utc_now)
+        result = cancel_attendance(user_id, lesson_instance_id=instance_id, now=utc_now)
         presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).one()
         assert result["proactive"] is False
         assert presence.late_cancellation is late
@@ -124,10 +124,10 @@ def test_started_class_cannot_be_cancelled_on_the_club_clock(app, wall_start, ut
         instance_id, user_id, _player_id = _seed(wall_start)
         if refused:
             with pytest.raises(HTTPException) as exc:
-                cancel_attendance(instance_id, user_id, now=utc_now)
+                cancel_attendance(user_id, lesson_instance_id=instance_id, now=utc_now)
             assert exc.value.code == 409
         else:
-            assert cancel_attendance(instance_id, user_id, now=utc_now)["action"] == "declined"
+            assert cancel_attendance(user_id, lesson_instance_id=instance_id, now=utc_now)["action"] == "declined"
 
 
 # ── the proactive-decline window closes at the real reminder instant ───────

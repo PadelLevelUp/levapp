@@ -34,6 +34,7 @@
     "cancelAttendance": "Cancelar presença",
     "absent": "Ausente",
     "reminderExpired": "Lembrete expirado",
+    "reminderNotEnrolled": "Já não fazes parte desta aula",
     "waitingListJoined": "Na lista de espera",
     "waitingListOfferExpired": "Oferta expirada",
     "spotJustFilled": "Lamentamos, essa vaga acabou de ser preenchida.",

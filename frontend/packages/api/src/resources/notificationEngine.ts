@@ -201,13 +201,28 @@ export async function respondToReminder(
   return res.data;
 }
 
+/**
+ * PAD-288 / PAD-282 (`attendance.confirm` rule 18): a cancel on an occurrence
+ * that has no instance row yet is addressed the way the calendar event carries
+ * it — `model` + `originalId` + `date` — and the server materialises it first.
+ */
+export interface CancelAttendanceTarget {
+  model: string;
+  originalId: string | number;
+  date: string;
+}
+
 export async function cancelAttendance(
-  lessonInstanceId: number
+  target: number | CancelAttendanceTarget
   // PAD-73: `proactive` is the SERVER's classification — true when the decline
   // landed before the instant this student's attendance reminder would have
   // fired. The client never derives this cutoff itself.
 ): Promise<{ action: "declined"; proactive?: boolean }> {
-  const res = await getApi().post("/app/notify/cancel_attendance", { lessonInstanceId });
+  const body =
+    typeof target === "number"
+      ? { lessonInstanceId: target }
+      : { model: target.model, originalId: String(target.originalId), date: target.date };
+  const res = await getApi().post("/app/notify/cancel_attendance", body);
   return res.data;
 }
 

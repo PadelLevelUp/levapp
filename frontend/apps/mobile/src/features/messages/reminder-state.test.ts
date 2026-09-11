@@ -48,6 +48,26 @@ describe("reminderState", () => {
     expect(s.canCancel).toBe(false);
   });
 
+  it("shows the settled not-enrolled state for a recorded not_enrolled answer (PAD-259 rule 7)", () => {
+    const state = reminderState(
+      { responded: true, response: "not_enrolled", startsAt: LATER },
+      null,
+      NOW
+    );
+    expect(state.notEnrolled).toBe(true);
+    expect(state.declined).toBe(false);
+    expect(state.confirmed).toBe(false);
+    expect(state.canCancel).toBe(false);
+    expect(state.showResponseButtons).toBe(false);
+  });
+
+  it("shows the settled not-enrolled state for a not_enrolled answer given in this session", () => {
+    const state = reminderState({ startsAt: LATER }, "not_enrolled", NOW);
+    expect(state.notEnrolled).toBe(true);
+    expect(state.declined).toBe(false);
+    expect(state.showResponseButtons).toBe(false);
+  });
+
   it("fails safe to absent for an unrecognised recorded answer", () => {
     // Anything that is not "yes" reads as declined, so a bad value never
     // paints a confirmation the student did not give.
@@ -183,6 +203,16 @@ describe("reminderResponseOutcome", () => {
     expect(reminderResponseOutcome("expired")).toEqual({
       write: null,
       toastKey: "messages.reminderExpired",
+    });
+  });
+
+  it("settles a not_enrolled answer without painting absent (PAD-259 rule 7)", () => {
+    // The student was taken off that date after the reminder went out. The
+    // server recorded the answer on the reminder attempt and enrolled nobody;
+    // the bubble must say the class no longer includes them, never "Absent".
+    expect(reminderResponseOutcome("not_enrolled")).toEqual({
+      write: "not_enrolled",
+      toastKey: null,
     });
   });
 
