@@ -38,3 +38,4 @@ whether a failure mode has been seen before.
 - [B-058](B-058-event-end-crosses-utc-midnight.md) — a class crossing UTC midnight vanished from both dashboards: `_event_end` joined the start date to the end time (missing-criterion, medium, resolved)
 - [B-060](B-060-client-date-parsing-and-utc-presets.md) — client dates: bare dates parsed as UTC (wrong weekday west of UTC), presets and weeks on the UTC day, a Hermes-unsafe parse in the decline guard (incomplete-rule, medium, resolved)
 - [B-057](B-057-removing-a-student-deletes-their-history.md) — removing an active student by their only coach deleted their Player record, presences and level history; now only the roster link goes, placeholders per PAD-260 rule 3, every removal audited (layer-drift, high, resolved in PAD-274)
+- [B-061](B-061-editing-a-level-writes-no-history.md) — editing a level wrote no history; Player.level dead (PAD-270, resolved)

@@ -11,6 +11,7 @@ per-row failures so that a bad row never aborts the entire batch.
 """
 from datetime import datetime, date
 
+from padel_app.services.level_service import set_roster_level
 from padel_app.utils.dates import utcnow_naive
 import re
 
@@ -306,7 +307,6 @@ def _bulk_create_players_stream(rows, coach, club):
                 rel_payload = {
                     "coach": coach.id,
                     "player": player.id,
-                    "level": level.id if level else None,
                     "side": row.get("side"),
                     "notes": None,
                 }
@@ -315,13 +315,10 @@ def _bulk_create_players_stream(rows, coach, club):
                 rel.create()
                 created_ids["coach_players"].append(rel.id)
 
-                if level:
-                    plh = PlayerLevelHistory(
-                        coach_id=coach.id,
-                        player_id=player.id,
-                        level_id=level.id,
-                    )
-                    plh.create()
+                # PAD-270: the one writer of a roster level also records history.
+                plh = set_roster_level(rel, level.id if level else None)
+                db.session.commit()
+                if plh is not None:
                     created_ids["player_level_history"].append(plh.id)
 
             else:
