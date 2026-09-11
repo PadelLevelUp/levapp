@@ -221,9 +221,11 @@ def test_send_expo_push_builds_correct_request_body(app):
     assert result is True
     assert mock_post.call_count == 1
     _, kwargs = mock_post.call_args
+    # PAD-307 (rule 11a): every message also names the Android channel and priority.
+    android = {"channelId": "default", "priority": "high"}
     assert kwargs["json"] == [
-        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
-        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
+        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
+        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
     ]
 
 
@@ -632,6 +634,9 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
                 "body": "Training moved to 19h",
                 "data": {"type": "message", "conversationId": conversation_id},
                 "badge": 1,
+                # PAD-307 (rule 11a): Android channel and priority ride on every message.
+                "channelId": "default",
+                "priority": "high",
             }
         ]
 
