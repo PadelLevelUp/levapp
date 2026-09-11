@@ -109,6 +109,8 @@ interface ClassDetailSheetProps {
   event: CalendarEvent | null;
   open: boolean;
   onClose: () => void;
+  /** PAD-285 (dashboard.blocks rule 10): open with the Notificar picker already up. */
+  openNotify?: boolean;
 
   players: CoachPlayer[];
   levels: CoachLevel[];
@@ -131,6 +133,7 @@ export function ClassDetailSheet({
   event,
   open,
   onClose,
+  openNotify,
   players,
   levels,
   canManage,
@@ -186,6 +189,11 @@ export function ClassDetailSheet({
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  // PAD-285: the dashboard's "Convidar" lands here with Notificar to open — once
+  // the sheet is up for a coach, and only for this opening.
+  useEffect(() => {
+    if (open && openNotify && canManage && event?.type === "class") setShowNotifyModal(true);
+  }, [open, openNotify, canManage, event?.type]);
   const [sendingReminders, setSendingReminders] = useState(false);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
