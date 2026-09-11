@@ -96,7 +96,7 @@ Send browser push notifications when a new message arrives and the recipient isn
    `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
    are untouched: only *when* the HTTP call happens changes.
 11. **Android delivery is prepared on the Expo payload, without Firebase in the repo (PAD-307,
-   Android wave C prep; rule number unconfirmed).** Expo push tokens are platform-neutral: the
+   Android wave C prep).** Expo push tokens are platform-neutral: the
    Expo push service delivers to Android over FCM once the project holds a `google-services.json`
    and an FCM V1 service-account key — owner steps outside the code. What the code owns:
    (a) every Expo message carries `channelId: "default"` and `priority: "high"`, so an Android
