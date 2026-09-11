@@ -157,12 +157,12 @@ class TestDeleteCancelsJobs:
         from padel_app.sql_db import db
 
         ids = _seed_coach_and_club(app)
+        # Seed BEFORE entering the context: the helper pushes its own (R-007, B-068).
+        obj_ids = _seed_lesson_with_instance(app, ids["coach_id"], ids["club_id"])
 
         with app.app_context():
             start = datetime.utcnow() + timedelta(hours=24)
-            lesson = Lesson.query.get(
-                _seed_lesson_with_instance(app, ids["coach_id"], ids["club_id"])["lesson_id"]
-            )
+            lesson = Lesson.query.get(obj_ids["lesson_id"])
             # Add a second instance to the same lesson
             inst2 = LessonInstance(
                 lesson_id=lesson.id,
