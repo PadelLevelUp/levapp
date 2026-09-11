@@ -163,6 +163,28 @@ Rules:
 - The Postgres password is still embedded in the VM's startup script. It is due to move out and
   be rotated.
 
+## Database backups (PAD-296, compass R-028)
+
+`scripts/backup.sh` runs from the deploy user's crontab on the VM at 03:00 UTC (installed by
+`deploy-prod.yaml`, which also writes `~/.backup.env` with the bucket). It dumps `padel_app` and
+`padel_app_staging` **inside the `postgres` container** (`docker exec … pg_dump -Fc`, trust auth
+on the socket, so no password), streams each dump to `gs://padel-levelup-2026-backups/<db>/`,
+verifies the object is non-empty, prunes dumps older than 14 days (the bucket deletes at 30 as a
+backstop) and writes `~/backup.status`. Any failure exits 1 and logs `BACKUP FAILED` — never a
+silent success (B-080: the previous script never produced a backup).
+
+```bash
+# on the VM
+bash ~/backup.sh                    # one run now; ~/backup.log and ~/backup.status say how it went
+bash ~/backup.sh restore-check      # restores the latest padel_app dump into a scratch DB, counts users, drops it
+cat ~/backup.status; tail ~/backup.log
+```
+
+The repair workflow prints the status file, the log tail and the newest objects. The bucket and
+the VM service account's `objectAdmin` binding live in `terraform/main.tf`; `terraform apply`
+(plan → grep for destroy/replace → apply the plan file) must run once before the first backup
+can succeed. Override the bucket with the repository variable `BACKUP_BUCKET`.
+
 
 ## Environment Variables
 
