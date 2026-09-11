@@ -27,8 +27,9 @@ appId: com.padellevelup.app
 - tapOn:
     id: "exercise-name"
 - inputText: "Maestro Two Paths"
-# iOS trap: a swipe that starts under the keyboard hits the keyboard.
-- hideKeyboard
+# iOS trap: a swipe that starts under the keyboard hits the keyboard. Enter blurs the
+# single-line Input and dismisses it (hideKeyboard fails on this app, flow 34).
+- pressKey: Enter
 - swipe:
     start: "50%, 45%"
     end: "50%, 20%"
