@@ -41,6 +41,12 @@ held on the coach's calendar while the request is open.
    (the class is created at the proposed slot); `decline-proposal` closes the request as
    `declined` with `decided_by: student`; `counter-proposal` sends another time back to the
    coach (rule 10). A student may `withdraw` while the request is `pending` or `countered`.
+   **An accept names the slot it accepts (PAD-281 review):** `accept-proposal` and the coach's
+   `accept` take an optional `{slot: {date, startTime, endTime}}`; when it is present and differs
+   from the slot on the table the server answers `409 slot_changed` and books nothing, so an
+   answer given to a stale bubble (cached list, second device, a push tapped late) can never
+   book a time the person never saw. The bubbles always send the slot they show. Every deciding
+   read of the request row takes a row lock (`with_for_update`, B-051 pattern).
 6. **Every transition notifies the other side** through the coach ↔ student direct conversation
    (the request as a message from the student's side with coach push; accept / decline /
    proposal as system messages to the student; the student's answer back from the student's
@@ -70,7 +76,8 @@ held on the coach's calendar while the request is open.
     {date, startTime, endTime}` while the request is `countered`: the slot is validated exactly
     like a new request (rule 2 length, rule 7 past / free, the request's own hold excluded), the
     hold moves, the request turns `pending` again at the new slot and the coach is told (rule 6,
-    kind `countered` from the student's side). Rounds are unlimited: the coach may accept,
+    kind `counter_proposal` from the student's side — named apart from the `countered` status,
+    which means the opposite side is waiting). Rounds are unlimited: the coach may accept,
     decline or propose again, and so on — from the inbox or from that message's bubble, which
     offers the coach Accept / Decline / Propose another time the same way rule 6 offers the
     student (Propose opens the inbox on that request). Any other status answers `409 not_countered`; another
@@ -112,6 +119,15 @@ held on the coach's calendar while the request is open.
 - **Then** the class exists at 17:00–18:00
 - **And** a student who answers a proposal that is no longer on the table is refused with
   `409 not_countered` and sees the outcome, not an error
+
+#### A stale accept never books a slot the person did not see (PAD-281 review)
+- **Given** the coach proposed 15:00, the student counter-proposed 17:00 and the coach proposed
+  again at 19:00
+- **When** the student accepts from the 15:00 bubble (`accept-proposal` with `slot` 15:00–16:00)
+- **Then** the server answers `409 slot_changed`, the request stays `countered` at 19:00 and no
+  class exists
+- **When** the student accepts with `slot` 19:00–20:00
+- **Then** the class is booked at 19:00
 
 #### The proposal is answerable in chat
 - **Given** the coach proposed 15:00–16:00 and the student opens the conversation
