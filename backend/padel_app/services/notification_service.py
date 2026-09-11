@@ -565,13 +565,35 @@ def _side_preference_rank(player_side, vacancy_side) -> int:
 
 
 def _attendance_stats(player_id: int) -> tuple[float, float]:
-    presences = Presence.query.filter_by(player_id=player_id).all()
-    if not presences:
-        return 0.0, 0.0
-    total = len(presences)
-    present = sum(1 for p in presences if p.status == "present")
-    justified = sum(1 for p in presences if p.status == "absent" and p.justification == "justified")
-    return present / total, justified / total
+    return _attendance_stats_for([player_id])[player_id]
+
+
+def _attendance_stats_for(player_ids) -> dict[int, tuple[float, float]]:
+    """``{player_id: (attendance_rate, justified_miss_rate)}`` for every id, in
+    ONE query. PAD-276 (audit M17): the ranking used to run one ``presences``
+    query per surviving candidate. Same arithmetic as before — every presence
+    row counts in the total, whatever its status — and a player with no rows
+    is ``(0.0, 0.0)``."""
+    ids = [int(pid) for pid in player_ids]
+    stats: dict[int, tuple[float, float]] = {pid: (0.0, 0.0) for pid in ids}
+    if not ids:
+        return stats
+    totals: dict[int, list[int]] = {}
+    rows = (
+        db.session.query(Presence.player_id, Presence.status, Presence.justification)
+        .filter(Presence.player_id.in_(ids))
+        .all()
+    )
+    for pid, status, justification in rows:
+        t = totals.setdefault(pid, [0, 0, 0])
+        t[0] += 1
+        if status == "present":
+            t[1] += 1
+        elif status == "absent" and justification == "justified":
+            t[2] += 1
+    for pid, (total, present, justified) in totals.items():
+        stats[pid] = (present / total, justified / total)
+    return stats
 
 
 def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy = None):
@@ -1153,19 +1175,37 @@ def evaluate_candidates(
     # independent questions — "are they free at THIS hour?" and "do they want
     # to be asked at all?" — evaluated per player through the same functions
     # the batch filters call, so the answer is the engine's answer.
-    from padel_app.services.student_availability_service import user_is_blocked_for_window
+    from sqlalchemy.orm import selectinload
+
+    from padel_app.models import Player
+    from padel_app.services.student_availability_service import blocked_user_ids_for_window
     from padel_app.services.student_notification_preferences import (
         player_blocks_auto_invitations,
     )
 
-    roster_query = Association_CoachPlayer.query.filter_by(coach_id=coach_id)
+    # PAD-276 (audit M17): the roster is read once, with the player and user
+    # rows it needs, and the availability blockers of the whole roster come
+    # back in one query. Before this the loop below lazy-loaded ``players`` and
+    # ``users`` and ran one ``calendar_blocks`` query per candidate — three
+    # statements per student, ~900 per wave on a 300-student roster, on every
+    # batch and every decline. The verdicts are unchanged: the same predicate
+    # is evaluated per user, just over rows fetched together.
+    roster_query = Association_CoachPlayer.query.filter_by(coach_id=coach_id).options(
+        selectinload(Association_CoachPlayer.player).selectinload(Player.user)
+    )
     if only_player_ids is not None:
         roster_query = roster_query.filter(
             Association_CoachPlayer.player_id.in_(list(only_player_ids))
         )
+    roster = roster_query.all()
+    blocked_user_ids = blocked_user_ids_for_window(
+        [cp.player.user_id for cp in roster if cp.player is not None],
+        instance.start_datetime,
+        instance.end_datetime,
+    )
 
     verdicts: list[CandidateVerdict] = []
-    for cp in roster_query.all():
+    for cp in roster:
         pid = cp.player_id
         if departing_id is not None and pid == departing_id:
             verdicts.append(CandidateVerdict(cp, "departing_player"))
@@ -1199,7 +1239,7 @@ def evaluate_candidates(
                 verdicts.append(CandidateVerdict(cp, "inactive_account"))
                 continue
         user_id = cp.player.user_id if cp.player else None
-        if user_is_blocked_for_window(user_id, instance.start_datetime, instance.end_datetime):
+        if user_id in blocked_user_ids:
             verdicts.append(CandidateVerdict(cp, "unavailable"))
             continue
         if player_blocks_auto_invitations(pid):
@@ -1232,13 +1272,14 @@ def _rank_invited(
     """The survivors of a wave, ranked by the coach's priority criteria — the
     exact stats + sort the engine has always applied."""
     coach_players = [v.cp for v in verdicts if v.invited]
-    player_stats = {}
-    for cp in coach_players:
-        att_rate, just_rate = _attendance_stats(cp.player_id)
-        player_stats[cp.player_id] = {
-            "attendance_rate": att_rate,
-            "justified_miss_rate": just_rate,
+    stats = _attendance_stats_for([cp.player_id for cp in coach_players])
+    player_stats = {
+        cp.player_id: {
+            "attendance_rate": stats[cp.player_id][0],
+            "justified_miss_rate": stats[cp.player_id][1],
         }
+        for cp in coach_players
+    }
     sort_key = _build_sort_key(config.get_priority_criteria(), player_stats, vacancy)
     return sorted(coach_players, key=sort_key)
 
