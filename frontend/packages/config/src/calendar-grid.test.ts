@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DAY_HEADER_HEIGHT,
+  GRID_ROW_HEIGHT,
+  MONTH_WEEKDAY_HEADER_HEIGHT,
+  SHEET_COLLAPSED_HEIGHT,
+  SHEET_HANDLE_HEIGHT,
   clampSheetTop,
   eventBlockGeometry,
   groupOverlappingEvents,
@@ -176,5 +181,23 @@ describe("sheetTopBounds with a month grid above the day grid (gridTop)", () => 
     const b = sheetTopBounds(400, { rowHeight: 44, collapsedHeight: 104, gridTop: 360 });
     expect(b.initial).toBe(b.max);
     expect(isSheetRaised(b.initial, b)).toBe(false);
+  });
+});
+
+/**
+ * PAD-286 review (Session I): the Mês sheet's maximum must leave the weekday
+ * header fully visible — rule 17. The header row is a fixed shared height on
+ * both shells, so this pin is the whole guarantee.
+ */
+describe("the Mês sheet's maximum leaves the weekday header visible", () => {
+  it("one grid row is taller than the weekday header row", () => {
+    expect(MONTH_WEEKDAY_HEADER_HEIGHT).toBeLessThan(GRID_ROW_HEIGHT);
+    const b = sheetTopBounds(574, { rowHeight: GRID_ROW_HEIGHT, collapsedHeight: SHEET_COLLAPSED_HEIGHT, gridTop: 300 });
+    expect(b.min).toBeGreaterThan(MONTH_WEEKDAY_HEADER_HEIGHT);
+  });
+
+  it("the collapsed height is the handle row plus the day header, declared once", () => {
+    expect(SHEET_COLLAPSED_HEIGHT).toBe(SHEET_HANDLE_HEIGHT + DAY_HEADER_HEIGHT);
+    expect(SHEET_HANDLE_HEIGHT).toBeGreaterThanOrEqual(28);
   });
 });

@@ -1,11 +1,4 @@
-import {
-  cardSurfaceNative,
-  layoutDayEvents,
-  lightTheme,
-  nativeCalendarSurfaces,
-  resolveCardVariant,
-  type HourRange,
-} from "@levelup/config";
+import { cardSurfaceNative, GRID_ROW_HEIGHT, layoutDayEvents, lightTheme, nativeCalendarSurfaces, resolveCardVariant, type HourRange } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { format, isSameDay } from "date-fns";
 import * as React from "react";
@@ -17,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { GUTTER_PT } from "./WeekHeaderRow";
 
 /** Points per hour on the phone grid. */
-export const ROW_HEIGHT = 44;
+export const ROW_HEIGHT = GRID_ROW_HEIGHT;
 
 const SURFACES = nativeCalendarSurfaces("light");
 

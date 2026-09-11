@@ -1,6 +1,6 @@
 import { format, isSameDay, isToday } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { isInMonth } from "@levelup/config";
+import { isInMonth, MONTH_WEEKDAY_HEADER_HEIGHT } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
@@ -33,7 +33,11 @@ export function MonthGrid({
 
   return (
     <div data-testid="calendar-month-grid" className="shrink-0 bg-background px-2.5 pb-3">
-      <div className="grid grid-cols-7 pt-2.5" aria-hidden="true">
+      <div
+        className="grid grid-cols-7 items-start overflow-hidden pt-2.5"
+        style={{ height: MONTH_WEEKDAY_HEADER_HEIGHT }}
+        aria-hidden="true"
+      >
         {monthDays.slice(0, 7).map((d) => (
           <span
             key={d.toISOString()}

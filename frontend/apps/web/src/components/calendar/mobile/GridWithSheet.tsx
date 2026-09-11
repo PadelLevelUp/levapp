@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { format } from "date-fns";
-import { clampSheetTop, isSheetRaised, resolveHourRange, sheetTopBounds } from "@levelup/config";
+import { clampSheetTop, isSheetRaised, resolveHourRange, SHEET_COLLAPSED_HEIGHT, sheetTopBounds } from "@levelup/config";
 import type { CalendarEvent, CoachLevel } from "@/types";
-import { DaySheet, SHEET_COLLAPSED_HEIGHT } from "./DaySheet";
+import { DaySheet } from "./DaySheet";
 import { ROW_HEIGHT, TimeGrid } from "./TimeGrid";
 
 /**
@@ -43,6 +43,8 @@ export function GridWithSheet({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const aboveRef = useRef<HTMLDivElement>(null);
+  // `above` is a fresh JSX node every render; the effects only care whether there is one.
+  const hasAbove = above !== undefined;
   const [containerHeight, setContainerHeight] = useState(0);
   const [gridTop, setGridTop] = useState(0);
   const [sheetTop, setSheetTop] = useState<number | null>(null);
@@ -68,7 +70,7 @@ export function GridWithSheet({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [above]);
+  }, [hasAbove]);
 
   const bounds = useMemo(
     () =>
@@ -84,9 +86,9 @@ export function GridWithSheet({
   // With an `above` block the default depends on its height too, so wait for it.
   useEffect(() => {
     if (containerHeight === 0) return;
-    if (above !== undefined && gridTop === 0) return;
+    if (hasAbove && gridTop === 0) return;
     setSheetTop((current) => (current === null ? bounds.initial : clampSheetTop(current, bounds)));
-  }, [containerHeight, gridTop, above, bounds]);
+  }, [containerHeight, gridTop, hasAbove, bounds]);
 
   // Rule 18 (Mês): tell the shell whether the sheet sits above its resting
   // height so it can hide the floating add buttons; reset when unmounted.
@@ -105,7 +107,7 @@ export function GridWithSheet({
 
   return (
     <div ref={containerRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      {above !== undefined && (
+      {hasAbove && (
         <div ref={aboveRef} className="shrink-0">
           {above}
         </div>

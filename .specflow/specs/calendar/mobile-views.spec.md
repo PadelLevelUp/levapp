@@ -137,7 +137,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     height over the day grid, and dragged up it stops one hour-row below the top of the
     month grid, so on a phone it covers more than half of the screen; the month grid is
     under it until it is dragged back down. Rule 18's "raised" test is unchanged — raised
-    still means above the resting height.
+    still means above the resting height. At its maximum the sheet leaves the weekday
+    header row fully visible: the row is a fixed shared height (`MONTH_WEEKDAY_HEADER_HEIGHT`,
+    30px, labels not font-scaled on iOS) that is shorter than the hour row the maximum keeps.
 
 #### Controls, roles, chrome
 18. **Add controls are floating action buttons on both shells:** `Add event`
@@ -271,6 +273,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **When** the coach drags the handle up past the maximum
 - **Then** the sheet stops with its top one hour-row below the top of the month grid, and its
   height is more than half of the viewport
+- **And** the weekday header row is still fully visible
 - **And** dragging it back down to its lowest position uncovers the month grid and the add
   buttons return (rule 18)
 

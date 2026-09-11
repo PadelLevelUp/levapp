@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  SHEET_COLLAPSED_HEIGHT,
-  SHEET_HANDLE_HEIGHT,
-  SHEET_SHADOW,
-  SHEET_TOP_RADIUS,
-} from "./sheet-chrome";
+import { SHEET_COLLAPSED_HEIGHT, SHEET_HANDLE_HEIGHT } from "@levelup/config";
+import { SHEET_SHADOW, SHEET_TOP_RADIUS } from "./sheet-chrome";
 
 /**
  * PAD-286 / B-065 — calendar.mobile-views rule 3 on iOS. The mobile unit runner

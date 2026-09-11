@@ -1,4 +1,4 @@
-import { isInMonth, nativeCalendarSurfaces } from "@levelup/config";
+import { isInMonth, MONTH_WEEKDAY_HEADER_HEIGHT, nativeCalendarSurfaces } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { format, isSameDay, isToday } from "date-fns";
 import * as React from "react";
@@ -37,10 +37,17 @@ export function MonthGrid({
 
   return (
     <View testID="calendar-month-grid" className="bg-background px-2.5 pb-3">
-      <View className="flex-row pt-2.5" accessibilityElementsHidden>
+      {/* Fixed height, no font scaling: the sheet's maximum (rule 17) is one grid row
+          below this grid's top and must always leave the header visible. */}
+      <View
+        className="flex-row overflow-hidden pt-2.5"
+        style={{ height: MONTH_WEEKDAY_HEADER_HEIGHT }}
+        accessibilityElementsHidden
+      >
         {monthDays.slice(0, 7).map((d) => (
           <Text
             key={d.toISOString()}
+            allowFontScaling={false}
             className="flex-1 pb-2 text-center text-[9.5px] font-sans-bold tracking-wider text-muted-foreground"
           >
             {format(d, "EEE", { locale }).replace(/\.$/, "").toUpperCase()}

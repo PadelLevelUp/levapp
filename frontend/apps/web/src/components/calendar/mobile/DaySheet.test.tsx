@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DaySheet, SHEET_COLLAPSED_HEIGHT, SHEET_HANDLE_HEIGHT } from "./DaySheet";
+import { SHEET_COLLAPSED_HEIGHT, SHEET_HANDLE_HEIGHT } from "@levelup/config";
+import { DaySheet } from "./DaySheet";
 
 /**
  * PAD-286 — calendar.mobile-views rule 3, criterion "The grab handle is obvious

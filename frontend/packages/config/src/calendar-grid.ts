@@ -150,6 +150,21 @@ export function layoutDayEvents<T extends GridEventLike>(
   return laid;
 }
 
+/** One hour row of the time grid, in px / pt, on both shells (rule 13). */
+export const GRID_ROW_HEIGHT = 44;
+/** The day sheet's grab-handle row (calendar.mobile-views rule 3, PAD-286). */
+export const SHEET_HANDLE_HEIGHT = 28;
+/** The DayHeader block: 48px circle plus its paddings (rule 3). */
+export const DAY_HEADER_HEIGHT = 76;
+/** Handle row plus header: what stays visible at the sheet's `max`. */
+export const SHEET_COLLAPSED_HEIGHT = SHEET_HANDLE_HEIGHT + DAY_HEADER_HEIGHT;
+/**
+ * The Mês weekday header row (rule 16), fixed on both shells so the sheet's
+ * maximum — one GRID_ROW_HEIGHT below the month grid's top (rule 17) — always
+ * leaves it fully visible, whatever the font scale.
+ */
+export const MONTH_WEEKDAY_HEADER_HEIGHT = 30;
+
 export interface SheetBounds {
   /** Highest the sheet may go: one hour row of the container's top stays visible. */
   min: number;

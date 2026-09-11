@@ -326,6 +326,8 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     const raised = (await sheet.boundingBox())!;
     expect(raised.height).toBeGreaterThan(844 / 2);
     expect(Math.abs(raised.y - (gridBox.y + 44))).toBeLessThanOrEqual(1);
+    // The weekday header row (30px, MONTH_WEEKDAY_HEADER_HEIGHT) stays fully visible.
+    expect(raised.y).toBeGreaterThanOrEqual(gridBox.y + 30);
     await expect(addEvent).toHaveCount(0);
 
     // All the way down: the month grid is uncovered and the buttons are back.

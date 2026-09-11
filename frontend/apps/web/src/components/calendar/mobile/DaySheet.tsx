@@ -1,15 +1,10 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { clampSheetTop, type SheetBounds } from "@levelup/config";
+import { clampSheetTop, SHEET_HANDLE_HEIGHT, type SheetBounds } from "@levelup/config";
 import type { CalendarEvent } from "@/types";
 import { DayHeader } from "./DayHeader";
 import { FAB_CLEARANCE_PX } from "./layout";
 import { MobileEventCard } from "./MobileEventCard";
-
-/** The grab handle's row (rule 3, PAD-286): tall enough to catch without aiming. */
-export const SHEET_HANDLE_HEIGHT = 28;
-/** Handle row plus the DayHeader's height: what stays visible at `max`. */
-export const SHEET_COLLAPSED_HEIGHT = SHEET_HANDLE_HEIGHT + 76;
 
 /**
  * The day sheet over the Semana / Mês grid — calendar.mobile-views rule 3.

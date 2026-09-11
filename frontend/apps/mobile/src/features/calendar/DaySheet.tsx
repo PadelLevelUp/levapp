@@ -1,4 +1,4 @@
-import { clampSheetTop, type SheetBounds } from "@levelup/config";
+import { clampSheetTop, SHEET_HANDLE_HEIGHT, type SheetBounds } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -8,14 +8,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DayHeader } from "./DayHeader";
 import { EventCard } from "./EventCard";
 import { FAB_CLEARANCE } from "./layout";
-import {
-  SHEET_COLLAPSED_HEIGHT,
-  SHEET_HANDLE_HEIGHT,
-  SHEET_SHADOW,
-  SHEET_TOP_RADIUS,
-} from "./sheet-chrome";
-
-export { SHEET_COLLAPSED_HEIGHT };
+import { SHEET_SHADOW, SHEET_TOP_RADIUS } from "./sheet-chrome";
 
 const TOP_CORNERS = {
   borderTopLeftRadius: SHEET_TOP_RADIUS,
