@@ -150,7 +150,7 @@ def _gates(instance, config, now: datetime) -> list[dict]:
     total_enabled = bool(max_total.get("enabled"))
     sent = NotificationEvent.query.filter_by(
         lesson_instance_id=instance.id,
-    ).filter(NotificationEvent.status.in_(["sent", "queued", "confirmed"])).count()
+    ).filter(NotificationEvent.status.in_(["sent", "confirmed"])).count()
     total_limit = max_total.get("value")
     total_blocked = total_enabled and total_limit is not None and sent >= total_limit
 
@@ -262,7 +262,7 @@ def _batch_size(config, instance, first_round_size: int) -> int:
     if max_total.get("enabled"):
         already_sent = NotificationEvent.query.filter(
             NotificationEvent.lesson_instance_id == instance.id,
-            NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+            NotificationEvent.status.in_(["sent", "confirmed"]),
         ).count()
         size = min(size, max(0, max_total["value"] - already_sent))
     return max(0, int(size))

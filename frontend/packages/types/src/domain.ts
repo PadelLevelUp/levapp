@@ -365,6 +365,15 @@ export interface Presence {
    * server-side from the messages themselves (`attendance.presence` rule 1a).
    */
   reminderSentAt?: string | null;
+  /**
+   * PAD-271 (attendance.presence rule 7): the student's own answer, kept apart
+   * from the coach's `status`. `lateCancellation` is derived server-side from
+   * `response` + `respondedAt` against the cancellation deadline.
+   */
+  response?: 'none' | 'confirmed' | 'declined' | 'cancelled' | 'proactive_decline';
+  respondedAt?: string | null;
+  recordedBy?: 'student' | 'coach' | 'system' | 'import' | null;
+  lateCancellation?: boolean;
 
   player?: Player;
 }

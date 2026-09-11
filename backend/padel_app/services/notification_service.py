@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 
 from padel_app.sql_db import db
+from padel_app.services.presence_response import record_response, presence_late_cancellation  # noqa: F401  (PAD-271 M5)
 from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
     Association_CoachLessonInstance,
@@ -1071,7 +1072,7 @@ def evaluate_candidates(
             for e in NotificationEvent.query.filter(
                 NotificationEvent.vacancy_id == vacancy.id,
                 or_(
-                    NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                    NotificationEvent.status.in_(["sent", "confirmed"]),
                     NotificationEvent.round_number == wave[1],
                 ),
             ).all()
@@ -1306,7 +1307,7 @@ def _check_restrictions(
     if max_total.get("enabled"):
         already_sent = NotificationEvent.query.filter_by(
             lesson_instance_id=instance.id,
-        ).filter(NotificationEvent.status.in_(["sent", "queued", "confirmed"])).count()
+        ).filter(NotificationEvent.status.in_(["sent", "confirmed"])).count()
         if already_sent >= max_total["value"]:
             return False
 
@@ -2373,7 +2374,7 @@ def _expire_stale_invitations(instance: LessonInstance) -> int:
     """
     pending = NotificationEvent.query.filter(
         NotificationEvent.lesson_instance_id == instance.id,
-        NotificationEvent.status.in_(("sent", "queued")),
+        NotificationEvent.status.in_(("sent",)),
     ).all()
 
     for event in pending:
@@ -2408,7 +2409,7 @@ def expire_stale_invitations(*, now: datetime | None = None) -> int:
         row[0]
         for row in NotificationEvent.query
         .with_entities(NotificationEvent.lesson_instance_id)
-        .filter(NotificationEvent.status.in_(("sent", "queued")))
+        .filter(NotificationEvent.status.in_(("sent",)))
         .distinct()
         .all()
     ]
@@ -2516,7 +2517,7 @@ def _vacancy_has_live_invitations(vacancy: "Vacancy | None") -> bool:
         return False
     return NotificationEvent.query.filter(
         NotificationEvent.vacancy_id == vacancy.id,
-        NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+        NotificationEvent.status.in_(["sent", "confirmed"]),
     ).count() > 0
 
 
@@ -2666,6 +2667,8 @@ def respond_to_reminder(
         if presence:
             presence.confirmed = True
             # status intentionally not set — only the coach marks someone as present
+            # PAD-271 M5: the answer as one field (attendance.presence rule 7).
+            record_response(presence, "confirmed", when=now)
             presence.save()
         if coach_user_id:
             _send_system_message(
@@ -2679,6 +2682,8 @@ def respond_to_reminder(
         return {"action": "confirmed"}
 
     elif action == "no":
+        if presence:
+            record_response(presence, "declined", when=now)  # PAD-271 M5
         _free_spot_for_declining_player(
             instance,
             presence,
@@ -2978,7 +2983,9 @@ def cancel_attendance(
         # sensibly be penalised as a late cancellation.
         if is_proactive:
             is_late = False
-        presence.late_cancellation = is_late
+        # PAD-271 M5: stored as the answer; lateness is derived on read from
+        # responded_at against the same deadline (presence_late_cancellation).
+        record_response(presence, "proactive_decline" if is_proactive else "cancelled", when=_now)
 
     # PAD-44: notify the COACH of the cancellation exactly once, flagging late
     # cancellations. This is emitted HERE (not in the shared
@@ -3129,7 +3136,7 @@ def _send_invitation_batch(
     if max_total.get("enabled"):
         already_sent = NotificationEvent.query.filter(
             NotificationEvent.lesson_instance_id == instance.id,
-            NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+            NotificationEvent.status.in_(["sent", "confirmed"]),
         ).count()
         remaining_budget = max_total["value"] - already_sent
         if remaining_budget <= 0:
@@ -3420,7 +3427,7 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         pick.filled_at = utcnow_naive()
         for event in NotificationEvent.query.filter(
             NotificationEvent.vacancy_id == pick.id,
-            NotificationEvent.status.in_(("sent", "queued")),
+            NotificationEvent.status.in_(("sent",)),
         ).all():
             event.status = "expired"
             _retire_invite_message(event)
@@ -4390,7 +4397,7 @@ def get_notification_groups(
             e.player_id
             for e in NotificationEvent.query.filter(
                 NotificationEvent.lesson_instance_id == obj.id,
-                NotificationEvent.status.in_(["sent", "queued", "confirmed"]),
+                NotificationEvent.status.in_(["sent", "confirmed"]),
             ).all()
         }
     else:

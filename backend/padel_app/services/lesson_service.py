@@ -483,7 +483,7 @@ def add_presences(lesson_instance, payload):
         ).first()
 
         # Attendance marking only owns status/justification. The reminder-flow
-        # flags (invited/confirmed) and late_cancellation are deliberately NOT
+        # flags (invited/confirmed) and the student's response are deliberately NOT
         # routed through the form layer: every Boolean form field is written on
         # every submit, so a payload that merely omits them — or a coercion bug
         # like PAD-69 — would silently reset the student's reminder answer.
@@ -515,10 +515,13 @@ def add_presences(lesson_instance, payload):
         fake_request = JsonRequestAdapter(data, form)
         values = form.set_values(fake_request)
 
-        for reminder_flag in ("invited", "confirmed", "late_cancellation"):
+        # PAD-271 M5: the student's answer (response / responded_at) is never
+        # written by the coach's attendance mark; recorded_by names who wrote status.
+        for reminder_flag in ("invited", "confirmed", "response", "responded_at", "recorded_by"):
             values.pop(reminder_flag, None)
         # Attendance was explicitly recorded by the coach.
         values["validated"] = True
+        values["recorded_by"] = "coach"
 
         presence_obj.update_with_dict(values)
         presence_obj.save()

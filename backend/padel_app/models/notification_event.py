@@ -26,7 +26,7 @@ class NotificationEvent(db.Model, model.Model):
     type = Column(Enum("manual", "auto", name="notification_event_type"), default="manual", nullable=False)
     round_number = Column(Integer, default=1, nullable=False)
     status = Column(
-        Enum("sent", "confirmed", "expired", "queued", name="notification_event_status"),
+        Enum("sent", "confirmed", "expired", name="notification_event_status"),  # PAD-271: 'queued' dropped (never written)
         default="sent",
         nullable=False,
     )
