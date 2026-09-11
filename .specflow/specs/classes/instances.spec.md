@@ -13,7 +13,7 @@ governed_by: []
 Lesson instances are the actual scheduled occurrences of a class. For recurring lessons, instances are materialized lazily (on-demand).
 
 ### Entities
-- **LessonInstance** (`lesson_instances`): lesson_id, original_lesson_occurence_date, start_datetime, end_datetime, overwrite_title, level_id, notifications_enabled, status (scheduled|canceled|rescheduled|completed), notes, max_players, overridden_fields (JSON) — indexed on (lesson_id, original_lesson_occurence_date), the occurrence key every materialisation lookup takes (not unique yet: B-046), and on start_datetime
+- **LessonInstance** (`lesson_instances`): lesson_id, original_lesson_occurence_date, start_datetime, end_datetime, overwrite_title, level_id, notifications_enabled, status (scheduled|canceled|rescheduled|completed), notes, max_players, overridden_fields (JSON) — **unique** on (lesson_id, original_lesson_occurence_date) — `uq_lesson_instance_occurrence`, the occurrence key every materialisation lookup takes (PAD-303 closes B-046; it supersedes PAD-263's plain index) — and indexed on start_datetime
 
 ### Rules
 1. **Lazy materialization**: Instances for recurring lessons are NOT pre-created. They are created on-demand when:
@@ -52,8 +52,20 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
    occurrence up; a found occurrence takes no lock. A missing one locks the parent lesson row and is
    looked up again before it is created, so two concurrent callers (the scheduler and a request, say)
    produce one instance and the second finds the first. The lock ends at the next commit, and a
-   caller that finds the instance under the lock commits at once, so a lookup never holds it. The unique occurrence key
-   follows through the B-046 cleanup plan once duplicates on the staging copy of prod are merged.
+   caller that finds the instance under the lock commits at once, so a lookup never holds it. Since
+   PAD-303 the database enforces the occurrence key too (rule 9), so the lock is what keeps the
+   second caller from *failing* rather than from duplicating.
+9. **One instance per occurrence, enforced by the database (PAD-303, B-046; rule number
+   unconfirmed).** `lesson_instances` has a unique index `uq_lesson_instance_occurrence` on
+   `(lesson_id, original_lesson_occurence_date)`. Rows whose `original_lesson_occurence_date` is
+   NULL (legacy, before the column existed) are not covered — NULLs never collide — and the
+   migration logs how many of them share a lesson and a calendar day so they can be backfilled
+   separately. The migration that adds the index is guarded and idempotent, and it **refuses**
+   (raises, naming the offending `(lesson_id, date)` groups and ids) when any duplicate group
+   exists — it never silently skips, unlike PAD-273's uniques — because Session E's read-only scan
+   of the staging copy of prod found zero groups on 2026-09-11 and a non-zero count later means
+   new duplicates that need the B-046 merge first. Its downgrade drops the unique index and
+   restores PAD-263's plain index.
 
 ### Acceptance Criteria
 
@@ -92,3 +104,17 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
 - **Given** a recurring occurrence that has never been materialised
 - **When** two callers ask for it at the same moment
 - **Then** exactly one instance exists for that date and both get it
+
+#### The occurrence key is unique in the database (PAD-303)
+- **Given** a materialised instance for lesson 1 on 2026-09-10
+- **When** a second row for lesson 1 on 2026-09-10 is inserted
+- **Then** the database refuses it (unique `uq_lesson_instance_occurrence`)
+- **And** two rows for lesson 1 with a NULL occurrence date are both accepted (not covered)
+
+#### The constraint migration refuses on duplicates and applies cleanly otherwise (PAD-303, Postgres)
+- **Given** a database at the parent revision holding two instances for lesson 1 on 2026-09-10
+- **When** the migration upgrades
+- **Then** it raises, naming lesson 1, 2026-09-10 and both ids, and creates nothing
+- **When** the duplicate is deleted and the migration upgrades again
+- **Then** `uq_lesson_instance_occurrence` exists and `ix_lesson_instances_lesson_id_occurrence_date` is gone
+- **And** a second upgrade changes nothing, a downgrade restores the plain index and removes the unique one, and an upgrade after that recreates it

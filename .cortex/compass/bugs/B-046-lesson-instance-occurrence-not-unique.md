@@ -3,7 +3,8 @@ id: B-046
 title: "Nothing in the database stops two lesson instances for the same occurrence; the unique constraint needs a duplicate merge first"
 type: incomplete-rule
 severity: medium
-status: open
+status: resolved
+resolved: 2026-09-11T22:00:00Z
 affects:
   - backend/padel_app/models/lesson_instances.py
   - backend/padel_app/services/lesson_service.py
@@ -77,3 +78,16 @@ constraints that the move can collide with.
 **Related:** PAD-85 (the duplicates' origin), PAD-263 (the plain index), PAD-261 / B-051 (the deferred
 vacancy unique), the PAD-265 drift entry in #163 (keep models and
 migrations declaring the same indexes).
+
+### Resolution (PAD-303, 2026-09-11)
+- **Step 1 counts** (Session E, read-only scan of the staging copy of prod at head `390bf6e8be12`,
+  2026-09-11 21:33, filed by PR #227): **0** duplicate `(lesson_id, original_lesson_occurence_date)`
+  groups in either shape (dated, and NULL-dated sharing a lesson and a day); **0** duplicate open
+  vacancies per `(lesson_instance_id, original_player_id)`. Step 2's merge was therefore not needed.
+- **Step 3 + 5:** migration `5f2a0bb50712` (after `fed5ed4916a8`) creates `uq_lesson_instance_occurrence`
+  and the partial `uq_vacancies_open_original_player`, drops PAD-263's plain occurrence index, and
+  REFUSES with the offending groups if any exist (never skips); downgrade restores the prior state.
+  Declared on the models. Specs: `classes.instances` rule 9, `notifications.invitations` rule 13.
+- **Step 4:** not needed — PAD-261's per-series lock already serialises materialisation, so the
+  unique index turns a lost race into a second caller finding the first row, never an IntegrityError
+  in a request path.

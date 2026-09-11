@@ -124,6 +124,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    commits per invitation sent) and the blocking push calls are recorded in the
    2026-09-11 notification-engine-cost decision, not changed here.
 
+13. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
+    B-046 step 5 / B-051; rule number unconfirmed).** `vacancies` has a partial unique index
+    `uq_vacancies_open_original_player` on `(lesson_instance_id, original_player_id)` where
+    `status = 'open' AND original_player_id IS NOT NULL`. Filled and expired rows and structural
+    vacancies (no departing player) are not covered, so a spot can be vacated again later. Rule 10's
+    get-or-create under the row lock stays the only writer; the index is the backstop for a writer
+    that bypasses it. The migration refuses (raises, naming the groups) when duplicate open
+    vacancies exist — zero on the staging copy of prod on 2026-09-11 — and its downgrade drops the
+    index.
+
 ### Acceptance Criteria
 
 #### Empty invitation groups advance one round per tick (PAD-87)
@@ -285,3 +295,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - When the widest wave is evaluated and ranked for each vacancy
 - Then the 60-student wave issues no more SQL statements than the 6-student wave plus two, and fewer than 60 in total
 - And every blocked student's verdict is `unavailable`, every other student is `invited`, and the batched attendance stats equal the per-player stats for every survivor (0.0/0.0 for a student with no history)
+
+#### Only one open vacancy per departing player per occurrence (PAD-303)
+- **Given** an open vacancy on instance 10 for player 7
+- **When** a second open vacancy on instance 10 for player 7 is inserted
+- **Then** the database refuses it (`uq_vacancies_open_original_player`)
+- **And** an expired vacancy on instance 10 for player 7 next to the open one is accepted, and two structural vacancies (no departing player) on instance 10 are accepted
