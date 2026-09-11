@@ -68,22 +68,8 @@ def test_a_submitted_job_runs_on_the_worker_thread_and_flush_waits(app, async_se
     assert seen == ["push-sender"]
 
 
-def test_a_full_queue_drops_the_push_with_a_warning_and_does_not_block(app, async_sender, caplog):
-    release = threading.Event()
-    with app.app_context(), patch.object(async_sender, "_queue", queue.Queue(maxsize=1)):
-        async_sender._worker = None  # the worker must pick up the patched queue
-        t0 = time.perf_counter()
-        assert async_sender.submit(release.wait, 5, label="blocker") is True   # occupies the worker
-        time.sleep(0.05)
-        assert async_sender.submit(lambda: None, label="fills the queue") is True
-        with caplog.at_level("WARNING"):
-            assert async_sender.submit(lambda: None, label="push for user 7") is False
-        assert time.perf_counter() - t0 < 1.0
-        assert any("queue full" in r.message and "push for user 7" in r.message for r in caplog.records)
-        release.set()
-        assert async_sender.flush(timeout=5) is True
-    async_sender._worker = None
-
+# The queue-full policy (drop the OLDEST, pause after consecutive provider
+# timeouts) is pinned in test_pad294_push_sender_review.py.
 
 def test_expo_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_sender):
     from padel_app.utils.expo_push import send_expo_push_to_user

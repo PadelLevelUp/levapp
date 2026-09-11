@@ -72,13 +72,21 @@ Send browser push notifications when a new message arrives and the recipient isn
    (`PUSH_QUEUE_MAX`, default 500). The caller's DB connection is never held across the network
    round trip, so a slow or timed-out push service (10 s per call) cannot stall the scheduler's
    executor or a request. The stale-token cleanups (`DeviceNotRegistered`, web push 404/410) run
-   in the worker under their own app context and session. A full queue drops the push with a
-   WARNING that names the user — push is best-effort already (rules 4 and 8), and blocking the
-   engine would be worse than a missed alert. The queue is drained for up to five seconds at
-   process exit. Per-recipient order is preserved (one worker). Under the test configuration the
-   sender runs inline so existing tests stay deterministic; `PUSH_SENDER_INLINE` overrides either
-   way. Verdicts, message rows, SSE events and idempotency are untouched: only *when* the HTTP
-   call happens changes.
+   in the worker under their own app context and session. **Full queue:** the *oldest* queued
+   push is dropped with a WARNING naming it and the new one is queued — the newest push is the most
+   recent event (a reminder, a fresh message) and push is best-effort already (rules 4 and 8);
+   blocking the engine would be worse than a missed alert. **Provider outage:** after three
+   consecutive deliveries slower than 8 s (the HTTP timeout is 10 s) the sender pauses for 60 s and
+   drops pushes with a WARNING instead of queueing hundreds that would each wait out the timeout;
+   delivery resumes after the pause. Worker and inline mode share one `_execute` path, so a
+   sender's exception is logged and swallowed identically in tests and in production. The queue is
+   drained for up to five seconds at process exit, inside the ten-second stop grace `docker stop`
+   gives the container on deploy. The web-push 404/410 cleanup deletes the subscription row only
+   while it still holds the subscription the push was sent to — a browser that re-subscribed while
+   the push was on the wire keeps its new endpoint. Per-recipient order is preserved (one worker).
+   Under the test configuration the sender runs inline so existing tests stay deterministic;
+   `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
+   are untouched: only *when* the HTTP call happens changes.
 
 ### Acceptance Criteria
 
@@ -109,3 +117,14 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** `_send_system_message` returns before the push round trip completes, the HTTP call runs on the sender's worker thread, and the push is still delivered with the same payload
 - **And** when the push service answers `DeviceNotRegistered`, the token row is deleted by the worker
 - **And** when the queue is full, the push is dropped with a warning and the caller is not blocked
+
+#### The sender drops the oldest push, pauses on a provider outage, keeps a re-subscribed browser (PAD-294 review)
+- **Given** the worker is busy and the queue is full
+- **When** one more push is submitted
+- **Then** the oldest queued push is dropped with a warning naming it and the new one is queued
+- **Given** three deliveries in a row took longer than 8 s
+- **When** the next push is submitted
+- **Then** it is dropped with a warning and nothing is queued until the 60 s pause ends
+- **Given** a web push answered 410 while the browser had already re-subscribed on the same row
+- **When** the cleanup runs
+- **Then** the row with the new endpoint is kept

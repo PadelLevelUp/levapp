@@ -72,10 +72,18 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
                 user_id,
                 status_code,
             )
+            # Only the subscription this push was sent to: save-subscription
+            # refreshes the SAME row in place, so a browser that re-subscribed
+            # while this push was on the wire must keep its new endpoint.
             stale = db.session.get(PushSubscription, subscription_id)
-            if stale is not None:
+            if stale is not None and stale.subscription_json == subscription_json:
                 db.session.delete(stale)
                 db.session.commit()
+            else:
+                logger.info(
+                    "Push subscription for user_id=%s was replaced while the push was in flight; kept",
+                    user_id,
+                )
         else:
             logger.warning("Failed to send push notification for user_id=%s: %s", user_id, exc)
         return False
