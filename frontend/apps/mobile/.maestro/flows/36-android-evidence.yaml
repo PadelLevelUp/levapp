@@ -79,6 +79,12 @@ appId: com.padellevelup.app
 - tapOn:
     id: "class-date"
 - takeScreenshot: android-date-picker
+# First back closes the dialog (verified: run 34637032903), second pops the form.
+- back
+- extendedWaitUntil:
+    visible:
+      id: "class-name"
+    timeout: 5000
 - back
 # Rule 2, the riskiest keyboard site: the chat composer under edge-to-edge.
 - extendedWaitUntil:

@@ -33,12 +33,12 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 
 #### Keyboard
 2. **One keyboard-avoidance policy.** Every `KeyboardAvoidingView` takes its `behavior` from
-   `keyboardAvoidingBehavior()` in `src/lib/keyboard-avoiding.ts` — `"padding"` on iOS,
-   `undefined` on Android, where the window resizes for the keyboard (`adjustResize`, the
-   prebuild default with `edgeToEdgeEnabled`). The emulator lane decides whether Android needs
-   `"height"` or `"padding"` under edge-to-edge; when it does, that one function changes, not
-   ten screens. `useKeyboardVisible` keeps `keyboardDid*` on Android (there are no `will`
-   events there).
+   `keyboardAvoidingBehavior()` in `src/lib/keyboard-avoiding.ts` — `"padding"` on both
+   platforms. Under `edgeToEdgeEnabled` the Android window does not resize for the keyboard
+   (verified on the PAD-297 emulator, run 34637032903: with `behavior` unset the keyboard
+   covered the login screen's Sign In button), so Android pads exactly like iOS. If a screen
+   ever needs a different value, that one function changes, not ten screens.
+   `useKeyboardVisible` keeps `keyboardDid*` on Android (there are no `will` events there).
 
 #### Back button
 3. **The hardware / gesture back closes the topmost transient surface first.** A registry in
@@ -81,8 +81,9 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 #### Keyboard avoidance follows one policy
 - **Given** `Platform.OS` is `ios`, then `android`
 - **When** `keyboardAvoidingBehavior()` is called
-- **Then** it returns `"padding"`, then `undefined`
+- **Then** it returns `"padding"` both times
 - **And** all ten `KeyboardAvoidingView`s take their `behavior` from it
+- **And** on the emulator the login screen's Sign In button stays above the keyboard
 
 #### Back closes the newest surface first
 - **Given** a dialog is open and a context menu is opened over it on Android
@@ -105,5 +106,6 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 ### Notes
 - Web n/a: this leaf changes nothing on web (R-024's parity is between the shells that exist;
   Android joins iOS).
-- OPEN: rule 2's Android value waits on the first emulator run; rule 6's pre-grant is a lane
-  step owned by PAD-297.
+- Rule 2's Android value was decided by the first emulator run (padding); rule 6's pre-grant is
+  a lane step owned by PAD-297 (`scripts/ci-android-maestro.sh`).
+- OPEN: none.
