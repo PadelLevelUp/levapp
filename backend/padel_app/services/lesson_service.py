@@ -523,14 +523,30 @@ def duplicate_lesson_helper(old_lesson):
 
 
 def delete_future_instances(lesson, cutoff):
-    instances = LessonInstance.query.filter(
+    """Delete a series' occurrences from ``cutoff`` on, in ONE statement.
+
+    PAD-274 (audit M15): this used to load every instance and delete it with a
+    commit each. The database already cascades every child of an occurrence
+    (presences, links, vacancies, invitations, waiting lists, reminder
+    attempts, join requests, training), so one bulk DELETE leaves exactly the
+    rows the per-instance loop left, atomically. Scheduler jobs are still
+    cancelled per occurrence, which is not database state.
+    """
+    from padel_app.scheduler import _maybe_cancel_instance
+
+    query = LessonInstance.query.filter(
         LessonInstance.lesson_id == lesson.id,
         LessonInstance.start_datetime >= cutoff,
-    ).all()
-    from padel_app.scheduler import _maybe_cancel_instance
-    for instance in instances:
-        _maybe_cancel_instance(instance.id)
-        instance.delete()
+    )
+    instance_ids = [row.id for row in query.with_entities(LessonInstance.id).all()]
+    for instance_id in instance_ids:
+        _maybe_cancel_instance(instance_id)
+    if instance_ids:
+        LessonInstance.query.filter(LessonInstance.id.in_(instance_ids)).delete(
+            synchronize_session=False
+        )
+        db.session.commit()
+        db.session.expire_all()
     return True
 
 

@@ -2,9 +2,9 @@
 # - Mirrors padel_app/models/push_subscriptions.py (the existing browser Web-Push
 #   model): db.Model + model.Model mixin, created_at/updated_at come from model.Model.
 # - Unlike PushSubscription (unique per user_id, one browser sub per user), a
-#   DeviceToken is unique per *token* — a user can have several device tokens
-#   (multiple phones/reinstalls), and re-registering an existing token reassigns
-#   it to the new caller (upsert semantics live in the route, not here).
+#   DeviceToken is unique per (user, token): a user can have several device tokens
+#   (multiple phones/reinstalls), and registering never takes another user's row
+#   (messaging.push-notifications rule 9, PAD-269; it used to reassign it).
 from sqlalchemy import Column, Index, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -15,11 +15,11 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class DeviceToken(db.Model, model.Model):
     __tablename__ = "device_tokens"
-    # What migration c5d6e7f8a9b0 actually made: a named UNIQUE constraint plus a
-    # plain index, not the single unique index `unique=True, index=True`
-    # declared before (PAD-220, B-032-model-migration-index-drift).
+    # PAD-220 declared what migration c5d6e7f8a9b0 made: a named UNIQUE constraint plus a
+    # plain index. PAD-269's 95bfee084ad1 swaps the constraint to (user_id, token); the
+    # plain index on token stays.
     __table_args__ = (
-        UniqueConstraint("token", name="uq_device_tokens_token"),
+        UniqueConstraint("user_id", "token", name="uq_device_tokens_user_token"),
         Index("ix_device_tokens_token", "token"),
         {"extend_existing": True},
     )

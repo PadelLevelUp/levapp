@@ -154,6 +154,7 @@ def register():
 # ── auth.email-verification ────────────────────────────────────────────────
 
 @bp.post("/email-verification/send")
+@rate_limited("verification")
 @jwt_required()
 def email_verification_send():
     """Rule 4: mail a fresh 6-digit code to the caller's own email."""
@@ -167,6 +168,7 @@ def email_verification_send():
 
 
 @bp.post("/email-verification/confirm")
+@rate_limited("verification")
 @jwt_required()
 def email_verification_confirm():
     """Rule 5: check the code; on success answer with the /me payload."""

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, Union
 from padel_app.tools.calendar_tools import _format_date, _format_time
 from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+from padel_app.services.level_service import effective_level_id
 
 def _compute_status(
     start_dt: datetime,
@@ -97,7 +98,8 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 "confirmedCount": obj.confirmed_spots,
                 "maxPlayers": obj.max_players,
                 "color": lesson.color,
-                "levelId": obj.level_id or lesson.default_level_id,
+                # PAD-270: the one class-level fallback (PAD-86).
+                "levelId": effective_level_id(obj),
                 "isRecurring": True if lesson.recurrence_rule else False,
                 # clubs.courts rule 7 (PAD-194): the card shows club and court.
                 "club": _club_ref(lesson),

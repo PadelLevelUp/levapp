@@ -49,5 +49,8 @@ executionOrder:
     # 33 creates its own minor and guardian, so its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
     - 33-parental-consent
+    # 34 (PAD-274) deletes only the placeholder and category it creates, so
+    # its position is not load bearing.
+    - 34-player-removal
     # 35 (PAD-286) reads only: swipes the Mês day sheet up and down. (34 is PAD-274's.)
     - 35-day-sheet-polish

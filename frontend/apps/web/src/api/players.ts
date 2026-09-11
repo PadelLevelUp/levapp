@@ -1,5 +1,6 @@
 import "@/api/client";
 import type { Player, CoachPlayer, PlayerProfile, CoachNote } from "@/types";
+import type { PlayerRemovalAction, PlayerRemovalImpact } from "@levelup/types";
 import * as playersApi from "@levelup/api/src/resources/players";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPlayers, mockCoachPlayers, mockPlayerProfiles } from "@/data/mockData";
@@ -112,10 +113,20 @@ export async function deleteCoachNote(note: CoachNote): Promise<void> {
   await playersApi.deleteCoachNote(note);
 }
 
-export async function removePlayer(coachId: string, playerId: string): Promise<void> {
+export async function removePlayer(coachId: string, playerId: string, action?: PlayerRemovalAction): Promise<void> {
   if (USE_MOCK_DATA) {
-    console.log("[mock] removePlayer", { coachId, playerId });
+    console.log("[mock] removePlayer", { coachId, playerId, action });
     return;
   }
-  await playersApi.removePlayer(coachId, playerId);
+  await playersApi.removePlayer(coachId, playerId, action);
 }
+
+/** players.remove rule 7 (PAD-274): which removal the coach gets, and what it takes. */
+export async function getPlayerRemovalImpact(playerId: string): Promise<PlayerRemovalImpact> {
+  if (USE_MOCK_DATA) {
+    return { action: "disconnect", notes: 0, evaluations: 0 };
+  }
+  return playersApi.getPlayerRemovalImpact(playerId);
+}
+
+export const removePlayerErrorCode = playersApi.removePlayerErrorCode;

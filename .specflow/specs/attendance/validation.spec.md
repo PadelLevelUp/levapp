@@ -104,7 +104,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `attendance.history`. `start_datetime` is Lisbon wall-clock (R-023, PAD-256), and
     the clients format it without a zone conversion, so a late class never moves into
     the neighbouring week. The server's default range and the "pending validation"
-    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time.
+    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time. The
+    clients' presets and the Presences week are computed on the club's day too (B-060).
 16. The players table links each row to that player's existing attendance history
     page rather than reimplementing it.
 17. **Both shells carry the reporting surface too** (PAD-166): the three charts
