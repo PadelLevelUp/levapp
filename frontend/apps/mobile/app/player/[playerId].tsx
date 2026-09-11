@@ -1,4 +1,6 @@
 import * as React from "react";
+import type { PlayerRemovalImpact } from "@levelup/types";
+import { playersApi } from "@levelup/api";
 import { Platform, ScrollView, Share, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
@@ -89,6 +91,10 @@ export default function PlayerDetailScreen() {
 
   const [isEditing, setIsEditing] = React.useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
+  // players.remove rule 7 (PAD-274): the confirmation shows what the removal takes.
+  const [removalImpact, setRemovalImpact] =
+    React.useState<PlayerRemovalImpact | null>(null);
+  const [removalImpactFailed, setRemovalImpactFailed] = React.useState(false);
   const [isEvalOpen, setIsEvalOpen] = React.useState(false);
   const [isWaitingListOpen, setIsWaitingListOpen] = React.useState(false);
   const [isClassesOpen, setIsClassesOpen] = React.useState(false);
@@ -187,19 +193,47 @@ export default function PlayerDetailScreen() {
     }
   };
 
+  // players.remove rules 4-5: the roster's `deletable` says whether this coach may
+  // delete the record (a placeholder); otherwise they can only disconnect.
+  const canDelete = player?.deletable === true;
+  const removalAction =
+    removalImpact?.action ?? (canDelete ? "delete" : "disconnect");
+
+  const openRemove = () => {
+    if (!player) return;
+    setRemovalImpact(null);
+    setRemovalImpactFailed(false);
+    setIsDeleteOpen(true);
+    playersApi
+      .getPlayerRemovalImpact(String(player.playerId))
+      .then(setRemovalImpact)
+      .catch(() => setRemovalImpactFailed(true));
+  };
+
   const handleRemove = async () => {
     if (!player || !user?.coachId) return;
+    const name = player.name || t("players.defaultPlayerName");
     setError(null);
     try {
       await removePlayer.mutateAsync({
         coachId: user.coachId,
         playerId: String(player.playerId),
+        action: removalAction,
       });
       setIsDeleteOpen(false);
       router.back();
-    } catch {
+    } catch (err) {
       setIsDeleteOpen(false);
-      setError(t("players.removeFailedRetry"));
+      const code = playersApi.removePlayerErrorCode(err);
+      setError(
+        code === "PLAYER_HAS_ACCOUNT"
+          ? t("players.removeRefusedHasAccount", { name })
+          : code === "PLAYER_HAS_OTHER_COACHES"
+            ? t("players.removeRefusedOtherCoaches", { name })
+            : removalAction === "delete"
+              ? t("players.removeFailedRetry")
+              : t("players.disconnectFailed")
+      );
     }
   };
 
@@ -591,10 +625,16 @@ export default function PlayerDetailScreen() {
                   size="sm"
                   className="flex-1"
                   testID="player-remove"
-                  accessibilityLabel={t("players.removePlayer")}
-                  onPress={() => setIsDeleteOpen(true)}
+                  accessibilityLabel={
+                    canDelete
+                      ? t("players.deletePlayer")
+                      : t("players.disconnectPlayer")
+                  }
+                  onPress={openRemove}
                 >
-                  <Text>{t("common.remove")}</Text>
+                  <Text>
+                    {canDelete ? t("common.delete") : t("players.disconnect")}
+                  </Text>
                 </Button>
               </View>
             </CardContent>
@@ -651,11 +691,40 @@ export default function PlayerDetailScreen() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("players.removeConfirmDescription", {
-                name: player.name || t("players.deleteConfirmDefaultName"),
-              })}
+              {removalAction === "delete"
+                ? t("players.deletePlaceholderConfirmDescription", {
+                    name: player.name || t("players.deleteConfirmDefaultName"),
+                  })
+                : t("players.disconnectConfirmDescription", {
+                    name: player.name || t("players.deleteConfirmDefaultName"),
+                  })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <View testID="player-removal-impact" className="gap-1">
+            {removalImpact ? (
+              <>
+                <Text className="text-sm text-muted-foreground">
+                  {t("players.removalImpactNotes", { count: removalImpact.notes })}
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  {t("players.removalImpactEvaluations", {
+                    count: removalImpact.evaluations,
+                  })}
+                </Text>
+                {removalImpact.presences !== undefined ? (
+                  <Text className="text-sm text-muted-foreground">
+                    {t("players.removalImpactPresences", {
+                      count: removalImpact.presences,
+                    })}
+                  </Text>
+                ) : null}
+              </>
+            ) : removalImpactFailed ? null : (
+              <Text className="text-sm text-muted-foreground">
+                {t("players.removalImpactLoading")}
+              </Text>
+            )}
+          </View>
           <AlertDialogFooter>
             <AlertDialogCancel
               accessibilityLabel={t("players.cancelRemoveAria")}
@@ -665,16 +734,29 @@ export default function PlayerDetailScreen() {
             </AlertDialogCancel>
             <AlertDialogAction
               testID="player-remove-confirm"
-              accessibilityLabel={t("players.confirmRemoveAria")}
+              accessibilityLabel={
+                removalAction === "delete"
+                  ? t("players.confirmRemoveAria")
+                  : t("players.confirmDisconnectAria")
+              }
               className="bg-destructive"
-              disabled={removePlayer.isPending}
+              disabled={
+                removePlayer.isPending ||
+                (removalImpact === null && !removalImpactFailed)
+              }
               onPress={handleRemove}
             >
               {removePlayer.isPending ? (
                 <Spinner size="small" color="white" />
               ) : null}
               <Text className="text-destructive-foreground">
-                {removePlayer.isPending ? t("players.removing") : t("common.remove")}
+                {removalAction === "delete"
+                  ? removePlayer.isPending
+                    ? t("players.removing")
+                    : t("common.delete")
+                  : removePlayer.isPending
+                    ? t("players.disconnecting")
+                    : t("players.disconnect")}
               </Text>
             </AlertDialogAction>
           </AlertDialogFooter>

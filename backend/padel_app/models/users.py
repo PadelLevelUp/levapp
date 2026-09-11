@@ -45,6 +45,7 @@ class User(db.Model, model.Model, UserMixin):
         foreign_keys="Message.sender_id",
         back_populates="sender",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     status = Column(

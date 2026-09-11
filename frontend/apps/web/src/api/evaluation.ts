@@ -1,5 +1,6 @@
 import "@/api/client";
 import type { EvaluationCategory, EvaluationEntryPayload } from "@/types";
+import type { EvaluationCategoryImpact } from "@levelup/types";
 import * as evaluationApi from "@levelup/api/src/resources/evaluation";
 import { USE_MOCK_DATA } from "@/config";
 import { mockEvaluationCategories } from "@/data/mockData";
@@ -34,3 +35,12 @@ export async function deleteEvaluationCategory(id: string): Promise<void> {
   }
   await evaluationApi.deleteEvaluationCategory(id);
 }
+
+/** evaluations.categories rule 7 (PAD-274): what deleting this category removes. */
+export async function getEvaluationCategoryImpact(id: string, name: string): Promise<EvaluationCategoryImpact> {
+  if (USE_MOCK_DATA) {
+    return { name, scores: 0, players: 0 };
+  }
+  return evaluationApi.getEvaluationCategoryImpact(id);
+}
+

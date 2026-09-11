@@ -4,9 +4,10 @@ from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
+from padel_app.utils.token_hash import HashedTokenMixin
 
 
-class PlayerInvitation(db.Model, model.Model):
+class PlayerInvitation(HashedTokenMixin, db.Model, model.Model):
     __tablename__ = "player_invitations"
     __table_args__ = {"extend_existing": True}
 
@@ -20,7 +21,9 @@ class PlayerInvitation(db.Model, model.Model):
     )
     player = relationship("Player")
 
-    token = Column(String(64), unique=True, nullable=False, index=True)
+    # PAD-269: only the SHA-256 of the link token is stored (utils/token_hash.py);
+    # `token` is a write-only property from HashedTokenMixin.
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
 
     # PAD-255 (audit H7): a deleted coach detaches from the invitations they sent.
     invited_by_coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="SET NULL"))
@@ -55,7 +58,7 @@ class PlayerInvitation(db.Model, model.Model):
 
     @classmethod
     def display_all_info(cls):
-        searchable = {"field": "token", "label": "Token"}
+        searchable = {"field": "token_hash", "label": "Token hash"}
         columns = [
             {"field": "player", "label": "Player"},
             {"field": "status", "label": "Status"},

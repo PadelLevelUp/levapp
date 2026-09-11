@@ -62,6 +62,7 @@ class LessonInstance(db.Model, model.Model):
         "Presence",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     # Many-to-many: LessonInstance <-> Player
@@ -69,12 +70,14 @@ class LessonInstance(db.Model, model.Model):
         "Association_PlayerLessonInstance",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     coaches_relations = relationship(
         "Association_CoachLessonInstance", 
         back_populates="lesson_instance", 
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     @property
