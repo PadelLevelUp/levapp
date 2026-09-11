@@ -144,6 +144,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
      decline, cancellation and structural paths.
 
+14. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
+    B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
+    `uq_vacancies_open_original_player` on `(lesson_instance_id, original_player_id)` where
+    `status = 'open' AND original_player_id IS NOT NULL`. Filled and expired rows and structural
+    vacancies (no departing player) are not covered, so a spot can be vacated again later. Rule 10's
+    get-or-create under the row lock stays the only writer; the index is the backstop for a writer
+    that bypasses it. The migration refuses (raises, naming the groups) when duplicate open
+    vacancies exist — zero on the staging copy of prod on 2026-09-11 — and its downgrade drops the
+    index.
+
 15. **A vacancy is closed in exactly one place, and closing retires every live invitation
     (PAD-317, ledger B-081; numbered 15 because 14 is taken by PAD-303 on PR #228, which is
     open and merges first).** `_close_vacancy` is the only writer of `Vacancy.status =
@@ -355,3 +365,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the vacancy is `filled` and neither invitation is left in a live state
 - **And** neither candidate's invitation message stays actionable
 - **And** the winner's own invitation is untouched by the close, and is marked `confirmed` by the path that accepted it
+
+#### Only one open vacancy per departing player per occurrence (PAD-303)
+- **Given** an open vacancy on instance 10 for player 7
+- **When** a second open vacancy on instance 10 for player 7 is inserted
+- **Then** the database refuses it (`uq_vacancies_open_original_player`)
+- **And** an expired vacancy on instance 10 for player 7 next to the open one is accepted, and two structural vacancies (no departing player) on instance 10 are accepted
