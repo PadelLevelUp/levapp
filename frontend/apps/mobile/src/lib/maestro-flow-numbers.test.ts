@@ -43,8 +43,10 @@ describe("Maestro flow numbering (PAD-300)", () => {
     expect(dupes, `duplicate flow prefixes: ${JSON.stringify(dupes)}`).toEqual([]);
   });
 
-  /** Flows that must NOT be in the order, with the reason (README "Push-tap"). */
-  const RUN_BY_SCRIPT_ONLY = ["47-push-tap-routing"];
+  /** Flows that must NOT be in the order, with the reason: 47 runs only from
+   *  scripts/push-tap-flow.sh (README "Push-tap"); 36 is the Android-only evidence
+   *  flow for the CI emulator lane (PAD-298, README "36-android-evidence"). */
+  const RUN_BY_SCRIPT_ONLY = ["47-push-tap-routing", "36-android-evidence"];
 
   it("lists every flow in config.yaml's execution order, and every listed flow exists", () => {
     const files = flowFiles();
