@@ -10,6 +10,7 @@ from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
 from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
+from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
 
 
@@ -343,8 +344,13 @@ def get_player_profile(coach, player_id):
     }
 
 
+@transactional
 def add_player_service(data):
     """Builds the full player creation payload and delegates to create_player_helper.
+
+    PAD-272 pilot (players.create rule 9): the User, Player, coach link and
+    level-history rows are one transaction — a failure part-way (a level that
+    does not exist) leaves nothing behind instead of an orphan user and player.
 
     PAD-105: a coach never chooses the player's username — that is the player's
     own credential, picked when they activate their account. Any `username` in
