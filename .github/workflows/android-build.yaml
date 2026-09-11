@@ -267,15 +267,8 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            set -euo pipefail
-            adb wait-for-device
-            adb install -r "$RUNNER_TEMP/apk/app-release.apk"
-            adb shell pm list packages | grep -q com.padellevelup.app
-            cd frontend/apps/mobile/.maestro
-            echo "flows: $MAESTRO_FLOWS"
-            # shellcheck disable=SC2086  # MAESTRO_FLOWS is a space-separated list on purpose
-            maestro test --format junit --output "$GITHUB_WORKSPACE/maestro-report.xml" $MAESTRO_FLOWS
+          # The action runs `script:` with /bin/sh (dash): keep the bash in a file.
+          script: bash frontend/apps/mobile/scripts/ci-android-maestro.sh
 
       - name: Collect Maestro output
         if: always()
