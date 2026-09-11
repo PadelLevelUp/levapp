@@ -141,12 +141,14 @@ def overridden_fields_for(instance) -> list:
     is never read: it was never written."""
     lesson = getattr(instance, "lesson", None)
     out = []
-    if getattr(instance, "overwrite_title", None):
+    title = getattr(instance, "overwrite_title", None)
+    # One predicate for both sides: an override is a title that DIFFERS.
+    if title and (lesson is None or title != lesson.title):
         out.append("title")
     level_id = getattr(instance, "level_id", None)
     if level_id is not None and (lesson is None or level_id != lesson.default_level_id):
         out.append("level")
-    if lesson is not None and getattr(instance, "max_players", None) not in (None, lesson.max_players):
+    if getattr(instance, "max_players_override", None) is not None:
         out.append("maxPlayers")
     if getattr(instance, "notes", None):
         out.append("notes")
@@ -316,7 +318,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                 "canDeclineProactively": can_decline_proactively,
             }
         )
-        data["levelId"] = str(obj.level_id) if obj.level_id else data["levelId"]
+        # PAD-275: the occurrence's own level when set, else the lesson's.
+        _eff = obj.effective_level_id
+        data["levelId"] = str(_eff) if _eff else None
 
         # PAD-131 (classes.join-requests rule 15): the coach sees the pending
         # requests; a student sees only their own latest one.

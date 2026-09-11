@@ -7,6 +7,12 @@ from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
 
+def _load_level(level_id):
+    from padel_app.models.coach_levels import CoachLevel
+
+    return CoachLevel.query.get(level_id)
+
+
 class LessonInstance(db.Model, model.Model):
     __tablename__ = "lesson_instances"
     # PAD-263: the occurrence lookup and the calendar range. Not unique yet:
@@ -98,6 +104,26 @@ class LessonInstance(db.Model, model.Model):
         if lesson is not None and lesson.max_players is not None:
             return lesson.max_players
         return self.max_players
+
+    @property
+    def effective_level_id(self):
+        """Level of this occurrence (PAD-275, classes.edit rule 4): its own
+        `level_id` when set, else the lesson's default. Same rule as
+        `level_service.effective_level_id`, which readers outside the model use."""
+        if self.level_id:
+            return self.level_id
+        lesson = self.lesson
+        return lesson.default_level_id if lesson is not None else None
+
+    @property
+    def effective_level(self):
+        """The `CoachLevel` behind `effective_level_id`, or None."""
+        if self.level_id and self.level is not None:
+            return self.level
+        lesson = self.lesson
+        if lesson is not None and lesson.default_level_id:
+            return getattr(lesson, "default_level", None) or _load_level(lesson.default_level_id)
+        return None
 
     @property
     def players(self):

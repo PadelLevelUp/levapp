@@ -233,8 +233,7 @@ class Lesson(db.Model, model.Model):
             "end_datetime": self.end_datetime,
             # PAD-275 (classes.edit rule 4): no title copy — NULL inherits the
             # lesson's title, so a series rename reaches every occurrence.
-            "level": self.default_level_id,
-            "level_id": self.default_level_id,
+            # Same for the level: NULL inherits `default_level_id` (PAD-275).
             "notifications_enabled": self.notifications_enabled,
             "status": "scheduled",
             "max_players": self.max_players,

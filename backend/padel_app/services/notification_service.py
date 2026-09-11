@@ -1731,7 +1731,7 @@ def collect_cancellation_recipients(source) -> list[dict]:
     config = get_or_create_config(coach.id)
     templates = config.get_message_templates(locale)
 
-    level = getattr(source, "level", None)
+    level = effective_level(source)  # PAD-275: NULL level_id inherits the lesson's
     level_code = level.code if level else ""
     start_dt = getattr(source, "start_datetime", None)
     weekday = _format_weekday(start_dt, locale)

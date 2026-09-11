@@ -170,19 +170,57 @@ def parse_event_target(model, original_id, date):
 # ---------------------------------------------------------------------------
 
 def coaches_for(instance):
-    """Who coaches this occurrence: the instance's own coach rows when it has
-    any, else the lesson's. The junction stays (decision 2026-09-11); this is
-    the one reader, so an occurrence with no junction row is never coach-less."""
+    """Who coaches this occurrence (classes.coach-assignment rule 4): the
+    instance's own coach rows when it has any, else the lesson's — each in
+    assignment order (junction id ascending), so `primary_coach` is the coach
+    assigned first and every engine read agrees on it. The junction stays
+    (decision 2026-09-11); this is the one reader, so an occurrence with no
+    junction row is never coach-less. A plain read: it never creates config."""
+    from padel_app.models.coaches import Coach
+
+    instance_id = getattr(instance, "id", None)
+    if isinstance(instance_id, int):
+        own = (
+            db.session.query(Coach)
+            .join(Association_CoachLessonInstance, Association_CoachLessonInstance.coach_id == Coach.id)
+            .filter(Association_CoachLessonInstance.lesson_instance_id == instance_id)
+            .order_by(Association_CoachLessonInstance.id.asc())
+            .all()
+        )
+        if own:
+            return own
+        lesson_id = getattr(instance, "lesson_id", None)
+        if isinstance(lesson_id, int):
+            return (
+                db.session.query(Coach)
+                .join(Association_CoachLesson, Association_CoachLesson.coach_id == Coach.id)
+                .filter(Association_CoachLesson.lesson_id == lesson_id)
+                .order_by(Association_CoachLesson.id.asc())
+                .all()
+            )
+    # A stub without a real row (unit tests with MagicMock instances): fall back
+    # to the relationships, in their id order.
     try:
-        own = [rel.coach for rel in list(getattr(instance, "coaches_relations", None) or []) if rel.coach is not None]
-    except TypeError:  # a stub without a real relationship
+        rels = sorted(
+            (r for r in list(getattr(instance, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+        own = [r.coach for r in rels]
+    except TypeError:
         own = []
     if own:
         return own
     lesson = getattr(instance, "lesson", None)
     if lesson is None:
         return []
-    return [rel.coach for rel in lesson.coaches_relations if rel.coach is not None]
+    try:
+        rels = sorted(
+            (r for r in list(getattr(lesson, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+    except TypeError:
+        return []
+    return [r.coach for r in rels]
 
 
 def primary_coach(instance):
@@ -434,6 +472,14 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     instance_data['overwrite_title'] = (
         _title if _title and _title != parent_lesson.title else None
     )
+    # Same for the level: an explicit level equal to the lesson's default is
+    # not an override (the form adapter drops None, so NULL inherits).
+    _lvl = instance_data.get('level') or instance_data.get('level_id')
+    _lvl = int(_lvl) if _lvl not in (None, '') else None
+    instance_data['level'] = (
+        _lvl if _lvl is not None and _lvl != parent_lesson.default_level_id else None
+    )
+    instance_data.pop('level_id', None)
 
     lesson_instance = LessonInstance()
     form = lesson_instance.get_create_form()
@@ -508,6 +554,14 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     lesson_instance.update_with_dict(values)
     if _clears_title:
         lesson_instance.overwrite_title = None
+    # PAD-275 (classes.edit rule 4): a level equal to the lesson's default is
+    # not an override either.
+    _lvl = data.get('level') or data.get('level_id')
+    if _lvl not in (None, '') and lesson_instance.lesson is not None \
+            and int(_lvl) == lesson_instance.lesson.default_level_id:
+        # The form set the relationship; clear it too or the flush re-syncs level_id.
+        lesson_instance.level = None
+        lesson_instance.level_id = None
     # PAD-275 (classes.edit rule 4): a capacity equal to the lesson's clears the
     # override; the shadow column follows the effective value.
     if 'max_players' in data and data.get('max_players') not in (None, ''):

@@ -415,3 +415,241 @@ def test_b5_a_fork_and_a_created_lesson_carry_series_ids(app, recurring_with_coa
         root.save()
         copy = duplicate_lesson_helper(root)
         assert copy.series_id == root.id
+
+
+# ---------------------------------------------------------------------------
+# Review round on #231 (Session J, 2026-09-11): level inherits like the title,
+# one predicate for "title overridden", maxPlayers from the override column,
+# a fork of a fork still points at the root, and two coaches resolve to ONE.
+# ---------------------------------------------------------------------------
+
+def _two_levels(coach_id):
+    from padel_app.models.coach_levels import CoachLevel
+    from padel_app.models.coaches import Coach
+
+    coach = db.session.get(Coach, coach_id)
+    from padel_app.tests.test_notification_integration import _create_level
+
+    return _create_level(coach, "Beg", "B1"), _create_level(coach, "Int", "I1")
+
+
+def test_c4_materialising_does_not_copy_the_level_so_a_default_change_reaches_the_instance(app, recurring_with_coach):
+    """classes.edit rule 4, the level twin of C1: NULL inherits `default_level_id`;
+    a per-occurrence level is an override and is reported as such."""
+    coach_id, _user_id, lesson_id, first_start = recurring_with_coach
+    from padel_app.serializers.lesson import serialize_class_instance
+    from padel_app.services.lesson_service import edit_class_service, get_or_materialize_instance
+
+    occ = (first_start + timedelta(weeks=1)).date()
+    other = (first_start + timedelta(weeks=2)).date()
+    with app.app_context():
+        beg, inter = _two_levels(coach_id)
+        lesson = _lesson(lesson_id)
+        lesson.default_level_id = beg.id
+        db.session.commit()
+
+        instance = get_or_materialize_instance(_lesson(lesson_id), occ)
+        assert instance.level_id is None, "materialisation copied the level"
+        assert instance.effective_level_id == beg.id
+        assert serialize_class_instance(instance)["overriddenFields"] == []
+        assert serialize_class_instance(instance)["levelId"] == str(beg.id)
+
+        lesson = _lesson(lesson_id)
+        lesson.default_level_id = inter.id
+        db.session.commit()
+        db.session.expire_all()
+        instance = get_or_materialize_instance(_lesson(lesson_id), occ)
+        assert instance.effective_level_id == inter.id, "the default change reaches the occurrence"
+        assert instance.effective_level.id == inter.id
+        assert serialize_class_instance(instance)["overriddenFields"] == []
+
+        result, status = edit_class_service({
+            "event": {"model": "Lesson", "originalId": lesson_id, "date": other.isoformat()},
+            "scope": "single",
+            "updates": {"levelId": str(beg.id)},
+        })
+        assert status in (200, 201), result
+        from padel_app.models.lesson_instances import LessonInstance
+
+        edited = db.session.get(LessonInstance, int(result["id"]))
+        assert edited.level_id == beg.id
+        assert serialize_class_instance(edited)["overriddenFields"] == ["level"]
+
+        # Setting the occurrence to the lesson's own default clears the override.
+        result, status = edit_class_service({
+            "event": {"model": "LessonInstance", "originalId": edited.id, "date": other.isoformat()},
+            "scope": "single",
+            "updates": {"levelId": str(inter.id)},
+        })
+        assert status in (200, 201), result
+        db.session.expire_all()
+        edited = db.session.get(LessonInstance, edited.id)
+        assert edited.level_id is None
+        assert serialize_class_instance(edited)["overriddenFields"] == []
+
+
+def test_c5_a_title_equal_to_the_series_title_is_not_reported_as_overridden(app, recurring_with_coach):
+    """classes.edit rule 4: the read side uses the write side's predicate — an
+    override is a title that DIFFERS. Renaming the series to the name one
+    occurrence already carried makes that occurrence plain again."""
+    _coach_id, _user_id, lesson_id, first_start = recurring_with_coach
+    from padel_app.serializers.lesson import serialize_class_instance
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    occ = (first_start + timedelta(weeks=1)).date()
+    with app.app_context():
+        instance = get_or_materialize_instance(_lesson(lesson_id), occ)
+        instance.overwrite_title = "Treino de sábado"
+        db.session.commit()
+        assert serialize_class_instance(instance)["overriddenFields"] == ["title"]
+
+        lesson = _lesson(lesson_id)
+        lesson.title = "Treino de sábado"
+        db.session.commit()
+        db.session.expire_all()
+        from padel_app.models.lesson_instances import LessonInstance
+
+        instance = db.session.get(LessonInstance, instance.id)
+        assert serialize_class_instance(instance)["overriddenFields"] == []
+
+
+def test_c6_max_players_is_reported_from_the_override_column_only(app, recurring_with_coach):
+    """classes.edit rule 4: the copied `max_players` column is a shadow; only
+    `max_players_override` means the occurrence's capacity was changed."""
+    _coach_id, _user_id, lesson_id, first_start = recurring_with_coach
+    from padel_app.serializers.lesson import serialize_class_instance
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    occ = (first_start + timedelta(weeks=1)).date()
+    with app.app_context():
+        instance = get_or_materialize_instance(_lesson(lesson_id), occ)
+        assert instance.max_players_override is None
+        # A stale shadow (a series capacity change after materialisation) is not an override.
+        lesson = _lesson(lesson_id)
+        lesson.max_players = (lesson.max_players or 4) + 2
+        db.session.commit()
+        db.session.expire_all()
+        from padel_app.models.lesson_instances import LessonInstance
+
+        instance = db.session.get(LessonInstance, instance.id)
+        assert instance.max_players != instance.lesson.max_players
+        assert "maxPlayers" not in serialize_class_instance(instance)["overriddenFields"]
+
+        instance.max_players_override = 2
+        db.session.commit()
+        assert "maxPlayers" in serialize_class_instance(instance)["overriddenFields"]
+        assert instance.effective_max_players == 2
+
+
+def test_a4_a_fork_of_a_fork_still_points_at_the_root(app, recurring_with_coach):
+    """classes.recurrence rule 6: `series_id` is the ROOT's for every fork, not
+    the parent fork's (the mapper copy carries it; the explicit line must agree)."""
+    _coach_id, _user_id, lesson_id, first_start = recurring_with_coach
+    from padel_app.services.lesson_service import split_lesson
+
+    with app.app_context():
+        root_before = _lesson(lesson_id)
+        root_id = root_before.series_root_id
+        _root, fork1 = split_lesson(_lesson(lesson_id), (first_start + timedelta(weeks=2)).date())
+        fork1_id = fork1.id
+        _f1, fork2 = split_lesson(_lesson(fork1_id), (first_start + timedelta(weeks=4)).date())
+        assert fork1.series_id == root_id
+        assert fork2.series_id == root_id, "a fork of a fork points at the root, not the middle lesson"
+        assert fork2.series_root_id == root_id
+        assert _lesson(lesson_id).series_root_id == root_id
+
+
+def test_d2_two_coaches_resolve_to_the_same_primary_coach_everywhere(app, recurring_with_coach, monkeypatch):
+    """classes.coach-assignment rule 4 (J's checklist c/d): with two coach rows
+    on an occurrence, the read-path config, the reminder sender and the
+    cancellation recipient all resolve to the coach assigned FIRST; a
+    single-coach occurrence's answers do not change (the vacancy keeps its
+    caller's coach, capacity is coach-independent)."""
+    coach_a_id, coach_a_user_id, lesson_id, first_start = recurring_with_coach
+    from padel_app.models import User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+    from padel_app.services import notification_service as ns
+    from padel_app.services.lesson_service import coaches_for, enrol, get_or_materialize_instance, primary_coach
+    from padel_app.tests.test_notification_integration import _create_player, _seed_notification_config
+
+    occ = (first_start + timedelta(weeks=1)).date()
+    with app.app_context():
+        b_user = User(name="Coach B", username="pad275_coach_b", password="x")
+        s_user = User(name="Student", username="pad275_student", password="x")
+        db.session.add_all([b_user, s_user])
+        db.session.flush()
+        coach_b = Coach(user_id=b_user.id)
+        db.session.add(coach_b)
+        db.session.commit()
+        coach_b_id, student_user_id = coach_b.id, s_user.id
+        student = _create_player(s_user)
+
+        cfg_a = _seed_notification_config(coach_a_id)
+        cfg_a.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 48}}
+        cfg_b = _seed_notification_config(coach_b_id)
+        cfg_b.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 12}}
+        db.session.commit()
+
+        instance = get_or_materialize_instance(_lesson(lesson_id), occ)
+        # Materialisation copied coach A's row (first); B is assigned second.
+        assert [c.id for c in coaches_for(instance)] == [coach_a_id]
+        db.session.add(Association_CoachLessonInstance(coach_id=coach_b_id, lesson_instance_id=instance.id))
+        db.session.commit()
+        db.session.expire(instance, ["coaches_relations"])
+        assert [c.id for c in coaches_for(instance)] == [coach_a_id, coach_b_id]
+        assert primary_coach(instance).id == coach_a_id
+
+        # Read path: the proactive-decline instant comes from A's timing (48h), not B's (12h).
+        from padel_app.scheduler import _fire_time_utc
+
+        assert ns.proactive_decline_deadline(instance) == _fire_time_utc(
+            instance.start_datetime, cfg_a.get_reminder_timing()
+        )
+
+        enrol(student.id, instance, "coach")
+        instance_id = instance.id
+
+        # Sender: every config lookup made while sending reminders is coach A's.
+        seen = []
+        real = ns.get_or_create_config
+
+        def spy(coach_id):
+            seen.append(coach_id)
+            return real(coach_id)
+
+        monkeypatch.setattr(ns, "get_or_create_config", spy)
+        ns.send_class_reminders(instance_id)
+        assert seen and set(seen) == {coach_a_id}, seen
+
+        # Cancellation recipient: the coach notified is A's user, in A's config.
+        captured = {}
+
+        def fake_notify(coach_user_id, *args, **kwargs):
+            captured["coach_user_id"] = coach_user_id
+
+        monkeypatch.setattr(ns, "_notify_coach_of_cancellation", fake_notify)
+        seen.clear()
+        result = ns.cancel_attendance(student_user_id, lesson_instance_id=instance_id)
+        assert result["action"] == "declined"
+        assert captured["coach_user_id"] == coach_a_user_id
+        assert set(seen) <= {coach_a_id}, seen
+
+        # Single-coach answers unchanged: the vacancy keeps the caller's coach id
+        # and capacity does not depend on who coaches.
+        from padel_app.models.lesson_instances import LessonInstance
+
+        instance = db.session.get(LessonInstance, instance_id)
+        # The cancel above opened the student's vacancy under the resolved coach (A);
+        # get-or-create returns it (PAD-261), so it still carries A.
+        assert ns._ensure_vacancy_for_player(instance, coach_b_id, student.id).coach_id == coach_a_id
+        # A vacancy opened by a caller keeps that caller's coach id.
+        s2_user = User(name="Student 2", username="pad275_student2", password="x")
+        db.session.add(s2_user)
+        db.session.flush()
+        student2 = _create_player(s2_user)
+        enrol(student2.id, instance, "coach")
+        vacancy = ns._ensure_vacancy_for_player(instance, coach_b_id, student2.id)
+        assert vacancy.coach_id == coach_b_id
+        db.session.expire(instance, ["presences"])
+        assert instance.effective_filled_spots == 1  # student declined, student2 holds a spot
