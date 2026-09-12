@@ -106,8 +106,11 @@ export function TimePickerInput({
       {label ? <Label>{label}</Label> : null}
       <Pressable
         testID={testID}
-        accessibilityLabel={label ?? t("ui.timePicker.fieldLabel")}
-        accessibilityValue={{ text: value || resolvedPlaceholder }}
+        // PAD-304: the label carries the value. Android exposes the value
+        // only as a child text node, so `id` + text assertions (and screen
+        // readers reading the field alone) missed it; iOS folded the two
+        // together already, so this makes the platforms agree.
+        accessibilityLabel={`${label ?? t("ui.timePicker.fieldLabel")}: ${value || resolvedPlaceholder}`}
         role="button"
         disabled={disabled}
         onPress={openPicker}

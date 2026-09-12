@@ -70,7 +70,23 @@ function SelectContent({
   return (
     <SelectPrimitive.Portal hostName={portalHost}>
       <SelectPrimitive.Overlay style={StyleSheet.absoluteFill}>
-        <Animated.View entering={FadeIn} exiting={FadeOut}>
+        {/*
+         * B-067: the wrapper must fill the overlay. The content below is
+         * absolutely positioned (popper), so a shrink-wrapped wrapper measures
+         * 0x0 and the list renders OUTSIDE its parent's bounds. iOS delivers
+         * touches there anyway; Android does not — it neither hit-tests nor
+         * exposes such children to accessibility, so on Android every option
+         * was invisible to taps (and to Maestro) while plainly on screen.
+         * `box-none` keeps a tap outside the list falling through to the
+         * overlay, which is what closes it. Geometry is unchanged on both
+         * platforms: the content is positioned from the same origin.
+         */}
+        <Animated.View
+          style={StyleSheet.absoluteFill}
+          pointerEvents="box-none"
+          entering={FadeIn}
+          exiting={FadeOut}
+        >
           <SelectPrimitive.Content
             className={cn(
               "relative z-50 max-h-96 min-w-[8rem] rounded-md border border-border bg-popover shadow-md shadow-black/10",
