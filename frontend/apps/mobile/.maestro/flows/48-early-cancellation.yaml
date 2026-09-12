@@ -67,8 +67,13 @@ appId: com.padellevelup.app
     visible:
       id: "attendance-state"
     timeout: 20000
-- assertVisible:
-    text: "Não vais"
+# No text assertion here, in either language. My first version of this line
+# asserted Portuguese and the seeded student's account is English (seed.py sets
+# language="en", PAD-40; AuthContext switches i18n after login), which G caught
+# — but the lesson is not "use the other language": a wrong text assertion here
+# PASSES whenever it runs before the async language switch lands, so it is a
+# flake rather than a red. The state is pinned below through the API
+# (`cancelledByStudent`), which no rendering can flatter.
 
 # ── The server says "cancelled by the student"; then clean up ──
 - runFlow: ../subflows/logout.yaml

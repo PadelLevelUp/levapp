@@ -88,7 +88,8 @@ appId: com.padellevelup.app
     visible:
       id: "attendance-state"
     timeout: 20000
-- assertVisible: "You're not going"
+# Same reason as flow 48: no text assertion, in any language. The id above is
+# the UI check; this flow's server-side check follows through the API.
 # Class detail is a root-stack screen without the tab header, so leave it with
 # its own back button before logout.yaml looks for `header-account`.
 - tapOn:
