@@ -14,7 +14,7 @@
 # - Settings is a DRILL-IN (a section list, one pane at a time), not the single
 #   scrollable column an earlier note here claimed: each section is reached by
 #   its `settings-nav-<id>` row and left again via `settings-back`. That is the
-#   same shape 19-tutorials-understand-invites.yaml walks.
+#   same shape 43-tutorials-understand-invites.yaml walks.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml

@@ -5,6 +5,7 @@ import * as React from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
+import { useAndroidBack } from "@/lib/android-back";
 import { cn } from "@/lib/utils";
 
 type Option = SelectPrimitive.Option;
@@ -62,7 +63,9 @@ function SelectContent({
   portalHost,
   ...props
 }: SelectContentProps) {
-  const { open } = SelectPrimitive.useRootContext();
+  const { open, onOpenChange } = SelectPrimitive.useRootContext();
+  // Android back closes the list (mobile.android-runtime rule 3).
+  useAndroidBack(open, () => onOpenChange(false));
 
   return (
     <SelectPrimitive.Portal hostName={portalHost}>

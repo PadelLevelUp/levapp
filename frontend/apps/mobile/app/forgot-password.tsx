@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -29,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
  * auth.password-recovery rule 8 — the two-step recovery screen reached from
@@ -154,7 +154,7 @@ export default function ForgotPasswordScreen() {
   const activeIndex = Math.min(code.length, CODE_LENGTH - 1);
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={keyboardAvoidingBehavior()}>
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
