@@ -38,11 +38,11 @@ appId: com.padellevelup.app
     visible:
       id: "class-participant-1"
     timeout: 20000
-# PAD-313: the row carries ONE state word, and saving attendance writes
-# `status` only — never `validated` — so the saved row reads "Going" (intent),
-# not "Attended" (the coach's validated record, which the Presences tab sets).
+# PAD-313: the row carries ONE state word. Saving attendance ends with
+# `validated = True` in `add_presences` ("attendance was explicitly recorded by
+# the coach"), so the saved row reads "Attended" — the coach's record.
 # The mark-present BUTTON is exposed as "Mark E2E Student present" (a11y
 # label), so this exact match only passes when the saved badge is rendered.
 - assertVisible:
     id: "attendance-state"
-- assertVisible: "Going"
+- assertVisible: "Attended"

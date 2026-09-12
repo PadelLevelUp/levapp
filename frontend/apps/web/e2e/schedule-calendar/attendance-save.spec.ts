@@ -69,12 +69,12 @@ async function markPresentAndSave(page: Page, title: string): Promise<void> {
  * than by its text — the app renders in pt, so an English assertion only ever
  * passed here because this one string happened to be untranslated.
  *
- * The expected value is `coming`, not `attended`: saving attendance from the
- * class sheet writes `status` and `justification` only (`add_presences`), never
- * `validated`, and `validated` is the discriminator between the student's intent
- * and the coach's record (`attendance.presence` rule 9). Before the save the
- * seeded row is unanswered, so `planned` — which is what makes this assertion
- * still distinguish a saved row from an unsaved one.
+ * The expected value is `attended`: `add_presences` ends with
+ * `values["validated"] = True` — "attendance was explicitly recorded by the
+ * coach" — so saving from the class sheet IS the coach's record, not the
+ * student's intent (`attendance.presence` rule 9). Before the save the seeded
+ * row is unanswered, so `planned`, which is what makes this assertion still
+ * distinguish a saved row from an unsaved one.
  */
 async function assertPresentPersists(page: Page, title: string): Promise<void> {
   await page.reload();
@@ -91,7 +91,7 @@ async function assertPresentPersists(page: Page, title: string): Promise<void> {
     state,
     `the saved attendance state should persist for "${title}" after reload`
   ).toBeVisible({ timeout: 5000 });
-  await expect(state).toHaveAttribute("data-state", "coming");
+  await expect(state).toHaveAttribute("data-state", "attended");
 }
 
 test.describe("PAD-64: attendance can be saved for single and recurring classes", () => {
