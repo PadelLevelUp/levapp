@@ -25,7 +25,7 @@ appId: com.padellevelup.app
 - evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
 - assertTrue: "${output.accepted == true}"
 
-# ── Student opens the class (up to three weeks ahead) and cancels ──
+# ── Student opens the class (reset the week, then walk to its day) ──
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
     id: "tab-calendar"
@@ -33,15 +33,48 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
+# The calendar remembers its MODE and its WEEK between runs, and that state lives
+# in the app rather than the database — F saw it survive a fresh seed twice. In
+# Dia mode `calendar-next-week` moves the SELECTED DAY by a week, so four blind
+# taps land on one weekday that is not the class's ("0 classes" on a Monday while
+# the class sits on another weekday inside the skipped weeks).
+#
+# So: reset the week in Semana (where `calendar-today` lives), switch to Dia,
+# then walk forward with a GUARDED repeat that stops as soon as the class's own
+# day cell is on the strip. Testids verified on staging: ViewModeControl emits
+# `calendar-view-{day,week,month}` and all three modes are enabled; WeekNav emits
+# `calendar-today`; DayStrip emits `calendar-day-{yyyy-MM-dd}`.
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+# The class is booked 8-14 days out, so at most three weeks forward from today.
 - repeat:
-    times: 4
+    times: 3
     while:
       notVisible:
-        text: "E2E Student"
+        id: "calendar-day-${output.day}"
     commands:
       - tapOn:
           id: "calendar-next-week"
       - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
 - tapOn: "E2E Student"
 - extendedWaitUntil:
     visible:
