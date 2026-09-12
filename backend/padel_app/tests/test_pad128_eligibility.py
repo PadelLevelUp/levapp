@@ -28,6 +28,7 @@ from datetime import timedelta
 import pytest
 
 from padel_app.sql_db import db
+from padel_app.models.presences import Presence  # PAD-259
 from padel_app.utils.dates import utcnow_naive
 
 
@@ -531,6 +532,8 @@ def test_enrolled_student_is_never_placed_into_their_own_class(app):
 
         db.session.add(Association_PlayerLessonInstance(
             player_id=enrolled, lesson_instance_id=instance.id))
+        db.session.add(Presence(
+            player_id=enrolled, lesson_instance_id=instance.id, invited=True, enrolment_source="coach"))  # PAD-259
         for pid in (enrolled, outsider):
             db.session.add(WaitingListEntry(
                 lesson_instance_id=instance.id, player_id=pid,

@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import * as React from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { DaySheet } from "./DaySheet";
+import { useAndroidBack } from "@/lib/android-back";
 import { ROW_HEIGHT, TimeGrid } from "./TimeGrid";
 
 /**
@@ -71,6 +72,11 @@ export function GridWithSheet({
     onRaisedChange(sheetTop !== null && isSheetRaised(sheetTop, bounds));
   }, [sheetTop, bounds, onRaisedChange]);
   React.useEffect(() => () => onRaisedChange?.(false), [onRaisedChange]);
+
+  // Android back on a raised sheet drops it back to its resting height
+  // (mobile.android-runtime rule 3); at rest the press goes to the navigator.
+  const raised = sheetTop !== null && isSheetRaised(sheetTop, bounds);
+  useAndroidBack(raised, () => setSheetTop(bounds.initial));
 
   const onLayout = (e: LayoutChangeEvent) =>
     setContainerHeight(Math.round(e.nativeEvent.layout.height));
