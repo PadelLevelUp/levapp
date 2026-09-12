@@ -50,6 +50,8 @@ Students/players responding to and managing their own attendance; the coach, who
   for a player who is actually in that class.
 - Cancelling, by any route, always frees the spot the same way a reminder decline does, so the
   invitation engine treats it identically no matter which door the player walked through.
+- A student's own "no" and a coach marking them absent are kept apart in the record, so a
+  decline never reads as a coach's verdict and the other way round (PAD-271).
 - The coach gets exactly one notification per cancellation, naming the student and the class, and
   marked clearly if it was late.
 - Early cancellations are visible, not noisy: the coach's phone is pushed only for a late one, and the

@@ -77,3 +77,23 @@ constraints that the move can collide with.
 **Related:** PAD-85 (the duplicates' origin), PAD-263 (the plain index), PAD-261 / B-051 (the deferred
 vacancy unique), the PAD-265 drift entry in #163 (keep models and
 migrations declaring the same indexes).
+
+## Scan on the staging copy of prod — 2026-09-11 21:27 (Session E ran it, Session I filed it)
+
+Read-only (`default_transaction_read_only=on`) on `padel_app_staging`, prod as of the 21:1x
+sync, migrated to `390bf6e8be12` (batch 4). Every query in step 1 returned **0 rows**:
+
+| Scan | Result |
+|---|---|
+| duplicate `(lesson_id, original_lesson_occurence_date)` groups | 0 |
+| legacy NULL-occurrence rows sharing a lesson and a calendar day | 0 |
+| open vacancies duplicated per `(lesson_instance_id, original_player_id)` | 0 |
+
+So step 2 (the merge) has nothing to do on today's prod data and step 3 (the unique
+constraint, guarded so it still fails loudly if a duplicate appears before it runs) can be the
+next migration on this ledger entry. PAD-273's part of the same scan: `coach_levels (coach_id,
+code)`, `evaluation_categories (coach_id, name)` and active `standing_waiting_list_entries
+(coach_id, player_id)` have 0 collisions and all three `uq_*` indexes exist on the copy; the
+nine association tables the migration left nullable hold 0 NULL keys (row counts 1 / 0 / 3 /
+52 / 377 / 180 / 2 / 317 / 4420), so their NOT NULL can follow in the same migration. Rerun the
+scan in the migration's dry run against a fresh prod copy before promoting — the data moves.
