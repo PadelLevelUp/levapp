@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   View,
 } from "react-native";
@@ -24,6 +23,7 @@ import { Text } from "@/components/ui/text";
 import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
 import { describeApiError } from "@/lib/apiError";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 const HEADER_OPTIONS = {
   headerShown: true,
@@ -203,7 +203,7 @@ export default function NewConversationScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior()}
       testID="screen-new-conversation"
     >
       <Stack.Screen options={{ ...HEADER_OPTIONS, title: t("messages.newConversation") }} />

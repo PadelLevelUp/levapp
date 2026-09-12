@@ -12,6 +12,8 @@ What these lock down beyond the coach tests:
 """
 from datetime import datetime, timedelta
 
+from padel_app.models.presences import Presence  # PAD-259
+
 
 def _seed(app, *, now):
     """A student with three classes and a recorded attendance history.
@@ -98,15 +100,25 @@ def _seed(app, *, now):
                 db.session.add(
                     Association_PlayerLessonInstance(player_id=p.id, lesson_instance_id=inst.id)
                 )
-            if invited is not None:
+                # PAD-259: the presence row is the enrolment; the junction is the shadow.
+                # PAD-259: the presence row is the enrolment; the junction is the
+                # shadow. `invited=False` here means "enrolled, not asked yet" —
+                # the queue reads `invited and not confirmed` as an open ask.
                 db.session.add(
-                    Presence(
-                        lesson_instance_id=inst.id,
-                        player_id=student.id,
-                        invited=invited,
-                        confirmed=confirmed,
-                    )
+                    Presence(lesson_instance_id=inst.id, player_id=p.id, invited=False,
+                             enrolment_source="roster")
                 )
+            db.session.flush()
+            if invited is not None:
+                own = Presence.query.filter_by(
+                    lesson_instance_id=inst.id, player_id=student.id
+                ).first()
+                if own is None:
+                    own = Presence(lesson_instance_id=inst.id, player_id=student.id,
+                                   enrolment_source="roster")
+                    db.session.add(own)
+                own.invited = invited
+                own.confirmed = bool(confirmed)
             return inst
 
         soon = make_class("A1 Class", now + timedelta(minutes=45), 6, signed_up=[student, mate])
@@ -216,7 +228,9 @@ def test_invite_reaches_the_queue_and_confirmed_class_does_not(app):
     assert item["classTitle"] == "Invite Class"
     assert item["date"] == "2026-08-05"
     assert item["timeLabel"] == "18:00"
-    assert (item["filled"], item["capacity"]) == (0, 4)
+    # PAD-259: an invited student holds their spot (the presence row is the
+    # enrolment), so the class the student is asked about counts them.
+    assert (item["filled"], item["capacity"]) == (1, 4)
     assert item["href"].startswith("/calendar?classId=") and "date=2026-08-05" in item["href"]
 
 

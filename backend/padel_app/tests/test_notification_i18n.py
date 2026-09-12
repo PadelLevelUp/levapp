@@ -132,11 +132,12 @@ def _seed_instance(app, coach_id, student_id, *, start_datetime, with_level=True
             coach_id=coach_id,
             lesson_instance_id=instance.id,
         ))
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=student_id,
-            lesson_instance_id=instance.id,
-        ))
         db.session.commit()
+        # PAD-259: the presence row is the enrolment; the single writer also
+        # keeps the shadow junction row.
+        from padel_app.services.lesson_service import enrol
+
+        enrol(student_id, instance, "coach")
         return instance.id
 
 
