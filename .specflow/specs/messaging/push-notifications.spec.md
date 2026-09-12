@@ -27,7 +27,9 @@ Send browser push notifications when a new message arrives and the recipient isn
    direct message, so their pushes carry the same `badge`; a push without it
    leaves the icon under-counting until the app is next opened
 6. Both clients keep the app-icon badge in sync with the unread count while
-   running — iOS via `setBadgeCountAsync`, installed web via the Badging API —
+   running — iOS via `setBadgeCountAsync` (on Android the same call is best effort,
+   launcher permitting, and a failure is swallowed — `mobile.android-runtime` rule 6),
+   installed web via the Badging API —
    and clear it on logout. A notification payload is never the only writer of
    the badge: without a client-side writer a stale badge can never be cleared
    (PAD-147). **The client writes the badge on every successful fetch of the

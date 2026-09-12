@@ -17,6 +17,7 @@ import pytest
 from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 @pytest.fixture(autouse=True)
@@ -362,6 +363,7 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
 
         db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
         db.session.add(Association_PlayerLessonInstance(player_id=player.id, lesson_instance_id=instance.id))
+        db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
         db.session.commit()
 
         DeviceToken(user_id=player_user.id, token="ExponentPushToken[reminder]", platform="ios").create()

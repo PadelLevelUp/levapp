@@ -6,7 +6,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   type TextInput,
@@ -35,6 +34,7 @@ import type { authApi } from "@levelup/api";
 import { COUNTRIES, consentAgeFor, countryName, needsGuardian } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type Role = "coach" | "student";
 type Field = "name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "guardianEmail";
@@ -318,7 +318,7 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-sidebar"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior()}
     >
       <ScrollView
         ref={scrollRef}

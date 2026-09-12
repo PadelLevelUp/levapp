@@ -523,6 +523,20 @@ export function MessageBubble({
                   )
                 ) : null}
               </>
+            ) : reminder.notEnrolled ? (
+              <View
+                testID="message-reminder-not-enrolled"
+                className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70"
+              >
+                <Ionicons
+                  name="remove-circle-outline"
+                  size={14}
+                  color={lightTheme.mutedForeground}
+                />
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {t("messages.reminderNotEnrolled")}
+                </Text>
+              </View>
             ) : reminder.declined ? (
               <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
                 <Ionicons name="close" size={14} color={lightTheme.destructive} />

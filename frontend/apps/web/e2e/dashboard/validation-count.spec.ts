@@ -29,8 +29,15 @@ test("US-201: the validation card and the Presences trigger agree, and the card 
   const cardCount = firstNumber(await card.getByTestId("dashboard-queue-validation-count").textContent());
   expect(cardCount).toBeGreaterThan(0);
 
+  // PAD-300 (load flake, B-079): the tab's own pending list is a fetch that
+  // under load lands after the card-count assertion below; wait for it.
+  const listLoaded = page.waitForResponse(
+    (r) => /\/class_instances\/pending_validation\?/.test(r.url()) && r.status() === 200,
+    { timeout: 30_000 }
+  );
   await card.getByRole("button", { name: /review|rever/i }).click();
   await page.waitForURL(/\/presences/);
+  await listLoaded;
   await expect(page.getByText(/page not found|página não encontrada|404/i)).toHaveCount(0);
 
   const trigger = page.getByTestId("presences-validate-trigger");

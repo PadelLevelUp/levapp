@@ -88,9 +88,15 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
 
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id,
                                                     lesson_instance_id=instance.id))
+    from padel_app.models.presences import Presence
+
     for player in enrolled_players:
+        # PAD-259: the presence row is the enrolment; the junction row is the
+        # phase-1 shadow copy.
         db.session.add(Association_PlayerLessonInstance(player_id=player.id,
                                                          lesson_instance_id=instance.id))
+        db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id,
+                                invited=True, confirmed=False, enrolment_source="coach"))
     db.session.commit()
     return instance
 
@@ -187,10 +193,11 @@ class TestTriggerInvitations:
             instance = _create_instance(coach, level, enrolled_players=[student], max_players=4)
             _seed_notification_config(coach.id, auto_notify=True)
 
-            # Mark player as absent
-            p = Presence(lesson_instance_id=instance.id, player_id=student.id,
-                         invited=True, confirmed=True, status="absent")
-            p.create()
+            # Mark player as absent (PAD-259: on the enrolment row itself)
+            p = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=student.id).one()
+            p.confirmed = True
+            p.status = "absent"
+            p.save()
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 trigger_invitations(instance, coach.id)
@@ -732,10 +739,9 @@ class TestPastClassInvitationExpiry:
     def test_late_reminder_answer_also_retires_pending_invites(self, app):
         """The student's own late reminder tap retires the invites the class had
         outstanding — the lazy counterpart to the scheduled sweep."""
+        from padel_app.models import LessonInstance
+        from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
         from padel_app.services.notification_service import respond_to_reminder
-        from padel_app.models.Association_PlayerLessonInstance import (
-            Association_PlayerLessonInstance,
-        )
 
         with app.app_context():
             ids = self._seed_pending_invite(suffix="latereminder")
@@ -743,10 +749,8 @@ class TestPastClassInvitationExpiry:
             su = _create_user("Student", "student-latereminder")
             student = _create_player(su)
             _create_coach_player(ids["coach"], student)
-            db.session.add(Association_PlayerLessonInstance(
-                player_id=student.id, lesson_instance_id=ids["instance_id"],
-            ))
             db.session.commit()
+            enrol(student.id, db.session.get(LessonInstance, ids["instance_id"]), "coach")
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 result = respond_to_reminder(
