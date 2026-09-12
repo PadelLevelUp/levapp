@@ -559,16 +559,14 @@ def bulk_create_presences(rows, coach):
                 existing.validated = True
                 existing.save()
             else:
-                p = Presence(
-                    player_id=player.id,
-                    lesson_instance_id=instance.id,
-                    status=status,
-                    justification=justification,
-                    invited=True,
-                    confirmed=True,
-                    validated=True,
-                )
-                p.create()
+                # PAD-259 (classes.instance-enrollment rule 4): enrolled through
+                # the single writer, then marked as the sheet says.
+                from padel_app.services.lesson_service import enrol
+
+                p = enrol(player.id, instance, "import", invited=True, confirmed=True, validated=True)
+                p.status = status
+                p.justification = justification
+                p.save()
                 created_ids["presences"].append(p.id)
 
             imported += 1

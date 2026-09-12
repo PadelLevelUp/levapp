@@ -19,7 +19,7 @@ class Vacancy(db.Model, model.Model):
             postgresql_where=text("status = 'open'"),
             sqlite_where=text("status = 'open'"),
         ),
-        # PAD-303 (B-046 step 5 / B-051; notifications.invitations rule 13): one
+        # PAD-303 (B-046 step 5 / B-051; notifications.invitations rule 14): one
         # OPEN vacancy per departing player per occurrence. Filled/expired rows and
         # structural vacancies (no departing player) are outside the predicate.
         Index(

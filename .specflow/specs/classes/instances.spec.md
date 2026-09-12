@@ -20,9 +20,12 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
    - A reminder job fires for that date
    - A coach manually opens that date on the calendar
    - `get_or_materialize_instance(lesson, date)` is called
+   - A student acts on the occurrence: a join request (`classes.join-requests` rule 2) or a
+     cancellation / proactive decline sent as `(model, originalId, date)` (`attendance.confirm`
+     rule 18, PAD-288/PAD-282). Both authorise the student before creating anything
 2. On materialization:
    - Instance created from lesson template (`data_for_instance()`)
-   - Presences created (invited=True, confirmed=False) for all enrolled players
+   - Presences created (invited=True, confirmed=False, enrolment_source=roster) for all enrolled players through `enrol()` — the presence row IS the per-occurrence enrolment (`classes.instance-enrollment` rule 1, PAD-259)
    - Scheduler jobs set up for reminders and invitation batches
    - Standing waiting list entries synced
 3. Materialization is idempotent (safe to call multiple times)

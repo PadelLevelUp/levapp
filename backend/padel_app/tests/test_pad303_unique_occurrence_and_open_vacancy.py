@@ -1,5 +1,5 @@
 """PAD-303 / B-046 — the occurrence key and the open vacancy are unique in the
-database (classes.instances rule 9, notifications.invitations rule 13).
+database (classes.instances rule 9, notifications.invitations rule 14).
 
 Two layers, like test_pad263:
 * the MODEL declares both unique indexes (the pytest schema is built with

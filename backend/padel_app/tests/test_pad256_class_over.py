@@ -22,6 +22,7 @@ from types import SimpleNamespace
 import pytest
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 SUMMER = datetime(2027, 7, 13)
@@ -149,6 +150,7 @@ def test_the_eligibility_note_sends_the_real_start_instant(app, wall_start, star
         instance = _class_at(ids, wall_start)
         bad = _add_student(ids["coach_id"], "bad", ids["level_ids"]["5-"])
         db.session.add(Association_PlayerLessonInstance(player_id=bad, lesson_instance_id=instance.id))
+        db.session.add(Presence(player_id=bad, lesson_instance_id=instance.id, invited=True, enrolment_source="coach"))  # PAD-259
         db.session.commit()
         affected = students_failing_eligibility_bar(
             ids["coach_id"], [{"attribute": "level", "operation": "same_as_class"}], now=BEFORE)

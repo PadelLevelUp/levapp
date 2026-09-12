@@ -5,6 +5,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { buttonTextVariants, buttonVariants } from "@/components/ui/button";
 import { TextClassContext } from "@/components/ui/text";
 import { resolveFontClass } from "@/lib/font-class";
+import { useAndroidBack } from "@/lib/android-back";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -49,6 +50,9 @@ function AlertDialogContent({
   portalHost,
   ...props
 }: AlertDialogContentProps) {
+  // Android back closes the dialog (mobile.android-runtime rule 3).
+  const { open, onOpenChange } = AlertDialogPrimitive.useRootContext();
+  useAndroidBack(open, () => onOpenChange(false));
   return (
     <AlertDialogPortal hostName={portalHost}>
       <AlertDialogOverlay>

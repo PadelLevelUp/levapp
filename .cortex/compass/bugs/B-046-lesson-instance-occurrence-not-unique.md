@@ -79,6 +79,26 @@ constraints that the move can collide with.
 vacancy unique), the PAD-265 drift entry in #163 (keep models and
 migrations declaring the same indexes).
 
+## Scan on the staging copy of prod — 2026-09-11 21:27 (Session E ran it, Session I filed it)
+
+Read-only (`default_transaction_read_only=on`) on `padel_app_staging`, prod as of the 21:1x
+sync, migrated to `390bf6e8be12` (batch 4). Every query in step 1 returned **0 rows**:
+
+| Scan | Result |
+|---|---|
+| duplicate `(lesson_id, original_lesson_occurence_date)` groups | 0 |
+| legacy NULL-occurrence rows sharing a lesson and a calendar day | 0 |
+| open vacancies duplicated per `(lesson_instance_id, original_player_id)` | 0 |
+
+So step 2 (the merge) has nothing to do on today's prod data and step 3 (the unique
+constraint, guarded so it still fails loudly if a duplicate appears before it runs) can be the
+next migration on this ledger entry. PAD-273's part of the same scan: `coach_levels (coach_id,
+code)`, `evaluation_categories (coach_id, name)` and active `standing_waiting_list_entries
+(coach_id, player_id)` have 0 collisions and all three `uq_*` indexes exist on the copy; the
+nine association tables the migration left nullable hold 0 NULL keys (row counts 1 / 0 / 3 /
+52 / 377 / 180 / 2 / 317 / 4420), so their NOT NULL can follow in the same migration. Rerun the
+scan in the migration's dry run against a fresh prod copy before promoting — the data moves.
+
 ### Resolution (PAD-303, 2026-09-11)
 - **Step 1 counts** (Session E, read-only scan of the staging copy of prod at head `390bf6e8be12`,
   2026-09-11 21:33, filed by PR #227): **0** duplicate `(lesson_id, original_lesson_occurence_date)`
@@ -87,7 +107,7 @@ migrations declaring the same indexes).
 - **Step 3 + 5:** migration `5f2a0bb50712` (after `fed5ed4916a8`) creates `uq_lesson_instance_occurrence`
   and the partial `uq_vacancies_open_original_player`, drops PAD-263's plain occurrence index, and
   REFUSES with the offending groups if any exist (never skips); downgrade restores the prior state.
-  Declared on the models. Specs: `classes.instances` rule 9, `notifications.invitations` rule 13.
+  Declared on the models. Specs: `classes.instances` rule 9, `notifications.invitations` rule 14.
 - **Step 4:** not needed — PAD-261's per-series lock already serialises materialisation, so the
   unique index turns a lost race into a second caller finding the first row, never an IntegrityError
   in a request path.

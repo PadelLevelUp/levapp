@@ -88,7 +88,13 @@ class LessonInstance(db.Model, model.Model):
 
     @property
     def players(self):
-        return [rel.player for rel in self.players_relations]
+        # PAD-259: the presence row is the enrolment (classes.instance-enrollment rule 1).
+        return [p.player for p in self.presences]
+
+    @property
+    def enrolled_player_ids(self) -> set:
+        """Ids of the players who hold a spot on this occurrence (PAD-259)."""
+        return {p.player_id for p in self.presences}
 
     @property
     def effective_filled_spots(self) -> int:
@@ -103,7 +109,9 @@ class LessonInstance(db.Model, model.Model):
         class-detail "capacity" field, and the invitation engine's capacity
         checks — none of those may recompute this independently.
         """
-        enrolled = len(self.players_relations)
+        # PAD-259: one table. A presence row is an enrolment; an absent one gave
+        # its spot up (classes.instance-enrollment rule 5).
+        enrolled = len(self.presences)
         declined = sum(1 for p in self.presences if p.status == "absent")
         return max(0, enrolled - declined)
 

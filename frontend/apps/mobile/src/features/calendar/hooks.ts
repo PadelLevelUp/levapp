@@ -268,8 +268,10 @@ export function useConfirmPresences() {
 export function useCancelAttendance() {
   const invalidate = useInvalidateClassData();
   return useMutation({
-    mutationFn: (lessonInstanceId: number) =>
-      notificationEngineApi.cancelAttendance(lessonInstanceId),
+    // PAD-288 / PAD-282: an instance id when the row exists, else the
+    // calendar event's (model, originalId, date) — the server materialises.
+    mutationFn: (target: number | notificationEngineApi.CancelAttendanceTarget) =>
+      notificationEngineApi.cancelAttendance(target),
     onSuccess: invalidate,
   });
 }

@@ -40,7 +40,6 @@ from padel_app.sql_db import db
 from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
-    Association_PlayerLessonInstance,
     ConversationParticipant,
     Lesson,
     LessonInstance,
@@ -269,13 +268,11 @@ def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
         return []
 
     if model == "LessonInstance":
+        # PAD-259: the presence row is the enrolment (classes.instance-enrollment rule 1).
         rows = (
             db.session.query(Player)
-            .join(
-                Association_PlayerLessonInstance,
-                Association_PlayerLessonInstance.player_id == Player.id,
-            )
-            .filter(Association_PlayerLessonInstance.lesson_instance_id == original_id)
+            .join(Presence, Presence.player_id == Player.id)
+            .filter(Presence.lesson_instance_id == original_id)
             .all()
         )
     else:
@@ -602,12 +599,10 @@ def _player_activity(*, coach_id: int, now: datetime) -> Tuple[int, int]:
 
     upcoming = {
         pid
-        for (pid,) in db.session.query(Association_PlayerLessonInstance.player_id)
-        .join(
-            LessonInstance,
-            LessonInstance.id == Association_PlayerLessonInstance.lesson_instance_id,
-        )
-        .filter(Association_PlayerLessonInstance.player_id.in_(player_ids))
+        for (pid,) in db.session.query(Presence.player_id)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .filter(Presence.player_id.in_(player_ids))
+        .filter(Presence.status.is_distinct_from("absent"))
         .filter(LessonInstance.start_datetime >= now)
         .distinct()
         .all()
