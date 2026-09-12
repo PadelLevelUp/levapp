@@ -246,3 +246,14 @@ def test_known_remote_hosts_are_production_targets_at_any_port(load_config):
 
     assert config.is_production_target("34.78.247.45", 5432)
     assert config.is_production_target("10.132.0.2", None)
+
+
+def test_postgres_container_name_is_a_production_target(load_config):
+    """PAD-292 / B-069: the app containers reach the database as `postgres` on
+    the VM's docker network, so that hostname holds real data too and the
+    migration guard must fail closed on it exactly like the internal IP."""
+    config = load_config()
+    assert config.is_production_target("postgres", 5432)
+    with pytest.raises(RuntimeError):
+        config.assert_safe_migration_target("postgres", env="development")
+    config.assert_safe_migration_target("postgres", env="production")
