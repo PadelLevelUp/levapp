@@ -262,9 +262,12 @@ def _response_state(presence: Presence) -> str:
     deriving one fact is how that survived, so there is now one.
 
     ``declined`` is a real answer — the student said they were not coming — so it
-    does not block validation; only ``none`` does. A validated row reports
-    ``none`` here because the record is then the coach's, and reporting it back
-    as the student's answer would be a claim the student never made.
+    does not block validation; only ``none`` does. A validated row the coach
+    actually marked reports ``none``, because the record is then the coach's and
+    reporting it back as the student's answer would be a claim they never made.
+    A validated row with NO status is the exception: ``attendance_state`` falls
+    back to the student's own intent there (rather than inventing an absence the
+    coach never stated), so this reports that intent too.
     """
     state = presence.attendance_state
     if state == "coming":

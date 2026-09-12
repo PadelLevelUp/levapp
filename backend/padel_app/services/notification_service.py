@@ -2542,8 +2542,10 @@ def _recorded_reminder_action(presence: "Presence | None") -> str | None:
 
     Mirrors exactly what the two response paths write:
     ``_free_spot_for_declining_player`` sets ``status="absent"`` +
-    ``justification="justified"``, and the confirm branch sets ``confirmed``
-    while leaving ``status`` alone for the coach to fill in.
+    ``justification="justified"``; the confirm branch sets ``confirmed`` and, since
+    PAD-313, CLEARS ``status`` / ``justification`` / ``late_cancellation`` on an
+    unvalidated row, so a yes undoes what a no wrote rather than leaving a row
+    that says both.
     """
     if presence is None:
         return None
@@ -2693,6 +2695,38 @@ def respond_to_reminder(
     if reminder_msg is None and _recorded_reminder_action(presence) == action:
         return {"action": _RESPONSE_STATE.get(action, "unknown"), "duplicate": True}
 
+    # PAD-313: a "yes" from someone who had given their spot up is a capacity
+    # decision, and it is taken BEFORE anything is recorded. Marking the
+    # reminder answered first and refusing afterwards would leave the student
+    # recorded as having said yes to a class they were just refused — the same
+    # shape of lie this ticket exists to remove.
+    retaking = (
+        action == "yes"
+        and presence is not None
+        and presence.status == "absent"
+        and not presence.validated
+    )
+    if retaking:
+        locked = _lock_instance(instance)
+        if (
+            locked.max_players is not None
+            and _effective_filled_spots(locked) >= locked.max_players
+        ):
+            db.session.commit()  # release the lock, change nothing
+            if coach_user_id:
+                _send_system_message(
+                    coach_user_id,
+                    acting_user_id,
+                    resolve_message_template(templates, "spot_filled", locale),
+                    class_instance_id=instance.id,
+                )
+            # The coach is the only one who can seat them by hand, and they were
+            # told of the cancellation — so they hear about the attempt too.
+            _notify_coach_of_refused_return(
+                instance, player, acting_user_id, coach_user_id, locale=locale
+            )
+            return {"action": "spot_filled"}
+
     # Mark the reminder as responded — on its reminder_attempts row (rule 14),
     # mirrored onto the message so the frontend shows the badge on reload.
     if reminder_msg is not None:
@@ -2723,36 +2757,9 @@ def respond_to_reminder(
             # reader can tell which answer was newer — only the writer can.
             # The coach's own record is never touched: `validated` rows are the
             # coach's to change.
-            retaking = presence.status == "absent" and not presence.validated
             if retaking:
-                # They gave the spot up; taking it back is a capacity decision,
-                # so it is made under the class lock like every other one
-                # (PAD-261, notifications.invitations rule 10).
-                locked = _lock_instance(instance)
-                if (
-                    locked.max_players is not None
-                    and _effective_filled_spots(locked) >= locked.max_players
-                ):
-                    db.session.commit()  # release the lock, change nothing
-                    # The student must be TOLD. A tap that changes nothing and
-                    # says nothing is how this stayed invisible: they would keep
-                    # believing they had a seat. Same wording the engine already
-                    # uses when a vacancy is taken before an answer arrives.
-                    if coach_user_id:
-                        _send_system_message(
-                            coach_user_id,
-                            acting_user_id,
-                            resolve_message_template(templates, "spot_filled", locale),
-                            class_instance_id=instance.id,
-                        )
-                    # And tell the COACH, who is the only one who can put them
-                    # back: they were told of the cancellation, so without this
-                    # their last word on this student is "not coming".
-                    _notify_coach_of_refused_return(
-                        instance, player, acting_user_id, coach_user_id, locale=locale
-                    )
-                    _mark_answered_message_read(reminder_msg, acting_user_id)
-                    return {"action": "spot_filled"}
+                # The capacity decision was taken above, under the class lock,
+                # before anything was recorded. Re-seat them.
                 presence.status = None
                 presence.justification = None
                 presence.late_cancellation = False
@@ -2761,7 +2768,7 @@ def respond_to_reminder(
                 # half-empty class has open spots to spare, so the general
                 # reconciliation leaves it standing and the engine keeps
                 # offering the seat its owner just re-took.
-                own = _open_vacancy_for(locked.id, player.id)
+                own = _open_vacancy_for(instance.id, player.id)
                 if own is not None:
                     _close_vacancy(own, player.id)
             presence.confirmed = True
@@ -3483,13 +3490,20 @@ def trigger_invitations(
 # Recurring batch processor (called by APScheduler every 2 minutes)
 # ---------------------------------------------------------------------------
 
-def _close_vacancy(vacancy: Vacancy, filled_by_player_id: int | None) -> None:
+def _close_vacancy(vacancy: Vacancy, filled_by_player_id: int | None, *, except_event_id: int | None = None) -> None:
     """Mark one vacancy taken and retire the invitations still offering it.
 
     The single place that closes a vacancy, so "filled" always means the same
     thing and no caller forgets the invitations still sitting in candidates'
     inboxes.
+
+    ``except_event_id`` spares the accepter's own event, because the accept
+    paths set it ``confirmed`` AFTER filling the vacancy and a naive call would
+    expire it first. Returns the events it retired, so a caller that still has
+    to message those candidates works from the list rather than re-querying for
+    rows this has already expired (PAD-317).
     """
+    retired = []
     vacancy.status = "filled"
     vacancy.filled_by_player_id = filled_by_player_id
     vacancy.filled_at = utcnow_naive()
@@ -3497,8 +3511,12 @@ def _close_vacancy(vacancy: Vacancy, filled_by_player_id: int | None) -> None:
         NotificationEvent.vacancy_id == vacancy.id,
         NotificationEvent.status.in_(("sent", "queued")),
     ).all():
+        if except_event_id is not None and event.id == except_event_id:
+            continue  # the winner's own invitation; its caller marks it confirmed
         event.status = "expired"
         _retire_invite_message(event)
+        retired.append(event)
+    return retired
 
 
 def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:

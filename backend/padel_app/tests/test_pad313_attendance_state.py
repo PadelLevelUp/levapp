@@ -45,6 +45,16 @@ def test_the_coach_validating_present_is_attended(app):
         assert _row(confirmed=True, status="present", validated=True).attendance_state == "attended"
 
 
+def test_an_unvalidated_absence_is_not_coming_whatever_its_justification(app):
+    """`missed` asserts a coach's record; an unvalidated row has none, so the
+    justification column does not change the state (agreed with Session J,
+    2026-09-12 — two derivations that disagree is how the first bug survived)."""
+    with app.app_context():
+        assert _row(status="absent", justification="justified").attendance_state == "not_coming"
+        assert _row(status="absent", justification="unjustified").attendance_state == "not_coming"
+        assert _row(status="absent").attendance_state == "not_coming"
+
+
 def test_the_coach_validating_absent_is_missed(app):
     with app.app_context():
         row = _row(confirmed=True, status="absent", justification="unjustified", validated=True)
@@ -215,3 +225,43 @@ def test_a_reconfirm_is_refused_when_the_spot_is_gone_and_the_student_is_told(ap
             if (m.msg_metadata or {}).get("returnRefused") is True
         )
         assert coach_told == 1, "the coach is told the student tried to come back"
+
+
+def test_a_refused_return_is_not_recorded_as_a_yes(app):
+    """A student refused a seat must not be on record as having accepted it.
+
+    The reminder was marked answered before the capacity check, and the
+    refusal's commit persisted it — so the bubble would tell them their "yes"
+    was taken while the server had just refused it.
+    """
+    from unittest.mock import patch
+
+    from padel_app.models import LessonInstance, ReminderAttempt
+    from padel_app.services.lesson_service import enrol
+    from padel_app.services.notification_service import (
+        cancel_attendance, respond_to_reminder, send_class_reminders,
+    )
+    from padel_app.tests.test_notification_reminder_flow import PATCHES
+    from padel_app.tests.test_pad259_readers import _second_student
+
+    ids, iid = _world(app, max_players=1)
+    with app.app_context():
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            send_class_reminders(iid)
+            cancel_attendance(ids["student_user_id"], lesson_instance_id=iid)
+
+            carol, _uid = _second_student(app, ids["coach_id"], "carol")
+            enrol(carol, db.session.get(LessonInstance, iid), "fill", confirmed=True)
+
+            assert respond_to_reminder(iid, "yes", ids["student_user_id"])["action"] == "spot_filled"
+
+        attempt = (
+            ReminderAttempt.query
+            .filter_by(lesson_instance_id=iid, player_id=ids["student_id"])
+            .order_by(ReminderAttempt.id.desc())
+            .first()
+        )
+        assert attempt is not None, "the reminder that was sent has an attempt row"
+        assert attempt.response != "yes", (
+            "a refused student must not be recorded as having accepted"
+        )
