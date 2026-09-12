@@ -1627,7 +1627,9 @@ export function ClassDetailSheet({
                 {cancellingAttendance ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
-                {t("calendar.detail.cancelAttendance")}
+                {/* PAD-313 rule 25: the confirmation speaks the same words as
+                    the trigger — one string, so they cannot drift apart. */}
+                {t("calendar.detail.proactiveDecline")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

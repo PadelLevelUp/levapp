@@ -20,9 +20,9 @@
     "deleteOnlyThisAria": "Eliminar apenas esta aula",
     "deleteFutureAria": "Eliminar esta e as aulas futuras",
     "confirmDeleteAria": "Confirmar eliminação da aula",
-    "cancelAttendanceDescription": "A tua vaga será libertada e pode ser oferecida a outro jogador.",
-    "confirmCancelAttendanceAria": "Confirmar cancelamento de presença",
-    "cancelMySpot": "Cancelar a minha vaga",
+    "cancelAttendanceDescription": "Libertamos a tua vaga, que pode ser oferecida a outro jogador, e avisamos o teu professor.",
+    "confirmCancelAttendanceAria": "Confirmar que não vais poder ir",
+    "cancelMySpot": "Não vou poder ir",
     "new": {
       "title": "Nova aula",
       "classTypeAria": "Tipo de aula",
