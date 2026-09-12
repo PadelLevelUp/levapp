@@ -7,7 +7,7 @@
 #
 # Env (set by the workflow):
 #   MAESTRO_FLOWS      space-separated flow paths relative to apps/mobile/.maestro
-#   MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD   flow 23's approved no-club coach;
+#   MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD   flow 45's approved no-club coach;
 #                      default the E2E seed's e2e-coach-noclub (PAD-306, no secret)
 #   RUNNER_TEMP        where the artefact was downloaded ($RUNNER_TEMP/apk/app-release.apk)
 #   GITHUB_WORKSPACE   repo root; the junit report is written there
@@ -18,7 +18,7 @@ APK="${APK_FILE:-$RUNNER_TEMP/apk/app-release.apk}"
 ROOT="${GITHUB_WORKSPACE:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 FLOWS="${MAESTRO_FLOWS:-flows/01-login.yaml}"
 APP_ID="com.padellevelup.app"
-# PAD-306: flow 23 logs in as an approved coach with no club; the E2E seed creates it.
+# PAD-306: flow 45 logs in as an approved coach with no club; the E2E seed creates it.
 NOCLUB_USER="${MAESTRO_COACH_NOCLUB_USERNAME:-e2e-coach-noclub}"
 NOCLUB_PASS="${MAESTRO_COACH_NOCLUB_PASSWORD:-E2eCoach123!}"
 
@@ -31,7 +31,7 @@ adb shell pm list packages | grep -q "$APP_ID"
 
 cd "$ROOT/frontend/apps/mobile/.maestro"
 echo "flows: $FLOWS"
-# PAD-306: flows tagged `ios-only` (29-push-tap-routing drives `xcrun simctl push`)
+# PAD-306: flows tagged `ios-only` (47-push-tap-routing drives `xcrun simctl push`)
 # stay out of the Android run until wave C brings FCM push.
 # shellcheck disable=SC2086  # FLOWS is a space-separated list on purpose
 maestro test --format junit --output "$ROOT/maestro-report.xml" \

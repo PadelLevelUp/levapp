@@ -20,6 +20,7 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
+- `mobile/` — Mobile Platform Runtime (1 leaf; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (5 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267;)
@@ -60,6 +61,9 @@ Registration & connections (decision 2026-09-06): `auth.coach-approval` → `aut
 `players.join-token` → `auth.register`; `players.claim` → `players.invite-completion`,
 `messaging.conversations`, `attendance.presence`; `messaging.direct-by-username` →
 `messaging.block-and-report`. `players.add-existing` is deprecated and out of the build order.
+
+`mobile.android-runtime` depends on `calendar.mobile-views`, `messaging.push-notifications` and
+`training.tactical-board` (the screens whose Android behaviour it pins); nothing depends on it.
 
 `eligibility` is consumed by three domains — `notifications` (rounds are capped at the bar),
 `calendar` (a student sees open spots they qualify for) and `classes` (join requests). It stores its

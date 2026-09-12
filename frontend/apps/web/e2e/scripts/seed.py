@@ -23,6 +23,8 @@ from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from padel_app.models.presences import Presence
+from padel_app.services.lesson_service import enrol
+from padel_app.tools.unit_of_work import unit_of_work
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
@@ -39,6 +41,19 @@ from datetime import datetime, timedelta, timezone
 from seed_dates import seed_dates, seed_today  # noqa: E402  (same directory)
 
 
+def _enrol(instance, player, *, invited=True, confirmed=False, status=None,
+           justification=None, validated=False, late_cancellation=False):
+    """PAD-259 (classes.instance-enrollment rule 4): the presence row IS the
+    enrolment and only `enrol()` creates it (plus the phase-1 shadow junction
+    row). The seed then sets the attendance fields the scenario needs."""
+    db.session.flush()
+    presence = enrol(player.id, instance, "roster", invited=invited, confirmed=confirmed, validated=validated)
+    presence.status = status
+    presence.justification = justification
+    presence.late_cancellation = late_cancellation
+    return presence
+
+
 def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -50,7 +65,7 @@ DATES = seed_dates(seed_today())
 
 app = create_app()
 
-with app.app_context():
+with app.app_context(), unit_of_work():
     # ── Users ─────────────────────────────────────────────────────────────────
     # PAD-40: seed the active E2E users with language="en" so the app UI renders in
     # English for the existing E2E suite (whose locators match English copy). App-wide
@@ -314,23 +329,9 @@ with app.app_context():
     )
     db.session.add(coach_instance)
 
-    # Associate student with instance
-    student_instance = Association_PlayerLessonInstance(
-        player_id=student.id,
-        lesson_instance_id=instance.id,
-    )
-    db.session.add(student_instance)
-
-    # Presence for the enrolled student (mirrors auto-create on materialize:
-    # invited, not yet confirmed). Needed so the confirm / cancel-attendance
-    # flow has a Presence row to operate on.
-    student_presence = Presence(
-        player_id=student.id,
-        lesson_instance_id=instance.id,
-        invited=True,
-        confirmed=False,
-    )
-    db.session.add(student_presence)
+    # Enrol the student (mirrors materialisation: invited, not yet confirmed).
+    # Needed so the confirm / cancel-attendance flow has a row to operate on.
+    _enrol(instance, student, invited=True, confirmed=False)
 
     # ── Declined-count class (PAD-71) ─────────────────────────────────────────
     # Next Thursday 16:00. 3 enrolled players out of 4 spots, of which 2 have
@@ -381,21 +382,11 @@ with app.app_context():
 
     # 3 enrolled: the first stays pending (still counts), the other 2 declined.
     for idx, declined_member in enumerate(filler_players[:3]):
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=declined_member.id,
-                lesson_instance_id=declined_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=declined_member.id,
-                lesson_instance_id=declined_instance.id,
-                invited=True,
-                confirmed=idx > 0,
-                status="absent" if idx > 0 else None,
-                justification="justified" if idx > 0 else None,
-            )
+        _enrol(
+            declined_instance, declined_member,
+            invited=True, confirmed=idx > 0,
+            status="absent" if idx > 0 else None,
+            justification="justified" if idx > 0 else None,
         )
 
     # ── Recurring Lesson (no materialized instance) ────────────────────────────
@@ -505,20 +496,7 @@ with app.app_context():
 
     # Two pending students (invited + notified, no response yet).
     for pending_member in pending_students:
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=pending_member.id,
-                lesson_instance_id=pending_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=pending_member.id,
-                lesson_instance_id=pending_instance.id,
-                invited=True,
-                confirmed=False,
-            )
-        )
+        _enrol(pending_instance, pending_member, invited=True, confirmed=False)
         db.session.add(
             NotificationEvent(
                 coach_id=coach.id,
@@ -609,22 +587,7 @@ with app.app_context():
                 lesson_instance_id=attended_instance.id,
             )
         )
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=student.id,
-                lesson_instance_id=attended_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=student.id,
-                lesson_instance_id=attended_instance.id,
-                invited=True,
-                confirmed=True,
-                status="present",
-                validated=True,
-            )
-        )
+        _enrol(attended_instance, student, invited=True, confirmed=True, status="present", validated=True)
         attended_instances.append(attended_instance)
 
     # ── Missed-class history (PAD-141) ───────────────────────────────────────
@@ -687,22 +650,9 @@ with app.app_context():
                 lesson_instance_id=missed_instance.id,
             )
         )
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=student.id,
-                lesson_instance_id=missed_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=student.id,
-                lesson_instance_id=missed_instance.id,
-                invited=True,
-                confirmed=True,
-                status="absent",
-                justification=justification,
-                validated=True,
-            )
+        _enrol(
+            missed_instance, student,
+            invited=True, confirmed=True, status="absent", justification=justification, validated=True,
         )
         missed_instances.append(missed_instance)
 
@@ -773,21 +723,7 @@ with app.app_context():
             )
         )
         for enrolled, answered in ((student, True), (student2, everyone_answered)):
-            db.session.add(
-                Association_PlayerLessonInstance(
-                    player_id=enrolled.id, lesson_instance_id=v_instance.id
-                )
-            )
-            db.session.add(
-                Presence(
-                    player_id=enrolled.id,
-                    lesson_instance_id=v_instance.id,
-                    invited=True,
-                    confirmed=answered,
-                    status=None,
-                    validated=False,
-                )
-            )
+            _enrol(v_instance, enrolled, invited=True, confirmed=answered, status=None, validated=False)
 
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(

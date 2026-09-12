@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -29,6 +28,7 @@ import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type FieldErrors = { username?: string; password?: string };
 
@@ -139,7 +139,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-sidebar"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior()}
     >
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"

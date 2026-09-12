@@ -8,6 +8,7 @@ and the route.
 from datetime import timedelta
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 from padel_app.tests.test_pad128_eligibility import _add_student, _seed
 from padel_app.utils.dates import utcnow_naive
 
@@ -48,6 +49,7 @@ def _fill(app, ids, count):
         for i in range(count):
             pid = _add_student(ids["coach_id"], f"filler{i}", level_id=ids["level_ids"]["5"])
             db.session.add(Association_PlayerLessonInstance(player_id=pid, lesson_instance_id=ids["instance_id"]))
+            db.session.add(Presence(player_id=pid, lesson_instance_id=ids["instance_id"], invited=True, enrolment_source="coach"))  # PAD-259
         db.session.commit()
 
 

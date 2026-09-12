@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
+import { useAndroidBack } from "@/lib/android-back";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -70,6 +71,9 @@ function DialogContent({
   ...props
 }: DialogContentProps) {
   const { t } = useTranslation();
+  // Android back closes the dialog (mobile.android-runtime rule 3).
+  const { open, onOpenChange } = DialogPrimitive.useRootContext();
+  useAndroidBack(open, () => onOpenChange(false));
   return (
     <DialogPortal hostName={portalHost}>
       <DialogOverlay>

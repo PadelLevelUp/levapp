@@ -29,6 +29,12 @@ export type ReminderState = {
   confirmed: boolean;
   /** The student answered no — show the absent badge. */
   declined: boolean;
+  /**
+   * PAD-259 (classes.instance-enrollment rule 7): the student was taken off
+   * that date after the reminder went out; the server recorded the answer on
+   * the reminder attempt and enrolled nobody. Settled, never "absent".
+   */
+  notEnrolled: boolean;
   /** No longer answerable; show the expired badge instead of buttons. */
   superseded: boolean;
   /** Whether a cancel action should be offered at all. */
@@ -49,7 +55,7 @@ export type ReminderState = {
  */
 export function reminderState(
   metadata: ReminderMetadata | null | undefined,
-  localResponse: "accepted" | "declined" | null = null,
+  localResponse: "accepted" | "declined" | "not_enrolled" | null = null,
   now: Date = new Date()
 ): ReminderState {
   const alreadyResponded = !!metadata?.responded;
@@ -61,9 +67,14 @@ export function reminderState(
   // Note the asymmetry, which matches web: any recorded answer that is not
   // "yes" reads as declined, so an unrecognised value fails safe to absent
   // rather than showing a confirmation the student never gave.
+  const notEnrolled =
+    localResponse === "not_enrolled" ||
+    (localResponse === null && alreadyResponded && metadata?.response === "not_enrolled");
+
   const declined =
-    localResponse === "declined" ||
-    (localResponse === null && alreadyResponded && metadata?.response !== "yes");
+    !notEnrolled &&
+    (localResponse === "declined" ||
+      (localResponse === null && alreadyResponded && metadata?.response !== "yes"));
 
   const startsAt = metadata?.startsAt;
   // Cancellation is only offered while the class is still ahead.
@@ -89,10 +100,11 @@ export function reminderState(
   return {
     confirmed,
     declined,
+    notEnrolled,
     superseded,
     canCancel: confirmed && classInFuture,
     isLateCancellation,
-    showResponseButtons: !confirmed && !declined && !superseded,
+    showResponseButtons: !confirmed && !declined && !notEnrolled && !superseded,
   };
 }
 
@@ -108,7 +120,7 @@ export function reminderState(
  */
 export type ReminderResponseOutcome = {
   /** The `response` to record in metadata — `null` means record nothing. */
-  write: "yes" | "no" | null;
+  write: "yes" | "no" | "not_enrolled" | null;
   /** An error toast to show, or `null` when there is nothing to say. */
   toastKey: string | null;
 };
@@ -120,6 +132,13 @@ export function reminderResponseOutcome(
   // say why instead of inventing a state for it.
   if (action === "expired") {
     return { write: null, toastKey: "messages.reminderExpired" };
+  }
+
+  // PAD-259 (classes.instance-enrollment rule 7): the student is no longer on
+  // that date. The server kept the answer on the reminder attempt and enrolled
+  // nobody; record exactly that so the bubble settles instead of saying absent.
+  if (action === "not_enrolled") {
+    return { write: "not_enrolled", toastKey: null };
   }
 
   // Same asymmetry as `reminderState`: only an explicit "confirmed" reads as a

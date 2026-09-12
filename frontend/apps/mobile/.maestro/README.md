@@ -157,7 +157,7 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
 
 ## Push tap routing (PAD-240)
 
-`flows/29-push-tap-routing.yaml` is not in `config.yaml`'s order because Maestro
+`flows/47-push-tap-routing.yaml` is not in `config.yaml`'s order because Maestro
 cannot send a push. Run it through the wrapper, which delivers a simulated APNs
 notification (`scripts/push-payloads/message.apns`, `xcrun simctl push`) once the
 flow is parked on the Messages tab, then lets the flow tap the banner and assert
@@ -167,15 +167,46 @@ the conversation opened:
 bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDID
 ```
 
-**Android lane (PAD-306):** the flow is tagged `ios-only` and `scripts/ci-android-maestro.sh`
-runs Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push
-exists (PAD-290 wave C, FCM through the Expo push service). Tag any other simulator-only flow
-the same way.
+**Android lane (PAD-306):** flow 47 is tagged `ios-only` and `scripts/ci-android-maestro.sh` runs
+Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push exists
+(PAD-290 wave C, FCM through the Expo push service). Tag any other simulator-only flow the same
+way — the tag, not the execution order, is what keeps it off the lane.
 
-## Flow 23's credentials (PAD-306)
+## Flow 45's credentials (PAD-306)
 
-`flows/23-club-join-request.yaml` logs in as an **approved coach with no club**. The E2E seed
+`flows/45-club-join-request.yaml` logs in as an **approved coach with no club**. The E2E seed
 (`apps/web/e2e/scripts/seed.py`) creates `e2e-coach-noclub` / `E2eCoach123!` for it, and both
 runners pass the pair as `MAESTRO_COACH_NOCLUB_USERNAME` / `MAESTRO_COACH_NOCLUB_PASSWORD`
 (`-e`); export either variable to point the flow at an account prepared by hand. The flow gives
 that coach a club, so it relies on the DB reset every runner does first.
+
+## Android (PAD-298, wave B)
+
+The same flows run on the CI emulator lane (`.github/workflows/android-build.yaml`, PAD-297:
+API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLOWS`).
+
+**Flow policy.** A pull request runs the smoke list only (`01-login`, `31-week-view`,
+`32-month-view`, `36-android-evidence` — about 6 minutes after the APK). The whole suite
+(config.yaml's order, continue-on-failure, ~60 minutes of emulator time) runs nightly at
+03:00 UTC on staging and on demand: Actions → "Android build" → Run workflow with
+`flows` = `.` (the default). Read failures in the `maestro-results` artefact.
+
+Deltas against the iOS suite — `mobile.android-runtime` rule 8:
+
+- **`- back` is meaningful.** On Android it closes the newest open dialog / select / menu,
+  drops a raised day sheet back to rest, or goes back a screen. iOS flows still tap the
+  screen's own back button (`- back` is a no-op there).
+- **Notification permission.** Android 13+ shows a system dialog at push registration; the
+  lane grants `POST_NOTIFICATIONS` with `adb shell pm grant` before the flows, so no flow
+  handles it.
+- **Keyboard.** `pressKey: Enter` still dismisses a single-line input; `hideKeyboard` is
+  expected to work on Android (it fails on iOS in this app).
+- **Select portals** are in the Android a11y tree as ordinary views — the iOS workaround
+  (percent taps in `12-settings-language`) stays until both are verified.
+- **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by
+  text, not a testID.
+- **Push**: `push-tap-flow.sh` is `simctl` (APNs) only; no Android equivalent yet (wave C), so
+  flow 47 is tagged `ios-only` and the lane excludes it (PAD-306).
+- `36-android-evidence.yaml` is Android-only and not in `config.yaml`: it takes the
+  screenshots the build Mac cannot produce (login keyboard, week sheet depth, raised month
+  sheet + back, the date dialog); read them in the lane's `maestro-results` artefact.

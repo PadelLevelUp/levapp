@@ -110,7 +110,7 @@ command -v maestro >/dev/null || fail "maestro not found (expected in ~/.maestro
 echo "[e2e] Running Maestro flows..."
 cd "$MOBILE_DIR"
 SUITE_LOG=$(mktemp -t maestro-suite)
-# PAD-306: flow 23's approved no-club coach comes from the E2E seed (e2e-coach-noclub);
+# PAD-306: flow 45's approved no-club coach comes from the E2E seed (e2e-coach-noclub);
 # override with MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD if an account was prepared by hand.
 maestro --device "$SIM_UDID" test \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=${MAESTRO_COACH_NOCLUB_USERNAME:-e2e-coach-noclub}" \

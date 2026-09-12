@@ -1,10 +1,14 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, UniqueConstraint, Index
+from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey, Enum, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
 from padel_app import model
 
 from padel_app.tools.input_tools import Block, Field, Form
+
+
+#: PAD-259 (classes.instance-enrollment rule 3): how the row came to exist.
+ENROLMENT_SOURCES = ("roster", "coach", "fill", "walk_in", "import", "unknown")
 
 
 class Presence(db.Model, model.Model):
@@ -40,6 +44,12 @@ class Presence(db.Model, model.Model):
     late_cancellation = Column(
         Boolean, default=False, server_default="false", nullable=False
     )
+    # PAD-259: the presence row IS the per-occurrence enrolment (owner decision
+    # 2026-09-11, option A). This records how it came to exist; it is never
+    # read for authorization or capacity (classes.instance-enrollment rule 3).
+    enrolment_source = Column(
+        String(16), nullable=False, default="unknown", server_default="unknown"
+    )
     
     @property
     def name(self):
@@ -55,6 +65,10 @@ class Presence(db.Model, model.Model):
         # PAD-263: the unique pair leads with player_id, so the attendance
         # sheet's per-class lookup needs its own index.
         Index("ix_presences_lesson_instance_id", "lesson_instance_id"),
+        CheckConstraint(
+            "enrolment_source IN ('roster', 'coach', 'fill', 'walk_in', 'import', 'unknown')",
+            name="ck_presences_enrolment_source",
+        ),
         {"extend_existing": True},
     )
 

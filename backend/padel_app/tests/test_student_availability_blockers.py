@@ -20,6 +20,7 @@ import json
 from datetime import datetime, timedelta
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +246,8 @@ def _enrol(instance, player):
     )
     db.session.add(Association_PlayerLessonInstance(
         player_id=player.id, lesson_instance_id=instance.id))
+    db.session.add(Presence(
+        player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()
 
 

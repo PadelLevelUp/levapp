@@ -83,7 +83,7 @@ def _coach_id_for(instance: LessonInstance):
 
 
 def _is_enrolled(instance: LessonInstance, player_id: int) -> bool:
-    return any(rel.player_id == player_id for rel in instance.players_relations)
+    return player_id in instance.enrolled_player_ids  # PAD-259
 
 
 def _is_closed(instance: LessonInstance, now: datetime) -> bool:
@@ -103,22 +103,12 @@ def _is_full(instance: LessonInstance) -> bool:
 def resolve_instance(model: str, original_id, date_str, *, now=None) -> LessonInstance:
     """The instance a request attaches to — materialising a recurrence
     occurrence when needed (rule 2, the one student action that creates one)."""
-    from dateutil import parser
-    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.lesson_service import get_or_materialize_instance, parse_event_target
 
-    kind = (model or "").lower()
+    kind, target, occ_date = parse_event_target(model, original_id, date_str)
     if kind == "lessoninstance":
-        return LessonInstance.query.get_or_404(original_id)
-    if kind != "lesson":
-        abort(400, "model must be Lesson or LessonInstance")
-    lesson = Lesson.query.get_or_404(original_id)
-    if not date_str:
-        abort(400, "date is required for a Lesson")
-    try:
-        occ_date = parser.isoparse(date_str).date()
-    except (TypeError, ValueError):
-        abort(400, "date must be an ISO date")
-    return get_or_materialize_instance(lesson, occ_date)
+        return target
+    return get_or_materialize_instance(target, occ_date)
 
 
 def _localized(coach_user, pt: str, en: str) -> str:
@@ -275,8 +265,9 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
                 request=serialize_join_request(row),
             )
 
-    # Rule 6: enrol exactly as the engine does; attribute the vacancy.
-    _add_player_to_instance(row.player_id, instance)
+    # Rule 6: enrol exactly as the engine does; attribute the vacancy. The
+    # vacancy is marked BEFORE the enrolment (PAD-271, invitations rule 13) so
+    # enrol()'s own reconciliation finds it closed and closes nothing else.
     vacancy = (
         Vacancy.query
         .filter_by(lesson_instance_id=instance.id, status="open")
@@ -291,6 +282,8 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":
             vacancy.approval_status = "approved"
+    _add_player_to_instance(row.player_id, instance)
+    if vacancy is not None:
         vacancy.save()
 
     # Rule 10: retire the invitations still out for this spot, as a "yes" would.

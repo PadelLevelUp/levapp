@@ -133,8 +133,8 @@ workflow **Android build** (`.github/workflows/android-build.yaml`) is the Andro
   `MAESTRO_FLOWS` (default `flows/01-login.yaml`). `maestro-results` carries the junit report,
   Maestro's screenshots/logs and the Flask log, on success and on failure.
 
-Flows tagged `ios-only` (today `29-push-tap-routing`, which drives `xcrun simctl push`) are
-excluded on the lane until wave C brings Android push; flow 23's no-club coach comes from the E2E
+Flows tagged `ios-only` (today `47-push-tap-routing`, which drives `xcrun simctl push`) are
+excluded on the lane until wave C brings Android push; flow 45's no-club coach comes from the E2E
 seed (`e2e-coach-noclub`) and is passed to Maestro by the script (PAD-306).
 
 Runs on every pull request into `staging` that touches `apps/mobile`, `packages/*` or the
