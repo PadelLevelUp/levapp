@@ -60,9 +60,28 @@ own origin does not move, so neither platform changes visually.
 **Test:** Maestro flow 12 taps `settings-language-pt` / `-en` by id on both platforms; the iOS
 percent taps it used to need are removed by the same change.
 
+### Aftermath — a test that could only pass while the feature was broken
+
+Fixing this exposed a second defect in the flow that covers it, worth recording on its own.
+`12-settings-language` confirmed each language switch by asserting the English sentence
+"Language preference saved.". That status line is rendered in the language just chosen —
+`preferences-section.tsx` deliberately holds the translation key rather than the resolved
+string, so that switching to Portuguese does not report success in English. So the English
+assertion could only pass while the switch had **not** taken effect: for as long as the option
+was untappable, the flow certified the broken behaviour as working.
+
+When the fix landed, the switch worked, the assertion failed, and the flow stopped before its
+second step — leaving the coach's stored language as Portuguese for the rest of the suite.
+Flows 16 and 34 then failed on English strings of their own ("Reminders sent", "Disconnect"),
+for a reason that had nothing to do with what they test; the remove button coming back as
+"Desassociar" in the Android hierarchy is what named it. The flow now asserts
+`settings-language-status` by id, and the Maestro README records the order hazard.
+
 ### Resolution
 
 - Spec changes: `mobile.android-runtime` rule 9 and its criterion.
-- Tests: `12-settings-language.yaml` — both platforms tap the option by id.
+- Tests: `12-settings-language.yaml` — both platforms tap the option by id, and the saved
+  status is asserted by id rather than by a sentence that only matched while the switch was
+  broken (see Aftermath).
 - Code: `select.tsx` wrapper fills the overlay.
 - Resolved: 2026-09-12 (PAD-304).
