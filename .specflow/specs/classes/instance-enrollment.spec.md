@@ -77,7 +77,24 @@ three separate fields on it. Decision record:
    difference. The test suite asserts the list is empty after every write path, and it is run once
    on the staging copy of prod before phase 2 drops the junction (the phase-2 gate).
 
+10. **A re-enrolment of someone who gave their spot up is a RETURN, not a no-op (PAD-316; rule number self-assigned, unconfirmed).** Rule 4's idempotence means an existing row is not *duplicated*; it never meant the row is untouched whatever it says. When `enrol()` finds a presence that is `status = 'absent'` and not validated, the player is coming back: the absence, its justification and the late-cancellation flag are cleared, their own open vacancy is closed and the instance reconciled (`notifications.invitations` rule 13). A row the coach has validated is left alone — that record is theirs to change on the attendance sheet.
+   **The previous answer is void.** It recorded a "no" to a seat they no longer held, and nobody has asked them about this one, so the caller's `confirmed` stands rather than the stored flag: a coach's re-add leaves them `planned`, an engine fill arrives `coming`. Claiming they said yes would be the same over-reach as `confirmed` meaning *coming*.
+   **The coach's own reversal is the same door.** Marking a student absent frees their spot and the engine opens a vacancy for it; marking them present again restores the count, so the reversal closes that vacancy too. Capacity alone will not: the vacancy names a player who is no longer absent, and that is what makes it stale, not the arithmetic — a class with spare room keeps offering a seat its owner has taken back.
+   Both doors existed because "idempotent" was read as "returns untouched": before this, a coach re-adding a cancelled student changed nothing at all, and the app went on showing a seat the class did not count.
+
 ### Acceptance Criteria
+
+#### A coach puts a cancelled student back (PAD-316)
+- **Given** a student who confirmed and then cancelled, so the class does not count them and a vacancy is open for their spot
+- **When** the coach re-adds them to that occurrence
+- **Then** the class counts them again, their vacancy is closed, and their state is `planned` — on the list, not yet answered
+- **And** re-enrolling a student who never left changes nothing at all, including their own `confirmed` answer
+
+#### A coach reverses their own absent mark (PAD-316)
+- **Given** a student the coach marked absent, freeing the spot and opening a vacancy
+- **When** the coach marks them present instead
+- **Then** the class counts them again and no vacancy is left offering their seat
+- **And** marking a student absent still frees the spot as before
 
 #### Materialisation writes one enrolment per roster player
 - **Given** a recurring lesson with Alice and Bob on its roster
