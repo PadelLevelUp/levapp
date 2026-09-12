@@ -48,9 +48,9 @@ in normal flow, so the wrapper has real bounds.
 
 ### Change Plan
 
-**Spec to modify:** `.specflow/specs/mobile/android-runtime.spec.md` — the rule that portalled
-surfaces must be reachable by touch and by accessibility on Android, with a criterion covering
-a select option. Rule number to be assigned by the coordinator.
+**Spec to modify:** `.specflow/specs/mobile/android-runtime.spec.md` — **rule 9**, "a portalled
+surface must be reachable by touch and by accessibility", with the criterion "A select option
+can be picked on Android".
 
 **Code:** `frontend/apps/mobile/src/components/ui/select.tsx` — the wrapper takes
 `style={StyleSheet.absoluteFill}` and `pointerEvents="box-none"`, so the list lies inside its
@@ -62,7 +62,7 @@ percent taps it used to need are removed by the same change.
 
 ### Resolution
 
-- Spec changes: pending the rule number (see above).
+- Spec changes: `mobile.android-runtime` rule 9 and its criterion.
 - Tests: `12-settings-language.yaml` — both platforms tap the option by id.
 - Code: `select.tsx` wrapper fills the overlay.
 - Resolved: 2026-09-12 (PAD-304).
