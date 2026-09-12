@@ -37,7 +37,15 @@ on:
   pull_request:
     branches: [ staging ]
   schedule:
-    # Nightly full Android suite, 03:00 UTC (staging's HEAD).
+    # Nightly full Android suite, 03:00 UTC.
+    #
+    # This fires only once the workflow reaches the repository's DEFAULT branch
+    # (`main`): GitHub schedules a workflow from the default branch's copy of
+    # the file and from nowhere else, so no nightly runs while this lives on a
+    # feature branch or on staging — the first one happens after the promotion
+    # that carries this file to main, and it runs main's HEAD, not staging's.
+    # Accepted deliberately (PAD-304): until then, the whole suite is one
+    # workflow_dispatch away.
     - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:

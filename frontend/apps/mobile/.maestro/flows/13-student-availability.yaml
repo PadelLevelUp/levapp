@@ -68,9 +68,12 @@ appId: com.padellevelup.app
           timeout: 10000
       - tapOn:
           id: "blocker-date-confirm"
+# PAD-304: the picker's accessibility label now reads "<label>: <value>", so
+# the value is assertable on Android too (it lives in a child text node there,
+# which id + text could not reach).
 - assertVisible:
     id: "blocker-date"
-    text: ${output.today}
+    text: "Date: ${output.today}"
 
 # Start time — confirm the picker's own default (18:00, BlockerForm's
 # initial state for a new blocker).
@@ -104,7 +107,7 @@ appId: com.padellevelup.app
           id: "blocker-start-time-confirm"
 - assertVisible:
     id: "blocker-start-time"
-    text: "18:00"
+    text: "Start time: 18:00"
 
 # End time — same, default 20:00.
 - scrollUntilVisible:
@@ -137,7 +140,7 @@ appId: com.padellevelup.app
           id: "blocker-end-time-confirm"
 - assertVisible:
     id: "blocker-end-time"
-    text: "20:00"
+    text: "End time: 20:00"
 
 # Save
 - scrollUntilVisible:

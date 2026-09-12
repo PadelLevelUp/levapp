@@ -1,39 +1,16 @@
 # Mirrors: apps/web/e2e/dashboard/coach-dashboard.spec.ts
-# - the four KPI cards render with real (numeric) values — the card's
-#   accessibility label is "<label>: <value>" (children of the accessible
-#   Pressable are collapsed on iOS, so the value must live in the label)
 # - the upcoming-classes list shows the seeded "E2E Academy Class"
+# - the "this week" cards render with real values — each card's accessibility
+#   label is "<label>: <value>" (the child Text nodes are not addressable on
+#   either platform, so the value must live in the label)
+#
+# PAD-304: this flow used to assert four `dashboard-kpi-*` tiles. Those belong
+# to the STUDENT dashboard (`KpiTiles`); the coach dashboard renders
+# `WeekPulse`'s two cards instead, and the flow had been failing on BOTH
+# platforms since that redesign, not just on Android.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
-# The KPI row sits below the needs-you cards on the taller Android emulator
-# (PAD-304); on iOS it is already on screen and a 100%-visibility scroll timed
-# out there, so the scroll is Android-only.
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - scrollUntilVisible:
-          element:
-            id: "dashboard-kpi-players"
-          direction: DOWN
-          timeout: 20000
-- extendedWaitUntil:
-    visible:
-      id: "dashboard-kpi-players"
-    timeout: 20000
-- assertVisible:
-    id: "dashboard-kpi-players"
-    text: "Players: [0-9]+"
-- assertVisible:
-    id: "dashboard-kpi-upcoming-classes"
-    text: "Upcoming classes: [0-9]+"
-- assertVisible:
-    id: "dashboard-kpi-pending-validation"
-    text: "Pending validation: [0-9]+"
-- assertVisible:
-    id: "dashboard-kpi-revenue-est"
-    text: "Revenue \\(est\\.\\): €?[0-9]+([.,][0-9]+)?"
 # Upcoming classes list shows the seeded class.
 - scrollUntilVisible:
     element:
@@ -41,3 +18,15 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 30000
 - assertVisible: "E2E Academy Class"
+# The "this week" cards sit below the list on both platforms.
+- scrollUntilVisible:
+    element:
+      id: "dashboard-week-pulse"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "dashboard-pulse-seats-filled"
+    text: "Seats filled: [0-9]+%"
+- assertVisible:
+    id: "dashboard-pulse-active-players"
+    text: "Active players: [0-9]+"

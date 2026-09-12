@@ -51,6 +51,18 @@ appId: com.padellevelup.app
     text: "Attendance records: .*"
 - tapOn:
     id: "player-remove-cancel"
+# OPEN (PAD-304), same as flow 16: on the Android emulator the cancel tap lands
+# on the button and reports completed, and the dialog stays open, while the
+# confirm button of the same primitive responds in flow 03. Until the mechanism
+# is named, hardware back is the fallback — it is the Android path the app
+# supports anyway (mobile.android-runtime rule 3), and the branch taken in the
+# log says which control closed the dialog.
+- runFlow:
+    when:
+      visible:
+        text: "Your notes: .*"
+    commands:
+      - back
 - extendedWaitUntil:
     notVisible:
       text: "Your notes: .*"

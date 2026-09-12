@@ -30,13 +30,9 @@
 # pushed from the header avatar (`header-account`), and the language control
 # lives one drill-in down, inside Preferences (`settings-nav-preferences`) —
 # the old `tab-more` / `more-settings` pair had been dead far longer than that.
-# STILL STALE, and not fixed here because it cannot be re-measured without a
-# simulator: the two `point:` taps below were measured when the select sat on
-# an undrilled Settings screen, so both percentages are almost certainly wrong
-# now. `SelectItem` has since gained `settings-language-pt` / `-en` testIDs
-# (preferences-section.tsx) — try tapping those first; fall back to
-# re-measured coordinates only if the portal is still invisible to the iOS
-# accessibility tree.
+# The percent taps that used to stand in for the iOS options are gone (PAD-304):
+# both platforms tap `settings-language-pt` / `-en` by id, which works since
+# B-067 fixed the select's portal wrapper.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -63,22 +59,12 @@ appId: com.padellevelup.app
           id: "settings-language-select"
           retryTapIfNoChange: false
       - waitForAnimationToEnd
-      # Android exposes the Select options as ordinary views: tap by id. iOS keeps
-      # the percent tap (the portal is invisible to its a11y tree) — PAD-304.
-      - runFlow:
-          when:
-            platform: Android
-          commands:
-            - tapOn:
-                id: "settings-language-pt"
-                retryTapIfNoChange: false
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - tapOn:
-                point: "22%,61%"
-                retryTapIfNoChange: false
+      # Both platforms tap the option by id (PAD-304). The percent taps this
+      # used to need on iOS are gone: B-067 made the select's portal wrapper
+      # fill the overlay, so the options are addressable on both platforms.
+      - tapOn:
+          id: "settings-language-pt"
+          retryTapIfNoChange: false
       - extendedWaitUntil:
           visible:
             text: "Language preference saved."
@@ -108,22 +94,12 @@ appId: com.padellevelup.app
           id: "settings-language-select"
           retryTapIfNoChange: false
       - waitForAnimationToEnd
-      # Android exposes the Select options as ordinary views: tap by id. iOS keeps
-      # the percent tap (the portal is invisible to its a11y tree) — PAD-304.
-      - runFlow:
-          when:
-            platform: Android
-          commands:
-            - tapOn:
-                id: "settings-language-en"
-                retryTapIfNoChange: false
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - tapOn:
-                point: "22%,65%"
-                retryTapIfNoChange: false
+      # Both platforms tap the option by id (PAD-304). The percent taps this
+      # used to need on iOS are gone: B-067 made the select's portal wrapper
+      # fill the overlay, so the options are addressable on both platforms.
+      - tapOn:
+          id: "settings-language-en"
+          retryTapIfNoChange: false
       - extendedWaitUntil:
           visible:
             text: "Language preference saved."
