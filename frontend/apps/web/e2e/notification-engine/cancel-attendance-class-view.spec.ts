@@ -61,14 +61,16 @@ test("US-46-01: student cancels attendance from the class view and the spot is f
   await loginAsStudent(page);
   await openClassDetail(page);
 
-  // A "Cancel attendance" action is visible for the enrolled student.
-  const cancelBtn = page.getByRole("button", { name: /cancel attendance/i }).first();
+  // The one decline action is visible for the enrolled student. By test id, not
+  // by name: PAD-313 renamed the trigger to "Não vou poder ir" / "I can't
+  // attend", and `/cancel attendance/i` only ever matched because that label was
+  // untranslated — the app renders in pt.
+  const cancelBtn = page.getByTestId("class-cancel-attendance");
   await expect(cancelBtn).toBeVisible({ timeout: 5000 });
 
   // Cancelling before the deadline: confirm and wait for the API call to settle.
   await cancelBtn.click();
-  // A confirmation dialog appears — confirm it (the confirm control also reads
-  // "Cancel attendance"; pick the one inside the alertdialog).
+  // A confirmation dialog appears — confirm it by id.
   const confirmDialog = page.locator('[role="alertdialog"]');
   await expect(confirmDialog).toBeVisible({ timeout: 5000 });
   await Promise.all([
@@ -76,7 +78,7 @@ test("US-46-01: student cancels attendance from the class view and the spot is f
       (r) => /\/api\/app\/notify\/cancel_attendance(\?|$)/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    confirmDialog.getByRole("button", { name: /cancel attendance/i }).click(),
+    page.getByTestId("class-cancel-attendance-confirm").click(),
   ]);
 
   // The UI reflects the cancellation (success toast / no error toast).

@@ -3,12 +3,11 @@
 # schedule-calendar/class-detail-privacy.spec.ts)
 # - student sees the seeded class on their calendar
 # - opens the detail and sees their own attendance status badge
-# NOTE (PAD-313): the badge is ONE state word, in the second person because it
-# is the student's own row. After flow 04 the coach marked this student present,
-# so in suite order it reads "You're going" (intent — saving attendance never
-# sets `validated`); on a freshly seeded DB, run standalone, the unanswered
-# presence reads "Signed up". The assertion accepts either so the flow stays
-# order-independent.
+# NOTE (PAD-313): the badge is ONE state word. After flow 04 the coach recorded
+# this student present — and saving attendance sets `validated`, so the state is
+# the coach's record — giving "Attended" in suite order; on a freshly seeded DB,
+# run standalone, the unanswered presence reads "Signed up". The assertion
+# accepts either so the flow stays order-independent.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
@@ -29,7 +28,7 @@ appId: com.padellevelup.app
     timeout: 30000
 - assertVisible:
     id: "attendance-state"
-- assertVisible: "You're going|Signed up"
+- assertVisible: "Attended|Signed up"
 # Students never get coach controls.
 - assertNotVisible:
     id: "attendance-confirm"
