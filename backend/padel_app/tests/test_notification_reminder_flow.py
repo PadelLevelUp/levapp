@@ -1398,8 +1398,8 @@ class TestCancelAttendance:
 
     def test_cancel_before_deadline_notifies_coach_not_late(self, app):
         """PAD-44: a non-late cancel produces exactly one coach-facing
-        notification identifying the student + class, not marked late, with the
-        push directed at the coach."""
+        notification identifying the student + class, not marked late.
+        PAD-288 (rule 23): no push for it — only a late cancel pushes."""
         from padel_app.services.notification_service import (
             cancel_attendance,
             get_or_create_config,
@@ -1432,12 +1432,13 @@ class TestCancelAttendance:
             # Sent from the student into the coach<->student conversation.
             assert msg.sender_id == ids["student_user_id"]
 
-            # Exactly one push, directed at the COACH.
+            # PAD-288 (attendance.confirm rule 23): the message is the record;
+            # the coach's phone is pushed only for a LATE cancellation.
             coach_pushes = [
                 c for c in mock_push.call_args_list
                 if c.kwargs.get("user_id") == ids["coach_user_id"]
             ]
-            assert len(coach_pushes) == 1
+            assert coach_pushes == []
 
     def test_cancel_after_deadline_notifies_coach_marked_late(self, app):
         """PAD-44: a late cancel produces exactly one coach-facing notification

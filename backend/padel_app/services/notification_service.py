@@ -1651,6 +1651,11 @@ def _notify_coach_of_cancellation(
     else:
         push_title = "Late cancellation" if is_late else "Cancellation"
 
+    # PAD-288 (attendance.confirm rules 8 and 23): the chat message above is
+    # sent for every cancellation; the coach's phone is pushed only for a LATE
+    # one. Early cancellations are visible in the class detail, not noisy.
+    if not is_late:
+        return msg
     send_push_notification(
         user_id=coach_user_id,
         title=push_title,

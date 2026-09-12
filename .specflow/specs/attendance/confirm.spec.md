@@ -20,7 +20,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 5. Cancelling reverts the player to "not attending" and frees the spot using the exact same path as a reminder decline (`no`): it reuses the same vacancy-creation and invitation-engine logic — it does not fork a separate path. In automatic mode invitations are (re)triggered/pre-created; in semi-automatic mode the vacancy awaits coach approval before invitations are sent (see notifications.semi-auto-approval)
 6. The coach configures a cancellation deadline `cancellationDeadlineHours` (default 24) on their NotificationConfig (see notifications.config). The deadline is `cancellationDeadlineHours` real hours before the class's real start. The stored `start_datetime` is Lisbon wall-clock (R-023), so the deadline is computed on instants and holds across a daylight-saving change (PAD-256). A cancellation made at or after this deadline but still before class start is **allowed** (never blocked) but flagged as a **late cancellation** (`Presence.late_cancellation=True`). A cancellation before the deadline sets `late_cancellation=False`. The spot is freed and invitations (re)triggered identically regardless of lateness
 7. The `Presence.late_cancellation` boolean column records whether a cancellation was late. Serialized presence payloads expose `lateCancellation`; the serialized class-instance payload exposes the effective `cancellationDeadlineHours` (and/or a deadline timestamp) so the frontend can render deadline-aware UX. `cancellationDeadline` is a naive ISO string on the club's wall clock, like every class time, and both clients compare it with the club's clock — `lisbonNow()` in `@levelup/config` — never with the device's, so the moment is right on a phone anywhere (PAD-256, PAD-295)
-8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message
+8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message **PAD-288 (coordinator decision, 2026-09-11 — see rule 23): the message is sent for every cancellation; the coach's phone is pushed only for a LATE one (rule 6). Early cancellations are visible, not noisy.**
 9. A student can cancel attendance directly from an enrolled class in the calendar class-detail view (not only from a chat reminder). Both surfaces (the class-detail view and the reminder bubble) call the same `POST /api/app/notify/cancel_attendance` and render deadline-aware UX from the class-instance payload's `cancellationDeadline` / `cancellationDeadlineHours`: before the deadline a normal confirm, at/after the deadline a "late cancellation" warning that still allows the cancel. The action is hidden once the class has started; a 409 is handled gracefully with an error message. "Started" is judged on the club's clock: the stored start against Lisbon now, never UTC — on the server (`club_now_naive()`) and on both clients (`lisbonNow()`, PAD-295)
 
 #### Proactive decline (PAD-73)
@@ -73,6 +73,30 @@ Players confirm or decline their attendance in response to a reminder notificati
    from that occurrence's start and the coach's config. After a cancel the client re-reads the
    payload, which now resolves to the materialised instance and carries the student's presence, so
    the rule-16 "not attending" state renders from server data as before.
+
+#### Early cancellation — product rules (PAD-288; decided by the coordinator on 2026-09-11 while the owner slept; stated verbatim so a reversal is one edit; rule numbers 21–24 self-assigned by Session J, unconfirmed)
+21. **How far ahead.** "A student who is planned in an occurrence may cancel ANY future occurrence
+    from the class detail — no horizon limit (the founders' example was a week ahead; nothing in
+    the domain justifies a cap)." Rules 18–20 are the mechanism: the occurrence is resolved from
+    the calendar event and materialised on demand, authorised on the series roster.
+22. **What it frees.** "Cancelling frees the spot immediately: the vacancy opens and the engine
+    invites per its normal rules (no special-casing early cancellations)." That is rule 5's shared
+    decline path and, ahead of the reminder, rule 13's proactive decline with invitations held to
+    `invitationStart` (rule 15) — the engine's own timing, nothing added.
+23. **Who is told, and how.** "The coach is PUSHED only for LATE cancellations (the existing
+    deadline rule, unchanged). Early cancellations appear in the class detail / Presences as
+    'cancelled by the student' with the timestamp — visible, not noisy." Concretely: rule 8's
+    chat message is sent for every cancellation, the web and native push only when
+    `late_cancellation` is true; and a serialized presence carries `cancelledByStudent`
+    (`status = absent` ∧ `justification = justified` ∧ `validated = false` — the shape only the
+    student's own decline produces before the coach validates the sheet) and `cancelledAt` (the
+    row's `updated_at` as a UTC instant, which the decline write sets; a later coach edit of that
+    row replaces it and validating the sheet ends the label, since the sheet's own state then
+    speaks). Both shells show "cancelled by the student · <date time>" on that participant's row
+    in the class detail (coach view) and under the student's own "not attending" state.
+24. **No undo, same rule for requested classes.** "No undo: the student asks the coach or books
+    again through a request. A class the student REQUESTED (PAD-282) follows exactly the same
+    rule." No endpoint reverses a cancellation; `classes.join-requests` is the way back.
 
 ### Acceptance Criteria
 
@@ -130,7 +154,8 @@ Players confirm or decline their attendance in response to a reminder notificati
 #### Coach is notified on a (non-late) cancellation
 - **Given** a player who confirmed attendance for an instance whose start is more than `cancellationDeadlineHours` away
 - **When** the player cancels via `POST /api/app/notify/cancel_attendance`
-- **Then** exactly one coach-facing notification is produced in the coach↔player conversation whose push is directed at the coach
+- **Then** exactly one coach-facing notification is produced in the coach↔player conversation
+- **And** no push notification is sent to the coach (PAD-288, rule 23)
 - **And** it identifies the student (name) and the class instance (title + start date/time)
 - **And** it is NOT marked as a late cancellation (`msg_metadata.lateCancellation` is false)
 
@@ -139,6 +164,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **When** the player cancels via `POST /api/app/notify/cancel_attendance`
 - **Then** exactly one coach-facing notification is produced (no duplicate)
 - **And** it is marked as a late cancellation in both its text and `msg_metadata.lateCancellation=true`
+- **And** the coach is pushed exactly once (PAD-288, rule 23)
 
 #### Proactive decline before the reminder time (PAD-73)
 - **Given** a coach whose `reminder_timing.firstReminder` is `{type: "hours_before", value: 48}` and a student enrolled in an instance that starts in 10 days
@@ -231,3 +257,20 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **When** they GET `/api/app/notify/config`
 - **Then** `cancellationDeadlineHours` is 24
 - **And** POSTing a new value persists and is returned on the next GET
+
+#### A cancellation a month ahead is accepted and shows as cancelled by the student (PAD-288)
+- **Given** a student on the roster of a class thirty days out, reminders at 48 h, cancellation deadline 24 h
+- **When** they cancel from the class detail
+- **Then** the response is `{"action": "declined", "proactive": true}`, the spot is freed (an open vacancy with `invite_not_before` at that occurrence's `invitationStart`), the coach gets one chat message and **no push**
+- **And** the student's serialized presence carries `cancelledByStudent: true` and a `cancelledAt` instant
+- **And** the coach's class detail shows "cancelled by the student" with that time on the student's row, on web and iOS; the student's own view shows it under "not attending"
+
+#### A late cancellation still pushes the coach (PAD-288)
+- **Given** the same student and a class two hours out
+- **When** they cancel
+- **Then** the coach gets one chat message marked late and exactly one push
+
+#### A coach-marked justified absence is not "cancelled by the student" (PAD-288)
+- **Given** the coach validated the sheet marking a student absent and justified
+- **When** the presence is serialized
+- **Then** `cancelledByStudent` is false and `cancelledAt` is null
