@@ -21,7 +21,9 @@
  *
  * - `planned`    — on the list, has not answered
  * - `coming`     — answered yes
- * - `not_coming` — the spot is given up and the absence is justified
+ * - `not_coming` — the spot is given up and no coach record exists yet
+ *                  (author-blind AND justification-blind: it says the spot is
+ *                  free, never who said so or how the absence was classified)
  * - `attended`   — coach validated present
  * - `missed`     — coach validated absent
  *
@@ -87,9 +89,13 @@ function derive(presence: AttendancePresenceLike): AttendanceState {
   }
 
   if (absent) {
-    // `not_coming` asserts the absence is justified, so an unjustified one
-    // cannot borrow that word; it is reported as the absence it is.
-    return presence.justification === "justified" ? "not_coming" : "missed";
+    // Justification-blind, and deliberately so (agreed with the server's own
+    // derivation, 2026-09-12). `missed` is defined as "the coach validated them
+    // absent", so returning it for a row nobody validated would assert a record
+    // that does not exist — the same over-claim as `confirmed` meaning
+    // "answered", which is the defect this module exists to remove. `validated`
+    // is the whole discriminator between intent and record.
+    return "not_coming";
   }
   if (present) return "coming";
   return presence.confirmed === true ? "coming" : "planned";

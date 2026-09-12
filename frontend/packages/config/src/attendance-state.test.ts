@@ -92,12 +92,14 @@ describe("attendanceStateOf — fallback for payloads without the field", () => 
     expect(attendanceStateOf({ status: "present", validated: false })).toBe("coming");
   });
 
-  it("calls an unjustified absence missed rather than labelling it justified", () => {
-    // `not_coming` asserts the absence IS justified (coordinator, 2026-09-12),
-    // so an unjustified one cannot borrow that word.
+  it("keeps an unvalidated absence as intent, whatever its justification", () => {
+    // Agreed with the server's derivation (2026-09-12): `missed` means "the coach
+    // validated them absent", so an unvalidated row cannot be `missed` — that
+    // would assert a record nobody made. `not_coming` is justification-blind.
     expect(
       attendanceStateOf({ status: "absent", justification: "unjustified", validated: false })
-    ).toBe("missed");
+    ).toBe("not_coming");
+    expect(attendanceStateOf({ status: "absent", validated: false })).toBe("not_coming");
   });
 });
 
