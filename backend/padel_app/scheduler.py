@@ -208,6 +208,14 @@ def _run_reminder_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
                 )
                 return
             date = _date.fromisoformat(date_str)
+            if date in lesson.excluded_date_set():
+                # PAD-275 rule 7: the date was removed from the series after
+                # this job was armed; nothing to materialise or remind.
+                app.logger.info(
+                    "reminder_for_lesson_occurrence: lesson=%s date=%s is excluded — skipping",
+                    lesson_id, date_str,
+                )
+                return
             instance = get_or_materialize_instance(lesson, date)
             if instance.status in ("canceled", "completed"):
                 app.logger.info(
@@ -552,7 +560,6 @@ def schedule_lesson_reminder_jobs(
         return 0
 
     from apscheduler.triggers.date import DateTrigger
-    from padel_app.tools.calendar_tools import expand_occurrences
 
     with _app_ctx():
         from padel_app.models import Lesson
@@ -570,13 +577,9 @@ def schedule_lesson_reminder_jobs(
         wall_cutoff = utc_to_wall_naive(cutoff)
         horizon = wall_cutoff + timedelta(days=horizon_days)
 
-        occurrences = expand_occurrences(
-            lesson.start_datetime,
-            lesson.recurrence_rule,
-            lesson.recurrence_end,
-            wall_cutoff,
-            horizon,
-        )
+        # PAD-275 (classes.recurrence rule 7): the lesson expands itself, so an
+        # excluded date never gets a job.
+        occurrences = lesson.occurrences_between(wall_cutoff, horizon)
 
         scheduled = 0
         for occ_dt in occurrences:
@@ -649,6 +652,88 @@ def cancel_lesson_occurrence_job(lesson_id: int, date_str: str) -> None:
         _scheduler.remove_job(f"reminder_lesson_{lesson_id}_{date_str}")
     except Exception:
         pass
+
+
+def move_lesson_reminder_jobs(old_lesson_id: int, new_lesson_id: int, from_date=None) -> int:
+    """Re-key the reminder jobs of a series' occurrences from one lesson id to
+    another (PAD-275, classes.recurrence rule 6): a fork takes its occurrences'
+    jobs with it, same fire time, same misfire grace, instead of the caller
+    rebuilding them from scratch. ``from_date`` limits the move to occurrences
+    on or after that date. Returns the number of jobs moved."""
+    if _scheduler is None:
+        return 0
+    from datetime import date as _date
+
+    prefix = f"reminder_lesson_{old_lesson_id}_"
+    moved = 0
+    for job in list(_scheduler.get_jobs()):
+        if not job.id.startswith(prefix):
+            continue
+        date_str = job.id[len(prefix):]
+        if from_date is not None:
+            try:
+                if _date.fromisoformat(date_str) < from_date:
+                    continue
+            except ValueError:
+                continue
+        # A job on a scheduler that has not started yet is still "pending" and
+        # has no next_run_time attribute at all; the DateTrigger keeps the instant.
+        run_date = getattr(job, "next_run_time", None) or getattr(job.trigger, "run_date", None)
+        try:
+            job.remove()
+        except Exception:
+            pass
+        if run_date is None:
+            continue
+        from apscheduler.triggers.date import DateTrigger
+
+        _scheduler.add_job(
+            func=_run_reminder_for_lesson_occurrence,
+            args=[new_lesson_id, date_str],
+            trigger=DateTrigger(run_date=run_date, timezone="UTC"),
+            id=f"reminder_lesson_{new_lesson_id}_{date_str}",
+            replace_existing=True,
+            misfire_grace_time=job.misfire_grace_time or 300,
+        )
+        moved += 1
+    return moved
+
+
+def prune_lesson_reminder_jobs(lesson_id: int, *, horizon_days: int = 60, now: datetime | None = None) -> int:
+    """Remove reminder jobs for dates the series no longer produces (an
+    excluded date, or a date outside a moved fork's own recurrence). Returns
+    the number removed. Jobs beyond the horizon are left alone."""
+    if _scheduler is None or _app is None:
+        return 0
+    from datetime import date as _date
+
+    with _app_ctx():
+        from padel_app.models import Lesson
+
+        lesson = Lesson.query.get(lesson_id)
+        if lesson is None:
+            return 0
+        cutoff = utc_to_wall_naive(now or utcnow_naive())
+        produced = {
+            occ.date() for occ in lesson.occurrences_between(cutoff - timedelta(days=1), cutoff + timedelta(days=horizon_days))
+        }
+    prefix = f"reminder_lesson_{lesson_id}_"
+    removed = 0
+    for job in list(_scheduler.get_jobs()):
+        if not job.id.startswith(prefix):
+            continue
+        try:
+            job_date = _date.fromisoformat(job.id[len(prefix):])
+        except ValueError:
+            continue
+        if job_date in produced:
+            continue
+        try:
+            job.remove()
+            removed += 1
+        except Exception:
+            pass
+    return removed
 
 
 def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | None = None) -> None:
@@ -759,13 +844,17 @@ def _maybe_schedule_instance(instance) -> None:
     Logs failures instead of silently swallowing them.
     """
     try:
-        coach_rels = getattr(instance, "coaches_relations", None)
-        if coach_rels:
-            schedule_instance_jobs(instance.id, coach_rels[0].coach_id)
+        # PAD-275 (classes.coach-assignment rule 4): the instance's own coach
+        # rows when it has any, else the lesson's.
+        from padel_app.services.lesson_service import primary_coach
+
+        coach = primary_coach(instance)
+        if coach is not None:
+            schedule_instance_jobs(instance.id, coach.id)
         else:
             if _app:
                 _app.logger.warning(
-                    "_maybe_schedule_instance: instance %s has no coaches_relations — skipping",
+                    "_maybe_schedule_instance: instance %s has no coach — skipping",
                     getattr(instance, "id", "?"),
                 )
     except Exception as exc:

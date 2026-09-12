@@ -166,6 +166,93 @@ def parse_event_target(model, original_id, date):
 
 
 # ---------------------------------------------------------------------------
+# Coaches of an occurrence (PAD-275, classes.coach-assignment rule 4)
+# ---------------------------------------------------------------------------
+
+def coaches_for(instance):
+    """Who coaches this occurrence (classes.coach-assignment rule 4): the
+    instance's own coach rows when it has any, else the lesson's — each in
+    assignment order (junction id ascending), so `primary_coach` is the coach
+    assigned first and every engine read agrees on it. The junction stays
+    (decision 2026-09-11); this is the one reader, so an occurrence with no
+    junction row is never coach-less. A plain read: it never creates config."""
+    from padel_app.models.coaches import Coach
+
+    instance_id = getattr(instance, "id", None)
+    if isinstance(instance_id, int):
+        own = (
+            db.session.query(Coach)
+            .join(Association_CoachLessonInstance, Association_CoachLessonInstance.coach_id == Coach.id)
+            .filter(Association_CoachLessonInstance.lesson_instance_id == instance_id)
+            .order_by(Association_CoachLessonInstance.id.asc())
+            .all()
+        )
+        if own:
+            return own
+        lesson_id = getattr(instance, "lesson_id", None)
+        if isinstance(lesson_id, int):
+            return (
+                db.session.query(Coach)
+                .join(Association_CoachLesson, Association_CoachLesson.coach_id == Coach.id)
+                .filter(Association_CoachLesson.lesson_id == lesson_id)
+                .order_by(Association_CoachLesson.id.asc())
+                .all()
+            )
+    # A stub without a real row (unit tests with MagicMock instances): fall back
+    # to the relationships, in their id order.
+    try:
+        rels = sorted(
+            (r for r in list(getattr(instance, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+        own = [r.coach for r in rels]
+    except TypeError:
+        own = []
+    if own:
+        return own
+    lesson = getattr(instance, "lesson", None)
+    if lesson is None:
+        return []
+    try:
+        rels = sorted(
+            (r for r in list(getattr(lesson, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+    except TypeError:
+        return []
+    return [r.coach for r in rels]
+
+
+def primary_coach(instance):
+    """The coach the engine and the calendar treat as "the coach" of an
+    occurrence — the first of ``coaches_for``; None when nobody coaches it."""
+    coaches = coaches_for(instance)
+    return coaches[0] if coaches else None
+
+
+def coach_instance_ids(coach_id):
+    """Ids of every occurrence ``coach_id`` coaches: through its own junction
+    row, or — when the occurrence has none — through its lesson's."""
+    from sqlalchemy import and_, exists
+
+    own = {
+        row.lesson_instance_id
+        for row in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
+    }
+    no_junction = ~exists().where(
+        Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id
+    )
+    inherited = (
+        db.session.query(LessonInstance.id)
+        .join(Lesson, Lesson.id == LessonInstance.lesson_id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(and_(Association_CoachLesson.coach_id == coach_id, no_junction))
+        .all()
+    )
+    return own | {row[0] for row in inherited}
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 
@@ -370,10 +457,29 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     instance_data.update(data)
     instance_data = transform_to_datetime(parent_lesson, instance_data)
     instance_data['lesson'] = parent_lesson.id
-    instance_data['max_players'] = (
-        instance_data.get('max_players') or parent_lesson.max_players
+    # PAD-275 (classes.edit rule 4): capacity is an override only when it
+    # differs from the lesson's; the copied column is a shadow written from
+    # the effective value for one release.
+    _cap = instance_data.get('max_players')
+    _cap = int(_cap) if _cap not in (None, '') else None
+    instance_data['max_players_override'] = (
+        _cap if _cap is not None and _cap != parent_lesson.max_players else None
     )
-    instance_data['overwrite_title'] = instance_data.get('title')
+    instance_data['max_players'] = _cap if _cap is not None else parent_lesson.max_players
+    # PAD-275 (classes.edit rule 4): overrides are nullable, NULL inherits.
+    # A title equal to the parent's is not an override.
+    _title = instance_data.get('title')
+    instance_data['overwrite_title'] = (
+        _title if _title and _title != parent_lesson.title else None
+    )
+    # Same for the level: an explicit level equal to the lesson's default is
+    # not an override (the form adapter drops None, so NULL inherits).
+    _lvl = instance_data.get('level') or instance_data.get('level_id')
+    _lvl = int(_lvl) if _lvl not in (None, '') else None
+    instance_data['level'] = (
+        _lvl if _lvl is not None and _lvl != parent_lesson.default_level_id else None
+    )
+    instance_data.pop('level_id', None)
 
     lesson_instance = LessonInstance()
     form = lesson_instance.get_create_form()
@@ -434,13 +540,35 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         )
 
     data = transform_to_datetime(lesson_instance, data)
-    data['overwrite_title'] = data.get('title')
+    # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
+    # override; the form adapter drops None, so the clear happens below.
+    _title = data.get('title')
+    _parent_title = lesson_instance.lesson.title if lesson_instance.lesson else None
+    _clears_title = bool(_title) and _title == _parent_title
+    data['overwrite_title'] = _title if _title and not _clears_title else None
 
     form = lesson_instance.get_edit_form()
     fake_request = JsonRequestAdapter(data, form)
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    if _clears_title:
+        lesson_instance.overwrite_title = None
+    # PAD-275 (classes.edit rule 4): a level equal to the lesson's default is
+    # not an override either.
+    _lvl = data.get('level') or data.get('level_id')
+    if _lvl not in (None, '') and lesson_instance.lesson is not None \
+            and int(_lvl) == lesson_instance.lesson.default_level_id:
+        # The form set the relationship; clear it too or the flush re-syncs level_id.
+        lesson_instance.level = None
+        lesson_instance.level_id = None
+    # PAD-275 (classes.edit rule 4): a capacity equal to the lesson's clears the
+    # override; the shadow column follows the effective value.
+    if 'max_players' in data and data.get('max_players') not in (None, ''):
+        _cap = int(data['max_players'])
+        _lesson_cap = lesson_instance.lesson.max_players if lesson_instance.lesson else None
+        lesson_instance.max_players_override = _cap if _cap != _lesson_cap else None
+    lesson_instance.max_players = lesson_instance.effective_max_players
     lesson_instance.save()
 
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
@@ -532,6 +660,10 @@ def create_lesson_helper(data):
 
     lesson.update_with_dict(values)
     lesson.create()
+    # PAD-275 (classes.recurrence rule 6): a lesson is its own series at creation.
+    if lesson.series_id is None:
+        lesson.series_id = lesson.id
+        lesson.save()
 
     if data.get("coach"):
         Association_CoachLesson(
@@ -605,22 +737,24 @@ def edit_lesson_helper(data, lesson=None):
 
 
 def duplicate_lesson_helper(old_lesson):
-    new_lesson = Lesson(
-        title=old_lesson.title,
-        type=old_lesson.type,
-        status=old_lesson.status,
-        color=old_lesson.color,
-        max_players=old_lesson.max_players,
-        default_level_id=old_lesson.default_level_id,
-        is_recurring=old_lesson.is_recurring,
-        recurrence_rule=old_lesson.recurrence_rule,
-        recurrence_end=old_lesson.recurrence_end,
-        recurs_until_season_end=old_lesson.recurs_until_season_end,
-        start_datetime=old_lesson.start_datetime,
-        end_datetime=old_lesson.end_datetime,
-        club_id=old_lesson.club_id,
-        court_id=old_lesson.court_id,
-    )
+    """Copy a lesson row — every mapped column except the identity and the
+    timestamps (classes.recurrence rule 6, PAD-275). Built from the mapper so a
+    column added later cannot be forgotten (the hand list used to drop
+    `description` and `notifications_enabled`). The caller sets the recurrence
+    bounds it changes."""
+    from sqlalchemy import inspect as sa_inspect
+
+    skip = {"id", "created_at", "updated_at"}
+    columns = {
+        attr.key: getattr(old_lesson, attr.key)
+        for attr in sa_inspect(Lesson).column_attrs
+        if attr.key not in skip
+    }
+    # Rule 6: the fork belongs to the root's series (its own id when the
+    # template predates series ids). Exclusions travel with the copy; dates
+    # outside the fork's range are harmless.
+    columns["series_id"] = old_lesson.series_id or old_lesson.id
+    new_lesson = Lesson(**columns)
 
     new_lesson.create()
 
@@ -699,6 +833,14 @@ def split_lesson(lesson, date, remove_current_date=False):
 
     lesson.save()
     new_lesson.save()
+
+    # Rule 6: the fork takes its occurrences' reminder jobs with it — moved,
+    # not rebuilt. Best-effort (PAD-10): the split is committed already.
+    try:
+        from padel_app.scheduler import move_lesson_reminder_jobs
+        move_lesson_reminder_jobs(lesson.id, new_lesson.id, from_date=recurrence_start)
+    except Exception:
+        pass
 
     return lesson, new_lesson
 
@@ -897,6 +1039,14 @@ def _apply_future_edit_to_lesson(*, lesson, event_date, new_date, payload):
             new_lesson=lesson_to_edit,
             boundary_dt=from_dt,
         )
+        # PAD-275 rule 6: the fork takes the moved occurrences' reminder jobs
+        # with it; the caller re-times them (replace_existing) and prunes the
+        # dates the edited recurrence no longer produces.
+        try:
+            from padel_app.scheduler import move_lesson_reminder_jobs
+            move_lesson_reminder_jobs(lesson.id, lesson_to_edit.id, from_date=from_date)
+        except Exception:
+            pass
     else:
         lesson_to_edit = lesson
 
@@ -1017,9 +1167,13 @@ def edit_class_service(data):
                 cancel_lesson_reminder_jobs,
                 schedule_lesson_reminder_jobs,
             )
-            cancel_lesson_reminder_jobs(
-                parent_lesson.id, from_date=new_date or event_date
-            )
+            # PAD-275 rule 6: when the edit forks, the fork MOVES the jobs
+            # (in _apply_future_edit_to_lesson); only an edit that stays on
+            # this lesson clears them first so they are re-timed below.
+            if event_date == parent_lesson.start_datetime.date():
+                cancel_lesson_reminder_jobs(
+                    parent_lesson.id, from_date=new_date or event_date
+                )
             lesson_to_edit, from_date = _apply_future_edit_to_lesson(
                 lesson=parent_lesson,
                 event_date=event_date,
@@ -1056,6 +1210,8 @@ def edit_class_service(data):
                         lesson_to_edit.id,
                         lesson_to_edit.coaches_relations[0].coach_id,
                     )
+                    from padel_app.scheduler import prune_lesson_reminder_jobs
+                    prune_lesson_reminder_jobs(lesson_to_edit.id)
             except Exception:
                 current_app.logger.exception(
                     "edit_class_service: failed to schedule reminder jobs for lesson %s",
@@ -1091,7 +1247,10 @@ def edit_class_service(data):
         # is `new_date or event_date` — the same `from_date` that
         # _apply_future_edit_to_lesson truncates the parent's recurrence at.
         from padel_app.scheduler import cancel_lesson_reminder_jobs, schedule_lesson_reminder_jobs
-        cancel_lesson_reminder_jobs(lesson.id, from_date=new_date or event_date)
+        # PAD-275 rule 6: a forking edit moves its jobs; a same-lesson edit
+        # clears them so they are re-timed below.
+        if event_date == lesson.start_datetime.date():
+            cancel_lesson_reminder_jobs(lesson.id, from_date=new_date or event_date)
         lesson_to_edit, _ = _apply_future_edit_to_lesson(
             lesson=lesson,
             event_date=event_date,
@@ -1110,6 +1269,11 @@ def edit_class_service(data):
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:
             schedule_lesson_reminder_jobs(lesson_to_edit.id, lesson_to_edit.coaches_relations[0].coach_id)
+            try:
+                from padel_app.scheduler import prune_lesson_reminder_jobs
+                prune_lesson_reminder_jobs(lesson_to_edit.id)
+            except Exception:
+                pass
         return {"id": lesson_to_edit.id}, 201
 
     return {"error": "Invalid scope"}, 400
@@ -1132,21 +1296,22 @@ def _truncate_lesson_future(*, lesson, from_date):
 
 
 def _remove_single_occurrence_from_lesson(*, lesson, date):
+    """Remove ONE date from a series (PAD-275, classes.recurrence rule 7).
+
+    The date is recorded in ``excluded_dates`` and the lesson row is left
+    alone — never a fork. PAD-65's guarantee (a deleted occurrence must not
+    come back on reload) now holds because ``expand_occurrences`` skips the
+    excluded date; before this the same guarantee came from splitting the
+    series in two, which turned one class into two unrelated ones (audit M7).
+    A materialised instance on that date is deleted by the caller.
+    """
     from padel_app.scheduler import cancel_lesson_occurrence_job
     cancel_lesson_occurrence_job(lesson.id, date.isoformat())
     if not lesson.recurrence_rule:
         lesson.delete()
         return
-    _, new_lesson = split_lesson(lesson, date, remove_current_date=True)
-    # Schedule reminder jobs for the new lesson (post-split occurrences).
-    # Wrapped in try-except: DB changes are already committed by split_lesson,
-    # so a scheduler failure must not cause a false error response (PAD-10).
-    try:
-        if new_lesson and new_lesson.coaches_relations:
-            from padel_app.scheduler import schedule_lesson_reminder_jobs
-            schedule_lesson_reminder_jobs(new_lesson.id, new_lesson.coaches_relations[0].coach_id)
-    except Exception:
-        pass
+    lesson.exclude_date(date)
+    lesson.save()
 
 
 def remove_class_service(data):
@@ -1221,8 +1386,9 @@ def _dispatch_remove_class(obj, model_name, scope, event_date):
             obj.delete()
             # When the instance overrides a recurring parent, deleting it is not
             # enough: the parent series would re-project that occurrence (with
-            # its pre-edit values) on reload. Exclude the date from the parent
-            # recurrence, mirroring the Lesson scope="single" path (PAD-65).
+            # its pre-edit values) on reload. Record the date as excluded on the
+            # parent (PAD-65 guarantee, PAD-275 rule 7: an exclusion, not a fork),
+            # the same as the Lesson scope="single" path.
             if parent_lesson is not None and parent_lesson.recurrence_rule:
                 _remove_single_occurrence_from_lesson(
                     lesson=parent_lesson, date=occ_date

@@ -74,12 +74,11 @@ def _refuse(code: str, message: str, **extra):
 
 
 def _coach_id_for(instance: LessonInstance):
-    if instance.coaches_relations:
-        return instance.coaches_relations[0].coach_id
-    lesson = instance.lesson
-    if lesson is not None and lesson.coaches_relations:
-        return lesson.coaches_relations[0].coach_id
-    return None
+    # PAD-275 rule 4: one helper answers "who coaches this occurrence".
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)
+    return coach.id if coach is not None else None
 
 
 def _is_enrolled(instance: LessonInstance, player_id: int) -> bool:
@@ -95,9 +94,9 @@ def _is_closed(instance: LessonInstance, now: datetime) -> bool:
 
 
 def _is_full(instance: LessonInstance) -> bool:
-    if instance.max_players is None:
+    if instance.effective_max_players is None:
         return False
-    return instance.effective_filled_spots >= instance.max_players
+    return instance.effective_filled_spots >= instance.effective_max_players
 
 
 def resolve_instance(model: str, original_id, date_str, *, now=None) -> LessonInstance:
@@ -108,6 +107,10 @@ def resolve_instance(model: str, original_id, date_str, *, now=None) -> LessonIn
     kind, target, occ_date = parse_event_target(model, original_id, date_str)
     if kind == "lessoninstance":
         return target
+    # PAD-275 rule 7: a date the series does not produce (excluded, or off the
+    # rule) cannot be requested — nothing is materialised for it.
+    if not target.produces(occ_date):
+        abort(404, "No class on that date.")
     return get_or_materialize_instance(target, occ_date)
 
 

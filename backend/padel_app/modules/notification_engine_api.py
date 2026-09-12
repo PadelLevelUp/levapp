@@ -161,10 +161,9 @@ def _simulation_inputs(coach):
         int(data.get("originalId")),
         data.get("date"),
     )
-    owned = Association_CoachLessonInstance.query.filter_by(
-        coach_id=coach.id, lesson_instance_id=instance.id
-    ).first()
-    if owned is None:
+    from padel_app.services.lesson_service import coaches_for
+
+    if not any(c.id == coach.id for c in coaches_for(instance)):  # PAD-275 rule 4
         abort(404)
     try:
         departing_player_id = int(data.get("departingPlayerId"))

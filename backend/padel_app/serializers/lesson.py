@@ -99,11 +99,11 @@ def serialize_lesson_instance(instance):
 
         "status": instance.status,
         "notes": instance.notes,
-        "overriddenFields": instance.overridden_fields,
+        "overriddenFields": overridden_fields_for(instance),
 
         "name": lesson.title if lesson else None,
         "color": lesson.color if lesson else None,
-        "maxPlayers": instance.max_players,
+        "maxPlayers": instance.effective_max_players,
     }
 
     
@@ -135,6 +135,26 @@ def _eligibility_provenance(obj, coach_id):
     }
 
 
+def overridden_fields_for(instance) -> list:
+    """The overrides a materialised occurrence carries, derived from its
+    columns (classes.edit rule 4, PAD-275). The `overridden_fields` text column
+    is never read: it was never written."""
+    lesson = getattr(instance, "lesson", None)
+    out = []
+    title = getattr(instance, "overwrite_title", None)
+    # One predicate for both sides: an override is a title that DIFFERS.
+    if title and (lesson is None or title != lesson.title):
+        out.append("title")
+    level_id = getattr(instance, "level_id", None)
+    if level_id is not None and (lesson is None or level_id != lesson.default_level_id):
+        out.append("level")
+    if getattr(instance, "max_players_override", None) is not None:
+        out.append("maxPlayers")
+    if getattr(instance, "notes", None):
+        out.append("notes")
+    return out
+
+
 def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
@@ -154,11 +174,14 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
     is_instance = obj.model_name == "LessonInstance"
     lesson = obj.lesson if is_instance else obj
 
-    coach_id = (
-        lesson.coaches_relations[0].coach.id
-        if lesson.coaches_relations
-        else None
+    # PAD-275 rule 4: an occurrence's coach is its own when it has one, else
+    # the lesson's; a template's is the lesson's first.
+    from padel_app.services.lesson_service import primary_coach
+
+    _coach = primary_coach(obj) if is_instance else (
+        lesson.coaches_relations[0].coach if lesson.coaches_relations else None
     )
+    coach_id = _coach.id if _coach is not None else None
 
     # PAD-259: an instance's roster is its presences (classes.instance-enrollment
     # rule 6); a Lesson template's is the series roster.
@@ -267,11 +290,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             {
                 "parentClassId": str(lesson.id),
                 "notes": obj.notes,
-                "overriddenFields": (
-                    json.loads(obj.overridden_fields)
-                    if obj.overridden_fields
-                    else []
-                ),
+                # PAD-275 (classes.edit rule 4): derived from the override columns.
+                "overriddenFields": overridden_fields_for(obj),
                 "presences": presences,
                 "invitations": [
                     {
@@ -298,7 +318,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                 "canDeclineProactively": can_decline_proactively,
             }
         )
-        data["levelId"] = str(obj.level_id) if obj.level_id else data["levelId"]
+        # PAD-275: the occurrence's own level when set, else the lesson's.
+        _eff = obj.effective_level_id
+        data["levelId"] = str(_eff) if _eff else None
 
         # PAD-131 (classes.join-requests rule 15): the coach sees the pending
         # requests; a student sees only their own latest one.
