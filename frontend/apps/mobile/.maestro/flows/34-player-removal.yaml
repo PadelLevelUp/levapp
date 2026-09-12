@@ -57,6 +57,17 @@ appId: com.padellevelup.app
 # is named, hardware back is the fallback — it is the Android path the app
 # supports anyway (mobile.android-runtime rule 3), and the branch taken in the
 # log says which control closed the dialog.
+# Wait for the dialog to go before deciding: the guard used to read the
+# hierarchy in the same instant as the tap, press back into a dialog that was
+# already closing, and pop the SCREEN instead — which is how run 34687035240
+# ended up with no `player-back` to tap. That pop is also the evidence that
+# the cancel press does register on Android: back was not consumed, so no
+# dialog was left to consume it.
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 5000
+    optional: true
 - runFlow:
     when:
       visible:
