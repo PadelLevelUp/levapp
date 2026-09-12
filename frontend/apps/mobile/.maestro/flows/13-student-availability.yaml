@@ -47,15 +47,33 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-date"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-date-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-date-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-date-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-date-confirm"
+# PAD-304: the picker's accessibility label now reads "<label>: <value>", so
+# the value is assertable on Android too (it lives in a child text node there,
+# which id + text could not reach).
 - assertVisible:
     id: "blocker-date"
-    text: ${output.today}
+    text: "Date: ${output.today}"
 
 # Start time — confirm the picker's own default (18:00, BlockerForm's
 # initial state for a new blocker).
@@ -66,15 +84,30 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-start-time"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-start-time-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-start-time-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-start-time-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-start-time-confirm"
 - assertVisible:
     id: "blocker-start-time"
-    text: "18:00"
+    text: "Start time: 18:00"
 
 # End time — same, default 20:00.
 - scrollUntilVisible:
@@ -84,15 +117,30 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "blocker-end-time"
-- extendedWaitUntil:
-    visible:
-      id: "blocker-end-time-confirm"
-    timeout: 10000
-- tapOn:
-    id: "blocker-end-time-confirm"
+# Android opens its own dialog (DateTimePickerAndroid) with an OK button; iOS shows
+# the app's spinner modal with the -confirm button (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "OK"
+          timeout: 10000
+      - tapOn: "OK"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-end-time-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-end-time-confirm"
 - assertVisible:
     id: "blocker-end-time"
-    text: "20:00"
+    text: "End time: 20:00"
 
 # Save
 - scrollUntilVisible:

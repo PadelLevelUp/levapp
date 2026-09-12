@@ -242,6 +242,7 @@ export default function PlayerDetailScreen() {
       <Button
         variant="ghost"
         size="icon"
+        testID="player-back"
         accessibilityLabel={t("players.backToPlayers")}
         onPress={() => router.back()}
       >
@@ -727,6 +728,7 @@ export default function PlayerDetailScreen() {
           </View>
           <AlertDialogFooter>
             <AlertDialogCancel
+              testID="player-remove-cancel"
               accessibilityLabel={t("players.cancelRemoveAria")}
               disabled={removePlayer.isPending}
             >

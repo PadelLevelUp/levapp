@@ -86,6 +86,7 @@ function DialogContent({
         >
           {children}
           <DialogPrimitive.Close
+            testID="dialog-close"
             className="absolute right-4 top-4 rounded-sm p-0.5 opacity-70 active:opacity-100"
             hitSlop={12}
             aria-label={t("ui.dialog.close")}

@@ -50,13 +50,54 @@ appId: com.padellevelup.app
 - assertNotVisible:
     text: "Attendance records: .*"
 - tapOn:
-    text: "Cancel removing player"
+    id: "player-remove-cancel"
+# B-089 / PAD-323 — OBSERVED on the Android emulator: after this tap the dialog
+# is still drawn, and a hardware back press is not consumed by it; back reaches
+# the navigator and pops the whole screen, taking the "dialog" with it. A dialog
+# that is open registers a back handler, so nothing live was there to consume
+# the press. HYPOTHESIS, not yet established: what remains is a ghost — the
+# dialog gone from the React tree, its Android views left behind.
+#
+# The order below is the test that settles it, and the branch taken shows in the
+# run log. The screen's own back button is tapped FIRST: if the ghost's overlay
+# does not swallow touches, that tap reaches the live screen underneath, the
+# screen pops, and the dialog's text goes with it — which would make this the
+# same defect as PAD-314 (Fabric leaving views behind) rather than a second one.
+# Only if the dialog's text is still there afterwards does hardware back run, as
+# the way out of a screen whose controls are covered.
+#
+# On iOS the cancel tap closes the dialog and only the first branch runs. Do not
+# "simplify" this into a single tap until PAD-323 is fixed and its regression
+# test is green.
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "player-back"
+    commands:
+      - tapOn:
+          id: "player-back"
+- runFlow:
+    when:
+      visible:
+        text: "Your notes: .*"
+    commands:
+      - back
 - extendedWaitUntil:
     notVisible:
       text: "Your notes: .*"
     timeout: 10000
-- tapOn:
-    text: "Back to players"
+- runFlow:
+    when:
+      visible:
+        id: "player-back"
+    commands:
+      - tapOn:
+          id: "player-back"
 
 # ── 2. A placeholder this flow creates: Delete ──
 - extendedWaitUntil:

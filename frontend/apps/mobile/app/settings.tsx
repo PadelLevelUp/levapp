@@ -6,6 +6,7 @@ import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/auth/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
@@ -87,6 +88,10 @@ function SectionRow({
  */
 export default function SettingsScreen() {
   const { t } = useTranslation();
+  // The list ends under the system bar on Android's edge-to-edge (the transparent
+  // 3-button bar): pad by the bottom inset so the last row — logout — is tappable
+  // and not behind the Home button (PAD-304; Maestro hit Home 1 run in 5).
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
 
   // Fresh profile straight from /auth/me; `user` is the cached fallback so the
@@ -170,7 +175,23 @@ export default function SettingsScreen() {
         }}
       />
 
-      <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-10">
+      {/*
+       * The inset is reserved on the scroll view itself, not only inside its
+       * content: under edge-to-edge the app window runs beneath the
+       * transparent 3-button navigation bar, so a row resting at the bottom of
+       * the window is drawn under the bar and the bar takes the touch. Content
+       * padding alone only protects the END of the list, which leaves the last
+       * row (logout) untappable whenever a scroll happens to stop there — a
+       * real thumb problem, and the one that made every logging-out Maestro
+       * flow tap Home instead (PAD-304). Ending the viewport above the bar
+       * makes that position unreachable.
+       */}
+      <ScrollView
+        className="flex-1"
+        style={{ marginBottom: insets.bottom }}
+        contentContainerClassName="gap-4 p-4"
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {activeSection === null ? (
           <>
             <Card testID="settings-section-list">
