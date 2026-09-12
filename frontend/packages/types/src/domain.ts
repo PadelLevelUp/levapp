@@ -366,6 +366,16 @@ export interface Presence {
    */
   reminderSentAt?: string | null;
   /**
+   * PAD-313 (`attendance.presence` rule 9): the ONE state of this row, derived
+   * server-side — `planned` | `coming` | `not_coming` | `attended` | `missed`.
+   * While the coach has not validated it reports the student's intent; once
+   * validated it reports the coach's record. Clients render this and never the
+   * raw columns below it (`attendance.confirm` rule 25); read it through
+   * `@levelup/config`'s `attendanceStateOf`, which also covers a payload served
+   * before this field existed.
+   */
+  attendanceState?: 'planned' | 'coming' | 'not_coming' | 'attended' | 'missed';
+  /**
    * PAD-288 (`attendance.confirm` rule 23): derived server-side — the student's
    * own decline, not yet validated by the coach — with the UTC instant of that
    * write. Both shells render "cancelled by the student · <when>" off these.
@@ -1333,6 +1343,14 @@ export interface PendingValidationPlayer {
   presenceId: number;
   playerId: number;
   name: string;
+  /**
+   * PAD-313 (`attendance.validation` rule 20): the ONE state this row is in,
+   * the same field and the same computation the class-detail presence carries,
+   * so the two surfaces cannot disagree about the same student. Rendered through
+   * `@levelup/config`'s `attendanceStateOf`.
+   */
+  attendanceState?: 'planned' | 'coming' | 'not_coming' | 'attended' | 'missed';
+  /** How the student answered. Kept for the rule-6 prefill, never rendered as the state. */
   response: PresenceResponse;
   status: PresenceStatus | null;
   justification: AbsenceJustification | null;

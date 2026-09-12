@@ -436,6 +436,29 @@
       "classClosedToast": "The class is no longer open — the request was closed",
       "confirmTitle": "Accept a student who no longer meets the bar?",
       "confirmBody": "Accepting a request is a manual add — the bar says what changed; you decide."
+    },
+    "attendanceState": {
+      "planned": {
+        "student": "Signed up",
+        "coach": "Signed up"
+      },
+      "coming": {
+        "student": "You're going",
+        "coach": "Going"
+      },
+      "not_coming": {
+        "student": "You're not going",
+        "coach": "Not going"
+      },
+      "attended": {
+        "student": "Attended",
+        "coach": "Attended"
+      },
+      "missed": {
+        "student": "Missed",
+        "coach": "Missed"
+      },
+      "reminderSent": "Reminder sent"
     }
   }
 }

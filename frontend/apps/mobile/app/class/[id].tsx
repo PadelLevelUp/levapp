@@ -4,7 +4,13 @@ import {
   CLASS_COLOR_SWATCHES,
   blockedNames,
   blockedReasons,
+  attendanceStateLabelKey,
+  attendanceStateOf,
+  attendanceStateTone,
   effectiveFilledSpots,
+  lisbonNowMs,
+  wallClockISOMs,
+  type StateTone,
   findOverlappingEvent,
   lightTheme,
   shouldReportSent,
@@ -64,7 +70,6 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import {
   canCancelAttendance,
-  canDeclineProactively,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
@@ -110,6 +115,14 @@ function formatDay(dateStr: string | undefined, locale: Locale): string {
     return dateStr;
   }
 }
+
+/** PAD-313: the shared tone → this shell's Badge variant (web maps to CSS). */
+const STATE_VARIANT: Record<StateTone, "secondary" | "success" | "warning" | "destructive"> = {
+  neutral: "secondary",
+  positive: "success",
+  warning: "warning",
+  negative: "destructive",
+};
 
 export default function ClassDetailScreen() {
   const { t, i18n } = useTranslation();
@@ -183,7 +196,6 @@ export default function ClassDetailScreen() {
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
   // confirmation, with no deadline warning, because by definition it happens
   // before the student was even reminded.
-  const [proactiveDeclineOpen, setProactiveDeclineOpen] = React.useState(false);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   // PAD-168: semi-automatic mode returns the vacancies awaiting approval from
   // the presence-confirm call; it is only ever set by that response.
@@ -652,41 +664,45 @@ export default function ClassDetailScreen() {
     isCanceled,
     isParticipant,
     ownPresence: myPresence,
-    canDeclineProactively: instance?.canDeclineProactively,
     date: active?.date ?? event.date,
     startTime: active?.startTime ?? event.startTime,
   };
+  // PAD-313 rule 25: the deadline no longer picks a button — it picks the words
+  // in the one confirmation dialog.
+  const deadlineMs = instance?.cancellationDeadline
+    ? wallClockISOMs(instance.cancellationDeadline)
+    : Number.NaN;
+  const isLateCancellation =
+    !Number.isNaN(deadlineMs) && lisbonNowMs() >= deadlineMs;
+
   const canCancel = canCancelAttendance(declineGate);
   const declined = hasDeclined(myPresence);
-  const canDeclineEarly = canDeclineProactively(declineGate);
+  // PAD-313 rule 25: one action. `canDeclineProactively` chose between two
+  // buttons that called the same endpoint with the same payload, so it is no
+  // longer a render condition; the server still classifies the decline.
+  const myState = attendanceStateOf(myPresence);
 
   const handleCancelAttendance = async () => {
     setCancelOpen(false);
     if (cancelTarget == null) return;
     setFeedback(null);
     try {
-      await cancelAttendance.mutateAsync(cancelTarget);
-      setFeedback(t("classDetail.spotReleased"));
+      // PAD-313 rule 25: the SERVER says which kind of decline this was, and
+      // that is the only thing the distinction drives now — the copy.
+      const result = await cancelAttendance.mutateAsync(cancelTarget);
+      if (result?.proactive) {
+        toast.success(t("calendar.detail.proactiveDeclineDone"));
+      } else {
+        setFeedback(t("classDetail.spotReleased"));
+      }
     } catch {
       setFeedback(t("classDetail.couldNotCancelAttendance"));
     }
   };
 
-  // PAD-170 C5: the same endpoint as the plain cancel — the server classifies
-  // which kind of decline it was (`attendance.confirm` rule 11), so this
-  // handler never has to reason about the reminder cutoff itself. Only the copy
-  // differs: freeing the spot early is a favour, not a cancellation.
-  const handleProactiveDecline = async () => {
-    setProactiveDeclineOpen(false);
-    if (cancelTarget == null) return;
-    setFeedback(null);
-    try {
-      await cancelAttendance.mutateAsync(cancelTarget);
-      toast.success(t("calendar.detail.proactiveDeclineDone"));
-    } catch {
-      toast.error(t("calendar.detail.proactiveDeclineFailed"));
-    }
-  };
+  // PAD-313 rule 25: `handleProactiveDecline` is gone. It called the same
+  // endpoint with the same payload as the handler above — two buttons, one
+  // outcome, which is what the founder saw.
 
   return (
     <Screen edges={["top"]} testID="class-detail">
@@ -1059,9 +1075,12 @@ export default function ClassDetailScreen() {
           {/* Participants + attendance */}
           <View className="gap-2">
             <Text className="text-sm font-semibold">
+              {/* PAD-313 (`calendar.event-detail` rule 5): the same count as the
+                  capacity card above — a not-coming student is listed, visibly
+                  not coming, and out of every count. */}
               {t("calendar.detail.participantsCount", {
                 label: t("calendar.detail.participants"),
-                current: participants.length,
+                current: filled,
                 max: maxPlayers || "—",
               })}
             </Text>
@@ -1081,6 +1100,9 @@ export default function ClassDetailScreen() {
                   attendance={
                     attendance[String(participant.id)] ?? { status: null }
                   }
+                  // PAD-313 rule 25: a student is only ever served their own
+                  // presence, so `!isCoach` identifies their own row.
+                  audience={isCoach ? "coach" : "student"}
                   onChange={(state) =>
                     setAttendance((prev) => ({
                       ...prev,
@@ -1285,88 +1307,23 @@ export default function ClassDetailScreen() {
                   {t("classDetail.yourAttendance")}
                 </Text>
                 <View className="flex-row items-center gap-2">
+                  {/* PAD-313 rule 25: ONE state word, the same helper and the
+                      same field the participant rows and the coach's Presences
+                      tab use. This badge used to read `status`, then
+                      `confirmed`, then `invited` — three columns, and the
+                      `confirmed` branch called a cancellation a confirmation. */}
                   <Badge
-                    variant={
-                      myPresence?.status === "absent"
-                        ? "destructive"
-                        : myPresence?.confirmed
-                          ? "success"
-                          : "secondary"
-                    }
+                    variant={STATE_VARIANT[attendanceStateTone(myState)]}
+                    testID="attendance-state"
                   >
-                    <Text>
-                      {myPresence?.status === "present"
-                        ? t("calendar.attendance.present")
-                        : myPresence?.status === "absent"
-                          ? t("calendar.attendance.absent")
-                          : myPresence?.confirmed
-                            ? t("classDetail.statusConfirmed")
-                            : myPresence?.invited
-                              ? t("classDetail.statusInvited")
-                              : t("classDetail.statusRegistered")}
-                    </Text>
+                    <Text>{t(attendanceStateLabelKey(myState, "student"))}</Text>
                   </Badge>
                 </View>
 
-                {/* PAD-170 C5 / `attendance.confirm` rule 16: once declined,
-                    the student's own row says so in words, not just as a
-                    status chip — and says the absence is justified, which is
-                    the part that decides whether it counts against them. */}
-                {declined ? (
-                  <View
-                    testID="class-not-attending"
-                    className="flex-row items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2"
-                  >
-                    <Ionicons
-                      name="person-remove-outline"
-                      size={16}
-                      color={lightTheme.mutedForeground}
-                    />
-                    <View className="flex-1">
-                      <Text className="text-sm font-medium">
-                        {t("calendar.detail.notAttending")}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {t("calendar.detail.notAttendingJustified")}
-                      </Text>
-                      {/* PAD-288 (rule 23): the student's own cancellation, with its time. */}
-                      {myPresence?.cancelledByStudent && myPresence.cancelledAt ? (
-                        <Text className="text-xs text-muted-foreground" testID="class-not-attending-at">
-                          {t("calendar.detail.cancelledByStudentAt", {
-                            when: new Date(myPresence.cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
-                          })}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : null}
-
-                {/* PAD-170 C5: freeing the spot EARLY is what gives the
-                    invitation engine time to fill it, so it gets its own
-                    affordance rather than hiding behind the cancel action —
-                    and a hint saying why it is worth doing. */}
-                {canDeclineEarly ? (
-                  <View className="gap-1">
-                    <Button
-                      testID="class-proactive-decline"
-                      accessibilityLabel={t("calendar.detail.proactiveDecline")}
-                      variant="outline"
-                      onPress={() => setProactiveDeclineOpen(true)}
-                      disabled={cancelAttendance.isPending}
-                    >
-                      <Ionicons
-                        name="person-remove-outline"
-                        size={16}
-                        color={lightTheme.mutedForeground}
-                      />
-                      <Text>{t("calendar.detail.proactiveDecline")}</Text>
-                    </Button>
-                    <Text className="text-xs text-muted-foreground">
-                      {t("calendar.detail.proactiveDeclineHint")}
-                    </Text>
-                  </View>
-                ) : null}
-
+                {/* PAD-313 rule 25: the "not attending / justified absence"
+                    panel and the separate early-decline button that used to sit
+                    here are gone — the badge above is the state, and the one
+                    action below is the only way to say it. */}
                 {canCancel ? (
                   <Button
                     testID="class-cancel-attendance"
@@ -1376,7 +1333,7 @@ export default function ClassDetailScreen() {
                     disabled={cancelAttendance.isPending}
                   >
                     <Text className="text-destructive">
-                      {t("calendar.detail.cancelAttendance")}
+                      {t("calendar.detail.proactiveDecline")}
                     </Text>
                   </Button>
                 ) : null}
@@ -1656,7 +1613,11 @@ export default function ClassDetailScreen() {
               {t("calendar.detail.cancelAttendance")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("classDetail.cancelAttendanceDescription")}
+              {/* PAD-313 rule 25: the consequence lives here, not in a choice
+                  between two buttons. Past the deadline it says so plainly. */}
+              {isLateCancellation
+                ? t("calendar.detail.cancelAttendanceLateBody")
+                : t("classDetail.cancelAttendanceDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1675,38 +1636,8 @@ export default function ClassDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* PAD-170 C5: confirm a PROACTIVE decline. Deliberately different copy
-          from the cancellation above — there is no deadline warning to give,
-          because this happens before the student was ever asked, and the
-          absence lands justified. */}
-      <AlertDialog
-        open={proactiveDeclineOpen}
-        onOpenChange={setProactiveDeclineOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("calendar.detail.proactiveDeclineConfirmTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("calendar.detail.proactiveDeclineConfirmBody")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button
-              testID="class-proactive-decline-confirm"
-              accessibilityLabel={t("calendar.detail.proactiveDecline")}
-              onPress={handleProactiveDecline}
-              disabled={cancelAttendance.isPending}
-            >
-              <Text>{t("calendar.detail.proactiveDecline")}</Text>
-            </Button>
-            <AlertDialogCancel>
-              <Text>{t("calendar.detail.keepAttendance")}</Text>
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* PAD-313 rule 25: the second confirmation dialog is gone with its
+          button; the one above carries the deadline instead. */}
     </Screen>
   );
 }

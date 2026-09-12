@@ -60,12 +60,15 @@ appId: com.padellevelup.app
     timeout: 10000
 - tapOn:
     id: "class-cancel-attendance-confirm"
+# PAD-313 rule 25: the student's own state is ONE word on their own row; the
+# "not attending / justified absence" panel and its timestamp line are gone (the
+# time now sits on the coach's row, where we know who cancelled).
 - extendedWaitUntil:
     visible:
-      id: "class-not-attending"
+      id: "attendance-state"
     timeout: 20000
 - assertVisible:
-    id: "class-not-attending-at"
+    text: "Não vais"
 
 # ── The server says "cancelled by the student"; then clean up ──
 - runFlow: ../subflows/logout.yaml

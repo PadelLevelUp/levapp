@@ -16,13 +16,25 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
 2. Block events open `EventDetailSheet`: view/edit block details
 3. ClassDetailSheet shows: title, date, time, level, "Participants (X/Y)", presence list
-3a. **(PAD-199, B-017)** A participant row's status badge is gated on `Presence.reminderSentAt`
-   (`attendance.presence` rule 1a), never on `Presence.invited`: "Confirmed attendance" when
-   `confirmed`, "Reminder sent" when a reminder or invitation message exists, nothing otherwise.
-   Both shells (`AttendanceRow.tsx`, `ParticipantRow.tsx`) apply the same rule and expose it as
-   `data-testid="attendance-signal"` with `data-signal="confirmed" | "reminder-sent"`.
+3a. **(PAD-199, B-017; amended by PAD-313, 2026-09-12)** A participant row shows exactly ONE
+   state word: the single `attendanceState` of `attendance.presence` rule 9, read through the
+   shared helper in `@levelup/config` (`attendance-state`), exposed as
+   `data-testid="attendance-state"` with `data-state="planned" | "coming" | "not_coming" |
+   "attended" | "missed"`. Both shells (`AttendanceRow.tsx`, `ParticipantRow.tsx`) read that one
+   field and no longer read `confirmed`, `status`, `justification` or `validated` to decide what
+   to display — the old chip said "Confirmed attendance" whenever `confirmed` was set, and
+   `confirmed` means *answered*, so a student who had cancelled read as confirmed
+   (`attendance.confirm` rule 25).
+   **B-017's signal survives as a conditional detail line, not a badge.** "Reminder sent" is
+   still gated on `Presence.reminderSentAt` (`attendance.presence` rule 1a), never on
+   `Presence.invited` — but it is secondary text and renders **only while the state is
+   `planned`** (`data-testid="attendance-reminder-hint"`). It answers "have they been asked
+   yet?", which is only an open question while nobody has answered; on any other state it is
+   noise beside the state word, and a second line on a row is how a second badge grows back.
+   `planned` with no reminder shows the state word alone, and that absence is itself the signal
+   the coach acts on. Decided by the coordinator, 2026-09-12.
 4. Actions available: Mark attendance, Edit, Delete, Notify, Training planning
-5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both
+5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count
 6. The class-detail "invited" (convidados) list is keyed by STUDENT, not by invite record. A student who received several `NotificationEvent` rows for the same instance (multiple rounds, a manual invite plus an automatic one, a re-invite after a decline — all legitimate per notifications.invitations) appears exactly ONCE. The `invitations` array returned by the class-detail payload therefore contains at most one entry per `playerId`
 7. De-duplication happens in the backend serializer (`serialize_class_instance`) so every surface — web detail sheet, mobile — sees the same one-row-per-student list. No client performs its own de-duplication
 8. Tie-break when a student has several invite records for the same instance: the entry that survives is the one carrying the most meaningful state, ranked `confirmed` > `expired` (an explicit decline) > `sent` (pending) > `queued` (not yet sent). An actual response always beats a still-pending invite. Within the same status rank the most recent record wins (highest `round_number`, then highest `id`). The surviving entry keeps that record's own `id`, so coach response actions still target a real `NotificationEvent`

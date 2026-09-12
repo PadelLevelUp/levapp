@@ -12,6 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import {
+  attendanceStateLabelKey,
+  attendanceStateOf,
+  attendanceStateTone,
+  cancellationDetail,
+  reminderHint,
+  type StateAudience,
+  type StateTone,
+} from "@levelup/config";
 
 export interface AttendanceState {
   status: PresenceStatus | null;
@@ -22,6 +31,14 @@ export interface AttendanceState {
 export function playerName(player: Player): string {
   return player.user?.name ?? "Player";
 }
+
+/** The shared tone → this shell's Badge variant. Web maps the same tones to CSS. */
+const BADGE_VARIANT: Record<StateTone, "secondary" | "success" | "warning" | "destructive"> = {
+  neutral: "secondary",
+  positive: "success",
+  warning: "warning",
+  negative: "destructive",
+};
 
 function initials(name: string): string {
   return name
@@ -39,6 +56,12 @@ type ParticipantRowProps = {
   onChange?: (state: AttendanceState) => void;
   /** Coaches can mark attendance; students only see status. */
   canMark: boolean;
+  /**
+   * PAD-313 rule 25: whose row this is, so the ONE state word addresses the
+   * right person — "Vais" to the student about themselves, "Vai" to the coach
+   * about them.
+   */
+  audience?: StateAudience;
 };
 
 /** Mobile analogue of the web AttendanceRow: name + presence badges, with
@@ -49,6 +72,7 @@ export function ParticipantRow({
   attendance,
   onChange,
   canMark,
+  audience = "coach",
 }: ParticipantRowProps) {
   const name = playerName(player);
   const playerId = String(player.id);
@@ -66,6 +90,11 @@ export function ParticipantRow({
 
   const { t, i18n } = useTranslation();
 
+  // PAD-313: one state, one source, same helper as web.
+  const state = attendanceStateOf(presence);
+  const cancellation = cancellationDetail(presence, audience);
+  const reminder = reminderHint(presence);
+
   return (
     <View
       testID={`class-participant-${playerId}`}
@@ -81,49 +110,30 @@ export function ParticipantRow({
           {name}
         </Text>
 
-        {/* PAD-199 (B-017): the badge follows a message that exists —
-            `reminderSentAt` — never `invited`, which is roster membership. */}
-        {presence?.confirmed || presence?.reminderSentAt ? (
-          <Badge
-            variant={presence.confirmed ? "success" : "warning"}
-            testID="attendance-signal"
-          >
-            <Text>
-              {presence.confirmed
-                ? t("calendar.attendance.confirmedAttendance")
-                : t("calendar.attendance.reminderSent")}
-            </Text>
-          </Badge>
-        ) : null}
-
-        {attendance.status === "present" ? (
-          <Badge variant="success">
-            <Text>{t("calendar.attendance.present")}</Text>
-          </Badge>
-        ) : null}
-        {attendance.status === "absent" ? (
-          <Badge
-            variant={
-              attendance.justification === "justified"
-                ? "warning"
-                : "destructive"
-            }
-          >
-            <Text>
-              {attendance.justification === "justified"
-                ? t("calendar.attendance.justified")
-                : t("calendar.attendance.absent")}
-            </Text>
+        {/* PAD-313 rule 25: ONE state word. The chip above it read
+            `presence.confirmed`, which means ANSWERED, so a cancelled student
+            showed "presença confirmada" beside "falta justificada" — the
+            founder's report. The coach's toggle below still writes the mark. */}
+        {presence ? (
+          <Badge variant={BADGE_VARIANT[attendanceStateTone(state)]} testID="attendance-state">
+            <Text>{t(attendanceStateLabelKey(state, audience))}</Text>
           </Badge>
         ) : null}
       </View>
 
-      {/* PAD-288 (attendance.confirm rule 23): the student's own cancellation, with its time. */}
-      {presence?.cancelledByStudent && presence.cancelledAt ? (
+      {/* Secondary facts, each on its own line and never a second state word:
+          who cancelled and when (rule 23's provenance, coach's row only while
+          unvalidated), and B-017's reminder signal while nobody has answered. */}
+      {cancellation ? (
         <Text className="text-xs text-muted-foreground" testID="attendance-cancelled-by-student">
-          {t("calendar.detail.cancelledByStudentAt", {
-            when: new Date(presence.cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+          {t(cancellation.key, {
+            when: new Date(cancellation.when).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
           })}
+        </Text>
+      ) : null}
+      {reminder ? (
+        <Text className="text-xs text-muted-foreground" testID="attendance-reminder-hint">
+          {t(reminder)}
         </Text>
       ) : null}
 
