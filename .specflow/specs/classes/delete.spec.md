@@ -15,7 +15,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
 ### Rules
 1. `DELETE /api/app/class/{lesson_id}` deletes the lesson and all instances (CASCADE)
 2. `DELETE /api/app/lesson_instance/{instance_id}` deletes a single instance
-3. Scope: `single` (cancel one occurrence) or `future` (end series)
+3. Scope: `single` (cancel one occurrence — an exclusion on the lesson, `classes.recurrence` rule 7, once PAD-275's column exists; the PAD-65 split until then) or `future` (end series)
 4. Deleting cancels associated scheduler jobs
 
 ### Acceptance Criteria
