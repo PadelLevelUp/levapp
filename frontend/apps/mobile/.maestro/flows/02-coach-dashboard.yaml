@@ -12,12 +12,16 @@ appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
 # Upcoming classes list shows the seeded class.
+# Regex, not the bare title: on iOS the row is one accessible button and its
+# child Text nodes collapse into the button's label ("MON 14 E2E Academy Class
+# 10:00 …"), so an exact match finds nothing. Android exposes the title as its
+# own node, which the same regex matches (PAD-304).
 - scrollUntilVisible:
     element:
-      text: "E2E Academy Class"
+      text: ".*E2E Academy Class.*"
     direction: DOWN
     timeout: 30000
-- assertVisible: "E2E Academy Class"
+- assertVisible: ".*E2E Academy Class.*"
 # The "this week" cards sit below the list on both platforms.
 - scrollUntilVisible:
     element:
