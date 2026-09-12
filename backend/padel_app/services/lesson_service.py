@@ -83,12 +83,43 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         **key,
     )
     db.session.expire(instance, ["players_relations", "presences"])
-    if created:
+
+    # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
+    # a no-op. The row already existed, so `created` is False, and before this
+    # the idempotent branch handed it back untouched: the absence stayed, the
+    # class went on not counting them, and their vacancy went on being offered —
+    # the coach's re-add silently did nothing. Only the coach's own validated
+    # record is left alone; that is theirs to change on the attendance sheet.
+    returning = (
+        not created
+        and presence.status == "absent"
+        and not presence.validated
+    )
+    if returning:
+        presence.status = None
+        presence.justification = None
+        presence.late_cancellation = False
+        # Their previous answer is void: it recorded a "no" to a seat they no
+        # longer hold, and nobody has asked them about this one. So the caller's
+        # value stands — a coach's re-add leaves them un-answered (`planned`),
+        # an engine fill arrives already confirmed. Claiming they said yes would
+        # be the same over-reach as `confirmed` meaning "coming".
+        presence.confirmed = confirmed
+
+    if created or returning:
         # PAD-271 (notifications.invitations rule 13): a spot was taken, so a
         # vacancy the capacity no longer supports closes in the same unit of
-        # work. An idempotent re-call took no spot and closes nothing.
-        from padel_app.services.notification_service import reconcile_vacancies
+        # work. PAD-316: a returning player also reclaims their OWN vacancy,
+        # whose premise — that they left — is void, and which capacity alone
+        # would not close while the class has spare room.
+        from padel_app.services.notification_service import (
+            _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+        )
 
+        if returning:
+            own = _open_vacancy_for(instance.id, player_id)
+            if own is not None:
+                _close_vacancy(own, player_id)
         reconcile_vacancies(instance, filled_by_player_id=player_id)
     commit_or_flush()
     db.session.expire(instance, ["players_relations", "presences"])
@@ -508,8 +539,26 @@ def add_presences(lesson_instance, payload):
         # Attendance was explicitly recorded by the coach.
         values["validated"] = True
 
+        was_absent = presence_obj.status == "absent"
         presence_obj.update_with_dict(values)
         presence_obj.save()
+
+        # PAD-316: the coach reversing their own absent mark is a return too.
+        # Marking someone absent frees their spot and the engine opens a vacancy
+        # for it; marking them present again restored the count but left that
+        # vacancy standing, so the engine went on offering a seat the class no
+        # longer had. Capacity alone will not close it while the class has spare
+        # room — the vacancy names a player who is no longer absent, and that is
+        # what makes it stale, not the arithmetic.
+        if was_absent and presence_obj.status != "absent":
+            from padel_app.services.notification_service import (
+                _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+            )
+
+            own = _open_vacancy_for(lesson_instance.id, player_id)
+            if own is not None:
+                _close_vacancy(own, player_id)
+            reconcile_vacancies(lesson_instance, filled_by_player_id=player_id)
 
         created_presences.append(presence_obj)
 
