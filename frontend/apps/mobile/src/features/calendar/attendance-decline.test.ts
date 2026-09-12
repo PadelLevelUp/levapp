@@ -1,7 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import {
   canCancelAttendance,
-  canDeclineProactively,
   hasClassStarted,
   hasDeclined,
 } from "./attendance-decline";
@@ -19,7 +18,6 @@ const student = {
     status?: string | null;
     justification?: string | null;
   },
-  canDeclineProactively: true,
   date: "2026-09-10",
   startTime: "18:00",
 };
@@ -72,63 +70,11 @@ describe("hasClassStarted", () => {
   });
 });
 
-describe("canDeclineProactively", () => {
-  it("is offered to an enrolled student while the server says the window is open", () => {
-    expect(canDeclineProactively(student)).toBe(true);
-  });
-
-  it("is never offered to a coach", () => {
-    expect(canDeclineProactively({ ...student, isCoach: true })).toBe(false);
-  });
-
-  it("closes when the SERVER says the window closed", () => {
-    // The client never re-derives the reminder instant; this flag is the gate.
-    expect(canDeclineProactively({ ...student, canDeclineProactively: false })).toBe(
-      false
-    );
-    expect(
-      canDeclineProactively({ ...student, canDeclineProactively: undefined })
-    ).toBe(false);
-  });
-
-  it("is not offered once the class has started", () => {
-    expect(
-      canDeclineProactively({ ...student, date: "2026-09-06", startTime: "09:00" })
-    ).toBe(false);
-  });
-
-  it("is not offered twice — it disappears once the student has declined", () => {
-    expect(
-      canDeclineProactively({
-        ...student,
-        ownPresence: { status: "absent", justification: "justified" },
-      })
-    ).toBe(false);
-  });
-
-  it("is not offered to someone who is not a participant of this class", () => {
-    expect(
-      canDeclineProactively({ ...student, isParticipant: false, ownPresence: null })
-    ).toBe(false);
-  });
-
-  it("PAD-288: is offered on a virtual occurrence — participant, no presence row yet", () => {
-    // `attendance.confirm` rule 20: the gate is participation, not a row. The
-    // server materialises the occurrence when the student declines.
-    expect(canDeclineProactively({ ...student, ownPresence: undefined })).toBe(true);
-  });
-
-  it("is not offered on a cancelled class", () => {
-    expect(canDeclineProactively({ ...student, isCanceled: true })).toBe(false);
-  });
-});
-
 describe("canCancelAttendance", () => {
   it("stays available after the proactive window closes", () => {
-    // The whole point of the split: the plain cancel is NOT window-gated, so a
-    // late cancellation is still possible.
+    // PAD-313 rule 25: there is only this action now, and it is NOT window-gated
+    // — a late cancellation is still possible, and the dialog says it is late.
     const lateWindow = { ...student, canDeclineProactively: false };
-    expect(canDeclineProactively(lateWindow)).toBe(false);
     expect(canCancelAttendance(lateWindow)).toBe(true);
   });
 

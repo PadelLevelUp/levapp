@@ -79,26 +79,14 @@ export function hasClassStarted(
   return !Number.isNaN(startMs) && startMs <= lisbonNowMs(new Date(now));
 }
 
-/**
- * Whether to offer the proactive decline — the affordance that frees the spot
- * early enough for the invitation engine to refill it.
- *
- * Once the window closes this goes false and `canCancelAttendance` below is the
- * remaining way to decline (a normal or late cancellation).
+/*
+ * PAD-313 rule 25: `canDeclineProactively` lived here and is gone. It gated a
+ * second button that called the same endpoint with the same payload as the
+ * cancel action, so the two were one action wearing two labels — the founder's
+ * first complaint. The server still computes and still classifies the decline;
+ * nothing on a client renders off it, and its `proactive` reply now only picks
+ * the confirmation copy and the toast.
  */
-export function canDeclineProactively(
-  input: DeclineGateInput,
-  now: number = Date.now()
-): boolean {
-  return (
-    !input.isCoach &&
-    !input.isCanceled &&
-    input.isParticipant &&
-    !hasDeclined(input.ownPresence) &&
-    input.canDeclineProactively === true &&
-    !hasClassStarted(input.date, input.startTime, now)
-  );
-}
 
 /**
  * Whether to offer the plain cancel-attendance action. Unlike the proactive

@@ -6,7 +6,8 @@
  * horizon (rule 21). The spot frees through the engine's own rules (rule 22),
  * the coach is NOT pushed (rule 23; the backend test pins the push), and both
  * views show "cancelled by the student" with the time: the student's own
- * "not attending" state, and the coach's participants row.
+ * state word (PAD-313 rule 25 superseded the separate panel), and the coach's
+ * participants row, which also carries the cancellation as a detail line.
  *
  * Setup mirrors pad282-cancel-requested-class.spec.ts: the class is booked and
  * accepted through the API (a class the student requested follows the same
@@ -114,9 +115,17 @@ test("US-PAD-288: a student cancels a class eight or more days ahead; both views
     expect(body.action).toBe("declined");
     expect(body.proactive, "eight days out is ahead of the reminder: a proactive decline (rule 22)").toBe(true);
 
-    // The student's own view: not attending, with the time (rule 23).
-    await expect(page.getByTestId("class-not-attending")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId("class-not-attending-at")).toBeVisible({ timeout: 10_000 });
+    // PAD-313 rule 25 supersedes rule 23's student-side panel: the student's own
+    // state is ONE word on their own row, and the timestamp moved to the coach's
+    // row, which is the only place we know WHO cancelled.
+    const ownState = page.getByTestId("attendance-state").first();
+    await expect(ownState).toBeVisible({ timeout: 10_000 });
+    await expect(ownState).toHaveAttribute("data-state", "not_coming");
+    await expect(page.getByTestId("class-not-attending")).toHaveCount(0);
+
+    // One count, one meaning (`calendar.event-detail` rule 5): the list header no
+    // longer contradicts the capacity header by counting a student who is out.
+    await expect(page.getByText(/\(0\/\d+\)/).first()).toBeVisible({ timeout: 10_000 });
 
     // The server says the same thing (rule 23's derived fields).
     const after = await dayEvents(request, coachAuth, day);
@@ -129,10 +138,16 @@ test("US-PAD-288: a student cancels a class eight or more days ahead; both views
     expect(presences[0].cancelledByStudent).toBe(true);
     expect(presences[0].cancelledAt).toBeTruthy();
 
-    // The coach's class detail shows "cancelled by the student" on the row (rule 23, both views).
+    // The coach's class detail: ONE state word on the row, with the cancellation
+    // as a quiet detail beside it — provenance, never a second status
+    // (rule 23 as amended by rule 25).
     await loginAsCoach(page);
     await openClassDetail(page, 3);
-    await expect(page.getByTestId("attendance-cancelled-by-student").first()).toBeVisible({ timeout: 10_000 });
+    const coachRow = page.getByTestId("attendance-row").filter({ hasText: STUDENT_NAME }).first();
+    await expect(coachRow.getByTestId("attendance-state")).toHaveAttribute("data-state", "not_coming");
+    await expect(coachRow.getByTestId("attendance-cancelled-by-student")).toBeVisible({ timeout: 10_000 });
+    // The retired chip must not come back alongside it.
+    await expect(coachRow.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
   } finally {
     const leftovers = await dayEvents(request, coachAuth, day);
     for (const e of leftovers) {
