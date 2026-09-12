@@ -447,8 +447,8 @@
         "coach": "Vai"
       },
       "not_coming": {
-        "student": "Não vais — falta justificada",
-        "coach": "Não vai — falta justificada"
+        "student": "Não vais",
+        "coach": "Não vai"
       },
       "attended": {
         "student": "Presente",

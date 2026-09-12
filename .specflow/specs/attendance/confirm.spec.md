@@ -118,9 +118,18 @@ Players confirm or decline their attendance in response to a reminder notificati
      PAD-313's server half) through the shared helper `@levelup/config`'s `attendance-state`, so the
      two shells cannot drift. Clients no longer read `confirmed`, `status`, `justification` or
      `validated` to decide what to show. Labels (PT, approved 2026-09-12): `planned` "Inscrito",
-     `coming` "Vais" (student) / "Vai" (coach), `not_coming` "Não vais — falta justificada" /
-     "Não vai — falta justificada", `attended` "Presente", `missed` "Faltou". The student's own row
-     speaks in the second person, the coach's participant row about the student.
+     `coming` "Vais" (student) / "Vai" (coach), `not_coming` "Não vais" / "Não vai",
+     `attended` "Presente", `missed` "Faltou". The student's own row speaks in the second
+     person, the coach's participant row about the student.
+     **A label may never assert more than the state it renders knows** (coordinator,
+     2026-09-12). `not_coming` first read "Não vais — falta justificada", and the state is
+     justification-blind: it says the spot is given up and no coach record exists yet, never
+     how the absence was classified. A justification-blind state wearing the word
+     "justificada" is `confirmed`-means-answered in a different coat. Nor may the wording be
+     made conditional on `justification` to earn the clause back — that is a client reading a
+     raw column to choose words, which this rule forbids. The justified-or-not fact keeps
+     mattering where it has consequences (absence counts, the eligibility bar), which is where
+     it belongs rather than in a status word.
    - **Rule 23's `cancelledByStudent` stays a separate, narrower fact and never becomes a state.**
      `not_coming` says WHAT, never WHO. On the coach's row only, and only while the row is not
      validated, "Cancelado pelo aluno · <when>" is rendered as a **detail line in secondary text**,

@@ -68,7 +68,7 @@ appId: com.padellevelup.app
       id: "attendance-state"
     timeout: 20000
 - assertVisible:
-    text: "Não vais.*"
+    text: "Não vais"
 
 # ── The server says "cancelled by the student"; then clean up ──
 - runFlow: ../subflows/logout.yaml
