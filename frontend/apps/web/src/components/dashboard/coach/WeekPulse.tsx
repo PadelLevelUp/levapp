@@ -21,6 +21,8 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
 
       <div className="grid grid-cols-2 gap-2.5">
         <StatCard
+          testId="dashboard-pulse-seats-filled"
+          ariaLabel={`${t("dashboard.pulse.seatsFilled")}: ${seatsFilled.pct}%`}
           label={t("dashboard.pulse.seatsFilled")}
           value={
             <>
@@ -51,6 +53,8 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
         </StatCard>
 
         <StatCard
+          testId="dashboard-pulse-active-players"
+          ariaLabel={`${t("dashboard.pulse.activePlayers")}: ${players.active}`}
           label={t("dashboard.pulse.activePlayers")}
           value={players.active}
           sub={t("dashboard.pulse.activePlayersSub", {
