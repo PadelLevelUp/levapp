@@ -52,6 +52,40 @@ class Presence(db.Model, model.Model):
     )
     
     @property
+    def attendance_state(self) -> str:
+        """PAD-313 (attendance.presence rule 9): the one state a human reads.
+
+        Exactly one of five: ``planned`` (on the list, silent), ``coming``
+        (answered yes), ``not_coming`` (answered no — a decline or a
+        cancellation), ``attended`` / ``missed`` (the coach's validated record).
+        While ``validated`` is false this reports the STUDENT's intent; once it
+        is true it reports the COACH's record and nothing else.
+
+        The ordering carries the fix. A decline writes ``confirmed = True`` —
+        that flag means *answered*, not *coming* — so the absent check must come
+        first. Testing ``confirmed`` first reports a student who just cancelled
+        as confirmed, which is ledger B-073 and what a founder saw on
+        TestFlight 20 as three contradictory badges at once.
+
+        It is deliberately AUTHOR-BLIND: it says what is true of the spot, not
+        who said it. On today's columns provenance cannot be told — a coach's
+        own mark stamps ``validated``, which is the only reason an unvalidated
+        absence is in practice the student's own. PAD-271's ``recorded_by``
+        makes provenance a stored fact; until then nothing may read this field
+        as "the student cancelled".
+        """
+        if self.validated and self.status == "present":
+            return "attended"
+        if self.validated and self.status == "absent":
+            return "missed"
+        # Student intent. Absent before confirmed — see the docstring.
+        if self.status == "absent":
+            return "not_coming"
+        if self.confirmed:
+            return "coming"
+        return "planned"
+
+    @property
     def name(self):
         return f"<Presence {self.id}"
 

@@ -266,12 +266,16 @@ def _response_state(presence: Presence) -> str:
     couldn't make it", which is a claim the student never made. When the record
     is already the coach's, fall back to what ``confirmed`` alone can support.
     """
-    if presence.confirmed:
-        return "confirmed"
+    # PAD-313 (B-073): a decline also sets ``confirmed`` — the flag means
+    # *answered*, not *coming* — so the absent check comes FIRST. Testing
+    # ``confirmed`` first reported a student who had just cancelled as
+    # "confirmed", identical to one who accepted.
+    if presence.status == "absent" and not presence.validated:
+        return "declined"
     if presence.validated:
         return "none"
-    if presence.status == "absent":
-        return "declined"
+    if presence.confirmed:
+        return "confirmed"
     return "none"
 
 
@@ -283,6 +287,8 @@ def _serialize_pending_player(presence: Presence, *, is_guest: bool) -> Dict[str
         "playerId": presence.player_id,
         "name": user.name if user else f"Player {presence.player_id}",
         "response": _response_state(presence),
+        # PAD-313 (rule 9): the same derived state the class detail serves.
+        "attendanceState": presence.attendance_state,
         "status": presence.status,
         "justification": presence.justification,
         "validated": bool(presence.validated),

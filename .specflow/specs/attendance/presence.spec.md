@@ -32,8 +32,34 @@ Track player attendance for each class instance, including invitation, confirmat
 5. `validated=True` means the coach has finalized the attendance record
 6. **The row is the enrolment (PAD-259, unconfirmed number).** A presence exists for exactly the players who hold a spot on the occurrence; there is no separate per-occurrence enrolment record. Planned (row exists), intends to come (the student's answer) and was there (the coach's record) are three separate facts on it — see `classes.instance-enrollment` rules 1–2
 7. **One response field (PAD-271, audit M5; number self-assigned, unconfirmed; HELD — the column and its migration wait for the owner's answers to decisions 6–8 of the 2026-09-11 list).** The student's answer is one field, `response` (`none` default | `confirmed` | `declined` | `cancelled` | `proactive_decline`), with `responded_at` (UTC) and `recorded_by` (`student` | `coach` | `system` | `import`), written only by the student's own actions (reminder yes/no, cancel, proactive decline) and the import. The coach's record stays `status` / `justification` / `validated` and never moves `response`. `invited` and `confirmed` become derived on read (`invited` always true, `confirmed` = `response != none`) until both shells read `response`, then drop. `late_cancellation` stays a column (decision 8, default keep). Backfill from the flags: `status=absent AND validated=false` → `declined` (`cancelled` where `late_cancellation`), `confirmed AND status IS DISTINCT FROM absent` → `confirmed`, else `none`; `responded_at` from the latest reminder attempt where one exists. Stored as a CHECK-constrained string like `enrolment_source`
+9. **One field a human can read: `attendanceState` (PAD-313, ledger B-073; rule number self-assigned, unconfirmed — rule 8 is PAD-288's, in flight).** The payload carries one derived string, and exactly one of five values is ever true: `planned` (on the list, has not answered), `coming` (answered yes), `not_coming` (answered no — the justified decline, an early cancellation included), `attended` (the coach validated them present), `missed` (the coach validated them absent). **While `validated` is false it reports the STUDENT's intent; once `validated` is true it reports the COACH's record and nothing else.** It is computed in exactly one place on the model and served by every surface that shows attendance — the class-detail payload and the Presences/validation rows — so no client renders a state of its own.
+   The ordering is the point. A decline writes `confirmed = true` (rule 2's flag means *answered*, not *coming*), so the absent check must come before the confirmed check; testing `confirmed` first reports a student who just cancelled as confirmed, which is the defect B-073 records and what a founder saw on TestFlight 20 as "presença confirmada", "falta justificada" and "ausente" at once.
+   **The state says WHAT, never WHO** (ruling of 2026-09-12). `not_coming` means the spot is given up and no coach record exists yet — it is *not* a claim that the student said so. On today's columns provenance cannot be told apart: a coach's own mark stamps `validated`, which is the only reason an unvalidated justified absence is in practice the student's own. Who cancelled is a separate, narrower fact (`cancelledByStudent`, `attendance.confirm` rule 23), surfaced only where it is known, and it must never be folded into this value. Rule 7's `recorded_by` is what makes provenance a stored fact; until it lands, no client may read this field as "the student cancelled". Conflating the two would be the same failure as `confirmed` meaning *answered* — a name promising more than the column knows.
+   Edge, decided 2026-09-12: `validated = true` with no `status` recorded — a coach who validated the sheet without marking that student — falls back to the student's intent, because reporting `missed` would invent an absence the coach never stated.
+   The raw columns (`invited`, `confirmed`, `status`, `justification`, `validated`) stay on the payload while the clients move over; they are removed when rule 7's `response` lands and this field derives from it instead.
 
 ### Acceptance Criteria
+
+#### One derived state, and only one (PAD-313, B-073)
+- **Given** a student on a class's list who has not answered
+- **When** the class detail or the Presences row is read
+- **Then** `attendanceState` is `planned`
+
+- **Given** that student answers the reminder "yes"
+- **Then** `attendanceState` is `coming`
+
+- **Given** that student instead cancels, or declines the reminder, or declines proactively — so the row holds `confirmed=true`, `status=absent`, `justification=justified`, `validated=false`
+- **Then** `attendanceState` is `not_coming`, **never** `coming`
+- **And** the same row read from the Presences/validation rows reports `not_coming` too
+
+- **Given** the coach then validates the sheet marking that student absent
+- **Then** `attendanceState` is `missed` — the coach's record replaces the student's intent
+
+- **Given** a student the coach validates as present
+- **Then** `attendanceState` is `attended`
+
+- **Given** a coach who validates a sheet without recording a status for one student
+- **Then** that student's `attendanceState` still reports their own intent, never `missed`
 
 #### Auto-create presences
 - **Given** a class with players Alice and Bob

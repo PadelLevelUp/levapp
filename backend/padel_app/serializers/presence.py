@@ -22,6 +22,9 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None):
         "confirmed": presence.confirmed,
         "validated": presence.validated,
         "lateCancellation": presence.late_cancellation,
+        # PAD-313 (rule 9): the one derived state every surface renders.
+        # The raw columns above stay while the clients move over.
+        "attendanceState": presence.attendance_state,
         "reminderSentAt": reminder_sent_at.isoformat() if reminder_sent_at else None,
     }
 
