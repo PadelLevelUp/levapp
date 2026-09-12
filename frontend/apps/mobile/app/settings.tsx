@@ -175,10 +175,22 @@ export default function SettingsScreen() {
         }}
       />
 
+      {/*
+       * The inset is reserved on the scroll view itself, not only inside its
+       * content: under edge-to-edge the app window runs beneath the
+       * transparent 3-button navigation bar, so a row resting at the bottom of
+       * the window is drawn under the bar and the bar takes the touch. Content
+       * padding alone only protects the END of the list, which leaves the last
+       * row (logout) untappable whenever a scroll happens to stop there — a
+       * real thumb problem, and the one that made every logging-out Maestro
+       * flow tap Home instead (PAD-304). Ending the viewport above the bar
+       * makes that position unreachable.
+       */}
       <ScrollView
         className="flex-1"
+        style={{ marginBottom: insets.bottom }}
         contentContainerClassName="gap-4 p-4"
-        contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
         {activeSection === null ? (
           <>
