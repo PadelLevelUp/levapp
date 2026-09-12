@@ -22,7 +22,7 @@ appId: com.padellevelup.app
 - evalScript: "${output.day = output.slot.date}"
 - evalScript: "${output.endTime = (function (t) { var h = parseInt(t.split(':')[0], 10) + 1; return (h < 10 ? '0' + h : '' + h) + ':' + t.split(':')[1]; })(output.slot.startTime)}"
 - evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.day, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
-- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
 - assertTrue: "${output.accepted == true}"
 
 # ── Student opens the class (up to three weeks ahead) and cancels ──
