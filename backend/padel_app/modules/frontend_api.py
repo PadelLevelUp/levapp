@@ -393,10 +393,7 @@ def _student_enrolled(player, lesson_id, instance_id=None):
     if player is None:
         return False
     if instance_id is not None:
-        if Association_PlayerLessonInstance.query.filter_by(
-            player_id=player.id, lesson_instance_id=instance_id
-        ).first() is not None:
-            return True
+        # PAD-259: the presence row is the enrolment.
         if Presence.query.filter_by(
             player_id=player.id, lesson_instance_id=instance_id
         ).first() is not None:
@@ -1035,9 +1032,7 @@ def calendar_event():
     else:  # lesson_instance
         allowed = coach_owns_instance(coach, current_event) if coach else False
         if not allowed and player is not None:
-            allowed = any(
-                rel.player_id == player.id for rel in current_event.players_relations
-            )
+            allowed = player.id in current_event.enrolled_player_ids  # PAD-259
         if not allowed:
             abort(403, "Not authorized to view this calendar event")
 
@@ -1059,6 +1054,7 @@ def class_instance():
 
     current_class = event_types[model].query.get_or_404(id)
 
+    occurrence_date = None
     if model == "lesson":
         date_str = request.args.get("date")
         if date_str:
@@ -1077,6 +1073,10 @@ def class_instance():
             )
             if instance is not None:
                 current_class = instance
+            else:
+                # attendance.confirm rule 20: a virtual occurrence still gets its
+                # cancel/decline windows, computed for this date.
+                occurrence_date = event_date
 
     # PAD-257: owner / club colleague / enrolled student only, before any
     # payload is built. `model` may have resolved to an instance above.
@@ -1095,7 +1095,9 @@ def class_instance():
         viewer_player_id = player.id
 
     return jsonify(
-        serialize_class_instance(current_class, viewer_player_id=viewer_player_id)
+        serialize_class_instance(
+            current_class, viewer_player_id=viewer_player_id, occurrence_date=occurrence_date
+        )
     )
 
 
@@ -2201,10 +2203,7 @@ def _player_in_class(player_id, lesson_id, instance_id=None):
     if player_id in (None, ""):
         return False
     if instance_id is not None:
-        if Association_PlayerLessonInstance.query.filter_by(
-            player_id=player_id, lesson_instance_id=instance_id
-        ).first() is not None:
-            return True
+        # PAD-259: the presence row is the enrolment.
         if Presence.query.filter_by(
             player_id=player_id, lesson_instance_id=instance_id
         ).first() is not None:

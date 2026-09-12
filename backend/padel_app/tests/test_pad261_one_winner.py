@@ -160,15 +160,15 @@ def test_a_placement_never_takes_a_vacancy_someone_else_already_won(app, locks):
 
 
 def test_a_placement_never_overfills_a_full_class(app):
-    from padel_app.models import Association_PlayerLessonInstance, WaitingListEntry
+    from padel_app.models import LessonInstance, WaitingListEntry
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
     coach_id, instance_id, players = _world(app, max_players=1, students=2)
     (waiting_id, _), (other_id, _) = players
     vacancy_id, entry_id = _waiting(app, coach_id, instance_id, waiting_id)
     with app.app_context():
         # The last seat is taken by someone else; the vacancy row still says open.
-        db.session.add(Association_PlayerLessonInstance(player_id=other_id, lesson_instance_id=instance_id))
-        db.session.commit()
+        enrol(other_id, db.session.get(LessonInstance, instance_id), "coach")
 
     assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is False
     with app.app_context():

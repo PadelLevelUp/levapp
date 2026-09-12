@@ -48,9 +48,19 @@ async function openQueueAtFixtureWeek(page: import("@playwright/test").Page) {
   // current week crowds the calendar's default view and perturbs
   // `participant-count-effective.spec.ts`. Navigating back also exercises the
   // week control.
+  //
+  // PAD-300 (load flake, B-079): the week change is a fresh
+  // `pending_validation?from=…` fetch. Under load it landed after the 15 s
+  // card wait, which then read the CURRENT week's (empty) list. Wait for that
+  // response first — the card list is only meaningful once it has settled.
+  const previousWeekLoaded = page.waitForResponse(
+    (r) => /\/class_instances\/pending_validation\?/.test(r.url()) && r.status() === 200,
+    { timeout: 30_000 }
+  );
   await page
     .getByRole("button", { name: /previous week|semana anterior/i })
     .click();
+  await previousWeekLoaded;
   await expect(
     page.locator('[data-testid="presences-class-card"]').first()
   ).toBeVisible({ timeout: 15000 });

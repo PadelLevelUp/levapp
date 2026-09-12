@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from padel_app.sql_db import db
+from padel_app.models.presences import Presence  # PAD-259
 
 
 SUMMER = datetime(2026, 7, 14)   # Tuesday, WEST (UTC+1)
@@ -131,6 +132,7 @@ def _seed(app, wall_start):
     db.session.flush()
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
     db.session.add(Association_PlayerLessonInstance(player_id=student.id, lesson_instance_id=instance.id))
+    db.session.add(Presence(player_id=student.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()
     return coach.id, student.id, instance.id
 
@@ -184,7 +186,10 @@ def test_send_guard_uses_the_club_clock(app, wall_start, utc_now, expect_sent):
         with patch(PATCHES[0]), patch(PATCHES[1]):
             result = send_class_reminders(instance_id, now=utc_now)
         assert result["sent"] == expect_sent, result
-        reminded = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=student_id).count()
+        # PAD-259: the presence row exists from enrolment, so it no longer
+        # evidences a send; the reminder attempt does (notifications.reminders rule 14).
+        from padel_app.services import reminder_attempt_service as attempts
+        reminded = attempts.count_attempts(instance_id, student_id)
         assert reminded == expect_sent
 
 

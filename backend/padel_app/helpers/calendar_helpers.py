@@ -9,7 +9,6 @@ from padel_app.models import (
     Association_CoachLesson,
     Association_CoachLessonInstance,
     Association_PlayerLesson,
-    Association_PlayerLessonInstance,
     Presence,
 )
 from padel_app.serializers.calendar_event import serialize_calendar_event
@@ -51,8 +50,7 @@ def load_lesson_instances_for_coach(coach_id, range_start, range_end):
         # lesson, its coaches and the instance's own coaches, which the
         # serializer and the coach index below otherwise lazy-load per row.
         .options(
-            selectinload(LessonInstance.players_relations),
-            selectinload(LessonInstance.presences),
+            selectinload(LessonInstance.presences),  # PAD-259: the roster
             selectinload(LessonInstance.coaches_relations),
             selectinload(LessonInstance.lesson).selectinload(Lesson.coaches_relations),
         )
@@ -122,9 +120,8 @@ def load_lesson_instances_for_player(
     Return a dict indexed by (lesson_id, original_lesson_occurence_date) -> LessonInstance
     for instances relevant to this player.
 
-    Priority / source of truth:
-      1) Presence rows (invited/confirmed etc)
-      2) Association_PlayerLessonInstance (if you use it)
+    Source of truth: the Presence rows — the per-occurrence enrolment (PAD-259,
+    classes.instance-enrollment rule 1).
     """
     indexed = {}
 
@@ -150,21 +147,6 @@ def load_lesson_instances_for_player(
         if not instance:
             continue
         indexed[(instance.lesson_id, instance.original_lesson_occurence_date)] = instance
-
-    rel_instances = (
-        LessonInstance.query
-        .join(Association_PlayerLessonInstance, Association_PlayerLessonInstance.lesson_instance_id == LessonInstance.id)
-        .filter(
-            Association_PlayerLessonInstance.player_id == player_id,
-            LessonInstance.start_datetime >= range_start,
-            LessonInstance.start_datetime <= range_end,
-        )
-        .all()
-    )
-
-    for instance in rel_instances:
-        key = (instance.lesson_id, instance.original_lesson_occurence_date)
-        indexed.setdefault(key, instance)
 
     return indexed
 

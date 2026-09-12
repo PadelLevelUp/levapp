@@ -438,6 +438,15 @@ export function ClassDetailSheet({
     if (event?.model === "LessonInstance") return Number(event.originalId);
     return null;
   })();
+  // PAD-288 / PAD-282 (`attendance.confirm` rules 18 and 20): when the
+  // occurrence has no instance row yet, address it the way the calendar event
+  // does — the server materialises it and then cancels.
+  const cancelTarget: number | { model: string; originalId: string | number; date: string } | null =
+    cancelInstanceId != null
+      ? cancelInstanceId
+      : event
+        ? { model: event.model, originalId: event.originalId, date: active.date }
+        : null;
 
   // PAD-46: a STUDENT viewer (canManage=false) is enrolled in this instance iff
   // they appear in participants — the serializer only ever returns the viewer's
@@ -470,18 +479,18 @@ export function ClassDetailSheet({
   // PAD-73: the proactive-decline window, answered by the SERVER. The client does
   // not re-derive the reminder instant — it only reads the flag, so the action can
   // never be offered at a moment `cancel_attendance` would classify differently.
+  // Rule 20: the gate is "participant, not started, not declined" — never
+  // "an instance id or a presence row exists".
   const canDeclineProactively =
     isStudentParticipant &&
     !classStarted &&
     !hasDeclined &&
-    cancelInstanceId != null &&
     active.canDeclineProactively === true;
 
   const canCancelAttendance =
     isStudentParticipant &&
     !classStarted &&
-    !hasDeclined &&
-    cancelInstanceId != null;
+    !hasDeclined;
 
   const startEdit = () => {
     if (!canManage || !onEdit) return;
@@ -758,13 +767,16 @@ export function ClassDetailSheet({
   };
 
   const handleCancelAttendance = async () => {
-    if (cancelInstanceId == null || cancellingAttendance) return;
+    if (cancelTarget == null || cancellingAttendance) return;
     setCancellingAttendance(true);
     try {
-      await cancelAttendance(cancelInstanceId);
+      await cancelAttendance(cancelTarget);
       setAttendanceCancelled(true);
       setCancelAttendanceOpen(false);
       toast({ title: t("calendar.detail.attendanceCancelled") });
+      // Rule 20: re-read the payload — it now resolves to the materialised
+      // instance and carries the student's presence.
+      await refreshInstance();
     } catch {
       // 409 (class already started) and any other failure surface the same
       // graceful error toast.
@@ -781,13 +793,14 @@ export function ClassDetailSheet({
   // classifies which kind of decline it was and reports it back in `proactive`,
   // so this handler never has to reason about the reminder cutoff itself.
   const handleProactiveDecline = async () => {
-    if (cancelInstanceId == null || decliningProactively) return;
+    if (cancelTarget == null || decliningProactively) return;
     setDecliningProactively(true);
     try {
-      await cancelAttendance(cancelInstanceId);
+      await cancelAttendance(cancelTarget);
       setAttendanceCancelled(true);
       setProactiveDeclineOpen(false);
       toast({ title: t("calendar.detail.proactiveDeclineDone") });
+      await refreshInstance();
     } catch {
       toast({
         variant: "destructive",
@@ -1242,6 +1255,7 @@ export function ClassDetailSheet({
                 {canDeclineProactively && (
                   <div className="pt-1 space-y-1">
                     <Button
+                      data-testid="class-proactive-decline"
                       variant="outline"
                       size="sm"
                       className="w-full"
@@ -1560,12 +1574,16 @@ export function ClassDetailSheet({
                       it is re-derived from the student's own serialized
                       presence, no new column required. */}
                   {hasDeclined ? (
-                    <div className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                    <div
+                      data-testid="class-not-attending"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive"
+                    >
                       <X className="w-4 h-4" />
                       {t("calendar.detail.attendanceCancelled")}
                     </div>
                   ) : canCancelAttendance ? (
                     <Button
+                      data-testid="class-cancel-attendance"
                       variant="outline"
                       className="w-full text-destructive"
                       onClick={() => setCancelAttendanceOpen(true)}
@@ -1643,6 +1661,7 @@ export function ClassDetailSheet({
                 {t("calendar.detail.keepAttendance")}
               </AlertDialogCancel>
               <AlertDialogAction
+                data-testid="class-cancel-attendance-confirm"
                 onClick={(e) => {
                   e.preventDefault();
                   handleCancelAttendance();
