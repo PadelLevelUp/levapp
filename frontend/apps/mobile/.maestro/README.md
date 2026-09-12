@@ -69,6 +69,12 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
   "Present" (it also accepts "Invited" so it can run standalone).
 - Seeded ids on a fresh DB are deterministic: player `1` = E2E Student,
   conversation `1` = coach↔student.
+- **`12-settings-language` changes the coach's language and changes it back.**
+  The preference is stored on the user, so a failure between the two switches
+  leaves every later coach flow running in Portuguese, and any flow asserting
+  an English string fails for a reason that has nothing to do with it (PAD-304:
+  16 and 34 failed exactly this way). Assert the saved status by id, never by
+  the sentence — it renders in the language just chosen.
 
 ## Web spec → Maestro flow mapping
 
