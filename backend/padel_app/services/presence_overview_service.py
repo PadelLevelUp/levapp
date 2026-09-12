@@ -255,22 +255,24 @@ def build_presence_trend(
 def _response_state(presence: Presence) -> str:
     """How the player answered before the class — the RSVP tri-state.
 
-    ``declined`` is a real answer (the student said they weren't coming), so it
-    does not block validation; only ``none`` does.
+    A projection of ``Presence.attendance_state`` (PAD-313, attendance.presence
+    rule 9), never a second ordering of the same columns: this function used to
+    hand-order that precedence itself, tested ``confirmed`` first, and so
+    reported a student who had just cancelled as "confirmed" (B-073). Two places
+    deriving one fact is how that survived, so there is now one.
 
-    The ``validated`` guard matters. A coach marking someone absent from the
-    class-detail sheet writes exactly the same columns a student decline does
-    (``status='absent'``, ``confirmed=False``) — the difference is that
-    ``add_presences`` also stamps ``validated=True``. Without the guard this
-    would report the coach's own decision back to them as "the student said they
-    couldn't make it", which is a claim the student never made. When the record
-    is already the coach's, fall back to what ``confirmed`` alone can support.
+    ``declined`` is a real answer — the student said they were not coming — so it
+    does not block validation; only ``none`` does. A validated row the coach
+    actually marked reports ``none``, because the record is then the coach's and
+    reporting it back as the student's answer would be a claim they never made.
+    A validated row with NO status is the exception: ``attendance_state`` falls
+    back to the student's own intent there (rather than inventing an absence the
+    coach never stated), so this reports that intent too.
     """
-    if presence.confirmed:
+    state = presence.attendance_state
+    if state == "coming":
         return "confirmed"
-    if presence.validated:
-        return "none"
-    if presence.status == "absent":
+    if state == "not_coming":
         return "declined"
     return "none"
 
@@ -283,6 +285,8 @@ def _serialize_pending_player(presence: Presence, *, is_guest: bool) -> Dict[str
         "playerId": presence.player_id,
         "name": user.name if user else f"Player {presence.player_id}",
         "response": _response_state(presence),
+        # PAD-313 (rule 9): the same derived state the class detail serves.
+        "attendanceState": presence.attendance_state,
         "status": presence.status,
         "justification": presence.justification,
         "validated": bool(presence.validated),

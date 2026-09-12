@@ -436,6 +436,29 @@
       "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
       "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
       "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
+    },
+    "attendanceState": {
+      "planned": {
+        "student": "Inscrito",
+        "coach": "Inscrito"
+      },
+      "coming": {
+        "student": "Vais",
+        "coach": "Vai"
+      },
+      "not_coming": {
+        "student": "Não vais",
+        "coach": "Não vai"
+      },
+      "attended": {
+        "student": "Presente",
+        "coach": "Presente"
+      },
+      "missed": {
+        "student": "Faltou",
+        "coach": "Faltou"
+      },
+      "reminderSent": "Lembrete enviado"
     }
   }
 }

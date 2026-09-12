@@ -91,3 +91,24 @@ Files that failed under load and passed alone (tests in the isolated rerun):
 Totals: 59 tests rerun, 59 passed, in 4.5 minutes of isolated running against 128 minutes of
 starved shard time. Recorded by Session E at the coordinator's request so the pattern lives
 in the ledger rather than in one session's head.
+
+## A second family, named 2026-09-12: the assertion that only passes by accident
+
+Not a load flake — worth recording here because it was found in the same sweep and looks
+identical from the outside (a red spec on a green product).
+
+The cancellation fix release replaced the per-status attendance badges with one state word.
+`e2e/schedule-calendar/attendance-save.spec.ts` then failed on `getByText("Present")`. The
+product was right and the spec was stale — but the interesting part is *why the spec ever
+passed*: Playwright renders this app in **Portuguese** (see the e2e-web-renders-portuguese
+note), so an assertion on the English string "Present" could only ever have matched because
+that particular badge had no translation. The test was green for a reason unrelated to the
+behaviour it claimed to check, and it went red the moment the string was localised properly.
+
+Same family as a test that passes only while the feature is broken. Two sightings in one day.
+
+**Rule:** assert on `data-testid` and on the state value, never on user-facing text. Where a
+test does assert text, treat a sudden failure as a question about the assertion first and
+the product second. The replacement ids in this area are `attendance-state` (with the state
+value), `attendance-cancelled-by-student` and `attendance-reminder-hint`; the removed ones
+were `class-not-attending`, `class-not-attending-at` and `class-proactive-decline`.

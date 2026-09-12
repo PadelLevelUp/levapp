@@ -2,15 +2,19 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, X, AlertCircle, CheckCircle2, Send, UserCheck } from "lucide-react";
+import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  attendanceStateLabelKey,
+  attendanceStateOf,
+  attendanceStateTone,
+  cancellationDetail,
+  reminderHint,
+  type AttendancePresenceLike,
+  type StateAudience,
+  type StateTone,
+} from "@levelup/config";
 
 export interface AttendanceState {
   status: PresenceStatus | null;
@@ -23,17 +27,15 @@ interface AttendanceRowProps {
   onChange: (attendance: AttendanceState) => void;
   disabled?: boolean;
   /**
-   * PAD-199 (B-017): true only when a reminder/invitation message actually
-   * reached this player (`presence.reminderSentAt`). `Presence.invited` is
-   * roster membership and must not drive the badge.
+   * PAD-313 (`calendar.event-detail` rule 3a): this player's serialized
+   * presence. The row asks `@levelup/config` which ONE state it is in and
+   * renders that — it never reads `confirmed`, `status`, `justification` or
+   * `validated` to decide what to DISPLAY. `attendance` above is the coach's
+   * MARK, the write side of the toggle, which is a different thing.
    */
-  reminderSent?: boolean;
-  confirmed?: boolean;
-  /**
-   * PAD-288 (`attendance.confirm` rule 23): the UTC instant of the student's
-   * own cancellation, when the presence says so (`cancelledByStudent`).
-   */
-  cancelledAt?: string | null;
+  presence?: AttendancePresenceLike | null;
+  /** Whose row this is, so the state word addresses the right person. */
+  audience?: StateAudience;
 }
 
 export function AttendanceRow({
@@ -41,9 +43,8 @@ export function AttendanceRow({
   attendance,
   onChange,
   disabled = false,
-  reminderSent,
-  confirmed,
-  cancelledAt,
+  presence,
+  audience = "coach",
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
   const name = player.user?.name ?? t("calendar.attendance.playerFallback");
@@ -55,6 +56,17 @@ export function AttendanceRow({
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  // PAD-313 (`attendance.confirm` rule 25): ONE state word, from one source.
+  const state = attendanceStateOf(presence);
+  const cancellation = cancellationDetail(presence, audience);
+  const reminder = reminderHint(presence);
+  const TONE: Record<StateTone, string> = {
+    neutral: "text-muted-foreground border-border",
+    positive: "text-success border-success",
+    warning: "text-warning border-warning",
+    negative: "text-destructive border-destructive",
   };
 
   const handleStatusChange = (status: PresenceStatus) => {
@@ -87,66 +99,38 @@ export function AttendanceRow({
           </Avatar>
           <span className="text-sm font-medium">{name}</span>
 
-          {/* Confirmed / reminder-sent status icon — gated on the messaging
-              record (calendar.event-detail rule 3a), never on `invited`. */}
-          <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-1">
-              {(confirmed || reminderSent) && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      data-testid="attendance-signal"
-                      data-signal={confirmed ? "confirmed" : "reminder-sent"}
-                      className={cn(
-                      "inline-flex items-center justify-center w-5 h-5 rounded-full",
-                      confirmed
-                        ? "bg-success/15 text-success-strong"
-                        : "bg-warning/15 text-warning"
-                    )}>
-                      {confirmed ? (
-                        <UserCheck className="w-3 h-3" />
-                      ) : (
-                        <Send className="w-3 h-3" />
-                      )}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {confirmed ? t("calendar.attendance.confirmedAttendance") : t("calendar.attendance.reminderSent")}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </TooltipProvider>
         </div>
 
-        {attendance.status === "present" && (
-          <Badge variant="outline" className="text-success border-success">
-            <Check className="w-3 h-3 mr-1" />
-            {t("calendar.attendance.present")}
-          </Badge>
-        )}
-        {attendance.status === "absent" &&
-          attendance.justification === "justified" && (
-            <Badge variant="outline" className="text-warning border-warning">
-              <AlertCircle className="w-3 h-3 mr-1" />
-              {t("calendar.attendance.justified")}
-            </Badge>
-          )}
-        {cancelledAt && (
-          <span data-testid="attendance-cancelled-by-student" className="text-xs text-muted-foreground">
-            {t("calendar.detail.cancelledByStudentAt", {
-              when: new Date(cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
-            })}
-          </span>
-        )}
-        {attendance.status === "absent" &&
-          attendance.justification === "unjustified" && (
-            <Badge variant="destructive">
-              <X className="w-3 h-3 mr-1" />
-              {t("calendar.attendance.unjustified")}
-            </Badge>
-          )}
+        {/* PAD-313: the one state word. The three badges that used to sit here
+            (present / justified / unjustified, plus the `confirmed` chip above)
+            each read one column, so a cancelled student could show three at
+            once — one of them false. */}
+        <Badge
+          variant="outline"
+          data-testid="attendance-state"
+          data-state={state}
+          className={TONE[attendanceStateTone(state)]}
+        >
+          {t(attendanceStateLabelKey(state, audience))}
+        </Badge>
       </div>
+
+      {/* Secondary facts. Never a second state word: lesser weight, own line. */}
+      {cancellation && (
+        <p data-testid="attendance-cancelled-by-student" className="text-xs text-muted-foreground">
+          {t(cancellation.key, {
+            when: new Date(cancellation.when).toLocaleString(i18n.language, {
+              dateStyle: "short",
+              timeStyle: "short",
+            }),
+          })}
+        </p>
+      )}
+      {reminder && (
+        <p data-testid="attendance-reminder-hint" className="text-xs text-muted-foreground">
+          {t(reminder)}
+        </p>
+      )}
 
       {!disabled && (
         <div className="flex gap-2">

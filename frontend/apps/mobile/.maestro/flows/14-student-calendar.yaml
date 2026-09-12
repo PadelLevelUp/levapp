@@ -3,10 +3,19 @@
 # schedule-calendar/class-detail-privacy.spec.ts)
 # - student sees the seeded class on their calendar
 # - opens the detail and sees their own attendance status badge
-# NOTE: after flow 04 the coach marked this student present, so the badge
-# reads "Present" in suite order; on a freshly seeded DB (flow run
-# standalone) the invited-not-confirmed presence reads "Invited" — the
-# assertion accepts either so the flow is order-independent.
+# NOTE (PAD-313): the badge is ONE state word. After flow 04 the coach recorded
+# this student present — and saving attendance sets `validated`, so the state is
+# the coach's record — giving "Attended" in suite order; on a freshly seeded DB,
+# run standalone, the unanswered presence reads "Signed up". The assertion
+# accepts either so the flow stays order-independent — and "You're going" too,
+# because a student who answered a reminder in an earlier flow legitimately
+# stays at intent: nothing here may assert that a class shows only a record
+# (H's caution, 2026-09-12). G's observation, recorded rather than argued with:
+# accepting three of the five states means this flow can only fail on
+# `not_coming` or `missed`, so it proves the row is not wrong more than that it
+# is right. That is deliberate here, because the state depends on which earlier
+# flows ran; the exact-state assertions live in 42 and 48, which cancel in the
+# same run and then assert "you're not going" specifically.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
@@ -25,7 +34,9 @@ appId: com.padellevelup.app
       text: "Your attendance"
     direction: DOWN
     timeout: 30000
-- assertVisible: "Present|Invited"
+- assertVisible:
+    id: "attendance-state"
+- assertVisible: "Attended|Signed up|You're going"
 # Students never get coach controls.
 - assertNotVisible:
     id: "attendance-confirm"

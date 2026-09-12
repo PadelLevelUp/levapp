@@ -12,7 +12,7 @@
 # defaults to a day with no free slot), so the form stays flow 13's subject.
 # Backend for the API calls: -e API_BASE=http://localhost:<port>, else :5001.
 # NOT YET RUN to completion; run scheduled in the next simulator window.
-# - `class-not-attending` and `class-cancel-attendance` are the class screen's
+# - `attendance-state` (PAD-313) and `class-cancel-attendance` are the screen's
 #   testIDs (app/class/[id].tsx).
 appId: com.padellevelup.app
 ---
@@ -82,10 +82,14 @@ appId: com.padellevelup.app
     timeout: 10000
 - tapOn:
     id: "class-cancel-attendance-confirm"
+# PAD-313: one state word on the student's own row replaced the separate
+# "not attending / justified absence" panel.
 - extendedWaitUntil:
     visible:
-      id: "class-not-attending"
+      id: "attendance-state"
     timeout: 20000
+# Same reason as flow 48: no text assertion, in any language. The id above is
+# the UI check; this flow's server-side check follows through the API.
 # Class detail is a root-stack screen without the tab header, so leave it with
 # its own back button before logout.yaml looks for `header-account`.
 - tapOn:
