@@ -3,7 +3,7 @@
 #   player id 1) present, confirm, reopen — the Present badge persists.
 # NOTE: player id 1 is deterministic — seed.py creates E2E Student's Player
 # row first on a freshly reset database.
-# SIDE EFFECT: flow 14-student-calendar sees this presence as "Present".
+# SIDE EFFECT: flow 14-student-calendar sees this presence as present.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -38,7 +38,11 @@ appId: com.padellevelup.app
     visible:
       id: "class-participant-1"
     timeout: 20000
-# The Present BADGE is a bare "Present" text node; the mark-present button is
-# exposed as "Mark E2E Student present" (a11y label), so this exact match
-# only passes when the saved badge is rendered.
-- assertVisible: "Present"
+# PAD-313: the row carries ONE state word, and saving attendance writes
+# `status` only — never `validated` — so the saved row reads "Going" (intent),
+# not "Attended" (the coach's validated record, which the Presences tab sets).
+# The mark-present BUTTON is exposed as "Mark E2E Student present" (a11y
+# label), so this exact match only passes when the saved badge is rendered.
+- assertVisible:
+    id: "attendance-state"
+- assertVisible: "Going"
