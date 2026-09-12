@@ -32,7 +32,16 @@ async function titleVisible(
   timeout: number
 ): Promise<boolean> {
   try {
-    await page.getByText(title).first().waitFor({ state: "visible", timeout });
+    // PAD-308: match the title on a calendar EVENT CARD only. A bare
+    // `getByText` matched it anywhere on the page — on the student side the
+    // sidebar chip "E2E Student" made every week read as "found" and the walk
+    // never left the current week. Both the desktop and the phone card carry
+    // `calendar-event-card`; every caller runs at desktop width.
+    await page
+      .getByTestId("calendar-event-card")
+      .filter({ hasText: title })
+      .first()
+      .waitFor({ state: "visible", timeout });
     return true;
   } catch {
     return false;

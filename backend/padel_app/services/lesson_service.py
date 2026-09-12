@@ -359,6 +359,93 @@ def get_or_materialize_instance(lesson: Lesson, date):
     return instance
 
 
+# ---------------------------------------------------------------------------
+# Coaches of an occurrence (PAD-275, classes.coach-assignment rule 4)
+# ---------------------------------------------------------------------------
+
+def coaches_for(instance):
+    """Who coaches this occurrence (classes.coach-assignment rule 4): the
+    instance's own coach rows when it has any, else the lesson's — each in
+    assignment order (junction id ascending), so `primary_coach` is the coach
+    assigned first and every engine read agrees on it. The junction stays
+    (decision 2026-09-11); this is the one reader, so an occurrence with no
+    junction row is never coach-less. A plain read: it never creates config."""
+    from padel_app.models.coaches import Coach
+
+    instance_id = getattr(instance, "id", None)
+    if isinstance(instance_id, int):
+        own = (
+            db.session.query(Coach)
+            .join(Association_CoachLessonInstance, Association_CoachLessonInstance.coach_id == Coach.id)
+            .filter(Association_CoachLessonInstance.lesson_instance_id == instance_id)
+            .order_by(Association_CoachLessonInstance.id.asc())
+            .all()
+        )
+        if own:
+            return own
+        lesson_id = getattr(instance, "lesson_id", None)
+        if isinstance(lesson_id, int):
+            return (
+                db.session.query(Coach)
+                .join(Association_CoachLesson, Association_CoachLesson.coach_id == Coach.id)
+                .filter(Association_CoachLesson.lesson_id == lesson_id)
+                .order_by(Association_CoachLesson.id.asc())
+                .all()
+            )
+    # A stub without a real row (unit tests with MagicMock instances): fall back
+    # to the relationships, in their id order.
+    try:
+        rels = sorted(
+            (r for r in list(getattr(instance, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+        own = [r.coach for r in rels]
+    except TypeError:
+        own = []
+    if own:
+        return own
+    lesson = getattr(instance, "lesson", None)
+    if lesson is None:
+        return []
+    try:
+        rels = sorted(
+            (r for r in list(getattr(lesson, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+    except TypeError:
+        return []
+    return [r.coach for r in rels]
+
+
+def primary_coach(instance):
+    """The coach the engine and the calendar treat as "the coach" of an
+    occurrence — the first of ``coaches_for``; None when nobody coaches it."""
+    coaches = coaches_for(instance)
+    return coaches[0] if coaches else None
+
+
+def coach_instance_ids(coach_id):
+    """Ids of every occurrence ``coach_id`` coaches: through its own junction
+    row, or — when the occurrence has none — through its lesson's."""
+    from sqlalchemy import and_, exists
+
+    own = {
+        row.lesson_instance_id
+        for row in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
+    }
+    no_junction = ~exists().where(
+        Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id
+    )
+    inherited = (
+        db.session.query(LessonInstance.id)
+        .join(Lesson, Lesson.id == LessonInstance.lesson_id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(and_(Association_CoachLesson.coach_id == coach_id, no_junction))
+        .all()
+    )
+    return own | {row[0] for row in inherited}
+
+
 def create_lesson_instance_helper(data, parent_lesson=None):
     if not parent_lesson and not data.get('lesson_id'):
         raise ValueError('Need connection to parent lesson')
@@ -373,7 +460,20 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     instance_data['max_players'] = (
         instance_data.get('max_players') or parent_lesson.max_players
     )
-    instance_data['overwrite_title'] = instance_data.get('title')
+    # PAD-275 (classes.edit rule 4): overrides are nullable, NULL inherits.
+    # A title equal to the parent's is not an override.
+    _title = instance_data.get('title')
+    instance_data['overwrite_title'] = (
+        _title if _title and _title != parent_lesson.title else None
+    )
+    # Same for the level: an explicit level equal to the lesson's default is
+    # not an override (the form adapter drops None, so NULL inherits).
+    _lvl = instance_data.get('level') or instance_data.get('level_id')
+    _lvl = int(_lvl) if _lvl not in (None, '') else None
+    instance_data['level'] = (
+        _lvl if _lvl is not None and _lvl != parent_lesson.default_level_id else None
+    )
+    instance_data.pop('level_id', None)
 
     lesson_instance = LessonInstance()
     form = lesson_instance.get_create_form()
@@ -434,13 +534,28 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         )
 
     data = transform_to_datetime(lesson_instance, data)
-    data['overwrite_title'] = data.get('title')
+    # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
+    # override; the form adapter drops None, so the clear happens below.
+    _title = data.get('title')
+    _parent_title = lesson_instance.lesson.title if lesson_instance.lesson else None
+    _clears_title = bool(_title) and _title == _parent_title
+    data['overwrite_title'] = _title if _title and not _clears_title else None
 
     form = lesson_instance.get_edit_form()
     fake_request = JsonRequestAdapter(data, form)
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    if _clears_title:
+        lesson_instance.overwrite_title = None
+    # PAD-275 (classes.edit rule 4): a level equal to the lesson's default is
+    # not an override either.
+    _lvl = data.get('level') or data.get('level_id')
+    if _lvl not in (None, '') and lesson_instance.lesson is not None \
+            and int(_lvl) == lesson_instance.lesson.default_level_id:
+        # The form set the relationship; clear it too or the flush re-syncs level_id.
+        lesson_instance.level = None
+        lesson_instance.level_id = None
     lesson_instance.save()
 
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
@@ -602,22 +717,20 @@ def edit_lesson_helper(data, lesson=None):
 
 
 def duplicate_lesson_helper(old_lesson):
-    new_lesson = Lesson(
-        title=old_lesson.title,
-        type=old_lesson.type,
-        status=old_lesson.status,
-        color=old_lesson.color,
-        max_players=old_lesson.max_players,
-        default_level_id=old_lesson.default_level_id,
-        is_recurring=old_lesson.is_recurring,
-        recurrence_rule=old_lesson.recurrence_rule,
-        recurrence_end=old_lesson.recurrence_end,
-        recurs_until_season_end=old_lesson.recurs_until_season_end,
-        start_datetime=old_lesson.start_datetime,
-        end_datetime=old_lesson.end_datetime,
-        club_id=old_lesson.club_id,
-        court_id=old_lesson.court_id,
-    )
+    """Copy a lesson row — every mapped column except the identity and the
+    timestamps (classes.recurrence rule 6, PAD-275). Built from the mapper so a
+    column added later cannot be forgotten (the hand list used to drop
+    `description` and `notifications_enabled`). The caller sets the recurrence
+    bounds it changes."""
+    from sqlalchemy import inspect as sa_inspect
+
+    skip = {"id", "created_at", "updated_at"}
+    columns = {
+        attr.key: getattr(old_lesson, attr.key)
+        for attr in sa_inspect(Lesson).column_attrs
+        if attr.key not in skip
+    }
+    new_lesson = Lesson(**columns)
 
     new_lesson.create()
 

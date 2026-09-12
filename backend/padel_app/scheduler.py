@@ -755,17 +755,22 @@ def reschedule_all_future_jobs(coach_id: int) -> None:
 def _maybe_schedule_instance(instance) -> None:
     """Schedule jobs for an instance if the scheduler is running.
 
-    Resolves coach_id from the instance's coaches_relations.
+    Resolves the coach through the one helper (PAD-275, classes.coach-assignment
+    rule 4): the occurrence's own coach rows when it has any, else the lesson's.
     Logs failures instead of silently swallowing them.
     """
     try:
-        coach_rels = getattr(instance, "coaches_relations", None)
-        if coach_rels:
-            schedule_instance_jobs(instance.id, coach_rels[0].coach_id)
+        # PAD-275 (classes.coach-assignment rule 4): the instance's own coach
+        # when it has one, else the lesson's — never coach-less.
+        from padel_app.services.lesson_service import primary_coach
+
+        coach = primary_coach(instance)
+        if coach is not None:
+            schedule_instance_jobs(instance.id, coach.id)
         else:
             if _app:
                 _app.logger.warning(
-                    "_maybe_schedule_instance: instance %s has no coaches_relations — skipping",
+                    "_maybe_schedule_instance: instance %s has no coach — skipping",
                     getattr(instance, "id", "?"),
                 )
     except Exception as exc:

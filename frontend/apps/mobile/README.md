@@ -111,6 +111,14 @@ The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. 
 
 `src/lib/push/` contains an `ExpoPushRegistrar` (expo-notifications) invoked fire-and-forget from `AuthContext` on login and session restore. Every step is guarded and resolves silently: it skips on simulators (`Device.isDevice`) and on denied notification permission. `PUSH_TOKEN_ENDPOINT` is `/notifications/device` — the backend's native push-token route — so an obtained Expo token is registered there (and deleted on logout). This is a separate contract from browser Web-Push, which the web app registers at `/api/notifications/save-subscription`; native iOS never calls that path.
 
+**Android (PAD-307, wave C prep).** Expo push tokens are platform-neutral, so the same registrar
+and the same backend route serve Android: the client creates the `default` channel at HIGH
+importance (name "Messages") before the Android 13+ `POST_NOTIFICATIONS` prompt, sends
+`platform: "android"` (the backend accepts only `ios` / `android`), and every Expo message
+carries `channelId: "default"` + `priority: "high"`. Delivery over FCM needs owner steps outside
+the repo (Firebase project, `google-services.json`, FCM V1 key on the Expo project, optional
+`EXPO_ACCESS_TOKEN`): `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
+
 ## API contract
 
 [`API-CONTRACT.md`](API-CONTRACT.md) documents the full backend surface (auth scheme, rolling `X-New-Token` refresh, every endpoint with request/response shapes), derived from the Flask source. The typed client in `packages/api` targets it — do not invent endpoints.
@@ -132,6 +140,10 @@ workflow **Android build** (`.github/workflows/android-build.yaml`) is the Andro
   Flask on `:5001`, an x86_64 API 34 emulator, and Maestro running the flows in
   `MAESTRO_FLOWS` (default `flows/01-login.yaml`). `maestro-results` carries the junit report,
   Maestro's screenshots/logs and the Flask log, on success and on failure.
+
+Flows tagged `ios-only` (today `47-push-tap-routing`, which drives `xcrun simctl push`) are
+excluded on the lane until wave C brings Android push; flow 45's no-club coach comes from the E2E
+seed (`e2e-coach-noclub`) and is passed to Maestro by the script (PAD-306).
 
 Runs on every pull request into `staging` that touches `apps/mobile`, `packages/*` or the
 workflow, so a branch gets its run by opening a (draft) PR. `workflow_dispatch` (input `flows`)
