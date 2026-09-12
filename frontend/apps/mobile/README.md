@@ -111,6 +111,14 @@ The flows in `.maestro/flows/` mirror the critical journeys of `apps/web/e2e/`. 
 
 `src/lib/push/` contains an `ExpoPushRegistrar` (expo-notifications) invoked fire-and-forget from `AuthContext` on login and session restore. Every step is guarded and resolves silently: it skips on simulators (`Device.isDevice`) and on denied notification permission. `PUSH_TOKEN_ENDPOINT` is `/notifications/device` — the backend's native push-token route — so an obtained Expo token is registered there (and deleted on logout). This is a separate contract from browser Web-Push, which the web app registers at `/api/notifications/save-subscription`; native iOS never calls that path.
 
+**Android (PAD-307, wave C prep).** Expo push tokens are platform-neutral, so the same registrar
+and the same backend route serve Android: the client creates the `default` channel at HIGH
+importance (name "Messages") before the Android 13+ `POST_NOTIFICATIONS` prompt, sends
+`platform: "android"` (the backend accepts only `ios` / `android`), and every Expo message
+carries `channelId: "default"` + `priority: "high"`. Delivery over FCM needs owner steps outside
+the repo (Firebase project, `google-services.json`, FCM V1 key on the Expo project, optional
+`EXPO_ACCESS_TOKEN`): `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
+
 ## API contract
 
 [`API-CONTRACT.md`](API-CONTRACT.md) documents the full backend surface (auth scheme, rolling `X-New-Token` refresh, every endpoint with request/response shapes), derived from the Flask source. The typed client in `packages/api` targets it — do not invent endpoints.

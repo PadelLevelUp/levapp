@@ -21,6 +21,10 @@ bp = Blueprint("notifications_api", __name__, url_prefix="/api/notifications")
 # browser Web-Push subscribe/unsubscribe routes above.
 # ---------------------------------------------------------------------------
 
+#: Values `POST /device` accepts for `platform` (what the Expo client sends as Platform.OS).
+DEVICE_PLATFORMS = frozenset({"ios", "android"})
+
+
 @bp.post("/device")
 @jwt_required()
 def register_device_token():
@@ -30,6 +34,11 @@ def register_device_token():
     platform = data.get("platform")
     if not token:
         abort(400, "token is required")
+    # messaging.push-notifications rule 11b (PAD-307): the platform is recorded
+    # as sent and must be one the app ships on. Exact match, no normalisation —
+    # the clients send Platform.OS, which is already lowercase. No DB CHECK.
+    if platform not in DEVICE_PLATFORMS:
+        abort(400, "platform must be one of: " + ", ".join(sorted(DEVICE_PLATFORMS)))
 
     # messaging.push-notifications rule 9 (PAD-269): a token is owned per
     # (user, token). Registering upserts the caller's own row and never touches
