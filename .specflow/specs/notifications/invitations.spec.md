@@ -144,6 +144,23 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
      decline, cancellation and structural paths.
 
+15. **A vacancy is closed in exactly one place, and closing retires every live invitation
+    (PAD-317, ledger B-081; numbered 15 because 14 is taken by PAD-303 on PR #228, which is
+    open and merges first).** `_close_vacancy` is the only writer of `Vacancy.status =
+    "filled"`: it stamps `filled_by_player_id` and `filled_at`, expires every
+    `NotificationEvent` for that vacancy whose status is still non-terminal —
+    `LIVE_INVITATION_STATES`, today `sent` and `queued` — and retires each one's invitation
+    message so its Yes/No buttons stop rendering. All five closing paths go through it: the
+    student accept, the coach accept on the student's behalf, the waiting-list placement, the
+    accepted join request, and capacity reconciliation (rule 13). `except_event_id` spares the
+    winner's own invitation, which its caller marks `confirmed`. The routine returns the events
+    it retired, because a caller that still has to tell those candidates cannot find them again
+    afterwards — a query for live invitations returns nothing once they are expired.
+    **Retiring is not the same as telling.** The two accept paths and the join-request accept
+    send the other candidates the `spot_filled` message; the waiting-list placement and
+    reconciliation retire silently, as they always have. Whether a candidate should be told
+    their seat went is a product question, deliberately left open here.
+
 ### Acceptance Criteria
 
 #### A coach add closes the open vacancy (rule 13)
@@ -331,3 +348,10 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - When the widest wave is evaluated and ranked for each vacancy
 - Then the 60-student wave issues no more SQL statements than the 6-student wave plus two, and fewer than 60 in total
 - And every blocked student's verdict is `unavailable`, every other student is `invited`, and the batched attendance stats equal the per-player stats for every survivor (0.0/0.0 for a student with no history)
+
+#### A filled vacancy stops inviting, whichever door filled it (PAD-317)
+- **Given** an open vacancy with one `sent` invitation and one `queued` invitation out for it
+- **When** the spot is filled by any path — a student accepting, a coach accepting for them, a waiting-list placement, an accepted join request, or capacity reconciliation
+- **Then** the vacancy is `filled` and neither invitation is left in a live state
+- **And** neither candidate's invitation message stays actionable
+- **And** the winner's own invitation is untouched by the close, and is marked `confirmed` by the path that accepted it
