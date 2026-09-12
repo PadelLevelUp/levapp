@@ -109,6 +109,17 @@ appId: com.padellevelup.app
 # (`cancelledByStudent`), which no rendering can flatter.
 
 # ── The server says "cancelled by the student"; then clean up ──
+# Class detail is a root-stack screen without the tab header: it replaces the
+# header avatar with a back button, so `header-account` — which logout.yaml
+# looks for — does not exist here. Leave the screen first, exactly as flow 42
+# does. Found by F's run of this flow, which reached the cancel and then died
+# in the shared subflow rather than on its own assertion.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
 - runFlow: ../subflows/logout.yaml
 - evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
 - evalScript: "${output.instance = output.events.filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
