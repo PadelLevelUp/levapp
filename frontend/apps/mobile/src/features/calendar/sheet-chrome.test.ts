@@ -27,3 +27,11 @@ describe("day sheet chrome (iOS parity with web)", () => {
     expect(SHEET_COLLAPSED_HEIGHT).toBe(SHEET_HANDLE_HEIGHT + 76);
   });
 });
+
+// PAD-298 — mobile.android-runtime rule 1, criterion "The day sheet has depth on
+// Android": Android ignores the iOS shadow props, so `elevation` sits beside them.
+describe("day sheet chrome on Android (PAD-298)", () => {
+  it("carries an elevation of at least 8 beside the iOS shadow props", () => {
+    expect((SHEET_SHADOW as { elevation?: number }).elevation).toBeGreaterThanOrEqual(8);
+  });
+});

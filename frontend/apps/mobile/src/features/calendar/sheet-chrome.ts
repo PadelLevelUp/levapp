@@ -15,4 +15,9 @@ export const SHEET_SHADOW = {
   shadowOffset: { width: 0, height: -10 },
   shadowOpacity: 0.14,
   shadowRadius: 12,
+  // Android ignores the four props above and draws depth from `elevation`
+  // (mobile.android-runtime rule 1); iOS ignores this one. NativeWind's
+  // `shadow-lg` is elevation 8, so the sheet keeps the depth it had before
+  // PAD-286 moved it to raw props.
+  elevation: 8,
 } as const;
