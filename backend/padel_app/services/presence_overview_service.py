@@ -255,27 +255,22 @@ def build_presence_trend(
 def _response_state(presence: Presence) -> str:
     """How the player answered before the class — the RSVP tri-state.
 
-    ``declined`` is a real answer (the student said they weren't coming), so it
-    does not block validation; only ``none`` does.
+    A projection of ``Presence.attendance_state`` (PAD-313, attendance.presence
+    rule 9), never a second ordering of the same columns: this function used to
+    hand-order that precedence itself, tested ``confirmed`` first, and so
+    reported a student who had just cancelled as "confirmed" (B-073). Two places
+    deriving one fact is how that survived, so there is now one.
 
-    The ``validated`` guard matters. A coach marking someone absent from the
-    class-detail sheet writes exactly the same columns a student decline does
-    (``status='absent'``, ``confirmed=False``) — the difference is that
-    ``add_presences`` also stamps ``validated=True``. Without the guard this
-    would report the coach's own decision back to them as "the student said they
-    couldn't make it", which is a claim the student never made. When the record
-    is already the coach's, fall back to what ``confirmed`` alone can support.
+    ``declined`` is a real answer — the student said they were not coming — so it
+    does not block validation; only ``none`` does. A validated row reports
+    ``none`` here because the record is then the coach's, and reporting it back
+    as the student's answer would be a claim the student never made.
     """
-    # PAD-313 (B-073): a decline also sets ``confirmed`` — the flag means
-    # *answered*, not *coming* — so the absent check comes FIRST. Testing
-    # ``confirmed`` first reported a student who had just cancelled as
-    # "confirmed", identical to one who accepted.
-    if presence.status == "absent" and not presence.validated:
-        return "declined"
-    if presence.validated:
-        return "none"
-    if presence.confirmed:
+    state = presence.attendance_state
+    if state == "coming":
         return "confirmed"
+    if state == "not_coming":
+        return "declined"
     return "none"
 
 

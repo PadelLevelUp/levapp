@@ -1560,6 +1560,55 @@ def _send_system_message(
     return msg
 
 
+def _notify_coach_of_refused_return(instance, player, player_user_id, coach_user_id, locale="en"):
+    """Tell the coach a student tried to come back and the seat was already gone.
+
+    PAD-313. The coach is told when a student cancels, and told again when one
+    confirms — but a refused RETURN produced nothing, so the only person who
+    could put the student back had no idea they had asked. This is that signal,
+    and it is the reason the refusal is safe: a seat is never silently
+    double-booked, and a human can still fix it.
+
+    Sent from the student into the same coach-student conversation the
+    cancellation used, so the two sit together in one thread.
+    """
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+
+    if not coach_user_id or not player_user_id:
+        return None
+    is_pt = (locale or "").startswith("pt")
+    player_name = (player.user.name if player and player.user else None) or (
+        "Um jogador" if is_pt else "A player"
+    )
+    class_title = instance.title or ("a aula" if is_pt else "the class")
+    when = _format_class_when(instance, locale)
+    if is_pt:
+        text = (
+            f"{player_name} quis voltar a {class_title}{when}, mas a vaga "
+            f"já estava ocupada."
+        )
+    else:
+        text = (
+            f"{player_name} wanted to re-join {class_title}{when}, but the spot "
+            f"was already taken."
+        )
+    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    msg = Message(
+        text=text,
+        sender_id=player_user_id,
+        conversation_id=conv.id,
+        message_type="text",
+        msg_metadata={"returnRefused": True, "lessonInstanceId": instance.id},
+    )
+    msg.create()
+    publish(
+        {"type": "message_created", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
+    return msg
+
+
 def _notify_coach_of_cancellation(
     coach_user_id: int,
     player_user_id: int,
@@ -2664,8 +2713,59 @@ def respond_to_reminder(
 
     if action == "yes":
         if presence:
+            # PAD-313 (B-073): a "yes" must undo what a previous "no" wrote.
+            # The decline path sets status=absent/justification=justified and the
+            # yes branch used to leave them, so a student who cancelled and then
+            # answered yes kept a row that said absent: the class did not count
+            # them (`effective_filled_spots` subtracts absent presences) and their
+            # spot stayed open for the engine to give away, while the app told
+            # them they were confirmed. The columns carry no timestamp, so no
+            # reader can tell which answer was newer — only the writer can.
+            # The coach's own record is never touched: `validated` rows are the
+            # coach's to change.
+            retaking = presence.status == "absent" and not presence.validated
+            if retaking:
+                # They gave the spot up; taking it back is a capacity decision,
+                # so it is made under the class lock like every other one
+                # (PAD-261, notifications.invitations rule 10).
+                locked = _lock_instance(instance)
+                if (
+                    locked.max_players is not None
+                    and _effective_filled_spots(locked) >= locked.max_players
+                ):
+                    db.session.commit()  # release the lock, change nothing
+                    # The student must be TOLD. A tap that changes nothing and
+                    # says nothing is how this stayed invisible: they would keep
+                    # believing they had a seat. Same wording the engine already
+                    # uses when a vacancy is taken before an answer arrives.
+                    if coach_user_id:
+                        _send_system_message(
+                            coach_user_id,
+                            acting_user_id,
+                            resolve_message_template(templates, "spot_filled", locale),
+                            class_instance_id=instance.id,
+                        )
+                    # And tell the COACH, who is the only one who can put them
+                    # back: they were told of the cancellation, so without this
+                    # their last word on this student is "not coming".
+                    _notify_coach_of_refused_return(
+                        instance, player, acting_user_id, coach_user_id, locale=locale
+                    )
+                    _mark_answered_message_read(reminder_msg, acting_user_id)
+                    return {"action": "spot_filled"}
+                presence.status = None
+                presence.justification = None
+                presence.late_cancellation = False
+                # Their own vacancy's premise — that this player left — is void
+                # now they are back, and capacity alone will not close it: a
+                # half-empty class has open spots to spare, so the general
+                # reconciliation leaves it standing and the engine keeps
+                # offering the seat its owner just re-took.
+                own = _open_vacancy_for(locked.id, player.id)
+                if own is not None:
+                    _close_vacancy(own, player.id)
             presence.confirmed = True
-            # status intentionally not set — only the coach marks someone as present
+            # status is not set to "present": only the coach marks attendance.
             presence.save()
         if coach_user_id:
             _send_system_message(
@@ -3383,6 +3483,24 @@ def trigger_invitations(
 # Recurring batch processor (called by APScheduler every 2 minutes)
 # ---------------------------------------------------------------------------
 
+def _close_vacancy(vacancy: Vacancy, filled_by_player_id: int | None) -> None:
+    """Mark one vacancy taken and retire the invitations still offering it.
+
+    The single place that closes a vacancy, so "filled" always means the same
+    thing and no caller forgets the invitations still sitting in candidates'
+    inboxes.
+    """
+    vacancy.status = "filled"
+    vacancy.filled_by_player_id = filled_by_player_id
+    vacancy.filled_at = utcnow_naive()
+    for event in NotificationEvent.query.filter(
+        NotificationEvent.vacancy_id == vacancy.id,
+        NotificationEvent.status.in_(("sent", "queued")),
+    ).all():
+        event.status = "expired"
+        _retire_invite_message(event)
+
+
 def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
     """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
 
@@ -3415,15 +3533,7 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
-        pick.status = "filled"
-        pick.filled_by_player_id = filled_by_player_id
-        pick.filled_at = utcnow_naive()
-        for event in NotificationEvent.query.filter(
-            NotificationEvent.vacancy_id == pick.id,
-            NotificationEvent.status.in_(("sent", "queued")),
-        ).all():
-            event.status = "expired"
-            _retire_invite_message(event)
+        _close_vacancy(pick, filled_by_player_id)
         closed.append(pick)
     if closed:
         commit_or_flush()
