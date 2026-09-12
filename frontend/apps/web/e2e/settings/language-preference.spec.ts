@@ -32,10 +32,17 @@ async function openPreferences(page: Page) {
 async function selectLanguage(page: Page, option: RegExp) {
   await page.getByLabel(/language|idioma/i).click();
   await page.getByRole("option", { name: option }).click();
-  // Save (button label is localized, so match either language).
+  // PAD-300 (load flake, B-079): the save is `PATCH /auth/me`; under load it
+  // outlived the 5 s toast wait and the nav was still in the old language.
+  // Wait for the response itself, then for the toast.
+  const saved = page.waitForResponse(
+    (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200,
+    { timeout: 30_000 }
+  );
   await page
     .getByRole("button", { name: /save changes|guardar altera/i })
     .click();
+  await saved;
   await expect(
     page.getByText(/settings saved|saved|guardad|preferências/i).first()
   ).toBeVisible({ timeout: 5000 });

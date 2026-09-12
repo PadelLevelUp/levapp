@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PAD-240 — runs .maestro/flows/29-push-tap-routing.yaml and delivers the
+# PAD-240 — runs .maestro/flows/47-push-tap-routing.yaml and delivers the
 # simulated push it waits for. Requires the same prerequisites as e2e.sh
 # (Flask, Metro, booted simulator with the dev build) — see the README.
 #
@@ -20,7 +20,7 @@ export PATH="$HOME/.maestro/bin:$PATH"
 export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
 
 OUT="$(mktemp -t pad240-maestro)"
-maestro --device "$SIM_UDID" test "$MOBILE_DIR/.maestro/flows/29-push-tap-routing.yaml" > "$OUT" 2>&1 &
+maestro --device "$SIM_UDID" test "$MOBILE_DIR/.maestro/flows/47-push-tap-routing.yaml" > "$OUT" 2>&1 &
 MAESTRO_PID=$!
 
 for _ in $(seq 1 "$READY_TIMEOUT"); do

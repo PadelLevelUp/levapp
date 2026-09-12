@@ -136,15 +136,15 @@ def test_server_refuses_what_the_calendar_would_not_show(app):
 # ── AC: a student cannot request a class they are already in ────────────────
 
 def test_an_enrolled_student_cannot_request(app):
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+    from padel_app.models import LessonInstance
     from padel_app.services.class_join_request_service import create_join_request_service
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
     pid = _student(app, ids, "member")
     with app.app_context():
-        db.session.add(Association_PlayerLessonInstance(player_id=pid, lesson_instance_id=ids["instance_id"]))
-        db.session.commit()
+        enrol(pid, db.session.get(LessonInstance, ids["instance_id"]), "coach")
         with pytest.raises(HTTPException) as e:
             create_join_request_service(_player(pid), "LessonInstance", ids["instance_id"], None)
         assert _refusal(e)["code"] == "already_enrolled"
@@ -216,13 +216,15 @@ def test_requesting_a_virtual_occurrence_materializes_it(app):
 # ── AC: first fill wins ──────────────────────────────────────────────────────
 
 def _fill_to_one_spot(app, ids, count=3):
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+    from padel_app.models import LessonInstance
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
     with app.app_context():
+        instance = db.session.get(LessonInstance, ids["instance_id"])
         for i in range(count):
             pid = _add_student(ids["coach_id"], f"filler{i}", level_id=ids["level_ids"]["5"])
-            db.session.add(Association_PlayerLessonInstance(player_id=pid, lesson_instance_id=ids["instance_id"]))
-        db.session.commit()
+            db.session.commit()
+            enrol(pid, instance, "coach")
 
 
 @pytest.mark.parametrize("auto_reply", [True, False])

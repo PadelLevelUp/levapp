@@ -81,6 +81,12 @@ def _seed(app, *, now):
                 db.session.add(
                     Association_PlayerLessonInstance(player_id=p.id, lesson_instance_id=inst.id)
                 )
+                # PAD-259: the presence row is the enrolment; the junction is the shadow.
+                db.session.add(
+                    Presence(lesson_instance_id=inst.id, player_id=p.id, invited=True,
+                             enrolment_source="roster")
+                )
+            db.session.flush()
             return inst
 
         soon = make_class("B1 Class", now + timedelta(minutes=45), 6, players[:2])
@@ -88,14 +94,11 @@ def _seed(app, *, now):
 
         # A class that already ended, with one attendance still unvalidated.
         past = make_class("Past Class", now - timedelta(days=2), 4, players[:1])
-        db.session.add(
-            Presence(
-                lesson_instance_id=past.id,
-                player_id=players[0].id,
-                status="present",
-                validated=False,
-            )
-        )
+        past_presence = Presence.query.filter_by(
+            lesson_instance_id=past.id, player_id=players[0].id
+        ).one()
+        past_presence.status = "present"
+        past_presence.validated = False
         db.session.commit()
 
         return coach.id, coach_user.id, soon.id

@@ -135,7 +135,7 @@ def _eligibility_provenance(obj, coach_id):
     }
 
 
-def serialize_class_instance(obj, viewer_player_id=None) -> dict:
+def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
     Fields already provided by CalendarEvent are intentionally omitted.
@@ -160,9 +160,12 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         else None
     )
 
+    # PAD-259: an instance's roster is its presences (classes.instance-enrollment
+    # rule 6); a Lesson template's is the series roster.
+    roster_rows = obj.presences if is_instance else obj.players_relations
     participants = [
         serialize_player(rel.player)
-        for rel in obj.players_relations
+        for rel in roster_rows
         if not is_student or rel.player_id == viewer_player_id
     ]
 
@@ -311,5 +314,48 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             data["joinRequests"] = [
                 serialize_join_request(r) for r in pending_requests_for_instance(obj.id)
             ]
+    elif occurrence_date is not None:
+        # attendance.confirm rule 20 (PAD-288/PAD-282): a virtual occurrence
+        # carries the same cancel/decline windows as a materialised one, so
+        # both shells can offer the action before any row exists.
+        data.update(_virtual_occurrence_windows(obj, coach_id, occurrence_date))
+        data["presences"] = []
 
     return data
+
+
+def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+
+    from padel_app.models.notification_config import (
+        DEFAULT_CANCELLATION_DEADLINE_HOURS,
+        NotificationConfig,
+    )
+    from padel_app.services.notification_service import (
+        proactive_decline_deadline,
+        proactive_decline_window_is_open,
+    )
+    from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
+
+    start = datetime.combine(occurrence_date, lesson.start_datetime.time())
+    stand_in = SimpleNamespace(id=None, start_datetime=start)
+    config = (
+        NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        if coach_id is not None else None
+    )
+    deadline_hours = (
+        config.get_cancellation_deadline_hours() if config is not None
+        else DEFAULT_CANCELLATION_DEADLINE_HOURS
+    )
+    proactive_dt = proactive_decline_deadline(stand_in, config)
+    return {
+        "cancellationDeadlineHours": deadline_hours,
+        "cancellationDeadline": utc_to_wall_naive(
+            wall_to_utc_naive(start) - timedelta(hours=deadline_hours)
+        ).isoformat(),
+        "proactiveDeclineDeadline": (
+            utc_to_wall_naive(proactive_dt).isoformat() if proactive_dt is not None else None
+        ),
+        "canDeclineProactively": proactive_decline_window_is_open(stand_in, config),
+    }

@@ -63,6 +63,21 @@ def _seed_coach_and_student(app):
         }
 
 
+def _presence(instance_id, player_id, **flags):
+    """PAD-259: the seed already enrolled the student (the presence row IS the
+    enrolment), so a test that needs particular flags sets them on that row."""
+    from padel_app.models.presences import Presence
+
+    p = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).first()
+    if p is None:
+        p = Presence(lesson_instance_id=instance_id, player_id=player_id)
+        db.session.add(p)
+    for key, value in flags.items():
+        setattr(p, key, value)
+    db.session.commit()
+    return p
+
+
 def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
     """Create a lesson and instance. Returns instance_id."""
     from padel_app.models.lessons import Lesson
@@ -114,11 +129,12 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
             coach_id=coach_id,
             lesson_instance_id=instance.id,
         ))
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=student_id,
-            lesson_instance_id=instance.id,
-        ))
         db.session.commit()
+        # PAD-259: the presence row is the enrolment; the shadow junction row
+        # is written by the same single writer.
+        from padel_app.services.lesson_service import enrol
+
+        enrol(student_id, instance, "coach")
         return instance.id
 
 
@@ -798,13 +814,7 @@ class TestPastClassReminderExpiry:
         _seed_replacement_candidates(app, ids["coach_id"], 3)
 
         with app.app_context():
-            Presence(
-                lesson_instance_id=instance_id,
-                player_id=ids["student_id"],
-                invited=True,
-                confirmed=True,
-                status="absent",
-            ).create()
+            _presence(instance_id, ids["student_id"], invited=True, confirmed=True, status="absent")
             instance = LessonInstance.query.get(instance_id)
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 notified = trigger_invitations(
@@ -889,13 +899,22 @@ class TestPastClassReminderExpiry:
 
 class TestResponseAlwaysRecorded:
 
-    def test_decline_creates_presence_when_missing(self, app):
+    def test_decline_after_removal_is_recorded_without_reenrolling(self, app):
         """PAD-69: with no Presence row the answer used to be silently dropped,
-        and the follow-up reminder was then sent as if nothing was answered."""
+        and the follow-up reminder was then sent as if nothing was answered.
+
+        PAD-259 (classes.instance-enrollment rule 7, owner decision 2026-09-11):
+        the presence row is now the enrolment, so a missing row means the
+        student was taken off this date after the reminder went out. The answer
+        is still never lost — it lands on the reminder attempt, so no follow-up
+        fires — but it no longer creates a row (that would re-enrol them) and
+        opens no vacancy."""
+        from padel_app.services.lesson_service import unenrol
         from padel_app.services.notification_service import (
             respond_to_reminder,
             send_class_reminders,
         )
+        from padel_app.models import Association_PlayerLesson, LessonInstance, ReminderAttempt, Vacancy
         from padel_app.models.messages import Message
         from padel_app.models.presences import Presence
 
@@ -904,25 +923,29 @@ class TestResponseAlwaysRecorded:
         _config_with_repeat(app, ids["coach_id"], count=2, hours=2)
 
         with app.app_context():
+            instance = db.session.get(LessonInstance, instance_id)
+            # Still on the series roster: only this date was taken away.
+            db.session.add(Association_PlayerLesson(player_id=ids["student_id"], lesson_id=instance.lesson_id))
+            db.session.commit()
             t0 = datetime.utcnow()
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 send_class_reminders(instance_id, now=t0)
-                # Simulate the Presence row being absent when the student answers.
-                Presence.query.filter_by(
-                    lesson_instance_id=instance_id, player_id=ids["student_id"]
-                ).first().delete()
+                unenrol(ids["student_id"], db.session.get(LessonInstance, instance_id))
 
-                respond_to_reminder(
+                result = respond_to_reminder(
                     instance_id, "no", ids["student_user_id"], now=t0 + timedelta(minutes=30)
                 )
                 send_class_reminders(instance_id, now=t0 + timedelta(hours=2))
 
-            presence = Presence.query.filter_by(
+            assert result == {"action": "not_enrolled"}
+            assert Presence.query.filter_by(
                 lesson_instance_id=instance_id, player_id=ids["student_id"]
-            ).first()
-            assert presence is not None
-            assert presence.confirmed is True
-            assert presence.status == "absent"
+            ).first() is None
+            assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
+            attempt = ReminderAttempt.query.filter_by(
+                lesson_instance_id=instance_id, player_id=ids["student_id"]
+            ).one()
+            assert attempt.superseded or attempt.responded_at is not None
 
             # Exactly one reminder: no follow-up after an answer was given.
             assert Message.query.filter_by(message_type="notification_reminder").count() == 1
@@ -967,9 +990,7 @@ class TestRespondToReminder:
 
         with app.app_context():
             # Create presence first (as send_class_reminders would)
-            p = Presence(lesson_instance_id=instance_id, player_id=ids["student_id"],
-                         invited=True, confirmed=False)
-            p.create()
+            p = _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 result = respond_to_reminder(instance_id, "yes", ids["student_user_id"])
@@ -991,9 +1012,7 @@ class TestRespondToReminder:
         instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"])
 
         with app.app_context():
-            p = Presence(lesson_instance_id=instance_id, player_id=ids["student_id"],
-                         invited=True, confirmed=False)
-            p.create()
+            p = _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 respond_to_reminder(instance_id, "yes", ids["student_user_id"])
@@ -1009,9 +1028,7 @@ class TestRespondToReminder:
         instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=96)
 
         with app.app_context():
-            p = Presence(lesson_instance_id=instance_id, player_id=ids["student_id"],
-                         invited=True, confirmed=False)
-            p.create()
+            p = _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 result = respond_to_reminder(instance_id, "no", ids["student_user_id"])
@@ -1038,9 +1055,7 @@ class TestRespondToReminder:
         instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=96)
 
         with app.app_context():
-            p = Presence(lesson_instance_id=instance_id, player_id=ids["student_id"],
-                         invited=True, confirmed=False)
-            p.create()
+            p = _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 respond_to_reminder(instance_id, "no", ids["student_user_id"])
@@ -1067,9 +1082,7 @@ class TestRespondToReminder:
             # Enable auto-notify so trigger_invitations can proceed
             NotificationConfig(coach_id=ids["coach_id"], auto_notify_enabled=True).create()
 
-            p = Presence(lesson_instance_id=instance_id, player_id=ids["student_id"],
-                         invited=True, confirmed=False)
-            p.create()
+            p = _presence(instance_id, ids["student_id"], invited=True, confirmed=False)
 
             # now = current time → invite start was 14h ago (24 - 10) → should trigger vacancy
             now = datetime.utcnow()
@@ -1219,14 +1232,7 @@ class TestCancelAttendance:
     def _confirmed_presence(self, app, instance_id, player_id):
         from padel_app.models.presences import Presence
         with app.app_context():
-            presence = Presence(
-                player_id=player_id,
-                lesson_instance_id=instance_id,
-                invited=True,
-                confirmed=True,
-            )
-            db.session.add(presence)
-            db.session.commit()
+            presence = _presence(instance_id, player_id, invited=True, confirmed=True)
             return presence.id
 
     def test_cancel_before_start_reverts_presence(self, app):
@@ -1239,7 +1245,7 @@ class TestCancelAttendance:
 
         with app.app_context():
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                result = cancel_attendance(instance_id, ids["student_user_id"])
+                result = cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             assert result["action"] == "declined"
             presence = Presence.query.filter_by(
@@ -1265,7 +1271,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             vacancy = Vacancy.query.filter_by(
                 lesson_instance_id=instance_id,
@@ -1287,7 +1293,7 @@ class TestCancelAttendance:
             future_now = datetime.utcnow() + timedelta(hours=72)
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 with pytest.raises(Conflict):
-                    cancel_attendance(instance_id, ids["student_user_id"], now=future_now)
+                    cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=future_now)
 
             # Presence unchanged (still confirmed, no absent status).
             presence = Presence.query.filter_by(
@@ -1321,7 +1327,7 @@ class TestCancelAttendance:
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 # now = current time → start is ~48h away → 24h before the
                 # deadline → NOT late.
-                result = cancel_attendance(instance_id, ids["student_user_id"])
+                result = cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             assert result["action"] == "declined"
             presence = Presence.query.filter_by(
@@ -1361,7 +1367,7 @@ class TestCancelAttendance:
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]):
                 result = cancel_attendance(
-                    instance_id, ids["student_user_id"], now=now
+                    ids["student_user_id"], lesson_instance_id=instance_id, now=now
                 )
 
             assert result["action"] == "declined"
@@ -1409,7 +1415,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             # Exactly one coach-facing cancellation message.
             msgs = self._coach_cancellation_messages(
@@ -1461,7 +1467,7 @@ class TestCancelAttendance:
             # now = +30h → 18h before start → past the 24h deadline → late.
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
-                cancel_attendance(instance_id, ids["student_user_id"], now=now)
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=now)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id
@@ -1504,7 +1510,7 @@ class TestCancelAttendance:
             # now = +30h → 18h before start → past the 24h deadline → late.
             now = datetime.utcnow() + timedelta(hours=30)
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"], now=now)
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=now)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id
@@ -1541,7 +1547,7 @@ class TestCancelAttendance:
             db.session.commit()
 
             with patch(PATCHES[0]), patch(PATCHES[1]):
-                cancel_attendance(instance_id, ids["student_user_id"])
+                cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             msgs = self._coach_cancellation_messages(
                 app, ids["coach_user_id"], ids["student_user_id"], instance_id

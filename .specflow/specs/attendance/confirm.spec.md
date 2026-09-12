@@ -32,7 +32,7 @@ Players confirm or decline their attendance in response to a reminder notificati
     - the vacancy is created **immediately** (`_ensure_vacancy_for_player`), so the spot reads as free the moment the student declines, without waiting for the next batch tick;
     - **invitation timing is unchanged**: invitations are only sent when `now >= invitationStart` (`notifications.invitations`). A decline 10 days out pre-creates the vacancy and sends nothing; the existing `invite_start_{instance_id}` job fans out at the configured hour. Semi-automatic mode still routes through coach approval
     - the coach is notified exactly once, with wording that distinguishes a proactive decline from a plain or late cancellation, and a machine-readable `msg_metadata.proactiveDecline` marker alongside the existing `cancellation` / `lateCancellation` / `lessonInstanceId` keys
-14. **Authorization.** `cancel_attendance` is authorized on **enrolment**, not on the presence row: the acting user must resolve to a `Player` who has an `Association_PlayerLessonInstance` for that instance, otherwise 403. A student may only ever decline their own enrolment on a class they are actually in (PAD-88 / PAD-115 precedent)
+14. **Authorization.** `cancel_attendance` is authorized on **enrolment**: the acting user must resolve to a `Player` who holds a `Presence` on that instance (the enrolment since PAD-259, `classes.instance-enrollment` rule 1; before PAD-259 the junction row), otherwise 403. On a virtual occurrence the series roster is checked before materialising (rule 18). A student may only ever decline their own enrolment on a class they are actually in (PAD-88 / PAD-115 precedent)
 15. **How the invitation-timing guarantee is enforced.** Declining to call `trigger_invitations` is *not* sufficient to hold invitations back: `process_invitation_batches` sweeps every `status="open"` vacancy every two minutes and fires a batch immediately on any vacancy whose `last_activity_at` is `None`. The only thing it defers to is `Vacancy.invite_not_before`. Therefore a vacancy created by a decline that lands **before** `invitationStart` is stamped with `invite_not_before = invitationStart` (the same field the semi-automatic approval path stamps, and the same field `trigger_invitations` and `_send_invitation_batch` already honour). Without this stamp a decline 10 days out would fan out invitations within two minutes, defeating rule 13. This applies to the whole shared decline path (`_free_spot_for_declining_player`), so a reminder decline outside the invitation window is held back too — which is what `notifications.invitations` already specified
 16. **Frontend.** The proactive-decline affordance lives in the class-detail **participants** section, on the student's own row, and is shown only while the proactive window is open (`canDeclineProactively`). The class-instance payload exposes `proactiveDeclineDeadline` (a naive ISO-8601 string on the club's wall clock, or null; PAD-256) and `canDeclineProactively` (bool), both computed by the same server helper as rule 10, so the button is never offered when the server would refuse it. Once the window closes the affordance disappears and the existing rule-9 cancel action remains the way to decline (a normal/late cancellation). After declining, the student's own row shows a persistent "not attending / justified absence" state **derived from their serialized presence** (`status==="absent" && justification==="justified"`), so it survives a reload. All copy goes through `src/locales/{pt,en}/calendar.json`; default locale `pt`. **(PAD-170 C5)** The affordance exists on **both** shells — web's `ClassDetailSheet` and iOS's `app/class/[id].tsx` — under the student's own attendance block, with the same three states: the "I can't attend" button plus its hint while the window is open, the persistent "not attending / justified absence" panel once declined, and the plain rule-9 cancel action once the window has closed. iOS reads `canDeclineProactively` from the same payload and never re-derives the reminder instant, so a phone can no more offer the action out of window than the browser can
 17. **Owner only (PAD-258, audit H4).** `POST /api/app/class_instance/presences/confirm` resolves
@@ -41,6 +41,38 @@ Players confirm or decline their attendance in response to a reminder notificati
    BEFORE anything is materialised or written; 403 otherwise. Every `playerId` in the payload
    must be enrolled in that class or on the caller's roster — an arbitrary id is 403, not an
    upsert.
+
+#### Early cancellation on an occurrence that has no row yet (PAD-288, PAD-282; rule numbers 18–20 self-assigned by Session H on 2026-09-11, unconfirmed)
+18. **Materialise on demand (owner decision, 2026-09-11).** `POST /api/app/notify/cancel_attendance`
+   accepts either `{lessonInstanceId}` (unchanged) or `{model, originalId, date}` exactly as the
+   calendar event carries them (`model` is `Lesson` or `LessonInstance`). With the second shape the
+   server resolves the occurrence the way a join request does (`classes.join-requests` rule 2,
+   `resolve_instance`): a `Lesson` occurrence with no instance row is **authorised first, then
+   materialised** — the acting student must be on the lesson's roster (`Association_PlayerLesson`)
+   before anything is created, so a non-enrolled student can never cause a materialisation (403,
+   nothing written); once enrolled, `get_or_materialize_instance` creates the row and every roster
+   presence (`classes.instances` rule 2), and the cancel then proceeds on the instance exactly as
+   rules 4–15 describe. A `date` the recurrence does not produce is 404; a date whose start has
+   passed is 409 (rule 4). This closes PAD-282: a class created from a student's own request for
+   the next day never gets a reminder job (its fire time is already past), so nothing ever
+   materialised it and the cancel had no instance to attach to.
+19. **How far ahead, and what kind of decline it is.** Any future occurrence the student can see on
+   their calendar may be cancelled — there is no upper bound beyond the recurrence itself. A cancel
+   ahead of the reminder is, by rule 10, a **proactive decline**: never late (rule 12), the spot
+   freed at once, invitations held to `invitationStart` through `invite_not_before` (rule 15), the
+   coach told exactly once (rules 8 and 13). No new state, column or endpoint. Leaving the whole
+   series is not this action (`classes.enrollment`); undoing a cancellation is not offered — the
+   student asks the coach, or joins back through `classes.join-requests`.
+20. **Clients.** Web (`ClassDetailSheet`) and iOS (`app/class/[id].tsx`) offer the rule-9 cancel and
+   the rule-16 proactive-decline actions on a class event whether it is a materialised instance or
+   a virtual occurrence: the gate is "I am a participant, the class has not started, I have not
+   declined", never "an instance id or a presence row exists". Both send `(model, originalId,
+   date)` from the event and read `cancellationDeadline`, `cancellationDeadlineHours`,
+   `proactiveDeclineDeadline` and `canDeclineProactively` from the class-instance payload, which
+   the server now also computes for a `Lesson` occurrence (`POST /class_instance?model=Lesson&id&date`)
+   from that occurrence's start and the coach's config. After a cancel the client re-reads the
+   payload, which now resolves to the materialised instance and carries the student's presence, so
+   the rule-16 "not attending" state renders from server data as before.
 
 ### Acceptance Criteria
 
@@ -143,6 +175,48 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **When** they POST `/api/app/notify/cancel_attendance` with `{lessonInstanceId: 10}`
 - **Then** the request is rejected with 403
 - **And** no `Vacancy` is created and no invitation fan-out is triggered for that instance
+
+#### Student cancels a class they requested for tomorrow (PAD-282)
+- **Given** a student whose class request for tomorrow 10:00–11:00 the coach accepted, so a one-off
+  `private` lesson exists with the student on its roster, no `LessonInstance` row, and no reminder
+  job (its fire time was already past at accept)
+- **When** the student POSTs `/api/app/notify/cancel_attendance` with `{model: "Lesson",
+  originalId: <lesson id>, date: <tomorrow>}`
+- **Then** the response is 200 `{"action": "declined", "proactive": false|true}`
+- **And** exactly one `LessonInstance` now exists for that lesson and date, with the student's
+  presence `status=absent, justification=justified`
+- **And** the coach receives exactly one cancellation message (rule 8)
+
+#### Student cancels an occurrence ten days ahead (PAD-288)
+- **Given** a recurring Monday class with Alice and Bob on the roster, reminders at 48h and
+  invitations opening 24h before, and no instance row for the Monday ten days out
+- **When** Alice POSTs `/api/app/notify/cancel_attendance` with `{model: "Lesson", originalId:
+  <lesson id>, date: <that Monday>}` on the Friday before
+- **Then** the instance for that Monday is materialised with presences for Alice and Bob
+- **And** the response is `{"action": "declined", "proactive": true}` and Alice's
+  `late_cancellation` is false
+- **And** one open `Vacancy` exists for Alice with `invite_not_before` equal to that occurrence's
+  `invitationStart`, and no invitation has been sent
+
+#### The class-detail payload offers the cancel action on a virtual occurrence
+- **Given** the PAD-282 setup above
+- **When** the student POSTs `/api/app/class_instance?model=Lesson&id=<lesson id>&date=<tomorrow>`
+- **Then** the payload carries `cancellationDeadline`, `cancellationDeadlineHours`,
+  `proactiveDeclineDeadline` and `canDeclineProactively` computed for that date
+- **And** the web class-detail sheet and the iOS class screen both show the cancel action (rule 20)
+
+#### A student off the roster cannot materialise an occurrence by cancelling
+- **Given** a signed-in student who is not on the roster of recurring lesson 7
+- **When** they POST `/api/app/notify/cancel_attendance` with `{model: "Lesson", originalId: 7,
+  date: <next Monday>}`
+- **Then** the request is rejected with 403
+- **And** no `LessonInstance`, `Presence` or `Vacancy` row is created
+
+#### A date the recurrence does not produce is refused
+- **Given** recurring lesson 7 on Mondays and a student on its roster
+- **When** they POST `/api/app/notify/cancel_attendance` with `{model: "Lesson", originalId: 7,
+  date: <next Tuesday>}`
+- **Then** the request is rejected with 404 and nothing is materialised
 
 #### Started and late cancellation are judged on the club's clock on any device (PAD-295)
 - **Given** a device whose zone is `Asia/Tokyo` (UTC+9) while the club's clock reads 10:00 on

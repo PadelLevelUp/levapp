@@ -24,8 +24,18 @@ async function findClass(page: import("@playwright/test").Page, title: string) {
 async function createClass(page: import("@playwright/test").Page, title: string) {
   await page.getByRole("button", { name: /add class/i }).first().click();
   await page.getByPlaceholder(/beginner academy|private/i).first().fill(title);
+  // PAD-300 (load flake, B-079): a fixed 800 ms is not a settle — under load
+  // the create took longer and `findClass` walked weeks past a class that had
+  // not been drawn yet. Wait for the create response; CalendarPage appends the
+  // created event from that response itself (no refetch), so the calendar
+  // shows it as soon as the sheet closes.
+  const created = page.waitForResponse(
+    (r) => /\/app\/add_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 30_000 }
+  );
   await page.getByRole("button", { name: /create class/i }).click();
-  await page.waitForTimeout(800);
+  await created;
+  await expect(page.getByRole("dialog").filter({ hasText: /create class/i })).toHaveCount(0, { timeout: 15_000 });
   const found = await findClass(page, title);
   expect(found).toBe(true);
 }
