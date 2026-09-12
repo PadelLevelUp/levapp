@@ -1,7 +1,7 @@
 ---
 id: B-074
 title: "A refused return is rendered as a decline: the client's answer vocabulary outgrew the server's"
-type: behaviour-defect
+type: incomplete-rule
 severity: medium
 status: triaged
 affects:
@@ -15,6 +15,12 @@ opened: 2026-09-12T14:10:00Z
 ---
 
 # B-074 — a refused return is rendered as a decline
+
+**Type:** `incomplete-rule`. `attendance.confirm` rules 1–3 describe the reminder answer as
+`yes` → confirmed / `no` → declined and never state the full set of answers the SERVER can give,
+so every client reasonably enumerated three. The rule's incompleteness is upstream of the code
+defect; PAD-315's rule 26 closes it by naming `spot_filled` and `duplicate` as answers a client
+must handle.
 
 **Source:** found while reading for PAD-315 (the "actually, I can come" affordance), 2026-09-12,
 on staging `2c5b14039` — i.e. in shipped code, not on a branch.
