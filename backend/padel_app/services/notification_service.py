@@ -438,12 +438,9 @@ def students_failing_eligibility_bar(
         return []
 
     _now = now or utcnow_naive()
-    coach_instance_ids = {
-        rel.lesson_instance_id
-        for rel in Association_CoachLessonInstance.query.filter_by(
-            coach_id=coach_id
-        ).all()
-    }
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    coach_instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
     if not coach_instance_ids:
         return []
 
@@ -625,10 +622,9 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
 
 def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
     """Count unjustified absences for a player across all of this coach's class instances."""
-    coach_instance_ids = {
-        rel.lesson_instance_id
-        for rel in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
-    }
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    coach_instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
     if not coach_instance_ids:
         return 0
     return Presence.query.filter(
@@ -644,10 +640,9 @@ def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
 
 def _has_makeups(player_id: int, coach_id: int) -> bool:
     """True when a player has more justified absences than accepted invitations for this coach."""
-    coach_instance_ids = {
-        rel.lesson_instance_id
-        for rel in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
-    }
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    coach_instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
     if not coach_instance_ids:
         return False
     justified = Presence.query.filter(
@@ -1700,6 +1695,11 @@ def _notify_coach_of_cancellation(
     else:
         push_title = "Late cancellation" if is_late else "Cancellation"
 
+    # PAD-288 (attendance.confirm rules 8 and 23): the chat message above is
+    # sent for every cancellation; the coach's phone is pushed only for a LATE
+    # one. Early cancellations are visible in the class detail, not noisy.
+    if not is_late:
+        return msg
     send_push_notification(
         user_id=coach_user_id,
         title=push_title,
@@ -1784,7 +1784,7 @@ def collect_cancellation_recipients(source) -> list[dict]:
     config = get_or_create_config(coach.id)
     templates = config.get_message_templates(locale)
 
-    level = getattr(source, "level", None)
+    level = effective_level(source)  # PAD-275: NULL level_id inherits the lesson's
     level_code = level.code if level else ""
     start_dt = getattr(source, "start_datetime", None)
     weekday = _format_weekday(start_dt, locale)
@@ -2199,17 +2199,14 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
             _log.info("send_class_reminders: instance %s has no enrolled players — nothing to send", instance_id)
         return _no_send
 
-    # Find the coach for this instance
-    coach_rel = Association_CoachLessonInstance.query.filter_by(
-        lesson_instance_id=instance_id
-    ).first()
-    if not coach_rel:
-        if _log:
-            _log.warning("send_class_reminders: instance %s has no coach association — skipping", instance_id)
-        return _no_send
+    # Find the coach for this instance (PAD-275 rule 4: the lesson's when the
+    # occurrence has no coach row of its own)
+    from padel_app.services.lesson_service import primary_coach
 
-    coach = Coach.query.get(coach_rel.coach_id)
+    coach = primary_coach(instance)
     if not coach:
+        if _log:
+            _log.warning("send_class_reminders: instance %s has no coach — skipping", instance_id)
         return _no_send
 
     coach_user_id = coach.user_id
@@ -2365,10 +2362,9 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
 
-    coach_rel = Association_CoachLessonInstance.query.filter_by(
-        lesson_instance_id=instance.id
-    ).first()
-    coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)  # PAD-275 rule 4
     if not coach or not coach.user_id:
         return
 
@@ -2675,10 +2671,9 @@ def respond_to_reminder(
                 )
         return {"action": "not_enrolled"}
 
-    coach_rel = Association_CoachLessonInstance.query.filter_by(
-        lesson_instance_id=lesson_instance_id
-    ).first()
-    coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)  # PAD-275 rule 4
     coach_user_id = coach.user_id if coach else None
 
     config = get_or_create_config(coach.id) if coach else None
@@ -2928,12 +2923,12 @@ def proactive_decline_deadline(
         # Deliberately a plain query, NOT ``get_or_create_config``: this helper
         # is called from the class-instance serializer on a read path, and a GET
         # must not write a NotificationConfig row as a side effect.
-        coach_rel = Association_CoachLessonInstance.query.filter_by(
-            lesson_instance_id=instance.id
-        ).first()
-        if coach_rel is not None:
+        from padel_app.services.lesson_service import primary_coach
+
+        coach = primary_coach(instance)  # PAD-275 rule 4
+        if coach is not None:
             _config = NotificationConfig.query.filter_by(
-                coach_id=coach_rel.coach_id
+                coach_id=coach.id
             ).first()
 
     timing = (
@@ -3055,10 +3050,9 @@ def cancel_attendance(
     if presence is None:
         abort(403, description="You are not enrolled in this class.")
 
-    coach_rel = Association_CoachLessonInstance.query.filter_by(
-        lesson_instance_id=lesson_instance_id
-    ).first()
-    coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)  # PAD-275 rule 4
     coach_user_id = coach.user_id if coach else None
 
     config = get_or_create_config(coach.id) if coach else None
@@ -4170,10 +4164,9 @@ def respond_to_waiting_list(
         from flask import abort
         abort(403)
 
-    coach_rel = Association_CoachLessonInstance.query.filter_by(
-        lesson_instance_id=lesson_instance_id
-    ).first()
-    coach = Coach.query.get(coach_rel.coach_id) if coach_rel else None
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)  # PAD-275 rule 4
 
     # PAD-222 (rule 12): only a player holding an offer for THIS instance may
     # answer. Checked before the late-instance branch so nothing is written or
@@ -4609,10 +4602,9 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
 def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
     """Create per-class WaitingListEntry rows for all upcoming instances for this coach."""
     now = utcnow_naive()
-    coach_instance_ids = {
-        rel.lesson_instance_id
-        for rel in Association_CoachLessonInstance.query.filter_by(coach_id=entry.coach_id).all()
-    }
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
     for instance_id in coach_instance_ids:
         instance = LessonInstance.query.get(instance_id)
         if not instance:

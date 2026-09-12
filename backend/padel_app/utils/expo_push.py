@@ -9,6 +9,7 @@
 # - Parses receipts for a `DeviceNotRegistered` error and deletes the stale
 #   DeviceToken row for that token (cleanup on the caller's behalf).
 import logging
+import os
 
 import requests
 
@@ -20,6 +21,24 @@ logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 _BATCH_SIZE = 100
+#: Android notification channel the client creates (expoPushRegistrar.ts and
+#: app.json's expo-notifications `defaultChannel`). iOS ignores the field.
+ANDROID_CHANNEL_ID = "default"
+
+
+def _headers() -> dict:
+    """Request headers for the Expo push API (messaging.push-notifications rule 11c).
+
+    EXPO_ACCESS_TOKEN is the flag: unset or blank, the headers are exactly what
+    they were before PAD-307; set, the bearer token is added (the Expo project
+    can be configured to require one — an owner step, see the wave C runbook).
+    Read per call so a rotated token needs no restart.
+    """
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    token = (os.getenv("EXPO_ACCESS_TOKEN") or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
 
 def _chunks(items, size):
@@ -58,6 +77,10 @@ def send_expo_push(
                 "data": data,
                 # Only sent when the caller knows the count; see the docstring.
                 **({"badge": badge} if badge is not None else {}),
+                # PAD-307 (rule 11a): Android delivery — the client's channel and a
+                # heads-up priority. iOS ignores both; Expo passes them to FCM.
+                "channelId": ANDROID_CHANNEL_ID,
+                "priority": "high",
             }
             for token in batch
         ]
@@ -65,10 +88,7 @@ def send_expo_push(
             response = requests.post(
                 EXPO_PUSH_URL,
                 json=messages,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
+                headers=_headers(),
                 timeout=10,
             )
             response.raise_for_status()

@@ -112,7 +112,7 @@ function formatDay(dateStr: string | undefined, locale: Locale): string {
 }
 
 export default function ClassDetailScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const locale = useDateLocale();
   const params = useLocalSearchParams<ClassRouteParams>();
   const { user } = useAuth();
@@ -1329,6 +1329,14 @@ export default function ClassDetailScreen() {
                       <Text className="text-xs text-muted-foreground">
                         {t("calendar.detail.notAttendingJustified")}
                       </Text>
+                      {/* PAD-288 (rule 23): the student's own cancellation, with its time. */}
+                      {myPresence?.cancelledByStudent && myPresence.cancelledAt ? (
+                        <Text className="text-xs text-muted-foreground" testID="class-not-attending-at">
+                          {t("calendar.detail.cancelledByStudentAt", {
+                            when: new Date(myPresence.cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+                          })}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 ) : null}

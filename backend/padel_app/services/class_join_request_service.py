@@ -74,12 +74,11 @@ def _refuse(code: str, message: str, **extra):
 
 
 def _coach_id_for(instance: LessonInstance):
-    if instance.coaches_relations:
-        return instance.coaches_relations[0].coach_id
-    lesson = instance.lesson
-    if lesson is not None and lesson.coaches_relations:
-        return lesson.coaches_relations[0].coach_id
-    return None
+    # PAD-275 rule 4: one helper answers "who coaches this occurrence".
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)
+    return coach.id if coach is not None else None
 
 
 def _is_enrolled(instance: LessonInstance, player_id: int) -> bool:

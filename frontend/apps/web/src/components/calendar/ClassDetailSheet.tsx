@@ -1224,6 +1224,7 @@ export function ClassDetailSheet({
                       disabled={!isValidating || isCanceled}
                       reminderSent={!!presence?.reminderSentAt}
                       confirmed={presence?.confirmed}
+                      cancelledAt={presence?.cancelledByStudent ? presence.cancelledAt : undefined}
                     />
                   );
                 })}
@@ -1248,6 +1249,14 @@ export function ClassDetailSheet({
                       <p className="text-xs text-muted-foreground">
                         {t("calendar.detail.notAttendingJustified")}
                       </p>
+                      {/* PAD-288 (rule 23): the student's own cancellation, with its time. */}
+                      {ownPresence?.cancelledByStudent && ownPresence.cancelledAt && (
+                        <p className="text-xs text-muted-foreground" data-testid="class-not-attending-at">
+                          {t("calendar.detail.cancelledByStudentAt", {
+                            when: new Date(ownPresence.cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+                          })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}

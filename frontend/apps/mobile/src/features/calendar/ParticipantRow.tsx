@@ -64,7 +64,7 @@ export function ParticipantRow({
     }
   };
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <View
@@ -117,6 +117,15 @@ export function ParticipantRow({
           </Badge>
         ) : null}
       </View>
+
+      {/* PAD-288 (attendance.confirm rule 23): the student's own cancellation, with its time. */}
+      {presence?.cancelledByStudent && presence.cancelledAt ? (
+        <Text className="text-xs text-muted-foreground" testID="attendance-cancelled-by-student">
+          {t("calendar.detail.cancelledByStudentAt", {
+            when: new Date(presence.cancelledAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+          })}
+        </Text>
+      ) : null}
 
       {canMark ? (
         <View className="flex-row gap-2">
