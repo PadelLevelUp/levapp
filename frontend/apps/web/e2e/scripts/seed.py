@@ -139,7 +139,7 @@ with app.app_context(), unit_of_work():
     db.session.add(nolevels_coach_user)
 
     # PAD-306: an APPROVED coach with NO club — the prerequisite of the mobile
-    # flow 23-club-join-request (clubs.join-request), which used to depend on an
+    # flow 45-club-join-request (clubs.join-request), which used to depend on an
     # account prepared by hand (MAESTRO_COACH_NOCLUB_*). Deliberately gets no
     # Association_CoachClub row below; nothing else in the suite uses it.
     noclub_coach_user = User(
