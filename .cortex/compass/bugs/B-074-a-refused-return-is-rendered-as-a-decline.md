@@ -61,5 +61,35 @@ notice most: they ask for their spot back and the app quietly says they declined
 
 The general shape: a typed client contract that enumerates a server's answers, plus a default
 branch that picks one of them. When the server gains a value the client does not merely ignore
-it — it asserts something false with full confidence. Prefer an explicit unknown branch that
-writes no state and says so.
+it — it asserts something false with full confidence.
+
+**The rule a reviewer can apply to code they have never seen:** *when you cannot tell, say
+nothing rather than guess the common case.* Concretely, the shape that survived contact with a
+new value is `apps/web/src/components/messages/reminder-answer.ts`'s explicit unknown branch —
+`return { local: null, toastKey: ... }` — which writes no state at all. Copy that, and prefer
+an exhaustive `switch` the compiler can check over a ternary with a fallback.
+
+## The day's through-line: a claim that asserts more than it knows
+
+This is the **fourth** instance of one idea on 2026-09-12, which is why the mechanism matters
+more than this bug:
+
+1. **A field** — `Presence.confirmed` meant *answered* and was read as *coming*, so a student
+   who had cancelled rendered as confirmed ([[B-073]]). A column asserting more than it knew.
+2. **A label** — "Não vais — falta justificada" over a justification-blind state
+   (`attendance.confirm` rule 25, PAD-313). A label asserting more than the state it renders
+   knew; the rule now says a label may never do that.
+3. **A test** — asserting English text in an app that renders Portuguese, which passed only
+   while the string it matched was untranslated ([[B-086]]). An assertion asserting more than it
+   could know, and one whose pass carried no information.
+4. **A default branch** — this entry: everything unknown mapped onto one specific answer, so a
+   new server value becomes a confident lie rather than a shrug.
+
+All four are cheap to prevent and expensive to find: each one looked like ordinary defensive
+code, and each one produced a screen that was confidently wrong rather than visibly empty. The
+fix in every case is the same move — narrow the claim to what is actually known, and say nothing
+where nothing is known.
+
+**Also part of the fix here:** the web message bubble's copy. It fails safe on state but says
+"something went wrong" when nothing went wrong — the seat was taken, which is an outcome. Same
+failure in a smaller costume: a message asserting more than it knows.
