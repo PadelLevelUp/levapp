@@ -10,7 +10,12 @@
 # accepts either so the flow stays order-independent — and "You're going" too,
 # because a student who answered a reminder in an earlier flow legitimately
 # stays at intent: nothing here may assert that a class shows only a record
-# (H's caution, 2026-09-12).
+# (H's caution, 2026-09-12). G's observation, recorded rather than argued with:
+# accepting three of the five states means this flow can only fail on
+# `not_coming` or `missed`, so it proves the row is not wrong more than that it
+# is right. That is deliberate here, because the state depends on which earlier
+# flows ran; the exact-state assertions live in 42 and 48, which cancel in the
+# same run and then assert "you're not going" specifically.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
