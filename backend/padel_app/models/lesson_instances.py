@@ -46,7 +46,6 @@ class LessonInstance(db.Model, model.Model):
         Enum(
             "scheduled",
             "canceled",
-            "rescheduled",
             "completed",
             name="lesson_instance_status",
         ),
@@ -181,7 +180,7 @@ class LessonInstance(db.Model, model.Model):
                     "status",
                     "Select",
                     label="Status",
-                    options=["scheduled", "canceled", "rescheduled", "completed"],
+                    options=["scheduled", "canceled", "completed"],
                 ),
                 get_field(
                     "players_relations",

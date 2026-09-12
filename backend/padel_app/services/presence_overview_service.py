@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
 
+from padel_app.serializers.presence import _late_cancellation_for  # PAD-271 M5
 from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
@@ -286,7 +287,7 @@ def _serialize_pending_player(presence: Presence, *, is_guest: bool) -> Dict[str
         "status": presence.status,
         "justification": presence.justification,
         "validated": bool(presence.validated),
-        "lateCancellation": bool(presence.late_cancellation),
+        "lateCancellation": _late_cancellation_for([presence]).get(presence.id, False),  # PAD-271 M5: derived
         "guest": is_guest,
     }
 
