@@ -41,7 +41,6 @@ from padel_app.sql_db import db
 from padel_app.services.presence_response import record_response, presence_late_cancellation  # noqa: F401  (PAD-271 M5)
 from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
-    Association_CoachLessonInstance,
     Association_CoachPlayer,
     LessonInstance,
     NotificationConfig,
@@ -1374,16 +1373,6 @@ def _weekday_pt(start_datetime) -> str:
         return ""
     return _PT_WEEKDAYS[start_datetime.weekday()]
 
-
-def _level_label(instance) -> str:
-    """Class-name / modality for the ``{level}`` placeholder.
-
-    Returns the level code when the instance has a level, otherwise an empty
-    string. The previous ``"this"`` fallback was an English filler word that
-    leaked into pt templates as "aula de this".
-    """
-    level = getattr(instance, "level", None)
-    return level.code if level else ""
 
 
 def _resolve_locale(coach):
