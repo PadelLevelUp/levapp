@@ -7,7 +7,10 @@
 # this student present — and saving attendance sets `validated`, so the state is
 # the coach's record — giving "Attended" in suite order; on a freshly seeded DB,
 # run standalone, the unanswered presence reads "Signed up". The assertion
-# accepts either so the flow stays order-independent.
+# accepts either so the flow stays order-independent — and "You're going" too,
+# because a student who answered a reminder in an earlier flow legitimately
+# stays at intent: nothing here may assert that a class shows only a record
+# (H's caution, 2026-09-12).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-student.yaml
@@ -28,7 +31,7 @@ appId: com.padellevelup.app
     timeout: 30000
 - assertVisible:
     id: "attendance-state"
-- assertVisible: "Attended|Signed up"
+- assertVisible: "Attended|Signed up|You're going"
 # Students never get coach controls.
 - assertNotVisible:
     id: "attendance-confirm"
