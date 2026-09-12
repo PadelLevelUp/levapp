@@ -112,9 +112,8 @@ The PAD-259 draft reads PAD-282 as "no instance row, nothing to cancel", not as 
 If Session I's repro contradicts that and the cause is a guard reading `confirmed` or `status`,
 it lands here under M5 instead.
 
-## Open questions for the owner
+## Decisions
 
-1. Confirm the reconciliation belongs on the tick (option 2) rather than only inside `enrol()`;
-   the tick catches raw writes (editor, import) that never call `enrol()`.
-2. Drop the dead enum values or leave them declared.
-3. Keep `late_cancellation` as a column or derive it from `response` and `responded_at`.
+1. Reconcile on the tick as well as in `enrol()`: YES, decided 2026-09-11 (coordinator, owner informed) (shipped in #229).
+2. Dead enum values (`NotificationEvent.queued`, `Lesson.ended`, `LessonInstance.rescheduled`): DROP, guarded, decided 2026-09-11 (coordinator, owner informed); goes in M5's migration with the spec entity lines updated first.
+3. `late_cancellation`: DERIVE from `response` + `responded_at` against the cancellation deadline — no column, decided 2026-09-11 (coordinator, owner informed). The payload keeps `lateCancellation`, computed on read; the column is dropped in M5's migration after the backfill maps it into `response`/`responded_at`.

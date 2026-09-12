@@ -365,9 +365,10 @@ def coach_owns_instance(coach, instance):
     """A coach owns an instance directly, or through its parent lesson."""
     if instance is None:
         return False
-    if any(rel.coach_id == coach.id for rel in instance.coaches_relations):
-        return True
-    return coach_owns_lesson(coach, instance.lesson)
+    # PAD-275 rule 4: the instance's own coaches when it has any, else the lesson's.
+    from padel_app.services.lesson_service import coaches_for
+
+    return any(c.id == coach.id for c in coaches_for(instance))
 
 
 def require_owned_class(coach, model_name, class_id):

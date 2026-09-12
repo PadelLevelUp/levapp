@@ -39,6 +39,8 @@ Coaches who run padel lessons at a club and need to build and maintain their tea
 - A class is either an "academy" group class or a "private" one-on-one lesson.
 - Editing or deleting always targets an explicit scope: just one occurrence, or that occurrence
   and every future one — the coach chooses.
+- A recurring class stays one class through its edits: splitting it at a date, renaming it or
+  removing one date never turns it into two unrelated classes in the coach's lists (PAD-275).
 - Changing one occurrence never disturbs its siblings; only a future-scoped change ripples
   forward.
 - Deleting a whole class removes every occurrence and any reminders still pending for it.

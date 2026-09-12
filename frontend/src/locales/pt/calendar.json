@@ -194,6 +194,7 @@
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "notAttending": "Não vais comparecer",
       "notAttendingJustified": "Falta justificada",
+      "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
       "colorOption": "Cor {{color}}",
       "invitedCount": "Convidados ({{count}})",
       "club": "Clube",

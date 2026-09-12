@@ -76,6 +76,9 @@ executionOrder:
     - 46-tactical-board
     # 47-push-tap-routing is deliberately NOT listed: it needs a simctl push
     # delivered by scripts/push-tap-flow.sh mid-flow (see README).
+    # 48 books, cancels and removes its own class through the API (PAD-288), so its
+    # position is not load bearing.
+    - 48-early-cancellation
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

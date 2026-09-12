@@ -12,7 +12,8 @@ implemented_by:
 
 When a player is invited to a class, they can confirm or decline, and even after confirming,
 cancel their spot up until the class starts — with the system distinguishing an early, no-fuss
-cancellation from a late one, and always telling the coach when it happens.
+cancellation from a late one, always telling the coach in the chat — and pushing their phone only
+when the cancellation is late.
 
 ## Who This Is For
 
@@ -53,6 +54,11 @@ Students/players responding to and managing their own attendance; the coach, who
   decline never reads as a coach's verdict and the other way round (PAD-271).
 - The coach gets exactly one notification per cancellation, naming the student and the class, and
   marked clearly if it was late.
+- Early cancellations are visible, not noisy: the coach's phone is pushed only for a late one, and the
+  class detail shows "cancelled by the student" with the time (decision of 2026-09-11, taken by the
+  coordinator for the owner to confirm).
+- There is no undo. A student who cancelled asks the coach, or books again through a request; a class
+  the student requested themselves follows the same rule.
 
 ## Success Metrics
 

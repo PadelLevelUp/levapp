@@ -222,9 +222,11 @@ def test_send_expo_push_builds_correct_request_body(app):
     assert result is True
     assert mock_post.call_count == 1
     _, kwargs = mock_post.call_args
+    # PAD-307 (rule 11a): every message also names the Android channel and priority.
+    android = {"channelId": "default", "priority": "high"}
     assert kwargs["json"] == [
-        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
-        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
+        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
+        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
     ]
 
 
@@ -392,7 +394,9 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
 
 def test_coach_cancellation_pushes_expo_with_message_payload(app):
     """PAD-240 — a student's cancellation notice to the coach is a message in
-    their thread, so its push routes to the conversation, not the class."""
+    their thread, so its push routes to the conversation, not the class.
+    PAD-288 (attendance.confirm rule 23): only a LATE cancellation pushes, so
+    the payload is pinned on the late path."""
     from padel_app.models import DeviceToken, Conversation
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
@@ -430,7 +434,7 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_send:
             mock_send.return_value = True
             msg = _notify_coach_of_cancellation(
-                coach_user.id, player_user.id, instance, player, is_late=False
+                coach_user.id, player_user.id, instance, player, is_late=True
             )
 
         assert mock_send.call_count == 1
@@ -634,6 +638,9 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
                 "body": "Training moved to 19h",
                 "data": {"type": "message", "conversationId": conversation_id},
                 "badge": 1,
+                # PAD-307 (rule 11a): Android channel and priority ride on every message.
+                "channelId": "default",
+                "priority": "high",
             }
         ]
 

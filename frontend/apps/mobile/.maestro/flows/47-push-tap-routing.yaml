@@ -15,6 +15,9 @@
 # Order-independent (reads only); not in config.yaml's flowsOrder because it
 # needs the wrapper script — run it via `bash scripts/push-tap-flow.sh`.
 appId: com.padellevelup.app
+# PAD-306: excluded from the Android lane (--exclude-tags ios-only) until wave C brings FCM push.
+tags:
+  - ios-only
 ---
 # Notification permission first: the registrar asks for it on the simulator
 # too (token fetch stays device-only), and Maestro answers the system dialog.

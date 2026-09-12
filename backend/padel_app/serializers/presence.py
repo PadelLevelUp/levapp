@@ -12,6 +12,13 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None):
     :func:`serialize_presences`, which computes it in two queries for the lot;
     a lone call without it emits ``null``, never a guess off ``invited``.
     """
+    from padel_app.utils.dates import to_utc_iso
+
+    cancelled_by_student = (
+        presence.status == "absent"
+        and presence.justification == "justified"
+        and not presence.validated
+    )
     return {
         "id": presence.id,
         "lessonInstanceId": presence.lesson_instance_id,
@@ -23,6 +30,12 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None):
         "validated": presence.validated,
         "lateCancellation": presence.late_cancellation,
         "reminderSentAt": reminder_sent_at.isoformat() if reminder_sent_at else None,
+        # PAD-288 (attendance.confirm rule 23, attendance.presence): derived, no
+        # column — the shape only the student's own decline produces before the
+        # coach validates the sheet; the time is the row's last write, which
+        # the decline sets.
+        "cancelledByStudent": cancelled_by_student,
+        "cancelledAt": to_utc_iso(presence.updated_at) if cancelled_by_student and presence.updated_at else None,
     }
 
 

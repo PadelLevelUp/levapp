@@ -167,6 +167,19 @@ the conversation opened:
 bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDID
 ```
 
+**Android lane (PAD-306):** flow 47 is tagged `ios-only` and `scripts/ci-android-maestro.sh` runs
+Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push exists
+(PAD-290 wave C, FCM through the Expo push service). Tag any other simulator-only flow the same
+way — the tag, not the execution order, is what keeps it off the lane.
+
+## Flow 45's credentials (PAD-306)
+
+`flows/45-club-join-request.yaml` logs in as an **approved coach with no club**. The E2E seed
+(`apps/web/e2e/scripts/seed.py`) creates `e2e-coach-noclub` / `E2eCoach123!` for it, and both
+runners pass the pair as `MAESTRO_COACH_NOCLUB_USERNAME` / `MAESTRO_COACH_NOCLUB_PASSWORD`
+(`-e`); export either variable to point the flow at an account prepared by hand. The flow gives
+that coach a club, so it relies on the DB reset every runner does first.
+
 ## Android (PAD-298, wave B)
 
 The same flows run on the CI emulator lane (`.github/workflows/android-build.yaml`, PAD-297:
@@ -192,7 +205,8 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
   (percent taps in `12-settings-language`) stays until both are verified.
 - **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by
   text, not a testID.
-- **Push**: `push-tap-flow.sh` is `simctl` (APNs) only; no Android equivalent yet (wave C).
+- **Push**: `push-tap-flow.sh` is `simctl` (APNs) only; no Android equivalent yet (wave C), so
+  flow 47 is tagged `ios-only` and the lane excludes it (PAD-306).
 - `36-android-evidence.yaml` is Android-only and not in `config.yaml`: it takes the
   screenshots the build Mac cannot produce (login keyboard, week sheet depth, raised month
   sheet + back, the date dialog); read them in the lane's `maestro-results` artefact.
