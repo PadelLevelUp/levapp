@@ -15,6 +15,10 @@ cancel their spot up until the class starts — with the system distinguishing a
 cancellation from a late one, always telling the coach in the chat — and pushing their phone only
 when the cancellation is late.
 
+The player is offered exactly ONE way to say they are not coming, in their own words, and both
+they and their coach then see ONE answer to "where does this person stand for this class?" —
+never two or three status words at once (PAD-313, after a founder's report on TestFlight 20).
+
 ## Who This Is For
 
 Students/players responding to and managing their own attendance; the coach, who is notified.

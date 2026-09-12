@@ -15,6 +15,9 @@ attendance record for it — pre-filled from however each player responded — i
 every class's detail sheet one at a time; the same underlying numbers also feed the metrics the
 notification system uses to judge which players to prioritize for open spots.
 
+What each player's row says about them is the same single state the class sheet shows, so the
+coach never has to reconcile two different answers about the same student (PAD-313).
+
 ## Who This Is For
 
 Coaches finalizing attendance for classes that have already happened.

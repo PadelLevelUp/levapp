@@ -34,7 +34,7 @@ Players confirm or decline their attendance in response to a reminder notificati
     - the coach is notified exactly once, with wording that distinguishes a proactive decline from a plain or late cancellation, and a machine-readable `msg_metadata.proactiveDecline` marker alongside the existing `cancellation` / `lateCancellation` / `lessonInstanceId` keys
 14. **Authorization.** `cancel_attendance` is authorized on **enrolment**: the acting user must resolve to a `Player` who holds a `Presence` on that instance (the enrolment since PAD-259, `classes.instance-enrollment` rule 1; before PAD-259 the junction row), otherwise 403. On a virtual occurrence the series roster is checked before materialising (rule 18). A student may only ever decline their own enrolment on a class they are actually in (PAD-88 / PAD-115 precedent)
 15. **How the invitation-timing guarantee is enforced.** Declining to call `trigger_invitations` is *not* sufficient to hold invitations back: `process_invitation_batches` sweeps every `status="open"` vacancy every two minutes and fires a batch immediately on any vacancy whose `last_activity_at` is `None`. The only thing it defers to is `Vacancy.invite_not_before`. Therefore a vacancy created by a decline that lands **before** `invitationStart` is stamped with `invite_not_before = invitationStart` (the same field the semi-automatic approval path stamps, and the same field `trigger_invitations` and `_send_invitation_batch` already honour). Without this stamp a decline 10 days out would fan out invitations within two minutes, defeating rule 13. This applies to the whole shared decline path (`_free_spot_for_declining_player`), so a reminder decline outside the invitation window is held back too — which is what `notifications.invitations` already specified
-16. **Frontend.** The proactive-decline affordance lives in the class-detail **participants** section, on the student's own row, and is shown only while the proactive window is open (`canDeclineProactively`). The class-instance payload exposes `proactiveDeclineDeadline` (a naive ISO-8601 string on the club's wall clock, or null; PAD-256) and `canDeclineProactively` (bool), both computed by the same server helper as rule 10, so the button is never offered when the server would refuse it. Once the window closes the affordance disappears and the existing rule-9 cancel action remains the way to decline (a normal/late cancellation). After declining, the student's own row shows a persistent "not attending / justified absence" state **derived from their serialized presence** (`status==="absent" && justification==="justified"`), so it survives a reload. All copy goes through `src/locales/{pt,en}/calendar.json`; default locale `pt`. **(PAD-170 C5)** The affordance exists on **both** shells — web's `ClassDetailSheet` and iOS's `app/class/[id].tsx` — under the student's own attendance block, with the same three states: the "I can't attend" button plus its hint while the window is open, the persistent "not attending / justified absence" panel once declined, and the plain rule-9 cancel action once the window has closed. iOS reads `canDeclineProactively` from the same payload and never re-derives the reminder instant, so a phone can no more offer the action out of window than the browser can
+16. **Frontend.** ~~The proactive-decline affordance lives in the class-detail **participants** section, on the student's own row, and is shown only while the proactive window is open (`canDeclineProactively`).~~ **Superseded by rule 25 (PAD-313): there is ONE decline action, and the window no longer decides what is rendered.** The payload fields below are unchanged and still describe the *kind* of decline; what they no longer do is choose between two buttons. The class-instance payload exposes `proactiveDeclineDeadline` (a naive ISO-8601 string on the club's wall clock, or null; PAD-256) and `canDeclineProactively` (bool), both computed by the same server helper as rule 10, so the button is never offered when the server would refuse it. ~~Once the window closes the affordance disappears and the existing rule-9 cancel action remains the way to decline (a normal/late cancellation).~~ (Rule 25: one action at every moment; the deadline speaks in the confirmation dialog instead.) After declining, the student's own row shows a persistent "not attending / justified absence" state **derived from their serialized presence** (`status==="absent" && justification==="justified"`), so it survives a reload. All copy goes through `src/locales/{pt,en}/calendar.json`; default locale `pt`. **(PAD-170 C5)** The affordance exists on **both** shells — web's `ClassDetailSheet` and iOS's `app/class/[id].tsx` — under the student's own attendance block, ~~with the same three states: the "I can't attend" button plus its hint while the window is open, the persistent "not attending / justified absence" panel once declined, and the plain rule-9 cancel action once the window has closed.~~ (Rule 25: one button, one state badge.) iOS reads `canDeclineProactively` from the same payload and never re-derives the reminder instant, so a phone can no more offer the action out of window than the browser can
 17. **Owner only (PAD-258, audit H4).** `POST /api/app/class_instance/presences/confirm` resolves
    the target the same way the service does (`originalId` + the calendar-event id prefix /
    `parentClassId`) and requires the calling coach to own it (`require_owned_class`, PAD-92)
@@ -63,8 +63,8 @@ Players confirm or decline their attendance in response to a reminder notificati
    coach told exactly once (rules 8 and 13). No new state, column or endpoint. Leaving the whole
    series is not this action (`classes.enrollment`); undoing a cancellation is not offered — the
    student asks the coach, or joins back through `classes.join-requests`.
-20. **Clients.** Web (`ClassDetailSheet`) and iOS (`app/class/[id].tsx`) offer the rule-9 cancel and
-   the rule-16 proactive-decline actions on a class event whether it is a materialised instance or
+20. **Clients.** Web (`ClassDetailSheet`) and iOS (`app/class/[id].tsx`) offer the rule-9 cancel
+   action (rule 25: the rule-16 proactive affordance is gone) on a class event whether it is a materialised instance or
    a virtual occurrence: the gate is "I am a participant, the class has not started, I have not
    declined", never "an instance id or a presence row exists". Both send `(model, originalId,
    date)` from the event and read `cancellationDeadline`, `cancellationDeadlineHours`,
@@ -72,7 +72,10 @@ Players confirm or decline their attendance in response to a reminder notificati
    the server now also computes for a `Lesson` occurrence (`POST /class_instance?model=Lesson&id&date`)
    from that occurrence's start and the coach's config. After a cancel the client re-reads the
    payload, which now resolves to the materialised instance and carries the student's presence, so
-   the rule-16 "not attending" state renders from server data as before.
+   state renders from server data as before — as the single `attendanceState` badge of rule 25.
+   `canDeclineProactively` is no longer a client render condition; the server still computes it
+   and still classifies the decline, and the client uses the `proactive` key of the reply only to
+   choose the confirmation copy and the toast.
 
 #### Early cancellation — product rules (PAD-288; decided by the coordinator on 2026-09-11 while the owner slept; stated verbatim so a reversal is one edit; rule numbers 21–24 self-assigned by Session J, unconfirmed)
 21. **How far ahead.** "A student who is planned in an occurrence may cancel ANY future occurrence
@@ -97,6 +100,32 @@ Players confirm or decline their attendance in response to a reminder notificati
 24. **No undo, same rule for requested classes.** "No undo: the student asks the coach or books
     again through a request. A class the student REQUESTED (PAD-282) follows exactly the same
     rule." No endpoint reverses a cancellation; `classes.join-requests` is the way back.
+
+25. **One way to say "I am not coming", one state word (PAD-313; number self-assigned,
+   unconfirmed; decided by the coordinator 2026-09-12 after a founder's TestFlight 20 report).**
+   Verbatim, so a reversal is one edit: *"a student must see ONE way to say 'I am not coming' per
+   class, same label wherever it appears"*; *"the consequence goes in the confirmation dialog, not
+   in the choice of button"*; *"ONE badge per row"*; *"no row ever shows two state words at once"*.
+   Concretely, on both shells:
+   - The only decline affordance is the rule-9 cancel action, labelled **"Não vou poder ir"**
+     (`calendar.detail.proactiveDecline`) — the person's own words; "Cancelar presença" was systems
+     language and is retired as a label. Its gate is the rule-9/20 gate alone: a participant, the
+     class has not started, not already declined.
+   - The deadline is carried by the **confirmation dialog**: past the deadline it says plainly that
+     the cancellation is late and the coach will be told; before it, it does not. The server's
+     `proactive` reply chooses the toast. Neither ever decides which button to draw.
+   - A row shows exactly ONE state word, from `attendanceState` (`attendance.presence` rule 9,
+     PAD-313's server half) through the shared helper `@levelup/config`'s `attendance-state`, so the
+     two shells cannot drift. Clients no longer read `confirmed`, `status`, `justification` or
+     `validated` to decide what to show. Labels (PT, approved 2026-09-12): `planned` "Inscrito",
+     `coming` "Vais" (student) / "Vai" (coach), `not_coming` "Não vais — falta justificada" /
+     "Não vai — falta justificada", `attended` "Presente", `missed` "Faltou". The student's own row
+     speaks in the second person, the coach's participant row about the student.
+   - **Rule 23's `cancelledByStudent` stays a separate, narrower fact and never becomes a state.**
+     `not_coming` says WHAT, never WHO. On the coach's row only, and only while the row is not
+     validated, "Cancelado pelo aluno · <when>" is rendered as a **detail line in secondary text**,
+     with clearly lesser weight than the state word — a quiet fact beside one status, never a
+     second status. The student's own row never shows it: they know they cancelled.
 
 ### Acceptance Criteria
 
