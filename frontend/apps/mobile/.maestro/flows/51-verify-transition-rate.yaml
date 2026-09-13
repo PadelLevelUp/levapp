@@ -16,7 +16,9 @@
 # form, so an iteration costs roughly forty seconds against the dialog loop's
 # eight. Ten keeps the job inside its timeout while still turning "sometimes"
 # into a measurement. If the rate is low and ambiguous, raise the count rather
-# than the confidence.
+# than the confidence: a weak measurement tempts you to top it up with belief,
+# and the honest move is to make the measurement stronger. A 1-in-10 that you
+# want to mean something is a 1-in-50 waiting to be run.
 #
 # HOW TO READ IT — this caveat belongs with any number quoted from it: ten
 # walks of THIS transition say nothing about the other two faces of B-089. The
