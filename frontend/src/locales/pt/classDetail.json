@@ -47,6 +47,7 @@
     "statusConfirmed": "Confirmado",
     "statusInvited": "Convidado",
     "statusRegistered": "Inscrito",
-    "yourAttendance": "A tua presença"
+    "yourAttendance": "A tua presença",
+    "classGone": "Esta aula já não existe."
   }
 }

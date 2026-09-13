@@ -47,6 +47,7 @@
     "statusConfirmed": "Confirmed",
     "statusInvited": "Invited",
     "statusRegistered": "Registered",
-    "yourAttendance": "Your attendance"
+    "yourAttendance": "Your attendance",
+    "classGone": "This class no longer exists."
   }
 }

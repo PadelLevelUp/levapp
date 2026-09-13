@@ -69,3 +69,30 @@ export async function editClass(
   const res = await getApi().post(`/app/edit_class`, { event, scope, updates });
   return res.data;
 }
+
+/**
+ * PAD-326 (`calendar.event-detail` rule 15): fetch one materialised occurrence
+ * by its id, for a route that carries only that — a push, a universal link, the
+ * `lessonInstanceId` a message already has. JWT'd and role-filtered server-side
+ * (a student sees only their own presence).
+ *
+ * A 404 here is meaningful and permanent: the instance is gone. Callers must
+ * distinguish it from a transient failure rather than offering a Retry that
+ * cannot succeed.
+ */
+export async function getLessonInstanceById(instanceId: number): Promise<{
+  lessonInstance: {
+    id: number;
+    lessonId?: number;
+    date: string;
+    startTime?: string;
+    endTime?: string;
+    status?: string;
+    name?: string | null;
+    color?: string | null;
+    maxPlayers?: number | null;
+  };
+}> {
+  const res = await getApi().get(`/app/lesson_instance/${instanceId}`);
+  return res.data;
+}

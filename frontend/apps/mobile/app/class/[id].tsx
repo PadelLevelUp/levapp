@@ -22,6 +22,7 @@ import {
   useCalendarEvents,
   useClassInstance,
   useCoachLevels,
+  useLessonInstanceById,
 } from "@levelup/hooks";
 import type {
   Court,
@@ -94,7 +95,12 @@ import {
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
-import { paramsToEvent, type ClassRouteParams } from "@/features/calendar/params";
+import {
+  eventFromLessonInstance,
+  instanceIdFromParams,
+  paramsToEvent,
+  type ClassRouteParams,
+} from "@/features/calendar/params";
 import {
   ParticipantRow,
   playerName,
@@ -132,12 +138,26 @@ export default function ClassDetailScreen() {
   const isCoach = user?.roles?.includes("coach") ?? false;
   const queryClient = useQueryClient();
 
-  const event = React.useMemo(() => paramsToEvent(params), [
+  const paramsEvent = React.useMemo(() => paramsToEvent(params), [
     params.id,
     params.model,
     params.originalId,
     params.date,
   ]);
+
+  // PAD-326 (`calendar.event-detail` rule 15): a route carrying only an id — a
+  // push, a universal link from an email, the `lessonInstanceId` a message
+  // already has — used to render "could not find this class" WITHOUT asking
+  // anything. Now it asks. Full params stay the fast path: this query is
+  // disabled whenever they are present.
+  const fallbackId = paramsEvent ? null : instanceIdFromParams(params);
+  const byId = useLessonInstanceById(fallbackId);
+  const event = React.useMemo(
+    () =>
+      paramsEvent ??
+      (byId.data?.lessonInstance ? eventFromLessonInstance(byId.data.lessonInstance) : null),
+    [paramsEvent, byId.data]
+  );
 
   const {
     data: instance,
@@ -296,6 +316,37 @@ export default function ClassDetailScreen() {
   );
 
   if (!event) {
+    // Three states, never one (rule 15). Collapsing them is what made the
+    // founder's screenshot unreadable: it said "could not find" for a route it
+    // had never asked about, which reads identically to a class that is gone.
+    if (fallbackId && byId.isPending) {
+      return (
+        <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+          <View className="gap-3 p-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </View>
+        </Screen>
+      );
+    }
+    if (fallbackId && byId.isError) {
+      const status = (byId.error as { response?: { status?: number } })?.response?.status;
+      // 404 and 403 share one terminal state (H, PAD-325's owner): a Retry that
+      // cannot succeed is the app implying the failure is ours and temporary
+      // when it is neither, and a distinct "not allowed" would leak that the
+      // class exists. "No longer exists" is true enough and tells them nothing
+      // they should not know.
+      const gone = status === 404 || status === 403;
+      return (
+        <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+          {gone ? (
+            <ErrorState message={t("classDetail.classGone")} testID="class-gone" />
+          ) : (
+            <ErrorState message={t("classDetail.couldNotLoad")} onRetry={() => byId.refetch()} />
+          )}
+        </Screen>
+      );
+    }
     return (
       <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
         <ErrorState message={t("classDetail.notFound")} />
