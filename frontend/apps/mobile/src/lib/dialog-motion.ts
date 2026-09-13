@@ -16,6 +16,12 @@ import { FadeIn, FadeOut } from "react-native-reanimated";
  *
  * Reanimated's own `LayoutAnimationConfig skipExiting` expresses the same
  * intent for a subtree; this is the one-line form for the three call sites.
+ *
+ * The mechanism above is the BEST-FITTING explanation, not a demonstrated one:
+ * the fix changes the animation rather than instrumenting Fabric's mount, so
+ * what is proven is that removing the exit animation removes the symptom, not
+ * that the exit animation is what orphaned the view. Flow 49 guards the
+ * behaviour either way.
  */
 export const dialogEntering = () => FadeIn.duration(150);
 
