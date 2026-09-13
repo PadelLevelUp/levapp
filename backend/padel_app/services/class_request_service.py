@@ -260,14 +260,25 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [coach_user.id])
     title = "Pedido de aula" if locale == "pt" else "Class request"
-    # PAD-327: `{"type": "class_request"}` was a fourth dead tap — a type the
-    # contract does not define, so the notification opened the app and nothing
-    # happened. There is a Message row three lines above, so rule 7 already says
-    # what this is: a message push, opening the thread the coach acts in. Found
-    # by the guard in `test_pad327_push_destinations.py`, not by reading.
+    # `{"type": "class_request"}` was a fourth dead tap — a type the contract
+    # does not define, so the notification opened the app and nothing happened.
+    # There is a Message row three lines above, so rule 7 already said what this
+    # is. Found by PAD-327's guard rather than by reading, and FIXED BY H in
+    # PAD-324 (bfb9d944c) before this branch merged: H's version keeps
+    # `classRequestId` as secondary context, which mine dropped, so this merge
+    # takes H's.
     send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}")
+    # PAD-324 (messaging.push-notifications rule 7): the same defect as the
+    # join-request push. There is a message behind this — the web push already
+    # opens its thread — and `class_request` is not one of the two shapes the
+    # contract defines, so `routeForPushData` returns null and the tap opens
+    # the app and does nothing. The request id stays as context.
     send_expo_push_to_user(coach_user.id, title=title, body=text[:100],
-                           data={"type": "message", "conversationId": conv.id})
+                           data={
+                               "type": "message",
+                               "conversationId": conv.id,
+                               "classRequestId": row.id,
+                           })
 
 
 def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:

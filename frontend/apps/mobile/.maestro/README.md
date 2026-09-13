@@ -69,6 +69,12 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
   "Present" (it also accepts "Invited" so it can run standalone).
 - Seeded ids on a fresh DB are deterministic: player `1` = E2E Student,
   conversation `1` = coach↔student.
+- **`12-settings-language` changes the coach's language and changes it back.**
+  The preference is stored on the user, so a failure between the two switches
+  leaves every later coach flow running in Portuguese, and any flow asserting
+  an English string fails for a reason that has nothing to do with it (PAD-304:
+  16 and 34 failed exactly this way). Assert the saved status by id, never by
+  the sentence — it renders in the language just chosen.
 
 ## Web spec → Maestro flow mapping
 
@@ -188,8 +194,13 @@ API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLO
 **Flow policy.** A pull request runs the smoke list only (`01-login`, `31-week-view`,
 `32-month-view`, `36-android-evidence` — about 6 minutes after the APK). The whole suite
 (config.yaml's order, continue-on-failure, ~60 minutes of emulator time) runs nightly at
-03:00 UTC on staging and on demand: Actions → "Android build" → Run workflow with
-`flows` = `.` (the default). Read failures in the `maestro-results` artefact.
+03:00 UTC and on demand: Actions → "Android build" → Run workflow with `flows` = `.` (the
+default). Read failures in the `maestro-results` artefact.
+
+The nightly only starts once this workflow reaches `main`: GitHub runs a `schedule:` trigger
+from the default branch's copy of the file and from nowhere else, so there is no nightly while
+the lane lives on staging, and when it does start it runs `main`'s HEAD. Accepted as-is
+(PAD-304) — the whole suite is one manual dispatch away in the meantime.
 
 Deltas against the iOS suite — `mobile.android-runtime` rule 8:
 
@@ -199,10 +210,36 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
 - **Notification permission.** Android 13+ shows a system dialog at push registration; the
   lane grants `POST_NOTIFICATIONS` with `adb shell pm grant` before the flows, so no flow
   handles it.
-- **Keyboard.** `pressKey: Enter` still dismisses a single-line input; `hideKeyboard` is
-  expected to work on Android (it fails on iOS in this app).
-- **Select portals** are in the Android a11y tree as ordinary views — the iOS workaround
-  (percent taps in `12-settings-language`) stays until both are verified.
+- **Keyboard.** `pressKey: Enter` still dismisses a single-line input; `hideKeyboard` works on
+  Android (it fails on iOS in this app) — flows use `runFlow: { when: { platform: Android } }`
+  blocks for it (06, 20).
+- **Taps by label text miss on Android.** `tapOn: "<accessibilityLabel>"` found nothing on the
+  emulator (16, 34); every control a flow taps needs a testID (`class-notify-cancel`,
+  `player-back`, `player-remove-cancel` were added, PAD-304).
+- **OPEN: a dialog's cancel button does not take the press on the emulator** (16, 34). Maestro
+  resolves the button in the hierarchy, taps its centre, reports the tap completed, and the
+  dialog is still open ten seconds later — while the confirm button of the same primitive
+  responds in the same run (03). The mechanism is not named yet, and it is not B-067's: these
+  wrappers have real bounds. Both flows fall back to the dialog's close control (16) or
+  hardware back (34) and say so in a comment; if you touch them, keep the fallback branch
+  visible in the log so the next run still shows which control closed the dialog.
+- **Platform-conditional steps** (`runFlow: when: platform: Android|iOS`) carry the iOS
+  workarounds (the picker's `-confirm` in 13) next to the Android path. Flow 12's percent taps
+  are gone: both platforms tap by id since B-067.
+- **A value inside a control is a child text node on Android**, so `id` + text assertions miss
+  it. The date and time pickers put the value in the control's own accessibility label
+  (`"Date: 2026-09-12"`, PAD-304), the way the dashboard cards already did; assert that shape
+  rather than the bare value.
+- **The system navigation bar is transparent** (edge-to-edge): a list's last row can sit under
+  the 3-button bar and a centre tap hits Home (the Settings logout row, ~1 run in 5). Screens
+  pad their scroll content by the bottom safe-area inset (`app/settings.tsx`); a flow should
+  not need `centerElement` (it times out at the end of the content on iOS).
+- **Select options need the portal wrapper to have size** (B-067, fixed in PAD-304). The
+  wrapper around the absolutely positioned option list used to shrink-wrap to 0 × 0, and
+  Android neither hit-tests nor exposes children that lie outside their parent's bounds, while
+  iOS does both — so on Android every option was inert and invisible to the a11y tree while
+  plainly drawn on screen. Both platforms now tap options by id (12). Watch for the same shape
+  anywhere a portal wraps absolutely positioned content.
 - **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by
   text, not a testID.
 - **Push**: `push-tap-flow.sh` is `simctl` (APNs) only; no Android equivalent yet (wave C), so

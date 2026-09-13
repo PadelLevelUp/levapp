@@ -10,7 +10,9 @@ Four of the six writers disagreed:
   "kind": …}`, which the contract does not define — a dead tap;
 - `class_request_service` sent `{"type": "class_request", …}`, same;
 - `class_join_request_service` sent `{"type": "class"}` for a push with a
-  Message behind it, which routed to a screen that could not open (PAD-324).
+  Message behind it, which routed to a screen that could not open. That one and
+  the class request were fixed by Session H in PAD-324; this branch fixes the
+  two request alerts and adds the guard.
 
 Three of those were found by reading. The fourth was found by this guard before
 it was finished, which is the argument for having it.
@@ -73,33 +75,25 @@ def _expo_payload_types(source: str) -> list[str]:
     return found
 
 
-#: The one writer this branch must NOT fix: Session H's join-request payload,
-#: in flight as #249 and already merged into the release assembly. Duplicating a
-#: fix in flight is how two branches produce one conflict and one silent revert.
-#: Remove this the moment #249 reaches staging — the marker is deliberately one
-#: named file rather than a weakened assertion, so it cannot quietly cover
-#: anything else, and it fails loudly (`strict`) once the fix lands.
-IN_FLIGHT_ELSEWHERE = {"class_join_request_service.py"}
-
-
 def test_no_push_writer_invents_a_payload_type():
     """Structural half: total over the services, cannot miss a new writer."""
+    # R-032: prove the walk found its subject. A parser that matches nothing —
+    # because the helper was renamed, or the services moved — would report every
+    # writer compliant while checking none of them.
+    seen = sum(len(_expo_payload_types(p.read_text())) for p in SERVICES.glob("*.py"))
+    assert seen >= 5, (
+        f"found only {seen} literal push payload types under {SERVICES}; this guard is not "
+        "reading the writers it exists to check"
+    )
     offenders: list[str] = []
-    deferred: list[str] = []
+    # No carve-outs. There was one — `class_join_request_service.py`, deferred to
+    # Session H's #249 while that fix was in flight — and it came out the moment
+    # #249 reached staging. A guard with a standing exception for the case that
+    # would have caught the bug is decoration.
     for path in sorted(SERVICES.glob("*.py")):
         for kind in _expo_payload_types(path.read_text()):
-            if kind in ROUTABLE_TYPES:
-                continue
-            if path.name in IN_FLIGHT_ELSEWHERE:
-                deferred.append(f"{path.name}: {{'type': '{kind}'}} — fixed by #249")
-                continue
-            offenders.append(f"{path.name}: {{'type': '{kind}'}}")
-    if deferred:
-        # Visible in the run rather than silent: a carve-out nobody can see is
-        # how a guard becomes decoration.
-        print("\nPAD-327 guard, deferred to #249 (remove when it reaches staging):")
-        for line in deferred:
-            print("  " + line)
+            if kind not in ROUTABLE_TYPES:
+                offenders.append(f"{path.name}: {{'type': '{kind}'}}")
     assert offenders == [], (
         "these payload types are not in `messaging.push-notifications` rule 7, so the tap "
         "routes nowhere — a dead tap, which is harder to notice than a wrong screen:\n  "
