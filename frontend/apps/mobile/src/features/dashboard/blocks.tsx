@@ -726,6 +726,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           this width read as decoration. */}
       <View className="flex-row gap-2.5">
         <Stat
+          testID="dashboard-pulse-seats-filled"
           label={t("dashboard.pulse.seatsFilled")}
           value={`${seatsFilled.pct}%`}
           sub={t("dashboard.pulse.seatsFilledSub", {
@@ -734,6 +735,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           })}
         />
         <Stat
+          testID="dashboard-pulse-active-players"
           label={t("dashboard.pulse.activePlayers")}
           value={String(players.active)}
           sub={t("dashboard.pulse.activePlayersSub", {
@@ -746,9 +748,26 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
   );
 }
 
-export function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  testID,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  testID?: string;
+}) {
   return (
-    <View className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4">
+    // PAD-304: id + "label: value" accessibility label, the same shape the KPI
+    // tiles use — the card's child Text nodes are not addressable on Android,
+    // so a test (or a screen reader) reading the card alone needs both here.
+    <View
+      testID={testID}
+      accessibilityLabel={testID ? `${label}: ${value}` : undefined}
+      className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4"
+    >
       <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
       <Text className="font-display text-2xl text-foreground">{value}</Text>
       <Text className="text-[11px] text-muted-foreground">{sub}</Text>

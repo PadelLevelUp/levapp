@@ -22,10 +22,21 @@ appId: com.padellevelup.app
 - tapOn:
     id: "player-name"
 - inputText: "Maestro Player"
-# Dismiss the keyboard (on-drag) so it can't cover the save button.
-- swipe:
-    start: "50%, 45%"
-    end: "50%, 20%"
+# Dismiss the keyboard so it can't cover the buttons: a drag on iOS
+# (keyboardDismissMode="on-drag"; hideKeyboard fails there), hideKeyboard on
+# Android, where the drag scrolls under the keyboard instead (PAD-304).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "50%, 45%"
+          end: "50%, 20%"
 - scrollUntilVisible:
     element:
       id: "player-save"
