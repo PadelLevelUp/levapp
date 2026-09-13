@@ -96,6 +96,20 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         and not presence.validated
     )
     if returning:
+        # PAD-318: the earlier reminders asked about a seat they no longer held,
+        # so they stop counting toward the cap and their bubbles are retired —
+        # otherwise the next pass skips this student and nobody ever asks them
+        # about the seat the coach just gave back.
+        from padel_app.serializers.message import serialize_message
+        from padel_app.services import reminder_attempt_service as attempts
+        from padel_app.services.conversation_access import message_recipient_ids
+        from padel_app.services.notification_service import publish
+
+        for message in attempts.void_for_return(instance.id, player_id):
+            publish(
+                {"type": "message_edited", "payload": serialize_message(message, None)},
+                message_recipient_ids(message),
+            )
         presence.status = None
         presence.justification = None
         presence.late_cancellation = False
@@ -107,6 +121,20 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         presence.confirmed = confirmed
 
     if created or returning:
+        # PAD-331: a late arrival must actually be ASKED. The reminder chain is
+        # spent once a pass reports nothing more due, so nobody who joins after
+        # it is asked by anything — clearing the cap (PAD-318) removes the
+        # blocker but arms no pass. Best-effort: a scheduler failure must never
+        # fail an enrolment.
+        try:
+            from padel_app.scheduler import arm_ask_for_student
+
+            arm_ask_for_student(instance, player_id)
+        except Exception:  # noqa: BLE001
+            current_app.logger.exception(
+                "enrol: could not arm a reminder for player %s on instance %s",
+                player_id, instance.id,
+            )
         # PAD-271 (notifications.invitations rule 13): a spot was taken, so a
         # vacancy the capacity no longer supports closes in the same unit of
         # work. PAD-316: a returning player also reclaims their OWN vacancy,

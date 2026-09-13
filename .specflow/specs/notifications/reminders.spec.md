@@ -83,7 +83,30 @@ Automatically send class reminders to enrolled players at a configured time befo
     created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
     replacement invitations for a spot that was never theirs.
 
+18. **A late arrival is asked (PAD-331, PAD-318; rule numbers self-assigned, unconfirmed).** Reminder passes are a chain: a pass schedules the next one only while it reports `more_due`. With the default `reminderCount` of 1 the first pass reports `false` — everyone has had their reminder — so **the chain ends after one pass** and the occurrence's job is spent. Anyone who joins the class after that was therefore never asked by anything: a coach's fresh add, a coach re-adding someone who had cancelled, any late arrival, with no cancellation anywhere in the story.
+    So enrolling a student **arms one pass for them** when, and only when, the ordinary reminder has already come and gone. While that reminder is still ahead it asks them at the coach's configured moment, and arming here would ask a student the instant they were added — three weeks early for a class three weeks out, which is exactly what the configured timing exists to prevent.
+    Nothing is armed when the student has already answered, when a reminder of theirs is still live and unanswered (asking again is the noise `notifications.reminders` removed in PAD-49 and PAD-94), when the class is over or cancelled, or when the earliest permitted moment falls at or after the class starts.
+    **Quiet hours defer it forward, never back.** Outside the permitted window the ask is scheduled for the next permitted instant — the end of quiet hours on the club's clock. It is deliberately *not* deferred to the occurrence's configured fire time, which is in the past for exactly the cases this rule exists for; deferring to it would reinstate the bug on the path hardest to test.
+    A pass is armed rather than a bespoke message sent: `send_class_reminders` already skips everyone who has answered or exhausted their reminders, so one pass reaches precisely the people who still owe an answer and nobody else.
+19. **The cap counts the seat a student holds now (PAD-318).** A student who cancelled and was put back by their coach has a new seat; the reminders from before the cancellation asked about a seat they no longer held, so they no longer count toward `reminderCount` and their bubbles are retired — an un-actioned Yes/No about a surrendered seat must not stay tappable. `superseded` alone is not the discriminator: every new reminder supersedes the previous one, so a cap that ignored superseded attempts would uncap reminders entirely. A voided round is also excluded from `reminderSentAt` (`attendance.presence` rule 1a), so the class sheet does not tell a coach a reminder is outstanding for a student who is about to be asked for the first time about the seat they now hold
+
 ### Acceptance Criteria
+
+#### A student added after the chain has stopped is still asked (PAD-331)
+- **Given** a class whose reminder pass has already run, so nothing is armed for it
+- **When** the coach adds a student who was not on the list
+- **Then** one pass is armed for that class
+- **And** adding a student while the ordinary reminder is still ahead arms nothing — that reminder will ask them
+
+#### A re-added student is asked about the seat they now hold (PAD-318)
+- **Given** a student who answered, cancelled, and was put back by the coach
+- **Then** their earlier reminders no longer count toward the cap, their old bubble is retired, and one pass is armed
+- **And** the class sheet does not show "reminder sent" for them until the new one goes out
+
+#### Quiet hours defer the ask to the morning
+- **Given** a coach with quiet hours enabled and a student added at 02:00 on the club's clock
+- **Then** the ask is scheduled for the end of quiet hours, never for a time already past
+- **And** nothing is armed at all when the earliest permitted moment is at or after the class start
 
 #### Reminder job fires
 - **Given** a recurring lesson on Mondays at 10:00 with reminder timing "24 hours before"

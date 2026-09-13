@@ -1264,6 +1264,89 @@ def ordered_invite_rounds(
 # Restriction checks
 # ---------------------------------------------------------------------------
 
+def next_ask_time(instance, player_id, *, config=None, now=None):
+    """When this student should be asked whether they are coming, or ``None``.
+
+    PAD-331. Reminder passes are a CHAIN: ``_maybe_rearm_reminder`` schedules the
+    next one only while the current pass reports ``more_due``. With the default
+    ``reminderCount`` of 1 the first pass reports ``False`` — everyone has had
+    their reminder — so the chain ends after one pass and the occurrence's job is
+    spent. Anyone who joins the class after that is never asked: a fresh add, a
+    coach re-add (PAD-318), or any other late arrival, with no cancellation
+    anywhere in the story. Removing the cap that skipped them is necessary and
+    not sufficient; something has to ASK.
+
+    ``None`` means nothing to do, for four honest reasons: the class is over or
+    cancelled, they have already answered, a reminder is still live and
+    unanswered (asking again is the noise PAD-49 and PAD-94 removed), or the
+    earliest permitted moment falls at/after the class start.
+
+    Otherwise: now, if sending is permitted now; else the next permitted instant.
+    It deliberately does NOT fall back to the occurrence's configured fire time —
+    that time is usually in the past for exactly the cases this fixes, and
+    deferring to it would reinstate the bug on the path hardest to test.
+    """
+    from padel_app.services import reminder_attempt_service as attempts
+
+    _now = now or utcnow_naive()
+    if instance is None or _instance_is_over(instance, _now):
+        return None
+
+    presence = Presence.query.filter_by(
+        lesson_instance_id=instance.id, player_id=player_id
+    ).first()
+    if presence is None or presence.confirmed or presence.status == "absent":
+        return None
+    if attempts.pending_attempts(instance.id, player_id):
+        return None
+
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)
+    if coach is None:
+        return None
+    _config = config or get_or_create_config(coach.id)
+    restrictions = _config.get_restrictions()
+
+    # The ordinary reminder has not fired yet: it will ask them at the coach's
+    # configured moment, which is the whole point of configuring it. Arming here
+    # would ask a student the instant they are added — three weeks early for a
+    # class three weeks out, and exactly the noise the timing exists to avoid.
+    # This gap is only for students who join AFTER that pass has come and gone.
+    from padel_app.scheduler import _fire_time_utc
+
+    fire = _fire_time_utc(instance.start_datetime, _config.get_reminder_timing())
+    if fire is not None and fire > _now:
+        return None
+
+    when = _now
+    if not _check_restrictions(instance, coach.id, restrictions, now=when):
+        when = _next_quiet_hours_end(when)
+        if when is None or not _check_restrictions(instance, coach.id, restrictions, now=when):
+            return None
+
+    if instance.start_datetime is not None and when >= wall_to_utc_naive(instance.start_datetime):
+        return None
+    return when
+
+
+def _next_quiet_hours_end(now):
+    """The next instant quiet hours allow, i.e. 07:00 on the club's clock.
+
+    Quiet hours are a club-local window (22:00–07:00, notifications.config rule
+    6a), so the answer is computed on the club's clock and handed back as the
+    UTC instant everything else compares.
+    """
+    local = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
+    if local.hour < 7:
+        end = local.replace(hour=7, minute=0, second=0, microsecond=0)
+    elif local.hour >= 22:
+        end = (local + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
+    else:
+        return now
+    return end.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def _check_restrictions(
     instance: LessonInstance,
     coach_id: int,

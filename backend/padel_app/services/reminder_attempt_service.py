@@ -18,8 +18,50 @@ def _query(instance_id, player_id):
 
 
 def count_attempts(instance_id, player_id) -> int:
-    """How many reminders this player has had for this class."""
-    return _query(instance_id, player_id).count()
+    """How many reminders this player has had for the spot they hold NOW.
+
+    Voided attempts (see :func:`void_for_return`) do not count: they belong to a
+    previous stint in this class, and the cap is about whether we have asked the
+    student about the seat they currently hold.
+
+    `superseded` alone is NOT the discriminator — every new reminder supersedes
+    the previous one (PAD-49), so excluding those would uncap reminders entirely.
+    Only the superseded-AND-expired pair means "void", and the one other writer
+    of that pair, `_expire_stale_reminders`, runs only for a class that is over,
+    which `send_class_reminders` already refuses to send for.
+    """
+    from padel_app.models import ReminderAttempt
+
+    return (
+        _query(instance_id, player_id)
+        .filter(
+            ~(ReminderAttempt.superseded.is_(True) & ReminderAttempt.expired.is_(True))
+        )
+        .count()
+    )
+
+
+def void_for_return(instance_id, player_id):
+    """PAD-318: a student is back in the class, so the earlier round is void.
+
+    A coach re-adding someone who had cancelled gives them a new seat. The
+    reminders from before that cancellation asked about a seat they no longer
+    held, so they stop counting toward the cap — otherwise the student is never
+    asked again for this occurrence and sits at `planned` indefinitely, with the
+    coach seeing no answer and no signal to go and ask.
+
+    Voiding also retires the old bubbles: an un-actioned Yes/No from the previous
+    stint must not stay tappable, which is PAD-49's rule and PAD-94's reason.
+    Returns the messages whose flags changed, for the caller to publish.
+    """
+    changed = []
+    for attempt in _query(instance_id, player_id).all():
+        if attempt.superseded and attempt.expired:
+            continue
+        message = mark_superseded(attempt, expired=True)
+        if message is not None:
+            changed.append(message)
+    return changed
 
 
 def pending_attempts(instance_id, player_id):
