@@ -54,6 +54,35 @@ Three sessions reached for the same defence in one evening, independently:
    — asserts the client's `push-routing.ts` exists **and defines `routeForPushData`** before
    checking which payload types it routes.
 
+## A worked example: the rule applied to its own enforcement
+
+`test_pad327_push_destinations.py` exists to prove that no push writer invents a payload type
+the routing contract does not define. It finds the writers by walking every
+`send_expo_push_to_user` call site with an AST — which is what makes it total, and also exactly
+what can come back empty. A renamed helper, a moved `services/` directory, or a payload built in
+a shape the walk does not recognise, and the parse yields nothing; the loop over "offenders" then
+finds none and **the guard reports every writer compliant while checking none of them.**
+
+So before it checks anything, it asserts the walk found at least five payload types, naming the
+directory it searched when it did not:
+
+```python
+seen = sum(len(_expo_payload_types(p.read_text())) for p in SERVICES.glob("*.py"))
+assert seen >= 5, (
+    f"found only {seen} literal push payload types under {SERVICES}; this guard is not "
+    "reading the writers it exists to check"
+)
+```
+
+Two properties worth copying. The floor is a **count of real findings**, not a boolean — "the
+directory exists" would have passed while the parser matched nothing. And the failure names
+**where it looked**, so the next person fixes the guard's aim instead of deleting the assertion.
+
+The same file carries the other half of the rule at a boundary: its client-source test asserts
+`push-routing.ts` exists **and defines `routeForPushData`** before checking which types the app
+routes, because existence is not identification — a rename that split the module would satisfy
+the first and quietly fail the second.
+
 ## How to satisfy it
 
 - Reading a file: assert it exists, and assert it contains the symbol you are about to reason
