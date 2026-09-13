@@ -203,6 +203,18 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
   expected to work on Android (it fails on iOS in this app).
 - **Select portals** are in the Android a11y tree as ordinary views — the iOS workaround
   (percent taps in `12-settings-language`) stays until both are verified.
+- **A red run whose summary names the login is usually the logout.** Every flow ends by
+  logging out, and `logout.yaml`'s last step waits for `login-username`, so a failure there is
+  reported as `Assertion is false: id: login-username is visible` — naming the login's
+  assertion, because that is the string the assertion carries. A person reading "login failed"
+  goes and debugs the login and finds nothing wrong with it, because nothing is. Three runs on
+  2026-09-12 (34690803997, 34693403445, 34694704133) read as twelve login failures and were
+  twelve logout failures: each flow had logged in, reached the dashboard and done its work
+  first. The signature that tells them apart is the screen hierarchy captured at the failing
+  step — if it contains `com.android.launcher3`, the app is in the background with its process
+  still alive, and the logout tap landed on the system Home button under the transparent
+  navigation bar (fixed in PAD-304: the settings list reserves the bottom inset, and the
+  logout subflow centres the row on Android). Open the tree before believing the summary line.
 - **Pickers** are Android's own dialogs (`DateTimePickerAndroid`): tap the dialog's OK by
   text, not a testID.
 - **Push**: `push-tap-flow.sh` is `simctl` (APNs) only; no Android equivalent yet (wave C), so
