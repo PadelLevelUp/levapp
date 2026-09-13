@@ -54,6 +54,13 @@ executionOrder:
     # so it sits here. It is NOT on the run-by-script exemption list on
     # purpose: a guard nobody runs proves nothing.
     - 49-dialog-cancel-closes
+    # PAD-314 / B-089: the two RATE probes. They are loops, not assertions
+    # about one run — 51 walks the post-verification transition ten times, 52
+    # raises the class-form dialog twenty times, and each reports how often its
+    # face of the defect appears. Listed here rather than exempted so they run
+    # with everything else; a probe nobody runs measures nothing.
+    - 51-verify-transition-rate
+    - 52-dialog-overlay-rate
     # 35 (PAD-286) reads only: swipes the Mês day sheet up and down. (34 is PAD-274's.)
     - 35-day-sheet-polish
     # 40 flips the approval gate and restores it within itself (PAD-279/PAD-238), so its

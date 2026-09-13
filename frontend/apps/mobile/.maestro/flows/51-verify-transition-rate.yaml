@@ -1,0 +1,96 @@
+# PAD-314 / B-089, symptom 1 — "blank surface after the post-verification
+# transition", as a RATE.
+#
+# The observation: one second after the verification code was accepted, the
+# app's window held only the system bars around an empty content frame, the
+# screen was white, and the device log carried a Fabric mounting exception
+# ("addViewAt: cannot insert view ... View already has a parent") followed by
+# two unhandled soft exceptions. Nothing mounted afterwards, so every later
+# assertion in that flow failed regardless of what it looked for.
+#
+# One run tells you nothing about an intermittent fault. This flow walks the
+# same transition TEN times and asserts the screen that must follow it. What it
+# produces is a number: "the surface came up blank N times in 10".
+#
+# Ten, not twenty: each iteration creates an account and walks the whole signup
+# form, so an iteration costs roughly forty seconds against the dialog loop's
+# eight. Ten keeps the job inside its timeout while still turning "sometimes"
+# into a measurement. If the rate is low and ambiguous, raise the count rather
+# than the confidence.
+#
+# HOW TO READ IT — this caveat belongs with any number quoted from it: ten
+# walks of THIS transition say nothing about the other two faces of B-089. The
+# empty overlay lives on the class form (flow 52) and the ghost on the player
+# screen (flow 49). Whoever quotes a rate must say which of the three it came
+# from; the next person will otherwise reach for whichever number is nearest.
+#
+# Run it against the PRE-fix build as well as the post-fix build. Without a
+# pre-fix rate you cannot tell "the fix cleared it" from "this face was always
+# rarer than one run reveals", and that distinction is the whole question.
+#
+# It creates ten accounts per run against the test database, all unverifiable
+# strangers with stamped usernames, and clears app state between iterations
+# rather than signing out through Settings — a fresh launch is closer to the
+# conditions the symptom was seen in, and it costs seconds rather than a
+# navigation.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- repeat:
+    times: 10
+    commands:
+      - launchApp:
+          clearState: true
+      - evalScript: ${output.stamp = String(Date.now())}
+      - extendedWaitUntil:
+          visible:
+            id: "login-create-account"
+          timeout: 25000
+      - tapOn:
+          id: "login-create-account"
+      - extendedWaitUntil:
+          visible:
+            id: "screen-signup"
+          timeout: 15000
+      - tapOn:
+          id: "signup-role-student"
+      - tapOn:
+          id: "signup-name"
+      - inputText: "Maestro Rate Probe"
+      - tapOn:
+          id: "signup-username"
+      - inputText: "maestro-r-${output.stamp}"
+      - pressKey: Enter
+      - inputText: "maestro-r-${output.stamp}@example.com"
+      - pressKey: Enter
+      - inputText: "Segura1234"
+      - pressKey: Enter
+      - inputText: "Segura1234"
+      - pressKey: Enter
+      - inputText: "01012000"
+      - assertVisible:
+          id: "signup-birthDate"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            id: "signup-submit"
+          direction: DOWN
+          timeout: 10000
+      - tapOn:
+          id: "signup-submit"
+      - extendedWaitUntil:
+          visible:
+            id: "verify-email"
+          timeout: 25000
+      - evalScript: ${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=maestro-r-' + output.stamp + '@example.com').body).code}
+      - tapOn:
+          id: "verify-email-cell-0"
+          optional: true
+      - inputText: ${output.code}
+      # The transition under test. A blank surface fails here, and the device
+      # log in the artefact is where the mounting exception will be if it is
+      # the cause.
+      - extendedWaitUntil:
+          visible:
+            id: "connect-with-coach"
+          timeout: 25000
