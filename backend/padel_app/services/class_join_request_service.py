@@ -204,6 +204,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
     from padel_app.services.notification_service import (
         _add_player_to_instance,
         _broadcast_spot_filled,
+        _close_vacancy,
         _deactivate_standing_entry,
         _send_system_message,
         _user_id_for_coach,
@@ -273,10 +274,13 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         .order_by(Vacancy.id.asc())
         .first()
     )
+    retired = []
     if vacancy is not None:
-        vacancy.status = "filled"
-        vacancy.filled_by_player_id = row.player_id
-        vacancy.filled_at = now
+        # PAD-317: closed through the one routine, which also retires the
+        # invitations still offering this spot. Rule 10's broadcast below then
+        # tells those candidates, working from the list rather than re-querying
+        # rows this has just expired.
+        retired = _close_vacancy(vacancy, row.player_id, now=now)
         # Rule 13: the request IS the coach's decision — a pending approval
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":
@@ -291,6 +295,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         _broadcast_spot_filled(
             instance, -1, coach_user_id, templates,
             vacancy_id=vacancy.id if vacancy is not None else None, locale=locale,
+            events=retired,
         )
 
     # Rule 8: consume a standing waiting-list credit, if the student holds one.
