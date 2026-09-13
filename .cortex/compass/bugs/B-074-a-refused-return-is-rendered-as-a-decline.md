@@ -56,6 +56,20 @@ the dashboard block's ternary ends `"confirmed" ? confirmed : declined`. A defen
 that maps *everything unknown* onto a specific wrong answer is the trap — the web bubble's
 explicit unknown branch is the shape that survived contact with a new value.
 
+## Severity note: this is a WRONG answer, not a missing one
+
+Worth stating plainly, because a summary is what the next person reads instead of
+the code, and "the client fails to render the refusal" understates it. On the
+mobile conversation bubble the student taps **Yes** — "I can come after all" —
+the server refuses because the seat has gone, and the app records **"no"** and
+says nothing. They asked for their spot back and the app tells them, quietly,
+that they declined. Nothing is missing from that screen; something false is
+present on it.
+
+That is why the fix is "write nothing" rather than "write something better": the
+only honest thing a client can record about an answer it does not understand is
+nothing at all.
+
 ## Why it matters more from today
 
 Before PAD-315 a student could only reach `spot_filled` by tapping "Yes" on a reminder *after*

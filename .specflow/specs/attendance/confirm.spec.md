@@ -151,6 +151,9 @@ Players confirm or decline their attendance in response to a reminder notificati
      believes the spot is taken: capacity can change between render and tap, and a client that
      guesses is racing the invitation engine. Offer it, call, honour the reply. This is the
      standing reason the affordance is not gated on `openSpot` or on any count.
+     **Structural, not advisory: the shared gate `canComeBack` takes no capacity argument at
+     all**, so pre-judging cannot be reintroduced by an edit inside a component — adding the
+     parameter is a visible act in a diff. You cannot pre-judge a seat you were not given.
    - **`spot_filled` is rendered plainly**, in the student's own words — "a tua vaga já foi
      ocupada" — and the row stays `not_coming`. It is an outcome, not an error: nothing went
      wrong, the seat went to somebody else, which is exactly what freeing it was for.
