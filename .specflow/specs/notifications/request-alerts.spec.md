@@ -37,9 +37,9 @@ with a per-user opt-out (PAD-232).
      v1, as rule 5 says; PAD-233 owns rejection semantics.
 2. **Channels**, in this order, each best-effort and independent: web push
    (`send_push_notification`, URL = the settings section that shows the request), native push
-   (`send_expo_push_to_user`, `data: {type: "request", kind}` — no tap route in v1, the app
-   opens on its current screen; the messaging.push-notifications rule-7 contract keeps
-   `message` and `class` as the only routed types), then email
+   (`send_expo_push_to_user`, `data: {type: "path", path}` — **the same path string the web
+   push carries**, so both channels name one destination and can be tested against each other;
+   PAD-327), then email
    (`email_tools.send_email`, rendered by `email_templates.render_request_alert_email` in the
    recipient's `language`, branded like the approval email, one button to the web app). A
    recipient without an email or without devices simply gets the channels they have.
@@ -56,6 +56,24 @@ with a per-user opt-out (PAD-232).
 6. **Settings** (web and iOS): Preferences shows a switch "Request alerts" — "Push and email
    when a request needs you, and when yours is decided" — for every role, saved through
    `PATCH /api/auth/me {requestAlerts}`; the switch reflects `GET /api/auth/me`.
+
+7. **A request alert lands where its web sibling lands (PAD-327; number self-assigned,
+   unconfirmed).** ~~"No tap route in v1: the app opens on its current screen."~~ That was a
+   recorded decision, not an oversight — whoever wrote it hit the same wall Session H hit while
+   auditing the writers, and **wrote the limitation down rather than quietly widening a contract
+   they did not own**, which is the behaviour we want. This rule revokes the decision now that
+   the contract has a shape for it (`messaging.push-notifications` rule 7's `path` type).
+   - The Expo payload carries **the same string** the web push carries — `PATHS[kind]`, which
+     the server already owns — rather than a `kind` the client maps for itself. A second copy
+     of that table in the app would disagree with the server the day a kind is added, and
+     disagreement between the two channels is the whole defect this rule exists to end.
+   - The client maps that web path to a native route with the one mapper it already has for
+     server-emitted paths (`dashboard.blocks` rule 10). An **unmapped path routes nowhere and
+     never crashes** — the same "unknown does nothing" rule as B-074.
+   - The drift this closes is against this spec's own business layer:
+     `people-hear-about-requests` promises the decider is told right away and its journey is
+     *"opens Settings → Club and approves"*, which iOS has never been able to satisfy, because
+     the push could not open Settings → Club at all.
 
 ### Acceptance Criteria
 
@@ -94,3 +112,14 @@ with a per-user opt-out (PAD-232).
 ### Notes
 - OPEN: role-neutral editable copy for these alerts (rule 4).
 - OPEN: a native tap route for `type: "request"` once a settings deep link exists on iOS.
+
+#### The two channels agree, per writer (PAD-327)
+- **Given** any push writer that sends both a web push and an Expo push for the same event
+- **Then** the web push's `url` and the Expo payload's destination name the same place — the
+  same path string, or for a message-shaped push the conversation that path points at
+
+- **Given** a request alert for `coach_approval.decided`
+- **Then** the web push carries `/dashboard` and the Expo payload carries `path: "/dashboard"`
+
+- **Given** an Expo payload whose path the client cannot map
+- **Then** the tap routes nowhere and nothing crashes

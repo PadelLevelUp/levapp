@@ -41,9 +41,19 @@ Send browser push notifications when a new message arrives and the recipient isn
    write and the badge lingers; writing on every fresh answer — after a
    mark-read invalidation, on foreground refetch, and on the first fetch of a
    cold launch — makes the icon equal the server count at every observation
-7. **Tap-routing contract (PAD-240).** A native push's `data` names where a tap
-   lands: `{type: "message", conversationId}` opens the conversation thread,
-   `{type: "class", classInstanceId}` opens the class. **Every push that
+7. **Tap-routing contract (PAD-240; third shape added by PAD-327).** A native
+   push's `data` names where a tap lands: `{type: "message", conversationId}`
+   opens the conversation thread, `{type: "class", classInstanceId}` ~~opens the
+   class~~ (retired, see below), and **`{type: "path", path}` opens a plain
+   in-app destination named by the SAME web path the push's web sibling
+   carries** — for pushes that are backed by neither a message nor a class, such
+   as the request alerts of `notifications.request-alerts` rule 7. The client
+   maps that web path to a native route through the single mapper it already
+   uses for server-emitted paths (`dashboard.blocks` rule 10); a path it cannot
+   map routes nowhere and never crashes. The path is sent rather than derived
+   from a `kind` so that the server keeps sole ownership of the destination —
+   two copies of that table would disagree the day a kind is added, which is the
+   defect this shape exists to end. **Every push that
    announces a `Message` row is a message notification** — direct messages and
    all system messages alike (invitations, reminders, spot filled, waiting-list
    offers, cancellations to the coach) — because the thing the user acts on
