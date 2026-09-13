@@ -87,3 +87,31 @@ Not addressed here, and a separate follow-up: nobody has measured how long the m
 actually takes against a production-sized database. The deploy stops the old container before
 starting the new one, so that window is a full outage of unknown length. Measuring it needs a
 production-sized copy, which needs the owner's `gcloud auth login`.
+
+## Why this is written as steps rather than a summary
+
+An observation, recorded here rather than as a rule because it has two instances from one
+session on one evening — a pattern worth liking, not yet a pattern anyone has seen twice
+independently (coordinator, 2026-09-13). If another session hits it on its own, it earns a
+number.
+
+**Analysis missed what enumeration caught.** Both of the following were found by writing out
+what the system does, step by step, and neither by reading the same code an hour earlier with
+the explicit goal of finding risks:
+
+- **The migration-restart trap above.** The promotion evidence pack analysed this same deploy
+  workflow and described the surviving previous image as a rollback mitigation. Writing the
+  recovery *steps* forced the sentence "start the previous image", which forced the question
+  "what does that image do when it starts" — and it runs `flask db upgrade`, so it meets the
+  schema a partly-applied chain has already moved. The mitigation is real only when no migration
+  applied in that deploy. The analysis had produced a confident, wrong summary; the enumeration
+  produced the caveat.
+- **The keep-three bug in this ticket's own change.** Reasoning said "keep the last three
+  images". Writing the pipeline out against sample `docker images` output showed the newest image
+  occupying two rows, because it carries both `:latest` and its commit tag — so an
+  un-deduplicated keep-three keeps two images: a rollback depth of one, in the change whose
+  entire purpose is rollback depth.
+
+The practical consequence for this document: the three cases are written as commands someone can
+run, in order, including the ones that do not work. A summary of a procedure reads as though the
+procedure exists.
