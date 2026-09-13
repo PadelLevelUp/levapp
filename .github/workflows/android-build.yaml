@@ -211,7 +211,7 @@ jobs:
       # (the `env` context is not available in a job-level env block, so the smoke list is spelled out here too)
       # PAD-314: this branch runs the dialog regression guard, nothing else —
       # the fix is judged on flow 49 alone. Restore the smoke list before merge.
-      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/49-dialog-cancel-closes.yaml' }}
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/49-dialog-cancel-closes.yaml flows/51-verify-transition-rate.yaml flows/52-dialog-overlay-rate.yaml' }}
     steps:
       - uses: actions/checkout@v4
 
