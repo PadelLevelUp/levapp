@@ -88,6 +88,8 @@ three separate fields on it. Decision record:
     **It is a message in the coach–student thread, not a new push type.** `_send_system_message` writes the Message, publishes it and pushes it as `{"type": "message", "conversationId": …}`. A class-shaped push would tempt `type: "class"`, which the mobile class screen cannot open from a push, and which produced the founder-facing "não foi possível encontrar esta aula" (PAD-324, `messaging.push-notifications` rule 7). Telling the student therefore costs no client work on either shell.
     Sending is **best-effort**: a messaging failure is contained and logged, never failing the enrolment that triggered it.
 
+   **The silence on an accepted class request is deliberate, not a gap.** A student who asks for a class through `classes.class-requests` already receives the acceptance; telling them a coach added them would be a second message for one event, about something they initiated — the app narrating a person's own action back at them as news. `add_class_service` therefore takes `notify_students=False` on that path only. Anyone later reading it as a missing notification should read this sentence instead.
+
 ### Acceptance Criteria
 
 #### A coach placing a student tells them (PAD-330)
