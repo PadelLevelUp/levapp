@@ -72,7 +72,12 @@ appId: com.padellevelup.app
       - inputText: "01012000"
       - assertVisible:
           id: "signup-birthDate"
-      - hideKeyboard
+      # NO hideKeyboard here. The number pad closes itself once the date is
+      # complete, and Maestro's hideKeyboard on Android is a back key: with no
+      # keyboard up it reaches the navigator and pops the signup screen. That
+      # is what voided this probe's first run (34782038154) — the flow was
+      # typing into a form the app had already left, and the failure said
+      # "signup-submit not found" while the screen showed Sign In.
       - scrollUntilVisible:
           element:
             id: "signup-submit"
