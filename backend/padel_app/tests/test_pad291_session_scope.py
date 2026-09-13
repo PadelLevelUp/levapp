@@ -9,7 +9,7 @@ garbage collector released it (the CI hang after test #1399).
 
 The assertion counts pool checkouts against checkins with the collector disabled,
 so a connection the collector would have rescued still counts as leaked. It runs
-unchanged on both test backends (R-026).
+unchanged on both test backends (R-030).
 """
 import gc
 
