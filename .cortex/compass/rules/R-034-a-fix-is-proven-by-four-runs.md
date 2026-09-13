@@ -33,6 +33,17 @@ fix. Strengthen the check, with more iterations or a different trigger, before c
 anything from either run. A symmetrical pair of passes is the most flattering possible way to
 learn nothing, because it reads exactly like a clean bill of health.
 
+Validation can arrive from whichever cell catches it first. A probe that reads zero against the
+defective build and then catches the fault on the fixed one **has** been seen working — it has
+simply told you nothing about the fix.
+
+**A check for a rare event must state its resolution before either result is read.** Twenty
+iterations cannot resolve a one-in-twenty event: a run of twenty misses it entirely about a
+third of the time, and it takes 59 runs for a 95% chance of seeing it once. So "none before,
+one after" is noise in both directions, though it reads as absence and then as a rate. Say what
+the run can resolve up front, and when it cannot resolve the effect the answer is **more
+iterations, not more inference**.
+
 **Why:** PAD-312 reported a backend test failing; the fix (#258) changed how a seeded calendar
 block derived its recurrence day. Four runs of one file settled it — old code at hour 0 UTC
 failed with `assert 'invited' == 'unavailable'`, old code at a normal hour passed, the fix
