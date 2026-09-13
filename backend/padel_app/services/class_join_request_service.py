@@ -491,7 +491,18 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
     send_push_notification(user_id=coach_user_id, title=title, body=text[:100], url=f"/messages/{conv.id}")
     send_expo_push_to_user(
         coach_user_id, title=title, body=text[:100],
-        data={"type": "class", "classInstanceId": instance.id},
+        # PAD-324 (messaging.push-notifications rule 7): there IS a message
+        # behind this, so the tap opens the thread — the same place the web
+        # push points. `{"type": "class"}` is reserved for pushes with no
+        # message, and on iOS it routes to /class/<id>, which rebuilds its
+        # event from (model, originalId, date) route params a push cannot
+        # carry: the screen says "could not find this class" before it ever
+        # asks the server. The instance id stays as context, never the target.
+        data={
+            "type": "message",
+            "conversationId": conv.id,
+            "classInstanceId": instance.id,
+        },
     )
 
 
