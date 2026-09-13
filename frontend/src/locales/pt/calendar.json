@@ -199,7 +199,11 @@
       "invitedCount": "Convidados ({{count}})",
       "club": "Clube",
       "court": "Campo",
-      "noCourt": "Sem campo"
+      "noCourt": "Sem campo",
+      "comeBack": "Afinal já posso ir",
+      "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
+      "spotFilled": "A tua vaga já foi ocupada.",
+      "comeBackDone": "Estás de volta a esta aula."
     },
     "planning": {
       "title": "Planeamento ({{count}})",

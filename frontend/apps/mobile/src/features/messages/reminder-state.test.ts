@@ -216,12 +216,26 @@ describe("reminderResponseOutcome", () => {
     });
   });
 
-  it("fails safe to absent for an unrecognised or missing action", () => {
-    // Never invent a confirmation: anything we cannot read reads as absent,
-    // the same asymmetry `reminderState` applies to recorded metadata.
-    expect(reminderResponseOutcome("something-new").write).toBe("no");
-    expect(reminderResponseOutcome(undefined).write).toBe("no");
-    expect(reminderResponseOutcome(null).write).toBe("no");
+  it("writes NOTHING for an unrecognised or missing action (B-074)", () => {
+    // This test used to assert `write === "no"`, on the reasoning that anything
+    // unreadable should read as absent rather than invent a confirmation. That
+    // reasoning was half right: it does not invent a confirmation, it invents a
+    // DECLINE — and the server then gained an answer where that is exactly
+    // wrong. `spot_filled` means the student asked to come back and was
+    // refused; recording "no" tells them they declined, silently. So the rule
+    // is narrower than "fail safe to absent": write nothing at all, and say so.
+    for (const action of ["something-new", undefined, null]) {
+      const outcome = reminderResponseOutcome(action as never);
+      expect(outcome.write).toBeNull();
+      expect(outcome.toastKey).toBe("messages.somethingWentWrong");
+    }
+  });
+
+  it("records nothing and names the refusal when the spot has gone (PAD-315)", () => {
+    expect(reminderResponseOutcome("spot_filled")).toEqual({
+      write: null,
+      toastKey: "calendar.detail.spotFilled",
+    });
   });
 });
 

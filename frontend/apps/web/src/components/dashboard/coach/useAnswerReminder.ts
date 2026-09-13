@@ -11,6 +11,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { respondToReminder } from "@/api/notificationEngine";
+import { reminderAnswerOutcome } from "@levelup/config";
 
 export type ReminderAnswer = "yes" | "no";
 
@@ -23,11 +24,16 @@ export function useAnswerReminder(onAnswered?: () => void | Promise<void>) {
       if (busyId !== null) return;
       setBusyId(lessonInstanceId);
       try {
-        const result = await respondToReminder(lessonInstanceId, action);
-        if (result.action === "expired") {
-          toast.error(t("dashboard.answer.expired"));
-        } else {
-          toast.success(t(result.action === "confirmed" ? "dashboard.answer.confirmed" : "dashboard.answer.declined"));
+        // B-074: this branched on three values against a server that answers
+        // five, so anything it did not know became a SUCCESS toast reading
+        // "declined". The shared mapper decides; an answer it cannot name says
+        // so instead of picking the common case.
+        const outcome = reminderAnswerOutcome(await respondToReminder(lessonInstanceId, action));
+        if (outcome.record === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+        else if (outcome.record === "declined") toast.success(t("dashboard.answer.declined"));
+        else if (outcome.messageKey) {
+          if (outcome.tone === "error") toast.error(t(outcome.messageKey));
+          else toast(t(outcome.messageKey));
         }
         await onAnswered?.();
       } catch {
