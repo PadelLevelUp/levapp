@@ -46,8 +46,10 @@ export function usePushNotificationRouting(): void {
         if (handledIds.current.has(id)) return;
         handledIds.current.add(id);
 
-        const path = routeForPushData(response.notification.request.content.data);
-        if (path) router.push(path);
+        // PAD-327: a string for the message shape, a route object for the
+        // `path` shape. `router.push` takes either.
+        const target = routeForPushData(response.notification.request.content.data);
+        if (target) router.push(target as never);
       } catch (error) {
         console.warn("[push] tap routing failed", error);
       }

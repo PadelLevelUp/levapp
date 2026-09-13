@@ -260,9 +260,14 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [coach_user.id])
     title = "Pedido de aula" if locale == "pt" else "Class request"
+    # PAD-327: `{"type": "class_request"}` was a fourth dead tap — a type the
+    # contract does not define, so the notification opened the app and nothing
+    # happened. There is a Message row three lines above, so rule 7 already says
+    # what this is: a message push, opening the thread the coach acts in. Found
+    # by the guard in `test_pad327_push_destinations.py`, not by reading.
     send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}")
     send_expo_push_to_user(coach_user.id, title=title, body=text[:100],
-                           data={"type": "class_request", "classRequestId": row.id})
+                           data={"type": "message", "conversationId": conv.id})
 
 
 def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
