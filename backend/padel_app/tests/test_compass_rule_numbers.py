@@ -11,10 +11,11 @@ This is the cheap guard. It lives in the backend suite because that is what runs
 request, on both database backends — the rules themselves govern backend and frontend paths
 alike, so no app-side suite is a more natural home than this one.
 
-Deliberately NOT asserted: that every rule appears in `_index.md`. The index has been partial
-since long before this test (it lists the two most recent rules only), and failing the suite on
-that would be a demand for unrelated work rather than a guard against recurrence. The weaker
-direction — every index entry resolves to a file — is asserted instead.
+PAD-329 closed the gap this test originally left open. The index used to list only the two most
+recent rules, so asserting completeness would have failed the suite as a demand for unrelated
+work — a guard that does that gets disabled rather than satisfied. The backfill landed first;
+completeness is asserted now, in both directions, so a rule added without its one-line hook is
+caught by the author who added it rather than by the next person who cannot find it.
 """
 import re
 from pathlib import Path
@@ -66,10 +67,35 @@ def test_each_rule_agrees_with_itself_about_its_number():
     assert not disagreements, f"a rule's number disagrees with itself: {disagreements}"
 
 
-def test_every_index_entry_points_at_a_rule_that_exists():
+def test_the_index_and_the_directory_hold_the_same_rules():
+    """Both directions (PAD-329). A link to a deleted rule sends a reader nowhere;
+    a rule with no entry is invisible to anyone who reads the index first — which
+    the index itself tells them to do."""
     index = RULES / "_index.md"
     assert index.is_file()
     listed = set(INDEX_LINK.findall(index.read_text()))
     on_disk = {p.name for p in _rule_files()}
-    missing = sorted(listed - on_disk)
-    assert not missing, f"the index links rules that do not exist: {missing}"
+    assert not sorted(listed - on_disk), (
+        f"the index links rules that do not exist: {sorted(listed - on_disk)}"
+    )
+    assert not sorted(on_disk - listed), (
+        "every rule needs a one-line hook in _index.md; missing: "
+        f"{sorted(on_disk - listed)}"
+    )
+
+
+def test_every_index_entry_carries_a_hook():
+    """A link with no hook after it is a filename, and the index exists so a reader
+    can decide which rule to open without opening all of them.
+
+    Length is a crude proxy for "says something" — nothing testable distinguishes a
+    hook from a restated title — but it catches the failure that actually happens:
+    an entry added in a hurry with three words after the dash. The threshold is low
+    enough that any real sentence clears it."""
+    index = (RULES / "_index.md").read_text()
+    thin = [
+        line.strip()
+        for line in index.splitlines()
+        if line.startswith("- [R-") and len(line.split(".md) — ")[-1].strip()) < 40
+    ]
+    assert not thin, f"index entries without a real hook: {thin}"
