@@ -63,6 +63,17 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 7. **System UI:** `userInterfaceStyle: light` and the splash are honoured through
    `expo-system-ui` and the Android prebuild (wave A, PAD-297).
 
+9. **A portalled surface must be reachable by touch and by accessibility.** Android neither
+   hit-tests nor exposes to the accessibility tree a child laid out outside its parent's
+   bounds, while iOS does both — and Android still draws it, so the surface looks right and is
+   inert. Anything rendered through `@rn-primitives/portal` (dialog, alert dialog, select,
+   menus) therefore keeps its content inside its wrapper: a wrapper whose child is absolutely
+   positioned fills the overlay (`StyleSheet.absoluteFill`) and passes touches through
+   (`pointerEvents="box-none"`); a wrapper whose child is in normal flow stretches
+   (`alignSelf: "stretch"`, which the dialogs already carry from PAD-102). B-067 is the
+   failure this rule prevents: the select's option list shrink-wrapped to 0 × 0, and no
+   Android user could pick a value in any select in the app while the list sat open on screen.
+
 #### Verification
 8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
    cover it pass on the PAD-297 lane (`android-build.yaml`, `MAESTRO_FLOWS`); the unit tests
@@ -96,6 +107,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **When** the back button is pressed
 - **Then** the sheet returns to its resting height and the add buttons come back
 - **And** a second press goes to the navigator
+
+#### A select option can be picked on Android
+- **Given** the coach is on Settings → Preferences on the emulator, the language select showing
+  "English"
+- **When** they open the select and tap the "Português" option by id (`settings-language-pt`)
+- **Then** the language changes and "Language preference saved." appears — Maestro flow
+  `12-settings-language`, the same steps on both platforms
 
 #### Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a

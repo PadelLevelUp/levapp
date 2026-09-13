@@ -229,14 +229,24 @@ export function StatCard({
   value,
   sub,
   children,
+  testId,
+  ariaLabel,
 }: {
   label: string;
   value: ReactNode;
   sub: string;
   children?: ReactNode;
+  /** PAD-304: parity with the iOS card, which needs an addressable id. */
+  testId?: string;
+  /** "<label>: <value>" — the card reads as one thing to a screen reader. */
+  ariaLabel?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-4">
+    <div
+      data-testid={testId}
+      aria-label={ariaLabel}
+      className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-4"
+    >
       <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
       <span className="font-display text-2xl font-bold tracking-tight tabular-nums">
         {value}

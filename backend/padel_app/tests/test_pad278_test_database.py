@@ -1,4 +1,4 @@
-"""PAD-278 (audit M20, compass R-026) — the test database enforces foreign keys.
+"""PAD-278 (audit M20, compass R-030) — the test database enforces foreign keys.
 
 Before PAD-278 the suite ran on SQLite with foreign-key enforcement off, so
 every `ondelete` in the models was inert and a row pointing at nothing was
