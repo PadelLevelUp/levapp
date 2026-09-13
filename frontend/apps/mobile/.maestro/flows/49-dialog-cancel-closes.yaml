@@ -1,0 +1,58 @@
+# PAD-314 / B-089 — regression guard for the Android dialog layer.
+#
+# The player detail screen mounts three dialogs (remove, waiting list, add to
+# classes), which is the shape the defect shows up in. This flow asserts the
+# plain thing that is broken today on Android: tapping a dialog's cancel closes
+# the dialog, and leaves the app on the screen underneath.
+#
+# It must FAIL on Android against the code that shipped in batch 6 — the dialog
+# stays drawn, nothing behind it answers, and only a hardware back (which then
+# pops the screen) gets rid of it. It passes on iOS, where the same tap closes
+# the dialog in under a second, so it doubles as a cross-platform guard.
+#
+# Deliberately no fallback: `34-player-removal` carries the workaround so the
+# suite can run, and this flow carries the truth. When PAD-314 is fixed, 34's
+# fallback branches should be deleted and this flow should stay.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 15000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-remove"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "player-remove"
+- extendedWaitUntil:
+    visible:
+      text: "Your notes: .*"
+    timeout: 15000
+# The whole point of the flow.
+- tapOn:
+    id: "player-remove-cancel"
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 8000
+# ...and cancelling must not have navigated anywhere.
+- assertVisible:
+    id: "player-detail"
