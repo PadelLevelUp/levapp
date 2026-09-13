@@ -10,3 +10,4 @@ rule's `governs` glob matches the target path first.
 rule; `governs:` names the constrained paths; `check:` is the testable predicate.
 - [R-027 — SSE fan-out is per-process: one gunicorn worker until a shared broker exists](R-027-sse-single-gunicorn-worker.md) — governs the Dockerfile and deploy workflows
 - [R-028 — The production database is backed up nightly off the VM, and the backup fails loudly or proves restorable](R-028-production-database-is-backed-up-nightly-off-the-vm.md) — docker exec pg_dump → private GCS bucket, pruned by age; governs backup.sh, deploy-prod, repair, terraform (B-080)
+- [R-032 — A test proves it found its subject before asserting anything about it](R-032-a-test-proves-it-found-its-subject.md) — governs the test trees and the workflows: a check that cannot find what it came for must fail loudly, because a vacuous pass is indistinguishable from a real one in CI
