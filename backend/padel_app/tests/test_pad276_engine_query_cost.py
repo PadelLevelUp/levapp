@@ -93,12 +93,16 @@ def _seed(roster_size: int, *, blocked_every: int = 5):
                                     invited=True, validated=True))
         if s % blocked_every == 0:
             blocked_ids.append(p.id)
+            # rrule's dtstart is the block's own start_datetime, so daysOfWeek
+            # must match ITS weekday, not `start`'s — those differ once a day,
+            # when `start` is at hour 00 and `start - 1h` rolls back a day.
+            block_start = start - timedelta(hours=1)
             db.session.add(CalendarBlock(
                 user_id=u.id, type="unavailable", title="busy",
-                start_datetime=start - timedelta(hours=1), end_datetime=start + timedelta(hours=2),
+                start_datetime=block_start, end_datetime=start + timedelta(hours=2),
                 is_recurring=True,
                 recurrence_rule=json.dumps({"frequency": "weekly",
-                                            "daysOfWeek": [(start.weekday() + 1) % 7]}),
+                                            "daysOfWeek": [(block_start.weekday() + 1) % 7]}),
                 recurrence_end=(start + timedelta(weeks=8)).date(),
                 blocks_auto_invitations=True,
             ))
