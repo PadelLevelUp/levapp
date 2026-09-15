@@ -93,12 +93,18 @@ def _seed(roster_size: int, *, blocked_every: int = 5):
                                     invited=True, validated=True))
         if s % blocked_every == 0:
             blocked_ids.append(p.id)
+            block_start = start - timedelta(hours=1)
             db.session.add(CalendarBlock(
                 user_id=u.id, type="unavailable", title="busy",
-                start_datetime=start - timedelta(hours=1), end_datetime=start + timedelta(hours=2),
+                start_datetime=block_start, end_datetime=start + timedelta(hours=2),
                 is_recurring=True,
+                # daysOfWeek must match block_start's own weekday, not start's:
+                # subtracting an hour from a midnight `start` rolls onto the
+                # previous calendar day, and a mismatched BYDAY sends the
+                # recurring occurrence to the wrong week entirely, missing the
+                # class window it's meant to cover.
                 recurrence_rule=json.dumps({"frequency": "weekly",
-                                            "daysOfWeek": [(start.weekday() + 1) % 7]}),
+                                            "daysOfWeek": [(block_start.weekday() + 1) % 7]}),
                 recurrence_end=(start + timedelta(weeks=8)).date(),
                 blocks_auto_invitations=True,
             ))

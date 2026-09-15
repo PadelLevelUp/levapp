@@ -54,7 +54,19 @@ Send browser push notifications when a new message arrives and the recipient isn
    client must never route on `classInstanceId` alone: the mobile class screen
    rebuilds its event from route params (`model`, `originalId`, `date`) that a
    push cannot carry, so a `/class/<id>` deep link from a push renders "this
-   class could not be found" — the PAD-240 defect
+   class could not be found" — the PAD-240 defect.
+   **A type outside these two routes nowhere (PAD-324).** `routeForPushData`
+   returns `null` for anything it does not recognise, so a payload that invents
+   its own type is not a wrong screen but a **dead tap**: the notification opens
+   the app and nothing happens. That is harder to notice than an error screen,
+   which is why three of the six push writers carried one undetected — the join
+   request (`class`, with a message behind it) and the class request
+   (`class_request`), both fixed here, and the two request alerts (`request`),
+   which have neither a message nor a class and need the contract extended
+   rather than their payload corrected (PAD-327). **A push whose `data` does not
+   match one of the defined shapes is a defect even though nothing errors**, so
+   a new push writer states which shape it uses and why, and its test asserts
+   the web and native pushes for one event name the same destination
 8. **Push permission never gates the in-app feed (PAD-195).** *(Numbered 8: PAD-240's
    tap-routing rule takes 7 on its own branch, so a batch merge does not produce two 7s.)* The browser's (or
    the device's) notification permission decides only whether the OS shows an

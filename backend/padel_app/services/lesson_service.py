@@ -121,6 +121,21 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             if own is not None:
                 _close_vacancy(own, player_id)
         reconcile_vacancies(instance, filled_by_player_id=player_id)
+
+        # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
+        # or putting back someone who had cancelled — tells the student. Only
+        # `coach`: `roster` is materialisation, which would send one message per
+        # occurrence for a class they were already told about; `fill` is the
+        # engine, which sends its own (invitation, waiting list, join request);
+        # `walk_in` and `import` record a class that already happened.
+        if source == "coach":
+            from padel_app.services.notification_service import (
+                notify_student_added_to_class,
+            )
+
+            notify_student_added_to_class(
+                primary_coach(instance), player_id, instance=instance,
+            )
     commit_or_flush()
     db.session.expire(instance, ["players_relations", "presences"])
     return presence
@@ -684,7 +699,7 @@ def add_presences(lesson_instance, payload):
 # Lesson helpers
 # ---------------------------------------------------------------------------
 
-def create_lesson_helper(data):
+def create_lesson_helper(data, *, notify_students=True):
     lesson = Lesson()
     form = lesson.get_create_form()
 
@@ -701,11 +716,24 @@ def create_lesson_helper(data):
         ).create()
 
     if data.get("player_ids"):
+        # PAD-330: a coach putting students in a class tells them. Enrolment was
+        # silent on every coach path, so a class simply appeared on a student's
+        # calendar. The fork path (`duplicate_lesson_helper`) copies its roster
+        # directly and deliberately does not come through here — the students of
+        # a split series already know they are in it.
+        from padel_app.models import Coach
+        from padel_app.services.notification_service import (
+            notify_student_added_to_class,
+        )
+
+        coach = Coach.query.get(data["coach"]) if data.get("coach") else None
         for player_id in data.get("player_ids"):
             Association_PlayerLesson(
                 player_id=player_id,
                 lesson_id=lesson.id,
             ).create()
+            if notify_students:
+                notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     return lesson
 
@@ -750,11 +778,25 @@ def edit_lesson_helper(data, lesson=None):
                 lesson_id=lesson.id,
             ).create() """
 
-    for player_id in data.get("add_player_ids", []):
-        Association_PlayerLesson(
-            player_id=player_id,
-            lesson_id=lesson.id,
-        ).create()
+    if data.get("add_player_ids"):
+        # PAD-330: added to the series, so told once — not once per occurrence.
+        from padel_app.models import Coach
+        from padel_app.services.notification_service import (
+            notify_student_added_to_class,
+        )
+
+        coach_rels = list(getattr(lesson, "coaches_relations", []) or [])
+        coach = None
+        if coach_rels:
+            coach = getattr(coach_rels[0], "coach", None) or Coach.query.get(
+                coach_rels[0].coach_id
+            )
+        for player_id in data.get("add_player_ids", []):
+            Association_PlayerLesson(
+                player_id=player_id,
+                lesson_id=lesson.id,
+            ).create()
+            notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     for player_id in data.get("remove_player_ids", []):
         Association_PlayerLesson.query.filter_by(
@@ -895,7 +937,7 @@ def edit_lesson_from_data(lesson, data):
     return lesson
 
 
-def add_class_service(data, coach, club):
+def add_class_service(data, coach, club, *, notify_students=True):
     """Builds a lesson payload from frontend add_class data and creates the lesson."""
     lesson_payload = {
         "title": data["name"],
@@ -937,7 +979,7 @@ def add_class_service(data, coach, club):
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
 
-    lesson = create_lesson_helper(lesson_payload)
+    lesson = create_lesson_helper(lesson_payload, notify_students=notify_students)
 
     if lesson_payload.get("recurs_until_season_end"):
         lesson.recurs_until_season_end = True
