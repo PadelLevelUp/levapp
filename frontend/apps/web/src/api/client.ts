@@ -26,6 +26,9 @@ initApi({
   baseURL: "/api",
   storage: webTokenStorage,
   onUnauthorized: redirectToAuth,
+  // PAD-352 (eligibility.open-spot-visibility rule 12): the web renders open
+  // spots, so it asks for them. Without this, the server sends none.
+  capabilities: ["open-spots"],
 });
 
 export const api = getApi();

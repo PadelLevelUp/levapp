@@ -45,6 +45,10 @@ coach-only information about other players.
    - a **rostered student who may ask for an open spot in it** — the one exception,
      `classes.join-requests` rule 16: they hold a join request for that instance, or it is
      advertised, open, not full and they pass its bar. They get the student view (rule 3).
+     **(PAD-352)** The exception applies only to a request that declares the `open-spots`
+     capability (`eligibility.open-spot-visibility` rule 12). An undeclared client, meaning the
+     App Store builds that predate open spots, is treated like any other student who isn't
+     enrolled: 403. Those builds never show such a class, so this only closes the by-id path.
    Any other student gets 403.
    The role check alone (rules 2–4) never suffices: an id-keyed read by a coach of another club
    used to return every participant with email and phone. 404 for an unknown id still comes
@@ -56,6 +60,14 @@ coach-only information about other players.
 - **Given** coach Ana owns a class at club Norte, coach Carla is another member of Norte, coach Bruno belongs to club Sul, student Rui is enrolled and student Sara is not
 - **When** each calls `POST /class_instance`, `GET /lesson_instance/<id>` and `GET /lesson_instance/<id>/presences` for that class
 - **Then** Ana and Carla get 200 with the coach payload, Rui gets 200 with only his own presence, and Bruno and Sara get 403 with no participant, email or phone in the body
+
+#### An open spot opens by id only for a client that declares it (PAD-352)
+- **Given** a class advertised to student Sara (visible, open, not full, and she passes its bar),
+  with Sara not enrolled in it
+- **When** she calls `POST /class_instance`, `GET /lesson_instance/<id>` and
+  `GET /lesson_instance/<id>/presences` for it, once with `X-LevApp-Capabilities: open-spots` and
+  once without the header
+- **Then** she gets 200 with the student view when she declares it, and 403 when she doesn't
 
 #### Coach sees the full class detail
 - **Given** a coach who owns a class instance with players Alice and Bob, where Bob is absent
