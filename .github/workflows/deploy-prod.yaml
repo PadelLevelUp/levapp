@@ -123,7 +123,11 @@ jobs:
       with:
         context: backend
         push: true
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+        # PAD-338: the commit tag is the rollback target. `:latest` alone left
+        # nothing to roll back TO — the only way back was a revert and a full rebuild.
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:${{ github.sha }}
         platforms: linux/amd64
     - name: Copy .env.prod to VM
       uses: appleboy/scp-action@v0.1.4
@@ -176,9 +180,21 @@ jobs:
             fi
             sleep 2
           done
-          # Reclaim disk: the previous image is dangling after the pull; the
-          # 9.7G VM disk has filled up twice.
-          docker image prune -f || true
+          # PAD-338: keep the last three images of this repository instead of
+          # pruning on success. `docker image prune -f` deleted the image we had
+          # just replaced, so after a SUCCESSFUL deploy that turned out wrong
+          # there was nothing on the VM to start — the failure mode that actually
+          # happens. Disk is still bounded: everything older than the newest
+          # three is removed, which is what the original prune was protecting
+          # (the 9.7G VM disk has filled up twice). `docker rmi` refuses an image
+          # a container is using, which is why this cannot remove what is running.
+          # `!seen[$1]++` first: the newest image carries BOTH :latest and its
+          # commit tag, so it occupies two rows and an un-deduplicated "keep 3"
+          # would keep two images, not three.
+          docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend" \
+            --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
+            | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
+            | xargs -r docker rmi 2>/dev/null || true
 
     - name: Copy backup script to VM
       uses: appleboy/scp-action@v0.1.4
@@ -244,7 +260,10 @@ jobs:
         with:
           context: frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+          # PAD-338: the commit tag is the rollback target (see the backend build).
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:${{ github.sha }}
           platforms: linux/amd64
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
@@ -262,4 +281,8 @@ jobs:
               --network levelup_net \
               -p 127.0.0.1:3000:80 \
               ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
-            docker image prune -f || true
+            # PAD-338: keep the last three, as the backend deploy does.
+            docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend" \
+              --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
+              | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
+              | xargs -r docker rmi 2>/dev/null || true
