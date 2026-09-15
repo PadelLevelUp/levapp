@@ -1728,17 +1728,21 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
-    """Human-readable ' on <weekday> at <time>' suffix for a class instance.
+def _format_when(dt, locale: str = "en") -> str:
+    """Human-readable ' on <weekday> at <time>' suffix for a datetime.
 
     PAD-100: fully localized. For Portuguese coaches this renders
     ' na <weekday> às <time>' (or ' no <weekday> …' for sábado/domingo, which
     are masculine), so the suffix no longer leaks English prepositions into an
     otherwise-Portuguese notification.
+
+    Takes the datetime rather than the class so a Lesson (the series, whose
+    ``start_datetime`` is its first occurrence) and a LessonInstance share one
+    localisation — PAD-100 fixed this wording once and it should not be
+    duplicated to gain a second caller (PAD-330).
     """
-    if instance.start_datetime is None:
+    if dt is None:
         return ""
-    dt = instance.start_datetime
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
     if (locale or "").startswith("pt"):
@@ -1751,6 +1755,100 @@ def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
     if weekday:
         return f" on {weekday} at {time_str}"
     return f" at {time_str}"
+
+
+def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
+    """The ' on <weekday> at <time>' suffix for a class instance."""
+    return _format_when(getattr(instance, "start_datetime", None), locale)
+
+
+def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=None):
+    """Tell a student their coach has placed them in a class (PAD-330).
+
+    Enrolment was silent on every coach-initiated path: creating a class with
+    students on it, adding one to the series, adding one to a single occurrence,
+    or putting back someone who had cancelled. A student simply found a class on
+    their calendar, holding a commitment they never agreed to and with no reason
+    to go looking. They learned of it only when the ordinary reminder eventually
+    asked them — which never happens for someone added after that reminder has
+    already fired.
+
+    It is a **normal message in the coach-student thread**, not a new push type.
+    ``_send_system_message`` already writes the Message, publishes it and pushes
+    with ``{"type": "message", "conversationId": …}``. A class-shaped push would
+    tempt ``type: "class"``, which the mobile class screen cannot open from a
+    push — the founder-facing "não foi possível encontrar esta aula" of PAD-324.
+
+    Best-effort by design: a messaging failure must never fail the enrolment that
+    triggered it, so everything here is contained and logged.
+
+    Returns the Message, or ``None`` when nothing was sent.
+    """
+    try:
+        from padel_app.models import Player
+
+        source = instance if instance is not None else lesson
+        if coach is None or source is None:
+            return None
+        coach_user_id = getattr(coach, "user_id", None)
+        player_user_id = _user_id_for_player(player_id)
+        if not coach_user_id or not player_user_id:
+            return None
+
+        locale = _resolve_locale(coach)
+        # A plain query, never `get_or_create_config`: telling a student they
+        # were added must not CREATE a coach's notification settings as a side
+        # effect of an enrolment. It did, and the row it inserted collided with
+        # the one the caller went on to make — the same reason
+        # `proactive_decline_deadline` reads rather than creates.
+        config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        templates = (
+            config.get_message_templates(locale)
+            if config is not None
+            else dict(default_templates_for_locale(locale))
+        )
+        player = Player.query.get(player_id)
+        first_name = (
+            (player.user.name or "").split()[0]
+            if player and player.user and player.user.name
+            else ""
+        )
+        started_at = getattr(source, "start_datetime", None)
+        text = _format_template(
+            resolve_message_template(templates, "added_to_class", locale),
+            **{
+                "name": first_name,
+                # `class` is a keyword, so the placeholder is passed by name.
+                "class": getattr(source, "title", None) or "",
+                "when": _format_when(started_at, locale),
+                # Every other template describes a class as level + weekday +
+                # time, so a coach editing this one finds the vocabulary they
+                # already know. `{class}` and `{when}` are the additions: the
+                # title is what a student recognises, and one `{when}` serves a
+                # series and a single occurrence alike.
+                "level": effective_level_code(source),
+                "weekday": _format_weekday(started_at, locale) if started_at else "",
+                "time": started_at.strftime("%H:%M") if started_at else "",
+            },
+        )
+        metadata = {"addedToClass": True}
+        if instance is not None:
+            metadata["lessonInstanceId"] = instance.id
+        return _send_system_message(
+            coach_user_id,
+            player_user_id,
+            text,
+            msg_metadata=metadata,
+            class_instance_id=instance.id if instance is not None else None,
+        )
+    except Exception:  # noqa: BLE001 — never fail an enrolment over a message
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            current_app.logger.exception(
+                "notify_student_added_to_class: could not tell player %s", player_id,
+            )
+        return None
 
 
 def collect_cancellation_recipients(source) -> list[dict]:
