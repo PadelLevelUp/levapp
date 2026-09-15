@@ -73,4 +73,21 @@ work around the defect today and must be simplified when it is fixed:
 
 ### Resolution
 
-Open.
+**Partial — face A resolved, faces B and C open.** Status stays `open`.
+
+- **Face A (content without a component) — resolved in PAD-314, PR #251.** Portal surfaces keep
+  their fade-in and drop the exit animation on Android (`src/lib/dialog-motion.ts`); iOS keeps
+  both. Guarded by flow 49 and `mobile.android-runtime` rule 9's criterion "A dialog's cancel
+  closes the dialog on Android": it fails on the pre-fix build (run 34782075764) and passes on
+  the fixed one (runs 34779837934, 34780957550), same probe, same lane. The mechanism in the
+  Root cause section remains **inferred, not demonstrated**: the fix changes the animation rather
+  than instrumenting Fabric's mount, so what is proven is that removing the exit animation removes
+  the symptom.
+- **Face B (overlay without content) — open.** Occurred once in 20 iterations of flow 52 on the
+  FIXED build (run 34782038154), so it is not gone. The pre-fix build read 0 in 20 (run
+  34782075764); at that sample size the two numbers are indistinguishable, so no claim is made
+  about whether the fix changed its rate. Instrumenting Fabric's mount is authorised and is the
+  next step, preceded by more iterations.
+- **Face C (blank surface after the post-verification transition) — open, unmeasured.** Flow 51
+  was void on both builds because of a probe defect (Maestro's `hideKeyboard` on Android is a back
+  key), fixed in #251 and not yet re-run.
