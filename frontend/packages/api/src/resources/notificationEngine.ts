@@ -194,9 +194,20 @@ export async function respondToApproval(
 export async function respondToReminder(
   lessonInstanceId: number,
   action: "yes" | "no"
-  // PAD-68: "expired" when the class has already started — the answer is not
-  // recorded and no replacement invitations are sent.
-): Promise<{ action: "confirmed" | "declined" | "expired" }> {
+  // The server's full vocabulary, which this type used to under-declare (B-074):
+  // - "confirmed" / "declined" — the answer was recorded;
+  // - "expired" (PAD-68) — the class already started, nothing was recorded;
+  // - "not_enrolled" (PAD-259) — the student is no longer on that occurrence;
+  // - "spot_filled" (PAD-315) — a "yes" that would RETAKE a given-up spot, and
+  //   the seat has gone; nothing is recorded and both sides are told.
+  // `duplicate` marks a repeat of an answer already recorded — still a success.
+  // Map it with `reminderAnswerOutcome` from `@levelup/config` rather than
+  // branching per call site: four sites branched on three values and turned a
+  // refusal into a confident "declined".
+): Promise<{
+  action: "confirmed" | "declined" | "expired" | "not_enrolled" | "spot_filled";
+  duplicate?: boolean;
+}> {
   const res = await getApi().post("/app/notify/respond_reminder", { lessonInstanceId, action });
   return res.data;
 }

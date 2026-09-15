@@ -8,6 +8,14 @@
 flows:
   - "flows/*"
 
+# PAD-314 close-out: probes of KNOWN-OPEN defects run on demand, not in whole-suite
+# runs — a suite that is red for a known reason teaches people to stop reading it.
+# Their flow files carry this tag and say which defect and when to remove it. The
+# Android lane passes its own --exclude-tags (CLI flags take precedence over this
+# file), so scripts/ci-android-maestro.sh excludes the same tag.
+excludeTags:
+  - open-defect-probe
+
 executionOrder:
   continueOnFailure: true
   flowsOrder:
@@ -49,6 +57,18 @@ executionOrder:
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
+    # PAD-314 / B-089: the regression guard for the Android dialog layer — a
+    # dialog's cancel closes the dialog. Same screen and seeded player as 34,
+    # so it sits here. It is NOT on the run-by-script exemption list on
+    # purpose: a guard nobody runs proves nothing.
+    - 49-dialog-cancel-closes
+    # PAD-314 / B-089: the two RATE probes. They are loops, not assertions
+    # about one run — 51 walks the post-verification transition ten times, 52
+    # raises the class-form dialog twenty times, and each reports how often its
+    # face of the defect appears. Listed here rather than exempted so they run
+    # with everything else; a probe nobody runs measures nothing.
+    - 51-verify-transition-rate
+    - 52-dialog-overlay-rate
     # 35 (PAD-286) reads only: swipes the Mês day sheet up and down. (34 is PAD-274's.)
     - 35-day-sheet-polish
     # 40 flips the approval gate and restores it within itself (PAD-279/PAD-238), so its
@@ -79,6 +99,9 @@ executionOrder:
     # 48 books, cancels and removes its own class through the API (PAD-288), so its
     # position is not load bearing.
     - 48-early-cancellation
+    # 50 books, cancels, comes back and removes its own class through the API
+    # (PAD-315), so its position is not load bearing.
+    - 50-come-back
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

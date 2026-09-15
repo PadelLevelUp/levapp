@@ -3,9 +3,10 @@ import { lightTheme } from "@levelup/config";
 import * as SelectPrimitive from "@rn-primitives/select";
 import * as React from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
+import { dialogEntering, dialogExiting } from "@/lib/dialog-motion";
 import { cn } from "@/lib/utils";
 
 type Option = SelectPrimitive.Option;
@@ -84,8 +85,8 @@ function SelectContent({
         <Animated.View
           style={StyleSheet.absoluteFill}
           pointerEvents="box-none"
-          entering={FadeIn}
-          exiting={FadeOut}
+          entering={dialogEntering()}
+          exiting={dialogExiting()}
         >
           <SelectPrimitive.Content
             className={cn(

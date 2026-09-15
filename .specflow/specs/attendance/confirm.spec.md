@@ -136,6 +136,41 @@ Players confirm or decline their attendance in response to a reminder notificati
      with clearly lesser weight than the state word — a quiet fact beside one status, never a
      second status. The student's own row never shows it: they know they cancelled.
 
+26. **A student who said "I am not coming" can say they can come after all (PAD-315; number
+   self-assigned, unconfirmed). The client offers it; the SERVER decides it.** The negotiation
+   already exists: `POST /api/app/notify/respond_reminder` with `{lessonInstanceId, action: "yes"}`
+   and `respond_to_reminder`'s retaking branch. When the row is `status=absent` and not validated,
+   it locks the instance, re-checks capacity, and either re-seats the student — clearing `status`,
+   `justification` and `late_cancellation` per `attendance.presence` rule 9, closing their vacancy
+   and retiring live invitations — or refuses with `{"action": "spot_filled"}`, messaging the
+   student and notifying the coach. This rule adds **only** the way in.
+   - **Offered while `attendanceState` is `not_coming` and the class has not started.** Same gate
+     shape as rule 9's cancel, and in the same place: the student's own attendance block, so a row
+     still shows one state word and one action at a time (rule 25).
+   - **The client never pre-judges the answer.** It must NOT hide or disable the action because it
+     believes the spot is taken: capacity can change between render and tap, and a client that
+     guesses is racing the invitation engine. Offer it, call, honour the reply. This is the
+     standing reason the affordance is not gated on `openSpot` or on any count.
+     **Structural, not advisory: the shared gate `canComeBack` takes no capacity argument at
+     all**, so pre-judging cannot be reintroduced by an edit inside a component — adding the
+     parameter is a visible act in a diff. You cannot pre-judge a seat you were not given.
+   - **`spot_filled` is rendered plainly**, in the student's own words — "a tua vaga já foi
+     ocupada" — and the row stays `not_coming`. It is an outcome, not an error: nothing went
+     wrong, the seat went to somebody else, which is exactly what freeing it was for.
+   - **A repeat tap is not a failure.** The server answers `{"action": "confirmed", "duplicate":
+     true}` when the answer was already recorded; the client treats it as success, because from the
+     student's point of view it is.
+   - **The state edge this adds:** `not_coming → coming` when the server allows it; `not_coming`
+     plus a message when it does not. No client-side state is invented — both shells re-read the
+     payload and render `attendanceState` as rule 25 requires.
+   - **The client wrapper's contract widens.** `respondToReminder` in `@levelup/api` declares
+     `{action: "confirmed" | "declined" | "expired"}`, which the server has outgrown: it can also
+     answer `spot_filled` and can set `duplicate`. Four existing call sites (the web message
+     bubble, the coach dashboard's answer hook, the mobile calendar hook, the mobile conversation
+     screen) therefore cannot currently distinguish a refusal from a confirmation. Widening the
+     type and handling `spot_filled` at those sites is part of this rule, not a follow-up — a
+     student tapping "Yes" on a reminder after cancelling can already reach that answer today.
+
 ### Acceptance Criteria
 
 #### Player confirms attendance
@@ -312,3 +347,26 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Given** the coach validated the sheet marking a student absent and justified
 - **When** the presence is serialized
 - **Then** `cancelledByStudent` is false and `cancelledAt` is null
+
+#### Coming back after saying no (PAD-315, rule 26)
+- **Given** a student whose `attendanceState` is `not_coming` on a class that has not started
+- **When** they open the class detail on either shell
+- **Then** an action offering to come after all is shown in their own attendance block, and it is
+  shown whether or not the class currently has a free spot
+
+- **Given** that student taps it and the spot is still free
+- **When** the server answers `{"action": "confirmed"}`
+- **Then** their row reads `coming`, the class's filled count includes them again, and no client
+  state was set before the server answered
+
+- **Given** that student taps it and the seat has been taken
+- **When** the server answers `{"action": "spot_filled"}`
+- **Then** the row still reads `not_coming` and the student is told plainly that their spot was
+  taken — not shown an error
+
+- **Given** a student who taps it twice
+- **When** the server answers `{"action": "confirmed", "duplicate": true}`
+- **Then** the client treats it as success and the row reads `coming`
+
+- **Given** a class that has already started
+- **Then** the action is not offered at all
