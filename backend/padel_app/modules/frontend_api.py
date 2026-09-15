@@ -440,7 +440,11 @@ def require_readable_class(model_name, obj):
     # classes.join-requests rule 16 (PAD-131 × PAD-257): the one exception — a
     # rostered student may read an instance they may ask for, or hold a request
     # on. They still get the student view (rule 3); everyone else is refused.
-    if player is not None and not is_lesson:
+    # PAD-352: only for a client that declares open spots. An undeclared client
+    # (App Store 1.0/1.1.0) is treated like any student who isn't enrolled.
+    from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+
+    if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
         from padel_app.services.class_join_request_service import student_may_view_open_spot
 
         if student_may_view_open_spot(player, obj):
@@ -655,7 +659,16 @@ def calendar():
         lessons = load_lessons_for_player(player.id, range_start, range_end)
         instances_by_key = load_lesson_instances_for_player(player.id, range_start, range_end)
         # PAD-130: classes the student could ask to join, flagged `openSpot`.
-        open_spots = load_open_spot_events_for_player(player.id, range_start, range_end)
+        # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
+        # that declares it understands them. App Store 1.0/1.1.0 would draw an
+        # open spot as the student's own booking.
+        from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+
+        open_spots = (
+            load_open_spot_events_for_player(player.id, range_start, range_end)
+            if client_declares(OPEN_SPOTS)
+            else []
+        )
     else:
         abort(403, "User has no coach or player profile")
 
