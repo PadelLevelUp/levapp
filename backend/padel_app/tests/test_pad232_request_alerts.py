@@ -90,7 +90,9 @@ def test_club_join_request_alerts_club_members_not_requester_and_respects_optout
         title, body = web.call_args.args[1], web.call_args.args[2]
         assert "Rui" in body and "Norte" in body
         assert web.call_args.kwargs["url"] == "/settings?section=club"
-        assert expo.call_args.kwargs["data"] == {"type": "request", "kind": "club_join.received"}
+        # PAD-327 (request-alerts rule 7, push-notifications rule 7): the native
+        # push carries the SAME destination as the web push, in the `path` shape.
+        assert expo.call_args.kwargs["data"] == {"type": "path", "path": web.call_args.kwargs["url"]}
         assert mail.call_args.args[0].startswith("[LevApp]")
         assert "Rui" in mail.call_args.kwargs["body"]
         assert "Open LevApp" in mail.call_args.kwargs["html"]
@@ -123,6 +125,7 @@ def test_claim_request_alerts_invited_account_then_coach_on_decision(app):
     from padel_app.services.player_claim_service import (
         create_claim_request_service, decide_claim_request_service,
     )
+    from padel_app.services.request_alert_service import PATHS
     with app.app_context():
         ana = _coach("Ana", "ana-232c")
         rui = _user("Rui", "rui-232c")
@@ -145,7 +148,9 @@ def test_claim_request_alerts_invited_account_then_coach_on_decision(app):
             req = create_claim_request_service(ph.id, ana, "rui-232c")
         assert _recipient_ids(web) == [rui.id]
         assert "Ana" in web.call_args.args[2] and "Rui Placeholder" in web.call_args.args[2]
-        assert expo.call_args.kwargs["data"]["kind"] == "claim.received"
+        # PAD-327: which alert fired is now its destination, and both channels name it.
+        assert web.call_args.kwargs["url"] == PATHS["claim.received"]
+        assert expo.call_args.kwargs["data"] == {"type": "path", "path": PATHS["claim.received"]}
         assert mail.call_count == 1
 
         p_web, p_expo, p_mail = _channels()
@@ -159,6 +164,7 @@ def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
     from padel_app.services.coach_approval_service import (
         approve_coach_service, notify_admin_of_pending_coach,
     )
+    from padel_app.services.request_alert_service import PATHS
     with app.app_context():
         admin = _user("Admin", "admin-232", is_superadmin=True)
         muted_admin = _user("Muted", "muted-232", is_superadmin=True,
@@ -172,7 +178,8 @@ def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
         with p_web as web, p_expo as expo, p_mail:
             notify_admin_of_pending_coach(pending)
         assert _recipient_ids(web) == [admin.id]
-        assert expo.call_args.kwargs["data"]["kind"] == "coach_approval.received"
+        assert web.call_args.kwargs["url"] == PATHS["coach_approval.received"]
+        assert expo.call_args.kwargs["data"] == {"type": "path", "path": PATHS["coach_approval.received"]}
         assert "Novo" in web.call_args.args[2]
 
         p_web, p_expo, p_mail = _channels()
@@ -181,7 +188,8 @@ def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
         ):
             approve_coach_service(pending.id, admin)
         assert _recipient_ids(web) == [pending.user_id]
-        assert expo.call_args.kwargs["data"]["kind"] == "coach_approval.decided"
+        assert web.call_args.kwargs["url"] == PATHS["coach_approval.decided"]
+        assert expo.call_args.kwargs["data"] == {"type": "path", "path": PATHS["coach_approval.decided"]}
 
 
 def test_channel_failure_never_fails_the_request(app):
