@@ -8,6 +8,14 @@
 flows:
   - "flows/*"
 
+# PAD-314 close-out: probes of KNOWN-OPEN defects run on demand, not in whole-suite
+# runs — a suite that is red for a known reason teaches people to stop reading it.
+# Their flow files carry this tag and say which defect and when to remove it. The
+# Android lane passes its own --exclude-tags (CLI flags take precedence over this
+# file), so scripts/ci-android-maestro.sh excludes the same tag.
+excludeTags:
+  - open-defect-probe
+
 executionOrder:
   continueOnFailure: true
   flowsOrder:

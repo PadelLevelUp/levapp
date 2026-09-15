@@ -33,8 +33,10 @@ cd "$ROOT/frontend/apps/mobile/.maestro"
 echo "flows: $FLOWS"
 # PAD-306: flows tagged `ios-only` (47-push-tap-routing drives `xcrun simctl push`)
 # stay out of the Android run until wave C brings FCM push.
+# PAD-314: flows tagged `open-defect-probe` (51, 52) probe a known-open defect and
+# run on demand only; config.yaml excludes the same tag for iOS whole-suite runs.
 # shellcheck disable=SC2086  # FLOWS is a space-separated list on purpose
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
-  --exclude-tags ios-only \
+  --exclude-tags ios-only,open-defect-probe \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=$NOCLUB_USER" -e "MAESTRO_COACH_NOCLUB_PASSWORD=$NOCLUB_PASS" \
   $FLOWS

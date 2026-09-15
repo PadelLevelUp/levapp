@@ -23,7 +23,24 @@
 #
 # Nothing is created: the overlap dialog is CANCELLED every iteration, so the
 # seeded data is unchanged and the flow can run anywhere in the order.
+# RUNS ON DEMAND, NOT IN THE SUITE (coordinator decision, PAD-314 close-out).
+# This is a probe of a KNOWN-OPEN defect — B-089 face B, the overlay without content — so it is
+# expected to fail on current code, and a whole-suite run that is red for a
+# known reason teaches people to stop reading it. The tag below keeps it out of
+# whole-suite runs on both platforms (config.yaml excludeTags for iOS, the
+# lane script's --exclude-tags for Android); it stays in flowsOrder so the
+# numbering guard stays honest. REMOVE THE TAG when face B is fixed: it then
+# joins the suite as a guard, which is what a probe of fixed behaviour is.
+# Run it deliberately by naming the file. Maestro is REPORTED to run an explicitly
+# named flow even when its tag is excluded (issue #2880, on 2.0.9, open, no
+# maintainer reply) — reported, NOT verified on our version, and the lane installs
+# Maestro unpinned (PAD-345), so the version is not even fixed. Whoever picks up
+# this face's instrumentation verifies that behaviour FIRST, on the Maestro version
+# the lane actually uses, before relying on it. If it does not hold, add
+# --include-tags open-defect-probe to the run.
 appId: com.padellevelup.app
+tags:
+  - open-defect-probe
 ---
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml
