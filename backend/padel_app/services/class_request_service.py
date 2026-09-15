@@ -469,6 +469,10 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         },
         coach,
         club,
+        # PAD-330: the student ASKED for this class and already gets the
+        # acceptance message. Telling them a coach added them would be a second
+        # message for one event, about something they initiated.
+        notify_students=False,
     )
     row.lesson_id = lesson.id
     row.status = "accepted"

@@ -104,16 +104,16 @@ def test_an_invitation_counts_as_a_message_that_reached_the_player(app, client):
     instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=48)
 
     with app.app_context():
-        conv = Conversation(
-            is_group=False,
-            participant_key=Conversation.build_participant_key([ids["coach_user_id"], ids["student_user_id"]]),
+        # PAD-330: enrolling a student now writes a message telling them, so the
+        # coach-student thread already exists by the time this runs. Building one
+        # by hand collided with it; get-or-create is what production does.
+        from padel_app.services.notification_service import (
+            _get_or_create_direct_conversation,
         )
-        db.session.add(conv)
-        db.session.flush()
-        db.session.add_all([
-            ConversationParticipant(conversation_id=conv.id, user_id=ids["coach_user_id"]),
-            ConversationParticipant(conversation_id=conv.id, user_id=ids["student_user_id"]),
-        ])
+
+        conv = _get_or_create_direct_conversation(
+            ids["coach_user_id"], ids["student_user_id"]
+        )
         sent = datetime.utcnow() - timedelta(hours=2)
         msg = Message(
             conversation_id=conv.id, sender_id=ids["coach_user_id"], text="A spot opened",
