@@ -115,6 +115,14 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the language changes and "Language preference saved." appears — Maestro flow
   `12-settings-language`, the same steps on both platforms
 
+#### A dialog's cancel closes the dialog on Android
+- **Given** the coach is on a player's detail screen on the emulator — a screen that mounts three
+  dialogs — with the remove dialog open
+- **When** they tap the dialog's Cancel (`player-remove-cancel`)
+- **Then** the dialog is gone within a second and the app is still on the player screen, with no
+  hardware back needed — Maestro flow `49-dialog-cancel-closes`, which fails on the code before
+  PAD-314 (the dialog stays drawn with nothing behind it, B-089 face A) and passes after it
+
 #### Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a
   class-detail flow

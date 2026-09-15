@@ -1,11 +1,12 @@
 import * as AlertDialogPrimitive from "@rn-primitives/alert-dialog";
 import * as React from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { buttonTextVariants, buttonVariants } from "@/components/ui/button";
 import { TextClassContext } from "@/components/ui/text";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
+import { dialogEntering, dialogExiting } from "@/lib/dialog-motion";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -31,8 +32,8 @@ function AlertDialogOverlay({
       {/* Same width-collapse fix as dialog.tsx's DialogOverlay — see PAD-102. */}
       <Animated.View
         style={{ alignSelf: "stretch" }}
-        entering={FadeIn.duration(150)}
-        exiting={FadeOut.duration(150)}
+        entering={dialogEntering()}
+        exiting={dialogExiting()}
       >
         <>{children}</>
       </Animated.View>
