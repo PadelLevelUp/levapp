@@ -49,24 +49,39 @@ Send browser push notifications when a new message arrives and the recipient isn
    offers, cancellations to the coach) — because the thing the user acts on
    (the Yes/No answer, the reply, the cancellation text) lives in the thread.
    Such a push carries `type: "message"` plus `conversationId`, and may add
-   `classInstanceId` as secondary context; it never routes to the class. The
-   `class` type is reserved for pushes that are not backed by a message. A
-   client must never route on `classInstanceId` alone: the mobile class screen
-   rebuilds its event from route params (`model`, `originalId`, `date`) that a
-   push cannot carry, so a `/class/<id>` deep link from a push renders "this
-   class could not be found" — the PAD-240 defect.
-   **A type outside these two routes nowhere (PAD-324).** `routeForPushData`
-   returns `null` for anything it does not recognise, so a payload that invents
-   its own type is not a wrong screen but a **dead tap**: the notification opens
-   the app and nothing happens. That is harder to notice than an error screen,
-   which is why three of the six push writers carried one undetected — the join
-   request (`class`, with a message behind it) and the class request
-   (`class_request`), both fixed here, and the two request alerts (`request`),
-   which have neither a message nor a class and need the contract extended
-   rather than their payload corrected (PAD-327). **A push whose `data` does not
-   match one of the defined shapes is a defect even though nothing errors**, so
-   a new push writer states which shape it uses and why, and its test asserts
-   the web and native pushes for one event name the same destination
+   `classInstanceId` as secondary context; it never routes to the class. ~~The
+   `class` type is reserved for pushes that are not backed by a message.~~
+   **The `class` type is RETIRED (PAD-326).** It had no producer left once the
+   join-request push took the message shape (PAD-324), and a type nobody sends
+   must not be routable: `routeForPushData` returns null for it, so a payload
+   that somehow carries it is ignored rather than sent to a screen. Reviving it
+   needs this rule changed first.
+   ~~A client must never route on `classInstanceId` alone: the mobile class
+   screen rebuilds its event from route params (`model`, `originalId`, `date`)
+   that a push cannot carry, so a `/class/<id>` deep link from a push renders
+   "this class could not be found" — the PAD-240 defect.~~ **That prohibition
+   existed because the screen could not resolve an id; since PAD-326 it can
+   (`calendar.event-detail` rule 15), so the reason is gone. The routing rule
+   above stands on its own merit and is unchanged: a message-backed push opens
+   the THREAD, because the thing the user acts on lives there — not because the
+   class screen would fail.**
+   *(That part of the rule was already correct and the code contradicted it: it
+   named this exact failure, in these words, while `routeForPushData` kept the
+   branch that produced it. PAD-326 is the code catching up, not a change of
+   intent.)*
+   **A type outside the defined shapes routes nowhere (PAD-324).**
+   `routeForPushData` returns `null` for anything it does not recognise, so a
+   payload that invents its own type is not a wrong screen but a **dead tap**:
+   the notification opens the app and nothing happens. That is harder to notice
+   than an error screen, which is why **four** of the six push writers carried
+   one undetected — the join request (`class`, with a message behind it) and the
+   class request (`class_request`), both fixed by PAD-324, and the two request
+   alerts (`request`), which have neither a message nor a class and need the
+   contract extended rather than their payload corrected (PAD-327). **A push
+   whose `data` does not match one of the defined shapes is a defect even though
+   nothing errors**, so a new push writer states which shape it uses and why,
+   and its test asserts the web and native pushes for one event name the same
+   destination
 8. **Push permission never gates the in-app feed (PAD-195).** *(Numbered 8: PAD-240's
    tap-routing rule takes 7 on its own branch, so a batch merge does not produce two 7s.)* The browser's (or
    the device's) notification permission decides only whether the OS shows an

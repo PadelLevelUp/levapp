@@ -113,6 +113,12 @@ appId: com.padellevelup.app
 - tapOn:
     id: "player-name"
 - inputText: "Maestro Removal Placeholder"
+# Dismiss the keyboard before scrolling for the save button, as section 3 does
+# (keyboard-occlusion trap, PAD-198). With it up, the swipe below and every
+# scrollUntilVisible attempt left the form unscrolled on the Android lane, and
+# player-save never entered the tree. Enter, not hideKeyboard, which is a back
+# key on Android and pops the screen when no keyboard is up.
+- pressKey: Enter
 - swipe:
     start: "50%, 45%"
     end: "50%, 20%"

@@ -60,7 +60,42 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     (`calendar.eventScope.*`, "Delete event" / "Only this event"). `calendar.scope.*` stays
     class-worded and is what `ClassDetailSheet` uses
 
+15. **An instance id is enough to open a class on iOS (PAD-326; number self-assigned,
+    unconfirmed).** `app/class/[id].tsx` rebuilds its `CalendarEvent` from route params
+    (`id`, `model`, `originalId`, `date`) and, when those are incomplete, resolves the class
+    from the id alone through `GET /api/app/lesson_instance/<id>` — JWT'd and role-filtered,
+    already carrying `lessonId`, `date`, `startTime`, `endTime`, `name`, `color` and
+    `maxPlayers`. The full params stay the fast path: an in-app tap passes them and the screen
+    renders without a round trip. What changes is that a route carrying only an id — a push, a
+    universal link from an email, a message's `lessonInstanceId` — is no longer a dead end.
+    - **Three states, never one.** An incomplete route with no usable id is "could not find"
+      (nothing to ask about); a resolvable id that 404s is **"this class no longer exists"**,
+      permanent and offered without a Retry, because retrying a deleted class is pointless; a
+      transient failure keeps "could not load" WITH Retry. Collapsing these is what made
+      yesterday's founder report unreadable — the screen said "could not find" for a route it
+      had never asked about, which is indistinguishable from a class that is genuinely gone.
+    - The dangling ids this exposes are real: messages carry `lessonInstanceId` with **no
+      foreign key** to `lesson_instances` (ledger B-059), so ids that no longer resolve exist
+      in production today. This rule makes them visible and legible rather than reachable and
+      silent; PAD-325 owns what a message should do about them.
+
 ### Acceptance Criteria
+
+#### An instance id is enough to open a class (PAD-326)
+- **Given** a route to the class screen carrying only an instance id
+- **When** the screen opens
+- **Then** it fetches that instance and renders the class, rather than reporting that the class
+  could not be found
+
+- **Given** the same route, and the instance no longer exists
+- **Then** the screen says the class no longer exists and offers no Retry
+
+- **Given** a route carrying the full params
+- **Then** the screen renders from them without fetching by id
+
+- **Given** a route with neither usable params nor a usable id
+- **Then** the screen says the class could not be found, as before
+
 
 #### Deep link opens the class in its own week
 - **Given** a coach with a class on a day in a later week than today's
