@@ -209,9 +209,7 @@ jobs:
       JWT_SECRET_KEY: e2e-test-secret
       # dispatch input → `.` on the nightly schedule → the PR smoke list.
       # (the `env` context is not available in a job-level env block, so the smoke list is spelled out here too)
-      # PAD-314: this branch runs the dialog regression guard, nothing else —
-      # the fix is judged on flow 49 alone. Restore the smoke list before merge.
-      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/02-coach-dashboard.yaml flows/03-class-management.yaml flows/05-class-deletion.yaml flows/06-add-player.yaml flows/12-settings-language.yaml flows/13-student-availability.yaml flows/16-class-notify-remind.yaml flows/20-add-player-invite.yaml flows/34-player-removal.yaml flows/49-dialog-cancel-closes.yaml' }}
+      MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/02-coach-dashboard.yaml flows/03-class-management.yaml flows/05-class-deletion.yaml flows/06-add-player.yaml flows/12-settings-language.yaml flows/13-student-availability.yaml flows/16-class-notify-remind.yaml flows/20-add-player-invite.yaml flows/34-player-removal.yaml' }}
     steps:
       - uses: actions/checkout@v4
 
