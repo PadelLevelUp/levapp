@@ -100,6 +100,30 @@ def test_a_re_added_student_is_asked(app, live_scheduler):
         assert len(_ask_jobs(live_scheduler, iid)) == 1
 
 
+def test_asking_a_newcomer_creates_no_coach_settings(app, live_scheduler):
+    """Arming runs inside every enrolment, so reading the coach's timing must
+    not CREATE their settings — the row collides with the one a caller makes
+    next (PAD-330's lesson). A coach without settings is still asked for on
+    the defaults, as the reminder pass would."""
+    from padel_app.models import LessonInstance, NotificationConfig
+    from padel_app.services.lesson_service import enrol
+    from padel_app.tests.test_pad259_readers import _second_student
+
+    ids, iid = _world(app)
+    with app.app_context():
+        with patch(PATCHES[0]), patch(PATCHES[1]):
+            NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).delete()
+            db.session.commit()
+            live_scheduler._scheduler.remove_all_jobs()
+            carol, _uid = _second_student(app, ids["coach_id"], "carol")
+            enrol(carol, db.session.get(LessonInstance, iid), "coach")
+
+        assert NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).count() == 0
+        assert len(_ask_jobs(live_scheduler, iid)) == 1, (
+            "the default timing has passed for a class 24h out, so they are asked"
+        )
+
+
 def test_nobody_is_asked_twice_while_a_reminder_is_still_live(app):
     """PAD-49/94: asking again while a Yes/No is outstanding is the noise we removed."""
     from padel_app.models import LessonInstance

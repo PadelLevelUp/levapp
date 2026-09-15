@@ -1305,7 +1305,15 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     coach = primary_coach(instance)
     if coach is None:
         return None
-    _config = config or get_or_create_config(coach.id)
+    # A plain read, never `get_or_create_config`: this runs inside every
+    # enrolment, which must not CREATE a coach's settings as a side effect —
+    # the PAD-330 lesson (`notify_student_added_to_class`). An unsaved row
+    # answers with the defaults the reminder pass would create and use.
+    _config = (
+        config
+        or NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        or NotificationConfig(coach_id=coach.id)
+    )
     restrictions = _config.get_restrictions()
 
     # The ordinary reminder has not fired yet: it will ask them at the coach's
