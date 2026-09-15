@@ -30,6 +30,7 @@ from padel_app.models import (
     NotificationEvent,
     Player,
     Presence,
+    ReminderAttempt,
 )
 from padel_app.sql_db import db
 
@@ -73,6 +74,21 @@ def reminder_sent_at_by_presence(presences: Iterable[Presence]) -> Dict[int, Opt
             .filter(Message.sender_id != ConversationParticipant.user_id)
             .filter(Message.message_type == "notification_reminder")
             .filter(Message.is_deleted.is_(False))
+            # PAD-318: a reminder from before the student cancelled asked about a
+            # seat they no longer held. Once a coach puts them back, that round is
+            # void (`reminder_attempt_service.void_for_return`), and counting it
+            # here would show the coach "reminder sent" for a student who is about
+            # to be asked for the first time about the seat they hold now — true
+            # of history, false of the thing the badge is read for.
+            .filter(
+                ~db.session.query(ReminderAttempt)
+                .filter(
+                    ReminderAttempt.message_id == Message.id,
+                    ReminderAttempt.superseded.is_(True),
+                    ReminderAttempt.expired.is_(True),
+                )
+                .exists()
+            )
             .all()
         )
         player_by_user = {uid: pid for pid, uid in user_by_player.items()}

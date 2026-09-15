@@ -234,6 +234,39 @@ def _run_reminder_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
             )
 
 
+def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
+    """Make sure a late arrival is actually asked whether they are coming.
+
+    PAD-331 / PAD-318. The reminder chain is spent once a pass reports no more
+    due, so a student who joins afterwards is never asked by anything. This arms
+    one pass at the moment the service says is permitted — now, or the end of
+    quiet hours — and returns whether it armed one.
+
+    It schedules a PASS rather than a bespoke message: `send_class_reminders`
+    already skips everyone who has answered or had their reminders, so the pass
+    reaches exactly the people who still owe an answer and nobody else. One
+    job id per (instance, student, instant) keeps a repeated add idempotent.
+    """
+    if _scheduler is None:
+        return False
+    from apscheduler.triggers.date import DateTrigger
+    from padel_app.services.notification_service import next_ask_time
+
+    when = next_ask_time(instance, player_id, now=now)
+    if when is None:
+        return False
+
+    _scheduler.add_job(
+        func=_run_send_reminders,
+        args=[instance.id],
+        trigger=DateTrigger(run_date=when, timezone="UTC"),
+        id=f"ask_{instance.id}_{player_id}_{int(when.timestamp())}",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+    return True
+
+
 def _run_send_reminders(instance_id: int) -> None:
     """Legacy runner for already-materialized LessonInstance reminders."""
     app = _app
