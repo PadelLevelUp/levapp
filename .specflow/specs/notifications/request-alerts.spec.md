@@ -111,7 +111,9 @@ with a per-user opt-out (PAD-232).
 
 ### Notes
 - OPEN: role-neutral editable copy for these alerts (rule 4).
-- OPEN: a native tap route for `type: "request"` once a settings deep link exists on iOS.
+- RESOLVED (PAD-327): the native tap route. Request alerts no longer send `type: "request"`;
+  they carry `messaging.push-notifications` rule 7's `path` shape with `PATHS[kind]`, and the
+  app routes that web path natively (`nativeRouteForWebPath`, including `/settings?section=…`).
 
 #### The two channels agree, per writer (PAD-327)
 - **Given** any push writer that sends both a web push and an Expo push for the same event
