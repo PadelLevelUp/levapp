@@ -319,6 +319,28 @@ export default function ClassDetailScreen() {
     )
   );
 
+  // PAD-326: these four were declared further down, below the early return.
+  // That was harmless while the event was a pure function of the route params —
+  // present for the screen's whole life or never — but an id-only route now
+  // fetches the event, so it starts empty and appears on a later render. Any
+  // hook below `if (!event)` would then be called for the first time on that
+  // render and React throws "Rendered more hooks than during the previous
+  // render". Every hook in this component must sit above the early return;
+  // `class-screen-hooks.test.ts` holds that line.
+  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
+  // the bar asks first, naming why. The edit is parked until answered.
+  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
+  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
+  const [joinBusy, setJoinBusy] = React.useState(false);
+  const [pendingAccept, setPendingAccept] = React.useState<{
+    id: number;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
+  const [pendingEdit, setPendingEdit] = React.useState<{
+    changes: Record<string, unknown>;
+    scope: "single" | "future";
+  } | null>(null);
+
   if (!event) {
     // Three states, never one (rule 15). Collapsing them is what made the
     // founder's screenshot unreadable: it said "could not find" for a route it
@@ -453,20 +475,6 @@ export default function ClassDetailScreen() {
       void commitEdit("single");
     }
   };
-
-  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
-  // the bar asks first, naming why. The edit is parked until answered.
-  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
-  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
-  const [joinBusy, setJoinBusy] = React.useState(false);
-  const [pendingAccept, setPendingAccept] = React.useState<{
-    id: number;
-    ineligible: EligibilityCheckEntry[];
-  } | null>(null);
-  const [pendingEdit, setPendingEdit] = React.useState<{
-    changes: Record<string, unknown>;
-    scope: "single" | "future";
-  } | null>(null);
 
   const finalizeEdit = async (changes: Record<string, unknown>, scope: "single" | "future") => {
     if (!event) return;
