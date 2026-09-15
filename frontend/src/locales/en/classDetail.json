@@ -20,9 +20,9 @@
     "deleteOnlyThisAria": "Delete only this class",
     "deleteFutureAria": "Delete this and future classes",
     "confirmDeleteAria": "Confirm delete class",
-    "cancelAttendanceDescription": "Your spot will be released and may be offered to another player.",
-    "confirmCancelAttendanceAria": "Confirm cancel attendance",
-    "cancelMySpot": "Cancel my spot",
+    "cancelAttendanceDescription": "We'll free your spot, which may be offered to another player, and let your coach know.",
+    "confirmCancelAttendanceAria": "Confirm that you can't attend",
+    "cancelMySpot": "I can't attend",
     "new": {
       "title": "New class",
       "classTypeAria": "Class type",

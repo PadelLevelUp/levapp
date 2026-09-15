@@ -19,6 +19,11 @@ The player is offered exactly ONE way to say they are not coming, in their own w
 they and their coach then see ONE answer to "where does this person stand for this class?" —
 never two or three status words at once (PAD-313, after a founder's report on TestFlight 20).
 
+Saying "I am not coming" is not a one-way door: a player whose plans change can say they can come
+after all, and they get their spot back whenever it is still free. When it is not — because freeing
+it is precisely what let somebody else take it — they are told plainly that it has gone rather than
+shown a failure (PAD-315).
+
 ## Who This Is For
 
 Students/players responding to and managing their own attendance; the coach, who is notified.

@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { CLASS_COLOR_SWATCHES, effectiveFilledSpots, findOverlappingEvent, lisbonNowMs, parseISODate, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -48,7 +48,7 @@ import {
   rejectClassJoinRequest,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
-import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
+import { sendClassReminders, cancelAttendance, respondToReminder } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -206,6 +206,7 @@ export function ClassDetailSheet({
 
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
+  const [returning, setReturning] = useState(false);
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
   const [attendanceCancelled, setAttendanceCancelled] = useState(false);
 
@@ -753,6 +754,38 @@ export function ClassDetailSheet({
       toast({ variant: "destructive", title: t("calendar.detail.failedSaveTraining") });
     } finally {
       setSavingTraining(false);
+    }
+  };
+
+  // PAD-315 rule 26: coming back after saying no. Offered on the STATE alone —
+  // never on a guess about capacity, which the client cannot know without
+  // racing the invitation engine — and the server decides the outcome.
+  const ownState = attendanceStateOf(ownPresence);
+  const canReturn =
+    isStudentParticipant && canComeBack({ state: ownState, classStarted });
+  const ownInstanceId = Number(ownPresence?.lessonInstanceId);
+
+  const handleComeBack = async () => {
+    if (!Number.isFinite(ownInstanceId) || returning) return;
+    setReturning(true);
+    try {
+      const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
+      if (outcome.messageKey) {
+        toast({
+          title: t(outcome.messageKey),
+          variant: outcome.tone === "error" ? "destructive" : "default",
+        });
+      }
+      if (outcome.record === "confirmed") {
+        setAttendanceCancelled(false);
+        toast({ title: t("calendar.detail.comeBackDone") });
+      }
+      // Either way the server is the truth: re-read rather than paint.
+      await refreshInstance();
+    } catch {
+      toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
+    } finally {
+      setReturning(false);
     }
   };
 
@@ -1534,6 +1567,26 @@ export function ClassDetailSheet({
                       `attendanceCancelled`) so this state survives a reload —
                       it is re-derived from the student's own serialized
                       presence, no new column required. */}
+                  {/* PAD-315 rule 26: the way back. Same place as the decline
+                      action it undoes, offered on the state alone. */}
+                  {canReturn && (
+                    <div className="space-y-1">
+                      <Button
+                        data-testid="class-come-back"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleComeBack}
+                        disabled={returning}
+                      >
+                        {returning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {t("calendar.detail.comeBack")}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {t("calendar.detail.comeBackHint")}
+                      </p>
+                    </div>
+                  )}
+
                   {/* PAD-313 rule 25: one action, and no state pill here — the
                       student's state is the one word on their row above. */}
                   {hasDeclined ? null : canCancelAttendance ? (
@@ -1627,7 +1680,9 @@ export function ClassDetailSheet({
                 {cancellingAttendance ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
-                {t("calendar.detail.cancelAttendance")}
+                {/* PAD-313 rule 25: the confirmation speaks the same words as
+                    the trigger — one string, so they cannot drift apart. */}
+                {t("calendar.detail.proactiveDecline")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

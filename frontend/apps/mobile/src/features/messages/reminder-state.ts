@@ -1,4 +1,4 @@
-import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { lisbonNowMs, reminderAnswerOutcome as sharedOutcome, wallClockISOMs } from "@levelup/config";
 
 /**
  * What an attendance-reminder message offers the student (PAD-151).
@@ -141,8 +141,14 @@ export function reminderResponseOutcome(
     return { write: "not_enrolled", toastKey: null };
   }
 
-  // Same asymmetry as `reminderState`: only an explicit "confirmed" reads as a
-  // yes, so an unrecognised action fails safe to absent rather than showing a
-  // confirmation the server never gave.
-  return { write: action === "confirmed" ? "yes" : "no", toastKey: null };
+  // B-074: this used to end `action === "confirmed" ? "yes" : "no"`, which was
+  // not failing safe — it recorded the OPPOSITE of what the student asked for
+  // whenever the server answered something this file did not know. A refused
+  // return (`spot_filled`) settled the bubble as "no", silently. The shared
+  // mapper decides now, and writes nothing when it cannot tell.
+  const outcome = sharedOutcome({ action });
+  if (outcome.record === "confirmed") return { write: "yes", toastKey: null };
+  if (outcome.record === "declined") return { write: "no", toastKey: null };
+  if (outcome.record === "not_enrolled") return { write: "not_enrolled", toastKey: null };
+  return { write: null, toastKey: outcome.messageKey };
 }

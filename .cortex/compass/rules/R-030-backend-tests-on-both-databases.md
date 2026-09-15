@@ -1,5 +1,5 @@
 ---
-id: R-026
+id: R-030
 title: "Backend tests run on SQLite with foreign keys enforced and on Postgres built by the real migrations"
 source:
   - ../../archive/documents/data-model-audit-2026-09-02/extracted/findings.md
@@ -11,7 +11,7 @@ confidence: EXTRACTED
 status: active
 ---
 
-# R-026 — Backend tests run on SQLite with foreign keys enforced and on Postgres built by the real migrations
+# R-030 — Backend tests run on SQLite with foreign keys enforced and on Postgres built by the real migrations
 
 The `app` fixture in `backend/padel_app/tests/conftest.py` has two backends, selected by
 `LEVAPP_TEST_DB`: `sqlite` (default, `PRAGMA foreign_keys=ON`, `create_all`) and `postgres`

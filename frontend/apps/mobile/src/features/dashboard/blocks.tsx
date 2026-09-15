@@ -35,6 +35,7 @@ import type {
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { reminderAnswerOutcome } from "@levelup/config";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -234,8 +235,16 @@ function AnswerButtons({
       { lessonInstanceId, action },
       {
         onSuccess: (result) => {
-          if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
-          else toast.success(t(result.action === "confirmed" ? "dashboard.answer.confirmed" : "dashboard.answer.declined"));
+          // B-074: the ternary here toasted "declined" as a SUCCESS for any
+          // answer it did not know — including `spot_filled`, where the student
+          // had asked to come back and was refused.
+          const outcome = reminderAnswerOutcome(result);
+          if (outcome.record === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+          else if (outcome.record === "declined") toast.success(t("dashboard.answer.declined"));
+          else if (outcome.messageKey) {
+            if (outcome.tone === "error") toast.error(t(outcome.messageKey));
+            else toast.success(t(outcome.messageKey));
+          }
         },
         onError: () => toast.error(t("dashboard.answer.failed")),
       },
@@ -726,6 +735,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           this width read as decoration. */}
       <View className="flex-row gap-2.5">
         <Stat
+          testID="dashboard-pulse-seats-filled"
           label={t("dashboard.pulse.seatsFilled")}
           value={`${seatsFilled.pct}%`}
           sub={t("dashboard.pulse.seatsFilledSub", {
@@ -734,6 +744,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           })}
         />
         <Stat
+          testID="dashboard-pulse-active-players"
           label={t("dashboard.pulse.activePlayers")}
           value={String(players.active)}
           sub={t("dashboard.pulse.activePlayersSub", {
@@ -746,9 +757,26 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
   );
 }
 
-export function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  testID,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  testID?: string;
+}) {
   return (
-    <View className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4">
+    // PAD-304: id + "label: value" accessibility label, the same shape the KPI
+    // tiles use — the card's child Text nodes are not addressable on Android,
+    // so a test (or a screen reader) reading the card alone needs both here.
+    <View
+      testID={testID}
+      accessibilityLabel={testID ? `${label}: ${value}` : undefined}
+      className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4"
+    >
       <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
       <Text className="font-display text-2xl text-foreground">{value}</Text>
       <Text className="text-[11px] text-muted-foreground">{sub}</Text>
