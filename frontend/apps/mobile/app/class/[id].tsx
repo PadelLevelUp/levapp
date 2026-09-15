@@ -7,6 +7,8 @@ import {
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
+  canComeBack,
+  reminderAnswerOutcome,
   effectiveFilledSpots,
   lisbonNowMs,
   wallClockISOMs,
@@ -71,6 +73,7 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import {
   canCancelAttendance,
+  hasClassStarted,
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
@@ -213,6 +216,7 @@ export default function ClassDetailScreen() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [comingBack, setComingBack] = React.useState(false);
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
   // confirmation, with no deadline warning, because by definition it happens
   // before the student was even reminded.
@@ -314,6 +318,28 @@ export default function ClassDetailScreen() {
       [isCoach, event, queryClient]
     )
   );
+
+  // PAD-326: these four were declared further down, below the early return.
+  // That was harmless while the event was a pure function of the route params —
+  // present for the screen's whole life or never — but an id-only route now
+  // fetches the event, so it starts empty and appears on a later render. Any
+  // hook below `if (!event)` would then be called for the first time on that
+  // render and React throws "Rendered more hooks than during the previous
+  // render". Every hook in this component must sit above the early return;
+  // `class-screen-hooks.test.ts` holds that line.
+  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
+  // the bar asks first, naming why. The edit is parked until answered.
+  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
+  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
+  const [joinBusy, setJoinBusy] = React.useState(false);
+  const [pendingAccept, setPendingAccept] = React.useState<{
+    id: number;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
+  const [pendingEdit, setPendingEdit] = React.useState<{
+    changes: Record<string, unknown>;
+    scope: "single" | "future";
+  } | null>(null);
 
   if (!event) {
     // Three states, never one (rule 15). Collapsing them is what made the
@@ -449,20 +475,6 @@ export default function ClassDetailScreen() {
       void commitEdit("single");
     }
   };
-
-  // PAD-150 (eligibility.enforcement rules 6, 7, 7d): a manual add that fails
-  // the bar asks first, naming why. The edit is parked until answered.
-  const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
-  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
-  const [joinBusy, setJoinBusy] = React.useState(false);
-  const [pendingAccept, setPendingAccept] = React.useState<{
-    id: number;
-    ineligible: EligibilityCheckEntry[];
-  } | null>(null);
-  const [pendingEdit, setPendingEdit] = React.useState<{
-    changes: Record<string, unknown>;
-    scope: "single" | "future";
-  } | null>(null);
 
   const finalizeEdit = async (changes: Record<string, unknown>, scope: "single" | "future") => {
     if (!event) return;
@@ -732,6 +744,45 @@ export default function ClassDetailScreen() {
   // buttons that called the same endpoint with the same payload, so it is no
   // longer a render condition; the server still classifies the decline.
   const myState = attendanceStateOf(myPresence);
+
+  // PAD-315 rule 26: the way back. Gated on the STATE alone — the client cannot
+  // know whether the spot is free without racing the invitation engine, so it
+  // offers, calls, and honours the server's reply.
+  const canReturn =
+    isParticipant &&
+    !isCoach &&
+    canComeBack({
+      state: myState,
+      classStarted: hasClassStarted(declineGate.date, declineGate.startTime),
+    });
+  const ownInstanceId = Number(myPresence?.lessonInstanceId);
+
+
+  const handleComeBack = async () => {
+    if (!Number.isFinite(ownInstanceId) || comingBack) return;
+    setComingBack(true);
+    setFeedback(null);
+    try {
+      const outcome = reminderAnswerOutcome(
+        await notificationEngineApi.respondToReminder(ownInstanceId, "yes")
+      );
+      if (outcome.record === "confirmed") {
+        toast.success(t("calendar.detail.comeBackDone"));
+      } else if (outcome.messageKey) {
+        // A refused return is an OUTCOME, not an error: the seat went to
+        // somebody else, which is what freeing it was for (B-074).
+        // This shell's toast has no neutral variant; a refusal is not an error,
+        // so it takes the plain (success-styled) one rather than a red alarm.
+        if (outcome.tone === "error") toast.error(t(outcome.messageKey));
+        else toast.success(t(outcome.messageKey));
+      }
+      await refetch();
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setComingBack(false);
+    }
+  };
 
   const handleCancelAttendance = async () => {
     setCancelOpen(false);
@@ -1375,6 +1426,23 @@ export default function ClassDetailScreen() {
                     panel and the separate early-decline button that used to sit
                     here are gone — the badge above is the state, and the one
                     action below is the only way to say it. */}
+                {canReturn ? (
+                  <View className="gap-1">
+                    <Button
+                      testID="class-come-back"
+                      accessibilityLabel={t("calendar.detail.comeBack")}
+                      variant="outline"
+                      onPress={handleComeBack}
+                      disabled={comingBack}
+                    >
+                      <Text>{t("calendar.detail.comeBack")}</Text>
+                    </Button>
+                    <Text className="text-xs text-muted-foreground">
+                      {t("calendar.detail.comeBackHint")}
+                    </Text>
+                  </View>
+                ) : null}
+
                 {canCancel ? (
                   <Button
                     testID="class-cancel-attendance"

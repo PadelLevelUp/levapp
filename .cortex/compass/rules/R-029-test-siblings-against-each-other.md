@@ -29,9 +29,10 @@ answer" drifted apart while each passed its own tests (B-073), and a client
 fallback nearly shipped disagreeing with the server field it stood in for.
 
 A test pinned to a constant fails only when *that* value changes. A test pinned to
-the sibling fails when they **diverge**, which is the thing that actually hurts —
-including when a future author invents a third destination that looks reasonable
-on its own.
+a literal does not merely miss the divergence — it passes straight through it,
+green on both sides while they disagree. A test pinned to the sibling fails when
+they **diverge**, which is the thing that actually hurts — including when a future
+author invents a third destination that looks reasonable on its own.
 
 **How to apply.** Name the other side in the assertion:
 `assert web_url == "/messages/{}".format(expo_data["conversationId"])`, not two

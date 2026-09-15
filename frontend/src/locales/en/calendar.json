@@ -199,7 +199,11 @@
       "invitedCount": "Invited ({{count}})",
       "club": "Club",
       "court": "Court",
-      "noCourt": "No court"
+      "noCourt": "No court",
+      "comeBack": "Actually, I can come",
+      "comeBackHint": "If your spot is still free, you'll be signed up again.",
+      "spotFilled": "Your spot has already been taken.",
+      "comeBackDone": "You're back in this class."
     },
     "planning": {
       "title": "Planning ({{count}})",
