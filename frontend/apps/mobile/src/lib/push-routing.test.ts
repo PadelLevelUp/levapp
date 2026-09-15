@@ -49,3 +49,31 @@ describe("routeForPushData", () => {
     expect(routeForPushData({ type: "other", conversationId: "1" })).toBeNull();
   });
 });
+
+describe("PAD-327: the `path` shape", () => {
+  it("routes a plain in-app path through the app's one web-path mapper", () => {
+    expect(routeForPushData({ type: "path", path: "/settings?section=club" })).toEqual({
+      pathname: "/settings",
+      params: { section: "club" },
+    });
+    expect(routeForPushData({ type: "path", path: "/dashboard" })).toEqual({
+      pathname: "/(tabs)/dashboard",
+    });
+    expect(routeForPushData({ type: "path", path: "/players" })).toEqual({
+      pathname: "/(tabs)/players",
+    });
+  });
+
+  it("goes nowhere, and does not throw, for a path it cannot map", () => {
+    // Fail-safe, same rule as B-074's unknown branch: when you cannot tell,
+    // do nothing rather than guess. A crash on a notification tap is the worst
+    // possible reading of "unknown".
+    expect(routeForPushData({ type: "path", path: "/something-new" })).toBeNull();
+    expect(routeForPushData({ type: "path" })).toBeNull();
+    expect(routeForPushData({ type: "path", path: "" })).toBeNull();
+  });
+
+  it("still ignores a payload with no type it knows", () => {
+    expect(routeForPushData({ type: "request", kind: "club_join.received" })).toBeNull();
+  });
+});

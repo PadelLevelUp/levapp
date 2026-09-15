@@ -18,19 +18,40 @@
  *
  * Pure so it is unit-testable without expo-notifications.
  */
+import { nativeRouteForWebPath, type DashboardRoute } from "@/features/dashboard/routes";
+
 export type PushNotificationData = {
   type?: string;
   conversationId?: string | number;
   classInstanceId?: string | number;
+  /**
+   * PAD-327: the destination as a WEB path — the same string the push's web
+   * sibling carries in its `url`. Sent rather than derived from a `kind` so the
+   * server keeps sole ownership of it: a second copy of that table in the app
+   * disagrees with the server the day someone adds a kind, and disagreement
+   * between the two channels is the defect this shape exists to end.
+   */
+  path?: string;
 };
 
-export function routeForPushData(data: unknown): string | null {
+export function routeForPushData(
+  data: unknown
+): string | DashboardRoute | null {
   if (!data || typeof data !== "object") return null;
   const payload = data as PushNotificationData;
 
   if (payload.type === "message" && payload.conversationId != null) {
     return `/conversation/${payload.conversationId}`;
   }
+  // PAD-327: a push backed by neither a message nor a class names a plain
+  // in-app destination by its web path, and the app maps it with the ONE mapper
+  // it already uses for server-emitted paths. An unmapped path returns null:
+  // the tap goes nowhere and nothing throws, because a crash on a notification
+  // tap is the worst possible reading of "unknown".
+  if (payload.type === "path" && payload.path) {
+    return nativeRouteForWebPath(payload.path);
+  }
+
   // PAD-326: the `class` type is retired (`messaging.push-notifications`
   // rule 7). It lost its last producer when the join-request push took the
   // message shape, and a type nobody sends must not be routable — a payload

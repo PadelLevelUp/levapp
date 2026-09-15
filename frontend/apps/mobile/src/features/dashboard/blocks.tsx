@@ -46,7 +46,7 @@ import {
   useRespondReminder,
   useRespondWaitingListOffer,
 } from "@/features/calendar/hooks";
-import { dashboardRoute } from "@/features/dashboard/routes";
+import { nativeRouteForWebPath } from "@/features/dashboard/routes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -58,12 +58,12 @@ import { cn } from "@/lib/utils";
  */
 export function canGo(href: string | undefined): href is string {
   if (!href) return false;
-  return dashboardRoute(href) !== null;
+  return nativeRouteForWebPath(href) !== null;
 }
 
 export function go(href: string, hint?: { title?: string; timeLabel?: string }) {
   // dashboard.blocks rule 10: the mapping lives in routes.ts (pure, unit-tested).
-  const route = dashboardRoute(href, hint);
+  const route = nativeRouteForWebPath(href, hint);
   if (!route) return;
   if ("params" in route) router.push({ pathname: route.pathname, params: route.params } as never);
   else router.push(route.pathname as never);

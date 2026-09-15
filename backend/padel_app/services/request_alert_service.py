@@ -114,7 +114,11 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
         except Exception as exc:  # noqa: BLE001 — best-effort (rule 5)
             current_app.logger.warning("request-alert web push to %s failed: %s", user.id, exc)
         try:
-            send_expo_push_to_user(user.id, title, body, data={"type": "request", "kind": kind})
+            # PAD-327: the SAME string the web push above carries. Sending the
+            # path rather than the `kind` keeps `PATHS` the single owner of the
+            # destination — a copy in the app would disagree the day a kind is
+            # added, which is the drift this change exists to end.
+            send_expo_push_to_user(user.id, title, body, data={"type": "path", "path": path})
         except Exception as exc:  # noqa: BLE001
             current_app.logger.warning("request-alert native push to %s failed: %s", user.id, exc)
         if user.email:

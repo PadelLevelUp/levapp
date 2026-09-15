@@ -41,9 +41,19 @@ Send browser push notifications when a new message arrives and the recipient isn
    write and the badge lingers; writing on every fresh answer — after a
    mark-read invalidation, on foreground refetch, and on the first fetch of a
    cold launch — makes the icon equal the server count at every observation
-7. **Tap-routing contract (PAD-240).** A native push's `data` names where a tap
-   lands: `{type: "message", conversationId}` opens the conversation thread,
-   `{type: "class", classInstanceId}` opens the class. **Every push that
+7. **Tap-routing contract (PAD-240; third shape added by PAD-327).** A native
+   push's `data` names where a tap lands: `{type: "message", conversationId}`
+   opens the conversation thread, `{type: "class", classInstanceId}` ~~opens the
+   class~~ (retired, see below), and **`{type: "path", path}` opens a plain
+   in-app destination named by the SAME web path the push's web sibling
+   carries** — for pushes that are backed by neither a message nor a class, such
+   as the request alerts of `notifications.request-alerts` rule 7. The client
+   maps that web path to a native route through the single mapper it already
+   uses for server-emitted paths (`dashboard.blocks` rule 10); a path it cannot
+   map routes nowhere and never crashes. The path is sent rather than derived
+   from a `kind` so that the server keeps sole ownership of the destination —
+   two copies of that table would disagree the day a kind is added, which is the
+   defect this shape exists to end. **Every push that
    announces a `Message` row is a message notification** — direct messages and
    all system messages alike (invitations, reminders, spot filled, waiting-list
    offers, cancellations to the coach) — because the thing the user acts on
@@ -76,12 +86,14 @@ Send browser push notifications when a new message arrives and the recipient isn
    than an error screen, which is why **four** of the six push writers carried
    one undetected — the join request (`class`, with a message behind it) and the
    class request (`class_request`), both fixed by PAD-324, and the two request
-   alerts (`request`), which have neither a message nor a class and need the
-   contract extended rather than their payload corrected (PAD-327). **A push
-   whose `data` does not match one of the defined shapes is a defect even though
-   nothing errors**, so a new push writer states which shape it uses and why,
-   and its test asserts the web and native pushes for one event name the same
-   destination
+   alerts (`request`), which have neither a message nor a class and needed the
+   contract extended rather than their payload corrected — done by PAD-327's
+   `path` shape above. (PAD-324 counted three; the fourth, the class request,
+   was found by PAD-327's guard rather than by reading, which is the argument
+   for the guard.) **A push whose `data` does not match one of the defined
+   shapes is a defect even though nothing errors**, so a new push writer states
+   which shape it uses and why, and its test asserts the web and native pushes
+   for one event name the same destination
 8. **Push permission never gates the in-app feed (PAD-195).** *(Numbered 8: PAD-240's
    tap-routing rule takes 7 on its own branch, so a batch merge does not produce two 7s.)* The browser's (or
    the device's) notification permission decides only whether the OS shows an
