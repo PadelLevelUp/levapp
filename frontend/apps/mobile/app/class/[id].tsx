@@ -1610,7 +1610,11 @@ export default function ClassDetailScreen() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("calendar.detail.cancelAttendance")}
+              {/* PAD-313 rule 25: the dialog's own question. This read
+                  `calendar.detail.cancelAttendance` — the reminder bubble's
+                  button label — so the title was a command, in the vocabulary
+                  the founders objected to. */}
+              {t("calendar.detail.cancelAttendanceConfirmTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {/* PAD-313 rule 25: the consequence lives here, not in a choice

@@ -32,6 +32,22 @@ appId: com.padellevelup.app
       id: "settings-logout"
     direction: DOWN
     timeout: 15000
+# PAD-304, Android only: the scroll above stops the moment the row is on
+# screen, and on an edge-to-edge window "on screen" includes the strip under
+# the transparent navigation bar — so the row can be visible to Maestro while
+# the bar owns the pixels, and the centre tap hits Home. Centring the row puts
+# it clear of the bar. iOS does not need it (and centring times out at the end
+# of the content there), so its path is untouched.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "settings-logout"
+          direction: DOWN
+          centerElement: true
+          timeout: 15000
 - tapOn:
     id: "settings-logout"
 - extendedWaitUntil:

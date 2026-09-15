@@ -318,6 +318,7 @@ export function NotifyModal({
           <Button
             variant="outline"
             className="flex-1"
+            testID="class-notify-cancel"
             accessibilityLabel={t("calendar.notify.cancel")}
             onPress={resetAndClose}
             disabled={sendNotifications.isPending}

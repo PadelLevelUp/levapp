@@ -53,7 +53,7 @@ works around this by hand (`_app_ctx()` in `scheduler.py`), which is the tell th
 missing. The test is the first casualty, not the cause.
 
 **Affected specs:**
-- Dev: none — session lifecycle is infrastructure; governed by compass R-007 and R-026.
+- Dev: none — session lifecycle is infrastructure; governed by compass R-007 and R-030.
 - Business: none.
 
 ### Change Plan
