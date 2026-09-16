@@ -3,6 +3,7 @@
     "notFound": "This class could not be found.",
     "couldNotLoad": "Could not load this class.",
     "classFallbackTitle": "Class",
+    "classGoneTitle": "Class removed",
     "canceled": "Canceled",
     "classNameAria": "Class name",
     "decreaseCapacityAria": "Decrease capacity",

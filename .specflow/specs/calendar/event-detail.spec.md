@@ -78,6 +78,13 @@ Clicking a calendar event opens a detail sheet showing full information and avai
       foreign key** to `lesson_instances` (ledger B-059), so ids that no longer resolve exist
       in production today. This rule makes them visible and legible rather than reachable and
       silent; PAD-325 owns what a message should do about them.
+    - **(PAD-325) Gone is not a failure, and every state has a way back.** The "no longer
+      exists" state carries its own title ("Class removed" / "Aula removida"), not the generic
+      "Something went wrong". Each of the three states (loading included) shows the same back
+      control as the full screen (`class-detail-back`); it returns to the previous screen, or to
+      home when the class was the first screen opened. Before this, the stack's hidden header
+      left the swipe gesture as the only exit. iOS only: web has no class-not-found screen, and
+      a calendar deep link to a gone class opens nothing.
 
 ### Acceptance Criteria
 
