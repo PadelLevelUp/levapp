@@ -59,10 +59,14 @@ appId: com.padellevelup.app
     text: "E2E Student"
 
 # ── Step 3: results — rounds with a first-batch badge ──
-- extendedWaitUntil:
-    visible:
+# The results render below the fold once a player is picked (the class list
+# above is long), so scroll to them rather than waiting for them in place: the
+# in-place wait failed on origin/staging 80a377091 (2026-09-16 21:36Z).
+- scrollUntilVisible:
+    element:
       id: "tutorial-results"
-    timeout: 20000
+    direction: DOWN
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "tutorial-round-1"
