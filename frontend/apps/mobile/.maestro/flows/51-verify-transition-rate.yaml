@@ -43,13 +43,13 @@
 # lane script's --exclude-tags for Android); it stays in flowsOrder so the
 # numbering guard stays honest. REMOVE THE TAG when face C is fixed: it then
 # joins the suite as a guard, which is what a probe of fixed behaviour is.
-# Run it deliberately by naming the file. Maestro is REPORTED to run an explicitly
-# named flow even when its tag is excluded (issue #2880, on 2.0.9, open, no
-# maintainer reply) — reported, NOT verified on our version, and the lane installs
-# Maestro unpinned (PAD-345), so the version is not even fixed. Whoever picks up
-# this face's instrumentation verifies that behaviour FIRST, on the Maestro version
-# the lane actually uses, before relying on it. If it does not hold, add
-# --include-tags open-defect-probe to the run.
+# Run it deliberately by naming THIS FILE ALONE. Verified on Maestro 2.6.1, the
+# version the Android lane pins (PAD-345, 2026-09-16): a single named flow runs
+# even though its tag is excluded, but when two or more files are named the
+# tagged one is SILENTLY DROPPED (no error; it is just missing from the junit
+# report). On the lane, set MAESTRO_FLOWS to this one file and nothing else.
+# Locally, config.yaml's excludeTags does not apply to named files at all.
+# Full table: .maestro/README.md, "Maestro version".
 appId: com.padellevelup.app
 tags:
   - open-defect-probe

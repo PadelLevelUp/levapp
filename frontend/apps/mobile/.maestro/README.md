@@ -29,7 +29,41 @@ features the mobile app implements.
    with the dev build of `com.padellevelup.app` installed and AutoFill password
    prompts disabled.
 
-4. **Maestro** — installed at `~/.maestro/bin/maestro`.
+4. **Maestro** — version **2.6.1**, installed at `~/.maestro/bin/maestro` (see
+   "Maestro version" below).
+
+## Maestro version
+
+The Android CI lane pins Maestro to **2.6.1** (`MAESTRO_VERSION` in
+`.github/workflows/android-build.yaml`, PAD-345), so a lane result on a commit
+cannot change with the Maestro release of the day. Run the same version locally
+when you compare a local result with a lane result:
+
+```bash
+maestro --version                                            # expect 2.6.1
+curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.6.1 bash
+```
+
+Bump the workflow and this section together, and re-check the tag behaviour
+below on the new version before relying on it.
+
+**Tags versus a named flow (verified on 2.6.1, PAD-345):** measured on the pinned iOS simulator, 2026-09-16 15:06-15:08 UTC,
+with a two-flow probe (one flow tagged, one not) whose steps were confirmed in
+Maestro's own logs. Tag filtering is done by the CLI before any device work, so
+the result is the CLI's, not the platform's.
+
+| How the flows are named | Tag excluded by | Tagged flow |
+|---|---|---|
+| one file, `maestro test flows/x.yaml` | `--exclude-tags` | **runs** |
+| two files, `maestro test flows/x.yaml flows/y.yaml` | `--exclude-tags` | **silently dropped** |
+| two files | `config.yaml` `excludeTags` only | runs (config is not applied to named files) |
+| a folder, `maestro test flows` | `--exclude-tags` | excluded |
+| the workspace, `maestro test .` | `config.yaml` `excludeTags` | excluded |
+
+So an `open-defect-probe` flow (51, 52) runs on demand only when it is the
+**only** flow named. On the Android lane that means `MAESTRO_FLOWS` holds that
+one file and nothing else. Name it next to any other flow and it disappears from
+the run without an error; the junit report simply lacks it.
 
 ## Running
 
