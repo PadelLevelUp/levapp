@@ -84,7 +84,8 @@ appId: com.padellevelup.app
 
 # ── PAD-311 (rule 26): actions are numbered in the order they were drawn ──
 # After the undo the step holds one A1 leg (moment 1). A ball path drawn now
-# is moment 2, and a movement of B1 after it is moment 3. Playback itself is
+# is moment 2, and a movement of A2 after it is moment 3 (A2, not B1: B1 sits
+# below the fold behind the tab bar at this scroll position). Playback itself is
 # not asserted: Maestro cannot observe the board mid-playback on iOS (B-114);
 # the shared timeline tests in @levelup/config prove the order.
 - tapOn:
@@ -100,8 +101,8 @@ appId: com.padellevelup.app
 - tapOn:
     id: "board-tool-movement"
 - tapOn:
-    id: "piece-b1"
+    id: "piece-a2"
 - tapOn:
     id: "piece-cone-1"
 - assertVisible:
-    id: "movement-order-b1"
+    id: "movement-order-a2"
