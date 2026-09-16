@@ -101,7 +101,18 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
    travel, matching the canvas `M58,20 Q70,50 40,80`). Rule 23 says how several paths are
    numbered, reordered and removed.
 10. Movimentação: tap a player then a destination → a dashed movement for that player in the
-    current step. A player has at most one movement per step; drawing again replaces it.
+    current step. **(PAD-309) A player can follow several trajectories in one step.** After a
+    leg is drawn the player stays armed: each further tap on the court appends another leg
+    starting where the last one ended, and tapping the player again later also continues from
+    its last leg. Tapping another player arms that one; changing tool disarms. The step's
+    `movements` list keeps a player's legs in the order they were drawn. Each leg is drawn
+    dashed from the previous leg's end, with its own end dot; the first leg keeps the test id
+    `movement-<pieceId>`, and later legs are `movement-<pieceId>-<n>` (n = 1, 2, … as for ball
+    paths). Undo removes the last leg like any other mutation. Dragging a player with
+    Selecionar in a later step still records a single movement for it (rule 18), replacing
+    its legs. Compatibility: the shape is unchanged (a `pieceId` may simply repeat), so no
+    migration is needed; a build that predates PAD-309 still ends the step with the player at
+    its last leg's end, but draws every leg from the step's starting position.
 11. Cone places a cone at the tapped point; selecting a cone and pressing delete/eraser removes it.
 
 **Legacy diagrams**
@@ -141,7 +152,8 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     to the starting position after the last step.
 20. **▶ AUTO** animates every step in order: the ball travels the step's paths **one after the
     other, in their order** (flat: linear, lob: along the quadratic), 800 ms per path, while each
-    moved player travels its dashed path over the whole step — so a step lasts 800 ms × max(1,
+    moved player travels its dashed path over the whole step (a player with several legs, rule
+    10, splits the step evenly between them and walks them in order, PAD-309) — so a step lasts 800 ms × max(1,
     paths) (`stepDurationMs`, PAD-289) — then the next step starts. AUTO becomes ■ while playing; any edit stops playback and returns to the
     starting position. Nothing bounces (design-system motion rule).
 
@@ -187,6 +199,12 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Given** the board in game mode with the Movimentação tool
 - **When** the coach taps A1 then taps (20 %, 40 %)
 - **Then** a dashed path is drawn from A1 to that point and the step holds `{pieceId: A1, to: {20, 40}}`
+
+#### A player follows several trajectories in one step (PAD-309)
+- **Given** the board in game mode with the Movimentação tool
+- **When** the coach taps A1, then taps (20 %, 40 %), then taps (10 %, 60 %)
+- **Then** the step holds `[{pieceId: A1, to: {20, 40}}, {pieceId: A1, to: {10, 60}}]`, the second dashed leg starts at (20 %, 40 %), and Passo ends the step with A1 at (10 %, 60 %)
+- **And** halfway through ▶ AUTO the player stands at the end of the first leg
 
 #### Tap-to-move and drag both move a piece
 - **Given** the Selecionar tool
