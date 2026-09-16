@@ -138,6 +138,8 @@ asks by exact username and the student accepts.
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 4.
+- Push + email to the invited account on a request and to the coach on the decision:
+  `notifications.request-alerts` (PAD-232).
 - Merge tests must cover every FK listed under Entities; when a new `players.id` FK is added
   elsewhere, this spec's rule 5 and its tests are the place that has to change.
 - OPEN: whether a placeholder that has *two* coaches (a second coach imported the same person)

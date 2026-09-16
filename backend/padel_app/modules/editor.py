@@ -1,16 +1,26 @@
-from flask import Blueprint, redirect, render_template, request, url_for, jsonify
+from flask import Blueprint, abort, redirect, render_template, request, url_for, jsonify
+from flask_login import current_user
 
 from padel_app.models import Backend_App, MODELS
-from padel_app.tools import auth_tools
+from padel_app.tools.redaction import strip_redacted
 from padel_app.tools.documentation_tools import build_models_doc
 
 bp = Blueprint("editor", __name__, url_prefix="/editor")
 
 
 @bp.before_request
-@auth_tools.admin_required
 def before_request():
-    pass
+    """settings.admin-editor rule 2 (PAD-267): superadmin only.
+
+    A visitor who is not signed in goes to the legacy login; a signed-in
+    non-superadmin (a coach, a student or a legacy ``is_admin``) gets 403
+    rather than a redirect that hides the refusal.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for("auth.login", next=request.url))
+    if not getattr(current_user, "is_superadmin", False):
+        abort(403)
+    return None
 
 
 @bp.route("/", methods=("GET", "POST"))
@@ -49,7 +59,7 @@ def create(model):
     empty_instance = model()
     form = empty_instance.get_create_form()
     if request.method == "POST":
-        values = form.set_values(request)
+        values = strip_redacted(model, form.set_values(request))
         empty_instance.update_with_dict(values)
         empty_instance.create()
         return redirect(url_for("editor.display_all", model=model_name))

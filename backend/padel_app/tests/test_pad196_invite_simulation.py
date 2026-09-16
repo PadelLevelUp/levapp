@@ -244,18 +244,19 @@ def test_matches_engine_level_bar(app):
         assert two_steps_away not in engine_first
 
 
-def test_matches_engine_legacy_rounds(app):
-    """AC "The simulation invites exactly who the engine invites — legacy rounds"."""
+def test_matches_engine_empty_groups(app):
+    """AC "The simulation invites exactly who the engine invites — empty groups"
+    (PAD-279): `[]` is the built-in three groups, for the engine and the simulation."""
     ids = _seed(app, eligibility_rules=None, max_players=1)
     with app.app_context():
         alice, _ = _mixed_roster(ids)
-        _config(ids["coach_id"], invitation_groups=[])  # [] -> engine uses get_rounds()
+        _config(ids["coach_id"], invitation_groups=[])  # [] -> the built-in groups
         _no_batch_cap(ids["coach_id"])
         now = utcnow_naive()
 
         simulation = _simulate(ids, alice, now=now)
-        assert simulation["rounds"], "legacy rounds must be simulated"
-        assert all(r["kind"] == "legacy" for r in simulation["rounds"])
+        assert [r["number"] for r in simulation["rounds"]] == [1, 2, 3]
+        assert all(r["kind"] == "group" for r in simulation["rounds"])
 
         vacancy = _real_vacancy(ids, alice)
         assert _engine_full_queue_ids(ids, vacancy) == _queue_ids(simulation)
@@ -386,8 +387,12 @@ def test_invitation_window_reported_not_applied(app):
         _config(ids["coach_id"], invitation_start_timing={"type": "hours_before", "value": 2})
         now = utcnow_naive().replace(microsecond=0)
         instance = LessonInstance.query.get(ids["instance_id"])
-        instance.start_datetime = now + timedelta(hours=6)
-        instance.end_datetime = now + timedelta(hours=7)
+        # PAD-256: a class time is stored on the club's wall clock (R-023), so a
+        # class "6 hours from now" is Lisbon now + 6 h.
+        from padel_app.utils.dates import utc_to_wall_naive
+
+        instance.start_datetime = utc_to_wall_naive(now) + timedelta(hours=6)
+        instance.end_datetime = utc_to_wall_naive(now) + timedelta(hours=7)
         db.session.commit()
 
         simulation = _simulate(ids, alice, now=now)

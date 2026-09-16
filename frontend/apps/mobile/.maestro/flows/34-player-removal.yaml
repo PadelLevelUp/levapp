@@ -1,0 +1,243 @@
+# Mirrors: apps/web/e2e/players/player-removal.spec.ts and
+# apps/web/e2e/settings/evaluation-category-delete.spec.ts (PAD-274, B-057).
+# - E2E Student has an account: the button says Disconnect, the confirmation
+#   lists the coach's notes and evaluations and no attendance, and Cancel
+#   leaves the student alone.
+# - A placeholder this flow creates says Delete, lists its attendance too, and
+#   is deleted.
+# - A category this flow saves asks for its typed name before it is deleted;
+#   the confirm stays disabled until the name matches.
+# Self-contained: it deletes only what it creates, so its position in the
+# suite is not load bearing.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+
+# ── 1. A student with an account: Disconnect, never Delete ──
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-remove"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-remove"
+    text: "Disconnect"
+- tapOn:
+    id: "player-remove"
+- extendedWaitUntil:
+    visible:
+      text: "Your notes: .*"
+    timeout: 15000
+- assertNotVisible:
+    text: "Attendance records: .*"
+- tapOn:
+    id: "player-remove-cancel"
+# B-089 / PAD-323 — OBSERVED on the Android emulator: after this tap the dialog
+# is still drawn, and a hardware back press is not consumed by it; back reaches
+# the navigator and pops the whole screen, taking the "dialog" with it. A dialog
+# that is open registers a back handler, so nothing live was there to consume
+# the press. HYPOTHESIS, not yet established: what remains is a ghost — the
+# dialog gone from the React tree, its Android views left behind.
+#
+# The order below is the test that settles it, and the branch taken shows in the
+# run log. The screen's own back button is tapped FIRST: if the ghost's overlay
+# does not swallow touches, that tap reaches the live screen underneath, the
+# screen pops, and the dialog's text goes with it — which would make this the
+# same defect as PAD-314 (Fabric leaving views behind) rather than a second one.
+# Only if the dialog's text is still there afterwards does hardware back run, as
+# the way out of a screen whose controls are covered.
+#
+# On iOS the cancel tap closes the dialog and only the first branch runs. Do not
+# "simplify" this into a single tap until PAD-323 is fixed and its regression
+# test is green.
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "player-back"
+    commands:
+      - tapOn:
+          id: "player-back"
+- runFlow:
+    when:
+      visible:
+        text: "Your notes: .*"
+    commands:
+      - back
+- extendedWaitUntil:
+    notVisible:
+      text: "Your notes: .*"
+    timeout: 10000
+- runFlow:
+    when:
+      visible:
+        id: "player-back"
+    commands:
+      - tapOn:
+          id: "player-back"
+
+# ── 2. A placeholder this flow creates: Delete ──
+- extendedWaitUntil:
+    visible:
+      id: "players-add"
+    timeout: 15000
+- tapOn:
+    id: "players-add"
+- extendedWaitUntil:
+    visible:
+      id: "player-name"
+    timeout: 15000
+- tapOn:
+    id: "player-name"
+- inputText: "Maestro Removal Placeholder"
+# Dismiss the keyboard before scrolling for the save button, as section 3 does
+# (keyboard-occlusion trap, PAD-198). With it up, the swipe below and every
+# scrollUntilVisible attempt left the form unscrolled on the Android lane, and
+# player-save never entered the tree. Enter, not hideKeyboard, which is a back
+# key on Android and pops the screen when no keyboard is up.
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- tapOn:
+    id: "players-search"
+- eraseText: 30
+- inputText: "Maestro Removal"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Removal Placeholder.*"
+    timeout: 20000
+- tapOn:
+    text: ".*Maestro Removal Placeholder.*"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-remove"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-remove"
+    text: "Delete Player"
+- tapOn:
+    id: "player-remove"
+- extendedWaitUntil:
+    visible:
+      text: "Attendance records: 0"
+    timeout: 15000
+- tapOn:
+    id: "player-remove-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      text: ".*Maestro Removal Placeholder.*"
+    timeout: 20000
+
+# ── 3. A category saved here asks for its typed name ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-categories-add"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-categories-add"
+- tapOn:
+    id: "evaluation-category-name-new"
+- inputText: "Maestro Cat"
+# Dismiss the keyboard: with it up, the save button "is visible" to Maestro but the
+# tap lands on the keyboard (keyboard-occlusion trap, PAD-198).
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 25%"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-categories-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-categories-save"
+- extendedWaitUntil:
+    visible:
+      text: ".*categories updated.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Remove category Maestro Cat"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    text: "Remove category Maestro Cat"
+- extendedWaitUntil:
+    visible:
+      text: "This deletes 0 scores across 0 players.*"
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: false
+- tapOn:
+    id: "evaluation-category-delete-name"
+- inputText: "Maestro"
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: false
+- inputText: " Cat"
+# hideKeyboard fails on iOS here ("Couldn't hide the keyboard"); Enter blurs the
+# single-line input and dismisses it instead.
+- pressKey: Enter
+- assertVisible:
+    id: "evaluation-category-delete-confirm"
+    enabled: true
+- tapOn:
+    id: "evaluation-category-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Cat.*deleted.*"
+    timeout: 15000

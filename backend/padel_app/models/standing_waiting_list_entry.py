@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Index, text
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -9,7 +9,18 @@ from padel_app.sql_db import db
 
 class StandingWaitingListEntry(db.Model, model.Model):
     __tablename__ = "standing_waiting_list_entries"
-    __table_args__ = {"extend_existing": True}
+    # PAD-273 (audit M14): uniqueness the domain implies, enforced by the database.
+    __table_args__ = (
+        Index(
+            "uq_standing_entries_active_coach_player",
+            "coach_id",
+            "player_id",
+            unique=True,
+            postgresql_where=text("is_active"),
+            sqlite_where=text("is_active"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Standing Waiting List Entry"
     model_name = "StandingWaitingListEntry"

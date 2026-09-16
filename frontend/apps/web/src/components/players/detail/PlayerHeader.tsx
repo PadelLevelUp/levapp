@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { activationLinkPath } from "@/api/register";
 import type { CoachPlayer, CoachLevel, PlayerSide } from "@/types";
 import { SIDE_LABEL_KEYS } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -61,7 +62,12 @@ export function PlayerHeader({
     .slice(0, 2);
 
   const level = player.level ?? levels.find((l) => l.id === String(player.levelId));
-  const inviteLink = `${window.location.origin}/register/${player.userId || "player"}`;
+  // auth.activate rules 2-3 (PAD-254): the link carries the account's secret.
+  // Without one (older backend, or an already-active player) the bare route
+  // is still produced so the panel renders; it will report itself invalid.
+  const inviteLink = player.activationToken
+    ? `${window.location.origin}${activationLinkPath(player.userId, player.activationToken)}`
+    : `${window.location.origin}/register/${player.userId || "player"}`;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(inviteLink);

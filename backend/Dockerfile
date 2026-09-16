@@ -36,9 +36,16 @@ EXPOSE 80
 RUN chmod +x /app/scripts/entrypoint.sh
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
-# 1 worker (APScheduler must stay in a single process). Each open SSE stream
+# 1 worker (APScheduler must stay in a single process, AND the SSE registry in
+# padel_app/realtime.py is per-process — a second worker never sees the first's
+# connections; compass R-027 / PAD-237). Each open SSE stream
 # (messaging + notifications) occupies a thread for its whole lifetime, so the
 # pool must be much larger than the expected number of connected clients —
 # 4 threads wedged the app as soon as two tabs connected.
 # 3600s timeout keeps SSE connections alive.
+# PAD-277: at most SSE_MAX_STREAMS (default 40) streams are open at once, so 24
+# threads stay free for API requests; past it a stream gets a fast 503. Past
+# SSE_MAX_STREAMS_PER_USER (default 4) the user's oldest stream is evicted. A
+# keep-alive every SSE_KEEPALIVE_SECONDS (default 5) notices vanished clients
+# (messaging.sse-realtime rules 11-14; numbers in the single-VM decision).
 CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "1", "--threads", "64", "--timeout", "3600", "app:run_app"]

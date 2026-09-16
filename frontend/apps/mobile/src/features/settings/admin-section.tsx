@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 
@@ -35,16 +36,37 @@ export function AdminSection() {
   const [busyId, setBusyId] = React.useState<number | null>(null);
   const [rejecting, setRejecting] = React.useState<adminApi.PendingCoach | null>(null);
   const [reason, setReason] = React.useState("");
+  // auth.coach-approval rule 9 (PAD-279): the approval gate is an app setting.
+  const [settings, setSettings] = React.useState<adminApi.AdminSettings | null>(null);
+  const [savingSetting, setSavingSetting] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     try {
-      setPending(await adminApi.listPendingCoaches());
+      const [rows, current] = await Promise.all([
+        adminApi.listPendingCoaches(),
+        adminApi.getAdminSettings(),
+      ]);
+      setPending(rows);
+      setSettings(current);
     } catch {
       toast.error(t("settings.admin.loadFailed"));
     } finally {
       setLoading(false);
     }
   }, [t]);
+
+  const toggleApproval = async (value: boolean) => {
+    if (savingSetting) return;
+    setSavingSetting(true);
+    try {
+      setSettings(await adminApi.updateAdminSettings({ coachApprovalRequired: value }));
+      toast.success(t("settings.admin.coachApprovalSaved"));
+    } catch {
+      toast.error(t("settings.admin.actionFailed"));
+    } finally {
+      setSavingSetting(false);
+    }
+  };
 
   React.useEffect(() => {
     void refresh();
@@ -86,6 +108,38 @@ export function AdminSection() {
         <CardDescription>{t("settings.admin.pendingCoachesDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="gap-3">
+        {settings ? (
+          <View
+            className="flex-row items-center justify-between gap-3 rounded-lg border border-border p-3"
+            testID="admin-coach-approval-required"
+          >
+            <View className="flex-1 gap-0.5">
+              <Text className="font-medium">{t("settings.admin.coachApprovalRequired")}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("settings.admin.coachApprovalRequiredDescription")}
+              </Text>
+              {settings.source === "environment" ? (
+                <Text className="text-xs text-muted-foreground" testID="admin-coach-approval-source-env">
+                  {t("settings.admin.coachApprovalFromEnvironment")}
+                </Text>
+              ) : null}
+              {/* Maestro reads the state off these ids; the switch itself has no text. */}
+              <View
+                testID={
+                  settings.coachApprovalRequired
+                    ? "admin-coach-approval-required-on"
+                    : "admin-coach-approval-required-off"
+                }
+              />
+            </View>
+            <Switch
+              testID="admin-coach-approval-required-switch"
+              accessibilityLabel={t("settings.admin.coachApprovalRequired")}
+              checked={settings.coachApprovalRequired}
+              onCheckedChange={(val: boolean) => void toggleApproval(val)}
+            />
+          </View>
+        ) : null}
         {loading ? (
           <Spinner />
         ) : pending.length === 0 ? (

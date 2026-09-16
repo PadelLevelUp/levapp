@@ -48,10 +48,19 @@ Every coach and every student, as the first screen they see on opening the app.
   needs to act on — but in one shared visual language, so the app never looks like two apps
   depending on who signed in.
 - An invite the student has not answered is shown as something to resolve, not merely counted.
+  That includes the time-critical asks that arrive through chat — "a spot opened, want it?" and
+  "want to join the waiting list?" — answered right there with the same Yes/No, once, in one
+  place: answering on the dashboard settles the chat message and vice versa.
+- A number on the dashboard agrees with the list next to it: a student's "upcoming lessons" is
+  how many classes are on their schedule, whether or not they have answered the reminder yet.
 - A coach can push a "class still has room" card back with "Later": it leaves their queue for a
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
   a matching page actually exists to receive the click.
+- The "classes to validate" number a coach sees on the dashboard is the same number the Presences
+  tab shows when the card opens it — one count, in classes, for one week — so the coach never has
+  to work out which of two figures is the real one. When this week has nothing left, the card
+  shows last week's backlog and opens the tab on last week.
 - Clicking an upcoming class always opens that exact occurrence's details already in view — never a
   bare calendar the user then has to search through.
 - "Tomorrow" and other day-relative counts on the dashboard are always the coach's own local

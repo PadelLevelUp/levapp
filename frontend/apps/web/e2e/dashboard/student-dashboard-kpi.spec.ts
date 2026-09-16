@@ -70,3 +70,31 @@ test("PAD-76: Upcoming lessons KPI still navigates to the calendar", async ({
   await page.waitForURL("**/calendar", { timeout: 10_000 });
   expect(new URL(page.url()).pathname).toBe("/calendar");
 });
+
+// PAD-235 (B-032): "Upcoming lessons" is the schedule's own number. The seeded
+// student is enrolled on "E2E Academy Class" (reminder unanswered) and on the
+// weekly recurring class, so a confirmed-only count read 0 above a populated
+// list. The tile must show exactly `schedule_7d.totalCount` from the same payload.
+test("PAD-235: Upcoming lessons KPI equals the schedule's totalCount", async ({ page }) => {
+  const payload = await page
+    .waitForResponse((r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200, {
+      timeout: 15_000,
+    })
+    .then((r) => r.json())
+    .catch(async () => {
+      // beforeEach may already have consumed the response; reload to observe it.
+      const [res] = await Promise.all([
+        page.waitForResponse((r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200),
+        page.reload(),
+      ]);
+      return res.json();
+    });
+  const blocks = (payload.blocks ?? []) as Array<{ type: string; data: { totalCount?: number } }>;
+  const totalCount = blocks.find((b) => b.type === "schedule_7d")?.data.totalCount;
+  expect(typeof totalCount).toBe("number");
+  expect(totalCount as number).toBeGreaterThan(0);
+
+  const upcomingCard = page.getByTestId("dashboard-kpi-upcoming-lessons");
+  await expect(upcomingCard).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("dashboard-kpi-upcoming-lessons-value")).toHaveText(String(totalCount));
+});

@@ -1,0 +1,126 @@
+# PAD-289 — training.tactical-board rules 9, 23, 24: the Bola tool appends
+# paths; two paths are numbered on the court; the list under the step strip
+# reorders and removes them; undo brings a removed path back; the first path
+# keeps the un-suffixed ids the wave-1 flow (28) relies on.
+#
+# Uses Exercícios de cesto so every tap lands on an element id (Maestro cannot
+# aim a tap inside an element): each feed starts at the feeder, so tapping A1
+# and then A2 gives two numbered paths (rule 23). The web mirror (US-70) draws
+# the same thing in Situações de jogo with percent taps.
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board.spec.ts (US-70)
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Two Paths"
+# iOS trap: a swipe that starts under the keyboard hits the keyboard. Enter blurs the
+# single-line Input and dismisses it (hideKeyboard fails on this app, flow 34).
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+# A fresh board switches to basket mode without a prompt (rule 3).
+- tapOn:
+    id: "board-tab-basket"
+# After the tab switch the court sits below the fold on a phone (F's run, 2026-09-11).
+- scrollUntilVisible:
+    element:
+      id: "piece-feeder"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "piece-feeder"
+- tapOn:
+    id: "board-tool-ball"
+- assertVisible:
+    id: "board-hint-ball"
+
+# ── First feed: feeder → A1 ──
+- tapOn:
+    id: "piece-a1"
+- assertVisible:
+    id: "ball-path-flat"
+- assertNotVisible:
+    id: "ball-number-0"
+
+# ── Second feed is appended: feeder → A2; both are numbered ──
+- tapOn:
+    id: "piece-a2"
+- assertVisible:
+    id: "ball-path-1-flat"
+- assertVisible:
+    id: "ball-number-0"
+- assertVisible:
+    id: "ball-number-1"
+- assertVisible:
+    id: "board-ball-1"
+
+# ── Toggle only the second path, then move it up ──
+- tapOn:
+    id: "ball-style-handle-1"
+- assertVisible:
+    id: "ball-path-1-lob"
+- assertVisible:
+    id: "ball-path-flat"
+- tapOn:
+    id: "board-ball-1-up"
+- assertVisible:
+    id: "ball-path-lob"
+- assertVisible:
+    id: "ball-path-1-flat"
+
+# ── Remove path 2; undo brings it back ──
+- tapOn:
+    id: "board-ball-1-remove"
+- assertNotVisible:
+    id: "ball-path-1-flat"
+- assertNotVisible:
+    id: "ball-number-0"
+- tapOn:
+    id: "board-undo"
+- assertVisible:
+    id: "ball-path-1-flat"
+
+# ── Save; the card's thumbnail shows the second path too (rule 13) ──
+- scrollUntilVisible:
+    element:
+      id: "exercise-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-save"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Two Paths.*"
+    timeout: 15000
+- assertVisible:
+    id: "thumb-ball-path-1-flat"

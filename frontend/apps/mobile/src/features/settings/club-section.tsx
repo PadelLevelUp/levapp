@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { clubsApi, invitationsApi } from "@levelup/api";
+import { clubsApi, courtsApi, invitationsApi } from "@levelup/api";
+import type { Court } from "@levelup/types";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatInviteExpiry } from "@/features/settings/date-format";
 import {
@@ -50,13 +52,109 @@ export function ClubSection() {
   >([]);
 
   const [creating, setCreating] = React.useState(false);
-  const [revokingToken, setRevokingToken] = React.useState<string | null>(
-    null
-  );
+  const [revokingId, setRevokingId] = React.useState<number | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
   const [inviteUrl, setInviteUrl] = React.useState<string | null>(null);
   // clubs.join-request rule 9: coaches asking to come in (mirrors web).
   const [joinRequests, setJoinRequests] = React.useState<clubsApi.ClubJoinRequest[]>([]);
+  // clubs.courts rule 8 (PAD-194): the club's courts.
+  const [courts, setCourts] = React.useState<Court[]>([]);
+  const [newCourt, setNewCourt] = React.useState("");
+  const [courtError, setCourtError] = React.useState<string | null>(null);
+  const [courtBusy, setCourtBusy] = React.useState(false);
+  const [renamingId, setRenamingId] = React.useState<number | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
+
+  React.useEffect(() => {
+    if (!club) return;
+    let cancelled = false;
+    courtsApi
+      .listCourts(club.id)
+      .then((rows) => {
+        if (!cancelled) setCourts(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [club]);
+
+  const courtErrorFrom = (err: unknown) => {
+    const res = (err as { response?: { status?: number; data?: { code?: string; error?: string } } }).response;
+    if (res?.status === 400 && res.data?.code === "invalid_court") {
+      return /already exists/i.test(res.data.error ?? "") ? t("settings.club.courts.duplicate") : t("settings.club.courts.invalid");
+    }
+    return t("settings.club.courts.saveFailed");
+  };
+
+  const handleAddCourt = async () => {
+    if (!club) return;
+    const name = newCourt.trim();
+    if (!name || name.length > 80) {
+      setCourtError(t("settings.club.courts.invalid"));
+      return;
+    }
+    setCourtBusy(true);
+    setCourtError(null);
+    try {
+      const created = await courtsApi.createCourt(club.id, name);
+      setCourts((prev) => [...prev, created]);
+      setNewCourt("");
+    } catch (err) {
+      setCourtError(courtErrorFrom(err));
+    } finally {
+      setCourtBusy(false);
+    }
+  };
+
+  const handleRenameCourt = async (court: Court) => {
+    const name = renameValue.trim();
+    if (!name || name.length > 80) {
+      setCourtError(t("settings.club.courts.invalid"));
+      return;
+    }
+    setCourtBusy(true);
+    setCourtError(null);
+    try {
+      const updated = await courtsApi.renameCourt(court.id, name);
+      setCourts((prev) => prev.map((c) => (c.id === court.id ? updated : c)));
+      setRenamingId(null);
+    } catch (err) {
+      setCourtError(courtErrorFrom(err));
+    } finally {
+      setCourtBusy(false);
+    }
+  };
+
+  const handleMoveCourt = async (index: number, direction: -1 | 1) => {
+    if (!club) return;
+    const target = index + direction;
+    if (target < 0 || target >= courts.length) return;
+    const ids = courts.map((c) => c.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    setCourtBusy(true);
+    setCourtError(null);
+    try {
+      setCourts(await courtsApi.reorderCourts(club.id, ids));
+    } catch (err) {
+      setCourtError(courtErrorFrom(err));
+    } finally {
+      setCourtBusy(false);
+    }
+  };
+
+  const handleDeleteCourt = async (court: Court) => {
+    setCourtBusy(true);
+    setCourtError(null);
+    try {
+      await courtsApi.deleteCourt(court.id);
+      setCourts((prev) => prev.filter((c) => c.id !== court.id));
+    } catch {
+      setCourtError(t("settings.club.courts.removeFailed"));
+    } finally {
+      setCourtBusy(false);
+    }
+  };
   const [decidingId, setDecidingId] = React.useState<number | null>(null);
 
   const refreshJoinRequests = React.useCallback(
@@ -141,17 +239,18 @@ export function ClubSection() {
     }
   };
 
-  const handleRevoke = async (token: string) => {
+  // clubs.coach-invitation rule 7 (PAD-269): the list carries ids, never tokens.
+  const handleRevoke = async (invitationId: number) => {
     if (!club) return;
-    setRevokingToken(token);
+    setRevokingId(invitationId);
     try {
-      await invitationsApi.revokeCoachInvitation(token);
+      await invitationsApi.revokeCoachInvitationById(club.id, invitationId);
       await refreshInvitations(club.id);
       toast.success(t("settings.club.invitationRevoked"));
     } catch {
       toast.error(t("settings.club.revokeFailed"));
     } finally {
-      setRevokingToken(null);
+      setRevokingId(null);
     }
   };
 
@@ -206,6 +305,116 @@ export function ClubSection() {
                   <Text>{t("settings.club.inviteCoach")}</Text>
                 )}
               </Button>
+            </View>
+
+            <Separator />
+
+            {/* clubs.courts rule 8 (PAD-194): the club's courts, in order. */}
+            <View className="gap-2" testID="club-courts">
+              <Text className="text-sm font-medium">{t("settings.club.courts.title")}</Text>
+              <Text className="text-sm text-muted-foreground">{t("settings.club.courts.description")}</Text>
+
+              {courts.length === 0 ? (
+                <Text className="text-sm text-muted-foreground" testID="club-courts-empty">
+                  {t("settings.club.courts.empty")}
+                </Text>
+              ) : null}
+
+              {courts.map((court, index) => (
+                <View
+                  key={court.id}
+                  testID="club-court-row"
+                  className="flex-row items-center gap-1 rounded-lg border border-border p-2"
+                >
+                  {renamingId === court.id ? (
+                    <>
+                      <Input
+                        className="flex-1"
+                        testID="club-court-rename-input"
+                        accessibilityLabel={t("settings.club.courts.rename")}
+                        value={renameValue}
+                        onChangeText={setRenameValue}
+                        onSubmitEditing={() => void handleRenameCourt(court)}
+                        autoFocus
+                      />
+                      <Button size="sm" testID="club-court-rename-save" disabled={courtBusy} onPress={() => void handleRenameCourt(court)}>
+                        <Ionicons name="checkmark" size={16} color={lightTheme.primaryForeground} />
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={courtBusy} onPress={() => setRenamingId(null)}>
+                        <Ionicons name="close" size={16} color={lightTheme.foreground} />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Text className="flex-1 text-sm font-medium" testID="club-court-name">{court.name}</Text>
+                          <Pressable
+                            testID="club-court-up"
+                            accessibilityLabel={t("settings.club.courts.moveUp")}
+                            role="button"
+                            disabled={courtBusy || index === 0}
+                            onPress={() => void handleMoveCourt(index, -1)}
+                            className="h-8 w-8 items-center justify-center rounded-md active:bg-accent"
+                          >
+                            <Ionicons name="arrow-up" size={16} color={courtBusy || index === 0 ? lightTheme.mutedForeground : lightTheme.foreground} />
+                          </Pressable>
+                          <Pressable
+                            testID="club-court-down"
+                            accessibilityLabel={t("settings.club.courts.moveDown")}
+                            role="button"
+                            disabled={courtBusy || index === courts.length - 1}
+                            onPress={() => void handleMoveCourt(index, 1)}
+                            className="h-8 w-8 items-center justify-center rounded-md active:bg-accent"
+                          >
+                            <Ionicons name="arrow-down" size={16} color={courtBusy || index === courts.length - 1 ? lightTheme.mutedForeground : lightTheme.foreground} />
+                          </Pressable>
+                          <Pressable
+                            testID="club-court-rename"
+                            accessibilityLabel={t("settings.club.courts.rename")}
+                            role="button"
+                            disabled={courtBusy}
+                            onPress={() => { setRenamingId(court.id); setRenameValue(court.name); }}
+                            className="h-8 w-8 items-center justify-center rounded-md active:bg-accent"
+                          >
+                            <Ionicons name="pencil-outline" size={16} color={courtBusy ? lightTheme.mutedForeground : lightTheme.foreground} />
+                          </Pressable>
+                          <Pressable
+                            testID="club-court-remove"
+                            accessibilityLabel={t("settings.club.courts.remove")}
+                            role="button"
+                            disabled={courtBusy}
+                            onPress={() => void handleDeleteCourt(court)}
+                            className="h-8 w-8 items-center justify-center rounded-md active:bg-accent"
+                          >
+                            <Ionicons name="trash-outline" size={16} color={courtBusy ? lightTheme.mutedForeground : lightTheme.foreground} />
+                          </Pressable>
+                    </>
+                  )}
+                </View>
+              ))}
+
+              <View className="flex-row items-center gap-2">
+                <Input
+                  className="flex-1"
+                  testID="club-court-new"
+                  accessibilityLabel={t("settings.club.courts.add")}
+                  placeholder={t("settings.club.courts.namePlaceholder")}
+                  value={newCourt}
+                  onChangeText={(v) => {
+                    setNewCourt(v);
+                    setCourtError(null);
+                  }}
+                  onSubmitEditing={() => void handleAddCourt()}
+                />
+                <Button size="sm" variant="outline" testID="club-court-add" accessibilityLabel={t("settings.club.courts.add")} disabled={courtBusy} onPress={() => void handleAddCourt()}>
+                  <Text>{t("settings.club.courts.add")}</Text>
+                </Button>
+              </View>
+
+              {courtError ? (
+                <Text className="text-sm text-destructive" testID="club-court-error" accessibilityLiveRegion="polite">
+                  {courtError}
+                </Text>
+              ) : null}
             </View>
 
             <Separator />
@@ -279,7 +488,7 @@ export function ClubSection() {
               ) : (
                 invitations.map((inv) => (
                   <View
-                    key={inv.token}
+                    key={inv.id}
                     className="flex-row items-center justify-between rounded-lg border border-border p-3"
                   >
                     <View className="flex-1 pr-2">
@@ -295,12 +504,12 @@ export function ClubSection() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      testID={`club-revoke-${inv.token}`}
+                      testID={`club-revoke-${inv.id}`}
                       accessibilityLabel={t("settings.club.revokeInvitation")}
-                      disabled={revokingToken === inv.token}
-                      onPress={() => void handleRevoke(inv.token)}
+                      disabled={revokingId === inv.id}
+                      onPress={() => void handleRevoke(inv.id)}
                     >
-                      {revokingToken === inv.token ? (
+                      {revokingId === inv.id ? (
                         <Spinner size="small" color={lightTheme.destructive} />
                       ) : (
                         <Text className="text-destructive">

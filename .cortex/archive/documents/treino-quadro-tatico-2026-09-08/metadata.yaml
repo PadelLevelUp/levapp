@@ -1,0 +1,7 @@
+id: archive.treino-quadro-tatico-2026-09-08
+kind: design-canvas
+ingested_at: 2026-09-08T16:30:00Z
+version: "2026-09-08"
+status: active
+source_filename: Treino - Quadro Tatico.dc.html
+origin: Claude Design canvas handed over by the product owner on 2026-09-08 for the redesigned Treino page — a three-mode tactical board (Magnético, Situações de jogo, Exercícios de cesto) in desktop and mobile variants, built on the LevApp design-system tokens. The canvas is a visual prototype only ("ainda não desenha nem anima"); interaction is implied by the toolbars, hint copy and the one live control (plana/lob toggle).

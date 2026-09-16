@@ -8,7 +8,8 @@ The training domain.
 
 - `training.exercises` — implemented
 - `training.groups` — implemented
-- `training.court-diagram` — implemented
+- `training.court-diagram` — implemented (superseded by `training.tactical-board` once its wave 1 ships)
+- `training.tactical-board` — draft (Quadro Tático: three-mode board with step playback; four-ticket wave from 2026-09-08)
 - `training.lesson-planning` — implemented
 - `training.exercise-view` — implemented
 

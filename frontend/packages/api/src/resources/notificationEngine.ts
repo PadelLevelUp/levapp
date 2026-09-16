@@ -1,4 +1,6 @@
 import type {
+  EligibilityCheckResult,
+  EligibilityImpact,
   ApprovalAction,
   ApprovalVacancyResult,
   InviteExplain,
@@ -22,11 +24,38 @@ export async function getNotificationConfig(): Promise<NotificationConfig> {
   return res.data;
 }
 
+/**
+ * Saves a config patch. When the patch touched `eligibilityRules` the server
+ * adds `eligibilityImpact.affected` — the enrolled students the new bar would
+ * have excluded (PAD-133, `eligibility.enforcement` rule 9a). Informational:
+ * nobody is un-enrolled or notified.
+ */
 export async function updateNotificationConfig(
   data: Partial<NotificationConfig>
-): Promise<NotificationConfig> {
+): Promise<NotificationConfig & { eligibilityImpact?: EligibilityImpact }> {
   const res = await getApi().post("/app/notify/config", data);
   return res.data;
+}
+
+/**
+ * Which of `playerIds` would fail the class's eligibility bar, and why
+ * (PAD-133 / PAD-150, `eligibility.enforcement` rules 6–7c). Called BEFORE a
+ * manual add so the coach can be asked; an empty `ineligible` means no prompt.
+ * Structured reasons only — render them with `describeEligibilityFailure`.
+ */
+export async function checkEligibility(
+  model: string,
+  originalId: string | number,
+  date: string | null | undefined,
+  playerIds: Array<string | number>
+): Promise<EligibilityCheckResult> {
+  const res = await getApi().post("/app/notify/eligibility_check", {
+    model,
+    originalId,
+    date: date ?? null,
+    playerIds,
+  });
+  return { ineligible: res.data?.ineligible ?? [] };
 }
 
 export async function toggleLessonNotifications(
@@ -126,7 +155,19 @@ export async function getNotificationGroups(
 export async function respondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+  // "expired" is PAD-68 (the class already started; nothing recorded) and
+  // "spot_filled_waiting_list_offered" is the "sorry, just filled" path that
+  // also sends a waiting_list_offer — both were always returned by the server;
+  // PAD-236 names them so the dashboard cards can react to them.
+): Promise<{
+  action:
+    | "confirmed"
+    | "declined"
+    | "spot_filled"
+    | "spot_filled_waiting_list_offered"
+    | "expired"
+    | "unknown";
+}> {
   const res = await getApi().post("/app/notify/respond", { notificationEventId, action });
   return res.data;
 }
@@ -153,20 +194,46 @@ export async function respondToApproval(
 export async function respondToReminder(
   lessonInstanceId: number,
   action: "yes" | "no"
-  // PAD-68: "expired" when the class has already started — the answer is not
-  // recorded and no replacement invitations are sent.
-): Promise<{ action: "confirmed" | "declined" | "expired" }> {
+  // The server's full vocabulary, which this type used to under-declare (B-074):
+  // - "confirmed" / "declined" — the answer was recorded;
+  // - "expired" (PAD-68) — the class already started, nothing was recorded;
+  // - "not_enrolled" (PAD-259) — the student is no longer on that occurrence;
+  // - "spot_filled" (PAD-315) — a "yes" that would RETAKE a given-up spot, and
+  //   the seat has gone; nothing is recorded and both sides are told.
+  // `duplicate` marks a repeat of an answer already recorded — still a success.
+  // Map it with `reminderAnswerOutcome` from `@levelup/config` rather than
+  // branching per call site: four sites branched on three values and turned a
+  // refusal into a confident "declined".
+): Promise<{
+  action: "confirmed" | "declined" | "expired" | "not_enrolled" | "spot_filled";
+  duplicate?: boolean;
+}> {
   const res = await getApi().post("/app/notify/respond_reminder", { lessonInstanceId, action });
   return res.data;
 }
 
+/**
+ * PAD-288 / PAD-282 (`attendance.confirm` rule 18): a cancel on an occurrence
+ * that has no instance row yet is addressed the way the calendar event carries
+ * it — `model` + `originalId` + `date` — and the server materialises it first.
+ */
+export interface CancelAttendanceTarget {
+  model: string;
+  originalId: string | number;
+  date: string;
+}
+
 export async function cancelAttendance(
-  lessonInstanceId: number
+  target: number | CancelAttendanceTarget
   // PAD-73: `proactive` is the SERVER's classification — true when the decline
   // landed before the instant this student's attendance reminder would have
   // fired. The client never derives this cutoff itself.
 ): Promise<{ action: "declined"; proactive?: boolean }> {
-  const res = await getApi().post("/app/notify/cancel_attendance", { lessonInstanceId });
+  const body =
+    typeof target === "number"
+      ? { lessonInstanceId: target }
+      : { model: target.model, originalId: String(target.originalId), date: target.date };
+  const res = await getApi().post("/app/notify/cancel_attendance", body);
   return res.data;
 }
 

@@ -41,17 +41,57 @@ Exactly three, all account-creation entry points:
    URL, a rooted path or a bare path; it percent-decodes the token; it ignores query string and
    fragment; and it returns nothing for an unknown path, a wrong segment count, a blank token, or an
    absolute URL on a host the app does not claim.
-4. Universal-link routing does not interact with push-notification tap routing
-   (`usePushNotificationRouting`). The two use different transports and disjoint route sets
-   (`/conversation/:id` and `/class/:id` versus the three above), so neither intercepts the other.
+4. **What the two transports actually guarantee (corrected by PAD-326).** ~~Universal-link
+   routing does not interact with push-notification tap routing. The two use different
+   transports and disjoint route sets, so neither intercepts the other.~~ That claimed a
+   property the code does not have, which is worth naming: **the parser's route set and the
+   app's route set are not the same thing.** `parseUniversalLink` handles only the three paths
+   above and returns nothing for anything else — but the app CLAIMS whole hosts
+   (`levapp.app`, `padellevelup.com`, `www.padellevelup.com`), so iOS still opens the app for
+   every URL on them, and a path the parser declines falls through to **expo-router's default
+   path matching**, which resolves it against the app's own file-based routes. A link to
+   `/class/5` in an email therefore reaches the class screen without the parser ever being
+   consulted.
+   What is guaranteed is narrower and true: **the parser never routes a path it does not
+   handle, and it never intercepts a push.** Where an unhandled claimed-host path lands is
+   decided by the app's routes, not by this module. Since PAD-326 that is a working
+   destination for `/class/<id>` (`calendar.event-detail` rule 15) rather than a dead screen —
+   but it is a fall-through, not a claim this spec makes, and any new app route silently
+   becomes reachable from an email the day it is added.
 5. This is additive. Universal links do not fire from every context — a URL typed into Safari's
    address bar, some in-app browsers, some QR scanners — so the web flow remains the fallback and is
    unchanged.
 6. Each claimed route renders the native account-creation screen for that path — see
    `auth.mobile-account-creation`. (Until PAD-164 landed, the routes rendered a hand-off placeholder
    that reopened the equivalent web URL instead.)
+7. **Android App Links (PAD-216).** `android.intentFilters` in `apps/mobile/app.json` claims the
+   same three path prefixes on the same three hosts (`levapp.app`, `padellevelup.com`,
+   `www.padellevelup.com`) in one `VIEW` filter with `autoVerify: true` and the `BROWSABLE` and
+   `DEFAULT` categories; the same pure mapping of rule 3 routes them. Android only verifies the
+   claim against `/.well-known/assetlinks.json` on each host, carrying the SHA-256 of the release
+   signing certificate, which exists only once the owner creates the Play signing key. Until that
+   file is served a tap opens the browser or the chooser, and the web flow of rule 5 is the
+   fallback. The file is added in the change that has the real fingerprint — never with a
+   placeholder, which would be a claim nobody can verify.
 
 ### Acceptance Criteria
+
+#### A claimed-host path the parser does not handle (PAD-326)
+- **Given** a URL on a claimed host whose path is not one of the three above — say
+  `https://levapp.app/class/5`
+- **When** it is tapped in Mail
+- **Then** `parseUniversalLink` returns nothing and routes nothing
+
+- **And** the app still opens, because the host is claimed, and expo-router matches the path
+  against the app's own routes
+
+- **Then** the destination is whatever that route renders — for `/class/<id>`, a class resolved
+  from the id (`calendar.event-detail` rule 15), not a "could not find" screen
+
+#### Android declares the same three paths (PAD-216)
+- **Given** `apps/mobile/app.json`
+- **When** `expo prebuild --platform android` generates the manifest
+- **Then** the main activity has one `VIEW` intent filter with `android:autoVerify="true"`, the `BROWSABLE` and `DEFAULT` categories, scheme `https`, hosts `levapp.app`, `padellevelup.com`, `www.padellevelup.com`, and path prefixes `/invite/player/`, `/invite/coach/`, `/register/` — and no broader path
 
 #### A player invite link opens the app at the right route
 - **Given** an iPhone with the app installed and the association file served from `levapp.app`
@@ -92,6 +132,13 @@ The host nginx that terminates TLS in front of the frontend container lives in n
 container-level content-type block is in `apps/web/nginx.conf`; the VM-level step, the verification
 commands, and the physical-device test plan are written down in `docs/infra/universal-links.md`.
 
+The same SPA fallback (`try_files … /index.html`) is why a missing `/brand/*` asset used to answer
+**200 `text/html`** — invisible to any check that asserts a 2xx, visible only to a human reading a
+mail with a broken image (PAD-251, B-043). `location /brand/ { try_files $uri =404; }` keeps the
+brand assets that transactional mail loads (`auth.email-verification` rule 7) off the fallback, so a
+missing file is a 404. An availability check on those URLs asserts `Content-Type: image/*`, not
+the status code.
+
 Adding the associated-domains entitlement forces a new provisioning profile at archive time — the
 same class of problem as `aps-environment`, which only flips to production at `-exportArchive`.
 Verify against the exported `.ipa`, not the `.xcarchive`.
@@ -99,3 +146,4 @@ Verify against the exported `.ipa`, not the `.xcarchive`.
 `WEB_APP_URL` currently points at `https://www.padellevelup.com`. Apple does not treat
 `applinks:padellevelup.com` as covering the `www.` host; if www becomes the canonical link host the
 entitlement needs its own entry. Tracked in `docs/infra/universal-links.md`.
+- OPEN: Android `assetlinks.json` on `levapp.app` and `padellevelup.com` needs the release signing certificate's SHA-256 (owner prerequisite, PAD-216 store README).

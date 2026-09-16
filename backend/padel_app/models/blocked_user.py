@@ -6,6 +6,8 @@ from padel_app import model
 
 class BlockedUser(db.Model, model.Model):
     __tablename__ = "blocked_users"
+    page_title = "Blocked Users"
+    model_name = "BlockedUser"
     __table_args__ = (
         UniqueConstraint("blocker_id", "blocked_id", name="uq_blocked_user"),
         {"extend_existing": True},

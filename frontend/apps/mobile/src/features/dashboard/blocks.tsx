@@ -26,6 +26,8 @@ import type {
   DashboardNeedsYouItem,
   DashboardNeedsYouReply,
   DashboardNeedsYouValidation,
+  DashboardNeedsYouVacancyInvite,
+  DashboardNeedsYouWaitingListOffer,
   DashboardNextClassBlock,
   DashboardSchedule7dBlock,
   DashboardWeekPulseBlock,
@@ -33,13 +35,18 @@ import type {
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { reminderAnswerOutcome } from "@levelup/config";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useSnoozeNeedsYouItem } from "@levelup/hooks";
-import { useRespondReminder } from "@/features/calendar/hooks";
-import { parseDashboardItemId } from "@/features/calendar/params";
+import {
+  useRespondInvite,
+  useRespondReminder,
+  useRespondWaitingListOffer,
+} from "@/features/calendar/hooks";
+import { nativeRouteForWebPath } from "@/features/dashboard/routes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -51,40 +58,15 @@ import { cn } from "@/lib/utils";
  */
 export function canGo(href: string | undefined): href is string {
   if (!href) return false;
-  return ["/calendar", "/messages", "/players", "/attendance", "/absences"].some((p) =>
-    href.startsWith(p),
-  );
+  return nativeRouteForWebPath(href) !== null;
 }
 
 export function go(href: string, hint?: { title?: string; timeLabel?: string }) {
-  if (href.startsWith("/calendar")) {
-    const query = href.split("?")[1] ?? "";
-    const params = new URLSearchParams(query);
-    const classId = params.get("classId") ?? "";
-    const parsed = classId ? parseDashboardItemId(classId) : null;
-    if (parsed) {
-      router.push({
-        pathname: "/class/[id]",
-        params: {
-          id: classId,
-          model: parsed.model,
-          originalId: String(parsed.originalId),
-          date: params.get("date") ?? parsed.date,
-          startTime: hint?.timeLabel ?? "",
-          title: hint?.title ?? "",
-          isRecurring: parsed.date ? "1" : "0",
-        },
-      });
-      return;
-    }
-    router.push("/(tabs)/calendar");
-  } else if (href.startsWith("/messages")) router.push("/(tabs)/messages");
-  else if (href.startsWith("/players")) router.push("/(tabs)/players");
-  // PAD-162: the student's "Attended" KPI.
-  else if (href.startsWith("/attendance")) router.push("/attendance" as never);
-  // PAD-163: the student's "Missed" KPI, same backend contract
-  // (helpers/dashboard/player.py emits `/absences` for both shells).
-  else if (href.startsWith("/absences")) router.push("/absences" as never);
+  // dashboard.blocks rule 10: the mapping lives in routes.ts (pure, unit-tested).
+  const route = nativeRouteForWebPath(href, hint);
+  if (!route) return;
+  if ("params" in route) router.push({ pathname: route.pathname, params: route.params } as never);
+  else router.push(route.pathname as never);
 }
 
 /* ── primitives ──────────────────────────────────────────────────────────── */
@@ -253,8 +235,16 @@ function AnswerButtons({
       { lessonInstanceId, action },
       {
         onSuccess: (result) => {
-          if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
-          else toast.success(t(result.action === "confirmed" ? "dashboard.answer.confirmed" : "dashboard.answer.declined"));
+          // B-074: the ternary here toasted "declined" as a SUCCESS for any
+          // answer it did not know — including `spot_filled`, where the student
+          // had asked to come back and was refused.
+          const outcome = reminderAnswerOutcome(result);
+          if (outcome.record === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+          else if (outcome.record === "declined") toast.success(t("dashboard.answer.declined"));
+          else if (outcome.messageKey) {
+            if (outcome.tone === "error") toast.error(t(outcome.messageKey));
+            else toast.success(t(outcome.messageKey));
+          }
         },
         onError: () => toast.error(t("dashboard.answer.failed")),
       },
@@ -285,6 +275,126 @@ function AnswerButtons({
         </Text>
       </Button>
     </View>
+  );
+}
+
+/**
+ * PAD-236: Yes / No for the two chat-born asks. Same endpoints the bubble
+ * calls; the card leaves when the refetched payload no longer lists it.
+ */
+function AskButtons({
+  busy,
+  onAnswer,
+}: {
+  busy: boolean;
+  onAnswer: (action: "yes" | "no") => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="flex-row items-center gap-2" testID="dashboard-confirm">
+      <Button size="sm" disabled={busy} testID="dashboard-confirm-yes" onPress={() => onAnswer("yes")}>
+        <Text className="font-sans-semibold text-primary-foreground">{t("dashboard.answer.yes")}</Text>
+      </Button>
+      <Button size="sm" variant="outline" disabled={busy} testID="dashboard-confirm-no" onPress={() => onAnswer("no")}>
+        <Text className="font-sans-semibold text-foreground">{t("dashboard.answer.no")}</Text>
+      </Button>
+    </View>
+  );
+}
+
+function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
+  const { t, i18n } = useTranslation();
+  const respond = useRespondInvite();
+  const answer = (action: "yes" | "no") =>
+    respond.mutate(
+      { notificationEventId: item.notificationEventId, action },
+      {
+        onSuccess: (result) => {
+          if (result.action === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+          else if (result.action === "declined") toast.success(t("dashboard.answer.inviteDeclined"));
+          else if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
+          // No toast.info on mobile: "just filled" is bad news, so error.
+          else if (String(result.action).startsWith("spot_filled")) toast.error(t("dashboard.answer.spotFilled"));
+          else toast.error(t("dashboard.answer.failed"));
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  return (
+    <ActionCard accent="attention" testID="dashboard-queue-vacancy-invite">
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">
+          {t("dashboard.needsYou.vacancyInvite.title", { class: item.classTitle })}
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {t("dashboard.needsYou.vacancyInvite.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+            filled: item.filled,
+            capacity: item.capacity,
+          })}
+        </Text>
+      </View>
+      <View className="mt-3.5 flex-row items-center gap-2">
+        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <View className="flex-1" />
+        <Pressable
+          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+          accessibilityRole="button"
+          className="px-2 py-2"
+        >
+          <Text className="text-[13px] font-sans-semibold text-primary">
+            {t("dashboard.needsYou.vacancyInvite.open")}
+          </Text>
+        </Pressable>
+      </View>
+    </ActionCard>
+  );
+}
+
+function WaitingListOfferCard({ item }: { item: DashboardNeedsYouWaitingListOffer }) {
+  const { t, i18n } = useTranslation();
+  const respond = useRespondWaitingListOffer();
+  const answer = (action: "yes" | "no") =>
+    respond.mutate(
+      { lessonInstanceId: item.lessonInstanceId, action },
+      {
+        onSuccess: (result) => {
+          if (result.action === "added_to_waiting_list") toast.success(t("dashboard.answer.joinedWaitingList"));
+          else if (result.action === "declined") toast.success(t("dashboard.answer.offerDeclined"));
+          else if (result.action === "expired") toast.error(t("dashboard.answer.expired"));
+          else toast.error(t("dashboard.answer.failed"));
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  return (
+    <ActionCard accent="attention" testID="dashboard-queue-waiting-list-offer">
+      <View className="gap-0.5">
+        <Text className="text-[15px] font-sans-bold text-foreground">
+          {t("dashboard.needsYou.waitingListOffer.title", { class: item.classTitle })}
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {t("dashboard.needsYou.waitingListOffer.detail", {
+            date: shortDate(item.date, i18n.language),
+            time: item.timeLabel,
+          })}
+        </Text>
+      </View>
+      <View className="mt-3.5 flex-row items-center gap-2">
+        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <View className="flex-1" />
+        <Pressable
+          onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
+          accessibilityRole="button"
+          className="px-2 py-2"
+        >
+          <Text className="text-[13px] font-sans-semibold text-primary">
+            {t("dashboard.needsYou.waitingListOffer.open")}
+          </Text>
+        </Pressable>
+      </View>
+    </ActionCard>
   );
 }
 
@@ -459,6 +569,14 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
     );
   }
 
+  if (item.kind === "vacancy_invite") {
+    return <VacancyInviteCard item={item as DashboardNeedsYouVacancyInvite} />;
+  }
+
+  if (item.kind === "waiting_list_offer") {
+    return <WaitingListOfferCard item={item as DashboardNeedsYouWaitingListOffer} />;
+  }
+
   if (item.kind === "reply") {
     const it = item as DashboardNeedsYouReply;
     return (
@@ -485,14 +603,19 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   const it = item as DashboardNeedsYouValidation;
   return (
     // No accent — validation is a chore, not a problem.
-    <ActionCard>
+    <ActionCard testID="dashboard-queue-validation">
       <View className="flex-row items-center gap-3.5">
         <View className="flex-1">
-          <Text className="text-[15px] font-sans-bold text-foreground">
+          <Text
+            className="text-[15px] font-sans-bold text-foreground"
+            testID="dashboard-queue-validation-count"
+          >
             {t("dashboard.needsYou.validation.title", { count: it.count })}
           </Text>
           <Text className="text-[13px] text-muted-foreground">
-            {t("dashboard.needsYou.validation.detail", { count: it.classCount })}
+            {it.weekOffset === 0
+              ? t("dashboard.needsYou.validation.thisWeek")
+              : t("dashboard.needsYou.validation.lastWeek")}
           </Text>
         </View>
         <Button variant="secondary" onPress={() => go(it.href)}>
@@ -612,6 +735,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           this width read as decoration. */}
       <View className="flex-row gap-2.5">
         <Stat
+          testID="dashboard-pulse-seats-filled"
           label={t("dashboard.pulse.seatsFilled")}
           value={`${seatsFilled.pct}%`}
           sub={t("dashboard.pulse.seatsFilledSub", {
@@ -620,6 +744,7 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
           })}
         />
         <Stat
+          testID="dashboard-pulse-active-players"
           label={t("dashboard.pulse.activePlayers")}
           value={String(players.active)}
           sub={t("dashboard.pulse.activePlayersSub", {
@@ -632,9 +757,26 @@ export function WeekPulse({ block }: { block: DashboardWeekPulseBlock }) {
   );
 }
 
-export function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+export function Stat({
+  label,
+  value,
+  sub,
+  testID,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  testID?: string;
+}) {
   return (
-    <View className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4">
+    // PAD-304: id + "label: value" accessibility label, the same shape the KPI
+    // tiles use — the card's child Text nodes are not addressable on Android,
+    // so a test (or a screen reader) reading the card alone needs both here.
+    <View
+      testID={testID}
+      accessibilityLabel={testID ? `${label}: ${value}` : undefined}
+      className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4"
+    >
       <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
       <Text className="font-display text-2xl text-foreground">{value}</Text>
       <Text className="text-[11px] text-muted-foreground">{sub}</Text>

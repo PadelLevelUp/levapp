@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   View,
 } from "react-native";
@@ -18,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
  * The chrome the three account-creation screens share (PAD-164).
@@ -52,7 +52,7 @@ export function PreAuthShell({
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-sidebar"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior()}
     >
       <ScrollView
         testID={testID}

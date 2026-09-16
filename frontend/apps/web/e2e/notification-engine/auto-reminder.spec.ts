@@ -156,7 +156,7 @@ async function getNotificationActivity(
 // ---------------------------------------------------------------------------
 
 async function coachLoginUI(page: Page): Promise<void> {
-  await page.goto("http://localhost:8080/auth");
+  await page.goto("/auth");
   // Language-agnostic selectors: pre-auth login page renders in the default locale (pt).
   await page.locator("#username").fill("e2e-coach");
   await page.locator("#password").fill("E2eCoach123!");
@@ -348,7 +348,7 @@ test.describe("Automatic Scheduler Reminders — full pipeline", () => {
       console.log("\n── Step 6: Coach messages page shows reminder conversations (UI) ──");
       try {
         await coachLoginUI(page);
-        await page.goto("http://localhost:8080/messages");
+        await page.goto("/messages");
         await page.waitForURL("**/messages", { timeout: 12_000 });
         await page.waitForTimeout(2_000); // allow conversation list to render
 

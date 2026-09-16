@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
+import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
 import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote, PlayerSide } from "@/types";
@@ -12,7 +13,7 @@ import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, CalendarX, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CalendarX, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -64,16 +65,44 @@ export default function PlayerDetailPage() {
   const [draftNotes, setDraftNotes] = useState("");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // players.remove rule 7 (PAD-274): the confirmation shows what the removal takes.
+  const [removalImpact, setRemovalImpact] = useState<PlayerRemovalImpact | null>(null);
+  const [removalImpactFailed, setRemovalImpactFailed] = useState(false);
+
+  // players.remove rules 4-5: the roster's `deletable` says whether this coach may
+  // delete the record (a placeholder); otherwise they can only disconnect.
+  const canDelete = player?.deletable === true;
+  const removalAction = removalImpact?.action ?? (canDelete ? "delete" : "disconnect");
+
+  const openRemove = () => {
+    if (!player) return;
+    setRemovalImpact(null);
+    setRemovalImpactFailed(false);
+    setIsDeleteOpen(true);
+    getPlayerRemovalImpact(String(player.playerId))
+      .then(setRemovalImpact)
+      .catch(() => setRemovalImpactFailed(true));
+  };
 
   const handleDelete = async () => {
     if (!player || !authUser?.coachId) return;
+    const name = player.name || t("players.defaultPlayerName");
     setDeleting(true);
     try {
-      await removePlayer(authUser.coachId, player.playerId);
-      toast.success(t("players.deleted", { name: player.name || t("players.defaultPlayerName") }));
+      await removePlayer(authUser.coachId, player.playerId, removalAction);
+      toast.success(removalAction === "delete" ? t("players.deleted", { name }) : t("players.disconnected", { name }));
       navigate("/players");
-    } catch {
-      toast.error(t("players.deleteFailed"));
+    } catch (err) {
+      const code = removePlayerErrorCode(err);
+      toast.error(
+        code === "PLAYER_HAS_ACCOUNT"
+          ? t("players.removeRefusedHasAccount", { name })
+          : code === "PLAYER_HAS_OTHER_COACHES"
+            ? t("players.removeRefusedOtherCoaches", { name })
+            : removalAction === "delete"
+              ? t("players.deleteFailed")
+              : t("players.disconnectFailed"),
+      );
     } finally {
       setDeleting(false);
       setIsDeleteOpen(false);
@@ -300,9 +329,9 @@ export default function PlayerDetailPage() {
                 variant: "default" as const,
               },
               {
-                label: t("players.deletePlayer"),
-                icon: <Trash2 className="mr-2 h-4 w-4" />,
-                onClick: () => setIsDeleteOpen(true),
+                label: canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
+                icon: canDelete ? <Trash2 className="mr-2 h-4 w-4" /> : <Unlink className="mr-2 h-4 w-4" />,
+                onClick: openRemove,
                 variant: "destructive" as const,
               },
             ] satisfies PageAction[]}
@@ -414,18 +443,36 @@ export default function PlayerDetailPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("players.deleteConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
+                {removalAction === "delete"
+                  ? t("players.deletePlaceholderConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })
+                  : t("players.disconnectConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
+              {removalImpact ? (
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>{t("players.removalImpactNotes", { count: removalImpact.notes })}</li>
+                  <li>{t("players.removalImpactEvaluations", { count: removalImpact.evaluations })}</li>
+                  {removalImpact.presences !== undefined ? (
+                    <li>{t("players.removalImpactPresences", { count: removalImpact.presences })}</li>
+                  ) : null}
+                </ul>
+              ) : removalImpactFailed ? null : (
+                <p>{t("players.removalImpactLoading")}</p>
+              )}
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
+                data-testid="player-remove-confirm"
                 onClick={handleDelete}
-                disabled={deleting}
+                disabled={deleting || (removalImpact === null && !removalImpactFailed)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {deleting ? t("players.deleting") : t("common.delete")}
+                {removalAction === "delete"
+                  ? deleting ? t("players.deleting") : t("common.delete")
+                  : deleting ? t("players.disconnecting") : t("players.disconnect")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

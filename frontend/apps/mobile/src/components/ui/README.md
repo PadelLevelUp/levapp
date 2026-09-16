@@ -26,4 +26,4 @@ Shared (one level up, `src/components/`):
 - `empty-state.tsx` — `EmptyState` (icon + title + message, testID `empty-state`).
 - `error-state.tsx` — `ErrorState` (icon + message + optional `onRetry` button, testID `error-state`, retry button testID `error-state-retry`).
 
-Also available: `src/lib/sse.ts` (`useAppEvents(onEvent)` hook + `createEventsSource`), `src/lib/push` (`getPushRegistrar()`), `date-fns@^3.6.0`, `@react-native-community/datetimepicker`.
+Also available: `src/lib/sse.ts` (`useAppEvents(onEvent)` — the app's one shared event stream, PAD-277), `src/lib/push` (`getPushRegistrar()`), `date-fns@^3.6.0`, `@react-native-community/datetimepicker`.

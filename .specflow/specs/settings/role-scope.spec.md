@@ -31,14 +31,27 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    and `settings.language`, which are per-user, not per-coach.)
 2. Student-visible Settings sections are exactly: **Profile**, **Preferences** (language + theme
    only), **Notifications preferences** (PAD-112 — the student's own class-invitation block
-   toggles and reason, see notifications.student-block-preferences) and **Account** (delete
-   account, legal links). Note this is a *different* section from the coach-only **Notifications**
-   engine configuration of rule 3: they must carry distinct section ids so that hiding the coach
-   one can never hide the student one.
+   toggles and reason, see notifications.student-block-preferences), **My connections** and
+   **Account** (delete account, legal links). Note this is a *different* section from the
+   coach-only **Notifications** engine configuration of rule 3: they must carry distinct section
+   ids so that hiding the coach one can never hide the student one.
+   **(PAD-287) My connections** (section id `connections`, both roles, placed just before
+   Account) is where a person's links to other people live, and nothing about it is new
+   behaviour — it regroups what used to sit under Account (owner decision 2026-09-11: the
+   2026-09-06 connections model stands; no pending friend requests, no player↔player links):
+   - a student sees their pending **claim requests** (`players.claim` rule 4) and the
+     **"Connect with a coach"** entry (`players.join-token` rule 8: username, link or QR);
+   - a coach sees **"Add students by link or QR"**, which opens the Players page's existing
+     invite dialog (`players.join-token` rule 7) — a way in, not a second copy of it;
+   - both see **Blocked users** (`messaging.block-and-report` rule 10).
+   Account keeps only account deletion and the legal links. On web the avatar menu also offers
+   "My connections" directly (`/settings?tab=connections`); on iOS the initials open Settings,
+   where the section is in the list.
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
-   levels** and **evaluation categories**.
+   levels** and **evaluation categories**. A coach also sees the shared **My connections** and
+   **Account** sections of rule 2.
 4. The section list is defined **once per shell** and drives both that shell's nav and the pane
    it renders, so the two can never disagree about what a role may see. Each entry states its
    audience explicitly — `everyone` / `coach` / `student`, one total field rather than independent
@@ -125,6 +138,10 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
   is a navigation-entry-point decision, not a change to this spec's role-scoped section list —
   see `.cortex/atlas/decisions/2026-09-04-ios-tab-bar-and-theme.md` for the full record, since no
   dev spec governs the main app's tab bar/sidebar structure itself.
+- **[2026-09-10 batch, PAD-104 × PAD-183]** The coach's "Class requests" inbox (PAD-104) is kept off
+  the web mobile bottom bar, by the same filter that drops Settings, because PAD-183 budgets that bar
+  at 390px and the extra item overflowed it in Portuguese (428px). It stays in the desktop sidebar
+  and the mobile drawer; iOS reaches it from Settings (`settings-sections.ts`).
 - **[DEC 2026-09-04, PAD-171 §2, DIV]** iOS stays light-only — an intentional divergence from
   web's dark mode (rule 2/64's "language and theme" toggle still applies to web; on iOS the theme
   preference has no visible effect). Revisit only on user demand. See the same atlas decision file.

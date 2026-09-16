@@ -21,6 +21,10 @@ bp = Blueprint("notifications_api", __name__, url_prefix="/api/notifications")
 # browser Web-Push subscribe/unsubscribe routes above.
 # ---------------------------------------------------------------------------
 
+#: Values `POST /device` accepts for `platform` (what the Expo client sends as Platform.OS).
+DEVICE_PLATFORMS = frozenset({"ios", "android"})
+
+
 @bp.post("/device")
 @jwt_required()
 def register_device_token():
@@ -30,17 +34,21 @@ def register_device_token():
     platform = data.get("platform")
     if not token:
         abort(400, "token is required")
+    # messaging.push-notifications rule 11b (PAD-307): the platform is recorded
+    # as sent and must be one the app ships on. Exact match, no normalisation —
+    # the clients send Platform.OS, which is already lowercase. No DB CHECK.
+    if platform not in DEVICE_PLATFORMS:
+        abort(400, "platform must be one of: " + ", ".join(sorted(DEVICE_PLATFORMS)))
 
-    # Upsert semantics: a given Expo token maps to exactly one user. If the
-    # token already exists (e.g. reinstall under a different account, or a
-    # shared device), reassign it to the current caller instead of erroring
-    # on the unique constraint.
-    record = DeviceToken.query.filter_by(token=token).first()
+    # messaging.push-notifications rule 9 (PAD-269): a token is owned per
+    # (user, token). Registering upserts the caller's own row and never touches
+    # another user's (it used to reassign it, so anyone who knew a token could
+    # take someone's notifications away).
+    record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
         record = DeviceToken(user_id=user_id, token=token, platform=platform)
         db.session.add(record)
     else:
-        record.user_id = user_id
         record.platform = platform
 
     db.session.commit()
@@ -71,29 +79,6 @@ def get_vapid_public_key():
     if not key:
         abort(500, "VAPID_PUBLIC_KEY is not configured")
     return jsonify({"publicKey": key})
-
-
-@bp.post("/subscribe")
-@jwt_required()
-def subscribe_notifications():
-    user_id = int(get_jwt_identity())
-    data = request.get_json() or {}
-    subscription = data.get("subscription")
-    if not subscription:
-        abort(400, "subscription is required")
-
-    record = PushSubscription.query.filter_by(user_id=user_id).first()
-    if record is None:
-        record = PushSubscription(
-            user_id=user_id,
-            subscription_json=json.dumps(subscription),
-        )
-        db.session.add(record)
-    else:
-        record.subscription_json = json.dumps(subscription)
-
-    db.session.commit()
-    return jsonify({"success": True}), 201
 
 
 @bp.post("/save-subscription")

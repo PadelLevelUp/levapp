@@ -7,15 +7,41 @@
       "addEvent": "Adicionar evento",
       "addClass": "Adicionar aula"
     },
+    "month": {
+      "previous": "Mês anterior",
+      "next": "Mês seguinte"
+    },
+    "sheet": {
+      "handle": "Arrastar para redimensionar"
+    },
+    "views": {
+      "label": "Vista do calendário",
+      "day": "Dia",
+      "week": "Semana",
+      "month": "Mês",
+      "comingSoon": "Em breve"
+    },
     "eventCard": {
       "canceled": "Cancelada",
       "completed": "Concluída",
       "fallbackTitle": "Aula",
-      "fallbackEvent": "Evento"
+      "fallbackEvent": "Evento",
+      "recurring": "Recorrente",
+      "block": "Bloqueio",
+      "blockType": {
+        "personal": "Pessoal",
+        "break": "Pausa",
+        "holiday": "Férias",
+        "off_work": "Folga",
+        "unavailable": "Indisponível"
+      },
+      "openAria": "Abrir {{title}}, {{start}} às {{end}}"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
+      "dayDots_one": "{{count}} evento",
+      "dayDots_other": "{{count}} eventos",
       "noClassesScheduled": "Sem aulas agendadas",
       "noClasses": "Sem aulas",
       "loadFailed": "Não foi possível carregar o calendário."
@@ -37,7 +63,7 @@
       "endDate": "Data de fim",
       "recursUntilSeasonEnd": "Recorre até ao fim da época",
       "recursUntilSeasonEndHint": "Termina na data de fim da tua época.",
-      "noSeasonCoversDate": "Nenhuma época abrange esta data. Define uma época em Definições → Calendário, ou desliga esta opção e escolhe uma data de fim.",
+      "noSeasonCoversDate": "A tua época não abrange esta data. Define a época em Definições → Calendário, ou desliga esta opção e escolhe uma data de fim.",
       "autoNotifications": "Notificações automáticas",
       "autoNotificationsDescription": "Os alunos serão convidados automaticamente",
       "color": "Cor",
@@ -48,7 +74,9 @@
       "missingFieldsDescription": "Preencha: {{fields}}",
       "fieldDate": "Data",
       "fieldDays": "Dias da semana",
-      "fieldEndDate": "Data de fim"
+      "fieldEndDate": "Data de fim",
+      "court": "Campo",
+      "noCourt": "Sem campo"
     },
     "overlap": {
       "title": "Horário sobreposto",
@@ -151,9 +179,9 @@
       "remindersSent_other": "Lembretes enviados a {{count}} alunos",
       "failedSendReminders": "Falha ao enviar lembretes",
       "cancelAttendance": "Cancelar presença",
-      "cancelAttendanceConfirmTitle": "Cancelar a tua presença?",
-      "cancelAttendanceConfirmBody": "Serás removido desta aula e a tua vaga será libertada.",
-      "cancelAttendanceLateBody": "O prazo de cancelamento já passou. Ainda podes cancelar, mas isto conta como um cancelamento tardio.",
+      "cancelAttendanceConfirmTitle": "Não vais poder ir?",
+      "cancelAttendanceConfirmBody": "Libertamos a tua vaga e avisamos o teu professor.",
+      "cancelAttendanceLateBody": "O prazo já passou. Podes mesmo assim avisar que não vais, mas conta como aviso tardio e o teu professor é notificado.",
       "cancelAttendanceLateBadge": "Prazo ultrapassado",
       "keepAttendance": "Manter a minha vaga",
       "attendanceCancelled": "Presença cancelada.",
@@ -166,8 +194,16 @@
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "notAttending": "Não vais comparecer",
       "notAttendingJustified": "Falta justificada",
+      "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
       "colorOption": "Cor {{color}}",
-      "invitedCount": "Convidados ({{count}})"
+      "invitedCount": "Convidados ({{count}})",
+      "club": "Clube",
+      "court": "Campo",
+      "noCourt": "Sem campo",
+      "comeBack": "Afinal já posso ir",
+      "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
+      "spotFilled": "A tua vaga já foi ocupada.",
+      "comeBackDone": "Estás de volta a esta aula."
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -333,6 +369,100 @@
       "done": "Concluída",
       "event": "Evento / não é aula",
       "fill": "Confirmados / à espera / livres"
+    },
+    "eligibilityConfirm": {
+      "title": "Adicionar alunos que não cumprem a fasquia?",
+      "body": "A inscrição é decisão tua — isto só te diz o que a fasquia diz.",
+      "confirm": "Adicionar mesmo assim",
+      "cancel": "Cancelar"
+    },
+    "eligibility": {
+      "title": "Elegibilidade",
+      "hint": "Quem pode entrar nesta aula. Aplica-se a fasquia padrão, a não ser que a substituas aqui.",
+      "source": {
+        "coach": "Fasquia padrão",
+        "lesson": "Definida para esta série",
+        "instance": "Definida para esta aula"
+      },
+      "mode": {
+        "standard": "Fasquia padrão",
+        "everyone": "Toda a gente",
+        "custom": "Regras próprias"
+      },
+      "everyoneHint": "Sem regras nesta aula — todos os teus alunos podem entrar.",
+      "standardHint": "Usa a tua elegibilidade padrão em Definições → Notificações."
+    },
+    "openSpot": {
+      "chip": "Vaga livre",
+      "coach": "com {{coach}}",
+      "title": "Vagas livres",
+      "hint": "Se os alunos elegíveis veem as vagas livres desta aula no calendário deles.",
+      "source": {
+        "coach": "Definição padrão",
+        "lesson": "Definida para esta série",
+        "instance": "Definida para esta aula"
+      },
+      "mode": {
+        "inherit": "Padrão",
+        "on": "Visível",
+        "off": "Escondida"
+      }
+    },
+    "joinRequest": {
+      "request": "Pedir para entrar",
+      "requestHint": "Pede esta vaga a {{coach}}. A decisão é do treinador.",
+      "requestHintNoCoach": "Pede esta vaga ao treinador. A decisão é dele.",
+      "sentTitle": "Pedido enviado",
+      "sentBody": "O treinador foi avisado e vai aceitar ou recusar.",
+      "pending": "Pedido enviado — à espera do treinador",
+      "withdraw": "Retirar pedido",
+      "withdrawn": "Pedido retirado",
+      "rejected": "O treinador não aceitou o teu pedido",
+      "superseded": "A vaga foi ocupada antes de o treinador decidir",
+      "accepted": "O teu pedido foi aceite",
+      "failed": "Não foi possível enviar o pedido",
+      "refusal": {
+        "already_enrolled": "Já estás nesta aula",
+        "class_closed": "Esta aula já não aceita pedidos",
+        "not_visible": "Esta aula não aceita pedidos",
+        "spot_filled": "Esta aula já está cheia",
+        "ineligible": "Não cumpres os critérios de elegibilidade desta aula",
+        "not_pending": "Este pedido já foi decidido"
+      },
+      "coachTitle_one": "{{count}} pedido para entrar",
+      "coachTitle_other": "{{count}} pedidos para entrar",
+      "accept": "Aceitar",
+      "reject": "Recusar",
+      "acceptedToast": "{{name}} está dentro",
+      "rejectedToast": "O pedido de {{name}} foi recusado",
+      "decideFailed": "Não foi possível decidir o pedido",
+      "spotFilledToast": "A aula encheu entretanto — o pedido foi encerrado",
+      "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
+      "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
+      "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
+    },
+    "attendanceState": {
+      "planned": {
+        "student": "Inscrito",
+        "coach": "Inscrito"
+      },
+      "coming": {
+        "student": "Vais",
+        "coach": "Vai"
+      },
+      "not_coming": {
+        "student": "Não vais",
+        "coach": "Não vai"
+      },
+      "attended": {
+        "student": "Presente",
+        "coach": "Presente"
+      },
+      "missed": {
+        "student": "Faltou",
+        "coach": "Faltou"
+      },
+      "reminderSent": "Lembrete enviado"
     }
   }
 }

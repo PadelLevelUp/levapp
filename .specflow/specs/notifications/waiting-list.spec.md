@@ -16,8 +16,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 > this spec is implemented (rules 3a/4a-4d aside, which are pending PAD-128 as noted inline).
 
 ### Entities
-- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id)
-- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active
+- **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
+- **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active. Unique: one **active** entry per (coach_id, player_id), via the partial unique index `uq_standing_entries_active_coach_player` (PAD-273). `add_standing_waiting_list_entry` deactivates the previous active entry before creating the new one; inactive rows keep the history and may repeat
 
 ### Rules
 1. **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
@@ -67,7 +67,7 @@ Players can join a waiting list for full classes. Standing waiting list entries 
    `absent`. The second exclusion is what stops the student whose cancellation created the vacancy
    from being placed straight back into it.
 4c. **(pending PAD-128) Placement honours the same restrictions invitations honour**: `restrictions.excludedPlayers`,
-   `restrictions.excludeUnpaidSubscription`, and the availability-blocker filter of
+   `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the availability-blocker filter of
    `calendar.student-blockers`. Rules 4b and 4c apply whether or not an eligibility bar is defined.
 4d. **(pending PAD-128) Placement is silent enrolment**, and every guard above exists because of that: the student is
    added without being asked. Any path that adds a student without an invitation is held to the
@@ -107,6 +107,17 @@ Players can join a waiting list for full classes. Standing waiting list entries 
       (`text-muted-foreground`, `opacity-*`) — no new colour tokens — and shows an explicit
       localized "expired" label. The row's remove control stays at full emphasis and fully usable:
       an expired entry is precisely one the coach is likely to want to delete
+12. **Only an offered player may answer (PAD-222, B-041).** `POST /api/app/notify/respond_waiting_list`
+    is 403 unless the caller's player holds a `waiting_list_offer` message for that
+    `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
+    double tap or a changed answer on the same offer stays the idempotent upsert of PAD-124).
+    Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
+    created. The check runs before the late-instance no-op of PAD-68, so a player never learns
+    whether an arbitrary instance id exists.
+13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
+    and then the class instance, and places the student only while the vacancy is still open and the
+    class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it
+    places nobody and leaves the entry active, and a class that has started also expires the vacancy.
 
 ### Acceptance Criteria
 
@@ -144,11 +155,26 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **When** they reopen the conversation
 - **Then** the bubble still shows the badge for the answer they gave, not the Yes/No again
 
+#### A player who was not offered the list is refused (PAD-222)
+- **Given** a future instance of coach C's class and student S on C's roster with no `waiting_list_offer` for it
+- **When** S POSTs `/api/app/notify/respond_waiting_list` with that `lessonInstanceId` and `action=yes`
+- **Then** the response is 403, no `WaitingListEntry` exists for S on that instance and no conversation was created
+- **When** S is sent the offer and answers Yes
+- **Then** the response is 200 and the entry exists
+- **When** S answers Yes again on the now-settled offer
+- **Then** the response is 200 and there is still exactly one entry (idempotent, PAD-124)
+
 #### Declining the offer queues nobody
 - **Given** a student who received a `waiting_list_offer`
 - **When** they tap No
 - **Then** no WaitingListEntry exists for them on that instance
 - **And** the offer bubble shows the "declined" badge
+
+#### Only one active standing entry per coach and player
+- **Given** coach `maria` and player `rui` with one active standing entry, and two older inactive ones
+- **When** a second active entry for `maria` and `rui` is written directly
+- **Then** the database refuses it (integrity error); the inactive rows are unaffected
+- **And** `POST /api/app/notify/standing_waiting_list` for `rui` still works, because it deactivates the old entry first
 
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)
@@ -193,3 +219,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
   on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
+
+#### A placement never takes a spot someone else already won (PAD-261)
+- **Given** a vacancy that another path has just filled, or a class that is already full
+- **When** the waiting list tries to place a student into it
+- **Then** nobody is placed and the waiting-list entry stays active

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Date, DateTime, Integer, String, Text, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -30,9 +30,12 @@ class User(db.Model, model.Model, UserMixin):
     user_image_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     user_image = relationship("Image", foreign_keys=[user_image_id])
     
-    player = relationship("Player", back_populates="user", uselist=False)
+    # auth.account-profiles rule 1 (PAD-260): the database removes the profile
+    # (ON DELETE CASCADE); the ORM must never try to null its user_id.
+    player = relationship("Player", back_populates="user", uselist=False, passive_deletes=True)
     coach = relationship(
-        "Coach", back_populates="user", uselist=False, foreign_keys="Coach.user_id"
+        "Coach", back_populates="user", uselist=False, foreign_keys="Coach.user_id",
+        passive_deletes=True,
     )
     calendar_blocks = relationship("CalendarBlock", back_populates="user")
 
@@ -42,6 +45,7 @@ class User(db.Model, model.Model, UserMixin):
         foreign_keys="Message.sender_id",
         back_populates="sender",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     status = Column(
@@ -74,6 +78,26 @@ class User(db.Model, model.Model, UserMixin):
         Integer, nullable=False, server_default="0", default=0,
     )
 
+    # ── auth.password-recovery (PAD-139) ─────────────────────────────────────
+    #
+    # Same shape as the verification code: an HMAC, never the code, 15-minute
+    # expiry, 5 attempts, single-use. Replaces the legacy plaintext
+    # `generated_code`, which no route reads or writes any more.
+    password_reset_code_hash = Column(String(128), nullable=True)
+    password_reset_expires_at = Column(DateTime, nullable=True)
+    password_reset_sent_at = Column(DateTime, nullable=True)
+    password_reset_attempts = Column(
+        Integer, nullable=False, server_default="0", default=0,
+    )
+    # ── auth.parental-consent (PAD-198) ──────────────────────────────────────
+    #
+    # Asked at self-sign-up only; coach-created players and every account that
+    # existed before PAD-198 keep NULLs and are never gated.
+    # `guardian_consent_status`: NULL (not required) | pending | granted | revoked.
+    birth_date = Column(Date, nullable=True)
+    country = Column(String(2), nullable=True)
+    guardian_consent_status = Column(String(16), nullable=True)
+
     # ── PAD-112: the student's standing block preferences ────────────────────
     #
     # Distinct from the per-window availability blockers of PAD-28/PAD-107
@@ -99,6 +123,12 @@ class User(db.Model, model.Model, UserMixin):
     #: the player record — the opposite privacy posture to an availability
     #: blocker's title/description, which the coach must never see (PAD-107).
     notif_block_reason = Column(Text, nullable=True)
+    #: PAD-232: push + email when a request needs this user (club join, claim,
+    #: coach approval) and when their own request is decided. Default on; the
+    #: in-app badges never depend on it (notifications.request-alerts rule 3).
+    notif_request_alerts = Column(
+        Boolean, nullable=False, server_default="1", default=True,
+    )
 
     @property
     def notifications_blocked(self):

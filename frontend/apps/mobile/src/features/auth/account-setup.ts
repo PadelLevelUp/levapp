@@ -72,6 +72,19 @@ export function registerUserIdFromParam(
   return target && target.kind === "register" ? target.userId : null;
 }
 
+/**
+ * The activation secret (`?t=`) a `/register/:userId` link was opened with, or
+ * `null` (auth.activate rule 8, PAD-254). Expo Router hands query keys over as
+ * route params, so this is the same `string | string[] | undefined` shape.
+ */
+export function registerTokenFromParam(
+  raw: string | string[] | undefined
+): string | null {
+  const value = firstParam(raw);
+  const target = parseUniversalLink(`/register/x?t=${encodeURIComponent(value)}`);
+  return target && target.kind === "register" ? target.token : null;
+}
+
 /* ---------- form validation ---------- */
 
 const passwordPair = {

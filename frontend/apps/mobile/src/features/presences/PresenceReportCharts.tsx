@@ -53,6 +53,7 @@ export function PresenceReportCharts({
   granularity,
   loading,
   trendError,
+  scope,
 }: {
   players: PresencePlayerStats[];
   totals?: PresenceStatsTotals;
@@ -66,6 +67,8 @@ export function PresenceReportCharts({
    * something false about their week.
    */
   trendError?: boolean;
+  /** PAD-192: set while the filter sheet narrows the roster; the caption says so. */
+  scope?: { shown: number; total: number } | null;
 }) {
   const { t } = useTranslation();
   const locale = useDateLocale();
@@ -98,6 +101,11 @@ export function PresenceReportCharts({
 
   return (
     <View className="gap-3" testID="presences-charts">
+      {scope ? (
+        <Text className="text-xs font-sans-semibold text-muted-foreground" testID="presences-charts-scope">
+          {t("presences.charts.following", { shown: scope.shown, total: scope.total })}
+        </Text>
+      ) : null}
       <ChartCard
         title={t("presences.charts.perPlayer")}
         subtitle={t("presences.charts.perPlayerHint")}

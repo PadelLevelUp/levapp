@@ -72,3 +72,33 @@ export async function sendEmailVerificationCode(): Promise<SendVerificationCodeR
 export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
   return authApi.confirmEmailVerificationCode(code);
 }
+
+export type {
+  PasswordRecoveryRequestResponse,
+  PasswordRecoveryConfirmPayload,
+  PasswordRecoveryConfirmResponse,
+} from "@levelup/api/src/resources/auth";
+
+/** auth.password-recovery rule 2. Not mockable — it sends a real mail. */
+export const requestPasswordRecovery = authApi.requestPasswordRecovery;
+
+/** auth.password-recovery rule 6. Resolves with the login body. */
+export const confirmPasswordRecovery = authApi.confirmPasswordRecovery;
+
+/** auth.coach-approval rule 12 (PAD-233). Not mockable — it notifies the admin. */
+export const reapplyCoachApproval = authApi.reapplyCoachApproval;
+
+export type {
+  GuardianPendingInfo,
+  GuardianConsentRequest,
+  GuardianConsentPayload,
+  GuardianRevokeRequest,
+} from "@levelup/api/src/resources/auth";
+
+/** auth.parental-consent (PAD-198). None of these are mockable: they send mail or remove accounts. */
+export const resendGuardianConsent = authApi.resendGuardianConsent;
+export const getGuardianConsent = authApi.getGuardianConsent;
+export const giveGuardianConsent = authApi.giveGuardianConsent;
+export const declineGuardianConsent = authApi.declineGuardianConsent;
+export const getGuardianRevoke = authApi.getGuardianRevoke;
+export const revokeGuardianConsent = authApi.revokeGuardianConsent;

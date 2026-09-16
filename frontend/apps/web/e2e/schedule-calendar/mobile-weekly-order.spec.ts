@@ -5,7 +5,7 @@ import { loginAsCoach } from "../helpers/auth";
 /**
  * PAD-27: Mobile weekly class view shows incorrect order while daily view is correct.
  *
- * The MobileCalendarView renders when viewport width < 768px.
+ * The phone calendar (MobileCalendar) renders when viewport width < 768px.
  * We intercept the calendar API to return 3 classes on a single day in
  * deliberately wrong chronological order, then verify both the week column
  * preview and the daily detail view display them sorted by startTime.
@@ -128,8 +128,9 @@ test.describe("PAD-27: Mobile weekly view class ordering", () => {
     // Click the day to open the detail view and verify order there too
     await mondayColumn.click();
 
-    // The detail view uses CalendarEventCard components — check their order
-    const detailCards = page.locator(".cursor-pointer");
+    // The detail view renders one button per event (PAD-246: cards are real
+    // buttons, calendar.mobile-views rule 24) — check their order
+    const detailCards = page.getByTestId("calendar-event-card");
     await expect(detailCards.first()).toBeVisible({ timeout: 3000 });
 
     const detailTexts = await detailCards.allTextContents();

@@ -5,7 +5,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -56,6 +55,7 @@ import {
 } from "@/features/calendar/hooks";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 // Monday-first, matching web's EventDetailSheet and app/event/new.tsx.
 const DAYS_OF_WEEK = [
@@ -231,7 +231,7 @@ export default function EventDetailScreen() {
       ) : (
         <KeyboardAvoidingView
           className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={keyboardAvoidingBehavior()}
         >
           <ScrollView
             className="flex-1"

@@ -26,7 +26,7 @@ import {
   loginAsCoach,
   loginAsStudent,
 } from "../helpers/auth";
-import { API_ROOT } from "../helpers/api";
+import { API_APP, API_ROOT } from "../helpers/api";
 
 const API_BASE = `${API_ROOT}/app`;
 
@@ -456,5 +456,61 @@ test.describe("PAD-114 attendance_history authorization", () => {
         /^\/calendar\?classId=lessoninstance-\d+&date=\d{4}-\d{2}-\d{2}$/
       );
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// PAD-82 — the Season preset (calendar.seasons rule 14)
+// ───────────────────────────────────────────────────────────────────────────
+
+test.describe("PAD-82 season preset", () => {
+  async function coachToken(page: Page): Promise<string> {
+    const value = await page.evaluate(() => localStorage.getItem("accessToken"));
+    expect(value, "a session token is needed").toBeTruthy();
+    return value as string;
+  }
+
+  test("a coach with a current season gets a Season preset that re-queries the occurrence", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    const headers = { Authorization: `Bearer ${await coachToken(page)}` };
+    // A season covering today: a full year starting last month.
+    const now = new Date();
+    const startMonth = ((now.getUTCMonth() + 11) % 12) + 1;
+    const endMonth = ((startMonth + 10) % 12) + 1;
+    const saved = await page.request.put(`${API_APP}/season`, {
+      headers,
+      data: { startDay: 1, startMonth, endDay: 28, endMonth },
+    });
+    expect(saved.status()).toBe(200);
+    const definition = (await saved.json()) as { current: { startDate: string; endDate: string } | null };
+    expect(definition.current).not.toBeNull();
+
+    try {
+      await page.goto("/players");
+      await page.getByText("E2E Student", { exact: true }).first().click({ timeout: 15_000 });
+      await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
+      await waitForHistory(page, async () => {
+        await page.getByTestId("player-attendance-link").click();
+      });
+
+      const seasonal = await waitForHistory(page, async () => {
+        await page.getByTestId("attendance-range-season").click();
+      });
+      expect(seasonal.from.slice(0, 10)).toBe(definition.current!.startDate);
+      expect(seasonal.to.slice(0, 10)).toBe(definition.current!.endDate);
+    } finally {
+      await page.request.delete(`${API_APP}/season`, { headers });
+    }
+  });
+
+  test("a student sees no Season preset", async ({ page }) => {
+    await loginAsStudent(page);
+    await waitForHistory(page, async () => {
+      await page.goto("/attendance");
+    });
+    await expect(page.getByTestId("attendance-range-1m")).toBeVisible();
+    await expect(page.getByTestId("attendance-range-season")).toHaveCount(0);
   });
 });

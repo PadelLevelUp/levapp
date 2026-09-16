@@ -3,7 +3,7 @@ id: B-004
 title: "SSE events are broadcast to every connected client"
 type: incomplete-rule
 severity: high
-status: fixed
+status: resolved
 affects:
   - messaging.sse-realtime
   - backend/padel_app/realtime.py

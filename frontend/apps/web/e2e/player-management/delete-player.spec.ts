@@ -52,23 +52,22 @@ test.describe("PAD-18: Player deletion with confirmation dialog", () => {
     await page.getByText("Filler Player 01", { exact: true }).click();
     await page.waitForURL(/\/players\/\d+/);
 
-    // Click delete
+    // PAD-274 (players.remove): the action reads "Disconnect" for a student
+    // with an account and "Delete player" only for a placeholder. Either way,
+    // Cancel must keep the player.
     await page
-      .getByRole("button", { name: /delete player/i })
+      .getByRole("button", { name: /^(delete player|disconnect|eliminar jogador|desassociar)$/i })
       .click({ timeout: 5000 });
 
     // Confirmation dialog should appear
-    await expect(page.getByText(/are you sure/i)).toBeVisible({
-      timeout: 3000,
-    });
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible({ timeout: 3000 });
 
     // Cancel
-    await page.getByRole("button", { name: /cancel/i }).click();
+    await dialog.getByRole("button", { name: /^(cancel|cancelar)$/i }).click();
 
     // Dialog should close, still on detail page
-    await expect(page.getByText(/are you sure/i)).not.toBeVisible({
-      timeout: 3000,
-    });
+    await expect(dialog).not.toBeVisible({ timeout: 3000 });
     // Player heading should still be visible
     await expect(
       page.getByRole("heading", { name: "Filler Player 01" })

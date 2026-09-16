@@ -529,7 +529,10 @@ class TestYesAtWindow:
 
             v = Vacancy.query.get(vacancy.id)
             instance = world["instance"]
-            expected_window = instance.start_datetime - timedelta(hours=24)
+            from padel_app.utils.dates import wall_to_utc_naive
+
+            # PAD-256: 24 real hours before the real start (notifications.invitations rule 11).
+            expected_window = wall_to_utc_naive(instance.start_datetime) - timedelta(hours=24)
             assert v.approval_status == "approved"
             assert v.invite_not_before == expected_window
 

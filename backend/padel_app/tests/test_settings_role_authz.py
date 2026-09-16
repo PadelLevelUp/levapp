@@ -53,7 +53,7 @@ def world(app):
         Association_CoachPlayer,
         CoachLevel,
         EvaluationCategory,
-        Season,
+        CoachSeason,
     )
     from padel_app.models.coaches import Coach
     from padel_app.models.clubs import Club
@@ -82,11 +82,13 @@ def world(app):
 
         level = CoachLevel(coach_id=coach.id, label="Beginner", code="B1")
         category = EvaluationCategory(coach_id=coach.id, name="Volley")
-        season = Season(
+        season = CoachSeason(
             coach_id=coach.id,
-            name="Season 1",
-            start_date=date(2030, 1, 1),
-            end_date=date(2030, 6, 30),
+            label="Season 1",
+            start_day=1,
+            start_month=1,
+            end_day=30,
+            end_month=6,
         )
         db.session.add_all([level, category, season])
         db.session.commit()
@@ -116,7 +118,8 @@ def _count(app, model_cls):
 COACH_ONLY_READS = [
     ("preferences: skill levels", "get", "/api/app/coach_levels"),
     ("preferences: evaluation categories", "get", "/api/app/evaluation_categories"),
-    ("calendar tab: seasons", "get", "/api/app/seasons"),
+    ("calendar tab: seasons (legacy list)", "get", "/api/app/seasons"),
+    ("calendar tab: season", "get", "/api/app/season"),
     ("club tab: coach identity", "get", "/api/app/coach"),
     ("import tab: history", "get", "/api/app/import/history"),
     ("club tab: coach invitations", "get", "/api/app/club/{club}/coach-invitations"),
@@ -157,12 +160,12 @@ COACH_ONLY_WRITES = [
         [{"name": "Injected", "scaleMin": 1, "scaleMax": 5}],
     ),
     (
-        "calendar tab: add season",
-        "post",
-        "/api/app/add_seasons",
-        [{"name": "Injected", "startDate": "2031-01-01", "endDate": "2031-06-30"}],
+        "calendar tab: save season",
+        "put",
+        "/api/app/season",
+        {"label": "Injected", "startDay": 1, "startMonth": 1, "endDay": 30, "endMonth": 6},
     ),
-    ("calendar tab: delete season", "post", "/api/app/delete/season", {"id": 1}),
+    ("calendar tab: delete season", "delete", "/api/app/season", None),
     ("preferences: delete skill level", "post", "/api/app/delete/coach_level", {"id": 1}),
     (
         "preferences: delete evaluation category",
@@ -195,8 +198,7 @@ def test_student_cannot_write_coach_only_settings(
     if isinstance(body, dict) and "id" in body:
         # Point the delete at a row that really exists and really belongs to the
         # coach, so a missing guard would actually destroy data.
-        key = {"/api/app/delete/season": "season",
-               "/api/app/delete/coach_level": "level",
+        key = {"/api/app/delete/coach_level": "level",
                "/api/app/delete/evaluation_category": "category"}[path]
         body = {"id": world[key]}
 
@@ -229,12 +231,12 @@ def test_student_cannot_upload_an_import_file(app, client, world):
 
 def test_student_writes_leave_the_coachs_settings_untouched(app, client, world):
     """The 403s above must be pure: nothing created, nothing deleted."""
-    from padel_app.models import CoachLevel, EvaluationCategory, Season
+    from padel_app.models import CoachLevel, EvaluationCategory, CoachSeason
 
     before = (
         _count(app, CoachLevel),
         _count(app, EvaluationCategory),
-        _count(app, Season),
+        _count(app, CoachSeason),
     )
     assert before == (1, 1, 1)
 
@@ -249,14 +251,12 @@ def test_student_writes_leave_the_coachs_settings_untouched(app, client, world):
         json=[{"name": "Injected", "scaleMin": 1, "scaleMax": 5}],
         headers=headers,
     )
-    client.post(
-        "/api/app/add_seasons",
-        json=[{"name": "Injected", "startDate": "2031-01-01", "endDate": "2031-06-30"}],
+    client.put(
+        "/api/app/season",
+        json={"label": "Injected", "startDay": 1, "startMonth": 1, "endDay": 30, "endMonth": 6},
         headers=headers,
     )
-    client.post(
-        "/api/app/delete/season", json={"id": world["season"]}, headers=headers
-    )
+    client.delete("/api/app/season", headers=headers)
     client.post(
         "/api/app/delete/coach_level", json={"id": world["level"]}, headers=headers
     )
@@ -269,7 +269,7 @@ def test_student_writes_leave_the_coachs_settings_untouched(app, client, world):
     after = (
         _count(app, CoachLevel),
         _count(app, EvaluationCategory),
-        _count(app, Season),
+        _count(app, CoachSeason),
     )
     assert after == before
 
@@ -335,7 +335,7 @@ def test_coach_still_reads_their_own_settings(app, client, world, method, path):
 
 
 def test_coach_still_writes_their_own_settings(app, client, world):
-    from padel_app.models import CoachLevel, EvaluationCategory, Season
+    from padel_app.models import CoachLevel, EvaluationCategory, CoachSeason
 
     headers = _auth_header(app, world["coach_user"])
 
@@ -355,19 +355,19 @@ def test_coach_still_writes_their_own_settings(app, client, world):
     assert res.status_code == 200
     assert _count(app, EvaluationCategory) == 2
 
-    res = client.post(
-        "/api/app/add_seasons",
-        json=[{"name": "Season 2", "startDate": "2031-01-01", "endDate": "2031-06-30"}],
+    # PAD-82: one recurring season per coach — a save REPLACES it, never adds one.
+    res = client.put(
+        "/api/app/season",
+        json={"label": "Season 2", "startDay": 1, "startMonth": 9, "endDay": 31, "endMonth": 7},
         headers=headers,
     )
     assert res.status_code == 200
-    assert _count(app, Season) == 2
+    assert res.get_json()["startMonth"] == 9
+    assert _count(app, CoachSeason) == 1
 
-    res = client.post(
-        "/api/app/delete/season", json={"id": world["season"]}, headers=headers
-    )
-    assert res.status_code == 200
-    assert _count(app, Season) == 1
+    res = client.delete("/api/app/season", headers=headers)
+    assert res.status_code == 204
+    assert _count(app, CoachSeason) == 0
 
 
 # ---------------------------------------------------------------------------

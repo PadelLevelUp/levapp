@@ -12,7 +12,17 @@ implemented_by:
 
 When a player is invited to a class, they can confirm or decline, and even after confirming,
 cancel their spot up until the class starts — with the system distinguishing an early, no-fuss
-cancellation from a late one, and always telling the coach when it happens.
+cancellation from a late one, always telling the coach in the chat — and pushing their phone only
+when the cancellation is late.
+
+The player is offered exactly ONE way to say they are not coming, in their own words, and both
+they and their coach then see ONE answer to "where does this person stand for this class?" —
+never two or three status words at once (PAD-313, after a founder's report on TestFlight 20).
+
+Saying "I am not coming" is not a one-way door: a player whose plans change can say they can come
+after all, and they get their spot back whenever it is still free. When it is not — because freeing
+it is precisely what let somebody else take it — they are told plainly that it has gone rather than
+shown a failure (PAD-315).
 
 ## Who This Is For
 
@@ -29,7 +39,9 @@ Students/players responding to and managing their own attendance; the coach, who
    it's still allowed but flagged as a late cancellation.
 5. If a player knows well in advance they can't make it, they can proactively decline before
    they'd even normally be asked — this doesn't count against them as a late cancellation and
-   immediately frees the spot for someone else.
+   immediately frees the spot for someone else. This works for any future class on their
+   calendar, however far ahead, including a class the app has not yet opened for reminders and a
+   class the player booked through their own request (PAD-288, PAD-282).
 6. Either way, the coach is notified by name, with the class identified, and told whether it was
    a late or proactive cancellation.
 
@@ -42,10 +54,20 @@ Students/players responding to and managing their own attendance; the coach, who
 - A decline made before the moment the player would normally be reminded is a "proactive"
   decline — it is never flagged late, and it frees the spot immediately rather than waiting for
   the invitation engine's next cycle.
+- A player can cancel any future class on their calendar, not only the ones already being
+  reminded about; the app opens the occurrence for them if it has not been opened yet, and only
+  for a player who is actually in that class.
 - Cancelling, by any route, always frees the spot the same way a reminder decline does, so the
   invitation engine treats it identically no matter which door the player walked through.
+- A student's own "no" and a coach marking them absent are kept apart in the record, so a
+  decline never reads as a coach's verdict and the other way round (PAD-271).
 - The coach gets exactly one notification per cancellation, naming the student and the class, and
   marked clearly if it was late.
+- Early cancellations are visible, not noisy: the coach's phone is pushed only for a late one, and the
+  class detail shows "cancelled by the student" with the time (decision of 2026-09-11, taken by the
+  coordinator for the owner to confirm).
+- There is no undo. A student who cancelled asks the coach, or books again through a request; a class
+  the student requested themselves follows the same rule.
 
 ## Success Metrics
 
@@ -59,4 +81,5 @@ How the freed spot then gets filled — invitations, waiting list, or a join req
 
 ## Notes
 
-None.
+- Early cancellation on a not-yet-opened occurrence: owner decision of 2026-09-11 (materialise on
+  demand), recorded in `.cortex/atlas/decisions/2026-09-11-per-occurrence-enrolment-source-of-truth.md`.

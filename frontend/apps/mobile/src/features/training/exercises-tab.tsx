@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { ExerciseForm } from "./exercise-form";
+import { ExerciseThumbnail } from "./board/exercise-thumbnail";
 
 function typeLabelOf(exercise: Exercise): string {
   if (exercise.type === "custom" && exercise.customType) {
@@ -322,6 +323,7 @@ export function ExercisesTab() {
               }}
               className="gap-2 rounded-lg border border-border bg-card p-4 active:bg-accent"
             >
+              <ExerciseThumbnail exercise={item} />
               <Text className="text-base font-semibold">{item.name}</Text>
               {item.description ? (
                 <Text

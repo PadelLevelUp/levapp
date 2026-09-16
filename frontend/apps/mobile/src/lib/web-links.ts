@@ -47,8 +47,14 @@ export function webAppLink(baseUrl: string, path: string): string {
  */
 export function registerLink(
   baseUrl: string,
-  userId: string | number | null | undefined
+  userId: string | number | null | undefined,
+  token?: string | null
 ): string {
   const id = userId === null || userId === undefined ? "" : String(userId).trim();
-  return webAppLink(baseUrl, `/register/${id || "player"}`);
+  const secret = (token ?? "").trim();
+  // auth.activate rule 2 (PAD-254): the link carries the account's secret.
+  // Without one the bare route is still produced — it renders and reports
+  // itself invalid, which beats handing the coach nothing.
+  const query = id && secret ? `?t=${encodeURIComponent(secret)}` : "";
+  return webAppLink(baseUrl, `/register/${id || "player"}${query}`);
 }

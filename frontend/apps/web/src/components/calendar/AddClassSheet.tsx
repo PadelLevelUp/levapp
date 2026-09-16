@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import type { Court } from '@/types';
+import { listCurrentClubCourts } from '@/api/courts';
 import { format, addMonths, addDays, startOfWeek } from 'date-fns';
+import { addMonthsToIsoDate, weekdayOfIsoDate } from '@/lib/dateOnly';
 import { enUS, pt } from 'date-fns/locale';
 import { Users, Clock, Calendar, Plus, Minus, Repeat, Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
-import { findOverlappingEvent } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, findOverlappingEvent } from "@levelup/config";
 import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 import { UnavailableStudentDialog } from './UnavailableStudentDialog';
 import { checkAvailabilityConflicts, type BlockedStudent } from '@/api/notificationEngine';
@@ -72,10 +75,8 @@ interface AddClassSheetProps {
   existingEvents?: CalendarEvent[];
 }
 
-const COLORS = [
-  '#0ea5e9', '#8b5cf6', '#ec4899', '#f97316',
-  '#22c55e', '#eab308', '#ef4444', '#6366f1',
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 // Monday..Sunday order (date-fns getDay() values: Mon=1 … Sat=6, Sun=0).
 // Keep this ORDER stable — only the locale-aware initial label changes per language.
@@ -130,6 +131,21 @@ export function AddClassSheet({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedLevel, setSelectedLevel] = useState<string>('');
+  // clubs.courts rule 7 (PAD-194): the coach's current club's courts.
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [selectedCourt, setSelectedCourt] = useState<string>('');
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    listCurrentClubCourts()
+      .then((rows) => {
+        if (!cancelled) setCourts(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
@@ -169,7 +185,7 @@ export function AddClassSheet({
 
   useEffect(() => {
     if (!isRecurring || !date) return;
-    const weekday = new Date(date).getDay();
+    const weekday = weekdayOfIsoDate(date);
     setSelectedDays(prev => prev.includes(weekday) ? prev : [weekday, ...prev]);
   }, [isRecurring, date]);
 
@@ -270,7 +286,7 @@ export function AddClassSheet({
     setUnavailableStudents([]);
 
     const computedEndDate = isRecurring
-      ? endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')
+      ? endDate || addMonthsToIsoDate(date, 1)
       : null;
 
     const data = {
@@ -284,6 +300,7 @@ export function AddClassSheet({
       maxPlayers,
       color: selectedColor,
       levelId: selectedLevel || null,
+      courtId: selectedCourt ? Number(selectedCourt) : null,
       playerIds: selectedPlayers,
       notificationsEnabled,
       recurrenceRule: isRecurring
@@ -326,6 +343,7 @@ export function AddClassSheet({
     setSelectedDays([]);
     setEndDate('');
     setRecursUntilSeasonEnd(false);
+    setSelectedCourt('');
     setNotificationsEnabled(true);
     setErrors({});
     setRejection(null);
@@ -444,6 +462,28 @@ export function AddClassSheet({
               </Select>
             </div>
           </div>
+
+          {/* Court (clubs.courts rule 7, PAD-194) */}
+          {courts.length > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">{t("calendar.addClass.court")}</span>
+              </div>
+              <Select value={selectedCourt || 'none'} onValueChange={(v) => setSelectedCourt(v === 'none' ? '' : v)}>
+                <SelectTrigger className="h-8 text-sm" data-testid="add-class-court" aria-label={t("calendar.addClass.court")}>
+                  <SelectValue placeholder={t("calendar.addClass.noCourt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("calendar.addClass.noCourt")}</SelectItem>
+                  {courts.map((court) => (
+                    <SelectItem key={court.id} value={String(court.id)}>
+                      {court.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Recurring */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-3">

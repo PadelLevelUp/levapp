@@ -22,7 +22,9 @@
       "club": "Club",
       "account": "Account",
       "myNotifications": "My notifications",
-      "admin": "Admin"
+      "admin": "Admin",
+      "classRequests": "Class requests",
+      "connections": "My connections"
     },
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
@@ -60,6 +62,10 @@
       "bioPlaceholder": "Tell players a bit about you..."
     },
     "preferences": {
+      "requestAlerts": "Request alerts",
+      "requestAlertsDescription": "Push and email when a request needs you (club join, account link, coach approval) and when yours is decided. In-app badges always stay on.",
+      "requestAlertsSaved": "Preference saved.",
+      "requestAlertsSaveFailed": "Could not save. Try again.",
       "title": "Preferences",
       "description": "How you want the app to behave.",
       "theme": "Theme",
@@ -135,7 +141,6 @@
       "profileSaveFailed": "Could not save your profile. Please try again.",
       "languageSaved": "Language preference saved.",
       "languageSaveFailed": "Failed to save language preference.",
-      "removeSeason": "Remove season {{name}}",
       "removeCategory": "Remove category {{name}}",
       "removeLevel": "Remove level {{name}}",
       "moveLevelUp": "Move level up",
@@ -145,14 +150,16 @@
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet.",
-      "adminNavDescription": "Approve registered coaches"
+      "adminNavDescription": "Approve registered coaches",
+      "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar.",
+      "connectionsNavDescription": "Your coach, your students and the people you have blocked."
     },
     "account": {
       "title": "Account",
       "deleteAccount": "Delete account",
-      "deleteAccountDescription": "Permanently delete your account and all associated data. This action is permanent and cannot be undone.",
+      "deleteAccountDescription": "Permanently delete your account. You are signed out everywhere, removed from every upcoming class and waiting list, and get no more notifications. Your coach keeps their record of classes you already took, and the messages you sent stay in your conversation, shown as \"Deleted user\".",
       "deleteDialogTitle": "Delete your account?",
-      "deleteDialogDescription": "This will permanently delete your account and all of your data, including your profile, classes, evaluations, and messages. This action is permanent and cannot be undone.",
+      "deleteDialogDescription": "This permanently deletes your account: your name, email, phone, photo, username and password, and you are signed out on every device. You are removed from every upcoming class and waiting list, and you will get no more notifications. What stays is your coach's record, not your account: attendance, evaluations and notes from classes you already took, and the messages you sent, all shown as \"Deleted user\". This cannot be undone.",
       "deleteConfirm": "Delete account",
       "deleting": "Deleting...",
       "deleteSuccess": "Your account has been deleted.",
@@ -297,31 +304,52 @@
         "declined": "{{name}}'s request declined.",
         "actionFailed": "Could not complete the action.",
         "loadFailed": "Could not load the requests."
+      },
+      "courts": {
+        "title": "Courts",
+        "description": "The club's courts, in the order you want them. A class can say which court it is on.",
+        "empty": "The club has no courts yet.",
+        "namePlaceholder": "e.g. Court 1",
+        "add": "Add court",
+        "rename": "Rename",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "remove": "Remove",
+        "invalid": "The name must be 1 to 80 characters.",
+        "duplicate": "A court with that name already exists.",
+        "saveFailed": "The court could not be saved",
+        "removeFailed": "The court could not be removed"
       }
     },
     "seasons": {
-      "loading": "Loading seasons…",
-      "title": "Seasons",
-      "description": "Define named seasons so classes can recur until a season's end date.",
-      "name": "Name",
+      "title": "Season",
+      "description": "Define your season once, by day and month: it repeats every year. Classes can recur until season end and attendance can be read by season.",
+      "loading": "Loading season…",
+      "empty": "No season defined yet. Set its start and end so classes can recur until season end.",
+      "label": "Name (optional)",
+      "labelPlaceholder": "e.g. Academy season",
       "start": "Start",
       "end": "End",
-      "empty": "No seasons defined yet. Add your first one below.",
-      "namePlaceholder": "Season name",
-      "startAriaLabel": "Season start",
-      "endAriaLabel": "Season end",
-      "addSeason": "Add season",
+      "day": "Day",
+      "month": "Month",
+      "startDay": "Start day",
+      "startMonth": "Start month",
+      "endDay": "End day",
+      "endMonth": "End month",
+      "previewCurrent": "Current season: {{start}} – {{end}}",
+      "previewUpcoming": "Next season: {{start}} – {{end}}",
+      "save": "Save season",
       "saving": "Saving…",
-      "saveSeasons": "Save seasons",
-      "deleteFailed": "Failed to delete season",
-      "validationErrorTitle": "Validation error",
-      "validationErrorDescription": "Each season needs a name and a start date on or before the end date.",
-      "savedTitle": "Seasons saved",
-      "savedMock_one": "{{count}} season updated (mock).",
-      "savedMock_other": "{{count}} seasons updated (mock).",
-      "saved_one": "{{count}} season updated.",
-      "saved_other": "{{count}} seasons updated.",
-      "saveFailed": "Failed to save seasons"
+      "saved": "Season saved.",
+      "remove": "Remove season",
+      "removeTitle": "Remove the season?",
+      "removeDescription": "Classes that recur until season end keep the end date already set. Without a season, new classes cannot be set to recur until season end.",
+      "removeConfirm": "Remove",
+      "removed": "Season removed.",
+      "invalidDay": "That day does not exist in that month.",
+      "invalidSame": "Start and end cannot be the same day.",
+      "saveFailed": "The season could not be saved",
+      "deleteFailed": "The season could not be removed"
     },
     "coachLevels": {
       "title": "Coach Levels",
@@ -365,7 +393,14 @@
       "savedTitle": "Categories saved",
       "savedMock": "{{count}} categories updated (mock).",
       "saved": "{{count}} categories updated.",
-      "saveFailed": "Failed to save categories"
+      "saveFailed": "Failed to save categories",
+      "deleteCategory": "Delete category {{name}}",
+      "deleteConfirmTitle": "Delete \"{{name}}\"?",
+      "deleteImpact": "This deletes {{scores}} scores across {{players}} players. This cannot be undone.",
+      "deleteImpactLoading": "Checking what this category holds…",
+      "deleteImpactFailed": "Could not check what this category holds. Please try again.",
+      "typeNameToConfirm": "Type {{name}} to confirm",
+      "deleted": "Category \"{{name}}\" deleted"
     },
     "engine": {
       "loading": "Loading notification settings…",
@@ -423,7 +458,7 @@
         "unjustifiedAbsences": "Unjustified absences",
         "justifiedAbsences": "Justified absences",
         "attendanceRate": "Attendance rate",
-        "subscription": "Subscription"
+        "subscription": "Account status"
       },
       "operations": {
         "sameAsVacancy": "Same as vacancy",
@@ -447,7 +482,7 @@
       "mostJustified": "Most justified absences",
       "highestAttendance": "Highest attendance rate",
       "matchingSide": "Matching playing side",
-      "activeSubscription": "Active subscription"
+      "activeSubscription": "Active account"
     },
     "restrictions": {
       "maxSimultaneous": "Max simultaneous notifications",
@@ -469,8 +504,8 @@
       "excludedPlayers": "Excluded players",
       "excludedPlayersDescription": "Specific players to exclude from all automatic invitations.",
       "searchPlayers": "Search players…",
-      "excludeUnpaid": "Exclude unpaid subscriptions",
-      "excludeUnpaidDescription": "Don't invite students with an inactive or unpaid subscription",
+      "excludeUnpaid": "Exclude inactive accounts",
+      "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"
@@ -582,9 +617,23 @@
         "atMost": "at most",
         "greaterThan": "more than",
         "atLeast": "at least"
+      },
+      "impact": {
+        "title_one": "{{count}} enrolled student no longer meets this bar",
+        "title_other": "{{count}} enrolled students no longer meet this bar",
+        "body": "They stay enrolled — eligibility governs joining, never staying. Remove anyone through the class itself if you wish.",
+        "none": "Every enrolled student still meets the bar.",
+        "line": "{{name}} · {{class}} · {{when}}"
+      },
+      "openSpots": {
+        "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
       }
     },
     "admin": {
+      "coachApprovalRequired": "New coaches need approval",
+      "coachApprovalRequiredDescription": "On: anyone who signs up as a coach waits for your approval. Off: they are approved at once and pick their club. Existing coaches are not affected.",
+      "coachApprovalFromEnvironment": "Server default — never changed here yet.",
+      "coachApprovalSaved": "Setting saved.",
       "emailUnverified": "Email not verified",
       "title": "Admin",
       "description": "LevApp team tools.",
@@ -601,6 +650,13 @@
       "rejectDialogDescription": "The coach loses access to coach features. The reason is for internal record only.",
       "reason": "Reason (optional)",
       "reasonPlaceholder": "e.g. not a coach"
+    },
+    "connections": {
+      "title": "My connections",
+      "description": "Who is linked to you: your coach, your students and the people you have blocked.",
+      "addByQr": "Add students by link or QR code",
+      "addByQrHint": "Opens the join code on the Players page.",
+      "open": "Open"
     }
   }
 }

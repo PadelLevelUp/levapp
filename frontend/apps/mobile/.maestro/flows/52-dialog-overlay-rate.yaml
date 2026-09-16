@@ -1,0 +1,90 @@
+# PAD-314 / B-089, symptom 3 — "overlay without content", as a RATE.
+#
+# The observation: on the class form the screen went uniformly dim (a dialog
+# overlay is drawn) while the accessibility tree captured at that instant held
+# the form and no dialog at all — no overlay node, no buttons — and the save
+# was blocked because the confirmation it waits for never appeared.
+#
+# One run tells you nothing about an intermittent fault, so this flow raises
+# the same dialog twenty times and asserts its CONTENT each time. What it
+# produces is a number: "the overlay came up empty N times in 20". A rate is
+# something a fix can be measured against; "sometimes" is not.
+#
+# HOW TO READ IT — and this caveat belongs with any number quoted from it:
+# twenty closes of THIS dialog on THIS screen say nothing about the other two
+# faces of B-089. Symptom 1 lives on the verification screen (flow 51) and the
+# ghost lives on the player screen (flow 49). Whoever quotes a rate from one
+# of the three must say which one; the next person will otherwise reach for
+# whichever number is nearest to hand.
+#
+# Run it against the PRE-fix build as well as the post-fix build. Without a
+# pre-fix rate you cannot tell "the fix cleared it" from "this face was always
+# rarer than one run reveals", and that distinction is the whole question.
+#
+# Nothing is created: the overlap dialog is CANCELLED every iteration, so the
+# seeded data is unchanged and the flow can run anywhere in the order.
+# RUNS ON DEMAND, NOT IN THE SUITE (coordinator decision, PAD-314 close-out).
+# This is a probe of a KNOWN-OPEN defect — B-089 face B, the overlay without content — so it is
+# expected to fail on current code, and a whole-suite run that is red for a
+# known reason teaches people to stop reading it. The tag below keeps it out of
+# whole-suite runs on both platforms (config.yaml excludeTags for iOS, the
+# lane script's --exclude-tags for Android); it stays in flowsOrder so the
+# numbering guard stays honest. REMOVE THE TAG when face B is fixed: it then
+# joins the suite as a guard, which is what a probe of fixed behaviour is.
+# Run it deliberately by naming the file. Maestro is REPORTED to run an explicitly
+# named flow even when its tag is excluded (issue #2880, on 2.0.9, open, no
+# maintainer reply) — reported, NOT verified on our version, and the lane installs
+# Maestro unpinned (PAD-345), so the version is not even fixed. Whoever picks up
+# this face's instrumentation verifies that behaviour FIRST, on the Maestro version
+# the lane actually uses, before relying on it. If it does not hold, add
+# --include-tags open-defect-probe to the run.
+appId: com.padellevelup.app
+tags:
+  - open-defect-probe
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- repeat:
+    times: 20
+    commands:
+      - tapOn:
+          id: "calendar-add-class"
+      - extendedWaitUntil:
+          visible:
+            id: "class-name"
+          timeout: 15000
+      - tapOn:
+          id: "class-name"
+      - inputText: "Overlay Rate Probe"
+      - swipe:
+          start: "50%, 45%"
+          end: "50%, 20%"
+      - scrollUntilVisible:
+          element:
+            id: "class-save"
+          direction: DOWN
+          timeout: 20000
+      - tapOn:
+          id: "class-save"
+      # The seeded Monday already holds a class, so this always overlaps. The
+      # assertion is on the dialog's CONTENT, not on the dim: an overlay drawn
+      # without its buttons is exactly the failure being counted.
+      - extendedWaitUntil:
+          visible:
+            id: "overlap-cancel"
+          timeout: 10000
+      - assertVisible:
+          id: "overlap-confirm"
+      - tapOn:
+          id: "overlap-cancel"
+      # Back to the form, which must still be usable — and out again, leaving
+      # no class behind.
+      - extendedWaitUntil:
+          visible:
+            id: "class-name"
+          timeout: 10000
+      - back
+      - extendedWaitUntil:
+          visible:
+            id: "screen-calendar"
+          timeout: 15000

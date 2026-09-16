@@ -26,7 +26,7 @@ import { openCalendar, openSettings } from "../helpers/navigation";
  */
 
 // Mobile viewport (< 768px, see hooks/use-mobile.tsx MOBILE_BREAKPOINT) makes
-// CalendarPage render MobileCalendarView instead of the desktop CalendarHeader.
+// CalendarPage render the phone calendar instead of the desktop CalendarHeader.
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
 
@@ -86,7 +86,7 @@ test.describe("PAD-52: calendar locale-aware date formatting", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openCalendar(page);
 
-    // MobileCalendarView renders the selected-day heading as an <h3>. With the
+    // The phone calendar renders the selected-day heading as an <h3>. With the
     // old code it was `format(selectedDay, "EEEE d 'de' MMMM", { locale: enUS })`
     // -> e.g. "Friday 10 de July", leaking the Portuguese "de" into English
     // output. The fix formats it as "EEEE, d MMMM" through the locale helper.

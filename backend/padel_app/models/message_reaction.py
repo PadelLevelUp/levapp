@@ -7,6 +7,8 @@ from padel_app import model
 
 class MessageReaction(db.Model, model.Model):
     __tablename__ = "message_reactions"
+    page_title = "Message Reactions"
+    model_name = "MessageReaction"
     __table_args__ = (
         UniqueConstraint("message_id", "user_id", "emoji", name="uq_reaction"),
         {"extend_existing": True},

@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +114,8 @@ def _enrol(instance, player):
         player_id=player.id, lesson_instance_id=instance.id,
     )
     db.session.add(rel)
+    db.session.add(Presence(  # PAD-259: the presence row is the enrolment
+        player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))
     db.session.commit()
     return rel
 

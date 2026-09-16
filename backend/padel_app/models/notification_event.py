@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, ForeignKey, Integer
+from sqlalchemy import Column, Enum, ForeignKey, Index, Integer
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -7,7 +7,14 @@ from padel_app import model
 
 class NotificationEvent(db.Model, model.Model):
     __tablename__ = "notification_events"
-    __table_args__ = {"extend_existing": True}
+    # PAD-263: the invitation engine's lookups.
+    __table_args__ = (
+        Index("ix_notification_events_vacancy_id_status", "vacancy_id", "status"),
+        Index("ix_notification_events_lesson_instance_id_status", "lesson_instance_id", "status"),
+        Index("ix_notification_events_coach_id_created_at", "coach_id", "created_at"),
+        Index("ix_notification_events_player_id_coach_id", "player_id", "coach_id"),
+        {"extend_existing": True},
+    )
 
     page_title = "Notification Event"
     model_name = "NotificationEvent"

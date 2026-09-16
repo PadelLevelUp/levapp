@@ -110,7 +110,8 @@
       "splitHint": "Peso no total de presenças",
       "overTime": "Presenças ao longo do tempo",
       "overTimeHint": "No período selecionado",
-      "empty": "Ainda não há presenças registadas."
+      "empty": "Ainda não há presenças registadas.",
+      "following": "A seguir os filtros da tabela · {{shown}} de {{total}} jogadores"
     },
     "toast": {
       "validated_one": "Aula validada",

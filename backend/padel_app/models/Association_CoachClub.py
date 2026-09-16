@@ -17,8 +17,8 @@ class Association_CoachClub(db.Model, model.Model):
     model_name = "Association_CoachClub"
 
     id = Column(Integer, primary_key=True)
-    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"))
-    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"))
+    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
 
     coach = relationship("Coach", back_populates="clubs_relations")
     club = relationship("Club", back_populates="coaches_relations")

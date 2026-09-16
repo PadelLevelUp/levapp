@@ -12,7 +12,7 @@ import { goToNextWeek } from "../helpers/calendar-navigation";
  *
  * The blocker is created on the FIRST Monday after today, 18:00-20:00 — well
  * clear of the seeded "E2E Academy Class" (same Monday, 10:00-11:00) and of the
- * "E2E Pending Confirm Class" (tomorrow, 18:00-19:00), so nothing else in the
+ * "E2E Pending Confirm Class" (tomorrow, 12:00-13:00 since PAD-223), so nothing else in the
  * shared seed DB is affected. It is deleted again by the last test in the file.
  */
 
@@ -95,7 +95,7 @@ test("PAD-107: scheduling a class into the blocked window warns the coach", asyn
 
   await openAddClass(page);
   // 19:15-19:45 sits inside the student's 18:00-20:00 blocker. Deliberately
-  // clear of the seeded "E2E Pending Confirm Class" (tomorrow, 18:00-19:00)
+  // clear of the seeded "E2E Pending Confirm Class" (tomorrow, 12:00-13:00)
   // even on the one day of the week where "tomorrow" and "the first Monday
   // after today" are the same date (i.e. when this suite runs on a Sunday) —
   // a slot like 18:15-19:15 collides with that seed on Sundays and trips the

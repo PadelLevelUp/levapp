@@ -34,6 +34,8 @@ def join_token_url(token):
 
 
 def _serialize_token(row):
+    """Rule 1: the mint response, the only one that carries the token (it exists in
+    plain form only on the instance that minted it, PAD-269)."""
     return {
         "token": row.token,
         "path": join_token_path(row.token),
@@ -77,12 +79,22 @@ def get_active_join_token_service(coach, now=None):
         row.is_active = False
         db.session.commit()
         return None
-    return _serialize_token(row)
+    return _serialize_status(row)
+
+
+def _serialize_status(row):
+    """Rule 2 (PAD-269): the live code's status, without the token, which is not stored."""
+    return {
+        "active": True,
+        "expiresAt": row.expires_at.isoformat(),
+        "clubName": row.club.name if row.club else None,
+        "uses": row.uses,
+    }
 
 
 def _load_live_token(token, now=None):
     now = now or utcnow_naive()
-    row = CoachJoinToken.query.filter_by(token=token).first()
+    row = CoachJoinToken.by_token(token)
     if row is None:
         abort(404, "Join link not found")
     if row.is_active and row.expires_at < now:

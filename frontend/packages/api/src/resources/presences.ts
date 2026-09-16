@@ -4,6 +4,7 @@ import type {
   AttendanceGranularity,
   ClassInstance,
   PendingValidation,
+  PendingValidationCount,
   Presence,
   PresenceStats,
   PresenceStatus,
@@ -61,11 +62,24 @@ export async function getPresenceStats(
   return res.data;
 }
 
-/** Roster-wide attended-class counts over time, gap-filled server-side. */
+/**
+ * Attended-class counts over time, gap-filled server-side.
+ *
+ * Roster-wide by default; `playerIds` (PAD-192) narrows the series to the
+ * players the table's filters left visible, so the over-time chart follows
+ * the filters like the other two. An empty array means "nobody" and yields an
+ * all-zero series — pass `undefined` for the whole roster.
+ */
 export async function getPresenceTrend(
-  params: PresenceRangeParams & { granularity?: AttendanceGranularity } = {}
+  params: PresenceRangeParams & {
+    granularity?: AttendanceGranularity;
+    playerIds?: number[];
+  } = {}
 ): Promise<PresenceTrend> {
-  const res = await getApi().get("/app/presence_trend", { params });
+  const { playerIds, ...rest } = params;
+  const query: Record<string, string | undefined> = { ...rest };
+  if (playerIds !== undefined) query.playerIds = playerIds.join(",");
+  const res = await getApi().get("/app/presence_trend", { params: query });
   return res.data;
 }
 
@@ -79,6 +93,22 @@ export async function getPendingValidation(
   params: PresenceRangeParams = {}
 ): Promise<PendingValidation> {
   const res = await getApi().get("/app/class_instances/pending_validation", {
+    params,
+  });
+  return res.data;
+}
+
+/**
+ * How many classes in the window still need validating (PAD-190 / PAD-201).
+ *
+ * The same helper the coach dashboard's validation card reads
+ * (`attendance.validation` rule 18), so the tab trigger and the card can only
+ * ever show one number.
+ */
+export async function getPendingValidationCount(
+  params: PresenceRangeParams = {}
+): Promise<PendingValidationCount> {
+  const res = await getApi().get("/app/class_instances/pending_validation/count", {
     params,
   });
   return res.data;

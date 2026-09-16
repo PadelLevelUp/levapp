@@ -1,6 +1,6 @@
 ---
 id: eligibility.cascade
-status: draft
+status: implementing
 depends_on: [eligibility.rules, classes.instances, classes.edit, classes.recurrence]
 implements: ../../specs-business/eligibility/coach-sets-the-eligibility-bar.business.md
 governed_by: []
@@ -44,6 +44,17 @@ for **one single class**. The most specific definition wins.
 7. The class-detail view shows which tier the active bar came from (standard / this series / this
    class). `LessonInstance.overridden_fields` is **not** a foundation for this — it is serialized out
    but never written by any service — so tier provenance is derived from which tier resolved.
+8. **(PAD-129) Wire contract.** The class-detail payload carries `eligibilityRules` (the value stored
+   at the tier the payload addresses: the instance's own for a materialised class, the lesson's for
+   a virtual occurrence — `null` when that tier has no override), `effectiveEligibilityRules` (what
+   rule 1 resolved) and `eligibilitySource` (`"instance" | "lesson" | "coach"`). A class edit sends
+   `updates.eligibilityRules`: absent = untouched, `null` = clear this tier, `[]` = everyone, a list
+   = that bar; `scope` picks the tier per rule 5. `effective_eligibility()` keeps its signature —
+   every consumer (invitations, waiting list, manual add, PAD-130/131 later) is unchanged.
+9. **(PAD-129) Both shells edit the bar in the class sheet's edit mode** with the same
+   `EligibilitySection` the settings page uses, behind a three-way choice — *standard bar* (clear
+   this tier), *everyone* (`[]`), *custom* (a list) — and show the provenance label in view mode.
+   The scope dialog that already exists for every other field decides series vs class.
 
 ### Acceptance Criteria
 
@@ -80,3 +91,7 @@ for **one single class**. The most specific definition wins.
 - **When** the coach changes eligibility on the 2026-09-01 occurrence with `scope: "future"`
 - **Then** the change applies from 2026-09-01 forward
 - **And** occurrences before that date keep the previous bar
+
+### Notes
+- **[PAD-129, 2026-09-09]** Rules 8–9 record the wire contract and the shell UI. The resolver is the
+  Phase-1 `effective_eligibility()` with the two tiers added *inside* it, as Phase 1 promised.

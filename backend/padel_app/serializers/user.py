@@ -1,4 +1,26 @@
+def serialize_user_public(user):
+    """The shape any signed-in user (or, for the activation lookup, anyone) may
+    see about another user: messaging.conversations rule 15 / auth.activate
+    rule 6 (PAD-227, B-031). Never `email`, `phone` or `language`."""
+    if not user:
+        return None
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "username": user.username,
+        "role": user.role,
+        "isActive": user.status == 'active',
+        "avatarUrl": user.user_image_url,
+        "abbreviation": user.abbreviation_display,
+    }
+
+
 def serialize_user(user):
+    """The owner / coach shape, contact details included. Only for the user
+    themself (`/api/app/coach`) and for a coach's own roster payloads
+    (`serialize_player`, `serialize_coach`) — never for a list any caller can
+    read (PAD-227)."""
     if not user:
         return None
 

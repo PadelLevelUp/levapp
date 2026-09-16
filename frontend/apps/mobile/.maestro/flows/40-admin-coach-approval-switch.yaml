@@ -1,0 +1,59 @@
+# PAD-279 / PAD-238 — auth.coach-approval rule 9: the superadmin (the seeded
+# e2e-coach) switches "new coaches need approval" off and on from
+# Settings -> Admin. The value is checked through the API after each tap and
+# the gate is restored to ON at the end: 29-coach-rejection.yaml relies on a
+# self-registered coach starting `pending`.
+#
+# Mirrors: apps/web/e2e/settings/admin-coach-approval-switch.spec.ts
+appId: com.padellevelup.app
+---
+# The backend the API calls hit: -e API_BASE=http://localhost:<port> for an isolated
+# backend, the shared :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.admin = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# Start from ON whatever an earlier run left behind.
+- evalScript: "${output.reset = http.put(output.api + '/api/app/admin/settings', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.admin }, body: JSON.stringify({ coachApprovalRequired: true }) }).ok}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-admin"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-admin"
+- extendedWaitUntil:
+    visible:
+      id: "admin-coach-approvals"
+    timeout: 30000
+- assertVisible:
+    id: "admin-coach-approval-required-switch"
+
+# ── Off ──
+- tapOn:
+    id: "admin-coach-approval-required-switch"
+- extendedWaitUntil:
+    visible:
+      id: "admin-coach-approval-required-off"
+    timeout: 15000
+- evalScript: "${output.off = json(http.get(output.api + '/api/app/admin/settings', { headers: { 'Authorization': 'Bearer ' + output.admin } }).body)}"
+- assertTrue: ${output.off.coachApprovalRequired === false && output.off.source === 'database'}
+
+# ── Back on ──
+- tapOn:
+    id: "admin-coach-approval-required-switch"
+- extendedWaitUntil:
+    visible:
+      id: "admin-coach-approval-required-on"
+    timeout: 15000
+- evalScript: "${output.on = json(http.get(output.api + '/api/app/admin/settings', { headers: { 'Authorization': 'Bearer ' + output.admin } }).body)}"
+- assertTrue: ${output.on.coachApprovalRequired === true}
+
+# Belt and braces: leave the gate ON for the flows that follow.
+- evalScript: "${output.restore = http.put(output.api + '/api/app/admin/settings', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.admin }, body: JSON.stringify({ coachApprovalRequired: true }) }).ok}"

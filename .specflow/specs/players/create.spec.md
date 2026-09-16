@@ -39,6 +39,15 @@ Coach-side player creation therefore never asks for, nor accepts, a username.
 7. Email is optional
 8. The level field lists the coach's defined levels. When the coach has levels, opening the field shows them as selectable options. When the coach has no levels defined yet, the field shows an explicit empty-state message pointing them to Settings to create levels — it must never open to a silently empty dropdown that looks broken.
 
+9. **Creating a player is one transaction (PAD-272 pilot, audit M8).** `add_player_service` runs
+   inside a unit of work (`padel_app/tools/unit_of_work.py`): the User, the Player, the coach link
+   and the level-history row are flushed as they are built and committed once at the end, and any
+   failure part-way (a level that does not exist, a unique clash, a database error) rolls the whole
+   thing back — no orphan `users` or `players` row is left behind. This is the pilot of the
+   request-scoped-transaction decision (`2026-09-11-request-scoped-transactions`): `Model.create`,
+   `save` and `delete` flush instead of committing while a unit of work is open and behave exactly as
+   before outside one, so no other service changes.
+
 ### Acceptance Criteria
 
 #### Create player
@@ -77,3 +86,10 @@ Coach-side player creation therefore never asks for, nor accepts, a username.
 - **When** they open the new-player form and open the Level field
 - **Then** an empty-state message is shown pointing them to Settings to create levels
 - **And** the field does not open to a silently empty dropdown
+
+#### Creating a player is all or nothing (PAD-272)
+- **Given** an authenticated coach
+- **When** they add a player whose `levelId` does not exist, so the coach link cannot be written after the User and Player rows already were
+- **Then** the request fails
+- **And** no `users` row and no `players` row remain for that player
+- **And** a player added with a valid level still produces the four rows of "Create player"

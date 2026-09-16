@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -29,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
  * auth.email-verification rule 8 — the screen that holds a `pending` user
@@ -56,6 +56,9 @@ export default function VerifyEmailScreen() {
 
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  // Neutral text for the hint slot (rule 8b: "no code in the clipboard") —
+  // never the red error slot.
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [countdown, setCountdown] = React.useState<number>(user?.emailVerificationResendInSeconds ?? 60);
@@ -94,8 +97,9 @@ export default function VerifyEmailScreen() {
       const status = (err as ApiErr).response?.status;
       const data = (err as ApiErr).response?.data;
       if (status === 429 && data?.retryAfterSeconds) {
+        // Rule 8a / B-042: "too soon" means a code is already in the inbox.
+        // The counting-down button says so; nothing turns red.
         setCountdown(data.retryAfterSeconds);
-        setError(t("auth.verifyEmail.tooSoon", { seconds: data.retryAfterSeconds }));
       } else if (status === 409) {
         void refreshUser().then((me) => leave(me ?? user));
       } else {
@@ -107,7 +111,9 @@ export default function VerifyEmailScreen() {
   }, [leave, refreshUser, t, user]);
 
   // Already verified: nothing to do. Never asked (Settings → Verify): request
-  // the first code now.
+  // the first code now. A `pending` user is NOT asked again — signup and a
+  // Settings email change already sent one (rule 8a); the countdown seeded
+  // from /me above is the whole story.
   React.useEffect(() => {
     if (!user) return;
     if (user.emailVerification === "verified" || !user.email) {
@@ -142,6 +148,10 @@ export default function VerifyEmailScreen() {
           );
         } else if (status === 410) {
           setError(t("auth.verifyEmail.expired"));
+        } else if (status === 429) {
+          // auth.email-verification rule 13 (PAD-269): the per-IP throttle.
+          const retry = (data as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds ?? 60;
+          setError(t("auth.login.rateLimited", { seconds: retry }));
         } else {
           setError(t("auth.login.networkError"));
         }
@@ -157,7 +167,43 @@ export default function VerifyEmailScreen() {
     const digits = raw.replace(/\D/g, "").slice(0, CODE_LENGTH);
     setCode(digits);
     if (error) setError(null);
+    if (notice) setNotice(null);
     if (digits.length === CODE_LENGTH) void submit(digits);
+  };
+
+  // Rule 8b / B-044 (PAD-251): the real input is an invisible overlay, so iOS
+  // has no caret or selection to hang its Paste callout on, and the number
+  // pad has no paste key. This button reads the clipboard itself.
+  const paste = async () => {
+    // expo-clipboard is a native module; load it lazily so a binary built
+    // before it was linked fails at the tap with a toast, not at route load
+    // (same shape as the message copy action in conversation/[id].tsx).
+    let clipboard: typeof import("expo-clipboard");
+    try {
+      clipboard = require("expo-clipboard");
+    } catch {
+      toast.error(t("auth.login.networkError"));
+      return;
+    }
+    let text = "";
+    try {
+      text = await clipboard.getStringAsync();
+    } catch {
+      text = "";
+    }
+    // The mail renders the code as one token, but a person may have selected
+    // "O teu código LevApp: 166315" — take the first run of six digits.
+    const match = text.match(/\d{6}/);
+    if (!match) {
+      // The hint slot shows `error ?? notice`; a stale wrong-code error would
+      // hide the notice, so clear it — the person just asked for something new.
+      setError(null);
+      setCode("");
+      setNotice(t("auth.verifyEmail.pasteEmpty"));
+      return;
+    }
+    setNotice(null);
+    onChangeCode(match[0]);
   };
 
   const saveEmail = async () => {
@@ -189,7 +235,7 @@ export default function VerifyEmailScreen() {
   const activeIndex = Math.min(code.length, CODE_LENGTH - 1);
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={keyboardAvoidingBehavior()}>
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
@@ -303,8 +349,19 @@ export default function VerifyEmailScreen() {
                   accessibilityLiveRegion="polite"
                   testID={error ? "verify-email-error" : "verify-email-hint"}
                 >
-                  {error ?? (submitting ? t("auth.verifyEmail.verifying") : t("auth.verifyEmail.hint"))}
+                  {error ?? notice ?? (submitting ? t("auth.verifyEmail.verifying") : t("auth.verifyEmail.hint"))}
                 </Text>
+
+                <Button
+                  variant="outline"
+                  testID="verify-email-paste"
+                  accessibilityLabel={t("auth.verifyEmail.pasteCode")}
+                  disabled={submitting}
+                  onPress={() => void paste()}
+                >
+                  <Ionicons name="clipboard-outline" size={18} color={lightTheme.primary} />
+                  <Text>{t("auth.verifyEmail.pasteCode")}</Text>
+                </Button>
 
                 <Button
                   variant="outline"

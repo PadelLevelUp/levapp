@@ -202,9 +202,12 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=72):
 
         db.session.add(Association_CoachLessonInstance(
             coach_id=coach_id, lesson_instance_id=instance.id))
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=student_id, lesson_instance_id=instance.id))
         db.session.commit()
+        # PAD-259: the presence row is the enrolment; the single writer also
+        # keeps the shadow junction row.
+        from padel_app.services.lesson_service import enrol
+
+        enrol(student_id, instance, "coach")
         return {"lesson_id": lesson.id, "instance_id": instance.id}
 
 
@@ -243,14 +246,13 @@ class TestAddPresencesPreservesReminderState:
         seeded = _seed_instance(app, ids["coach_id"], ids["student_id"])
 
         with app.app_context():
-            Presence(
-                player_id=ids["student_id"],
-                lesson_instance_id=seeded["instance_id"],
-                invited=True,
-                confirmed=True,
-                status="absent",
-                justification="justified",
-            ).create()
+            # PAD-259: the seed already enrolled the student; set the reminder
+            # state on that row.
+            row = Presence.query.filter_by(
+                player_id=ids["student_id"], lesson_instance_id=seeded["instance_id"]
+            ).one()
+            row.invited, row.confirmed, row.status, row.justification = True, True, "absent", "justified"
+            row.save()
 
             confirm_presences_service(
                 {"parentClassId": seeded["lesson_id"], "originalId": seeded["instance_id"]},
@@ -302,15 +304,14 @@ class TestAddPresencesPreservesReminderState:
         seeded = _seed_instance(app, ids["coach_id"], ids["student_id"])
 
         with app.app_context():
-            Presence(
-                player_id=ids["student_id"],
-                lesson_instance_id=seeded["instance_id"],
-                invited=True,
-                confirmed=True,
-                late_cancellation=True,
-                status="absent",
-                justification="justified",
-            ).create()
+            # PAD-259: the seed already enrolled the student; set the reminder
+            # state on that row.
+            row = Presence.query.filter_by(
+                player_id=ids["student_id"], lesson_instance_id=seeded["instance_id"]
+            ).one()
+            row.invited, row.confirmed, row.late_cancellation = True, True, True
+            row.status, row.justification = "absent", "justified"
+            row.save()
 
             confirm_presences_service(
                 {"parentClassId": seeded["lesson_id"], "originalId": seeded["instance_id"]},

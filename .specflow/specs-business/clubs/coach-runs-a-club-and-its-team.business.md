@@ -6,6 +6,7 @@ implemented_by:
   - ../../specs/clubs/membership.spec.md
   - ../../specs/clubs/coach-invitation.spec.md
   - ../../specs/clubs/join-request.spec.md
+  - ../../specs/clubs/courts.spec.md
 ---
 
 # Coach runs a club and its team
@@ -45,10 +46,15 @@ action of their own.
    requester's name, and approves or declines. Approval makes them a member exactly as an accepted
    invitation would; a decline is final for that request (they can ask again, or create their own
    club).
+8. The club's coaches list the club's courts in Settings → Club ("Campo 1", "Campo 2", in the
+   order they want them). When scheduling or editing a class, the coach can say which court it is
+   on, and everyone sees the club and the court on the class card and its detail.
 
 ## Business Rules
 
 - A club needs at least a name to exist; location, description, and logo are optional.
+- A club's courts are just names in an order; a class may name one of its club's courts or none, and
+  removing a court never removes a class.
 - A coach can belong to multiple clubs, and a player can too; club scoping is what keeps one coach's
   classes, players, and calendar separate from another's.
 - When a coach belongs to several clubs, whichever one they joined most recently is their default

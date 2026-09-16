@@ -33,11 +33,32 @@ def send_push_notification(user_id, title, body, url="/"):
         "body": body,
         "url": url,
     })
-    vapid_claims = {"sub": vapid_claims_email}
 
+    # PAD-294 (messaging.push-notifications rule 10): the lookup above ran on
+    # the caller; the network call runs on the bounded sender's worker, so the
+    # caller's DB connection is not held across the round trip. Inline under
+    # the test config. Returns False when the queue is full (dropped, logged).
+    from padel_app.utils.push_sender import submit
+
+    return submit(
+        _deliver_web_push,
+        user_id,
+        subscription.id,
+        subscription.subscription_json,
+        payload,
+        vapid_private_key,
+        {"sub": vapid_claims_email},
+        label=f"web push for user {user_id}",
+    )
+
+
+def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
+                      vapid_private_key, vapid_claims) -> bool:
+    """The HTTP half, on the sender's worker (or inline): send, and on a
+    404/410 delete the subscription by id under the worker's own session."""
     try:
         webpush(
-            subscription_info=json.loads(subscription.subscription_json),
+            subscription_info=json.loads(subscription_json),
             data=payload,
             vapid_private_key=vapid_private_key,
             vapid_claims=vapid_claims,
@@ -51,8 +72,18 @@ def send_push_notification(user_id, title, body, url="/"):
                 user_id,
                 status_code,
             )
-            db.session.delete(subscription)
-            db.session.commit()
+            # Only the subscription this push was sent to: save-subscription
+            # refreshes the SAME row in place, so a browser that re-subscribed
+            # while this push was on the wire must keep its new endpoint.
+            stale = db.session.get(PushSubscription, subscription_id)
+            if stale is not None and stale.subscription_json == subscription_json:
+                db.session.delete(stale)
+                db.session.commit()
+            else:
+                logger.info(
+                    "Push subscription for user_id=%s was replaced while the push was in flight; kept",
+                    user_id,
+                )
         else:
             logger.warning("Failed to send push notification for user_id=%s: %s", user_id, exc)
         return False

@@ -17,6 +17,9 @@ def _student(username="ana", email="ana@example.com", **over):
         "username": username,
         "email": email,
         "password": "Segura123",
+        # PAD-198: required since auth.parental-consent; an adult in Portugal.
+        "birthDate": "2000-01-01",
+        "country": "PT",
     }
     body.update(over)
     return body
@@ -29,6 +32,9 @@ def _coach(username="rui", email="rui@example.com", **over):
         "username": username,
         "email": email,
         "password": "Segura123",
+        # PAD-198: required since auth.parental-consent; an adult in Portugal.
+        "birthDate": "2000-01-01",
+        "country": "PT",
     }
     body.update(over)
     return body

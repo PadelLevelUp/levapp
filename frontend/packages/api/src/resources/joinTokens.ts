@@ -3,7 +3,8 @@ import { invalidateCoachPlayersCache } from "./players";
 
 /* ---------- types (players.join-token) ---------- */
 
-/** The coach's active join token — rule 1/2. `path` is relative; clients build the URL. */
+/** A freshly minted join token — rule 1. `path` is relative; clients build the URL.
+ * Only the mint response carries the token: the server keeps its hash (PAD-269). */
 export interface CoachJoinToken {
   token: string;
   /** e.g. "/join/coach/<token>" */
@@ -12,6 +13,16 @@ export interface CoachJoinToken {
   url?: string;
   expiresAt: string;
   clubName: string;
+  uses?: number;
+}
+
+/** Rule 2 (PAD-269): the live code's status, without the token, which is not stored.
+ * Showing a QR again means minting a new one. */
+export interface CoachJoinTokenStatus {
+  active: true;
+  expiresAt: string;
+  clubName: string | null;
+  uses: number;
 }
 
 /** Public preview of a token — rule 4: enough to see who you are joining. */
@@ -37,8 +48,8 @@ export async function mintJoinToken(): Promise<CoachJoinToken> {
   return res.data;
 }
 
-/** Rule 2: the active, unexpired token or null. */
-export async function getJoinToken(): Promise<CoachJoinToken | null> {
+/** Rule 2: the live code's status (no token) or null. */
+export async function getJoinToken(): Promise<CoachJoinTokenStatus | null> {
   const res = await getApi().get("/app/coach/join-token");
   return res.data ?? null;
 }

@@ -31,6 +31,6 @@ def build_player_dashboard_blocks(*, player, user_id: int, now: Optional[datetim
 
     blocks.append(build_player_needs_you_block(player_id=player.id, user_id=user_id, now=now))
     blocks.append(build_player_schedule_block(player_id=player.id, now=now))
-    blocks.append(build_player_kpi_block(player_id=player.id))
+    blocks.append(build_player_kpi_block(player_id=player.id, now=now))
 
     return blocks

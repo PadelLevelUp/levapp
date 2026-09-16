@@ -15,6 +15,7 @@ from padel_app.tools.username_tools import (
     unique_placeholder_username,
 )
 from padel_app.tests.helpers import make_coach
+from padel_app.tools.activation_token import activation_token_for
 
 
 @pytest.fixture
@@ -123,9 +124,11 @@ def test_registration_form_is_not_prefilled_with_the_placeholder(app, coach_id, 
     info = _add_player(app, coach_id)
 
     with app.app_context():
-        user_id = Player.query.get(info["playerId"]).user_id
+        user = Player.query.get(info["playerId"]).user
+        user_id, token = user.id, activation_token_for(user)
 
-    res = client.get(f"/api/app/register/user/{user_id}")
+    # auth.activate rule 4 (PAD-254): the form needs the link's secret.
+    res = client.get(f"/api/app/register/user/{user_id}?token={token}")
 
     assert res.status_code == 200
     assert res.get_json()["username"] is None
@@ -136,11 +139,11 @@ def test_registration_form_keeps_a_real_username(app, client):
     from padel_app.models import User
 
     with app.app_context():
-        user = User(name="Chose Already", username="chosen-by-me")
+        user = User(name="Chose Already", username="chosen-by-me", status="inactive")
         db.session.add(user)
         db.session.commit()
-        user_id = user.id
+        user_id, token = user.id, activation_token_for(user)
 
-    res = client.get(f"/api/app/register/user/{user_id}")
+    res = client.get(f"/api/app/register/user/{user_id}?token={token}")
 
     assert res.get_json()["username"] == "chosen-by-me"

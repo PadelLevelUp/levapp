@@ -32,7 +32,6 @@ def fresh_config():
     cfg.auto_notify_enabled = False
     cfg.priority_criteria = None
     cfg.restrictions = None
-    cfg.rounds = None
     cfg.notification_groups = None
     cfg.message_templates = None
     cfg.reminder_timing = None
@@ -60,7 +59,6 @@ def config_with_overrides():
     cfg.reminder_timing = {"type": "hours_before", "value": 24}
     cfg.invitation_start_timing = {"type": "days_before_at_time", "days": 1, "time": "09:00"}
     cfg.priority_criteria = None
-    cfg.rounds = None
     cfg.notification_groups = None
     cfg.invitation_groups = None
     cfg.tiebreakers = None

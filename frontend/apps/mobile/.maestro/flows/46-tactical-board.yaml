@@ -1,0 +1,200 @@
+# Mirrors: apps/web/e2e/exercise-management/tactical-board.spec.ts
+# training.tactical-board — wave 1 (PAD-242), iOS parity criterion:
+# - a new exercise opens the Quadro Tático in Situações de jogo with the 2v2
+# - picking a tool swaps the hint; Cone + a tap on the court places a cone;
+#   undo removes it again
+# - wave 4: add a step, Passo, AUTO plays the ball, delete the step
+# - wave 3: Magnético pen stroke by swipe (red), undo, back to game
+# - wave 2: switch to Exercícios de cesto, add A3/A4, one-tap feed from the feeder
+# - save → reopen → the saved basket board is still there
+#
+# Not observable from Maestro: ball-path drawing needs two taps at specific
+# court points and Maestro's `tapOn` has no element-relative point, so the
+# plana/lob toggle and tap-to-move are covered by the web E2E and the vitest
+# board tests only. Noted in the PR, not faked here.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+
+# ── Create with the board open ──
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Tactical"
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+- assertVisible:
+    id: "board-tab-game"
+- assertVisible:
+    id: "piece-a1"
+- assertVisible:
+    id: "piece-b2"
+- assertVisible:
+    id: "board-hint-select"
+
+# Tool hints follow the active tool.
+- tapOn:
+    id: "board-tool-ball"
+- assertVisible:
+    id: "board-hint-ball"
+
+# Cone at the court centre (tapOn without a point taps the element's centre), then undo.
+- tapOn:
+    id: "board-tool-cone"
+- tapOn:
+    id: "court-surface"
+- assertVisible:
+    id: "piece-cone-1"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "piece-cone-1"
+
+# ── Wave 4: steps and playback — add a step, Passo, AUTO ──
+- assertVisible:
+    id: "board-step-indicator"
+- tapOn:
+    id: "board-add-step"
+- assertVisible:
+    text: ".*2 de 2.*"
+- tapOn:
+    id: "board-passo"
+- tapOn:
+    id: "board-auto"
+- assertVisible:
+    id: "playback-ball"
+- extendedWaitUntil:
+    notVisible:
+      id: "playback-ball"
+    timeout: 10000
+- tapOn:
+    id: "board-delete-step"
+- assertVisible:
+    text: ".*1 de 1.*"
+
+# ── Wave 3: Magnético — pen stroke by swiping the court, then back to game ──
+# (the fresh game board has no content after the undo, so no prompt appears)
+- tapOn:
+    id: "board-tab-magnetic"
+- assertVisible:
+    id: "board-hint-pen"
+- tapOn:
+    id: "board-color-red"
+- swipe:
+    start: "40%, 45%"
+    end: "60%, 55%"
+    duration: 600
+- assertVisible:
+    id: "piece-stroke-1"
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "piece-stroke-1"
+- tapOn:
+    id: "board-tab-game"
+- assertVisible:
+    id: "piece-b2"
+
+# ── Wave 2: Exercícios de cesto — a fresh board switches without a prompt ──
+- tapOn:
+    id: "board-tab-basket"
+- assertVisible:
+    id: "piece-feeder"
+- assertNotVisible:
+    id: "piece-b1"
+- tapOn:
+    id: "board-add-players"
+- assertVisible:
+    id: "piece-a3"
+- tapOn:
+    id: "board-add-players"
+- assertVisible:
+    id: "piece-a4"
+# Bola in basket mode: one tap on the court draws the feed from the feeder.
+- tapOn:
+    id: "board-tool-ball"
+- assertVisible:
+    id: "board-hint-ball"
+- tapOn:
+    id: "court-surface"
+- assertVisible:
+    id: "ball-path-flat"
+
+- scrollUntilVisible:
+    element:
+      id: "exercise-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-save"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Tactical.*"
+    timeout: 15000
+
+# ── Reopen: the saved basket board renders with its feeder ──
+- tapOn: ".*Maestro Tactical.*"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "piece-feeder"
+    timeout: 15000
+- assertVisible:
+    id: "piece-a4"
+
+# ── Delete ──
+- scrollUntilVisible:
+    element:
+      id: "exercise-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-delete"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "exercise-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-add"
+    timeout: 20000
+- assertNotVisible: ".*Maestro Tactical.*"

@@ -18,6 +18,7 @@ Run:
 from datetime import timedelta
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 from padel_app.utils.dates import utcnow_naive
 
 from padel_app.tests.test_pad128_eligibility import _seed, _add_student, _cp
@@ -30,6 +31,8 @@ def _enrol(player_id, instance_id):
     )
     db.session.add(Association_PlayerLessonInstance(
         player_id=player_id, lesson_instance_id=instance_id))
+    db.session.add(Presence(
+        player_id=player_id, lesson_instance_id=instance_id, invited=True, enrolment_source="coach"))  # PAD-259
     db.session.flush()
 
 

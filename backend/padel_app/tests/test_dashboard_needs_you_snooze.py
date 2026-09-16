@@ -105,16 +105,26 @@ def test_a_snooze_is_the_coachs_own(app):
     assert _queue(app, coach_id, user_id, now)["items"][0]["kind"] == "empty_seats"
 
 
-def test_snooze_endpoint_hides_the_card_for_the_calling_coach(app, client):
-    now = datetime.utcnow().replace(microsecond=0)
+def test_snooze_endpoint_hides_the_card_for_the_calling_coach(app, client, monkeypatch):
+    # PAD-253: a fixed daytime instant, with the routes' own clock pinned to it.
+    # This read the wall clock. Between 22:15 and 23:15 UTC the seeded one-hour
+    # class 45 minutes out ends after UTC midnight, and load_events drops such a
+    # class (_event_end joins the start DATE to the end TIME; reported
+    # separately), so items[0] became the validation item, whose id is not
+    # snoozable, and the POST returned 400 for a reason unrelated to snooze.
+    from padel_app.tests.helpers import pin_clock
+
+    now = pin_clock(monkeypatch, datetime(2026, 8, 4, 10, 0))
     coach_id, user_id, _ = _seed(app, now=now)
-    item_id = _queue(app, coach_id, user_id, now)["items"][0]["id"]
+    items = _queue(app, coach_id, user_id, now)["items"]
+    item_id = next(i["id"] for i in items if i["kind"] == "empty_seats")
 
     res = client.post(f"/api/app/dashboard/needs-you/{item_id}/snooze", headers=_bearer(app, user_id))
     assert res.status_code == 200, res.get_json()
     body = res.get_json()
     assert body["itemId"] == item_id
-    assert datetime.fromisoformat(body["snoozedUntil"]) > now + timedelta(hours=23)
+    # Exactly 24 h from the pinned clock: proves the route read the pinned time.
+    assert datetime.fromisoformat(body["snoozedUntil"]) == now + timedelta(hours=24)
 
     res = client.get("/api/app/dashboard", headers=_bearer(app, user_id))
     assert res.status_code == 200

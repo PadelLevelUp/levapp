@@ -204,7 +204,7 @@ def test_migration_guard_has_an_explicit_escape_hatch(load_config):
 
 
 # --------------------------------------------------------------------------
-# B-016 — a tunnelled remote database must not read as a local one.
+# B-048 — a tunnelled remote database must not read as a local one.
 #
 # Postgres is no longer reachable from the internet, so the shared database is
 # forwarded to a local port. That makes the PAD-95 guard's host check see

@@ -5,6 +5,7 @@ import type {
   AttendanceGranularity,
   ClassInstance,
   PendingValidation,
+  PendingValidationCount,
   Presence,
   PresenceStats,
   PresenceStatus,
@@ -64,7 +65,10 @@ export async function getPresenceStats(
 }
 
 export async function getPresenceTrend(
-  params: PresenceRangeParams & { granularity?: AttendanceGranularity } = {}
+  params: PresenceRangeParams & {
+    granularity?: AttendanceGranularity;
+    playerIds?: number[];
+  } = {}
 ): Promise<PresenceTrend> {
   return presencesApi.getPresenceTrend(params);
 }
@@ -73,6 +77,12 @@ export async function getPendingValidation(
   params: PresenceRangeParams = {}
 ): Promise<PendingValidation> {
   return presencesApi.getPendingValidation(params);
+}
+
+export async function getPendingValidationCount(
+  params: PresenceRangeParams = {}
+): Promise<PendingValidationCount> {
+  return presencesApi.getPendingValidationCount(params);
 }
 
 export async function unvalidateClass(

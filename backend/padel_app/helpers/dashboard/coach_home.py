@@ -19,10 +19,14 @@ Notes on two deliberate choices:
 
 * **No court.** ``Lesson`` has no court/field column, so the hero shows
   ``{start} – {end}`` only rather than inventing a location.
-* **Validation is a last-7-days window.** The old KPI counted every unvalidated
-  presence ever recorded. Scoped to classes that ended in the last week, the
-  number matches the "From {n} classes last week" framing and can actually reach
-  zero; attendances older than that are a backlog, not this week's chore.
+* **Validation is a Presences-tab week, in classes.** (PAD-190 / PAD-201,
+  B-045.) The old item counted presence rows over a rolling 7 days while the
+  tab counted classes over a Monday–Sunday week, so the two never agreed. The
+  item now reads ``count_pending_validation`` — the tab's own helper — for the
+  current UTC week, falling back to the previous week when this one is clean
+  (a Monday-morning coach still needs to see the weekend's backlog), and links
+  to the tab *on that week*. Older attendances are a backlog, not this
+  week's chore, and stay out of the card.
 """
 from __future__ import annotations
 
@@ -30,13 +34,12 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urlencode
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 
 from padel_app.sql_db import db
 from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
-    Association_PlayerLessonInstance,
     ConversationParticipant,
     Lesson,
     LessonInstance,
@@ -53,8 +56,12 @@ from padel_app.helpers.calendar_helpers import (
     load_lesson_instances_for_player,
 )
 from padel_app.helpers.dashboard.snooze import snoozed_item_ids
+from padel_app.services.presence_overview_service import count_pending_validation
 from padel_app.tools.tools import _safe_int
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+# PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
+# the clock class times are stored in. It goes back to UTC only where it meets
+# an event timestamp (the calendar serializer, the snooze).
 
 # How far ahead the hero and the queue look.
 HERO_SOON_MINUTES = 120
@@ -67,7 +74,9 @@ QUEUE_REPLY_LIMIT = 3
 # and still says how many are signed up.
 HERO_AVATAR_LIMIT = 2
 ACTIVE_PLAYER_DAYS = 30
-VALIDATION_WINDOW_DAYS = 7
+# The current week, then the previous one. Two, not more: anything older is a
+# backlog the tab's week control reaches, not this week's chore.
+VALIDATION_WEEK_OFFSETS = (0, -1)
 
 _EPOCH = datetime(1970, 1, 1)
 
@@ -111,12 +120,57 @@ def load_events(
     return sorted(in_window, key=_event_start)
 
 
+def cut_events(events: Sequence[Dict[str, Any]], *, start: datetime, end: datetime) -> List[Dict[str, Any]]:
+    """``events`` restricted to a window — the same predicate ``load_events`` applies.
+
+    PAD-262 (dashboard.blocks rule 8): the coach home loads its classes once over
+    the widest window any block needs and every block cuts its own from that
+    set, so the four blocks cost one pipeline call instead of twelve.
+    """
+    return [e for e in events if _event_end(e) > start and _event_start(e) < end]
+
+
+def coach_home_window(now: datetime) -> Tuple[datetime, datetime]:
+    """The superset window: a week before the current week (week-pulse delta)
+    to the hero's look-ahead."""
+    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    start = min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS))
+    end = max(week_start + timedelta(days=7), now + timedelta(days=HERO_LOOKAHEAD_DAYS))
+    return start, end
+
+
+def load_coach_home_events(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
+    start, end = coach_home_window(now)
+    return load_events(coach_id=coach_id, start=start, end=end)
+
+
+def _window_events(
+    events: Optional[Sequence[Dict[str, Any]]], *, coach_id: int, start: datetime, end: datetime
+) -> List[Dict[str, Any]]:
+    """Cut the preloaded set when there is one, otherwise load just this window."""
+    if events is not None:
+        return cut_events(events, start=start, end=end)
+    return load_events(coach_id=coach_id, start=start, end=end)
+
+
 def _event_start(event: Dict[str, Any]) -> datetime:
     return _combine(event.get("date"), event.get("startTime"), datetime.max)
 
 
 def _event_end(event: Dict[str, Any]) -> datetime:
-    return _combine(event.get("date"), event.get("endTime"), datetime.min)
+    """The class's real end instant (B-058, dashboard.blocks rule 9).
+
+    ``date`` is the START date, and the strings are UTC. A class that crosses
+    UTC midnight (23:15-00:15 UTC) ends on the next date, so an end time
+    earlier than the start time rolls forward one day. Joining the start date
+    to the end time used to put such a class's end before its start, and every
+    block built on ``load_events`` dropped it.
+    """
+    end = _combine(event.get("date"), event.get("endTime"), datetime.min)
+    start = _combine(event.get("date"), event.get("startTime"), datetime.max)
+    if end is not datetime.min and start is not datetime.max and end < start:
+        end += timedelta(days=1)
+    return end
 
 
 def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> datetime:
@@ -154,15 +208,17 @@ def _initials(name: Optional[str]) -> str:
 # ── 1. next class hero ─────────────────────────────────────────────────────
 
 
-def build_next_class_block(*, coach_id: int, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+def build_next_class_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Optional[Dict[str, Any]]:
     """The class about to start. ``None`` when the coach has nothing scheduled.
 
     Returning ``None`` is intentional: an empty hero would be the largest element
     on the screen saying nothing, which is the flaw this redesign removes.
     """
-    now = now or utcnow_naive()
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
-    return next_class_block(events, now=now)
+    now = now or club_now_naive()
+    window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
+    return next_class_block(window, now=now)
 
 
 def next_class_block(events: Sequence[Dict[str, Any]], *, now: datetime) -> Optional[Dict[str, Any]]:
@@ -212,13 +268,11 @@ def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
         return []
 
     if model == "LessonInstance":
+        # PAD-259: the presence row is the enrolment (classes.instance-enrollment rule 1).
         rows = (
             db.session.query(Player)
-            .join(
-                Association_PlayerLessonInstance,
-                Association_PlayerLessonInstance.player_id == Player.id,
-            )
-            .filter(Association_PlayerLessonInstance.lesson_instance_id == original_id)
+            .join(Presence, Presence.player_id == Player.id)
+            .filter(Presence.lesson_instance_id == original_id)
             .all()
         )
     else:
@@ -235,16 +289,22 @@ def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
 # ── 2. needs-you queue ─────────────────────────────────────────────────────
 
 
-def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_needs_you_block(
+    *,
+    coach_id: int,
+    user_id: int,
+    now: Optional[datetime] = None,
+    events: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """Things the coach can resolve, each carrying its own action.
 
     Order is fixed — empty seats (soonest first), then replies, then validation —
     because it runs from time-critical to whenever-you-like.
     """
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     items: List[Dict[str, Any]] = []
-    items.extend(_empty_seat_items(coach_id=coach_id, now=now))
+    items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
     items.extend(reply_items(user_id=user_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
@@ -258,11 +318,13 @@ def build_needs_you_block(*, coach_id: int, user_id: int, now: Optional[datetime
     }
 
 
-def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+def _empty_seat_items(
+    *, coach_id: int, now: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
+    events = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
-    snoozed = snoozed_item_ids(coach_id=coach_id, now=now)
+    snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
     out: List[Dict[str, Any]] = []
     for event in events:
         filled, capacity = fill(event)
@@ -280,23 +342,48 @@ def _empty_seat_items(*, coach_id: int, now: datetime) -> List[Dict[str, Any]]:
                 "timeLabel": event.get("startTime"),
                 "filled": filled,
                 "capacity": capacity,
-                "href": class_href(event),
+                # PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class
+                # with Notificar already open; the hero and the schedule keep
+                # the plain calendar link.
+                "href": class_href(event) + "&notify=1",
             }
         )
     return out
 
 
 def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
-    """Unread inbound messages, most recent first, one per conversation."""
-    rows = (
-        db.session.query(Message, User, ConversationParticipant.conversation_id)
+    """Unread inbound messages, most recent first, one per conversation.
+
+    PAD-262: the database picks the newest unread message per conversation
+    and returns at most ``QUEUE_REPLY_LIMIT`` rows; this used to pull every
+    unread message the user had and dedupe in Python.
+    """
+    unread = (
+        db.session.query(
+            Message.conversation_id.label("conversation_id"),
+            func.max(Message.sent_at).label("latest_at"),
+        )
         .join(ConversationParticipant, ConversationParticipant.conversation_id == Message.conversation_id)
-        .join(User, User.id == Message.sender_id)
         .filter(ConversationParticipant.user_id == user_id)
+        .join(User, User.id == Message.sender_id)
         .filter(Message.sender_id != user_id)
         .filter(Message.is_deleted.is_(False))
+        # PAD-268 (auth.account-deletion rule 8): a deleted person cannot read a
+        # reply, so their messages never put a conversation in the queue.
+        .filter(User.status != "disabled")
         .filter(Message.sent_at > func.coalesce(ConversationParticipant.last_read_at, _EPOCH))
-        .order_by(Message.sent_at.desc())
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+    rows = (
+        db.session.query(Message, User, unread.c.conversation_id)
+        .join(unread, and_(Message.conversation_id == unread.c.conversation_id, Message.sent_at == unread.c.latest_at))
+        .join(User, User.id == Message.sender_id)
+        .filter(Message.sender_id != user_id)
+        .filter(Message.is_deleted.is_(False))
+        .filter(User.status != "disabled")
+        .order_by(Message.sent_at.desc(), Message.id.desc())
+        .limit(QUEUE_REPLY_LIMIT * 2)
         .all()
     )
 
@@ -313,7 +400,9 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
                 "personName": sender.name,
                 "initials": _initials(sender.name),
                 "preview": (message.text or "").strip(),
-                "href": f"/messages?conversationId={conversation_id}",
+                # PAD-284 (dashboard.blocks rule 10): the web conversation route;
+                # iOS maps it to its conversation screen (`dashboardRoute`).
+                "href": f"/messages/{conversation_id}",
             }
         )
         if len(out) >= QUEUE_REPLY_LIMIT:
@@ -321,45 +410,58 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
     return out
 
 
+def week_bounds(now: datetime, offset: int) -> Tuple[datetime, datetime]:
+    """Monday 00:00:00 – Sunday 23:59:59 (naive UTC) for the week ``offset`` weeks from ``now``.
+
+    Byte-for-byte the window both shells' ``weekBounds`` produce once the bare
+    ``to`` date is expanded to end-of-day by ``_parse_attendance_bound``
+    (``attendance.validation`` rule 15), so the dashboard counts exactly the
+    week the tab will show.
+    """
+    monday = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    monday += timedelta(weeks=offset)
+    sunday_end = monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return monday, sunday_end
+
+
+def validation_href(week_offset: int) -> str:
+    """PAD-283 (dashboard.blocks rule 10): the Presences tab with the validate
+    view already open, on the week the card counted."""
+    return "/presences?validate=1" if week_offset == 0 else f"/presences?validate=1&week={week_offset}"
+
+
 def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:
-    """Unvalidated attendances for classes that ended in the last week."""
-    window_start = now - timedelta(days=VALIDATION_WINDOW_DAYS)
+    """Classes still to validate, for the tab's week (dashboard.blocks rule 3).
 
-    base = (
-        db.session.query(Presence.id, LessonInstance.id.label("instance_id"))
-        .join(LessonInstance, Presence.lesson_instance_id == LessonInstance.id)
-        .join(Lesson, LessonInstance.lesson_id == Lesson.id)
-        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
-        .filter(Association_CoachLesson.coach_id == coach_id)
-        .filter(Presence.validated.is_(False))
-        .filter(LessonInstance.end_datetime <= now)
-        .filter(LessonInstance.end_datetime >= window_start)
-        .subquery()
-    )
-
-    count = db.session.query(func.count(base.c.id)).scalar() or 0
-    if not count:
-        return None
-
-    class_count = db.session.query(func.count(func.distinct(base.c.instance_id))).scalar() or 0
-
-    return {
-        "kind": "validation",
-        "id": "validation",
-        "count": int(count),
-        "classCount": int(class_count),
-        "href": "/validations",
-    }
+    One helper — ``count_pending_validation`` — so this is the number the
+    Presences trigger shows once the card opens it (B-045).
+    """
+    for offset in VALIDATION_WEEK_OFFSETS:
+        start, end = week_bounds(now, offset)
+        count = count_pending_validation(
+            coach_id=coach_id, range_start=start, range_end=end, now=now
+        )
+        if count:
+            return {
+                "kind": "validation",
+                "id": "validation",
+                "count": int(count),
+                "weekOffset": offset,
+                "href": validation_href(offset),
+            }
+    return None
 
 
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
 
 
-def build_schedule_block(*, coach_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_schedule_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """The week ahead. Shows the first few rows and links out for the rest."""
-    now = now or utcnow_naive()
-    events = load_events(coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(events)
+    now = now or club_now_naive()
+    window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    return schedule_block(window)
 
 
 def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
@@ -397,17 +499,23 @@ def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
 # ── 4. this week ───────────────────────────────────────────────────────────
 
 
-def build_week_pulse_block(*, coach_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_week_pulse_block(
+    *, coach_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
-    now = now or utcnow_naive()
+    now = now or club_now_naive()
 
     week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
     week_end = week_start + timedelta(days=7)
 
-    filled, total = _seats_in_window(coach_id=coach_id, start=week_start, end=week_end)
+    # PAD-262: nine windows off one loaded set instead of nine pipeline runs.
+    if events is None:
+        events = load_events(coach_id=coach_id, start=min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS)), end=max(week_end, now + timedelta(days=1)))
+
+    filled, total = _seats_in_window(coach_id=coach_id, start=week_start, end=week_end, events=events)
 
     prev_filled, prev_total = _seats_in_window(
-        coach_id=coach_id, start=week_start - timedelta(days=7), end=week_start
+        coach_id=coach_id, start=week_start - timedelta(days=7), end=week_start, events=events
     )
     pct = _pct(filled, total)
     prev_pct = _pct(prev_filled, prev_total)
@@ -415,7 +523,7 @@ def build_week_pulse_block(*, coach_id: int, now: Optional[datetime] = None) -> 
     trend = []
     for offset in range(SCHEDULE_DAYS - 1, -1, -1):
         day = datetime.combine(now.date() - timedelta(days=offset), datetime.min.time())
-        day_filled, day_total = _seats_in_window(coach_id=coach_id, start=day, end=day + timedelta(days=1))
+        day_filled, day_total = _seats_in_window(coach_id=coach_id, start=day, end=day + timedelta(days=1), events=events)
         trend.append(_pct(day_filled, day_total))
 
     active, total_players = _player_activity(coach_id=coach_id, now=now)
@@ -446,8 +554,10 @@ def _pct(part: int, whole: int) -> int:
     return round(100 * part / whole) if whole else 0
 
 
-def _seats_in_window(*, coach_id: int, start: datetime, end: datetime) -> Tuple[int, int]:
-    events = load_events(coach_id=coach_id, start=start, end=end)
+def _seats_in_window(
+    *, coach_id: int, start: datetime, end: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Tuple[int, int]:
+    events = _window_events(events, coach_id=coach_id, start=start, end=end)
     filled = sum(fill(e)[0] for e in events)
     total = sum(fill(e)[1] for e in events)
     return filled, total
@@ -462,7 +572,12 @@ def _player_activity(*, coach_id: int, now: datetime) -> Tuple[int, int]:
     player_ids = [
         pid
         for (pid,) in db.session.query(Association_CoachPlayer.player_id)
+        .join(Player, Player.id == Association_CoachPlayer.player_id)
+        .join(User, User.id == Player.user_id)
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268 (auth.account-deletion rule 8): a deleted account is not a
+        # player here, in the count or the denominator. The roster row stays.
+        .filter(User.status != "disabled")
         .all()
     ]
     if not player_ids:
@@ -484,12 +599,10 @@ def _player_activity(*, coach_id: int, now: datetime) -> Tuple[int, int]:
 
     upcoming = {
         pid
-        for (pid,) in db.session.query(Association_PlayerLessonInstance.player_id)
-        .join(
-            LessonInstance,
-            LessonInstance.id == Association_PlayerLessonInstance.lesson_instance_id,
-        )
-        .filter(Association_PlayerLessonInstance.player_id.in_(player_ids))
+        for (pid,) in db.session.query(Presence.player_id)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .filter(Presence.player_id.in_(player_ids))
+        .filter(Presence.status.is_distinct_from("absent"))
         .filter(LessonInstance.start_datetime >= now)
         .distinct()
         .all()

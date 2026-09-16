@@ -7,7 +7,10 @@ from padel_app.models import (
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
-from padel_app.models.players import _is_claimable_user
+from padel_app.sql_db import db
+from padel_app.services.level_service import set_roster_level
+from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
+from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
 
 
@@ -40,7 +43,6 @@ def create_player_helper(data):
         rel_data = {
             'coach': data.get("coach"),
             'player': player.id,
-            'level': data.get('level', None),
             'side': data.get('side', None),
             'notes': data.get('notes', None),
         }
@@ -53,13 +55,9 @@ def create_player_helper(data):
 
         rel.update_with_dict(rel_values)
         rel.create()
-
-    if data.get("coach") and data['level']:
-        PlayerLevelHistory(
-            coach_id=data["coach"],
-            player_id=player.id,
-            level_id=data['level']
-        ).create()
+        # PAD-270: the one writer of a roster level also records the history row.
+        set_roster_level(rel, data.get("level"))
+        db.session.commit()
 
     return player.coach_player_info(data["coach"])
 
@@ -72,11 +70,17 @@ def edit_player_helper(player, rel, data):
     player.user.update_with_dict(user_values)
     player.user.save()
 
+    # PAD-270 (B-061): the level goes through the one writer, which records the
+    # history row an edit used to skip. Only a changed level reaches here.
+    relation = dict(data['relation'])
+    level = relation.pop('level', None)
     rel_form = rel.get_edit_form()
-    rel_fake_request = JsonRequestAdapter(data['relation'], rel_form)
+    rel_fake_request = JsonRequestAdapter(relation, rel_form)
     rel_values = rel_form.set_values(rel_fake_request)
 
     rel.update_with_dict(rel_values)
+    if level is not None:
+        set_roster_level(rel, level)
     rel.save()
 
     return player.coach_player_info(data["coach"])
@@ -106,14 +110,29 @@ def create_player_service(data):
     return player
 
 
+def _is_deleted(player):
+    """PAD-268: a deleted account is ``disabled``; it never appears in a roster
+    list or picker (auth.account-deletion rule 8, privacy policy §11)."""
+    return player is not None and player.user is not None and player.user.status == "disabled"
+
+
 def get_players_list(coach, club):
     """Returns the appropriate player list based on the caller's role."""
     if coach:
-        return coach.players
+        players = coach.players
     elif club:
-        return club.players
+        players = club.players
     else:
-        return Player.query.all()
+        players = Player.query.all()
+    return [p for p in players if not _is_deleted(p)]
+
+
+def _activation_token_if_inactive(user):
+    from padel_app.tools.activation_token import activation_token_for
+
+    if user is None or user.status != "inactive":
+        return None
+    return activation_token_for(user)
 
 
 def _serialize_coach_player_relation(rel):
@@ -133,6 +152,10 @@ def _serialize_coach_player_relation(rel):
         "side": rel.side,
         "userId": player.user_id if player else None,
         "isActive": user.status == "active" if user else False,
+        # auth.activate rule 3 (PAD-254): the secret the activation link needs,
+        # visible to the owning coach only and only while there is something to
+        # activate. `None` afterwards so a shared roster never carries it.
+        "activationToken": _activation_token_if_inactive(user),
         # PAD-30: a player who has completed self-service registration
         # (PAD-32) has a password set. Coach-disabled players keep their
         # password, so this is a precise "profile complete" signal that does
@@ -140,6 +163,8 @@ def _serialize_coach_player_relation(rel):
         "validated": (user.password is not None) if user else False,
         # PAD-213: `Player.coach_player_info` carries the same key.
         "claimable": _is_claimable_user(user),
+        # players.remove rule 5 (PAD-274): same key as `Player.coach_player_info`.
+        "deletable": _is_deletable_by_coach(player),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -165,6 +190,10 @@ def get_coach_players_list(coach):
             joinedload(Association_CoachPlayer.player).joinedload(Player.user)
         )
         .filter_by(coach_id=coach.id)
+        # PAD-268: the roster row of a deleted account stays, hidden.
+        .join(Association_CoachPlayer.player)
+        .join(Player.user)
+        .filter(User.status != "disabled")
         .order_by(Association_CoachPlayer.id.desc())
         .all()
     )
@@ -199,6 +228,8 @@ def search_coach_players(coach_id, term, limit=20):
         .join(Association_CoachPlayer.player)
         .join(Player.user)
         .filter(User.name.ilike(f"%{escaped}%", escape="\\"))
+        # PAD-268: invited-but-inactive players stay pickable; deleted ones never.
+        .filter(User.status != "disabled")
         .order_by(User.name.asc())
         .limit(limit)
         .all()
@@ -229,6 +260,8 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
 
     # Always join Player/User for sorting and filtering
     query = query.join(Association_CoachPlayer.player).join(Player.user)
+    # PAD-268: a deleted account's roster row stays, hidden from the list.
+    query = query.filter(User.status != "disabled")
 
     if search:
         query = query.filter(User.name.ilike(f"%{search}%"))
@@ -257,7 +290,12 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Compute alert counts across ALL coach players (not just current page)
-    base_query = Association_CoachPlayer.query.filter_by(coach_id=coach.id)
+    base_query = (
+        Association_CoachPlayer.query.filter_by(coach_id=coach.id)
+        .join(Association_CoachPlayer.player)
+        .join(Player.user)
+        .filter(User.status != "disabled")
+    )
     missing_level_count = base_query.filter(Association_CoachPlayer.level_id.is_(None)).count()
     missing_side_count = base_query.filter(Association_CoachPlayer.side.is_(None)).count()
 
@@ -306,8 +344,13 @@ def get_player_profile(coach, player_id):
     }
 
 
+@transactional
 def add_player_service(data):
     """Builds the full player creation payload and delegates to create_player_helper.
+
+    PAD-272 pilot (players.create rule 9): the User, Player, coach link and
+    level-history rows are one transaction — a failure part-way (a level that
+    does not exist) leaves nothing behind instead of an orphan user and player.
 
     PAD-105: a coach never chooses the player's username — that is the player's
     own credential, picked when they activate their account. Any `username` in
@@ -362,33 +405,99 @@ def edit_player_service(data):
     return edit_player_helper(player, rel, payload)
 
 
-def remove_player_service(data):
-    """Removes or deletes a player depending on coach count and account status.
+REMOVE_ACTIONS = ("disconnect", "delete")
 
-    - Multiple coaches: only remove the coach-player relationship.
-    - Single coach + active player: delete the player record (cascades associations).
-    - Single coach + inactive player: delete both player and user records.
+
+def _link_counts(rel):
+    from padel_app.models import CoachPlayerNote, EvaluationEntry
+
+    return {
+        "notes": CoachPlayerNote.query.filter_by(coach_player_id=rel.id).count(),
+        "evaluations": EvaluationEntry.query.filter_by(coach_player_id=rel.id).count(),
+    }
+
+
+def _can_delete(player, coach_count):
+    """players.remove rule 5: only a placeholder (never activated, no password,
+    whatever the username) that no other coach has."""
+    from padel_app.models.players import _is_placeholder_user
+
+    return _is_placeholder_user(player.user) and coach_count <= 1
+
+
+def player_removal_impact(coach_id, player_id):
+    """players.remove rule 7: which removal this coach gets for this player, and
+    what it takes with it. ``disconnect`` takes the link with this coach's notes
+    and evaluations; ``delete`` (a placeholder) also takes its presences."""
+    from padel_app.models import Presence
+
+    player = Player.query.get_or_404(player_id)
+    rel = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first_or_404()
+    coach_count = Association_CoachPlayer.query.filter_by(player_id=player_id).count()
+    action = "delete" if _can_delete(player, coach_count) else "disconnect"
+    impact = {"action": action, **_link_counts(rel)}
+    if action == "delete":
+        impact["presences"] = Presence.query.filter_by(player_id=player.id).count()
+    return impact
+
+
+def remove_player_service(data, actor_user_id=None):
+    """Take a player off a coach's roster (players.remove, PAD-274).
+
+    - ``disconnect``: only the ``coach_in_player`` link goes, with this coach's
+      own notes and evaluations. The Player, User, presences and level history
+      stay. Before PAD-274 an active student removed by their only coach lost
+      all of that (B-057).
+    - ``delete``: only for a placeholder (never activated, no password, whatever
+      the username) that no other coach has; profile first, then account (PAD-260 rule 3). A delete
+      of anyone else is refused with 409 and nothing changes.
+    - No action (every client before PAD-274): delete a deletable placeholder,
+      disconnect from everyone else. It never deletes an account.
+    Every removal writes a ``deletion_audit`` row in the same transaction.
     """
+    from padel_app.models import Presence
+    from padel_app.models.players import _is_placeholder_user
+    from padel_app.services.deletion_audit_service import record_deletion
+
     coach_id = data.get("coachId", None)
     player_id = data.get("playerId", None)
+    action = data.get("action", None)
+    if action not in (None, *REMOVE_ACTIONS):
+        return {"error": "action must be 'disconnect' or 'delete'", "code": "INVALID_ACTION"}, 400
 
     player = Player.query.get_or_404(player_id)
     user = player.user
-
     rel = Association_CoachPlayer.query.filter_by(
         coach_id=coach_id,
         player_id=player_id,
     ).first_or_404()
-
     coach_count = Association_CoachPlayer.query.filter_by(player_id=player_id).count()
 
-    if coach_count > 1:
+    if action == "delete":
+        if not _is_placeholder_user(user):
+            return {
+                "error": "This player has an account. You can disconnect from them, not delete them.",
+                "code": "PLAYER_HAS_ACCOUNT",
+            }, 409
+        if coach_count > 1:
+            return {
+                "error": "Another coach also has this player. You can disconnect from them, not delete them.",
+                "code": "PLAYER_HAS_OTHER_COACHES",
+            }, 409
+    elif action is None:
+        action = "delete" if _can_delete(player, coach_count) else "disconnect"
+
+    details = {"coach_id": coach_id, **_link_counts(rel)}
+    label = user.name if user is not None else None
+    if action == "disconnect":
+        record_deletion(actor_user_id=actor_user_id, entity="player", entity_id=player.id,
+                        action="disconnected", label=label, details=details)
         rel.delete()
-        return {"status": "Removed coach-player relationship"}, 200
-    elif user.status == "active":
-        player.delete()
-        return {"status": "Deleted active player"}, 200
-    else:
-        player.delete()
-        user.delete()
-        return {"status": "Deleted inactive player and user"}, 200
+        return {"status": "Disconnected from player", "action": "disconnected"}, 200
+
+    details["presences"] = Presence.query.filter_by(player_id=player.id).count()
+    record_deletion(actor_user_id=actor_user_id, entity="player", entity_id=player.id,
+                    action="deleted", label=label, details=details)
+    player.delete()
+    user.delete()
+    return {"status": "Deleted placeholder player", "action": "deleted"}, 200

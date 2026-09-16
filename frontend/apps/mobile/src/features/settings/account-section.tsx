@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { DeleteAccountSection } from "@/features/settings/delete-account-section";
-import { ClaimRequests } from "@/features/players/claim-requests";
 import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
 
 function LegalLinkRow({
@@ -51,7 +50,7 @@ function LegalLinkRow({
  * messaging.block-and-report rule 10 (PAD-215): the viewer's own blocks,
  * manageable outside the thread — both roles. Mirrors web's BlockedUsersSection.
  */
-function BlockedUsersCard() {
+export function BlockedUsersCard() {
   const { t } = useTranslation();
   const [users, setUsers] = React.useState<BlockedUser[] | null>(null);
   const [failed, setFailed] = React.useState(false);
@@ -145,31 +144,10 @@ export function AccountSection() {
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
 
+  // PAD-287: claim requests, "Connect with a coach" and Blocked users moved to
+  // the My connections section (connections-section.tsx).
   return (
     <View className="gap-4">
-      {!isCoach ? (
-        /* players.claim rule 4: the second place a student answers a coach's
-           link request (the first is the dashboard banner). */
-        <ClaimRequests variant="list" />
-      ) : null}
-      {!isCoach ? (
-        /* players.join-token rule 8: Settings → Account is one of the three
-           ways a student reaches "Connect with a coach". */
-        <Card testID="settings-connect-coach-card">
-          <CardContent className="pt-4">
-            <Pressable
-              testID="settings-connect-coach"
-              accessibilityRole="button"
-              accessibilityLabel={t("players.connect.settingsLink")}
-              onPress={() => router.push("/connect")}
-              className="flex-row items-center justify-between rounded-lg border border-border p-3 active:bg-accent"
-            >
-              <Text className="flex-1 text-base">{t("players.connect.settingsLink")}</Text>
-              <Ionicons name="chevron-forward" size={18} color={lightTheme.mutedForeground} />
-            </Pressable>
-          </CardContent>
-        </Card>
-      ) : null}
       <Card testID="settings-legal">
         <CardHeader>
           <CardTitle>{t("settings.legal.title")}</CardTitle>
@@ -187,8 +165,6 @@ export function AccountSection() {
           />
         </CardContent>
       </Card>
-
-      <BlockedUsersCard />
 
       <DeleteAccountSection />
     </View>

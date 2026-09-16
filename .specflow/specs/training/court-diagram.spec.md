@@ -18,3 +18,9 @@ Visual court diagram editor for exercises, allowing coaches to place players, co
 3. Element types: player_1-4, coach, cone, blocker, ball, arrow, movement
 4. Each element: id, type, x, y, endX, endY (for arrows), label, curve, rotation
 5. Serialized as JSON and stored in Exercise.diagram
+
+### Notes
+- Superseded by `training.tactical-board` (draft, 2026-09-08): the mode-aware board with a step
+  sequence replaces this flat element list. This spec stays `implemented` until wave 1 of the
+  tactical board lands; then it is marked deprecated. Legacy `{elements: [...]}` JSON remains
+  readable through `upgradeCourtDiagram()` (tactical-board rule 12).

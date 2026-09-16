@@ -22,7 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { getJoinToken, mintJoinToken, type CoachJoinToken } from "@/api/joinTokens";
+import {
+  getJoinToken,
+  mintJoinToken,
+  type CoachJoinToken,
+  type CoachJoinTokenStatus,
+} from "@/api/joinTokens";
 
 interface AddByQrDialogProps {
   open: boolean;
@@ -32,15 +37,18 @@ interface AddByQrDialogProps {
 /**
  * players.join-token rule 7 — the coach's "Add by QR" dialog.
  *
- * The QR is rendered client-side from the join URL (nothing is stored server
- * side beyond the token). Opening the dialog reads the active token and mints
- * one when there is none; "Generate new code" rotates it, which is the only
- * way to retire a leaked link (rule 6), hence the confirm.
+ * The QR is rendered client-side from the join URL. The server keeps only the
+ * token's hash (PAD-269), so a QR can be shown only when it is minted: opening
+ * the dialog mints one when there is no live code, and otherwise says until
+ * when the live code works, with "Generate new code" to show a fresh QR.
+ * Rotating is the only way to retire a leaked link (rule 6), hence the confirm
+ * on the QR screen.
  */
 export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [token, setToken] = useState<CoachJoinToken | null>(null);
+  const [live, setLive] = useState<CoachJoinTokenStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRotate, setConfirmRotate] = useState(false);
@@ -61,9 +69,16 @@ export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
     (async () => {
       setLoading(true);
       setError(null);
+      setToken(null);
+      setLive(null);
       try {
-        const active = (await getJoinToken()) ?? (await mintJoinToken());
-        if (!cancelled) setToken(active);
+        const status = await getJoinToken();
+        if (status) {
+          if (!cancelled) setLive(status);
+        } else {
+          const minted = await mintJoinToken();
+          if (!cancelled) setToken(minted);
+        }
       } catch (err) {
         if (!cancelled) setError(describeError(err));
       } finally {
@@ -93,6 +108,7 @@ export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
     setError(null);
     try {
       setToken(await mintJoinToken());
+      setLive(null);
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -100,11 +116,9 @@ export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
     }
   };
 
-  const expires = token
-    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(
-        new Date(token.expiresAt)
-      )
-    : "";
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+  const expires = token ? formatDate(token.expiresAt) : "";
 
   return (
     <>
@@ -126,6 +140,20 @@ export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
             <p className="py-6 text-center text-sm text-destructive" data-testid="add-by-qr-error">
               {error}
             </p>
+          )}
+
+          {!loading && !error && !token && live && (
+            <div className="space-y-3" data-testid="add-by-qr-live">
+              <p className="text-sm">{t("players.addByQr.liveCode", { date: formatDate(live.expiresAt) })}</p>
+              <p className="text-sm text-muted-foreground" data-testid="add-by-qr-live-uses">
+                {t("players.addByQr.liveCodeUses", { count: live.uses })}
+              </p>
+              <p className="text-xs text-muted-foreground">{t("players.addByQr.liveCodeHint")}</p>
+              <Button className="w-full" onClick={handleRotate} data-testid="add-by-qr-new">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {t("players.addByQr.showNew")}
+              </Button>
+            </div>
           )}
 
           {!loading && token && (

@@ -88,7 +88,11 @@ export default {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
         },
-        online: "#22c55e",
+        // PAD-249: was a hardcoded #22c55e (Tailwind green-500) that survived the
+        // repaint. The token layer (`packages/config` tokens.ts) already maps
+        // `online` to `success`; a literal hex here disagreed with it in hue and
+        // could not follow dark mode. Guarded by src/test/tailwind-tokens.test.ts.
+        online: "hsl(var(--success))",
         unread: "hsl(var(--primary))",
       },
       borderRadius: {

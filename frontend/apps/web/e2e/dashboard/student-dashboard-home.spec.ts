@@ -250,3 +250,59 @@ test.describe("PAD-202: answering a reminder on the dashboard", () => {
     expect(after.unread).toBeLessThan(before.unread);
   });
 });
+
+
+/**
+ * PAD-236: a waiting-list offer is the most time-sensitive ask a student gets,
+ * and it used to live only in the chat. Sent through the engine's own
+ * `_offer_waiting_list` (the E2E debug endpoint PAD-124 added), it must show up
+ * on the dashboard with Yes/No, and answering there settles it everywhere.
+ */
+test.describe("PAD-236: chat-born asks reach the student's queue", () => {
+  test("PAD-236: a waiting-list offer is a queue card and Yes settles it", async ({
+    page,
+    request,
+  }) => {
+    const coachJwt = await token(request, COACH_USERNAME, COACH_PASSWORD);
+    const studentJwt = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+
+    // The seeded class the student is enrolled in — a materialised instance.
+    const { rows } = await studentDashboard(request, studentJwt);
+    const seeded = rows.find((r) => r.title === SEEDED_CLASS && typeof r.lessonInstanceId === "number");
+    expect(seeded, "seeded class row with an instance id").toBeTruthy();
+
+    const offered = await request.post(`${API_ROOT}/app/notify/debug/offer_waiting_list`, {
+      headers: { Authorization: `Bearer ${coachJwt}` },
+      data: { lessonInstanceId: seeded!.lessonInstanceId, username: STUDENT_USERNAME },
+    });
+    expect(offered.ok(), `debug endpoint ${offered.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await loginAsStudent(page);
+    await loadDashboard(page);
+
+    const card = page.getByTestId("dashboard-queue-waiting-list-offer").first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).toContainText(SEEDED_CLASS);
+    const eyebrow = page.getByTestId("student-dashboard").getByText(/NEEDS YOU · \d+/);
+    const before = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
+
+    const refetch = page.waitForResponse(
+      (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
+    );
+    await card.getByTestId("dashboard-confirm-yes").click();
+    await refetch;
+
+    await expect(page.getByTestId("dashboard-queue-waiting-list-offer")).toHaveCount(0);
+    const after = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
+    expect(after).toBe(before - 1);
+
+    // Settled server-side, not just hidden: the offer no longer comes back.
+    const again = await request.get(`${API_ROOT}/app/dashboard`, {
+      headers: { Authorization: `Bearer ${studentJwt}` },
+    });
+    const blocks = ((await again.json()).blocks ?? []) as Array<{ type: string; data: { items?: Array<{ kind: string }> } }>;
+    const kinds = (blocks.find((b) => b.type === "needs_you")?.data.items ?? []).map((i) => i.kind);
+    expect(kinds).not.toContain("waiting_list_offer");
+  });
+});

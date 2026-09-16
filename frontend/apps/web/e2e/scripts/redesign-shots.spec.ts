@@ -54,7 +54,7 @@ test("capture redesign screens", async ({ page }) => {
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/06-calendar-dark.png` });
 
-  // ── Phone. The layout swaps to MobileCalendarView below the md breakpoint,
+  // ── Phone. The layout swaps to the phone calendar below the md breakpoint,
   //    which is a different component tree, not just a narrower grid.
   await page.evaluate(() => {
     localStorage.setItem("theme", "light");

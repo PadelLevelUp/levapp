@@ -17,9 +17,10 @@ class Association_CoachPlayer(db.Model, model.Model):
     model_name = "Association_CoachPlayer"
 
     id = Column(Integer, primary_key=True)
-    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"))
-    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"))
-    level_id = Column(Integer, ForeignKey("coach_levels.id"), nullable=True)
+    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    # PAD-255: a deleted level leaves the roster row with no level, never deletes it.
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"), nullable=True)
 
     coach = relationship("Coach", back_populates="players_relations")
     player = relationship("Player", back_populates="coaches_relations")
@@ -28,8 +29,8 @@ class Association_CoachPlayer(db.Model, model.Model):
     side = Column(Enum("left", "right", "both", name="player_side"), nullable=True)
     notes = Column(String(255), nullable=True)
     
-    notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan")
-    evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan")
+    notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
+    evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
 
     def __repr__(self):
         return f"<CoachPlayer {self.coach.name} - {self.player.name}>"

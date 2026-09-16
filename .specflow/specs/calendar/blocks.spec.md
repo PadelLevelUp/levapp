@@ -13,7 +13,7 @@ governed_by: []
 Users create personal calendar blocks to mark unavailability (breaks, holidays, off-work, personal).
 
 ### Entities
-- **CalendarBlock** (`calendar_blocks`): user_id, type (break|holiday|off_work|personal|unavailable), start_datetime, end_datetime, is_recurring, recurrence_rule, recurrence_end, blocks_auto_invitations, title, description
+- **CalendarBlock** (`calendar_blocks`): user_id, type (break|holiday|off_work|personal|unavailable), start_datetime, end_datetime, is_recurring, recurrence_rule, recurrence_end, blocks_auto_invitations, title, description — indexed on user_id
 
 ### Rules
 1. Types: `break`, `holiday`, `off_work`, `personal`, `unavailable`

@@ -29,6 +29,8 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { notificationEngineApi } from "@levelup/api";
 import { useEditClass } from "@/features/calendar/hooks";
+import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
+import type { EligibilityCheckEntry } from "@levelup/types";
 import {
   UnavailableStudentDialog,
   type BlockedStudentLike,
@@ -70,6 +72,11 @@ export function AddToClassesDialog({
   >([]);
   const [unavailableAcknowledged, setUnavailableAcknowledged] =
     React.useState(false);
+  // PAD-150 (eligibility.enforcement rule 7d): the other manual-add path asks
+  // the same question. One student, many classes — each entry is a CLASS the
+  // student fails the bar for (title · date as the "name"), one line per rule.
+  const [ineligibleClasses, setIneligibleClasses] = React.useState<EligibilityCheckEntry[]>([]);
+  const [pendingTargets, setPendingTargets] = React.useState<typeof classes | null>(null);
 
   const [weekStart, setWeekStart] = React.useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -168,6 +175,28 @@ export function AddToClassesDialog({
       } catch {
         // Ignored on purpose — see above.
       }
+    }
+
+    // PAD-150: warn (never block) when the bar says no for any target class.
+    try {
+      const failing: EligibilityCheckEntry[] = [];
+      for (const [index, cls] of targets.entries()) {
+        const { ineligible } = await notificationEngineApi.checkEligibility(
+          cls.model,
+          String(cls.originalId),
+          cls.date,
+          [playerId]
+        );
+        const hit = ineligible.find((e) => String(e.playerId) === String(playerId));
+        if (hit) failing.push({ playerId: index, name: `${cls.title} · ${cls.date}`, failures: hit.failures });
+      }
+      if (failing.length > 0) {
+        setIneligibleClasses(failing);
+        setPendingTargets(targets);
+        return;
+      }
+    } catch {
+      // Rule 6: the warning is a courtesy, the enrolment is the coach's.
     }
 
     await proceedSave(targets);
@@ -387,6 +416,20 @@ export function AddToClassesDialog({
         </DialogFooter>
       </DialogContent>
 
+      <EligibilityConfirmDialog
+        open={pendingTargets !== null}
+        ineligible={ineligibleClasses}
+        onCancel={() => {
+          setPendingTargets(null);
+          setIneligibleClasses([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingTargets;
+          setPendingTargets(null);
+          setIneligibleClasses([]);
+          if (parked) void proceedSave(parked);
+        }}
+      />
       <UnavailableStudentDialog
         open={blockedStudents.length > 0}
         students={blockedStudents}

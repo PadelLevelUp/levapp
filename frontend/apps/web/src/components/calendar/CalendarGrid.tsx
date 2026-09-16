@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { findNextEventId } from '@levelup/config';
-import { format, isToday } from 'date-fns';
+import { findNextEventId, groupOverlappingEvents, isClubToday } from "@levelup/config";
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent, CoachLevel } from '@/types';
 import { CalendarEventCard } from './CalendarEventCard';
@@ -59,7 +59,7 @@ export function CalendarGrid({
   );
 
   const nextEventId = useMemo(
-    () => (weekDays.some((d) => isToday(d)) ? findNextEventId(events) : undefined),
+    () => (weekDays.some((d) => isClubToday(d)) ? findNextEventId(events) : undefined),
     [events, weekDays]
   );
 
@@ -215,21 +215,7 @@ export function CalendarGrid({
     return `${String(clampedHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   };
 
-  function groupOverlappingEvents(events: CalendarEvent[]) {
-    const groups: CalendarEvent[][] = [];
-    events.forEach(event => {
-      let placed = false;
-      for (const group of groups) {
-        if (group.some(e => e.startTime < event.endTime && event.startTime < e.endTime)) {
-          group.push(event);
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) groups.push([event]);
-    });
-    return groups;
-  }
+  // PAD-247: the overlap grouping is shared with the phone time grid (calendar-grid.ts).
 
   return (
     <div className="flex-1 overflow-auto scrollbar-thin">
@@ -249,7 +235,7 @@ export function CalendarGrid({
         {weekDays.map((day) => {
           const dayStr = format(day, 'yyyy-MM-dd');
           const dayEvents = getEventsForDay(day);
-          const dayIsToday = isToday(day);
+          const dayIsToday = isClubToday(day);
           const ghostTime = dropTarget?.day === dayStr ? dropTarget.time : null;
 
           return (

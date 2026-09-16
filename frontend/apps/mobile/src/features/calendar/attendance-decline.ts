@@ -1,3 +1,4 @@
+import { lisbonNowMs, wallClockMs } from "@levelup/config";
 /**
  * The student-side decline gates on the class-detail screen (PAD-170 C5,
  * `attendance.confirm` rules 10–16).
@@ -24,6 +25,14 @@ export interface DeclineGateInput {
   isCoach: boolean;
   /** The class itself is cancelled; there is nothing left to decline. */
   isCanceled: boolean;
+  /**
+   * PAD-288 / PAD-282 (`attendance.confirm` rule 20): the student holds a
+   * place on this occurrence — they appear in `participants`, which for a
+   * student viewer only ever lists themselves. A presence row is NOT required:
+   * a class the app has not opened yet has none, and the server materialises
+   * it when the student cancels.
+   */
+  isParticipant: boolean;
   /** The student's own presence, or undefined when they have none. */
   ownPresence: OwnPresenceLike | null | undefined;
   /** The server's answer to "is the proactive window still open". */
@@ -63,43 +72,37 @@ export function hasClassStarted(
   now: number = Date.now()
 ): boolean {
   if (!date) return false;
-  const startAt = new Date(`${date}T${startTime || "00:00"}`);
-  const ms = startAt.getTime();
-  return !Number.isNaN(ms) && ms <= now;
+  // B-060: built from its parts. Hermes may return Invalid Date for an
+  // offset-less "YYYY-MM-DDTHH:MM" string, which read as "not started".
+  // Club digits on both sides (PAD-295): `now` is a real instant.
+  const startMs = wallClockMs(date, startTime || "00:00");
+  return !Number.isNaN(startMs) && startMs <= lisbonNowMs(new Date(now));
 }
 
-/**
- * Whether to offer the proactive decline — the affordance that frees the spot
- * early enough for the invitation engine to refill it.
- *
- * Once the window closes this goes false and `canCancelAttendance` below is the
- * remaining way to decline (a normal or late cancellation).
+/*
+ * PAD-313 rule 25: `canDeclineProactively` lived here and is gone. It gated a
+ * second button that called the same endpoint with the same payload as the
+ * cancel action, so the two were one action wearing two labels — the founder's
+ * first complaint. The server still computes and still classifies the decline;
+ * nothing on a client renders off it, and its `proactive` reply now only picks
+ * the confirmation copy and the toast.
  */
-export function canDeclineProactively(
+
+/**
+ * Whether to offer the plain cancel-attendance action. Unlike the proactive
+ * decline this is NOT gated on the window, so a student can still cancel late.
+ * It is gated on the class not having started (`attendance.confirm` rules 4
+ * and 9) and on being a participant — not on a presence row existing (rule 20).
+ */
+export function canCancelAttendance(
   input: DeclineGateInput,
   now: number = Date.now()
 ): boolean {
   return (
     !input.isCoach &&
     !input.isCanceled &&
-    input.ownPresence != null &&
-    !hasDeclined(input.ownPresence) &&
-    input.canDeclineProactively === true &&
+    input.isParticipant &&
+    input.ownPresence?.status !== "absent" &&
     !hasClassStarted(input.date, input.startTime, now)
-  );
-}
-
-/**
- * Whether to offer the plain cancel-attendance action. Unlike the proactive
- * decline this is NOT gated on the window or on the class having started — it
- * is the existing behaviour and stays exactly as it was, so a student can still
- * cancel late.
- */
-export function canCancelAttendance(input: DeclineGateInput): boolean {
-  return (
-    !input.isCoach &&
-    !input.isCanceled &&
-    input.ownPresence != null &&
-    input.ownPresence.status !== "absent"
   );
 }

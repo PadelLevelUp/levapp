@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, ForeignKey, DateTime, Enum, Text, String, Date
+from sqlalchemy import JSON, Boolean, Column, Integer, ForeignKey, DateTime, Enum, Text, String, Date, Index
 from sqlalchemy.orm import relationship
 
 
@@ -7,9 +7,21 @@ from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
 
+def _load_level(level_id):
+    from padel_app.models.coach_levels import CoachLevel
+
+    return CoachLevel.query.get(level_id)
+
+
 class LessonInstance(db.Model, model.Model):
     __tablename__ = "lesson_instances"
-    __table_args__ = {"extend_existing": True}
+    # PAD-263: the occurrence lookup and the calendar range. Not unique yet:
+    # PAD-85 duplicates may remain on prod (ledger B-046).
+    __table_args__ = (
+        Index("ix_lesson_instances_lesson_id_occurrence_date", "lesson_id", "original_lesson_occurence_date"),
+        Index("ix_lesson_instances_start_datetime", "start_datetime"),
+        {"extend_existing": True},
+    )
 
     page_title = "Lesson Instances"
     model_name = "LessonInstance"
@@ -26,10 +38,15 @@ class LessonInstance(db.Model, model.Model):
     end_datetime = Column(DateTime, nullable=False)
     overwrite_title = Column(String(255), nullable=True)
     
-    level_id = Column(Integer, ForeignKey("coach_levels.id"))
+    level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
 
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
+    # PAD-129 (eligibility.cascade): the single-class tier. Same tri-state as
+    # Lesson.eligibility_rules; wins over the lesson and coach tiers when set.
+    eligibility_rules = Column(JSON, nullable=True)
+    # PAD-130: single-class tier of the "advertise empty spots" toggle.
+    open_spots_visible = Column(Boolean, nullable=True)
 
     status = Column(
         Enum(
@@ -51,6 +68,7 @@ class LessonInstance(db.Model, model.Model):
         "Presence",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     # Many-to-many: LessonInstance <-> Player
@@ -58,21 +76,49 @@ class LessonInstance(db.Model, model.Model):
         "Association_PlayerLessonInstance",
         back_populates="lesson_instance",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
     coaches_relations = relationship(
         "Association_CoachLessonInstance", 
         back_populates="lesson_instance", 
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     
+    @property
+    def effective_level_id(self):
+        """Level of this occurrence (PAD-275, classes.edit rule 4): its own
+        `level_id` when set, else the lesson's default. Same rule as
+        `level_service.effective_level_id`, which readers outside the model use."""
+        if self.level_id:
+            return self.level_id
+        lesson = self.lesson
+        return lesson.default_level_id if lesson is not None else None
+
+    @property
+    def effective_level(self):
+        """The `CoachLevel` behind `effective_level_id`, or None."""
+        if self.level_id and self.level is not None:
+            return self.level
+        lesson = self.lesson
+        if lesson is not None and lesson.default_level_id:
+            return getattr(lesson, "default_level", None) or _load_level(lesson.default_level_id)
+        return None
+
     @property
     def title(self):
         return self.overwrite_title or self.lesson.title
 
     @property
     def players(self):
-        return [rel.player for rel in self.players_relations]
+        # PAD-259: the presence row is the enrolment (classes.instance-enrollment rule 1).
+        return [p.player for p in self.presences]
+
+    @property
+    def enrolled_player_ids(self) -> set:
+        """Ids of the players who hold a spot on this occurrence (PAD-259)."""
+        return {p.player_id for p in self.presences}
 
     @property
     def effective_filled_spots(self) -> int:
@@ -87,7 +133,9 @@ class LessonInstance(db.Model, model.Model):
         class-detail "capacity" field, and the invitation engine's capacity
         checks — none of those may recompute this independently.
         """
-        enrolled = len(self.players_relations)
+        # PAD-259: one table. A presence row is an enrolment; an absent one gave
+        # its spot up (classes.instance-enrollment rule 5).
+        enrolled = len(self.presences)
         declined = sum(1 for p in self.presences if p.status == "absent")
         return max(0, enrolled - declined)
 

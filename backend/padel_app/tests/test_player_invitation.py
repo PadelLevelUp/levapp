@@ -75,7 +75,7 @@ def test_create_incomplete_player_creates_invitation_and_inactive_user(client, a
     from padel_app.models import PlayerInvitation, Association_CoachPlayer
 
     with app.app_context():
-        invitation = PlayerInvitation.query.filter_by(token=body["token"]).one()
+        invitation = PlayerInvitation.query.filter_by(token_hash=__import__("padel_app.utils.token_hash", fromlist=["hash_token"]).hash_token(body["token"])).one()
         assert invitation.status == "pending"
         assert invitation.invited_by_coach_id == coach_id
 
@@ -160,7 +160,7 @@ def test_accept_sets_credentials_and_activates_user(client, app):
         assert user.status == "active"
         assert user.password != "Secret123!"  # hashed
 
-        invitation = PlayerInvitation.query.filter_by(token=token).one()
+        invitation = PlayerInvitation.query.filter_by(token_hash=__import__("padel_app.utils.token_hash", fromlist=["hash_token"]).hash_token(token)).one()
         assert invitation.status == "accepted"
 
 
@@ -183,7 +183,7 @@ def test_accept_with_duplicate_username_409(client, app):
     from padel_app.models import PlayerInvitation
 
     with app.app_context():
-        invitation = PlayerInvitation.query.filter_by(token=token).one()
+        invitation = PlayerInvitation.query.filter_by(token_hash=__import__("padel_app.utils.token_hash", fromlist=["hash_token"]).hash_token(token)).one()
         assert invitation.status == "pending"
 
 
@@ -238,3 +238,24 @@ def test_incomplete_player_rejects_other_coachs_id(client, app):
         headers=_auth_header(app, attacker_user_id),
     )
     assert resp.status_code == 403
+
+
+def test_player_invitation_token_is_stored_only_as_a_hash(client, app):
+    """players.invite-completion rule 2 (PAD-269)."""
+    import hashlib
+
+    user_id, coach_id = make_coach(app)
+    create = client.post(
+        "/api/app/incomplete_player",
+        json={"coachId": coach_id, "name": "Hashed Player"},
+        headers=_auth_header(app, user_id),
+    )
+    assert create.status_code == 201
+    token = create.get_json()["token"]
+    from padel_app.models import PlayerInvitation
+
+    with app.app_context():
+        row = PlayerInvitation.query.one()
+        assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
+        assert "token" not in {c.name for c in PlayerInvitation.__table__.columns}
+    assert client.get(f"/api/app/player-invitations/{token}").status_code == 200

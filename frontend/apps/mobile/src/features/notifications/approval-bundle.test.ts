@@ -86,7 +86,7 @@ describe("queueBadgeLabel", () => {
 });
 
 describe("approvalCardState", () => {
-  const now = new Date("2026-09-06T10:00:00");
+  const now = new Date("2026-09-06T10:00:00+01:00"); // an instant: 10:00 on the club's clock
 
   it("shows the buttons on a fresh, unanswered bundle", () => {
     expect(approvalCardState(bundle(), { now })).toEqual({
@@ -190,5 +190,29 @@ describe("approvalRespondOutcome", () => {
       toastKey: null,
     });
     expect(approvalRespondOutcome(undefined).allStale).toBe(false);
+  });
+});
+
+import { afterEach, beforeEach, vi } from "vitest";
+
+/**
+ * PAD-295 review (G-2): `windowOpenAt` is a naive club wall-clock string, so
+ * the default clock must be the club's — the iOS twin of web's card.
+ */
+describe("approvalCardState defaults to the club's clock (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2027, 6, 15, 9, 0))); // 10:00 in Lisbon
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a window opening at 10:30 Lisbon is still ahead on any device", () => {
+    expect(approvalCardState(bundle({ windowOpenAt: "2027-07-15T10:30:00" })).windowOpenInFuture).toBe(true);
+  });
+
+  it("a window that opened at 09:30 Lisbon is open on any device", () => {
+    expect(approvalCardState(bundle({ windowOpenAt: "2027-07-15T09:30:00" })).windowOpenInFuture).toBe(false);
   });
 });

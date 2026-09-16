@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -8,7 +8,11 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class CoachLevel(db.Model, model.Model):
     __tablename__ = "coach_levels"
-    __table_args__ = {"extend_existing": True}
+    # PAD-273 (audit M14): uniqueness the domain implies, enforced by the database.
+    __table_args__ = (
+        Index("uq_coach_levels_coach_code", "coach_id", "code", unique=True),
+        {"extend_existing": True},
+    )
 
     page_title = "Coach Levels"
     model_name = "CoachLevel"
@@ -23,13 +27,19 @@ class CoachLevel(db.Model, model.Model):
     label = Column(String(100), nullable=False)  # e.g. "A1", "Beginner", "Pro"
     code = Column(String(10), nullable=False)
     
+    # levels.coach-levels rule 11 (PAD-255, B-035): NO delete cascade here.
+    # The one that used to be declared deleted every player at the level —
+    # with their notes and evaluations — whenever the level was removed.
+    # Deleting a level unassigns it (`delete_coach_level_service`; the FK is
+    # ON DELETE SET NULL as well).
     coach_player_relations = relationship(
-        "Association_CoachPlayer", 
+        "Association_CoachPlayer",
         back_populates="level",
-        cascade="all, delete-orphan"
+        passive_deletes=True,
     )
     
-    display_order = Column(Integer, default=0)
+    # PAD-273 (audit M12): 0 means "unset" to the ladder (level_ladder.is_unordered).
+    display_order = Column(Integer, default=0, nullable=False, server_default="0")
     
     @property
     def name(self):

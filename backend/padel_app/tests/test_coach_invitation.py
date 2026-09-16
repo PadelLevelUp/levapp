@@ -64,6 +64,19 @@ def _auth_header(app, user_id):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _inv(token):
+    """The invitation a token maps to: only its SHA-256 hash is stored (PAD-269)."""
+    from padel_app.models import CoachInvitation
+    from padel_app.utils.token_hash import hash_token
+
+    return CoachInvitation.query.filter_by(token_hash=hash_token(token))
+
+
+def _inv_id(app, token):
+    with app.app_context():
+        return _inv(token).one().id
+
+
 def _make_invitation(app, club_id, coach_id, **overrides):
     """Create a CoachInvitation directly. Returns its token."""
     import secrets as pysecrets
@@ -106,7 +119,7 @@ def test_create_invitation_as_member(client, app):
     from padel_app.models import CoachInvitation
 
     with app.app_context():
-        invitation = CoachInvitation.query.filter_by(token=body["token"]).one()
+        invitation = _inv(body["token"]).one()
         assert invitation.status == "pending"
         assert invitation.club_id == club_id
         assert invitation.invited_by_coach_id == coach_id
@@ -170,7 +183,7 @@ def test_resolve_expired_invitation_410(client, app):
     from padel_app.models import CoachInvitation
 
     with app.app_context():
-        invitation = CoachInvitation.query.filter_by(token=token).one()
+        invitation = _inv(token).one()
         assert invitation.status == "expired"
 
 
@@ -214,7 +227,7 @@ def test_accept_as_new_user_creates_active_coach(client, app):
         ).one()
         assert assoc is not None
 
-        invitation = CoachInvitation.query.filter_by(token=token).one()
+        invitation = _inv(token).one()
         assert invitation.status == "accepted"
 
 
@@ -259,7 +272,7 @@ def test_accept_with_duplicate_username_409(client, app):
     from padel_app.models import CoachInvitation
 
     with app.app_context():
-        invitation = CoachInvitation.query.filter_by(token=token).one()
+        invitation = _inv(token).one()
         assert invitation.status == "pending"
 
 
@@ -302,7 +315,7 @@ def test_accept_as_existing_coach_creates_association_only(client, app):
         ).one()
         assert assoc is not None
 
-        invitation = CoachInvitation.query.filter_by(token=token).one()
+        invitation = _inv(token).one()
         assert invitation.status == "accepted"
 
         # No new user was created
@@ -347,7 +360,7 @@ def test_revoke_as_member(client, app):
     from padel_app.models import CoachInvitation
 
     with app.app_context():
-        invitation = CoachInvitation.query.filter_by(token=token).one()
+        invitation = _inv(token).one()
         assert invitation.status == "revoked"
 
 
@@ -401,7 +414,9 @@ def test_list_pending_invitations(client, app):
     assert resp.status_code == 200
     body = resp.get_json()
     assert len(body) == 1
-    assert body[0]["token"] == pending_token
+    # clubs.coach-invitation rule 7 (PAD-269): ids, never tokens
+    assert "token" not in body[0]
+    assert body[0]["id"] == _inv_id(app, pending_token)
     assert body[0]["email"] == "a@b.com"
     assert body[0]["expiresAt"]
     assert body[0]["createdAt"]
@@ -437,3 +452,82 @@ def test_coach_detail_without_club(client, app):
     resp = client.get("/api/app/coach", headers=_auth_header(app, user_id))
     assert resp.status_code == 200
     assert resp.get_json()["club"] is None
+
+
+# -------------------------------------------------------------------
+# PAD-269: hashed tokens, revoke from the list by id
+# -------------------------------------------------------------------
+
+def test_invitation_token_is_stored_only_as_a_hash(client, app):
+    import hashlib
+
+    user_id, _, club_id = _make_coach_with_club(app)
+    resp = client.post(
+        f"/api/app/club/{club_id}/coach-invitations",
+        json={},
+        headers=_auth_header(app, user_id),
+    )
+    token = resp.get_json()["token"]
+    from padel_app.models import CoachInvitation
+
+    with app.app_context():
+        row = CoachInvitation.query.one()
+        assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
+        assert "token" not in {c.name for c in CoachInvitation.__table__.columns}
+    assert client.get(f"/api/app/coach-invitations/{token}").status_code == 200
+
+
+def test_revoke_by_id_as_member(client, app):
+    user_id, coach_id, club_id = _make_coach_with_club(app)
+    token = _make_invitation(app, club_id, coach_id)
+    inv_id = _inv_id(app, token)
+
+    resp = client.post(
+        f"/api/app/club/{club_id}/coach-invitations/{inv_id}/revoke",
+        headers=_auth_header(app, user_id),
+    )
+    assert resp.status_code == 200
+    with app.app_context():
+        assert _inv(token).one().status == "revoked"
+    assert client.get(f"/api/app/coach-invitations/{token}").status_code == 410
+
+
+def test_revoke_by_id_as_non_member_403(client, app):
+    _, coach_id, club_id = _make_coach_with_club(app)
+    outsider_user_id, _ = _make_coach_without_club(app)
+    inv_id = _inv_id(app, _make_invitation(app, club_id, coach_id))
+
+    resp = client.post(
+        f"/api/app/club/{club_id}/coach-invitations/{inv_id}/revoke",
+        headers=_auth_header(app, outsider_user_id),
+    )
+    assert resp.status_code == 403
+
+
+def test_revoke_by_id_outside_the_club_404(client, app):
+    user_id, coach_id, club_id = _make_coach_with_club(app)
+    from padel_app.models import Club
+
+    with app.app_context():
+        other = Club(name="Other Club")
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    inv_id = _inv_id(app, _make_invitation(app, other_id, coach_id))
+
+    resp = client.post(
+        f"/api/app/club/{club_id}/coach-invitations/{inv_id}/revoke",
+        headers=_auth_header(app, user_id),
+    )
+    assert resp.status_code == 404
+
+
+def test_revoke_by_id_accepted_410(client, app):
+    user_id, coach_id, club_id = _make_coach_with_club(app)
+    inv_id = _inv_id(app, _make_invitation(app, club_id, coach_id, status="accepted"))
+
+    resp = client.post(
+        f"/api/app/club/{club_id}/coach-invitations/{inv_id}/revoke",
+        headers=_auth_header(app, user_id),
+    )
+    assert resp.status_code == 410

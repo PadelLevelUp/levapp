@@ -1,4 +1,4 @@
-"""B-015: make every stored image private
+"""B-047: make every stored image private
 
 The uploads bucket used to carry `roles/storage.objectViewer` for `allUsers`,
 so `Image.url()` returned a permanent unauthenticated

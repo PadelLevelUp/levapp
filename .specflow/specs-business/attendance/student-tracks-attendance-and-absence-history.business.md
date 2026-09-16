@@ -1,6 +1,6 @@
 ---
 id: attendance.student-tracks-attendance-and-absence-history
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/attendance/history.spec.md
   - ../../specs/attendance/absences.spec.md

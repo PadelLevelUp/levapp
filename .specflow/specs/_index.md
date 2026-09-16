@@ -9,9 +9,10 @@ governing leaf spec and its dependencies before touching code.
 ## Domains
 
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
-- `auth/` — Authentication & User Management (11 leaves; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07)
-- `calendar/` — Calendar View & Blocks (7 leaves)
-- `classes/` — Lessons & Instances (10 leaves)
+- `auth/` — Authentication & User Management (14 leaves; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
+- `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
+- `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
+- `classes/` — Lessons & Instances (11 leaves; `classes.class-requests` added 2026-09-10, PAD-104)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `eligibility/` — Who May Join a Class (4 leaves)
@@ -19,10 +20,11 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
-- `notifications/` — Notification Engine (13 leaves)
+- `mobile/` — Mobile Platform Runtime (1 leaf; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B)
+- `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (4 leaves)
-- `training/` — Exercise Library & Training Planning (5 leaves)
+- `settings/` — User Preferences & Internationalization (5 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267;)
+- `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest
 - **Backend**: Flask 2.3 + SQLAlchemy 1.4 + PostgreSQL
@@ -60,6 +62,9 @@ Registration & connections (decision 2026-09-06): `auth.coach-approval` → `aut
 `messaging.conversations`, `attendance.presence`; `messaging.direct-by-username` →
 `messaging.block-and-report`. `players.add-existing` is deprecated and out of the build order.
 
+`mobile.android-runtime` depends on `calendar.mobile-views`, `messaging.push-notifications` and
+`training.tactical-board` (the screens whose Android behaviour it pins); nothing depends on it.
+
 `eligibility` is consumed by three domains — `notifications` (rounds are capped at the bar),
 `calendar` (a student sees open spots they qualify for) and `classes` (join requests). It stores its
 rules on `NotificationConfig` and its overrides on `Lesson`/`LessonInstance`.
@@ -81,8 +86,8 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | auth | 5 | 9 | implemented (auth.email-verification draft) |
 | clubs | 3 | 4 | implemented |
 | players | 3 | 11 (+1 deprecated) | implemented |
-| classes | 3 | 10 | implemented (classes.join-requests draft) |
-| calendar | 2 | 7 | implemented (calendar.student-blockers partial) |
+| classes | 3 | 11 | implemented (classes.join-requests draft; classes.class-requests implemented) |
+| calendar | 2 | 8 | implemented (calendar.student-blockers partial; calendar.mobile-views draft) |
 | eligibility | 1 | 4 | draft |
 | attendance | 2 | 5 | partial |
 | levels | 2 | 4 | implemented |

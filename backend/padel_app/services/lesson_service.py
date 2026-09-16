@@ -2,8 +2,10 @@ from datetime import datetime, timedelta, time
 import json
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from padel_app.sql_db import db
+from padel_app.tools.unit_of_work import commit_or_flush, unit_of_work
 from padel_app.models import (
     Lesson,
     LessonInstance,
@@ -20,6 +22,221 @@ from padel_app.helpers.calendar_helpers import (
     load_lesson_instances_for_coach,
     build_lesson_events,
 )
+
+
+# ---------------------------------------------------------------------------
+# Enrolment (PAD-259, classes.instance-enrollment rules 1-4, 9)
+# ---------------------------------------------------------------------------
+
+def _get_or_insert(model, build, **key):
+    """Check-then-insert made race-safe by the unique pair itself (rule 4): the
+    insert runs in a SAVEPOINT, and a concurrent winner's IntegrityError rolls
+    only that savepoint back and re-reads the row (the B-046 step-4 shape).
+    Works the same on SQLite (tests) and Postgres."""
+    row = model.query.filter_by(**key).first()
+    if row is not None:
+        return row
+    savepoint = db.session.begin_nested()
+    try:
+        row = build()
+        db.session.add(row)
+        db.session.flush()
+        savepoint.commit()
+        return row
+    except IntegrityError:
+        savepoint.rollback()
+        return model.query.filter_by(**key).one()
+
+
+def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
+    """Put a player on one occurrence. THE single writer (rule 4).
+
+    The `Presence` row is the enrolment (rule 1). Idempotent: an existing row is
+    returned untouched — its response and attendance are never reset. Phase 1
+    also writes the shadow `player_in_lesson_instance` row, which nothing reads
+    and phase 2 drops.
+
+    Transactions (PAD-272): flushes inside a unit of work and commits outside
+    one, so a caller that enrols a whole roster under ``with unit_of_work():``
+    gets one commit, and the PAD-261 accept path keeps its row lock until its
+    own commit.
+    """
+    from padel_app.models.presences import ENROLMENT_SOURCES
+
+    if source not in ENROLMENT_SOURCES:
+        raise ValueError(f"unknown enrolment_source {source!r}")
+    player_id = int(player_id)
+    key = dict(player_id=player_id, lesson_instance_id=instance.id)
+
+    created = Presence.query.filter_by(**key).first() is None
+    presence = _get_or_insert(
+        Presence,
+        lambda: Presence(
+            invited=invited, confirmed=confirmed, validated=validated,
+            enrolment_source=source, **key,
+        ),
+        **key,
+    )
+    _get_or_insert(
+        Association_PlayerLessonInstance,
+        lambda: Association_PlayerLessonInstance(**key),
+        **key,
+    )
+    db.session.expire(instance, ["players_relations", "presences"])
+
+    # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
+    # a no-op. The row already existed, so `created` is False, and before this
+    # the idempotent branch handed it back untouched: the absence stayed, the
+    # class went on not counting them, and their vacancy went on being offered —
+    # the coach's re-add silently did nothing. Only the coach's own validated
+    # record is left alone; that is theirs to change on the attendance sheet.
+    returning = (
+        not created
+        and presence.status == "absent"
+        and not presence.validated
+    )
+    if returning:
+        # PAD-318: the earlier reminders asked about a seat they no longer held,
+        # so they stop counting toward the cap and their bubbles are retired —
+        # otherwise the next pass skips this student and nobody ever asks them
+        # about the seat the coach just gave back.
+        from padel_app.serializers.message import serialize_message
+        from padel_app.services import reminder_attempt_service as attempts
+        from padel_app.services.conversation_access import message_recipient_ids
+        from padel_app.services.notification_service import publish
+
+        for message in attempts.void_for_return(instance.id, player_id):
+            publish(
+                {"type": "message_edited", "payload": serialize_message(message, None)},
+                message_recipient_ids(message),
+            )
+        presence.status = None
+        presence.justification = None
+        presence.late_cancellation = False
+        # Their previous answer is void: it recorded a "no" to a seat they no
+        # longer hold, and nobody has asked them about this one. So the caller's
+        # value stands — a coach's re-add leaves them un-answered (`planned`),
+        # an engine fill arrives already confirmed. Claiming they said yes would
+        # be the same over-reach as `confirmed` meaning "coming".
+        presence.confirmed = confirmed
+
+    if created or returning:
+        # PAD-331: a late arrival must actually be ASKED. The reminder chain is
+        # spent once a pass reports nothing more due, so nobody who joins after
+        # it is asked by anything — clearing the cap (PAD-318) removes the
+        # blocker but arms no pass. Best-effort: a scheduler failure must never
+        # fail an enrolment.
+        try:
+            from padel_app.scheduler import arm_ask_for_student
+
+            arm_ask_for_student(instance, player_id)
+        except Exception:  # noqa: BLE001
+            current_app.logger.exception(
+                "enrol: could not arm a reminder for player %s on instance %s",
+                player_id, instance.id,
+            )
+        # PAD-271 (notifications.invitations rule 13): a spot was taken, so a
+        # vacancy the capacity no longer supports closes in the same unit of
+        # work. PAD-316: a returning player also reclaims their OWN vacancy,
+        # whose premise — that they left — is void, and which capacity alone
+        # would not close while the class has spare room.
+        from padel_app.services.notification_service import (
+            _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+        )
+
+        if returning:
+            own = _open_vacancy_for(instance.id, player_id)
+            if own is not None:
+                _close_vacancy(own, player_id)
+        reconcile_vacancies(instance, filled_by_player_id=player_id)
+
+        # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
+        # or putting back someone who had cancelled — tells the student. Only
+        # `coach`: `roster` is materialisation, which would send one message per
+        # occurrence for a class they were already told about; `fill` is the
+        # engine, which sends its own (invitation, waiting list, join request);
+        # `walk_in` and `import` record a class that already happened.
+        if source == "coach":
+            from padel_app.services.notification_service import (
+                notify_student_added_to_class,
+            )
+
+            notify_student_added_to_class(
+                primary_coach(instance), player_id, instance=instance,
+            )
+    commit_or_flush()
+    db.session.expire(instance, ["players_relations", "presences"])
+    return presence
+
+
+def unenrol(player_id, instance) -> bool:
+    """Take a player off one occurrence: the presence row goes, the shadow row
+    goes, and any reminder still waiting for their answer is retired so the
+    bubble shows no live Yes/No (rule 7). Returns whether a row existed."""
+    from padel_app.services import reminder_attempt_service as attempts
+
+    player_id = int(player_id)
+    existed = False
+    for attempt in attempts.pending_attempts(instance.id, player_id):
+        attempts.mark_superseded(attempt)
+    presence = Presence.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if presence is not None:
+        db.session.delete(presence)
+        existed = True
+    shadow = Association_PlayerLessonInstance.query.filter_by(
+        player_id=player_id, lesson_instance_id=instance.id
+    ).first()
+    if shadow is not None:
+        db.session.delete(shadow)
+    commit_or_flush()
+    db.session.expire(instance, ["players_relations", "presences"])
+    return existed
+
+
+def reconcile_enrolment(instance_id=None) -> list:
+    """Junction pairs (player_id, lesson_instance_id) that have NO presence
+    (rule 9). One-directional on purpose: a presence with no shadow row is what
+    option A is for and never needs one; a shadow row with no presence would be
+    an enrolment the code cannot see. Empty is the phase-2 gate."""
+    q = (
+        db.session.query(
+            Association_PlayerLessonInstance.player_id,
+            Association_PlayerLessonInstance.lesson_instance_id,
+        )
+        .outerjoin(
+            Presence,
+            (Presence.player_id == Association_PlayerLessonInstance.player_id)
+            & (Presence.lesson_instance_id == Association_PlayerLessonInstance.lesson_instance_id),
+        )
+        .filter(Presence.id.is_(None))
+    )
+    if instance_id is not None:
+        q = q.filter(Association_PlayerLessonInstance.lesson_instance_id == instance_id)
+    return sorted(tuple(r) for r in q.all())
+
+
+def parse_event_target(model, original_id, date):
+    """The object a calendar event's (model, originalId, date) names:
+    ``("lessoninstance", instance, None)`` or ``("lesson", lesson, occ_date)``.
+    Shared by the join-request and cancel paths (they diverge after this)."""
+    from dateutil import parser
+    from flask import abort
+
+    kind = (model or "").lower()
+    if kind == "lessoninstance":
+        return kind, LessonInstance.query.get_or_404(original_id), None
+    if kind != "lesson":
+        abort(400, "model must be Lesson or LessonInstance")
+    lesson = Lesson.query.get_or_404(original_id)
+    if not date:
+        abort(400, "date is required for a Lesson")
+    try:
+        occ_date = parser.isoparse(str(date)).date()
+    except (TypeError, ValueError):
+        abort(400, "date must be an ISO date")
+    return kind, lesson, occ_date
 
 
 # ---------------------------------------------------------------------------
@@ -114,41 +331,54 @@ def get_or_materialize_instance(lesson: Lesson, date):
 
     day_start = datetime.combine(date, time.min)
     day_end = day_start + timedelta(days=1)
-    instance = (
-        LessonInstance.query
-        .filter(LessonInstance.lesson_id == lesson.id)
-        .filter(
-            or_(
-                LessonInstance.original_lesson_occurence_date == date,
-                and_(
-                    LessonInstance.original_lesson_occurence_date.is_(None),
-                    LessonInstance.start_datetime >= day_start,
-                    LessonInstance.start_datetime < day_end,
-                ),
-            )
-        )
-        .order_by(LessonInstance.id.asc())
-        .first()
-    )
 
+    def _lookup():
+        return (
+            LessonInstance.query
+            .filter(LessonInstance.lesson_id == lesson.id)
+            .filter(
+                or_(
+                    LessonInstance.original_lesson_occurence_date == date,
+                    and_(
+                        LessonInstance.original_lesson_occurence_date.is_(None),
+                        LessonInstance.start_datetime >= day_start,
+                        LessonInstance.start_datetime < day_end,
+                    ),
+                )
+            )
+            .order_by(LessonInstance.id.asc())
+            .first()
+        )
+
+    instance = _lookup()
     if instance:
         return instance
-    
+
+    # PAD-261 (classes.instances rule 8): materialisation is serialised per
+    # series. A found occurrence takes no lock. A missing one locks the parent
+    # lesson row and is looked up again: a concurrent caller that got here first
+    # has committed its instance by the time the lock is ours.
+    from padel_app.models.lessons import Lesson as _Lesson
+
+    db.session.query(_Lesson.id).filter(_Lesson.id == lesson.id).with_for_update().one()
+    instance = _lookup()
+    if instance:
+        db.session.commit()  # release the lock
+        return instance
+
     instance = create_lesson_instance_helper({'date':date, 'original_lesson_occurence_date': date}, lesson)
 
     instance.add_to_session()
     instance.flush()
 
-    for rel in lesson.players_relations:
-        Presence(
-            lesson_instance_id=instance.id,
-            player_id=rel.player_id,
-            invited=True,
-            confirmed=False,
-            validated=False,
-        ).add_to_session()
-
-    instance.save()
+    # PAD-259 (classes.instance-enrollment rule 4): the roster is copied onto
+    # the occurrence through the single writer; create_lesson_instance_helper
+    # already enrolled every roster player, so this is idempotent. One unit of
+    # work (PAD-272): the roster lands in one commit, not N+1.
+    with unit_of_work():
+        for rel in lesson.players_relations:
+            enrol(rel.player_id, instance, "roster")
+        instance.save()
 
     # Schedule reminder + invitation-start jobs for this new instance
     from padel_app.scheduler import _maybe_schedule_instance
@@ -203,6 +433,93 @@ def get_or_materialize_instance(lesson: Lesson, date):
     return instance
 
 
+# ---------------------------------------------------------------------------
+# Coaches of an occurrence (PAD-275, classes.coach-assignment rule 4)
+# ---------------------------------------------------------------------------
+
+def coaches_for(instance):
+    """Who coaches this occurrence (classes.coach-assignment rule 4): the
+    instance's own coach rows when it has any, else the lesson's — each in
+    assignment order (junction id ascending), so `primary_coach` is the coach
+    assigned first and every engine read agrees on it. The junction stays
+    (decision 2026-09-11); this is the one reader, so an occurrence with no
+    junction row is never coach-less. A plain read: it never creates config."""
+    from padel_app.models.coaches import Coach
+
+    instance_id = getattr(instance, "id", None)
+    if isinstance(instance_id, int):
+        own = (
+            db.session.query(Coach)
+            .join(Association_CoachLessonInstance, Association_CoachLessonInstance.coach_id == Coach.id)
+            .filter(Association_CoachLessonInstance.lesson_instance_id == instance_id)
+            .order_by(Association_CoachLessonInstance.id.asc())
+            .all()
+        )
+        if own:
+            return own
+        lesson_id = getattr(instance, "lesson_id", None)
+        if isinstance(lesson_id, int):
+            return (
+                db.session.query(Coach)
+                .join(Association_CoachLesson, Association_CoachLesson.coach_id == Coach.id)
+                .filter(Association_CoachLesson.lesson_id == lesson_id)
+                .order_by(Association_CoachLesson.id.asc())
+                .all()
+            )
+    # A stub without a real row (unit tests with MagicMock instances): fall back
+    # to the relationships, in their id order.
+    try:
+        rels = sorted(
+            (r for r in list(getattr(instance, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+        own = [r.coach for r in rels]
+    except TypeError:
+        own = []
+    if own:
+        return own
+    lesson = getattr(instance, "lesson", None)
+    if lesson is None:
+        return []
+    try:
+        rels = sorted(
+            (r for r in list(getattr(lesson, "coaches_relations", None) or []) if r.coach is not None),
+            key=lambda r: getattr(r, "id", 0) or 0,
+        )
+    except TypeError:
+        return []
+    return [r.coach for r in rels]
+
+
+def primary_coach(instance):
+    """The coach the engine and the calendar treat as "the coach" of an
+    occurrence — the first of ``coaches_for``; None when nobody coaches it."""
+    coaches = coaches_for(instance)
+    return coaches[0] if coaches else None
+
+
+def coach_instance_ids(coach_id):
+    """Ids of every occurrence ``coach_id`` coaches: through its own junction
+    row, or — when the occurrence has none — through its lesson's."""
+    from sqlalchemy import and_, exists
+
+    own = {
+        row.lesson_instance_id
+        for row in Association_CoachLessonInstance.query.filter_by(coach_id=coach_id).all()
+    }
+    no_junction = ~exists().where(
+        Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id
+    )
+    inherited = (
+        db.session.query(LessonInstance.id)
+        .join(Lesson, Lesson.id == LessonInstance.lesson_id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(and_(Association_CoachLesson.coach_id == coach_id, no_junction))
+        .all()
+    )
+    return own | {row[0] for row in inherited}
+
+
 def create_lesson_instance_helper(data, parent_lesson=None):
     if not parent_lesson and not data.get('lesson_id'):
         raise ValueError('Need connection to parent lesson')
@@ -217,7 +534,20 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     instance_data['max_players'] = (
         instance_data.get('max_players') or parent_lesson.max_players
     )
-    instance_data['overwrite_title'] = instance_data.get('title')
+    # PAD-275 (classes.edit rule 4): overrides are nullable, NULL inherits.
+    # A title equal to the parent's is not an override.
+    _title = instance_data.get('title')
+    instance_data['overwrite_title'] = (
+        _title if _title and _title != parent_lesson.title else None
+    )
+    # Same for the level: an explicit level equal to the lesson's default is
+    # not an override (the form adapter drops None, so NULL inherits).
+    _lvl = instance_data.get('level') or instance_data.get('level_id')
+    _lvl = int(_lvl) if _lvl not in (None, '') else None
+    instance_data['level'] = (
+        _lvl if _lvl is not None and _lvl != parent_lesson.default_level_id else None
+    )
+    instance_data.pop('level_id', None)
 
     lesson_instance = LessonInstance()
     form = lesson_instance.get_create_form()
@@ -252,11 +582,12 @@ def create_lesson_instance_helper(data, parent_lesson=None):
         if pid not in remove_ids and not (pid in seen or seen.add(pid))
     ]
 
-    for pid in player_ids:
-        Association_PlayerLessonInstance(
-            player_id=pid,
-            lesson_instance_id=lesson_instance.id,
-        ).create()
+    # PAD-259: the presence row is the enrolment. Players copied from the
+    # series roster are `roster`; anyone else on the form is `coach`.
+    roster_ids = {r.player_id for r in parent_lesson.players_relations}
+    with unit_of_work():
+        for pid in player_ids:
+            enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
 
     for coach_id in instance_data.get('coach_ids', []):
         Association_CoachLessonInstance(
@@ -277,33 +608,37 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         )
 
     data = transform_to_datetime(lesson_instance, data)
-    data['overwrite_title'] = data.get('title')
+    # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
+    # override; the form adapter drops None, so the clear happens below.
+    _title = data.get('title')
+    _parent_title = lesson_instance.lesson.title if lesson_instance.lesson else None
+    _clears_title = bool(_title) and _title == _parent_title
+    data['overwrite_title'] = _title if _title and not _clears_title else None
 
     form = lesson_instance.get_edit_form()
     fake_request = JsonRequestAdapter(data, form)
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    if _clears_title:
+        lesson_instance.overwrite_title = None
+    # PAD-275 (classes.edit rule 4): a level equal to the lesson's default is
+    # not an override either.
+    _lvl = data.get('level') or data.get('level_id')
+    if _lvl not in (None, '') and lesson_instance.lesson is not None \
+            and int(_lvl) == lesson_instance.lesson.default_level_id:
+        # The form set the relationship; clear it too or the flush re-syncs level_id.
+        lesson_instance.level = None
+        lesson_instance.level_id = None
     lesson_instance.save()
 
+    # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
+    # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
-        Association_PlayerLessonInstance(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).create()
+        enrol(player_id, lesson_instance, "coach")
 
     for player_id in data.get("remove_player_ids", []):
-        rel = Association_PlayerLessonInstance.query.filter_by(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).first()
-        rel.delete()
-        presence = Presence.query.filter_by(
-            player_id=player_id,
-            lesson_instance_id=lesson_instance.id,
-        ).first()
-        if presence:
-            presence.delete()
+        unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_schedule_instance
@@ -349,21 +684,10 @@ def add_presences(lesson_instance, payload):
             # that field the single source of truth, so it cannot be patched
             # per-surface). This mirrors what the vacancy-fill path already
             # does in `notification_service._add_player_to_instance`.
-            assoc_exists = Association_PlayerLessonInstance.query.filter_by(
-                player_id=player_id,
-                lesson_instance_id=lesson_instance_id,
-            ).first()
-            if not assoc_exists:
-                Association_PlayerLessonInstance(
-                    player_id=player_id,
-                    lesson_instance_id=lesson_instance_id,
-                ).create()
-
-            presence_obj = Presence(
-                player_id=player_id,
-                lesson_instance_id=lesson_instance_id,
-            )
-            form = presence_obj.get_create_form()
+            # PAD-259: the presence row IS the enrolment, so the walk-in is
+            # enrolled through the single writer and then marked (rule 4).
+            presence_obj = enrol(player_id, lesson_instance, "walk_in", invited=False)
+            form = presence_obj.get_edit_form()
 
         fake_request = JsonRequestAdapter(data, form)
         values = form.set_values(fake_request)
@@ -373,12 +697,26 @@ def add_presences(lesson_instance, payload):
         # Attendance was explicitly recorded by the coach.
         values["validated"] = True
 
+        was_absent = presence_obj.status == "absent"
         presence_obj.update_with_dict(values)
+        presence_obj.save()
 
-        if existing:
-            presence_obj.save()
-        else:
-            presence_obj.create()
+        # PAD-316: the coach reversing their own absent mark is a return too.
+        # Marking someone absent frees their spot and the engine opens a vacancy
+        # for it; marking them present again restored the count but left that
+        # vacancy standing, so the engine went on offering a seat the class no
+        # longer had. Capacity alone will not close it while the class has spare
+        # room — the vacancy names a player who is no longer absent, and that is
+        # what makes it stale, not the arithmetic.
+        if was_absent and presence_obj.status != "absent":
+            from padel_app.services.notification_service import (
+                _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+            )
+
+            own = _open_vacancy_for(lesson_instance.id, player_id)
+            if own is not None:
+                _close_vacancy(own, player_id)
+            reconcile_vacancies(lesson_instance, filled_by_player_id=player_id)
 
         created_presences.append(presence_obj)
 
@@ -389,7 +727,7 @@ def add_presences(lesson_instance, payload):
 # Lesson helpers
 # ---------------------------------------------------------------------------
 
-def create_lesson_helper(data):
+def create_lesson_helper(data, *, notify_students=True):
     lesson = Lesson()
     form = lesson.get_create_form()
 
@@ -406,11 +744,24 @@ def create_lesson_helper(data):
         ).create()
 
     if data.get("player_ids"):
+        # PAD-330: a coach putting students in a class tells them. Enrolment was
+        # silent on every coach path, so a class simply appeared on a student's
+        # calendar. The fork path (`duplicate_lesson_helper`) copies its roster
+        # directly and deliberately does not come through here — the students of
+        # a split series already know they are in it.
+        from padel_app.models import Coach
+        from padel_app.services.notification_service import (
+            notify_student_added_to_class,
+        )
+
+        coach = Coach.query.get(data["coach"]) if data.get("coach") else None
         for player_id in data.get("player_ids"):
             Association_PlayerLesson(
                 player_id=player_id,
                 lesson_id=lesson.id,
             ).create()
+            if notify_students:
+                notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     return lesson
 
@@ -438,6 +789,10 @@ def edit_lesson_helper(data, lesson=None):
     values = form.set_values(fake_request)
 
     lesson.update_with_dict(values)
+    # clubs.courts rule 6 (PAD-194): an explicit null clears the court — the
+    # form adapter drops None values, so it never reaches update_with_dict.
+    if "court" in data and data["court"] in (None, "", "null"):
+        lesson.court_id = None
     lesson.save()
 
     """ if "coach" in data:
@@ -451,11 +806,25 @@ def edit_lesson_helper(data, lesson=None):
                 lesson_id=lesson.id,
             ).create() """
 
-    for player_id in data.get("add_player_ids", []):
-        Association_PlayerLesson(
-            player_id=player_id,
-            lesson_id=lesson.id,
-        ).create()
+    if data.get("add_player_ids"):
+        # PAD-330: added to the series, so told once — not once per occurrence.
+        from padel_app.models import Coach
+        from padel_app.services.notification_service import (
+            notify_student_added_to_class,
+        )
+
+        coach_rels = list(getattr(lesson, "coaches_relations", []) or [])
+        coach = None
+        if coach_rels:
+            coach = getattr(coach_rels[0], "coach", None) or Coach.query.get(
+                coach_rels[0].coach_id
+            )
+        for player_id in data.get("add_player_ids", []):
+            Association_PlayerLesson(
+                player_id=player_id,
+                lesson_id=lesson.id,
+            ).create()
+            notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     for player_id in data.get("remove_player_ids", []):
         Association_PlayerLesson.query.filter_by(
@@ -467,21 +836,20 @@ def edit_lesson_helper(data, lesson=None):
 
 
 def duplicate_lesson_helper(old_lesson):
-    new_lesson = Lesson(
-        title=old_lesson.title,
-        type=old_lesson.type,
-        status=old_lesson.status,
-        color=old_lesson.color,
-        max_players=old_lesson.max_players,
-        default_level_id=old_lesson.default_level_id,
-        is_recurring=old_lesson.is_recurring,
-        recurrence_rule=old_lesson.recurrence_rule,
-        recurrence_end=old_lesson.recurrence_end,
-        recurs_until_season_end=old_lesson.recurs_until_season_end,
-        start_datetime=old_lesson.start_datetime,
-        end_datetime=old_lesson.end_datetime,
-        club_id=old_lesson.club_id,
-    )
+    """Copy a lesson row — every mapped column except the identity and the
+    timestamps (classes.recurrence rule 6, PAD-275). Built from the mapper so a
+    column added later cannot be forgotten (the hand list used to drop
+    `description` and `notifications_enabled`). The caller sets the recurrence
+    bounds it changes."""
+    from sqlalchemy import inspect as sa_inspect
+
+    skip = {"id", "created_at", "updated_at"}
+    columns = {
+        attr.key: getattr(old_lesson, attr.key)
+        for attr in sa_inspect(Lesson).column_attrs
+        if attr.key not in skip
+    }
+    new_lesson = Lesson(**columns)
 
     new_lesson.create()
 
@@ -503,14 +871,30 @@ def duplicate_lesson_helper(old_lesson):
 
 
 def delete_future_instances(lesson, cutoff):
-    instances = LessonInstance.query.filter(
+    """Delete a series' occurrences from ``cutoff`` on, in ONE statement.
+
+    PAD-274 (audit M15): this used to load every instance and delete it with a
+    commit each. The database already cascades every child of an occurrence
+    (presences, links, vacancies, invitations, waiting lists, reminder
+    attempts, join requests, training), so one bulk DELETE leaves exactly the
+    rows the per-instance loop left, atomically. Scheduler jobs are still
+    cancelled per occurrence, which is not database state.
+    """
+    from padel_app.scheduler import _maybe_cancel_instance
+
+    query = LessonInstance.query.filter(
         LessonInstance.lesson_id == lesson.id,
         LessonInstance.start_datetime >= cutoff,
-    ).all()
-    from padel_app.scheduler import _maybe_cancel_instance
-    for instance in instances:
-        _maybe_cancel_instance(instance.id)
-        instance.delete()
+    )
+    instance_ids = [row.id for row in query.with_entities(LessonInstance.id).all()]
+    for instance_id in instance_ids:
+        _maybe_cancel_instance(instance_id)
+    if instance_ids:
+        LessonInstance.query.filter(LessonInstance.id.in_(instance_ids)).delete(
+            synchronize_session=False
+        )
+        db.session.commit()
+        db.session.expire_all()
     return True
 
 
@@ -581,7 +965,7 @@ def edit_lesson_from_data(lesson, data):
     return lesson
 
 
-def add_class_service(data, coach, club):
+def add_class_service(data, coach, club, *, notify_students=True):
     """Builds a lesson payload from frontend add_class data and creates the lesson."""
     lesson_payload = {
         "title": data["name"],
@@ -597,6 +981,13 @@ def add_class_service(data, coach, club):
         "coach": coach.id,
         "player_ids": data.get("playerIds", []),
     }
+
+    # clubs.courts rule 6 (PAD-194): an optional court of the class's club.
+    if "courtId" in data:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        court = resolve_court_for_club(club.id, data.get("courtId"))
+        lesson_payload["court"] = court.id if court else None
 
     if data.get("isRecurring"):
         lesson_payload["recurrence_rule"] = json.dumps(data.get("recurrenceRule"))
@@ -616,7 +1007,7 @@ def add_class_service(data, coach, club):
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
 
-    lesson = create_lesson_helper(lesson_payload)
+    lesson = create_lesson_helper(lesson_payload, notify_students=notify_students)
 
     if lesson_payload.get("recurs_until_season_end"):
         lesson.recurs_until_season_end = True
@@ -767,6 +1158,13 @@ def _ensure_date(payload, date_obj):
     return payload
 
 
+def _normalize_eligibility_override(value):
+    """A tier's incoming bar: ``None`` clears the tier; a list is stored as-is
+    (``[]`` = everyone); anything else is treated as "clear" rather than
+    letting a malformed payload lock a class."""
+    return value if isinstance(value, list) else None
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
@@ -777,6 +1175,15 @@ def edit_class_service(data):
         return {"error": "Invalid payload"}, 400
 
     notifications_enabled = updates.get("notificationsEnabled")
+    # PAD-129 (eligibility.cascade rules 5, 8): absent = untouched, None = clear
+    # this tier, [] = everyone, a list = that bar. `scope` picks the tier.
+    eligibility_touched = "eligibilityRules" in updates
+    eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
+    # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
+    visibility_touched = "openSpotsVisible" in updates
+    open_spots_visible = updates.get("openSpotsVisible")
+    if open_spots_visible is not None:
+        open_spots_visible = bool(open_spots_visible)
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
@@ -798,6 +1205,15 @@ def edit_class_service(data):
     model = event.get("model")
     original_id = event.get("originalId")
 
+    # clubs.courts rule 6 (PAD-194): null clears the court, omitted leaves it.
+    # Validated against the class's club before anything is written.
+    if "courtId" in updates:
+        from padel_app.services.court_service import resolve_court_for_club
+
+        target = LessonInstance.query.get_or_404(original_id).lesson if model == "LessonInstance" else Lesson.query.get_or_404(original_id)
+        court = resolve_court_for_club(target.club_id, updates.get("courtId"))
+        payload["court"] = court.id if court else None
+
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)
 
@@ -806,6 +1222,12 @@ def edit_class_service(data):
             edit_lesson_instance_helper(payload, instance)
             if notifications_enabled is not None:
                 instance.notifications_enabled = notifications_enabled
+                instance.save()
+            if eligibility_touched:
+                instance.eligibility_rules = eligibility_rules
+                instance.save()
+            if visibility_touched:
+                instance.open_spots_visible = open_spots_visible
                 instance.save()
             return {"id": instance.id}, 200
 
@@ -841,6 +1263,14 @@ def edit_class_service(data):
             if notifications_enabled is not None:
                 lesson_to_edit.notifications_enabled = notifications_enabled
                 lesson_to_edit.save()
+            if eligibility_touched:
+                # The series tier — on the forked master when the edit started
+                # mid-series (rule 6), so earlier occurrences keep the old bar.
+                lesson_to_edit.eligibility_rules = eligibility_rules
+                lesson_to_edit.save()
+            if visibility_touched:
+                lesson_to_edit.open_spots_visible = open_spots_visible
+                lesson_to_edit.save()
             # A "this and future" edit off a materialized occurrence splits the
             # series into a *new* Lesson (duplicate_lesson_helper). Without this
             # the new lesson carries no reminder jobs at all, so its classes
@@ -873,6 +1303,12 @@ def edit_class_service(data):
         if notifications_enabled is not None:
             instance.notifications_enabled = notifications_enabled
             instance.save()
+        if eligibility_touched:
+            instance.eligibility_rules = eligibility_rules
+            instance.save()
+        if visibility_touched:
+            instance.open_spots_visible = open_spots_visible
+            instance.save()
         # Schedule reminder/invite jobs for this newly materialized instance
         from padel_app.scheduler import _maybe_schedule_instance
         _maybe_schedule_instance(instance)
@@ -893,6 +1329,12 @@ def edit_class_service(data):
         )
         if notifications_enabled is not None:
             lesson_to_edit.notifications_enabled = notifications_enabled
+            lesson_to_edit.save()
+        if eligibility_touched:
+            lesson_to_edit.eligibility_rules = eligibility_rules
+            lesson_to_edit.save()
+        if visibility_touched:
+            lesson_to_edit.open_spots_visible = open_spots_visible
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:

@@ -3,8 +3,13 @@ from datetime import datetime
 from flask import Blueprint, abort, current_app, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from padel_app.models import Lesson, LessonInstance, User
-from padel_app.utils.dates import utcnow_naive
+from padel_app.models import Association_CoachPlayer, Lesson, LessonInstance, User
+from padel_app.modules.frontend_api import (
+    coach_owns_instance,
+    coach_owns_lesson,
+    require_superadmin,
+)
+from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
     get_config_dict,
@@ -156,16 +161,15 @@ def _simulation_inputs(coach):
         int(data.get("originalId")),
         data.get("date"),
     )
-    owned = Association_CoachLessonInstance.query.filter_by(
-        coach_id=coach.id, lesson_instance_id=instance.id
-    ).first()
-    if owned is None:
+    from padel_app.services.lesson_service import coaches_for
+
+    if not any(c.id == coach.id for c in coaches_for(instance)):  # PAD-275 rule 4
         abort(404)
     try:
         departing_player_id = int(data.get("departingPlayerId"))
     except (TypeError, ValueError):
         abort(400, "departingPlayerId is required")
-    enrolled_ids = {rel.player_id for rel in instance.players_relations}
+    enrolled_ids = set(instance.enrolled_player_ids)  # PAD-259
     if departing_player_id not in enrolled_ids:
         abort(400, "departingPlayerId must be enrolled in this class")
     return data, instance, departing_player_id
@@ -207,14 +211,20 @@ def invite_simulation_explain():
 @bp.post("/toggle_class")
 @jwt_required()
 def toggle_class_notifications():
-    _current_coach()
+    coach = _current_coach()
     data = request.get_json() or {}
     model = data.get("model", "LessonInstance")
     original_id = int(data.get("originalId"))
     if model.lower() == "lessoninstance":
         obj = LessonInstance.query.get_or_404(original_id)
+        owned = coach_owns_instance(coach, obj)
     else:
         obj = Lesson.query.get_or_404(original_id)
+        owned = coach_owns_lesson(coach, obj)
+    # PAD-258 — notifications.toggle-class rule 4: any coach could flip any
+    # lesson's flag by id.
+    if not owned:
+        abort(403, "Not authorized to modify this class")
     obj.notifications_enabled = not obj.notifications_enabled
     obj.save()
     return jsonify({"notificationsEnabled": obj.notifications_enabled})
@@ -232,6 +242,14 @@ def manual_notify():
     if not player_ids:
         return jsonify({"error": "No player IDs provided"}), 400
     instance = _resolve_instance(model, original_id, date_str)
+    # PAD-258 — notifications.manual rule 7: the class must be the caller's
+    # and every player must be on the caller's roster; otherwise no event, no
+    # message.
+    if not coach_owns_instance(coach, instance):
+        abort(403, "Not authorized to notify for this class")
+    for pid in player_ids:
+        if Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=pid).first() is None:
+            abort(403, "Player is not on your roster")
     # PAD-107 + PAD-112: work out who will be skipped BEFORE sending, so the
     # coach is told by name exactly who could not be reached instead of just
     # seeing a count that is quietly short. Two independent reasons a student is
@@ -391,8 +409,15 @@ def cancel_attendance_endpoint():
     """
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
-    lesson_instance_id = int(data.get("lessonInstanceId"))
-    result = cancel_attendance(lesson_instance_id, user_id)
+    # attendance.confirm rule 18 (PAD-288/PAD-282): either the instance id or the
+    # calendar event's (model, originalId, date), materialised on demand.
+    if data.get("lessonInstanceId") is not None:
+        result = cancel_attendance(user_id, lesson_instance_id=int(data.get("lessonInstanceId")))
+    else:
+        result = cancel_attendance(
+            user_id,
+            model=data.get("model"), original_id=data.get("originalId"), date=data.get("date"),
+        )
     return jsonify(result)
 
 
@@ -450,7 +475,12 @@ def approval_respond():
 @bp.post("/process_rounds")
 @jwt_required()
 def process_rounds():
-    """Intended for cron job / periodic polling. Processes invitation batches."""
+    """Intended for cron job / periodic polling. Processes invitation batches.
+
+    PAD-258 — notifications.invitations rule 5: superadmin-only; any JWT
+    holder used to be able to run the batch processor concurrently with the
+    scheduler."""
+    require_superadmin()
     processed = process_invitation_batches()
     return jsonify({"processed": processed})
 
@@ -544,10 +574,9 @@ def debug_schedule_reminder_test():
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
-    from padel_app.scheduler import schedule_instance_jobs, _compute_reminder_dt, ensure_scheduler_ready
+    from padel_app.scheduler import schedule_instance_jobs, _fire_time_utc, ensure_scheduler_ready
     from padel_app.services.notification_service import get_or_create_config
 
     # Fail loudly if the scheduler didn't initialise — otherwise the test would
@@ -570,8 +599,9 @@ def debug_schedule_reminder_test():
     if not coach or not student1 or not student2 or not club:
         abort(500, "Seed data incomplete")
 
-    now = utcnow_naive()
-    class_start = now + timedelta(hours=48, seconds=seconds_until_fire)
+    # PAD-256: a class time is Lisbon wall-clock (R-023), so build it on the
+    # club's clock; the 48 h reminder then fires `seconds_until_fire` from now.
+    class_start = club_now_naive() + timedelta(hours=48, seconds=seconds_until_fire)
     class_end = class_start + timedelta(hours=1)
 
     lesson = Lesson(
@@ -603,23 +633,17 @@ def debug_schedule_reminder_test():
     db.session.add(Association_CoachLessonInstance(
         coach_id=coach.id, lesson_instance_id=instance.id))
 
-    for student in (student1, student2):
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=student.id, lesson_instance_id=instance.id))
-        db.session.add(Presence(
-            lesson_instance_id=instance.id,
-            player_id=student.id,
-            invited=True,
-            confirmed=False,
-        ))
-
     db.session.commit()
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
+
+    for student in (student1, student2):
+        enrol(student.id, instance, "coach")
 
     # Schedule the reminder job — fires at class_start - 48h = now + seconds_until_fire
     schedule_instance_jobs(instance.id, coach.id)
 
     config = get_or_create_config(coach.id)
-    reminder_dt = _compute_reminder_dt(instance, config.get_reminder_timing())
+    reminder_dt = _fire_time_utc(instance.start_datetime, config.get_reminder_timing())
 
     ms_to_wait = 0
     if reminder_dt:
@@ -657,9 +681,6 @@ def debug_reset_presence():
     if not _debug_endpoints_enabled():
         abort(404)
 
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
     from padel_app.models.presences import Presence
     from padel_app.sql_db import db
 
@@ -672,28 +693,11 @@ def debug_reset_presence():
         abort(404, "Seeded user not found")
     player = user.player
 
-    LessonInstance.query.get_or_404(lesson_instance_id)
+    instance = LessonInstance.query.get_or_404(lesson_instance_id)
 
-    enrolment = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player.id,
-        lesson_instance_id=lesson_instance_id,
-    ).first()
-    if enrolment is None:
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=player.id,
-            lesson_instance_id=lesson_instance_id,
-        ))
+    from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
-    presence = Presence.query.filter_by(
-        player_id=player.id,
-        lesson_instance_id=lesson_instance_id,
-    ).first()
-    if presence is None:
-        presence = Presence(
-            player_id=player.id,
-            lesson_instance_id=lesson_instance_id,
-        )
-        db.session.add(presence)
+    presence = enrol(player.id, instance, "coach")
     presence.invited = True
     presence.confirmed = False
     presence.validated = False

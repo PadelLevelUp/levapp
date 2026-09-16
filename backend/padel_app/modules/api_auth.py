@@ -1,6 +1,8 @@
 import re
 
-from flask import Blueprint, abort, request, jsonify
+from datetime import datetime, timedelta, timezone
+
+from flask import Blueprint, abort, current_app, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import check_password_hash
 
@@ -17,6 +19,10 @@ from padel_app.services.registration_service import (
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
+from padel_app.services.coach_approval_service import (
+    reapply_coach_service,
+    rejected_coach_of,
+)
 from padel_app.services.email_verification_service import (
     EmailVerificationError,
     confirm_code,
@@ -24,7 +30,25 @@ from padel_app.services.email_verification_service import (
     send_code,
     verification_state,
 )
+from padel_app.services.password_recovery_service import (
+    PasswordRecoveryError,
+    confirm_recovery,
+    request_recovery,
+)
+from padel_app.services.parental_consent_service import (
+    ConsentError,
+    decline_consent,
+    give_consent,
+    last_links_for,
+    pending_body,
+    resend_consent,
+    revoke_consent,
+    view_consent,
+    view_revoke,
+)
 from padel_app.utils.debug_flags import debug_endpoints_enabled
+from padel_app.utils.rate_limit import rate_limited
+from padel_app.utils.tokens import issue_access_token
 
 bp = Blueprint("auth_api", __name__, url_prefix="/api/auth")
 
@@ -83,9 +107,16 @@ def _serialize_me(user):
         "blockManualInvitations": bool(user.notif_block_manual_invitations),
         "blockAllNotifications": bool(user.notif_block_all),
         "notificationBlockReason": user.notif_block_reason or "",
+        # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
+        "requestAlerts": user.notif_request_alerts is not False,
+        # auth.parental-consent rule 11 (PAD-198).
+        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
+        "birthDate": user.birth_date.isoformat() if user.birth_date else None,
+        "country": user.country,
     }
 
 @bp.post("/register")
+@rate_limited("register")
 def register():
     """auth.register — self-service signup for coaches and students."""
     data = request.get_json(silent=True) or {}
@@ -96,9 +127,19 @@ def register():
         payload = {"error": exc.message}
         if exc.field:
             payload["field"] = exc.field
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
         return jsonify(payload), exc.status
 
-    access_token = create_access_token(identity=str(user.id))
+    if user.guardian_consent_status == "pending":
+        # auth.parental-consent rule 3: no session until a guardian consents.
+        return jsonify({
+            **pending_body(user),
+            "guardianConsent": "pending",
+            "user": {"id": user.id, "name": user.name, "role": user.role, "guardianConsent": "pending"},
+        }), 201
+
+    access_token = issue_access_token(user.id)
     return jsonify({
         "accessToken": access_token,
         "user": {
@@ -113,6 +154,7 @@ def register():
 # ── auth.email-verification ────────────────────────────────────────────────
 
 @bp.post("/email-verification/send")
+@rate_limited("verification")
 @jwt_required()
 def email_verification_send():
     """Rule 4: mail a fresh 6-digit code to the caller's own email."""
@@ -126,6 +168,7 @@ def email_verification_send():
 
 
 @bp.post("/email-verification/confirm")
+@rate_limited("verification")
 @jwt_required()
 def email_verification_confirm():
     """Rule 5: check the code; on success answer with the /me payload."""
@@ -164,7 +207,96 @@ def email_verification_debug_last_code():
     return jsonify({"code": match.group(1), "subject": msg["subject"]}), 200
 
 
+# ── auth.password-recovery ─────────────────────────────────────────────────
+
+@bp.post("/password-recovery/request")
+@rate_limited("recovery")
+def password_recovery_request():
+    """Rule 2: always the same 200, whether or not the email has an account."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body = request_recovery(data.get("email"))
+    except PasswordRecoveryError as exc:
+        db.session.rollback()
+        return jsonify(exc.payload()), exc.status
+    return jsonify(body), 200
+
+
+@bp.post("/password-recovery/confirm")
+@rate_limited("recovery")
+def password_recovery_confirm():
+    """Rule 6: code + new password; answers with the login body."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body = confirm_recovery(data.get("email"), data.get("code"), data.get("newPassword"))
+    except PasswordRecoveryError as exc:
+        return jsonify(exc.payload()), exc.status
+    return jsonify(body), 200
+
+
+# ── auth.parental-consent (PAD-198) ────────────────────────────────────────
+
+def _client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return (forwarded.split(",")[0].strip() if forwarded else "") or request.remote_addr
+
+
+def _consent_call(fn, *args, **kwargs):
+    try:
+        return jsonify(fn(*args, **kwargs)), 200
+    except ConsentError as exc:
+        db.session.rollback()
+        return jsonify(exc.payload()), exc.status
+
+
+@bp.post("/guardian-consent/resend")
+def guardian_consent_resend():
+    """Rule 5: a pending minor asks for a new link (credentials, no JWT)."""
+    data = request.get_json(silent=True) or {}
+    return _consent_call(resend_consent, data.get("username"), data.get("password"), data.get("guardianEmail"))
+
+
+@bp.get("/guardian-consent/debug/last-link")
+def guardian_consent_debug_last_link():
+    """Rule 12 — E2E only. 404 unless E2E_DEBUG_ENDPOINTS is on."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    links = last_links_for(request.args.get("email"))
+    if not links["consentUrl"] and not links["revokeUrl"]:
+        return jsonify({"error": "NO_MAIL"}), 404
+    return jsonify(links), 200
+
+
+@bp.get("/guardian-consent/revoke/<token>")
+def guardian_consent_revoke_view(token):
+    return _consent_call(view_revoke, token)
+
+
+@bp.post("/guardian-consent/revoke/<token>")
+def guardian_consent_revoke(token):
+    return _consent_call(revoke_consent, token, request.get_json(silent=True) or {})
+
+
+@bp.get("/guardian-consent/<token>")
+def guardian_consent_view(token):
+    """Rule 7: the consent page's data. Opening it changes nothing."""
+    return _consent_call(view_consent, token)
+
+
+@bp.post("/guardian-consent/<token>")
+def guardian_consent_give(token):
+    """Rule 8: the guardian consents."""
+    return _consent_call(give_consent, token, request.get_json(silent=True) or {}, ip=_client_ip())
+
+
+@bp.post("/guardian-consent/<token>/decline")
+def guardian_consent_decline(token):
+    """Rule 9: the guardian declines before consenting."""
+    return _consent_call(decline_consent, token, request.get_json(silent=True) or {})
+
+
 @bp.post("/login")
+@rate_limited("login")
 def login():
     data = request.get_json() or {}
 
@@ -177,10 +309,29 @@ def login():
 
     user = User.query.filter_by(username=username).first()
 
-    if not user or not check_password_hash(user.password, password):
+    # auth.login rule 11 (PAD-269): a coach-created account with no password yet
+    # is a wrong password, not a 500 that tells a caller the username exists.
+    if not user or not user.password or not check_password_hash(user.password, password):
         return {"error": "Invalid credentials"}, 401
 
-    access_token = create_access_token(identity=str(user.id))
+    # auth.coach-approval rule 11 (PAD-233): right credentials, rejected
+    # coach — say why, issue nothing. Wrong credentials stay 401 above so the
+    # status never leaks to a guesser.
+    rejected = rejected_coach_of(user)
+    if rejected is not None:
+        return {"error": "COACH_REJECTED", "reason": rejected.rejection_reason}, 403
+
+    # auth.login rule 12 (B-053): any other disabled account — deleted, or a
+    # minor whose guardian withdrew — is refused with a clear code and no token.
+    if user.status == "disabled":
+        return {"error": "ACCOUNT_DISABLED"}, 401
+
+    # auth.login rule 10 (PAD-198): a minor still waiting for consent is told
+    # where the mail went.
+    if user.guardian_consent_status == "pending":
+        return {"error": "GUARDIAN_CONSENT_PENDING", **pending_body(user)}, 403
+
+    access_token = issue_access_token(user.id)
 
     return {
         "accessToken": access_token,
@@ -191,11 +342,26 @@ def login():
         }
     }
     
+@bp.post("/coach-approval/reapply")
+def coach_approval_reapply():
+    """auth.coach-approval rule 12 (PAD-233): a rejected coach asks again."""
+    data = request.get_json(silent=True) or {}
+    body = reapply_coach_service(data.get("username"), data.get("password"))
+    return jsonify(body), 200
+
+
 @bp.post("/logout")
 @jwt_required()
 def logout():
     jti = get_jwt()["jti"]
     db.session.add(TokenBlocklist(jti=jti))
+    # auth.logout rule 3 (PAD-269): rows older than the token lifetime (plus a
+    # day) belong to expired tokens and only slow the per-request lookup.
+    lifetime = current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES")
+    if not isinstance(lifetime, timedelta):
+        lifetime = timedelta(days=30)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - lifetime - timedelta(days=1)
+    TokenBlocklist.query.filter(TokenBlocklist.created_at < cutoff).delete(synchronize_session=False)
     db.session.commit()
     return {"message": "Successfully logged out"}, 200
 

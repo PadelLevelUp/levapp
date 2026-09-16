@@ -59,6 +59,8 @@ the mechanism itself is generic 1:1 (and group) messaging.
   one message with several different emoji.
 - Message timestamps always render in the viewer's own local time, regardless of what timezone the
   server stored them in.
+- When many people are connected at once, the app stays usable: live updates may pause for a few
+  seconds and resume by themselves, but pages, messages and actions keep working.
 
 ## Success Metrics
 

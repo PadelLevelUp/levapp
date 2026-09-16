@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from padel_app.utils.dates import CLUB_TZ, utcnow_naive
+from padel_app.utils.dates import CLUB_TZ, utcnow_naive, wall_to_utc_naive
 
 SEND_FIRST_BATCH = "first_batch"
 SEND_QUEUED = "queued"
@@ -140,7 +140,8 @@ def _gates(instance, config, now: datetime) -> list[dict]:
     min_enabled = bool(min_time.get("enabled"))
     minutes_until = None
     if instance.start_datetime is not None:
-        minutes_until = (instance.start_datetime - now).total_seconds() / 60
+        # PAD-256: real minutes to the real start (the stored start is wall-clock).
+        minutes_until = (wall_to_utc_naive(instance.start_datetime) - now).total_seconds() / 60
     min_blocked = (
         min_enabled and minutes_until is not None and minutes_until < min_time.get("value", 0)
     )
@@ -402,7 +403,7 @@ def explain_player(
     vacancy, _ = _hypothetical_vacancy(instance, coach_id, departing_player_id)
     round_failures = []
     for number, kind, _rules in invitation_waves(config):
-        wave = ("group", number) if kind == "group" else ("round", number)
+        wave = ("group", number)
         verdicts = evaluate_candidates(
             vacancy, instance, coach_id, config,
             wave=wave, explain=True, only_player_ids=[player_id],

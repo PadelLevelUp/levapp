@@ -1,4 +1,4 @@
-import { getApi } from "@levelup/api";
+import { authApi, getApi } from "@levelup/api";
 import { loginSchema } from "@levelup/validation";
 import { router } from "expo-router";
 import * as React from "react";
@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -28,6 +27,8 @@ import { postLoginLanding } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
+import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type FieldErrors = { username?: string; password?: string };
 
@@ -39,6 +40,11 @@ export default function LoginScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // auth.coach-approval rule 13 (PAD-233): a rejected coach sees why and can ask again.
+  const [rejected, setRejected] = React.useState<{ reason: string | null } | null>(null);
+  const [reapplying, setReapplying] = React.useState(false);
+  // auth.login rule 10 / auth.parental-consent rule 10 (PAD-198).
+  const [guardianPending, setGuardianPending] = React.useState<authApi.GuardianPendingInfo | null>(null);
 
   const validate = (): boolean => {
     const result = loginSchema.safeParse({ username, password });
@@ -55,6 +61,38 @@ export default function LoginScreen() {
     return false;
   };
 
+  /** Session in hand: hydrate and route exactly as a fresh login does. */
+  const enter = async (accessToken: string) => {
+    await login(accessToken);
+    // auth.register rule 11: route by approval / club state, not straight
+    // to the tabs.
+    // players.join-token rule 9: a join link opened without a session comes
+    // first, once the account is one that can use it.
+    const route = postLoginLanding(await refreshUser());
+    const pending = consumePendingJoin();
+    // players.claim rule 3: an invite link opened to LINK an existing account.
+    const pendingClaim = consumePendingClaim();
+    if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
+      router.replace(`/invite/player/${pendingClaim}`);
+      return;
+    }
+    router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
+  };
+
+  const handleReapply = async () => {
+    setReapplying(true);
+    setFormError(null);
+    try {
+      const res = await authApi.reapplyCoachApproval({ username, password });
+      setRejected(null);
+      await enter(res.accessToken);
+    } catch {
+      setFormError(t("auth.login.reapplyFailed"));
+    } finally {
+      setReapplying(false);
+    }
+  };
+
   const handleLogin = async () => {
     setFormError(null);
     if (!validate()) return;
@@ -62,29 +100,30 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const res = await getApi().post("/auth/login", { username, password });
-      await login(res.data.accessToken);
-      // auth.register rule 11: route by approval / club state, not straight
-      // to the tabs.
-      // players.join-token rule 9: a join link opened without a session comes
-      // first, once the account is one that can use it.
-      const route = postLoginLanding(await refreshUser());
-      const pending = consumePendingJoin();
-      // players.claim rule 3: an invite link opened to LINK an existing account.
-      const pendingClaim = consumePendingClaim();
-      if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
-        router.replace(`/invite/player/${pendingClaim}`);
+      await enter(res.data.accessToken);
+    } catch (err: any) {
+      if (err?.response?.status === 403 && err.response?.data?.error === "GUARDIAN_CONSENT_PENDING") {
+        setGuardianPending({
+          guardianEmail: err.response.data.guardianEmail ?? null,
+          resendAvailableInSeconds: err.response.data.resendAvailableInSeconds ?? 0,
+        });
         return;
       }
-      router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
-    } catch (err: any) {
+      if (err?.response?.status === 403 && err.response?.data?.error === "COACH_REJECTED") {
+        setRejected({ reason: err.response.data.reason ?? null });
+        return;
+      }
       // No `response` means the request never got a reply from the server —
       // network failure, timeout, DNS/connection error, wrong API host,
       // etc. Distinguish that from an actual auth rejection (401) so a
       // misconfigured/unreachable API doesn't masquerade as bad credentials
       // (see 2026-07-24 App Store rejection: "Could not sign in" screenshot
       // was actually a build pointed at an unreachable API URL).
+      // auth.login rule 7 (PAD-228): a throttled attempt says when to retry.
       const message =
-        err?.response?.data?.message ??
+        err?.response?.status === 429
+          ? t("auth.login.rateLimited", { seconds: err.response?.data?.retryAfterSeconds ?? 60 })
+          : err?.response?.data?.message ??
         err?.response?.data?.error ??
         (!err?.response
           ? t("auth.login.networkError")
@@ -100,7 +139,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-sidebar"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior()}
     >
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
@@ -144,6 +183,15 @@ export default function LoginScreen() {
           </CardHeader>
 
           <CardContent className="gap-4">
+            {guardianPending ? (
+              <GuardianPendingCard
+                username={username}
+                password={password}
+                info={guardianPending}
+                onBack={() => setGuardianPending(null)}
+              />
+            ) : (
+            <>
             <View className="gap-1.5">
               <Label testID="login-username-label">{t("auth.login.username")}</Label>
               <Input
@@ -154,7 +202,10 @@ export default function LoginScreen() {
                 autoCorrect={false}
                 autoComplete="username"
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(v) => {
+                  setUsername(v);
+                  setRejected(null);
+                }}
                 editable={!loading}
               />
               {errors.username ? (
@@ -199,6 +250,21 @@ export default function LoginScreen() {
               </Text>
             ) : null}
 
+            {rejected ? (
+              <View className="gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3" testID="login-rejected">
+                <Text className="text-sm font-medium text-foreground">{t("auth.login.rejectedTitle")}</Text>
+                <Text className="text-sm text-muted-foreground">{t("auth.login.rejectedDescription")}</Text>
+                {rejected.reason ? (
+                  <Text className="text-sm text-muted-foreground" testID="login-rejected-reason">
+                    {t("auth.login.rejectedReason", { reason: rejected.reason })}
+                  </Text>
+                ) : null}
+                <Button variant="outline" testID="login-reapply" disabled={reapplying} onPress={() => void handleReapply()}>
+                  {reapplying ? <ActivityIndicator color={"#1355DC"} /> : <Text>{t("auth.login.reapply")}</Text>}
+                </Button>
+              </View>
+            ) : null}
+
             <Button
               testID="login-submit"
               accessibilityLabel={t("auth.login.signIn")}
@@ -211,6 +277,18 @@ export default function LoginScreen() {
                 <Text>{t("auth.login.signIn")}</Text>
               )}
             </Button>
+
+            {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
+            <Pressable
+              testID="login-forgot-password"
+              accessibilityRole="link"
+              accessibilityLabel={t("auth.login.forgotPassword")}
+              onPress={() => router.push("/forgot-password")}
+              disabled={loading}
+              className="items-center"
+            >
+              <Text className="text-sm text-muted-foreground underline">{t("auth.login.forgotPassword")}</Text>
+            </Pressable>
 
             {/* auth.register rule 10 — the signup entry point lives on the login screen. */}
             <View className="flex-row items-center justify-center gap-1 pt-1">
@@ -227,6 +305,8 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
             </View>
+            </>
+            )}
           </CardContent>
         </Card>
 

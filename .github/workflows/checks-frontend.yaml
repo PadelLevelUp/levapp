@@ -1,0 +1,87 @@
+name: Frontend checks
+
+# PAD-189. `vite build` strips types with esbuild WITHOUT checking them, so CI
+# could be fully green while a branch carried real type errors. That is not
+# hypothetical: PAD-141 landed a duplicate `AbsenceJustification` declaration
+# (TS2300) which sat on main through a release and a successful deploy, and was
+# only found when someone ran `tsc` by hand.
+#
+# It matters more than tidiness because of the web/iOS ship-together rule: a
+# feature lands in two shells sharing `packages/*`, so a type error in a shared
+# package can be invisible on the shell you happened to build and fatal on the
+# other. Typecheck is the only thing that catches that before a device does.
+# `apps/mobile` has no `vite build` at all, so before this it had NO automated
+# type gate whatsoever.
+#
+# Path filtering happens INSIDE the job (dorny/paths-filter), never at the
+# workflow level — the same rule the deploy workflows follow. A workflow-level
+# `paths:` filter that skips a required check blocks the PR forever, because
+# "skipped" is not "success". Here the job always runs and reports success; the
+# expensive steps are the ones that get skipped.
+
+on:
+  pull_request:
+    branches: [ staging, main ]
+  push:
+    branches: [ staging, main ]
+
+concurrency:
+  group: checks-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/checks-frontend.yaml'
+
+      # Pinned rather than left to the runner default. The repo pins no Node
+      # version anywhere (no .nvmrc, no `engines`), and `frontend/CLAUDE.md`
+      # asks for 24.15.0 — several dev dependencies are ESM-only and behave
+      # differently on older majors.
+      - uses: actions/setup-node@v4
+        if: steps.filter.outputs.frontend == 'true'
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install workspace dependencies
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      # Both shells, separately. `packages/*` is typechecked through whichever
+      # shell imports it, and a shared type can break one shell while the other
+      # still compiles — which is the whole reason both run. Measured: the
+      # PAD-141 duplicate-identifier regression this gate exists to catch is
+      # caught by the MOBILE project and not by web's.
+      #
+      # NOTE the web config: `apps/web/tsconfig.json` is a solution file —
+      # `"files": []` plus project references — so `tsc --noEmit -p` on it
+      # checks ZERO files and always passes. (Verified with --listFiles: 0 vs
+      # 1205, and a deliberate `const x: number = "str"` in apps/web/src goes
+      # uncaught.) That is the exact no-op the ticket proposed, so point at
+      # tsconfig.app.json, which is the app's real source graph.
+      #
+      # tsconfig.node.json (vite.config.ts) is deliberately NOT checked here:
+      # it has a pre-existing TS2769 on staging, unrelated to app code, and
+      # holding this gate hostage to it would mean it could not be turned on
+      # today. Tracked separately.
+      - name: Typecheck web
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npx tsc --noEmit -p apps/web/tsconfig.app.json
+
+      - name: Typecheck mobile
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npx tsc --noEmit -p apps/mobile/tsconfig.json

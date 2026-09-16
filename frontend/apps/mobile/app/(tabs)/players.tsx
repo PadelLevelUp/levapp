@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { useCoachPlayersPaginated } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS, type CoachPlayer } from "@levelup/types";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -58,7 +58,12 @@ export default function PlayersScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [search, setSearch] = React.useState("");
-  const [qrOpen, setQrOpen] = React.useState(false);
+  // PAD-287: Settings → My connections lands here with `addByQr=1`.
+  const { addByQr } = useLocalSearchParams<{ addByQr?: string }>();
+  const [qrOpen, setQrOpen] = React.useState(addByQr === "1");
+  React.useEffect(() => {
+    if (addByQr === "1") setQrOpen(true);
+  }, [addByQr]);
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [sortValue, setSortValue] = React.useState<SortValue>("name-asc");

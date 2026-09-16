@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,11 @@ const registerSchema = z
 
 const RegisterPage = () => {
   const { userId } = useParams<{ userId: string }>();
+  // auth.activate rule 8 (PAD-254): the link's secret. Without it there is
+  // nothing to look up — the backend would 404 for any id — so the page shows
+  // its invalid state and never calls the API.
+  const [searchParams] = useSearchParams();
+  const token = (searchParams.get("t") ?? "").trim();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -53,15 +58,21 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (!userId) return;
+    if (!token) {
+      setStatus("invalid");
+      setLoading(false);
+      return;
+    }
 
     const fetchUser = async () => {
       try {
-        const data = await registerUser(userId);
+        const data = await registerUser(userId, token);
 
         if (data.isActive) {
           setStatus("already-registered");
           return;
         }
+        setStatus("ok");
 
         setForm((prev) => ({
           ...prev,
@@ -71,19 +82,17 @@ const RegisterPage = () => {
           phone: data.phone ?? "",
         }));
       } catch {
-        toast({
-          variant: "destructive",
-          title: t("auth.register.invalidLinkTitle"),
-          description: t("auth.register.invalidLinkDescription"),
-        });
-        navigate("/auth");
+        // A wrong or stale secret is a 404 — same screen as a missing one,
+        // and the same as iOS (RegisterScreen), rather than a toast that
+        // flashes past on the way to /auth.
+        setStatus("invalid");
       } finally {
         setLoading(false);
       }
     };
 
     fetchUser();
-  }, [userId, navigate, toast]);
+  }, [userId, token]);
 
   const validateForm = () => {
     const result = registerSchema.safeParse(form);
@@ -103,13 +112,14 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !validateForm()) return;
+    if (!userId || !token || !validateForm()) return;
 
     setSubmitting(true);
 
     try {
       await activateAccount({
         userId,
+        token,
         content: {
           name: form.name,
           username: form.username,
@@ -163,7 +173,7 @@ const RegisterPage = () => {
   if (status === "invalid") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md text-center">
+        <Card className="w-full max-w-md text-center" data-testid="register-invalid">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-destructive">
               {t("auth.register.invalidTitle")}

@@ -112,6 +112,6 @@ coach invitation does.
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 2.
-- OPEN: no push for a new request in v1; the Settings badge is the only signal.
+- Push + email for a new request and for the decision: `notifications.request-alerts` (PAD-232).
 - OPEN: rule 8 lists the minimum set; audit every `current_club()` caller in
   `frontend_api.py` (8 today) when building.

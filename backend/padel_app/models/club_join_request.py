@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, Enum, DateTime, Index, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -17,7 +17,19 @@ class ClubJoinRequest(db.Model, model.Model):
     """
 
     __tablename__ = "club_join_requests"
-    __table_args__ = {"extend_existing": True}
+    # Declared here so autogenerate stops proposing to drop them (the migration
+    # c1d2e3f4a5b6 created all three; B-032-model-migration-index-drift,
+    # PAD-220). The partial unique index is what enforces "one pending request
+    # per coach and club"; sqlite_where keeps the test database identical.
+    __table_args__ = (
+        Index("ix_club_join_requests_club_id", "club_id"),
+        Index("ix_club_join_requests_coach_id", "coach_id"),
+        Index(
+            "uq_club_join_request_pending", "club_id", "coach_id", unique=True,
+            postgresql_where=text("status = 'pending'"), sqlite_where=text("status = 'pending'"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Club Join Requests"
     model_name = "ClubJoinRequest"

@@ -30,32 +30,71 @@ This runs **locally** on the user's Mac (iOS uses the simulator + computer-use, 
 
 ### Phase 0 — Setup
 
-1. Pre-flight: load secrets and clear any stale QA servers (macOS: kill ports separately, combined `lsof` syntax fails).
+**A report that does not say what it ran against is not evidence, however much detail it
+carries.** Steps 1 and 13 exist for that reason: PAD-312 was a detailed, confident ticket —
+DB queries, line numbers, a named root cause — filed against a tree three days out of date,
+and nothing in it said so. Everything below flows from that.
+
+1. **Resolve the code under test, or abort.** The run uses its OWN checkout, refreshed from
+   `origin/staging`, kept OUTSIDE `~/Documents` (that path is iCloud-synced: artifact writes
+   send `fileproviderd` to 99% CPU and have driven load past 200, which then *causes* timeouts
+   that read as product failures). It must never run from the main checkout — that is a human
+   working tree parked on whatever branch someone left, which on 2026-09-13 was
+   `feature/pad-197` at a commit from 2026-09-06 — nor from another session's worktree.
    ```bash
-   source /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/.claude/secrets.env
-   kill $(lsof -ti :5002) 2>/dev/null; kill $(lsof -ti :8080) 2>/dev/null; sleep 1
+   MAIN=/Users/pedropacheco1/Documents/Projetos/padel_app/levapp   # prose home only, see step 12
+   QA_CHECKOUT="$HOME/levapp-qa"                                   # code under test
+   git -C "$MAIN" fetch origin --quiet || { echo "QA ABORT: cannot fetch origin"; exit 1; }
+   [ -d "$QA_CHECKOUT" ] || git -C "$MAIN" worktree add --detach "$QA_CHECKOUT" origin/staging
+   git -C "$QA_CHECKOUT" fetch origin --quiet \
+     && git -C "$QA_CHECKOUT" checkout --detach origin/staging --quiet \
+     || { echo "QA ABORT: cannot refresh $QA_CHECKOUT"; exit 1; }
+   QA_COMMIT=$(git -C "$QA_CHECKOUT" rev-parse --short HEAD)
+   QA_REF=origin/staging
+   QA_STARTED_AT=$(date -Iseconds)
+   [ -n "$QA_COMMIT" ] || { echo "QA ABORT: no commit resolved"; exit 1; }
+   echo "QA runs against $QA_COMMIT ($QA_REF) at $QA_STARTED_AT"
+   source "$QA_CHECKOUT/.claude/secrets.env"
    ```
+   **If any of this fails, the run ABORTS: no report, no baseline write, no tickets.** A run
+   that cannot say what it tested must not produce a report — otherwise the failure mode moves
+   from a stale report to a report with a blank field that people skim past.
+
+1b. **Check the ports are free; never clear them by killing.** Nothing unattended may kill what
+   it did not start — an unattended `kill $(lsof -ti :8080)` is the automated form of
+   `pkill -f playwright`, which has already destroyed a peer's suite.
+   ```bash
+   for port in 5002 8080; do
+     lsof -nP -iTCP:$port -sTCP:LISTEN >/dev/null 2>&1 \
+       && { echo "QA ABORT: port $port is in use by someone else"; exit 1; }
+   done
+   ```
+   Record the PID of every server this run starts (`$!` after each `&`) and kill only those at
+   teardown.
 2. Reset + seed the isolated QA database:
    ```bash
-   bash /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/docs/qa/scripts/reset-qa-db.sh
+   bash "$MAIN/docs/qa/scripts/reset-qa-db.sh"
    ```
 3. Boot the QA backend (from `levelup_backend`, `.venv` active):
    ```bash
-   cd /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/backend
+   cd "$QA_CHECKOUT/backend"
    source .venv/bin/activate
    FLASK_ENV=development POSTGRES_DB=levelup_qa POSTGRES_HOST=localhost \
      flask run --port 5002 --no-reload &
+   QA_BACKEND_PID=$!
    ```
    Health-check `http://localhost:5002/api/app/healthz` before proceeding.
 4. Boot the web frontend against QA:
    ```bash
-   cd /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/frontend/apps/web
+   cd "$QA_CHECKOUT/frontend/apps/web"
    VITE_BACKEND_PORT=5002 npm run dev &   # serves on 8080
+   QA_WEB_PID=$!
    ```
 5. Boot the iOS simulator against QA (iPhone 17 Pro, per mobile E2E convention):
    ```bash
-   cd /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/frontend/apps/mobile
+   cd "$QA_CHECKOUT/frontend/apps/mobile"
    EXPO_PUBLIC_API_URL=http://localhost:5002/api npx expo run:ios &
+   QA_IOS_PID=$!
    ```
    Grant computer-use access to the Simulator via `request_access` when driving it.
 
@@ -64,11 +103,12 @@ This runs **locally** on the user's Mac (iOS uses the simulator + computer-use, 
 6. Run the web Playwright suite and the iOS Maestro workspace, capturing pass/fail per spec/flow.
    ```bash
    # Web — note: Playwright's own webServer uses levelup_test:5001, independent of QA above
-   cd /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/frontend/apps/web
-   kill $(lsof -ti :5001) 2>/dev/null; kill $(lsof -ti :8080) 2>/dev/null; sleep 1
+   # Ports/DB are derived per checkout by e2e/isolation.ts, so this run cannot
+   # collide with a session's stack — and it kills nothing it did not start.
+   cd "$QA_CHECKOUT/frontend/apps/web"
    bash e2e/scripts/reset-test-db.sh && npx playwright test --reporter=json
    # iOS
-   cd /Users/pedropacheco1/Documents/Projetos/padel_app/levapp/frontend/apps/mobile
+   cd "$QA_CHECKOUT/frontend/apps/mobile"
    bash scripts/e2e.sh
    ```
 7. Diff results against `docs/qa/baseline/baseline-latest.json`. A spec that **passed last week and fails now** is a P1 regression candidate. Pre-existing failures (see the known-flaky list in `docs/qa/baseline/known-failures.md`) are NOT regressions — do not file them.
@@ -86,13 +126,22 @@ This runs **locally** on the user's Mac (iOS uses the simulator + computer-use, 
 
 ### Phase 4 — Report + triage
 
-12. Merge Phase 1–3 outputs into one dated report at `docs/qa/reports/YYYY-MM-DD.md` (pass a timestamp in — do not call Date.now()). Sections: **Regressions │ Functional bugs │ Design findings**, each severity-ranked, with inline screenshot references. Include a week-over-week delta vs baseline (new / fixed / persisting).
-13. Auto-file **only P0/P1** findings to Linear team PadelLevelUP:
+12. Merge Phase 1–3 outputs into one dated report at `$MAIN/docs/qa/reports/YYYY-MM-DD.md`
+    (reports and baselines stay in the MAIN checkout — the code under test moved in step 1, the
+    prose home did not) (pass a timestamp in — do not call Date.now()). Sections: **Regressions │ Functional bugs │ Design findings**, each severity-ranked, with inline screenshot references. Include a week-over-week delta vs baseline (new / fixed / persisting).
+13. **Every artefact states what it ran against, as its FIRST line, not an appendix** — the
+    line a reader sees before deciding whether to believe the rest:
+    `Ran against: <QA_COMMIT> (<QA_REF>, <QA_STARTED_AT>)`. It goes at the top of the dated
+    report, as the first line of every filed Linear ticket, and as a `ranAgainst` field in
+    `baseline-latest.json`. A finding without it is not filed.
+14. Auto-file **only P0/P1** findings to Linear team PadelLevelUP:
     - **Dedupe first**: `list_issues` on the PAD team, match by title/screen/journey against open issues. If an equivalent open ticket exists, add a comment noting it recurred this week instead of creating a duplicate.
     - Each new ticket: clear title (`[QA] <severity>: <short desc>`), the reproduction steps, the screenshot (attach), affected platform/route, and a ready-to-run implement-ticket prompt in the description so it can be picked up autonomously.
     - P2/P3 findings stay in the report only.
-14. Update the baseline: write this run's results to `docs/qa/baseline/baseline-latest.json` (regression pass/fail map + per-screen design scores) so next week diffs against it.
-15. Teardown: kill the QA servers (ports 5002, 8080) and stop the simulator boot if this was an unattended run.
+15. Update the baseline: write this run's results, plus `ranAgainst`, to `$MAIN/docs/qa/baseline/baseline-latest.json` (regression pass/fail map + per-screen design scores) so next week diffs against it.
+16. Teardown: kill ONLY the PIDs this run recorded (`$QA_BACKEND_PID`, `$QA_WEB_PID`,
+    `$QA_IOS_PID`) and stop the simulator boot if this was an unattended run. Never kill by port
+    or by process name — that is someone else's suite as often as it is yours.
 
 ## Patterns & gotchas
 
@@ -100,6 +149,6 @@ This runs **locally** on the user's Mac (iOS uses the simulator + computer-use, 
 - **iOS Select/dropdown portals aren't drivable** via automation (the Maestro `set-player-level` flow is `.skipped`). Don't fail a journey on an interaction that's a known iOS-automation limitation — note it and move on.
 - **NativeWind calc() border-radius bug**: `calc()` in mobile `tailwind.config` borderRadius silently drops to square corners. The design rubric flags this specifically — check card/button corners on iOS.
 - **Never point QA at dev/E2E DBs.** QA is `levelup_qa` on port 5002. The Playwright regression run (Phase 1) spins its OWN `levelup_test`:5001 webServer — that's expected and separate.
-- **iCloud/Vite watcher**: repo is on iCloud Drive; if a web change doesn't reflect, restart Vite. Delete `… 2.ext` conflict-junk files if seen.
+- **iCloud/Vite watcher**: the MAIN checkout is on iCloud Drive (reports and baselines live there); the QA checkout of step 1 deliberately is not. If a web change doesn't reflect, restart Vite. Delete `… 2.ext` conflict-junk files if seen.
 - **Serial iOS, parallel web.** One simulator = iOS journeys run one at a time. Web journeys fan out freely.
 - **Ticket dedupe is mandatory** — without it the same bug refiles every week and the PAD backlog fills with QA noise.

@@ -6,6 +6,8 @@ from padel_app import model
 
 class MessageReport(db.Model, model.Model):
     __tablename__ = "message_reports"
+    page_title = "Message Reports"
+    model_name = "MessageReport"
     __table_args__ = {"extend_existing": True}
 
     id          = Column(Integer, primary_key=True)

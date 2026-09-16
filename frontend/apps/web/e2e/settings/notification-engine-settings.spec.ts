@@ -339,11 +339,11 @@ test("US-74: excluded players row appears and can be enabled", async ({ page }) 
   await expect(page.getByPlaceholder(/search players/i)).toBeVisible({ timeout: 3000 });
 });
 
-test("US-74: exclude unpaid subscriptions toggle is present", async ({ page }) => {
+test("US-74: exclude inactive accounts toggle is present (PAD-132 relabel)", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);
 
-  await expect(page.getByText(/exclude unpaid subscriptions/i)).toBeVisible({ timeout: 3000 });
+  await expect(page.getByText(/exclude inactive accounts/i)).toBeVisible({ timeout: 3000 });
 });
 
 test("US-75: max inactive time stepper is functional when enabled", async ({ page }) => {

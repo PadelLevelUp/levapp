@@ -23,3 +23,13 @@ credentials: push subscriptions and device tokens are emptied and every email is
 `user<id>@staging.invalid`. Names, phones, passwords, classes and messages stay real; login is by
 username, so prod credentials keep working. Consequence: staging is never a place to keep
 anything; it is prod as of the last deploy, minus every outbound channel.
+
+**Addendum 2026-09-10 (B-059).** Because the sync copies prod first, staging's `alembic_version`
+goes back to prod's on every staging deploy. The entrypoint's `flask db upgrade` then re-runs every
+migration between prod's revision and staging's head, on prod's data, before gunicorn starts. Until
+`main` catches up, every staging deploy pays for every pending migration again, and the staging API
+answers 502 for as long as they take. The sync stops the staging container for the copy and starts
+it again, and it runs beside the backend job, so an upgrade already under way can be cut off and
+start over. That is the point of the copy: a slow or data-sensitive migration shows up on staging on
+every deploy. It costs prod the same downtime once, at promotion, so a migration that is slow on
+staging must be made fast before it is promoted.

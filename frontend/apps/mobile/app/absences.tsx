@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import type { AbsenceSession, AttendanceSession } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { seasonsApi } from "@levelup/api";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
@@ -58,9 +60,19 @@ export default function AbsencesScreen() {
     null
   );
 
+  // calendar.seasons rule 14: a coach reading a player's history gets a
+  // "Season" preset fed by their own definition's current occurrence.
+  const coachView = Boolean(playerId);
+  const { data: seasonDefinition } = useQuery({
+    queryKey: ["season"],
+    queryFn: seasonsApi.getSeason,
+    enabled: coachView,
+  });
+  const season = coachView ? (seasonDefinition?.current ?? null) : null;
+
   const range = React.useMemo(
-    () => customRange ?? presetRange(preset),
-    [customRange, preset]
+    () => customRange ?? presetRange(preset, undefined, season),
+    [customRange, preset, season]
   );
 
   const {
@@ -146,6 +158,7 @@ export default function AbsencesScreen() {
               granularity={history?.granularity ?? "day"}
               loading={isPending}
               error={isError}
+              copyNamespace="absences.chart"
             />
             <AttendanceRangeControls
               preset={preset}
@@ -156,6 +169,7 @@ export default function AbsencesScreen() {
               }}
               onApplyCustom={(next) => setCustomRange(next)}
               onClearCustom={() => setCustomRange(null)}
+              seasonAvailable={Boolean(season)}
             />
           </CardContent>
         </Card>

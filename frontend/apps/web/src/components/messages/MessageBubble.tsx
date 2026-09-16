@@ -1,13 +1,20 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
 import { respondToNotification, respondToReminder, cancelAttendance, respondToWaitingList } from '@/api/notificationEngine';
+import { reminderAnswerOutcome, reminderRecordedState } from './reminder-answer';
 import { toast } from 'sonner';
+import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@levelup/hooks';
+import { classRequestBubbleState } from '@levelup/config';
+import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -50,7 +57,7 @@ export function MessageBubble({
   const [responding, setResponding] = useState(false);
   // PAD-124: 'expired' is set only by the waiting-list offer, whose backend can
   // reject a late answer (PAD-68) — the invite and reminder branches never see it.
-  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | 'expired' | null>(null);
+  const [localResponse, setLocalResponse] = useState<'accepted' | 'declined' | 'not_enrolled' | 'expired' | null>(null);
   // PAD-46: when the cancellation deadline has passed, require an explicit
   // confirmation of the "late cancellation" before cancelling (still allowed).
   const [confirmingLateCancel, setConfirmingLateCancel] = useState(false);
@@ -67,6 +74,47 @@ export function MessageBubble({
   const approvalBundle = isReplacementApproval
     ? (message.metadata as unknown as ApprovalBundle | undefined)
     : undefined;
+
+  // classes.class-requests rule 6 (PAD-281, B-077): the coach's proposal is a
+  // question in chat, so its answers live on this bubble. What it offers is
+  // derived from the request's LIVE row (the request moves on; the bubble does
+  // not), which is why the list is fetched here and refreshed by
+  // `class_request_changed` in AppLayout. A stale answer gets the server's 409
+  // and the bubble re-reads — never an error page.
+  // `proposed` is the coach's proposal (the student answers); `counter_proposal` is
+  // the student's counter-proposal (the coach answers, rule 10).
+  const classRequestMeta = message.metadata?.classRequest;
+  const isClassRequestProposal = classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
+  const studentAnswers = classRequestMeta?.kind === "proposed";
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const liveRequests = useQuery({
+    queryKey: queryKeys.classRequests,
+    queryFn: listClassRequests,
+    enabled: isClassRequestProposal,
+  });
+  const liveRequest = liveRequests.data === undefined
+    ? undefined
+    : (liveRequests.data.find((r) => r.id === classRequestMeta?.id) ?? null);
+  const classRequestState = classRequestBubbleState(classRequestMeta, liveRequest, { own: isMine });
+
+  const handleAnswerProposal = async (accept: boolean) => {
+    if (!classRequestMeta || responding) return;
+    setResponding(true);
+    try {
+      // The slot the bubble shows travels with the answer (rule 5): a stale bubble gets 409 slot_changed.
+      if (studentAnswers) await answerClassRequestProposal(classRequestMeta.id, accept, classRequestMeta.slot);
+      else if (accept) await acceptClassRequest(classRequestMeta.id, classRequestMeta.slot);
+      else await declineClassRequest(classRequestMeta.id);
+      toast.success(t(accept ? "classRequests.accepted" : studentAnswers ? "classRequests.answered" : "classRequests.declined"));
+    } catch (err) {
+      const refusal = classRequestRefusal(err);
+      toast.error(refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
+    } finally {
+      setResponding(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+    }
+  };
 
   const handleRespond = async (action: "yes" | "no") => {
     const eventId = message.metadata?.notificationEventId;
@@ -95,13 +143,11 @@ export function MessageBubble({
     setResponding(true);
     try {
       const result = await respondToReminder(instanceId, action);
-      // PAD-68: the backend rejects responses to a class that already started.
-      // Don't paint a confirmed/absent badge for an answer it did not record.
-      if (result.action === "expired") {
-        toast.error(t("messages.reminderExpired"));
-        return;
-      }
-      setLocalResponse(result.action === "confirmed" ? 'accepted' : 'declined');
+      // Trust the SERVER's action, not the tap (PAD-68 "expired" records
+      // nothing; PAD-259 "not_enrolled" settles without an absent badge).
+      const outcome = reminderAnswerOutcome(result.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.local !== null) setLocalResponse(outcome.local);
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     } finally {
@@ -329,15 +375,13 @@ export function MessageBubble({
 
         {/* Reminder response area */}
         {isReminder && !isMine && (() => {
-          const confirmed =
-            localResponse === 'accepted' ||
-            (localResponse === null && alreadyResponded && message.metadata?.response === "yes");
-          const declined =
-            localResponse === 'declined' ||
-            (localResponse === null && alreadyResponded && message.metadata?.response !== "yes");
+          const { confirmed, declined, notEnrolled } = reminderRecordedState(
+            message.metadata,
+            localResponse
+          );
           const startsAt = message.metadata?.startsAt;
           // Offer cancellation only while the class is still in the future.
-          const classInFuture = !startsAt || new Date(startsAt).getTime() > Date.now();
+          const classInFuture = !startsAt || wallClockISOMs(startsAt) > lisbonNowMs();
           // PAD-49: a newer reminder for the same class supersedes this one → its
           // Yes/No buttons stop being actionable and show an "expired" indicator.
           // PAD-68: a reminder for a class that has already started is expired for
@@ -350,7 +394,7 @@ export function MessageBubble({
           // The deadline is absent on older reminders → no warning, same as before.
           const deadlineIso = message.metadata?.cancellationDeadline;
           const isLateCancellation =
-            !!deadlineIso && new Date(deadlineIso).getTime() <= Date.now();
+            !!deadlineIso && wallClockISOMs(deadlineIso) <= lisbonNowMs();
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
@@ -401,6 +445,14 @@ export function MessageBubble({
                     )
                   )}
                 </>
+              ) : notEnrolled ? (
+                <span
+                  data-testid="message-reminder-not-enrolled"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70"
+                >
+                  <MinusCircle className="w-3.5 h-3.5" />
+                  {t("messages.reminderNotEnrolled")}
+                </span>
               ) : declined ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
                   <X className="w-3.5 h-3.5" />
@@ -492,6 +544,66 @@ export function MessageBubble({
             </div>
           );
         })()}
+
+        {/* Class-request proposal (classes.class-requests rule 6, PAD-281). The
+            student answers here — accept, decline, or go and pick another time;
+            the coach sees their proposal waiting; a decided or superseded one
+            shows where it ended up. */}
+        {isClassRequestProposal && classRequestState.kind !== "none" && classRequestMeta && (
+          <div
+            className="flex flex-wrap gap-2 mt-1.5 ml-1"
+            data-testid="class-request-proposal-actions"
+            data-state={classRequestState.kind}
+            data-request-id={classRequestMeta.id}
+          >
+            {classRequestState.kind === "actions" ? (
+              <>
+                <button
+                  onClick={() => handleAnswerProposal(true)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-accept"
+                >
+                  {responding ? "…" : t("classRequests.bubble.accept")}
+                </button>
+                <button
+                  onClick={() => handleAnswerProposal(false)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-decline"
+                >
+                  {t("classRequests.bubble.decline")}
+                </button>
+                <button
+                  onClick={() => navigate(`${studentAnswers ? "/availability" : "/class-requests"}?proposeFor=${classRequestMeta.id}`)}
+                  disabled={responding}
+                  className="w-full py-1.5 px-3 text-sm font-medium rounded-xl border border-border bg-background text-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="class-request-bubble-propose"
+                >
+                  {t("classRequests.bubble.propose")}
+                </button>
+              </>
+            ) : classRequestState.kind === "waiting" ? (
+              <span className="text-xs text-muted-foreground italic">
+                {t(studentAnswers ? "classRequests.bubble.waiting" : "classRequests.bubble.outcome.pending")}
+              </span>
+            ) : classRequestState.kind === "superseded" ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70">
+                <Clock className="w-3.5 h-3.5" />
+                {t("classRequests.bubble.superseded")}
+              </span>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full ${
+                  classRequestState.status === "accepted" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {classRequestState.status === "accepted" ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                {t(`classRequests.bubble.outcome.${classRequestState.status ?? "pending"}`)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (

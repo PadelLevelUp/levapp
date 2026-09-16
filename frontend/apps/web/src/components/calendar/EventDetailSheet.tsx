@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { parseISODate } from '@levelup/config';
 import { Calendar, Clock, Edit, Save, Trash2, X, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
@@ -262,7 +263,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
                   onChange={(e) => setDraft(d => d ? { ...d, date: e.target.value } : d)}
                 />
               ) : (
-                <span>{format(new Date(active.date), 'EEEE, MMMM d', { locale: dateFnsLocale(i18n.language) })}</span>
+                <span>{format(parseISODate(active.date), 'EEEE, MMMM d', { locale: dateFnsLocale(i18n.language) })}</span>
               )}
             </div>
 

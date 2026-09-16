@@ -9,8 +9,7 @@ import type {
   CalendarEvent,
   CoachNote,
   CoachPlayer,
-  EvaluationEntryPayload,
-} from "@levelup/types";
+  EvaluationEntryPayload, PlayerRemovalAction } from "@levelup/types";
 
 /**
  * Feature-local hooks for the Players screens. Query hooks that already exist
@@ -124,10 +123,13 @@ export function useRemovePlayer() {
     mutationFn: ({
       coachId,
       playerId,
+      action,
     }: {
       coachId: string;
       playerId: string;
-    }) => playersApi.removePlayer(coachId, playerId),
+      /** players.remove (PAD-274): disconnect, or delete an unclaimed placeholder. */
+      action?: PlayerRemovalAction;
+    }) => playersApi.removePlayer(coachId, playerId, action),
     onSuccess: () => invalidate(),
   });
 }

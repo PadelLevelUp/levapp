@@ -199,7 +199,11 @@
       "rotateConfirm": "Gerar",
       "cancel": "Cancelar",
       "noClub": "Precisas de um clube antes de partilhar um código.",
-      "failed": "Não foi possível preparar o código. Tenta novamente."
+      "failed": "Não foi possível preparar o código. Tenta novamente.",
+      "liveCode": "Tens um código ativo, válido até {{date}}.",
+      "liveCodeUses": "Alunos que se juntaram com ele: {{count}}",
+      "liveCodeHint": "Por segurança, um código só é mostrado quando é gerado. Para mostrares um QR, gera um novo código: o atual deixa de funcionar.",
+      "showNew": "Gerar novo código"
     },
     "joinCoach": {
       "title": "Juntar-me a um treinador",
@@ -264,6 +268,20 @@
       "settingsTitle": "Pedidos de associação",
       "settingsDescription": "Treinadores que criaram um registo para ti e o querem associar a esta conta.",
       "settingsEmpty": "Sem pedidos de associação pendentes."
-    }
+    },
+    "disconnectPlayer": "Desassociar",
+    "disconnect": "Desassociar",
+    "disconnecting": "A desassociar…",
+    "disconnected": "Desassociaste-te de {{name}}",
+    "disconnectFailed": "Não foi possível desassociar. Tenta novamente.",
+    "disconnectConfirmDescription": "{{name}} mantém a conta, as presenças e o histórico de nível. As tuas notas e avaliações deste jogador são eliminadas.",
+    "deletePlaceholderConfirmDescription": "{{name}} nunca criou conta. O registo é eliminado com tudo o que está abaixo. Esta ação não pode ser revertida.",
+    "confirmDisconnectAria": "Confirmar desassociação do jogador",
+    "removalImpactLoading": "A verificar o que isto remove…",
+    "removalImpactNotes": "As tuas notas: {{count}}",
+    "removalImpactEvaluations": "As tuas avaliações: {{count}}",
+    "removalImpactPresences": "Registos de presença: {{count}}",
+    "removeRefusedHasAccount": "{{name}} tem conta, por isso só te podes desassociar.",
+    "removeRefusedOtherCoaches": "Outro treinador também tem {{name}}, por isso só te podes desassociar."
   }
 }

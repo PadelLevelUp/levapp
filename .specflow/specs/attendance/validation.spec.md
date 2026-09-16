@@ -39,7 +39,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
    when no status is stored and none is implied by rule 6.
 6. **Response-based prefill.** Before the coach touches anything, a row is shown
    as: `confirmed` → present, `declined` → absent/justified, no answer →
-   undecided. This is a display default only; nothing is persisted until the coach
+   undecided. (PAD-313: that is the *prefilled mark*. What the row DISPLAYS as the
+   student's state is rule 20's single `attendanceState`, never these columns —
+   reading `confirmed` as "coming" is the defect PAD-313 fixes.) This is a display default only; nothing is persisted until the coach
    validates. Defaulting a self-declared absence to *justified* is a deliberate
    policy choice — `unjustified_absences` feeds the eligibility bar
    (`eligibility.rules` rule 3), so the generous reading is the safe one, and the
@@ -47,6 +49,11 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 7. **Bulk validation never force-approves.** Validating a multi-class selection
    confirms only the classes that satisfy rule 4; the rest are returned to the
    selection with an explanation and must be reviewed individually.
+7a. **(PAD-191, B-033) Every class in a bulk run is guarded.** While a multi-class validation is
+   in flight, the Validate action of **every** class in the run — not only the first — and the
+   bulk button itself are disabled, so a coach cannot submit a queued class twice by tapping it
+   mid-run. The guard is the set of in-flight class ids, not a single id. Both shells: iOS
+   already disables the whole sheet with one `busy` flag; web tracks the set.
 8. **A walk-in can be added to a past class**, and is marked present. This creates
    both the missing `Presence` row **and** the `Association_PlayerLessonInstance`
    row — `effective_filled_spots` counts instance associations, not presences, so
@@ -95,9 +102,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 14. All copy goes through `src/locales/{pt,en}/presences.json`. Default locale is
     `pt`. Counted strings must not be used for the empty case: Portuguese CLDR puts
     0 in the `one` category, so a count renders "0 aula".
-15. Date ranges and time labels are computed and formatted in **UTC**, matching
-    `attendance.history` — `start_datetime` is naive UTC, and a local-time week
-    boundary would move a late class into the neighbouring week.
+15. Date ranges and time labels use the stored digits as they are, matching
+    `attendance.history`. `start_datetime` is Lisbon wall-clock (R-023, PAD-256), and
+    the clients format it without a zone conversion, so a late class never moves into
+    the neighbouring week. The server's default range and the "pending validation"
+    cutoff use Lisbon now. An aware `from`/`to` bound is converted to Lisbon time. The
+    clients' presets and the Presences week are computed on the club's day too (B-060).
 16. The players table links each row to that player's existing attendance history
     page rather than reimplementing it.
 17. **Both shells carry the reporting surface too** (PAD-166): the three charts
@@ -127,8 +137,68 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - Web's toolbar controls and sortable column headings become a compact
       button row plus two sheets (filters + sort, and the column chooser), which
       commit on Apply rather than live — the list is behind the sheet.
+17a. **[DEC 2026-09-09, PAD-192] The charts follow the table's filters.** On web the three
+    charts and the players table share one screen and read from the same roster payload; two
+    views of the same data disagreeing side by side reads as a bug, not a choice. Decided:
+    the name search, minimum-total and maximum-unjustified filters are **page-level** —
+    - the per-player ranking and the academy/private split re-derive from the **filtered**
+      rows (client-side, like the table);
+    - the presences-over-time series follows too: `GET /presence_trend` accepts an optional
+      `playerIds` (comma-separated) and counts only those players' attended classes; the page
+      re-requests it (debounced) whenever the filtered set changes, and requests the
+      roster-wide series again when no filter is active. Sorting and the column chooser never
+      affect the charts — they change how rows are shown, not which.
+    - the chart block says so when narrowed ("Following the table filters · n of N players")
+      so nobody reads a filtered chart as the whole roster.
+    - The stats window (trailing 90 days) and the validation week stay independent, as before.
+    iOS renders the charts under its own filter sheet with the same rule (the charts are built
+    from the same filtered `rows` the list shows), so the decision holds on both shells.
+
+18. **(PAD-190 / PAD-201, B-045) One count for "classes to validate".**
+    `count_pending_validation(coach_id, range_start, range_end)` is the only derivation of how
+    many classes in a window still have an unvalidated presence — it is `len(pending)` of
+    `list_pending_validation` for the same bounds, never a second query. It is exposed as
+    `GET /class_instances/pending_validation/count?from&to` → `{ from, to, pendingCount }`
+    (coach-only, 403 otherwise, same `from`/`to` parsing as the listing). The tab's trigger on
+    both shells reads this endpoint for the week it is showing, and the coach dashboard's
+    `validation` queue item calls the same function (`dashboard.blocks` rule 3), so the two
+    surfaces show one number. The tab accepts `?week=<offset>` (web query string, iOS route
+    param) as its initial week so the dashboard can land the coach on the week it counted.
+19. **(PAD-283) `validate=1` opens the validate view.** The tab also accepts `?validate=1`
+    (web query string, iOS route param): the page renders with the validate dialog / sheet
+    already open, on the week `?week` selects, so the dashboard's validation card
+    (`dashboard.blocks` rule 10) lands the coach inside the list of classes to validate.
+    Closing it leaves the coach on the tab as if they had opened it by hand.
+
+20. **One state word per row, the same one the class sheet shows (PAD-313; number
+    self-assigned, unconfirmed).** The Presences / validation rows render the single
+    `attendanceState` of `attendance.presence` rule 9 through the shared helper in
+    `@levelup/config` (`attendance-state`), exactly as the class-detail participant row
+    does — the two surfaces computed their own answer before, which is half of why a
+    cancelled student could read as "confirmed" in one place and "not attending" in
+    another. The coach's *mark* controls (rule 6's prefill, the present/absent toggle)
+    are unchanged: they are an action, not a second status word. No row shows two state
+    words at once.
 
 ### Acceptance Criteria
+
+#### The count endpoint is the listing's count
+- **Given** a coach with one ready and one needs-input class in a window
+- **When** they GET `/class_instances/pending_validation/count` for that window
+- **Then** `pendingCount` is 2 — identical to the listing's `pendingCount` for the same bounds
+- **And** a student gets 403
+
+#### The tab opens on the week it was sent to
+- **Given** the coach arrives at `/presences?week=-1`
+- **When** the page renders
+- **Then** the validate trigger counts the previous week's classes and the dialog opens on
+  that week
+
+#### The tab opens inside the validate view when asked (PAD-283)
+- **Given** the coach arrives at `/presences?validate=1&week=-1`
+- **When** the page renders
+- **Then** the validate dialog (web) / sheet (iOS) is already open, listing the previous
+  week's classes, without pressing the trigger
 
 #### A past class with everyone answered is ready to confirm
 - **Given** a class that ended yesterday where every enrolled player confirmed or declined
@@ -158,6 +228,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach validates the selection
 - **Then** only the ready class is validated
 - **And** the other stays selected with an explanation naming how many were skipped
+
+#### Every queued class is disabled while a bulk run is in flight (PAD-191)
+- **Given** two ready classes selected for bulk validation
+- **When** the coach validates the selection and the first request is still in flight
+- **Then** the Validate buttons of both classes and the bulk button are disabled
+- **And** once the run completes both classes are validated exactly once
 
 #### Undo reopens a class without erasing it
 - **Given** a validated class
@@ -191,6 +267,18 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the file contains only the rows that survived the filters, only the
   visible columns, in the order the list is showing them
 - **And** it arrives through the iOS share sheet rather than as a download
+
+#### The charts follow the table filters (PAD-192)
+- **Given** the coach types a name that matches one roster player
+- **When** the table narrows to that row
+- **Then** the ranking chart shows only that player, the academy/private split is that player's
+  own, the trend is re-requested with `playerIds=<that id>`, and the chart block reads
+  "Following the table filters · 1 of N players"
+- **And** clearing the search restores the roster-wide charts and the caption disappears
+
+- **Given** `GET /presence_trend?playerIds=<ana>` for a window with Ana and Bruno present
+- **When** the coach reads it
+- **Then** `total` counts Ana's attended classes only; without `playerIds` it counts both
 
 #### A cleared filter is not a zero filter
 - **Given** the coach types `0` into "max unjustified" and then clears the field

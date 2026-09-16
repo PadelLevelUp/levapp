@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { RemindersSection } from "./RemindersSection";
 import { InvitationGroupsSection, DEFAULT_INVITATION_GROUPS } from "./InvitationGroupsSection";
 import { EligibilitySection } from "./EligibilitySection";
+import { EligibilityImpactNote } from "./EligibilityImpactNote";
+import type { EligibilityImpactEntry } from "@levelup/types";
 import { TiebreakersSection, DEFAULT_TIEBREAKERS } from "./TiebreakersSection";
 import { RestrictionsPanel } from "./RestrictionsPanel";
 import { NotificationGroupsSection } from "./NotificationGroupsSection";
@@ -29,6 +31,9 @@ export function NotificationsEngineSection() {
   const [loading, setLoading] = useState(true);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
   const [groupsInitializing, setGroupsInitializing] = useState(false);
+  // PAD-150 (rule 9b): who the last saved bar would exclude; `null` = no bar
+  // saved yet this visit. Stored as data, never as translated text.
+  const [eligibilityImpact, setEligibilityImpact] = useState<EligibilityImpactEntry[] | null>(null);
 
   useEffect(() => {
     getNotificationConfig()
@@ -45,7 +50,10 @@ export function NotificationsEngineSection() {
     const updated = { ...config, ...patch };
     setConfig(updated);
     try {
-      await updateNotificationConfig(patch);
+      const saved = await updateNotificationConfig(patch);
+      if ("eligibilityRules" in patch) {
+        setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
+      }
     } catch {
       // Revert on failure
       setConfig(config);
@@ -210,6 +218,18 @@ export function NotificationsEngineSection() {
               onChange={(eligibilityRules) => save({ eligibilityRules })}
               disabled={disabled}
             />
+            <EligibilityImpactNote affected={eligibilityImpact} />
+            {/* PAD-130 (eligibility.open-spot-visibility rule 3): the coach standard. */}
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+              <span className="text-xs">{t("settings.eligibility.openSpots.label")}</span>
+              <Switch
+                checked={config.openSpotsVisible ?? false}
+                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible })}
+                disabled={disabled}
+                aria-label={t("settings.eligibility.openSpots.label")}
+                data-testid="open-spots-visible"
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
 

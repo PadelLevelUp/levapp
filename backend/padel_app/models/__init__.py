@@ -1,6 +1,7 @@
 from .token_blocklist import TokenBlocklist
 from .backend_apps import Backend_App
 from .clubs import Club
+from .courts import Court
 from .coach_levels import CoachLevel
 from .coaches import Coach
 from .lesson_instances import LessonInstance
@@ -15,6 +16,8 @@ from .player_level_history import PlayerLevelHistory
 from .players import Player
 from .users import User
 from .presences import Presence
+from .reminder_attempts import ReminderAttempt
+from .deletion_audit import DeletionAudit
 from .calendar_blocks import CalendarBlock
 from .conversations import Conversation
 from .conversation_participants import ConversationParticipant
@@ -26,7 +29,7 @@ from .coach_join_token import CoachJoinToken
 from .player_claim_request import PlayerClaimRequest
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
-from .seasons import Season
+from .coach_seasons import CoachSeason, SeasonLegacy
 from .exercise import Exercise, ExerciseGroup
 from .Association_CoachClub import Association_CoachClub
 from .Association_CoachLesson import Association_CoachLesson
@@ -46,6 +49,11 @@ from .waiting_list_entry import WaitingListEntry
 from .standing_waiting_list_entry import StandingWaitingListEntry
 from .bulk_import import BulkImport
 from .needs_you_snooze import NeedsYouSnooze
+from .class_request import ClassRequest
+from .class_join_request import ClassJoinRequest
+from .digital_consent_age import DigitalConsentAge
+from .app_setting import AppSetting
+from .guardian_consent import GuardianConsent
 
 MODELS = {
     # NOTE: TokenBlocklist is deliberately excluded — it's internal JWT
@@ -55,11 +63,12 @@ MODELS = {
     # no get_create_form().
     "backend_app": Backend_App,
     "club": Club,
+    "court": Court,
     "coachlevel": CoachLevel,
     "coach": Coach,
     "lessoninstance": LessonInstance,
     "lesson": Lesson,
-    "lessage": Message,
+    "message": Message,
     "messagereaction": MessageReaction,
     "messagereport": MessageReport,
     "blockeduser": BlockedUser,
@@ -69,6 +78,8 @@ MODELS = {
     "player": Player,
     "user": User,
     "presence": Presence,
+    "reminderattempt": ReminderAttempt,
+    "deletionaudit": DeletionAudit,
     "calendarblock": CalendarBlock,
     "conversation": Conversation,
     "coachplayernote": CoachPlayerNote,
@@ -79,10 +90,10 @@ MODELS = {
     "playerclaimrequest": PlayerClaimRequest,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
-    "season": Season,
+    "coachseason": CoachSeason,
     "exercise": Exercise,
     "exercisegroup": ExerciseGroup,
-    "conversation_participant": ConversationParticipant,
+    "conversationparticipant": ConversationParticipant,
     "association_coachclub": Association_CoachClub,
     "association_coachlesson": Association_CoachLesson,
     "association_coachlessoninstance": Association_CoachLessonInstance,
@@ -92,7 +103,11 @@ MODELS = {
     "association_playerlessoninstance": Association_PlayerLessonInstance,
     "association_coachexercise": Association_CoachExercise,
     "association_coachexercisegroup": Association_CoachExerciseGroup,
-    "lesson_instance_training": LessonInstanceTraining,
+    # NOTE: LessonInstanceTraining is deliberately excluded (PAD-280, B-052), for
+    # the same reason as TokenBlocklist: it is a plain association table (no
+    # editor Model mixin, a composite key and no `id`), so the editor's schema
+    # and list routes both 500'd on it. Keys are the lowercased class name —
+    # the legacy editor and api.py look models up by `model_name.lower()`.
     "notificationconfig": NotificationConfig,
     "notificationevent": NotificationEvent,
     "replacementapprovalprompt": ReplacementApprovalPrompt,
@@ -100,4 +115,6 @@ MODELS = {
     "waitinglistentry": WaitingListEntry,
     "standingwaitinglistentry": StandingWaitingListEntry,
     "bulkimport": BulkImport,
+    "classrequest": ClassRequest,
+    "classjoinrequest": ClassJoinRequest,
 }

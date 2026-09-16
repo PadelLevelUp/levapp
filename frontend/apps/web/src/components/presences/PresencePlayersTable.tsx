@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
@@ -60,9 +60,17 @@ const DEFAULT_VISIBLE: ColumnKey[] = [
 export function PresencePlayersTable({
   players,
   loading,
+  onFilteredChange,
 }: {
   players: PresencePlayerStats[];
   loading?: boolean;
+  /**
+   * PAD-192 (attendance.validation rule 17a): the rows the filters left
+   * visible, or `null` when no filter is active. Sorting and the column
+   * chooser are deliberately NOT reported — they change how rows are shown,
+   * not which — so the charts above only move when the roster does.
+   */
+  onFilteredChange?: (rows: PresencePlayerStats[] | null) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -76,24 +84,31 @@ export function PresencePlayersTable({
 
   const shown = COLUMNS.filter((c) => visible.includes(c.key));
 
-  const rows = useMemo(() => {
+  const isFiltered = query.trim() !== "" || minTotal !== "" || maxUnjustified !== "";
+
+  const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const min = minTotal === "" ? -Infinity : Number(minTotal);
     const max = maxUnjustified === "" ? Infinity : Number(maxUnjustified);
-
-    const filtered = players.filter(
+    return players.filter(
       (p) =>
         p.name.toLowerCase().includes(needle) &&
         p.total >= min &&
         p.unjustified <= max
     );
+  }, [players, query, minTotal, maxUnjustified]);
 
+  useEffect(() => {
+    onFilteredChange?.(isFiltered ? filtered : null);
+  }, [filtered, isFiltered, onFilteredChange]);
+
+  const rows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
       return ((a[sortKey] as number) - (b[sortKey] as number)) * dir;
     });
-  }, [players, query, minTotal, maxUnjustified, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir]);
 
   function toggleSort(key: ColumnKey) {
     if (key === sortKey) {

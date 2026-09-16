@@ -71,9 +71,11 @@ def test_answer_marks_the_conversation_read_up_to_the_answer(app):
             # and must still land before the answer, which comes a moment from now.
             _coach_text_after(conv, ids["coach_user_id"], reminder.sent_at + timedelta(microseconds=1))
 
-            # Nothing read yet: reminder + the later text are both unread.
+            # Nothing read yet. Three inbound messages: PAD-330's "your coach
+            # added you to a class" from the seeded enrolment, the reminder, and
+            # the later text.
             unread_before, _, _ = compute_message_overview(user_id=ids["student_user_id"])
-            assert unread_before == 2
+            assert unread_before == 3
 
             result = respond_to_reminder(instance_id, "yes", ids["student_user_id"], now=t0 + timedelta(minutes=10))
             assert result == {"action": "confirmed"}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
@@ -29,7 +29,7 @@ import {
   LoadingChatThread,
 } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import { createEventSource } from "@/api/events";
+import { subscribeAppEvents } from "@/api/events";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -47,6 +47,16 @@ export default function MessagesPage() {
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  // PAD-284 (dashboard.blocks rule 10): a reply card used to send
+  // `/messages?conversationId=<id>`, which this page ignored — the message
+  // never opened. The server now emits `/messages/<id>`; the old shape is
+  // still honoured here so a cached payload lands on the thread too.
+  const location = useLocation();
+  useEffect(() => {
+    const legacy = new URLSearchParams(location.search).get("conversationId");
+    if (!id && legacy) navigate(`/messages/${legacy}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, location.search]);
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 
@@ -124,10 +134,8 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!token) return;
 
-    const es = createEventSource(token);
-
-    es.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
+    // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
+    return subscribeAppEvents(token, async (data) => {
 
       // ---------------------------------------------------------------
       // message_created — promote own optimistic message to 'delivered'
@@ -237,16 +245,7 @@ export default function MessagesPage() {
         );
         return;
       }
-    };
-
-    es.onerror = (err) => {
-      console.warn("SSE error", err);
-      es.close();
-    };
-
-    return () => {
-      es.close();
-    };
+    });
   }, [token, user.id, refreshUnreadCount]);
 
   useEffect(() => {
@@ -479,8 +478,18 @@ export default function MessagesPage() {
             </Button>
           </div>
         )}
+        {/* PAD-195: this banner is about BROWSER alerts only. The conversation
+            list, the SSE live updates and the unread badge never depended on
+            the permission, but the old copy ("Notifications blocked. Enable
+            them in browser settings.") read as "this app has stopped
+            notifying you" — a coach with push blocked reported exactly that.
+            The copy now says what is off and what still works
+            (messaging.push-notifications rule 8). */}
         {isSupported && permission === "denied" && (
-          <div className="px-3 py-2 border-b border-border bg-muted/30">
+          <div
+            data-testid="push-blocked-banner"
+            className="px-3 py-2 border-b border-border bg-muted/30"
+          >
             <p className="text-xs text-muted-foreground">
               {t("messages.notificationsBlocked")}
             </p>

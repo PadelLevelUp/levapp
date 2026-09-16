@@ -48,7 +48,7 @@ const EMPTY_PROFILE: ProfileForm = {
  */
 export function ProfileSection() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: me } = useQuery({
@@ -109,6 +109,9 @@ export function ProfileSection() {
       setStatus(t("settings.mobile.profileSaved"));
       // settings.profile rule 9: a new address is verified right away.
       if (payload.email !== undefined && updated.emailVerification === "pending") {
+        // B-050: the verify screen reads the signed-in user; refresh it first, or a
+        // coach who was already verified is sent straight back here.
+        await refreshUser();
         router.push("/verify-email?next=/settings" as never);
       }
     } catch {

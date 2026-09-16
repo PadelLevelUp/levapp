@@ -22,10 +22,12 @@ export type SettingsSectionId =
   | "preferences"
   | "calendar"
   | "notifications"
+  | "classRequests"
   | "myNotifications"
   | "tutorials"
   | "import"
   | "club"
+  | "connections"
   | "account"
   | "admin";
 
@@ -93,6 +95,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     audience: "student",
   },
   {
+    // PAD-104: the coach's inbox of students' class requests. Web puts it in
+    // the sidebar; the phone tab bar is full, so it lives here.
+    id: "classRequests",
+    labelKey: "settings.nav.classRequests",
+    descriptionKey: "settings.mobile.classRequestsNavDescription",
+    icon: "calendar-outline",
+    audience: "coach",
+  },
+  {
     // PAD-196: interactive walkthroughs (settings.tutorials rule 1), right
     // after Notifications on both shells.
     id: "tutorials",
@@ -116,6 +127,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     descriptionKey: "settings.club.description",
     icon: "business-outline",
     audience: "coach",
+  },
+  {
+    // PAD-287 (settings.role-scope rule 2): the connection actions that used
+    // to sit under Account — the student's coach link and claim requests, the
+    // coach's invite-by-link/QR entry, and Blocked users for both.
+    id: "connections",
+    labelKey: "settings.nav.connections",
+    descriptionKey: "settings.mobile.connectionsNavDescription",
+    icon: "link-outline",
+    audience: "everyone",
   },
   {
     id: "account",

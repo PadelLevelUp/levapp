@@ -694,10 +694,21 @@ def _fallback_title(gs):
 class ImportPipeline:
     """Holds pipeline state explicitly. Each validation step is a method."""
 
-    def __init__(self, file_bytes: bytes, coach_id: int, active_tables: set[str]):
+    def __init__(
+        self,
+        file_bytes: bytes,
+        coach_id: int,
+        active_tables: set[str],
+        existing_levels: list[dict] | None = None,
+    ):
         self.file_bytes = file_bytes
         self.coach_id = coach_id
         self.active_tables = active_tables
+        # The coach's ladder as {"code", "label"} dicts, read by the view inside
+        # the request (import.analyze rule 7, B-070). The pipeline itself runs
+        # while the SSE body streams, after the request context is gone, so it
+        # must never reach for the database.
+        self.existing_levels = list(existing_levels or [])
         self.analysis: dict[str, list] = {}
         self.drop_counts: dict[str, int] = {}
         self.level_mapping: dict[str, str] = {}
@@ -739,12 +750,9 @@ class ImportPipeline:
         return raw
 
     def validate_coach_levels(self, raw):
-        try:
-            from .coach_service import get_coach_levels
-            existing = get_coach_levels(self.coach_id)
-        except (ImportError, Exception) as e:
-            logger.warning("[AI] Could not fetch coach levels: %s", e); existing = []
-        levels, self.level_mapping = _map_coach_levels(raw.get("Coach Levels", []), raw.get("Players", []), existing)
+        levels, self.level_mapping = _map_coach_levels(
+            raw.get("Coach Levels", []), raw.get("Players", []), self.existing_levels
+        )
         if levels: self.analysis["Coach Levels"] = levels
 
     def validate_players(self, raw):
@@ -842,12 +850,21 @@ def stream_import_analysis(
     file_bytes: bytes,
     coach_id: int,
     requested_tables: list[str] | None = None,
+    existing_levels: list[dict] | None = None,
 ) -> Generator[str, None, None]:
+    """Yield the SSE events of one analysis run.
+
+    Runs outside any Flask context: the view returns this generator and the
+    WSGI server iterates it after the request context has been popped. So the
+    caller reads everything the run needs from the database first — today the
+    coach's level ladder, ``existing_levels`` as ``{"code", "label"}`` dicts
+    (import.analyze rule 7, B-070).
+    """
     def _ev(payload): return f"data: {json.dumps(payload)}\n\n"
 
     active = (set(requested_tables) & set(ALL_IMPORTABLE_TABLES) if requested_tables
               else set(ALL_IMPORTABLE_TABLES)) | _AUTO_TABLES
-    pipe = ImportPipeline(file_bytes, coach_id, active)
+    pipe = ImportPipeline(file_bytes, coach_id, active, existing_levels=existing_levels)
 
     try:
         t0 = time.perf_counter()

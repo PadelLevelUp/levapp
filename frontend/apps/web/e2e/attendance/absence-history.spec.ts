@@ -115,6 +115,32 @@ test.describe("PAD-141: student absence history", () => {
     await loginAsStudent(page);
   });
 
+  test("PAD-221: an empty period reads as absences, not attendance", async ({
+    page,
+  }) => {
+    // The chart is shared with the attendance page and used to resolve the
+    // attendance copy regardless of which page rendered it, so an empty
+    // absences window said "no attendance recorded". A range in the far past
+    // holds no seeded absence, which is the only way to reach the empty state.
+    await openAbsences(page);
+    await page.getByTestId("attendance-range-custom").click();
+    await page.getByTestId("attendance-custom-from").fill("2015-01-01");
+    await page.getByTestId("attendance-custom-to").fill("2015-01-31");
+    await Promise.all([
+      page.waitForResponse(
+        (r) => /\/api\/app\/absence_history/.test(r.url()) && r.status() === 200,
+        { timeout: 15_000 }
+      ),
+      page.getByTestId("attendance-custom-apply").click(),
+    ]);
+
+    const empty = page.getByTestId("attendance-chart-empty");
+    await expect(empty).toBeVisible({ timeout: 15_000 });
+    // pt is the default locale: "Sem faltas…" vs the attendance "Sem presenças…".
+    await expect(empty).toHaveText(/faltas|absences/i);
+    await expect(empty).not.toHaveText(/presenças|attendance/i);
+  });
+
   test("PAD-141: the page lists all three seeded absences", async ({ page }) => {
     await openAbsences(page);
     await expect(page.getByTestId("absences-subject")).toBeVisible();

@@ -13,6 +13,8 @@ schedule, and students' bounded view into it.
   materialization, coach assignment, and player enrollment at the class or occurrence level.
 - `classes.student-joins-and-views-classes` — a student's privacy-scoped view of a class, and
   their ability to request an open spot for a coach to accept or reject.
+- `classes.student-books-a-class` — a student asks for a class at a time the coach is free; the
+  coach accepts, declines or proposes another time.
 
 ## Why it's grouped this way
 

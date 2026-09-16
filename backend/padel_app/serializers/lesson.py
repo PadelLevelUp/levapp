@@ -1,7 +1,7 @@
 import json
 from padel_app.tools.tools import iso_date
 from padel_app.serializers.player import serialize_player
-from padel_app.serializers.presence import serialize_presence
+from padel_app.serializers.presence import serialize_presences
 
 
 # How "meaningful" each invitation status is when a student ends up with more
@@ -99,7 +99,7 @@ def serialize_lesson_instance(instance):
 
         "status": instance.status,
         "notes": instance.notes,
-        "overriddenFields": instance.overridden_fields,
+        "overriddenFields": overridden_fields_for(instance),
 
         "name": lesson.title if lesson else None,
         "color": lesson.color if lesson else None,
@@ -107,7 +107,57 @@ def serialize_lesson_instance(instance):
     }
 
     
-def serialize_class_instance(obj, viewer_player_id=None) -> dict:
+def _eligibility_provenance(obj, coach_id):
+    """``effectiveEligibilityRules`` + ``eligibilitySource`` for a class payload."""
+    if coach_id is None:
+        # A materialised instance may be owned through its own coach
+        # association only (no Association_CoachLesson on the parent).
+        rels = getattr(obj, "coaches_relations", None) or []
+        coach_id = rels[0].coach_id if rels else None
+    if coach_id is None:
+        return {
+            "effectiveEligibilityRules": None, "eligibilitySource": "coach",
+            "effectiveOpenSpotsVisible": False, "openSpotsSource": "coach",
+        }
+    from padel_app.services.notification_service import (
+        effective_eligibility_with_source,
+        effective_open_spots_visible_with_source,
+    )
+
+    rules, source = effective_eligibility_with_source(obj, coach_id)
+    visible, visible_source = effective_open_spots_visible_with_source(obj, coach_id)
+    return {
+        "effectiveEligibilityRules": rules,
+        "eligibilitySource": source,
+        # PAD-130 rule 10
+        "effectiveOpenSpotsVisible": visible,
+        "openSpotsSource": visible_source,
+    }
+
+
+def overridden_fields_for(instance) -> list:
+    """The overrides a materialised occurrence carries, derived from its
+    columns (classes.edit rule 4, PAD-275). The `overridden_fields` text column
+    is never read: it was never written."""
+    lesson = getattr(instance, "lesson", None)
+    out = []
+    title = getattr(instance, "overwrite_title", None)
+    # One predicate for both sides: an override is a title that DIFFERS.
+    if title and (lesson is None or title != lesson.title):
+        out.append("title")
+    level_id = getattr(instance, "level_id", None)
+    if level_id is not None and (lesson is None or level_id != lesson.default_level_id):
+        out.append("level")
+    # `maxPlayers` is NOT derivable until the per-occurrence override column
+    # exists (`classes.edit` rule 4, migration f50214af74f1, batch 7): the
+    # copied `max_players` is written on every materialisation, so deriving
+    # from it would report a capacity override on every occurrence.
+    if getattr(instance, "notes", None):
+        out.append("notes")
+    return out
+
+
+def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
     Fields already provided by CalendarEvent are intentionally omitted.
@@ -126,15 +176,21 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
     is_instance = obj.model_name == "LessonInstance"
     lesson = obj.lesson if is_instance else obj
 
-    coach_id = (
-        lesson.coaches_relations[0].coach.id
-        if lesson.coaches_relations
-        else None
-    )
+    # PAD-275 rule 4: an occurrence's coach is its own when it has one, else
+    # the lesson's; a template's is the lesson's first.
+    from padel_app.services.lesson_service import primary_coach
 
+    _coach = primary_coach(obj) if is_instance else (
+        lesson.coaches_relations[0].coach if lesson.coaches_relations else None
+    )
+    coach_id = _coach.id if _coach is not None else None
+
+    # PAD-259: an instance's roster is its presences (classes.instance-enrollment
+    # rule 6); a Lesson template's is the series roster.
+    roster_rows = obj.presences if is_instance else obj.players_relations
     participants = [
         serialize_player(rel.player)
-        for rel in obj.players_relations
+        for rel in roster_rows
         if not is_student or rel.player_id == viewer_player_id
     ]
 
@@ -149,6 +205,15 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
         "participants": participants,
         "recurrenceEnd": lesson.recurrence_end.isoformat() if lesson.recurrence_end else None,
         "notificationsEnabled": obj.notifications_enabled if hasattr(obj, "notifications_enabled") else True,
+        # PAD-129 (eligibility.cascade rule 8): the tier this payload addresses,
+        # what actually resolved, and where it came from.
+        "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
+        "openSpotsVisible": obj.open_spots_visible if isinstance(getattr(obj, "open_spots_visible", None), bool) else None,
+        **_eligibility_provenance(obj, coach_id),
+        # clubs.courts rule 7 (PAD-194): the detail shows club and court.
+        "clubName": lesson.club.name if lesson.club else None,
+        "courtId": lesson.court_id,
+        "courtName": lesson.court.name if lesson.court else None,
     }
 
     if is_instance:
@@ -176,11 +241,11 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             lesson_instance_id=obj.id
         ).all()
 
-        presences = [
-            serialize_presence(p)
+        presences = serialize_presences(
+            p
             for p in getattr(obj, "presences", [])
             if not is_student or p.player_id == viewer_player_id
-        ]
+        )
 
         # Effective cancellation deadline for this instance (PAD-43) so the
         # frontend can render deadline UX. Falls back to the default when the
@@ -192,8 +257,12 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
                 deadline_hours = config.get_cancellation_deadline_hours()
         cancellation_deadline = None
         if obj.start_datetime is not None:
-            cancellation_deadline = (
-                obj.start_datetime - timedelta(hours=deadline_hours)
+            # PAD-256 (attendance.confirm rules 6-7): N real hours before the
+            # real start, sent on the club's wall clock like every class time.
+            from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
+
+            cancellation_deadline = utc_to_wall_naive(
+                wall_to_utc_naive(obj.start_datetime) - timedelta(hours=deadline_hours)
             ).isoformat()
 
         # PAD-73: the proactive-decline window. Computed by the SAME server
@@ -212,6 +281,8 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             proactive_config = NotificationConfig.query.filter_by(
                 coach_id=coach_id
             ).first()
+        from padel_app.utils.dates import utc_to_wall_naive as _utc_to_wall
+
         proactive_deadline_dt = proactive_decline_deadline(obj, proactive_config)
         can_decline_proactively = proactive_decline_window_is_open(
             obj, proactive_config
@@ -221,11 +292,8 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
             {
                 "parentClassId": str(lesson.id),
                 "notes": obj.notes,
-                "overriddenFields": (
-                    json.loads(obj.overridden_fields)
-                    if obj.overridden_fields
-                    else []
-                ),
+                # PAD-275 (classes.edit rule 4): derived from the override columns.
+                "overriddenFields": overridden_fields_for(obj),
                 "presences": presences,
                 "invitations": [
                     {
@@ -244,13 +312,74 @@ def serialize_class_instance(obj, viewer_player_id=None) -> dict:
                 "cancellationDeadlineHours": deadline_hours,
                 "cancellationDeadline": cancellation_deadline,
                 "proactiveDeclineDeadline": (
-                    proactive_deadline_dt.isoformat()
+                    # PAD-256: a UTC instant, sent on the club's wall clock.
+                    _utc_to_wall(proactive_deadline_dt).isoformat()
                     if proactive_deadline_dt is not None
                     else None
                 ),
                 "canDeclineProactively": can_decline_proactively,
             }
         )
-        data["levelId"] = str(obj.level_id) if obj.level_id else data["levelId"]
+        # PAD-275: the occurrence's own level when set, else the lesson's.
+        _eff = obj.effective_level_id
+        data["levelId"] = str(_eff) if _eff else None
+
+        # PAD-131 (classes.join-requests rule 15): the coach sees the pending
+        # requests; a student sees only their own latest one.
+        from padel_app.services.class_join_request_service import (
+            latest_request_for_player,
+            pending_requests_for_instance,
+            serialize_join_request,
+        )
+        if is_student:
+            mine = latest_request_for_player(obj.id, viewer_player_id)
+            data["myJoinRequest"] = serialize_join_request(mine) if mine else None
+        else:
+            data["joinRequests"] = [
+                serialize_join_request(r) for r in pending_requests_for_instance(obj.id)
+            ]
+    elif occurrence_date is not None:
+        # attendance.confirm rule 20 (PAD-288/PAD-282): a virtual occurrence
+        # carries the same cancel/decline windows as a materialised one, so
+        # both shells can offer the action before any row exists.
+        data.update(_virtual_occurrence_windows(obj, coach_id, occurrence_date))
+        data["presences"] = []
 
     return data
+
+
+def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+
+    from padel_app.models.notification_config import (
+        DEFAULT_CANCELLATION_DEADLINE_HOURS,
+        NotificationConfig,
+    )
+    from padel_app.services.notification_service import (
+        proactive_decline_deadline,
+        proactive_decline_window_is_open,
+    )
+    from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
+
+    start = datetime.combine(occurrence_date, lesson.start_datetime.time())
+    stand_in = SimpleNamespace(id=None, start_datetime=start)
+    config = (
+        NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        if coach_id is not None else None
+    )
+    deadline_hours = (
+        config.get_cancellation_deadline_hours() if config is not None
+        else DEFAULT_CANCELLATION_DEADLINE_HOURS
+    )
+    proactive_dt = proactive_decline_deadline(stand_in, config)
+    return {
+        "cancellationDeadlineHours": deadline_hours,
+        "cancellationDeadline": utc_to_wall_naive(
+            wall_to_utc_naive(start) - timedelta(hours=deadline_hours)
+        ).isoformat(),
+        "proactiveDeclineDeadline": (
+            utc_to_wall_naive(proactive_dt).isoformat() if proactive_dt is not None else None
+        ),
+        "canDeclineProactively": proactive_decline_window_is_open(stand_in, config),
+    }

@@ -3,7 +3,18 @@ import { evaluationApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import type { EvaluationCategoryImpact } from "@levelup/types";
 import { Pressable, View } from "react-native";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,6 +57,12 @@ export function EvaluationCategoriesSection() {
   const [saving, setSaving] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
+  // evaluations.categories rule 7 (PAD-274): a saved category is deleted only
+  // after the coach has seen what it holds and typed its name.
+  const [pendingDelete, setPendingDelete] = React.useState<CategoryDraft | null>(null);
+  const [impact, setImpact] = React.useState<EvaluationCategoryImpact | null>(null);
+  const [impactFailed, setImpactFailed] = React.useState(false);
+  const [typedName, setTypedName] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -103,17 +120,36 @@ export function EvaluationCategoriesSection() {
     );
   };
 
-  const handleRemove = async (cat: CategoryDraft) => {
+  const handleRemove = (cat: CategoryDraft) => {
     // A locally-added row was never persisted, so there is nothing to DELETE.
     if (cat.isNew) {
       setCategories((prev) => prev.filter((c) => c.id !== cat.id));
       return;
     }
-    setRemovingId(cat.id);
+    setPendingDelete(cat);
+    setImpact(null);
+    setImpactFailed(false);
+    setTypedName("");
+    evaluationApi
+      .getEvaluationCategoryImpact(cat.id)
+      .then(setImpact)
+      .catch(() => setImpactFailed(true));
+  };
+
+  const nameMatches =
+    impact !== null && typedName.trim() === impact.name.trim();
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || !impact || !nameMatches) return;
+    const { id } = pendingDelete;
+    setRemovingId(id);
     try {
-      await evaluationApi.deleteEvaluationCategory(cat.id);
-      setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+      await evaluationApi.deleteEvaluationCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setStatus(t("settings.evaluationCategories.deleted", { name: impact.name }));
+      setPendingDelete(null);
     } catch {
+      setPendingDelete(null);
       setStatus(t("settings.evaluationCategories.deleteFailed"));
     } finally {
       setRemovingId(null);
@@ -133,6 +169,17 @@ export function EvaluationCategoriesSection() {
     try {
       await evaluationApi.addEvaluationCategories(
         categories.map((c) => ({
+          name: c.name,
+          scaleMin: c.scaleMin,
+          scaleMax: c.scaleMax,
+        }))
+      );
+      // Adopt the server's ids: a row saved here is no longer "new", so its
+      // delete must go through the confirmation (evaluations.categories rule 7).
+      const fresh = await evaluationApi.getEvaluationCategories();
+      setCategories(
+        fresh.map((c) => ({
+          id: c.id,
           name: c.name,
           scaleMin: c.scaleMin,
           scaleMax: c.scaleMax,
@@ -179,6 +226,7 @@ export function EvaluationCategoriesSection() {
                 <View className="flex-row items-center gap-2">
                   <Input
                     className="flex-1"
+                    testID={cat.isNew ? "evaluation-category-name-new" : "evaluation-category-name"}
                     accessibilityLabel={t("settings.evaluationCategories.name")}
                     placeholder={t(
                       "settings.evaluationCategories.namePlaceholder"
@@ -191,8 +239,9 @@ export function EvaluationCategoriesSection() {
                       name: cat.name || t("settings.evaluationCategories.name"),
                     })}
                     role="button"
+                    testID="evaluation-category-delete"
                     disabled={removingId === cat.id}
-                    onPress={() => void handleRemove(cat)}
+                    onPress={() => handleRemove(cat)}
                     className="p-2"
                   >
                     {removingId === cat.id ? (
@@ -277,6 +326,70 @@ export function EvaluationCategoriesSection() {
           </>
         )}
       </CardContent>
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && removingId === null) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("settings.evaluationCategories.deleteConfirmTitle", {
+                name: impact?.name ?? pendingDelete?.name ?? "",
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription testID="evaluation-category-impact">
+              {impact
+                ? t("settings.evaluationCategories.deleteImpact", {
+                    scores: impact.scores,
+                    players: impact.players,
+                  })
+                : impactFailed
+                  ? t("settings.evaluationCategories.deleteImpactFailed")
+                  : t("settings.evaluationCategories.deleteImpactLoading")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {impact ? (
+            <View className="gap-1">
+              <Text className="text-sm font-medium">
+                {t("settings.evaluationCategories.typeNameToConfirm", {
+                  name: impact.name,
+                })}
+              </Text>
+              <Input
+                testID="evaluation-category-delete-name"
+                accessibilityLabel={t(
+                  "settings.evaluationCategories.typeNameToConfirm",
+                  { name: impact.name }
+                )}
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={typedName}
+                onChangeText={setTypedName}
+              />
+            </View>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removingId !== null}>
+              <Text>{t("common.cancel")}</Text>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              testID="evaluation-category-delete-confirm"
+              className="bg-destructive"
+              disabled={!nameMatches || removingId !== null}
+              onPress={() => void confirmDelete()}
+            >
+              {removingId !== null ? (
+                <Spinner size="small" color="white" />
+              ) : null}
+              <Text className="text-destructive-foreground">
+                {t("common.delete")}
+              </Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

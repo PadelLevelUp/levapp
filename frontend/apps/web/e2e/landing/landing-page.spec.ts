@@ -130,13 +130,16 @@ test.describe("login loader", () => {
   test("the loader covers the login and hands off to the dashboard", async ({
     page,
   }) => {
-    // Hold the login response open so the overlay is provably on screen while
-    // we assert, instead of racing a warm local backend that answers in 20ms.
+    // auth.login rule 8 (PAD-186): the overlay starts only after the login
+    // has answered 200, so hold the NEXT request — the /me hydration that runs
+    // behind the mark — open instead of the login itself. That keeps the
+    // overlay provably on screen while we assert, instead of racing a warm
+    // local backend that answers in 20ms.
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route("**/api/auth/login", async (route) => {
+    await page.route("**/api/auth/me", async (route) => {
       await held;
       await route.continue();
     });

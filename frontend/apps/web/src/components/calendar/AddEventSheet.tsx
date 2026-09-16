@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, addMonths } from 'date-fns';
+import { addMonthsToIsoDate, weekdayOfIsoDate } from '@/lib/dateOnly';
 import { Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
@@ -58,7 +59,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
 
   useEffect(() => {
     if (!isRecurring || !date) return;
-    const weekday = new Date(date).getDay();
+    const weekday = weekdayOfIsoDate(date);
     setSelectedDays(prev => prev.includes(weekday) ? prev : [weekday, ...prev]);
   }, [isRecurring, date]);
 
@@ -106,7 +107,7 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
       endTime,
       isRecurring,
       recurrenceRule: isRecurring ? { frequency: 'weekly', daysOfWeek: selectedDays } : null,
-      endDate: isRecurring ? (endDate || format(addMonths(new Date(date), 1), 'yyyy-MM-dd')) : null,
+      endDate: isRecurring ? (endDate || addMonthsToIsoDate(date, 1)) : null,
     });
     handleClose();
   };

@@ -60,6 +60,14 @@ def _make_student(app, username="ana"):
         return user_id, player.id
 
 
+def _row(token):
+    """The row a token maps to: only its SHA-256 hash is stored (PAD-269)."""
+    from padel_app.models import CoachJoinToken
+    from padel_app.utils.token_hash import hash_token
+
+    return CoachJoinToken.query.filter_by(token_hash=hash_token(token))
+
+
 def _mint(client, app, coach_user_id):
     res = client.post("/api/app/coach/join-token", headers=_auth(app, coach_user_id))
     assert res.status_code == 201, res.get_json()
@@ -80,16 +88,21 @@ def test_coach_mints_a_token_bound_to_their_current_club(app, client):
     with app.app_context():
         from padel_app.models import CoachJoinToken
 
-        row = CoachJoinToken.query.filter_by(token=body["token"]).one()
+        row = _row(body["token"]).one()
         assert row.is_active is True
         assert row.club_id == club_id
         assert row.coach_id == coach_id
         delta = row.expires_at - utcnow_naive()
         assert timedelta(days=6, hours=23) < delta <= timedelta(days=7)
-    # rule 2: GET returns the same active token
+    # rule 2 (PAD-269): GET reports the live code without the token
     got = client.get("/api/app/coach/join-token", headers=_auth(app, coach_user))
     assert got.status_code == 200
-    assert got.get_json()["token"] == body["token"]
+    status = got.get_json()
+    assert status["active"] is True
+    assert status["clubName"] == "Padel Academy"
+    assert status["uses"] == 0
+    assert status["expiresAt"] == body["expiresAt"]
+    assert not {"token", "path", "url"} & set(status)
 
 
 def test_get_returns_null_when_no_active_token(app, client):
@@ -141,7 +154,7 @@ def test_rotating_retires_the_previous_token(app, client):
         from padel_app.models import CoachJoinToken
 
         # rule 6: retired, never deleted
-        assert CoachJoinToken.query.filter_by(token=t1).one().is_active is False
+        assert _row(t1).one().is_active is False
         assert CoachJoinToken.query.count() == 2
 
 
@@ -198,7 +211,7 @@ def test_student_joins_the_roster_and_the_club(app, client):
             ).count()
             == 1
         )
-        assert CoachJoinToken.query.filter_by(token=token).one().uses == 1
+        assert _row(token).one().uses == 1
 
 
 # --- Accept is idempotent --------------------------------------------------
@@ -266,7 +279,7 @@ def test_expired_token_is_410_and_flipped_inactive(app, client):
     student_user, _ = _make_student(app)
     token = _mint(client, app, coach_user)["token"]
     with app.app_context():
-        row = CoachJoinToken.query.filter_by(token=token).one()
+        row = _row(token).one()
         row.expires_at = utcnow_naive() - timedelta(minutes=1)
         db.session.commit()
 
@@ -278,7 +291,7 @@ def test_expired_token_is_410_and_flipped_inactive(app, client):
         == 410
     )
     with app.app_context():
-        assert CoachJoinToken.query.filter_by(token=token).one().is_active is False
+        assert _row(token).one().is_active is False
     # and the coach's GET no longer reports it
     got = client.get("/api/app/coach/join-token", headers=_auth(app, coach_user))
     assert got.get_json() is None
@@ -304,3 +317,20 @@ def test_acting_player_comes_from_the_jwt_only(app, client):
     with app.app_context():
         rows = Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()
         assert [r.player_id for r in rows] == [ana_player]
+
+
+# --- PAD-269: the token is stored only as a hash ---------------------------
+
+def test_token_is_stored_only_as_a_hash(app, client):
+    import hashlib
+
+    _jwt_secret(app)
+    coach_user, _, _ = _make_coach(app)
+    token = _mint(client, app, coach_user)["token"]
+    with app.app_context():
+        from padel_app.models import CoachJoinToken
+
+        row = CoachJoinToken.query.one()
+        assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
+        assert "token" not in {c.name for c in CoachJoinToken.__table__.columns}
+    assert client.get(f"/api/app/join-tokens/{token}").status_code == 200

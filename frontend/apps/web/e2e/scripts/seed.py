@@ -23,6 +23,8 @@ from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from padel_app.models.presences import Presence
+from padel_app.services.lesson_service import enrol
+from padel_app.tools.unit_of_work import unit_of_work
 from padel_app.models.Association_CoachClub import Association_CoachClub
 from padel_app.models.Association_CoachLesson import Association_CoachLesson
 from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
@@ -36,12 +38,34 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta, timezone
 
 
+from seed_dates import seed_dates, seed_today  # noqa: E402  (same directory)
+
+
+def _enrol(instance, player, *, invited=True, confirmed=False, status=None,
+           justification=None, validated=False, late_cancellation=False):
+    """PAD-259 (classes.instance-enrollment rule 4): the presence row IS the
+    enrolment and only `enrol()` creates it (plus the phase-1 shadow junction
+    row). The seed then sets the attendance fields the scenario needs."""
+    db.session.flush()
+    presence = enrol(player.id, instance, "roster", invited=invited, confirmed=confirmed, validated=validated)
+    presence.status = status
+    presence.justification = justification
+    presence.late_cancellation = late_cancellation
+    return presence
+
+
 def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
+
+# PAD-223: every fixture date comes from one pure function so no two fixtures
+# can collide on any weekday — `test_seed_dates.py` walks all seven. Pin the
+# anchor with E2E_SEED_TODAY=YYYY-MM-DD to reproduce a run on another weekday.
+DATES = seed_dates(seed_today())
+
 app = create_app()
 
-with app.app_context():
+with app.app_context(), unit_of_work():
     # ── Users ─────────────────────────────────────────────────────────────────
     # PAD-40: seed the active E2E users with language="en" so the app UI renders in
     # English for the existing E2E suite (whose locators match English copy). App-wide
@@ -114,6 +138,20 @@ with app.app_context():
     )
     db.session.add(nolevels_coach_user)
 
+    # PAD-306: an APPROVED coach with NO club — the prerequisite of the mobile
+    # flow 45-club-join-request (clubs.join-request), which used to depend on an
+    # account prepared by hand (MAESTRO_COACH_NOCLUB_*). Deliberately gets no
+    # Association_CoachClub row below; nothing else in the suite uses it.
+    noclub_coach_user = User(
+        name="E2E Coach No Club",
+        username="e2e-coach-noclub",
+        email="e2e-coach-noclub@test.com",
+        password=generate_password_hash("E2eCoach123!"),
+        status="active",
+        language="en",
+    )
+    db.session.add(noclub_coach_user)
+
     db.session.flush()
 
     # ── Coach / Player rows ────────────────────────────────────────────────────
@@ -123,6 +161,10 @@ with app.app_context():
     # Coach with no levels (PAD-29) — deliberately gets no CoachLevel rows below.
     nolevels_coach = Coach(user_id=nolevels_coach_user.id)
     db.session.add(nolevels_coach)
+
+    # PAD-306: approved, and never linked to a club (see the user above).
+    noclub_coach = Coach(user_id=noclub_coach_user.id, approval_status="approved")
+    db.session.add(noclub_coach)
 
     student = Player(user_id=student_user.id)
     db.session.add(student)
@@ -238,12 +280,11 @@ with app.app_context():
     db.session.flush()
 
     # ── Lesson + LessonInstance ───────────────────────────────────────────────
-    # Future class (next Monday) — naive UTC to match the backend's datetime contract
-    today = _utcnow_naive().replace(hour=0, minute=0, second=0, microsecond=0)
-    days_until_monday = (7 - today.weekday()) % 7 or 7
-    next_monday = today + timedelta(days=days_until_monday)
-    class_start = next_monday.replace(hour=10, minute=0)
-    class_end = next_monday.replace(hour=11, minute=0)
+    # Future class (next Monday 10:00) — naive UTC to match the backend's
+    # datetime contract. Dates come from seed_dates.py (PAD-223).
+    today = DATES.today
+    class_start = DATES.academy_start
+    class_end = DATES.academy_end
 
     lesson = Lesson(
         title="E2E Academy Class",
@@ -288,23 +329,9 @@ with app.app_context():
     )
     db.session.add(coach_instance)
 
-    # Associate student with instance
-    student_instance = Association_PlayerLessonInstance(
-        player_id=student.id,
-        lesson_instance_id=instance.id,
-    )
-    db.session.add(student_instance)
-
-    # Presence for the enrolled student (mirrors auto-create on materialize:
-    # invited, not yet confirmed). Needed so the confirm / cancel-attendance
-    # flow has a Presence row to operate on.
-    student_presence = Presence(
-        player_id=student.id,
-        lesson_instance_id=instance.id,
-        invited=True,
-        confirmed=False,
-    )
-    db.session.add(student_presence)
+    # Enrol the student (mirrors materialisation: invited, not yet confirmed).
+    # Needed so the confirm / cancel-attendance flow has a row to operate on.
+    _enrol(instance, student, invited=True, confirmed=False)
 
     # ── Declined-count class (PAD-71) ─────────────────────────────────────────
     # Next Thursday 16:00. 3 enrolled players out of 4 spots, of which 2 have
@@ -312,10 +339,8 @@ with app.app_context():
     # the class-detail "capacity" field must BOTH show 1/4 — declined students do
     # not occupy a spot. Uses filler players (only referenced by pagination /
     # search specs) so no other spec's fixtures shift.
-    days_until_thursday = (3 - today.weekday()) % 7 or 7
-    next_thursday = today + timedelta(days=days_until_thursday)
-    declined_start = next_thursday.replace(hour=16, minute=0)
-    declined_end = next_thursday.replace(hour=17, minute=0)
+    declined_start = DATES.declined_start
+    declined_end = DATES.declined_end
 
     declined_lesson = Lesson(
         title="E2E Declined Count Class",
@@ -357,40 +382,30 @@ with app.app_context():
 
     # 3 enrolled: the first stays pending (still counts), the other 2 declined.
     for idx, declined_member in enumerate(filler_players[:3]):
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=declined_member.id,
-                lesson_instance_id=declined_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=declined_member.id,
-                lesson_instance_id=declined_instance.id,
-                invited=True,
-                confirmed=idx > 0,
-                status="absent" if idx > 0 else None,
-                justification="justified" if idx > 0 else None,
-            )
+        _enrol(
+            declined_instance, declined_member,
+            invited=True, confirmed=idx > 0,
+            status="absent" if idx > 0 else None,
+            justification="justified" if idx > 0 else None,
         )
 
     # ── Recurring Lesson (no materialized instance) ────────────────────────────
-    # Weekly recurring class on Tuesdays, starting next Tuesday
-    days_until_tuesday = (1 - today.weekday()) % 7 or 7
-    next_tuesday = today + timedelta(days=days_until_tuesday)
-    recurring_start = next_tuesday.replace(hour=14, minute=0)
-    recurring_end = next_tuesday.replace(hour=15, minute=0)
-    recurrence_end_date = (next_tuesday + timedelta(weeks=8)).date()
+    # Weekly recurring class on Tuesdays. PAD-223: it starts on the Tuesday
+    # AFTER the academy class's Monday, so on a Monday run it is not
+    # "tomorrow" and the academy class stays the student's soonest class.
+    recurring_start = DATES.recurring_start
+    recurring_end = DATES.recurring_end
+    recurrence_end_date = DATES.recurring_end_date
 
     recurring_lesson = Lesson(
         title="E2E Recurring Class",
         start_datetime=recurring_start,
         end_datetime=recurring_end,
         is_recurring=True,
-        # Convert Python weekday() (Mon=0, Tue=1) to the app's canonical JS
-        # getDay() convention (Sun=0, Mon=1, Tue=2) so Tuesday materializes on
-        # Tuesday. See packages/types/src/domain.ts and backend WEEKDAY_MAP.
-        recurrence_rule=json.dumps({"frequency": "weekly", "daysOfWeek": [(next_tuesday.weekday() + 1) % 7]}),
+        # Python weekday() (Mon=0, Tue=1) → the app's canonical JS getDay()
+        # convention (Sun=0, Mon=1, Tue=2), built in seed_dates.py so Tuesday
+        # materializes on Tuesday. See packages/types/src/domain.ts and WEEKDAY_MAP.
+        recurrence_rule=DATES.recurring_rule,
         recurrence_end=recurrence_end_date,
         type="academy",
         max_players=4,
@@ -433,10 +448,13 @@ with app.app_context():
     # actually fires send_manual_notifications, which posts a system message into
     # the coach<->student direct conversation — using the real students would
     # pollute the conversation the messaging specs (US-57..US-64) depend on.
+    #
+    # PAD-223: TOMORROW at 12:00–13:00 (was 18:00). On a Sunday run "tomorrow"
+    # is the first Monday after today — the slot the availability specs
+    # reserve for their 18:00–20:00 blocker — and the two collided.
     pending_students = filler_players[5:7]
-    tomorrow = today + timedelta(days=1)
-    pending_start = tomorrow.replace(hour=18, minute=0)
-    pending_end = tomorrow.replace(hour=19, minute=0)
+    pending_start = DATES.pending_start
+    pending_end = DATES.pending_end
 
     pending_lesson = Lesson(
         title="E2E Pending Confirm Class",
@@ -446,7 +464,7 @@ with app.app_context():
         type="academy",
         max_players=6,
         club_id=club.id,
-        color="#ef4444",
+        color="#A21CAF",
         status="active",
     )
     db.session.add(pending_lesson)
@@ -478,20 +496,7 @@ with app.app_context():
 
     # Two pending students (invited + notified, no response yet).
     for pending_member in pending_students:
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=pending_member.id,
-                lesson_instance_id=pending_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=pending_member.id,
-                lesson_instance_id=pending_instance.id,
-                invited=True,
-                confirmed=False,
-            )
-        )
+        _enrol(pending_instance, pending_member, invited=True, confirmed=False)
         db.session.add(
             NotificationEvent(
                 coach_id=coach.id,
@@ -562,10 +567,7 @@ with app.app_context():
     )
 
     attended_instances = []
-    for days_ago in (8, 15, 45, 120, 250):
-        attended_start = (today - timedelta(days=days_ago)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for attended_start in DATES.attended_starts:
         attended_instance = LessonInstance(
             lesson_id=attended_lesson.id,
             start_datetime=attended_start,
@@ -585,22 +587,7 @@ with app.app_context():
                 lesson_instance_id=attended_instance.id,
             )
         )
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=student.id,
-                lesson_instance_id=attended_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=student.id,
-                lesson_instance_id=attended_instance.id,
-                invited=True,
-                confirmed=True,
-                status="present",
-                validated=True,
-            )
-        )
+        _enrol(attended_instance, student, invited=True, confirmed=True, status="present", validated=True)
         attended_instances.append(attended_instance)
 
     # ── Missed-class history (PAD-141) ───────────────────────────────────────
@@ -632,7 +619,7 @@ with app.app_context():
         type="academy",
         max_players=6,
         club_id=club.id,
-        color="#ef4444",
+        color="#A21CAF",
         status="active",
     )
     db.session.add(missed_lesson)
@@ -643,10 +630,7 @@ with app.app_context():
     )
 
     missed_instances = []
-    for days_ago, justification in ((10, "justified"), (20, "unjustified"), (200, "justified")):
-        missed_start = (today - timedelta(days=days_ago)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for missed_start, justification in DATES.missed_starts:
         missed_instance = LessonInstance(
             lesson_id=missed_lesson.id,
             start_datetime=missed_start,
@@ -666,22 +650,9 @@ with app.app_context():
                 lesson_instance_id=missed_instance.id,
             )
         )
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=student.id,
-                lesson_instance_id=missed_instance.id,
-            )
-        )
-        db.session.add(
-            Presence(
-                player_id=student.id,
-                lesson_instance_id=missed_instance.id,
-                invited=True,
-                confirmed=True,
-                status="absent",
-                justification=justification,
-                validated=True,
-            )
+        _enrol(
+            missed_instance, student,
+            invited=True, confirmed=True, status="absent", justification=justification, validated=True,
         )
         missed_instances.append(missed_instance)
 
@@ -709,8 +680,8 @@ with app.app_context():
     # correct — they are genuinely pending. No spec asserts an exact value for it.
     validation_lesson = Lesson(
         title="E2E Validation Class",
-        start_datetime=today - timedelta(days=today.weekday() + 5),
-        end_datetime=today - timedelta(days=today.weekday() + 5) + timedelta(hours=1),
+        start_datetime=DATES.validation_lesson_start,
+        end_datetime=DATES.validation_lesson_start + timedelta(hours=1),
         is_recurring=False,
         type="academy",
         max_players=6,
@@ -733,11 +704,7 @@ with app.app_context():
     # Previous week's Wednesday and Thursday at 11:00 UTC: always in the past,
     # always in an earlier week than today whatever weekday the suite runs on,
     # and away from the midnight boundary (PAD-33).
-    prev_monday = today - timedelta(days=today.weekday() + 7)
-    for day_offset, everyone_answered in ((2, True), (3, False)):
-        v_start = (prev_monday + timedelta(days=day_offset)).replace(
-            hour=11, minute=0, second=0, microsecond=0
-        )
+    for v_start, everyone_answered in DATES.validation_starts:
         v_instance = LessonInstance(
             lesson_id=validation_lesson.id,
             start_datetime=v_start,
@@ -756,21 +723,7 @@ with app.app_context():
             )
         )
         for enrolled, answered in ((student, True), (student2, everyone_answered)):
-            db.session.add(
-                Association_PlayerLessonInstance(
-                    player_id=enrolled.id, lesson_instance_id=v_instance.id
-                )
-            )
-            db.session.add(
-                Presence(
-                    player_id=enrolled.id,
-                    lesson_instance_id=v_instance.id,
-                    invited=True,
-                    confirmed=answered,
-                    status=None,
-                    validated=False,
-                )
-            )
+            _enrol(v_instance, enrolled, invited=True, confirmed=answered, status=None, validated=False)
 
     # ── Notification config ───────────────────────────────────────────────────
     notification_config = NotificationConfig(
@@ -818,17 +771,24 @@ with app.app_context():
     )
     db.session.add(student_msg)
 
-    # ── Older conversation (coach <-> student 2), last message YESTERDAY ──────
+    # ── Older conversation (coach <-> student 3), last message YESTERDAY ──────
     # PAD-98: the chat list must show the day (not only the time). This
     # conversation's last message is dated to yesterday (midday UTC — safe from
     # midnight/timezone drift) so the list renders a "Yesterday" day label.
     # It is fully read (last_read_at = now) so it does not affect unread badges.
+    #
+    # Uses student 3, not student 2 (2026-09-09, test-health): student 2 is the
+    # notification-engine suite's reminder/invite test subject, so its coach
+    # conversation keeps getting a real message mid-run, bumping last_message_at
+    # to "today" and failing this test's "Yesterday" assertion whenever those
+    # specs happen to run first. Student 3 has no coach/club (PAD-215 fixture)
+    # so nothing else ever writes into this conversation.
     yesterday_noon = (_utcnow_naive() - timedelta(days=1)).replace(
         hour=12, minute=0, second=0, microsecond=0
     )
     conversation2 = Conversation(
         is_group=False,
-        participant_key=Conversation.build_participant_key([coach_user.id, student2_user.id]),
+        participant_key=Conversation.build_participant_key([coach_user.id, student3_user.id]),
     )
     db.session.add(conversation2)
     db.session.flush()
@@ -839,13 +799,13 @@ with app.app_context():
     ))
     db.session.add(ConversationParticipant(
         conversation_id=conversation2.id,
-        user_id=student2_user.id,
+        user_id=student3_user.id,
         last_read_at=_utcnow_naive(),
     ))
     db.session.flush()
     db.session.add(Message(
         conversation_id=conversation2.id,
-        sender_id=student2_user.id,
+        sender_id=student3_user.id,
         text="See you next week!",
         sent_at=yesterday_noon,
     ))
@@ -861,7 +821,7 @@ with app.app_context():
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
-    print(f"  Conversation {conversation2.id} (coach<->student2) last message yesterday (read)")
+    print(f"  Conversation {conversation2.id} (coach<->student3) last message yesterday (read)")
     print(
         f"  Attended history (PAD-114): {len(attended_instances)} past instances of "
         f"'{attended_lesson.title}' with presence status=present for {student_user.username}"

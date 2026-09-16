@@ -13,9 +13,9 @@ governed_by: []
 Coaches create classes (lessons) that can be one-off or recurring. Classes are the template; instances are the actual scheduled occurrences.
 
 ### Entities
-- **Lesson** (`lessons`): title, description, start_datetime, end_datetime, is_recurring, recurrence_rule (JSON RRULE), recurrence_end, type (academy|private), default_level_id, max_players, color, status (active|ended), notifications_enabled, club_id
-- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id
-- **Association_PlayerLesson** (`player_in_lesson`): player_id, lesson_id
+- **Lesson** (`lessons`): title, description, start_datetime, end_datetime, is_recurring, recurrence_rule (JSON RRULE), recurrence_end, type (academy|private), default_level_id, max_players, color, status (active|ended), notifications_enabled, club_id, series_id + excluded_dates (PAD-275, `classes.recurrence` rules 6–7, held)
+- **Association_CoachLesson** (`coach_in_lesson`): coach_id, lesson_id — unique on (coach_id, lesson_id), indexed on lesson_id
+- **Association_PlayerLesson** (`player_in_lesson`): player_id, lesson_id — unique on (player_id, lesson_id), indexed on lesson_id
 
 ### Rules
 1. Type is `academy` (group) or `private` (1-on-1)
@@ -24,6 +24,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 4. `max_players` caps enrollment
 5. Coach and enrolled players are linked via junction tables
 6. Creating a lesson with `notifications_enabled=true` schedules reminder jobs
+7. **Court (PAD-194).** The payload may carry `courtId`; it must be one of the class's club's courts
+   (`clubs.courts` rule 6), else 400 `court_not_in_club`. The court is optional and defaults to none.
 
 ### Acceptance Criteria
 

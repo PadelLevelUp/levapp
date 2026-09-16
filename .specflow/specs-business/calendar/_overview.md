@@ -7,8 +7,8 @@ student availability blocking, and season-bounded recurrence.
 
 ## What it covers
 
-- `calendar.coach-views-and-manages-schedule` — the coach's weekly view, event detail, drag to
-  reschedule, and click/drag-to-create.
+- `calendar.coach-views-and-manages-schedule` — the coach's weekly view (day / week / month on
+  a phone), event detail, drag to reschedule, and click/drag-to-create.
 - `calendar.coach-blocks-personal-time` — a coach marking out their own breaks, holidays, and
   personal time.
 - `calendar.student-controls-invitation-availability` — a student marking themself unavailable so

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -9,7 +9,10 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class PlayerLevelHistory(db.Model, model.Model):
     __tablename__ = "player_level_history"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_player_level_history_player_id_assigned_at", "player_id", "assigned_at"),  # PAD-263
+        {"extend_existing": True},
+    )
 
     page_title = "Player Level History"
     model_name = "PlayerLevelHistory"

@@ -1,0 +1,111 @@
+# PAD-298 — mobile.android-runtime: evidence flow for the CI emulator lane
+# (PAD-297). Not in config.yaml's order: it is Android-only and asserts little —
+# its job is the screenshots the lane uploads in `maestro-results`, one per
+# question the build Mac cannot answer without an emulator:
+# - android-login-keyboard: the login form with the keyboard up (rule 2 —
+#   is the submit button still reachable under edge-to-edge?)
+# - android-week-sheet: Semana with the day sheet (rule 1 — depth on Android)
+# - android-month-raised: Mês with the sheet dragged up, then `back` (rule 3 —
+#   the sheet drops back and the add buttons return)
+# - android-date-picker: the Android date dialog from a new class (rule 4)
+# - android-composer-keyboard: the chat composer with the keyboard up (rule 2 —
+#   the send button must stay visible under edge-to-edge)
+appId: com.padellevelup.app
+---
+# Same start as subflows/login.yaml: a previous flow may have left the coach
+# signed in, in which case the app restores to the tabs and we log out first.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "tab-dashboard"
+    file: ../subflows/logout.yaml
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- tapOn:
+    id: "login-username"
+- takeScreenshot: android-login-keyboard
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-sheet-handle"
+    timeout: 10000
+- takeScreenshot: android-week-sheet
+- tapOn:
+    id: "calendar-view-month"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-month-grid"
+    timeout: 10000
+- swipe:
+    from:
+      id: "calendar-sheet-handle"
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    notVisible:
+      id: "calendar-add-class"
+    timeout: 5000
+- takeScreenshot: android-month-raised
+# Rule 3: hardware back on a raised sheet drops it back to rest.
+- back
+- extendedWaitUntil:
+    visible:
+      id: "calendar-add-class"
+    timeout: 5000
+- takeScreenshot: android-month-after-back
+# Rule 4: the Android date dialog.
+- tapOn:
+    id: "calendar-add-class"
+- extendedWaitUntil:
+    visible:
+      id: "class-name"
+    timeout: 15000
+- tapOn:
+    id: "class-date"
+- takeScreenshot: android-date-picker
+# First back closes the dialog (verified: run 34637032903), second pops the form.
+- back
+- extendedWaitUntil:
+    visible:
+      id: "class-name"
+    timeout: 5000
+- back
+# Rule 2, the riskiest keyboard site: the chat composer under edge-to-edge.
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 15000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "message-input"
+    timeout: 15000
+- tapOn:
+    id: "message-input"
+- inputText: "Android"
+- takeScreenshot: android-composer-keyboard
+- assertVisible:
+    id: "message-send"

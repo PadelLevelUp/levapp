@@ -17,6 +17,7 @@ import pytest
 from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
+from padel_app.models import Presence
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +65,9 @@ def test_register_device_token_creates_row(client, app):
         assert row.platform == "ios"
 
 
-def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
+def test_another_users_token_is_never_taken_over(client, app):
+    """messaging.push-notifications rule 9 (PAD-269): posting someone else's Expo
+    token no longer reassigns their row; each user owns their (user, token) pair."""
     from padel_app.models import DeviceToken
 
     with app.app_context():
@@ -74,14 +77,12 @@ def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
         user_a_id, user_b_id = user_a.id, user_b.id
 
     token = "ExponentPushToken[shared999]"
-
     resp1 = client.post(
         "/api/notifications/device",
         json={"token": token, "platform": "ios"},
         headers=_auth_header(app, user_a_id),
     )
     assert resp1.status_code == 200
-
     resp2 = client.post(
         "/api/notifications/device",
         json={"token": token, "platform": "android"},
@@ -90,9 +91,33 @@ def test_reregister_token_reassigns_user_no_duplicate_row(client, app):
     assert resp2.status_code == 200
 
     with app.app_context():
-        rows = DeviceToken.query.filter_by(token=token).all()
+        rows = {r.user_id: r for r in DeviceToken.query.filter_by(token=token).all()}
+        assert set(rows) == {user_a_id, user_b_id}
+        assert rows[user_a_id].platform == "ios"
+        assert rows[user_b_id].platform == "android"
+
+
+def test_reregistering_own_token_keeps_one_row(client, app):
+    """Rule 9: the same user posting the same token twice leaves one row."""
+    from padel_app.models import DeviceToken
+
+    with app.app_context():
+        user = _create_user("User C", "device-user-c")
+        db.session.commit()
+        user_id = user.id
+
+    token = "ExponentPushToken[mine123]"
+    for platform in ("ios", "android"):
+        resp = client.post(
+            "/api/notifications/device",
+            json={"token": token, "platform": platform},
+            headers=_auth_header(app, user_id),
+        )
+        assert resp.status_code == 200
+
+    with app.app_context():
+        rows = DeviceToken.query.filter_by(token=token, user_id=user_id).all()
         assert len(rows) == 1
-        assert rows[0].user_id == user_b_id
         assert rows[0].platform == "android"
 
 
@@ -197,9 +222,11 @@ def test_send_expo_push_builds_correct_request_body(app):
     assert result is True
     assert mock_post.call_count == 1
     _, kwargs = mock_post.call_args
+    # PAD-307 (rule 11a): every message also names the Android channel and priority.
+    android = {"channelId": "default", "priority": "high"}
     assert kwargs["json"] == [
-        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
-        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}},
+        {"to": "ExponentPushToken[a]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
+        {"to": "ExponentPushToken[b]", "title": "Hello", "body": "World", "data": {"type": "message", "conversationId": 42}, **android},
     ]
 
 
@@ -241,6 +268,30 @@ def test_send_expo_push_never_raises_on_http_failure(app):
     assert result is False
 
 
+def test_device_not_registered_deletes_every_row_for_the_token(app):
+    """messaging.push-notifications rule 9 (PAD-269): with tokens owned per
+    (user, token), one DeviceNotRegistered receipt retires the token for all."""
+    from padel_app.models import DeviceToken
+    from padel_app.utils.expo_push import send_expo_push
+
+    with app.app_context():
+        a = _create_user("Shared A", "shared-a")
+        b = _create_user("Shared B", "shared-b")
+        db.session.commit()
+        DeviceToken(user_id=a.id, token="ExponentPushToken[gone]", platform="ios").create()
+        DeviceToken(user_id=b.id, token="ExponentPushToken[gone]", platform="ios").create()
+
+        with patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response({
+                "data": [
+                    {"status": "error", "message": "not registered", "details": {"error": "DeviceNotRegistered"}},
+                ]
+            })
+            send_expo_push(["ExponentPushToken[gone]"], "Title", "Body", {})
+
+        assert DeviceToken.query.filter_by(token="ExponentPushToken[gone]").count() == 0
+
+
 def test_send_expo_push_noop_when_no_tokens(app):
     from padel_app.utils.expo_push import send_expo_push_to_user
 
@@ -258,9 +309,12 @@ def test_send_expo_push_noop_when_no_tokens(app):
 # Delivery-path wiring
 # ---------------------------------------------------------------------------
 
-def test_class_reminder_pushes_expo_with_class_payload(app):
-    """send_class_reminders, for a player with a registered DeviceToken, calls
-    the Expo sender with {"type": "class", "classInstanceId": instance.id}."""
+def test_class_reminder_pushes_expo_with_message_payload(app):
+    """PAD-240 — send_class_reminders, for a player with a registered
+    DeviceToken, calls the Expo sender with a MESSAGE payload that names the
+    thread the reminder landed in (messaging.push-notifications rule 7). The
+    instance id rides along as context only; before this the payload was
+    {"type": "class", ...} and the tap dead-ended on "class not found"."""
     from padel_app.models import DeviceToken
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
@@ -309,6 +363,7 @@ def test_class_reminder_pushes_expo_with_class_payload(app):
 
         db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
         db.session.add(Association_PlayerLessonInstance(player_id=player.id, lesson_instance_id=instance.id))
+        db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
         db.session.commit()
 
         DeviceToken(user_id=player_user.id, token="ExponentPushToken[reminder]", platform="ios").create()
@@ -324,7 +379,74 @@ def test_class_reminder_pushes_expo_with_class_payload(app):
         assert mock_send.call_count >= 1
         args, kwargs = mock_send.call_args
         assert args[0] == player_user.id
-        assert kwargs["data"] == {"type": "class", "classInstanceId": instance_id}
+        from padel_app.models import Conversation
+        conv_ids = {c.id for c in Conversation.query.all()}
+        assert kwargs["data"]["type"] == "message"
+        assert kwargs["data"]["conversationId"] in conv_ids
+        assert kwargs["data"]["classInstanceId"] == instance_id
+        # PAD-147: a reminder is an unread Message row, so the push carries the
+        # recipient's real unread total as the icon badge (rule 5), exactly
+        # like a direct message. Without it the icon under-counts until the
+        # app is next opened.
+        from padel_app.services.messaging_service import get_unread_count
+        assert kwargs["badge"] == get_unread_count(player_user.id) >= 1
+
+
+def test_coach_cancellation_pushes_expo_with_message_payload(app):
+    """PAD-240 — a student's cancellation notice to the coach is a message in
+    their thread, so its push routes to the conversation, not the class.
+    PAD-288 (attendance.confirm rule 23): only a LATE cancellation pushes, so
+    the payload is pinned on the late path."""
+    from padel_app.models import DeviceToken, Conversation
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+    from padel_app.models.clubs import Club
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.notification_service import _notify_coach_of_cancellation
+
+    with app.app_context():
+        coach_user = _create_user("Coach", "cancel-coach")
+        player_user = _create_user("Player", "cancel-player")
+        db.session.flush()
+        coach = Coach(user_id=coach_user.id)
+        db.session.add(coach)
+        player = Player(user_id=player_user.id)
+        db.session.add(player)
+        club = Club(name="Club", description="", location="City")
+        db.session.add(club)
+        db.session.flush()
+        start = datetime.utcnow() + timedelta(hours=48)
+        lesson = Lesson(title="Class", start_datetime=start, end_datetime=start + timedelta(hours=1),
+                        is_recurring=False, type="academy", max_players=4, color="#000",
+                        status="active", club_id=club.id)
+        db.session.add(lesson)
+        db.session.flush()
+        instance = LessonInstance(lesson_id=lesson.id, start_datetime=start,
+                                  end_datetime=start + timedelta(hours=1), max_players=4,
+                                  status="scheduled", notifications_enabled=True)
+        db.session.add(instance)
+        db.session.commit()
+        DeviceToken(user_id=coach_user.id, token="ExponentPushToken[cancel]", platform="ios").create()
+
+        with patch("padel_app.services.notification_service.publish"), \
+             patch("padel_app.services.notification_service.send_push_notification"), \
+             patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_send:
+            mock_send.return_value = True
+            msg = _notify_coach_of_cancellation(
+                coach_user.id, player_user.id, instance, player, is_late=True
+            )
+
+        assert mock_send.call_count == 1
+        args, kwargs = mock_send.call_args
+        assert args[0] == coach_user.id
+        assert kwargs["data"] == {
+            "type": "message",
+            "conversationId": msg.conversation_id,
+            "classInstanceId": instance.id,
+        }
+        from padel_app.services.messaging_service import get_unread_count
+        assert kwargs["badge"] == get_unread_count(coach_user.id) >= 1
 
 
 def test_direct_message_pushes_expo_with_message_payload(app):
@@ -516,6 +638,9 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
                 "body": "Training moved to 19h",
                 "data": {"type": "message", "conversationId": conversation_id},
                 "badge": 1,
+                # PAD-307 (rule 11a): Android channel and priority ride on every message.
+                "channelId": "default",
+                "priority": "high",
             }
         ]
 

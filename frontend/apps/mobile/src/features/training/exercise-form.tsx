@@ -2,13 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import type { CoachLevel } from "@levelup/types";
 import type {
-  CourtDiagram,
+  CourtDiagramV2,
   Difficulty,
   Exercise,
   ExercisePayload,
   ExerciseType,
 } from "@levelup/types";
 import { DIFFICULTY_OPTIONS, EXERCISE_TYPE_OPTIONS } from "@levelup/types";
+import { isPristineGameDiagram, upgradeCourtDiagram } from "@levelup/config";
 import { exerciseFormSchema } from "@levelup/validation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
-import { CourtDiagramEditor } from "@/features/training/court-diagram-editor";
+import { TacticalBoard } from "@/features/training/board/tactical-board";
 import { cn } from "@/lib/utils";
 
 type ExerciseFormProps = {
@@ -43,7 +44,8 @@ type ExerciseFormProps = {
 /**
  * Exercise create/edit form, mirroring the web ExerciseFormSheet. The court
  * diagram lives in a collapsible section (collapsed by default to keep the
- * form compact) hosting the touch port of web's CourtDiagramEditor.
+ * form compact) hosting the touch port of web's TacticalBoard. Legacy diagrams
+ * are upgraded on read and saved back as v2 (training.tactical-board rule 12).
  */
 export function ExerciseForm({
   exercise,
@@ -71,8 +73,8 @@ export function ExerciseForm({
     exercise?.levelIds ?? []
   );
   const [notes, setNotes] = React.useState(exercise?.notes ?? "");
-  const [diagram, setDiagram] = React.useState<CourtDiagram>(
-    exercise?.diagram ?? { elements: [] }
+  const [diagram, setDiagram] = React.useState<CourtDiagramV2>(() =>
+    upgradeCourtDiagram(exercise?.diagram)
   );
   const [diagramOpen, setDiagramOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -105,7 +107,8 @@ export function ExerciseForm({
       return;
     }
     setError(null);
-    onSubmit({ ...parsed.data, diagram });
+    // An untouched 2v2 board is not worth storing; anything else is sent as v2.
+    onSubmit({ ...parsed.data, diagram: isPristineGameDiagram(diagram) ? undefined : diagram });
   };
 
   return (
@@ -264,7 +267,7 @@ export function ExerciseForm({
           />
         </Pressable>
         {diagramOpen ? (
-          <CourtDiagramEditor value={diagram} onChange={setDiagram} />
+          <TacticalBoard value={diagram} onChange={setDiagram} />
         ) : null}
       </View>
 

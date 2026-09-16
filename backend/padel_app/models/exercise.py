@@ -54,6 +54,7 @@ class Exercise(db.Model, model.Model):
         "Association_CoachExercise",
         back_populates="exercise",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Many-to-many: Exercise <-> ExerciseGroup
@@ -134,6 +135,7 @@ class ExerciseGroup(db.Model, model.Model):
         "Association_CoachExerciseGroup",
         back_populates="exercise_group",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Many-to-many: ExerciseGroup <-> Exercise

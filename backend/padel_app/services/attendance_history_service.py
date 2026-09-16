@@ -40,6 +40,7 @@ from sqlalchemy.orm import joinedload
 
 from padel_app.models import LessonInstance, Presence
 from padel_app.sql_db import db
+from padel_app.utils.dates import utc_to_wall_naive
 
 #: Granularities the chart can be bucketed at, coarsest last.
 GRANULARITIES = ("day", "month", "year")
@@ -49,10 +50,14 @@ _MAX_DAILY_SPAN = 31
 _MAX_MONTHLY_SPAN = 550  # ~18 months
 
 
-def _as_naive_utc(value: datetime) -> datetime:
-    """Normalize an aware-or-naive datetime to the naive-UTC the DB stores."""
+def _as_club_wall(value: datetime) -> datetime:
+    """Normalize an aware-or-naive datetime to the club's wall clock (PAD-256).
+
+    Class times are stored as naive Lisbon wall-clock (R-023). A naive value is
+    taken to be on that clock already; an aware one is converted to it.
+    """
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return utc_to_wall_naive(value.astimezone(timezone.utc).replace(tzinfo=None))
     return value
 
 
@@ -109,7 +114,7 @@ def _bucket_series(
 
 def default_range(now: Optional[datetime] = None) -> Tuple[datetime, datetime]:
     """The current month — the default when the caller pins no range (rule 6)."""
-    now = _as_naive_utc(now or datetime.now(timezone.utc))
+    now = _as_club_wall(now or datetime.now(timezone.utc))
     start = now.replace(hour=0, minute=0, second=0, microsecond=0, day=1)
     last_day = monthrange(now.year, now.month)[1]
     end = start.replace(day=last_day, hour=23, minute=59, second=59)
@@ -164,8 +169,8 @@ def build_presence_history(
         dict with ``playerId``, ``from``, ``to``, ``granularity``, ``total``, a
         gap-filled ``buckets`` series and the ``sessions`` list.
     """
-    start = _as_naive_utc(range_start)
-    end = _as_naive_utc(range_end)
+    start = _as_club_wall(range_start)
+    end = _as_club_wall(range_end)
     if end < start:
         start, end = end, start
 

@@ -9,6 +9,7 @@
 # - Parses receipts for a `DeviceNotRegistered` error and deletes the stale
 #   DeviceToken row for that token (cleanup on the caller's behalf).
 import logging
+import os
 
 import requests
 
@@ -20,6 +21,24 @@ logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 _BATCH_SIZE = 100
+#: Android notification channel the client creates (expoPushRegistrar.ts and
+#: app.json's expo-notifications `defaultChannel`). iOS ignores the field.
+ANDROID_CHANNEL_ID = "default"
+
+
+def _headers() -> dict:
+    """Request headers for the Expo push API (messaging.push-notifications rule 11c).
+
+    EXPO_ACCESS_TOKEN is the flag: unset or blank, the headers are exactly what
+    they were before PAD-307; set, the bearer token is added (the Expo project
+    can be configured to require one — an owner step, see the wave C runbook).
+    Read per call so a rotated token needs no restart.
+    """
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    token = (os.getenv("EXPO_ACCESS_TOKEN") or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
 
 def _chunks(items, size):
@@ -58,6 +77,10 @@ def send_expo_push(
                 "data": data,
                 # Only sent when the caller knows the count; see the docstring.
                 **({"badge": badge} if badge is not None else {}),
+                # PAD-307 (rule 11a): Android delivery — the client's channel and a
+                # heads-up priority. iOS ignores both; Expo passes them to FCM.
+                "channelId": ANDROID_CHANNEL_ID,
+                "priority": "high",
             }
             for token in batch
         ]
@@ -65,10 +88,7 @@ def send_expo_push(
             response = requests.post(
                 EXPO_PUSH_URL,
                 json=messages,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
+                headers=_headers(),
                 timeout=10,
             )
             response.raise_for_status()
@@ -98,9 +118,8 @@ def send_expo_push(
                 logger.warning(
                     "Deleting stale Expo device token (DeviceNotRegistered): %s", token
                 )
-                stale = DeviceToken.query.filter_by(token=token).first()
-                if stale:
-                    db.session.delete(stale)
+                # Rule 9 (PAD-269): several users may hold the token; retire it for all.
+                if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
                 logger.warning(
@@ -113,10 +132,12 @@ def send_expo_push(
 def send_expo_push_to_user(
     user_id, title, body, data: dict | None = None, badge: int | None = None
 ) -> bool:
-    """Convenience wrapper: look up the user's registered device tokens and
-    send. Best-effort — no-ops (and never raises) when the user has no
-    registered devices, mirroring the semantics of send_push_notification's
-    "no subscription -> return False" behaviour.
+    """Look up the user's registered device tokens on the caller and hand the
+    HTTP call to the bounded sender (PAD-294; messaging.push-notifications
+    rule 10). Best-effort — no-ops (and never raises) when the user has no
+    registered devices, mirroring send_push_notification's "no subscription
+    -> return False". Returns False too when the queue is full and the push
+    was dropped (logged). Inline under the test config.
     """
     if not user_id:
         return False
@@ -126,4 +147,7 @@ def send_expo_push_to_user(
     ]
     if not tokens:
         return False
-    return send_expo_push(tokens, title, body, data, badge=badge)
+    from padel_app.utils.push_sender import submit
+
+    return submit(send_expo_push, tokens, title, body, data, badge=badge,
+                  label=f"expo push for user {user_id}")

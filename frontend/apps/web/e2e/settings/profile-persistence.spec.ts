@@ -168,3 +168,45 @@ test("PAD-81: a failed save reports an error, not success", async ({ page }) => 
   await openProfile(page);
   await expect(nameField(page)).toHaveValue(ORIGINAL.name);
 });
+
+// B-050: a coach whose email is ALREADY verified changes it and must land on the
+// code screen. The seeded coach starts "unverified", which hid this: the verify
+// page read the signed-in user loaded before the save, saw "verified" and sent
+// the coach straight back to Settings. Make the coach verified first, reload so
+// the signed-in user says so, then change the address.
+test("B-050: a verified coach who changes their email reaches the verify screen", async ({
+  page,
+}) => {
+  const token = await page.evaluate(() => localStorage.getItem("accessToken"));
+  expect(token, "signed in").toBeTruthy();
+  const auth = { Authorization: `Bearer ${token}` };
+
+  const me = await (await page.request.get(`${API_AUTH}/me`, { headers: auth })).json();
+  if (me.emailVerification !== "verified") {
+    // 409 means already verified; 429 means a code is already in the outbox.
+    const sent = await page.request.post(`${API_AUTH}/email-verification/send`, { headers: auth });
+    expect([200, 409, 429]).toContain(sent.status());
+    if (sent.status() !== 409) {
+      const codeRes = await page.request.get(`${API_AUTH}/email-verification/debug/last-code`, { headers: auth });
+      expect(codeRes.ok()).toBeTruthy();
+      const { code } = (await codeRes.json()) as { code: string };
+      const confirmed = await page.request.post(`${API_AUTH}/email-verification/confirm`, {
+        headers: auth,
+        data: { code },
+      });
+      expect(confirmed.ok(), `confirm answered ${confirmed.status()}`).toBeTruthy();
+    }
+  }
+  const verified = await (await page.request.get(`${API_AUTH}/me`, { headers: auth })).json();
+  expect(verified.emailVerification).toBe("verified");
+
+  // The signed-in user in the app must say "verified" too — the regression condition.
+  await page.reload();
+  await openProfile(page);
+  await emailField(page).fill("b050-coach@test.com");
+  await save(page);
+
+  await expect(page).toHaveURL(/\/verify-email/, { timeout: 15_000 });
+  await expect(page.getByTestId("verify-email")).toBeVisible();
+  await completeEmailVerification(page);
+});

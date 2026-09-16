@@ -5,6 +5,7 @@ implemented_by:
   - ../../specs/settings/language.spec.md
   - ../../specs/settings/profile.spec.md
   - ../../specs/settings/role-scope.spec.md
+  - ../../specs/settings/admin-editor.spec.md
 ---
 
 # Coach configures preferences and access
@@ -37,7 +38,8 @@ managing only their own personal profile and preferences.
    tutorials (see "Coach understands who gets invited" in the notifications domain), data import,
    and club/coach-invitation management.
 5. If a student, none of those coach-only panels appear on their Settings screen at all — they see
-   Profile, Preferences (language and theme only), their own notification preferences, and Account —
+   Profile, Preferences (language and theme only), their own notification preferences, My
+   connections (their coach link and blocked people) and Account —
    they are never bounced away from `/settings` altogether, just shown a smaller page.
 6. If a student tries a coach-only action directly (not through the UI), the app refuses it outright
    rather than letting it through or crashing.
@@ -46,7 +48,10 @@ managing only their own personal profile and preferences.
 
 - Settings is reachable by every signed-in user; a student gets a reduced page, never a dead end.
 - A student's Settings sections are exactly: Profile, Preferences (language + theme), their own
-  notification preferences, and Account. Everything else is coach-only.
+  notification preferences, My connections, and Account. Everything else is coach-only.
+- "My connections" is where a person manages who they are linked to — connecting with a coach
+  (student), inviting students by link or QR (coach), and the people they have blocked — in one
+  place, out of Account. It changes nothing about how connections are made.
 - What each role can see in the UI and what the server will actually allow always agree — hiding a
   panel in the interface is never treated as the real security boundary; every coach-only action is
   independently checked on the server.
@@ -54,6 +59,9 @@ managing only their own personal profile and preferences.
   values are trimmed before checking.
 - An abbreviation (a short badge shown next to the user's name) defaults to the first letters of the
   first two words of their name when not explicitly set, and can be overridden with up to 4 characters.
+- The LevApp administrator's data browser exists only where it is deliberately switched on (staging
+  and local development; never production by default), only the LevApp superadmin can reach it, and
+  it never shows or changes a password, code or token.
 - The default language is Portuguese; any missing or unresolved translation always falls back to
   Portuguese rather than showing a broken string or placeholder.
 - A user's language preference governs both the app's interface text and the phrasing (weekdays,

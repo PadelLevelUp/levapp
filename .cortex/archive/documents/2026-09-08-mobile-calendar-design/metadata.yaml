@@ -1,0 +1,7 @@
+id: archive.2026-09-08-mobile-calendar-design
+kind: design-canvas
+ingested_at: 2026-09-08T16:30:00Z
+version: "2026-09-08"
+status: active
+source_filename: Calendario iOS.dc.html
+origin: Claude Design canvas handed over by the owner on 2026-09-08 as the new visual design for the mobile calendar (web app at phone widths and the iOS app). Three artboards — Dia, Semana, Mês — on 393px iPhone frames, built on the levelup-design-system tokens. Ingested from ~/Downloads while planning the restyle.

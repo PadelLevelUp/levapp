@@ -33,7 +33,10 @@ from padel_app.models import (
 )
 from padel_app.models.Association_CoachExercise import Association_CoachExercise
 from padel_app.models.Association_CoachExerciseGroup import Association_CoachExerciseGroup
+from padel_app.services.lesson_service import enrol
 from padel_app.sql_db import db
+from padel_app.tools.unit_of_work import unit_of_work
+from padel_app.utils.dates import club_now_naive
 
 
 DEFAULT_PASSWORD = "test1234"
@@ -226,7 +229,8 @@ MOCK_COACH_IN_PLAYER = [
 
 
 def _dt(days_from_now: int, hour: int, minute: int = 0) -> datetime:
-    base = datetime.utcnow().replace(second=0, microsecond=0)
+    # PAD-256 (R-023): class times are Lisbon wall-clock, built on the club's date.
+    base = club_now_naive().replace(second=0, microsecond=0)
     return (base + timedelta(days=days_from_now)).replace(hour=hour, minute=minute)
 
 
@@ -911,6 +915,11 @@ def _seed_lessons() -> SeedResult:
 
 
 def _seed_lesson_instances() -> SeedResult:
+    with unit_of_work():
+        return _seed_lesson_instances_in_uow()
+
+
+def _seed_lesson_instances_in_uow() -> SeedResult:
     result = SeedResult()
 
     for row in MOCK_LESSON_INSTANCES:
@@ -970,18 +979,14 @@ def _seed_lesson_instances() -> SeedResult:
                 result.inserted += 1
 
         player_links = Association_PlayerLesson.query.filter_by(lesson_id=lesson.id).all()
+        # PAD-259 (classes.instance-enrollment rule 4): the presence row IS the
+        # enrolment and the single writer creates it (plus the phase-1 shadow).
         for player_link in player_links:
-            existing = Association_PlayerLessonInstance.query.filter_by(
-                player_id=player_link.player_id,
-                lesson_instance_id=instance.id,
-            ).first()
-            if not existing:
-                db.session.add(
-                    Association_PlayerLessonInstance(
-                        player_id=player_link.player_id,
-                        lesson_instance_id=instance.id,
-                    )
-                )
+            already = Presence.query.filter_by(
+                player_id=player_link.player_id, lesson_instance_id=instance.id
+            ).first() is not None
+            enrol(player_link.player_id, instance, "roster")
+            if not already:
                 result.inserted += 1
 
     db.session.flush()
@@ -1119,8 +1124,9 @@ def _seed_messages() -> SeedResult:
 def _seed_presences() -> SeedResult:
     result = SeedResult()
 
-    links = Association_PlayerLessonInstance.query.all()
-    grouped: dict[int, list[Association_PlayerLessonInstance]] = defaultdict(list)
+    # PAD-259: enrolments are presence rows; this pass only sets attendance.
+    links = Presence.query.all()
+    grouped: dict[int, list[Presence]] = defaultdict(list)
     for link in links:
         grouped[link.lesson_instance_id].append(link)
 

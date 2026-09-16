@@ -63,7 +63,7 @@ def test_claim_via_invite_link_keeps_the_coachs_data(app, client, world):
         assert Presence.query.filter_by(player_id=world["st_player"]).count() == 3
         assert Player.query.get(world["ph_player"]) is None
         assert User.query.get(world["ph_user"]).status == "disabled"
-        assert PlayerInvitation.query.filter_by(token=token).one().status == "accepted"
+        assert PlayerInvitation.query.filter_by(token_hash=__import__("padel_app.utils.token_hash", fromlist=["hash_token"]).hash_token(token)).one().status == "accepted"
         st = User.query.get(world["st_user"])
         assert (st.name, st.username) == ("Ana Silva", "ana")
 

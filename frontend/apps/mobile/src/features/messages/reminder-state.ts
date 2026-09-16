@@ -1,3 +1,5 @@
+import { lisbonNowMs, reminderAnswerOutcome as sharedOutcome, wallClockISOMs } from "@levelup/config";
+
 /**
  * What an attendance-reminder message offers the student (PAD-151).
  *
@@ -27,6 +29,12 @@ export type ReminderState = {
   confirmed: boolean;
   /** The student answered no — show the absent badge. */
   declined: boolean;
+  /**
+   * PAD-259 (classes.instance-enrollment rule 7): the student was taken off
+   * that date after the reminder went out; the server recorded the answer on
+   * the reminder attempt and enrolled nobody. Settled, never "absent".
+   */
+  notEnrolled: boolean;
   /** No longer answerable; show the expired badge instead of buttons. */
   superseded: boolean;
   /** Whether a cancel action should be offered at all. */
@@ -47,7 +55,7 @@ export type ReminderState = {
  */
 export function reminderState(
   metadata: ReminderMetadata | null | undefined,
-  localResponse: "accepted" | "declined" | null = null,
+  localResponse: "accepted" | "declined" | "not_enrolled" | null = null,
   now: Date = new Date()
 ): ReminderState {
   const alreadyResponded = !!metadata?.responded;
@@ -59,13 +67,20 @@ export function reminderState(
   // Note the asymmetry, which matches web: any recorded answer that is not
   // "yes" reads as declined, so an unrecognised value fails safe to absent
   // rather than showing a confirmation the student never gave.
+  const notEnrolled =
+    localResponse === "not_enrolled" ||
+    (localResponse === null && alreadyResponded && metadata?.response === "not_enrolled");
+
   const declined =
-    localResponse === "declined" ||
-    (localResponse === null && alreadyResponded && metadata?.response !== "yes");
+    !notEnrolled &&
+    (localResponse === "declined" ||
+      (localResponse === null && alreadyResponded && metadata?.response !== "yes"));
 
   const startsAt = metadata?.startsAt;
   // Cancellation is only offered while the class is still ahead.
-  const classInFuture = !startsAt || new Date(startsAt).getTime() > now.getTime();
+  // Club digits on both sides (PAD-295): `now` is a real instant.
+  const nowMs = lisbonNowMs(now);
+  const classInFuture = !startsAt || wallClockISOMs(startsAt) > nowMs;
 
   // PAD-49: a newer reminder for the same class supersedes this one, so its
   // Yes/No stops being actionable. PAD-68: a reminder for a class that has
@@ -80,15 +95,16 @@ export function reminderState(
   // about. Absent on older reminders → no warning, exactly as before.
   const deadlineIso = metadata?.cancellationDeadline;
   const isLateCancellation =
-    !!deadlineIso && new Date(deadlineIso).getTime() <= now.getTime();
+    !!deadlineIso && wallClockISOMs(deadlineIso) <= nowMs;
 
   return {
     confirmed,
     declined,
+    notEnrolled,
     superseded,
     canCancel: confirmed && classInFuture,
     isLateCancellation,
-    showResponseButtons: !confirmed && !declined && !superseded,
+    showResponseButtons: !confirmed && !declined && !notEnrolled && !superseded,
   };
 }
 
@@ -104,7 +120,7 @@ export function reminderState(
  */
 export type ReminderResponseOutcome = {
   /** The `response` to record in metadata — `null` means record nothing. */
-  write: "yes" | "no" | null;
+  write: "yes" | "no" | "not_enrolled" | null;
   /** An error toast to show, or `null` when there is nothing to say. */
   toastKey: string | null;
 };
@@ -118,8 +134,21 @@ export function reminderResponseOutcome(
     return { write: null, toastKey: "messages.reminderExpired" };
   }
 
-  // Same asymmetry as `reminderState`: only an explicit "confirmed" reads as a
-  // yes, so an unrecognised action fails safe to absent rather than showing a
-  // confirmation the server never gave.
-  return { write: action === "confirmed" ? "yes" : "no", toastKey: null };
+  // PAD-259 (classes.instance-enrollment rule 7): the student is no longer on
+  // that date. The server kept the answer on the reminder attempt and enrolled
+  // nobody; record exactly that so the bubble settles instead of saying absent.
+  if (action === "not_enrolled") {
+    return { write: "not_enrolled", toastKey: null };
+  }
+
+  // B-074: this used to end `action === "confirmed" ? "yes" : "no"`, which was
+  // not failing safe — it recorded the OPPOSITE of what the student asked for
+  // whenever the server answered something this file did not know. A refused
+  // return (`spot_filled`) settled the bubble as "no", silently. The shared
+  // mapper decides now, and writes nothing when it cannot tell.
+  const outcome = sharedOutcome({ action });
+  if (outcome.record === "confirmed") return { write: "yes", toastKey: null };
+  if (outcome.record === "declined") return { write: "no", toastKey: null };
+  if (outcome.record === "not_enrolled") return { write: "not_enrolled", toastKey: null };
+  return { write: null, toastKey: outcome.messageKey };
 }

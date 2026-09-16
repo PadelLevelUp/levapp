@@ -15,6 +15,8 @@ import {
   type AttendanceRangePreset,
 } from "@/components/attendance/dateRanges";
 import { getAttendanceHistory } from "@/api/attendance";
+import { getSeason } from "@/api/seasons";
+import type { SeasonOccurrence } from "@/types";
 import type { AttendanceHistory } from "@/types";
 
 /**
@@ -36,13 +38,29 @@ export default function AttendancePage() {
 
   const [preset, setPreset] = useState<AttendanceRangePreset>("1m");
   const [customRange, setCustomRange] = useState<AttendanceRange | null>(null);
+  // calendar.seasons rule 14: a coach reading a player's history gets a
+  // "Season" preset fed by their own definition's current occurrence.
+  const coachView = Boolean(playerId);
+  const [season, setSeason] = useState<SeasonOccurrence | null>(null);
+  useEffect(() => {
+    if (!coachView) return;
+    let cancelled = false;
+    getSeason()
+      .then((definition) => {
+        if (!cancelled) setSeason(definition?.current ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [coachView]);
   const [history, setHistory] = useState<AttendanceHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const range = useMemo(
-    () => customRange ?? presetRange(preset),
-    [customRange, preset]
+    () => customRange ?? presetRange(preset, undefined, season),
+    [customRange, preset, season]
   );
 
   const load = useCallback(
@@ -141,6 +159,7 @@ export default function AttendancePage() {
               }}
               onApplyCustom={(next) => setCustomRange(next)}
               onClearCustom={() => setCustomRange(null)}
+              seasonAvailable={Boolean(season)}
             />
           </CardContent>
         </Card>

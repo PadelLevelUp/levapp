@@ -33,6 +33,11 @@ const PRESETS: Array<{
     labelKey: "attendance.ranges.year",
     ariaKey: "attendance.ranges.yearAria",
   },
+  {
+    key: "season",
+    labelKey: "attendance.ranges.season",
+    ariaKey: "attendance.ranges.seasonAria",
+  },
 ];
 
 /**
@@ -59,6 +64,7 @@ export function AttendanceRangeControls({
   onApplyCustom,
   onClearCustom,
   testIDPrefix = "attendance",
+  seasonAvailable = false,
 }: {
   preset: AttendanceRangePreset;
   customRange: AttendanceRange | null;
@@ -66,6 +72,8 @@ export function AttendanceRangeControls({
   onApplyCustom: (range: AttendanceRange) => void;
   onClearCustom: () => void;
   testIDPrefix?: string;
+  /** calendar.seasons rule 14: the Season preset exists only for a coach whose season has a current occurrence. */
+  seasonAvailable?: boolean;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = React.useState(false);
@@ -99,7 +107,7 @@ export function AttendanceRangeControls({
   return (
     <View testID={`${testIDPrefix}-range-controls`} className="gap-3">
       <View className="flex-row flex-wrap items-center gap-2">
-        {PRESETS.map((item) => {
+        {PRESETS.filter((item) => item.key !== "season" || seasonAvailable).map((item) => {
           const active = !customRange && preset === item.key;
           return (
             <Button

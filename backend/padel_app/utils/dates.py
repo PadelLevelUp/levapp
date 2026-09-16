@@ -1,14 +1,19 @@
-"""Datetime utilities. The codebase stores naive UTC datetimes in the DB
-because SQLAlchemy's `DateTime` column is naive by default. Use these helpers
-instead of the deprecated `datetime.utcnow()` so behaviour is consistent in
-any host timezone."""
+"""Datetime utilities and the backend's two clocks (R-023, PAD-256).
+
+Event timestamps (created_at, sent_at, decided_at, expires_at, ...) are naive
+UTC. Class, block and request times (`start_datetime` / `end_datetime` on
+lessons, lesson_instances, calendar_blocks and class_requests) are naive Lisbon
+wall-clock: the digits the person typed. Compare each with its own clock
+(`utcnow_naive()` / `club_now_naive()`) and cross between the two only through
+`wall_to_utc_naive()` / `utc_to_wall_naive()`."""
 
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 # The club's wall clock. Every human-facing "day", "hour" or "week" in the
-# product is read off THIS clock, while every instant in the DB is naive UTC.
+# product is read off THIS clock, and class, block and request times are stored
+# on it as naive wall-clock values (R-023, PAD-256). Event timestamps are naive UTC.
 #
 # PAD-144: this constant previously existed in three places (`scheduler`,
 # `student_availability_service`, and lazily imported into `notification_service`
@@ -25,6 +30,37 @@ def utcnow_naive() -> datetime:
     intermediate to avoid host-timezone drift.
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def utc_to_wall_naive(instant: Optional[datetime]) -> Optional[datetime]:
+    """A naive UTC instant as a naive Lisbon wall-clock value (R-023)."""
+    if instant is None:
+        return None
+    return instant.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ).replace(tzinfo=None)
+
+
+def wall_to_utc_naive(wall: Optional[datetime]) -> Optional[datetime]:
+    """A naive Lisbon wall-clock value (a class, block or request time) as a
+    naive UTC instant (R-023).
+
+    `zoneinfo` applies the offset in force on that wall date, so a class stored
+    at 14:00 is 13:00 UTC in July and 14:00 UTC in January. A wall time inside
+    the spring-forward gap (01:00-01:59 on the change day) does not exist on the
+    club's clock and resolves one hour forward; no real class sits there.
+    """
+    if wall is None:
+        return None
+    return wall.replace(tzinfo=CLUB_TZ).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def club_now_naive() -> datetime:
+    """'Now' on the club's wall clock, the clock class times are stored in.
+
+    Compare the `start_datetime` / `end_datetime` of classes, blocks and
+    requests with this, never with `utcnow_naive()` (R-023, PAD-256). It is
+    derived from `utcnow_naive()`, so a test that pins one pins both.
+    """
+    return utc_to_wall_naive(utcnow_naive())
 
 
 def to_utc_iso(dt: Optional[datetime]) -> Optional[str]:

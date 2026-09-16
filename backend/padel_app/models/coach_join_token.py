@@ -4,17 +4,22 @@ Unlike PlayerInvitation it is not bound to a player: one QR serves a whole class
 Rotation (minting again) is the only revocation; rows are never deleted so `uses`
 stays auditable.
 """
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
+from padel_app.utils.token_hash import HashedTokenMixin
 
 
-class CoachJoinToken(db.Model, model.Model):
+class CoachJoinToken(HashedTokenMixin, db.Model, model.Model):
     __tablename__ = "coach_join_tokens"
-    __table_args__ = {"extend_existing": True}
+    # Created by migration d2e3f4a5b6c7; declared so autogenerate keeps it (PAD-220).
+    __table_args__ = (
+        Index("ix_coach_join_tokens_coach_id", "coach_id"),
+        {"extend_existing": True},
+    )
 
     page_title = "Coach Join Tokens"
     model_name = "CoachJoinToken"
@@ -31,7 +36,9 @@ class CoachJoinToken(db.Model, model.Model):
     )
     club = relationship("Club")
 
-    token = Column(String(64), unique=True, nullable=False, index=True)
+    # PAD-269: only the SHA-256 of the link token is stored (utils/token_hash.py);
+    # `token` is a write-only property from HashedTokenMixin.
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True, server_default="1")
     uses = Column(Integer, nullable=False, default=0, server_default="0")
@@ -52,7 +59,7 @@ class CoachJoinToken(db.Model, model.Model):
 
     @classmethod
     def display_all_info(cls):
-        searchable = {"field": "token", "label": "Token"}
+        searchable = {"field": "token_hash", "label": "Token hash"}
         columns = [
             {"field": "coach", "label": "Coach"},
             {"field": "club", "label": "Club"},

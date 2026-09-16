@@ -57,7 +57,7 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
 
   // The sheet stays open and explains why, rather than closing on a class that
   // would have recurred forever.
-  await expect(page.getByRole("alert")).toContainText(/no season covers/i, {
+  await expect(page.getByRole("alert")).toContainText(/no season covers|season does not cover/i, {
     timeout: 10_000,
   });
   await expect(seasonEndSwitch).toBeVisible();

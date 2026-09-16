@@ -3,7 +3,7 @@ id: B-017
 title: "Class-detail attendance shows \"Reminder sent\" for players no reminder was ever sent to"
 type: layer-drift
 severity: medium
-status: open
+status: resolved
 affects:
   - attendance.presence
   - notifications.reminders
@@ -19,6 +19,7 @@ related_specs:
   - .specflow/specs/notifications/reminders.spec.md
 proposed_fix: "Stop overloading Presence.invited as a reminder signal. Either (a) gate the badge on the reminder/invitation record that actually exists in the notification engine instead of on Presence.invited, or (b) add a distinct column (e.g. Presence.reminder_sent_at) written only by the reminder flow and gate both shells on it, or (c) if the badge is meant to mean \"on the roster\", relabel the keys on both shells so they stop asserting a message was sent."
 opened: 2026-09-06T00:00:00Z
+resolved: 2026-09-09T00:00:00Z
 ---
 
 # B-017 — Attendance's `invited` flag is not a reminder signal, but both shells label it as one
@@ -101,3 +102,11 @@ Three options, in preference order:
 
 Whichever is chosen, the fix must land on **both** shells in the same ticket (R-024) —
 `AttendanceRow.tsx` and `ParticipantRow.tsx` gate on the same field with the same keys.
+
+## Resolution (PAD-199, 2026-09-09)
+
+Option 1. `serialize_presence` now emits `reminderSentAt`, derived by
+`presence_signal_service.reminder_sent_at_by_presence` from the newest `notification_reminder`
+message for that (player, instance) or the message behind a `NotificationEvent` for the pair.
+`AttendanceRow.tsx` and `ParticipantRow.tsx` gate the badge on it; `invited` is no longer read by
+either shell. Rules: `attendance.presence` 1a, `calendar.event-detail` 3a.

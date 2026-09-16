@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -14,6 +14,9 @@ class BulkImport(db.Model, model.Model):
     model_name = "BulkImport"
 
     id = Column(Integer, primary_key=True)
+    # Overrides the mixin's nullable created_at: migration d4e5f6a7b8c9 made it
+    # NOT NULL DEFAULT now() (PAD-220).
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default=func.now())
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
     filename = Column(String(255), nullable=True)
     status = Column(

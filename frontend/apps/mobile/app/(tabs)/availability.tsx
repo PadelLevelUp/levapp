@@ -2,12 +2,14 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 import { lightTheme } from "@levelup/config";
 import type { AvailabilityBlocker } from "@levelup/api/src/resources/availability";
 import { useAvailabilityBlockers } from "@levelup/hooks";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
+import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +57,8 @@ function describeBlocker(
 
 export default function AvailabilityScreen() {
   const { t } = useTranslation();
+  const params = useLocalSearchParams<{ proposeFor?: string }>();
+  const proposeFor = params.proposeFor ? Number(params.proposeFor) : null;
   const { data: blockers, isPending, isError, refetch } =
     useAvailabilityBlockers();
   const createBlocker = useCreateBlocker();
@@ -212,6 +216,11 @@ export default function AvailabilityScreen() {
         <Text className="text-sm text-muted-foreground">
           {t("availability.intro")}
         </Text>
+
+        {/* PAD-104: the student books a class in the coach's free time.
+            PAD-281: `?proposeFor=<id>` (from the chat bubble) opens the
+            "propose another time" picker on that request. */}
+        {!showForm ? <ClassRequestsSection role="student" proposeFor={proposeFor} /> : null}
 
         {showForm ? (
           <BlockerForm

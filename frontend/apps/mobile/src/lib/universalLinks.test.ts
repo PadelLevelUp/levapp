@@ -37,7 +37,38 @@ describe("parseUniversalLink — the three claimed paths", () => {
     expect(parseUniversalLink("https://levapp.app/register/42")).toEqual({
       kind: "register",
       userId: "42",
+      token: null,
       path: "/register/42",
+    });
+  });
+
+  // auth.activate rules 2 and 8 (PAD-254): the link's `t` is the account's
+  // activation secret, and it must survive the parse — the id alone is not
+  // a working link.
+  it("keeps the activation secret of a registration link", () => {
+    expect(parseUniversalLink("https://levapp.app/register/42?t=abc%2Fdef")).toEqual({
+      kind: "register",
+      userId: "42",
+      token: "abc/def",
+      path: "/register/42?t=abc%2Fdef",
+    });
+    expect(parseUniversalLink("/register/42?next=/invite/player/x&t=s3cret#top")).toMatchObject({
+      userId: "42",
+      token: "s3cret",
+    });
+  });
+
+  it("treats a blank or absent secret as none", () => {
+    for (const url of ["/register/42?t=", "/register/42?t=%20", "/register/42?x=1"]) {
+      expect(parseUniversalLink(url)).toMatchObject({ kind: "register", token: null });
+    }
+  });
+
+  it("still ignores query strings on invite links", () => {
+    expect(parseUniversalLink("https://levapp.app/invite/player/abc?t=zzz")).toEqual({
+      kind: "player-invite",
+      token: "abc",
+      path: "/invite/player/abc",
     });
   });
 

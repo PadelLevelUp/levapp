@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime
 
@@ -14,5 +14,7 @@ class TokenBlocklist(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        # PAD-273: naive UTC like every other column; a timezone-aware value
+        # was being written into this naive column.
+        default=datetime.utcnow,
     )

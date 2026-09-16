@@ -29,23 +29,32 @@ import { parseIsoDate } from "./dateRanges";
  *
  * The series is gap-filled server-side, so empty periods render as zero-height
  * bars and the axis stays continuous instead of skipping quiet weeks.
+ *
+ * PAD-221: the absences page (PAD-141) reuses this chart unchanged, so its
+ * empty/loading/error copy used to read "no attendance recorded" on a page
+ * about absences. `copyNamespace` picks the locale block the strings come
+ * from; the two blocks carry the same four keys.
  */
+export type AttendanceChartCopyNamespace = "attendance.chart" | "absences.chart";
+
 export function AttendanceChart({
   buckets,
   granularity,
   loading,
   error,
+  copyNamespace = "attendance.chart",
 }: {
   buckets: AttendanceBucket[];
   granularity: AttendanceGranularity;
   loading?: boolean;
   error?: boolean;
+  copyNamespace?: AttendanceChartCopyNamespace;
 }) {
   const { t, i18n } = useTranslation();
 
   const chartConfig = {
     count: {
-      label: t("attendance.chart.seriesLabel"),
+      label: t(`${copyNamespace}.seriesLabel`),
       color: "hsl(var(--primary))",
     },
   } satisfies ChartConfig;
@@ -102,7 +111,7 @@ export function AttendanceChart({
         data-state="loading"
         className="h-[220px] w-full"
         aria-busy="true"
-        aria-label={t("attendance.chart.loading")}
+        aria-label={t(`${copyNamespace}.loading`)}
       >
         <Skeleton className="h-full w-full" />
       </div>
@@ -117,7 +126,7 @@ export function AttendanceChart({
         role="alert"
         className="flex h-[220px] w-full items-center justify-center text-sm text-destructive"
       >
-        {t("attendance.chart.error")}
+        {t(`${copyNamespace}.error`)}
       </div>
     );
   }
@@ -187,7 +196,7 @@ export function AttendanceChart({
           data-testid="attendance-chart-empty"
           className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground"
         >
-          {t("attendance.chart.empty")}
+          {t(`${copyNamespace}.empty`)}
         </p>
       ) : null}
     </div>

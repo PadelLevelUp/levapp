@@ -17,43 +17,47 @@ from padel_app.serializers.calendar_event import (
     serialize_calendar_event,
 )
 from padel_app.sql_db import db
+from padel_app.utils.dates import wall_to_utc_naive
 
 
 # A fixed "now" so the tests are deterministic regardless of wall clock.
-NOW = datetime(2026, 7, 27, 20, 30, 0)
+# PAD-256: `now` is a UTC instant; this is 20:30 on the club's clock, the same
+# wall-clock space the class times below are written in.
+NOW_WALL = datetime(2026, 7, 27, 20, 30, 0)   # class times are built on this clock
+NOW = wall_to_utc_naive(NOW_WALL)             # the UTC instant passed as `now`
 
 
 def test_today_already_ended_is_completed():
     """15:00-16:00 today, checked at 20:30 -> completed (the ticket scenario)."""
-    start = NOW.replace(hour=15, minute=0)
-    end = NOW.replace(hour=16, minute=0)
+    start = NOW_WALL.replace(hour=15, minute=0)
+    end = NOW_WALL.replace(hour=16, minute=0)
     assert _compute_status(start, end, now=NOW) == "completed"
 
 
 def test_today_not_yet_ended_is_scheduled():
     """A class today whose end is still in the future stays scheduled."""
-    start = NOW.replace(hour=21, minute=0)
-    end = NOW.replace(hour=22, minute=0)
+    start = NOW_WALL.replace(hour=21, minute=0)
+    end = NOW_WALL.replace(hour=22, minute=0)
     assert _compute_status(start, end, now=NOW) == "scheduled"
 
 
 def test_today_in_progress_is_scheduled():
     """A class that started but has not ended yet is still scheduled."""
-    start = NOW - timedelta(minutes=15)
-    end = NOW + timedelta(minutes=45)
+    start = NOW_WALL - timedelta(minutes=15)
+    end = NOW_WALL + timedelta(minutes=45)
     assert _compute_status(start, end, now=NOW) == "scheduled"
 
 
 def test_previous_day_is_completed():
     """Regression guard: previous-day classes still read as completed."""
-    start = (NOW - timedelta(days=1)).replace(hour=10, minute=0)
-    end = (NOW - timedelta(days=1)).replace(hour=11, minute=0)
+    start = (NOW_WALL - timedelta(days=1)).replace(hour=10, minute=0)
+    end = (NOW_WALL - timedelta(days=1)).replace(hour=11, minute=0)
     assert _compute_status(start, end, now=NOW) == "completed"
 
 
 def test_future_day_is_scheduled():
-    start = (NOW + timedelta(days=2)).replace(hour=10, minute=0)
-    end = (NOW + timedelta(days=2)).replace(hour=11, minute=0)
+    start = (NOW_WALL + timedelta(days=2)).replace(hour=10, minute=0)
+    end = (NOW_WALL + timedelta(days=2)).replace(hour=11, minute=0)
     assert _compute_status(start, end, now=NOW) == "scheduled"
 
 
@@ -138,8 +142,8 @@ def _make_instance_ending(app, *, start_dt, end_dt):
 def test_serialize_threads_now_for_today_ended_instance(app):
     """serialize_calendar_event honours injected `now` for today's ended class."""
     with app.app_context():
-        start = NOW.replace(hour=15, minute=0)
-        end = NOW.replace(hour=16, minute=0)
+        start = NOW_WALL.replace(hour=15, minute=0)
+        end = NOW_WALL.replace(hour=16, minute=0)
         instance = _make_instance_ending(app, start_dt=start, end_dt=end)
 
         event = serialize_calendar_event(instance, now=NOW)

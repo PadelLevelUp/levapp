@@ -21,6 +21,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { listCurrentClubCourts } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
 import { ClassPlanningSection } from "./ClassPlanningSection";
@@ -32,17 +33,25 @@ import type {
   ClassInvitation,
   CoachPlayer,
   CoachLevel,
+  Court,
   PresenceStatus,
   AbsenceJustification,
 } from "@/types";
 
 
-import { effectiveFilledSpots, findOverlappingEvent } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
-import { sendClassReminders, cancelAttendance } from "@/api/notificationEngine";
+import {
+  acceptClassJoinRequest,
+  createClassJoinRequest,
+  joinRequestRefusal,
+  rejectClassJoinRequest,
+  withdrawClassJoinRequest,
+} from "@/api/classJoinRequests";
+import { sendClassReminders, cancelAttendance, respondToReminder } from "@/api/notificationEngine";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
-import { createEventSource } from "@/api/events";
+import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
@@ -86,17 +95,13 @@ import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
+import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
+import { checkEligibility } from "@/api/notificationEngine";
+import type { EligibilityCheckEntry } from "@levelup/types";
+import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
 
-const COLORS = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 type AttendanceRecord = Record<string, AttendanceState>;
 
@@ -104,6 +109,8 @@ interface ClassDetailSheetProps {
   event: CalendarEvent | null;
   open: boolean;
   onClose: () => void;
+  /** PAD-285 (dashboard.blocks rule 10): open with the Notificar picker already up. */
+  openNotify?: boolean;
 
   players: CoachPlayer[];
   levels: CoachLevel[];
@@ -126,6 +133,7 @@ export function ClassDetailSheet({
   event,
   open,
   onClose,
+  openNotify,
   players,
   levels,
   canManage,
@@ -144,16 +152,48 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
+  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  const [courts, setCourts] = useState<Court[]>([]);
+  useEffect(() => {
+    if (!isEditing) return;
+    let cancelled = false;
+    listCurrentClubCourts()
+      .then((rows) => {
+        if (!cancelled) setCourts(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [editScopeDialogOpen, setEditScopeDialogOpen] = useState(false);
   const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false);
+  // PAD-150: a manual add that fails the bar asks first (rule 7d). The pending
+  // edit is parked here until the coach confirms or cancels.
+  const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
+  // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
+  const [joinBusy, setJoinBusy] = useState(false);
+  const [pendingAccept, setPendingAccept] = useState<{
+    id: number;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<{
+    changes: Record<string, unknown>;
+    scope: ApplyScope;
+  } | null>(null);
 
   const [isValidating, setIsValidating] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+  // PAD-285: the dashboard's "Convidar" lands here with Notificar to open — once
+  // the sheet is up for a coach, and only for this opening.
+  useEffect(() => {
+    if (open && openNotify && canManage && event?.type === "class") setShowNotifyModal(true);
+  }, [open, openNotify, canManage, event?.type]);
   const [sendingReminders, setSendingReminders] = useState(false);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
@@ -166,13 +206,12 @@ export function ClassDetailSheet({
 
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
+  const [returning, setReturning] = useState(false);
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
   const [attendanceCancelled, setAttendanceCancelled] = useState(false);
 
   // PAD-73: student proactively declines a future class from the participants
   // section, before they would even have been reminded to confirm.
-  const [proactiveDeclineOpen, setProactiveDeclineOpen] = useState(false);
-  const [decliningProactively, setDecliningProactively] = useState(false);
 
   useEffect(() => {
     if (!canManage) {
@@ -194,7 +233,6 @@ export function ClassDetailSheet({
     // them whenever the sheet switches classes, otherwise opening another class
     // right after declining would render it as already declined.
     setAttendanceCancelled(false);
-    setProactiveDeclineOpen(false);
     setCancelAttendanceOpen(false);
 
     async function load() {
@@ -248,10 +286,9 @@ export function ClassDetailSheet({
   useEffect(() => {
     if (!open || !canManage || !token) return;
 
-    const es = createEventSource(token);
-    es.onmessage = (e) => {
+    // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
+    return subscribeAppEvents(token, (data) => {
       try {
-        const data = JSON.parse(e.data);
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
@@ -283,6 +320,13 @@ export function ClassDetailSheet({
           }
         }
 
+        // PAD-131: a student asked to join, or the class filled and their
+        // requests closed → re-fetch so the requests block is current.
+        if (data.type === "join_request_created" || data.type === "join_requests_superseded") {
+          const ev = eventRef.current;
+          if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
+        }
+
         // Notifications were sent (auto or manual) → re-fetch to show new entries
         if (data.type === "notify_sent") {
           const { lessonInstanceId } = data.payload;
@@ -294,13 +338,86 @@ export function ClassDetailSheet({
             setInvitationsOpen(true);
           }).catch(() => {});
         }
-      } catch { /* ignore parse errors */ }
-    };
-    return () => es.close();
+      } catch { /* a malformed payload must not break the sheet */ }
+    });
   }, [open, canManage, token]);
 
   const active = draft ?? classInstance;
   const isCanceled = active?.status === "canceled";
+
+  // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9): the student asks or
+  // withdraws; the coach accepts (a manual add — a student who slipped below
+  // the bar needs the same named-reason confirmation) or rejects.
+  const refreshInstance = async () => {
+    if (!event) return;
+    try {
+      setClassInstance(await getClassInstance(event));
+    } catch {
+      /* keep what we have */
+    }
+  };
+  const handleJoinRequest = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await createClassJoinRequest({ model: event.model, originalId: event.originalId, date: event.date });
+      toast({ title: t("calendar.joinRequest.sentTitle"), description: t("calendar.joinRequest.sentBody") });
+    } catch (err) {
+      const refusal = joinRequestRefusal(err);
+      toast({
+        title: t("calendar.joinRequest.failed"),
+        description: refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleWithdrawJoinRequest = async (id: number) => {
+    setJoinBusy(true);
+    try {
+      await withdrawClassJoinRequest(id);
+      toast({ title: t("calendar.joinRequest.withdrawn") });
+    } catch {
+      toast({ title: t("calendar.joinRequest.failed"), variant: "destructive" });
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  const handleDecideJoinRequest = async (id: number, accept: boolean, confirm = false) => {
+    const req = classInstance?.joinRequests?.find((r) => r.id === id);
+    setJoinBusy(true);
+    try {
+      if (accept) await acceptClassJoinRequest(id, confirm);
+      else await rejectClassJoinRequest(id);
+      toast({
+        title: t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
+          name: req?.playerName ?? "",
+        }),
+      });
+    } catch (err) {
+      const refusal = joinRequestRefusal(err);
+      if (refusal?.code === "ineligible") {
+        setJoinBusy(false);
+        setPendingAccept({ id, ineligible: refusal.ineligible ?? [] });
+        return;
+      }
+      toast({
+        title:
+          refusal?.code === "spot_filled"
+            ? t("calendar.joinRequest.spotFilledToast")
+            : refusal?.code === "class_closed"
+              ? t("calendar.joinRequest.classClosedToast")
+              : t("calendar.joinRequest.decideFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
 
   const attendanceAlreadyMarked : boolean = (active?.presences?.length ?? 0) > 0;
 
@@ -319,12 +436,22 @@ export function ClassDetailSheet({
     if (event?.model === "LessonInstance") return Number(event.originalId);
     return null;
   })();
+  // PAD-288 / PAD-282 (`attendance.confirm` rules 18 and 20): when the
+  // occurrence has no instance row yet, address it the way the calendar event
+  // does — the server materialises it and then cancels.
+  const cancelTarget: number | { model: string; originalId: string | number; date: string } | null =
+    cancelInstanceId != null
+      ? cancelInstanceId
+      : event
+        ? { model: event.model, originalId: event.originalId, date: active.date }
+        : null;
 
   // PAD-46: a STUDENT viewer (canManage=false) is enrolled in this instance iff
   // they appear in participants — the serializer only ever returns the viewer's
   // own player for a student, so a non-empty list means "I'm a participant".
-  const classStartAt = new Date(`${active.date}T${active.startTime}`);
-  const classStarted = !Number.isNaN(classStartAt.getTime()) && classStartAt.getTime() <= Date.now();
+  // Club digits on both sides (attendance.confirm rule 9, PAD-295).
+  const classStartMs = wallClockMs(active.date, active.startTime);
+  const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -332,13 +459,11 @@ export function ClassDetailSheet({
     (active.participants?.length ?? 0) > 0;
   // Deadline-aware messaging: at/after (start - cancellationDeadlineHours) but
   // before start → "late cancellation" warning (still allowed).
-  const cancellationDeadline = active.cancellationDeadline
-    ? new Date(active.cancellationDeadline)
-    : null;
+  const cancellationDeadlineMs = active.cancellationDeadline
+    ? wallClockISOMs(active.cancellationDeadline)
+    : NaN;
   const isLateCancellation =
-    !!cancellationDeadline &&
-    !Number.isNaN(cancellationDeadline.getTime()) &&
-    Date.now() >= cancellationDeadline.getTime();
+    !Number.isNaN(cancellationDeadlineMs) && lisbonNowMs() >= cancellationDeadlineMs;
   // PAD-73: the student's own presence row. The serializer only ever returns the
   // viewer's own presence for a student, so `presences[0]` IS "my presence".
   // Deriving the declined state from it (rather than from local component state)
@@ -349,21 +474,14 @@ export function ClassDetailSheet({
     ownPresence?.status === "absent" && ownPresence?.justification === "justified";
   const hasDeclined = attendanceCancelled || declinedOnServer;
 
-  // PAD-73: the proactive-decline window, answered by the SERVER. The client does
-  // not re-derive the reminder instant — it only reads the flag, so the action can
-  // never be offered at a moment `cancel_attendance` would classify differently.
-  const canDeclineProactively =
-    isStudentParticipant &&
-    !classStarted &&
-    !hasDeclined &&
-    cancelInstanceId != null &&
-    active.canDeclineProactively === true;
-
+  // PAD-313 rule 25: `canDeclineProactively` is no longer a render condition —
+  // it only ever chose between two identical buttons. The server still computes
+  // it and still classifies the decline; the client uses the `proactive` key of
+  // the reply for the toast.
   const canCancelAttendance =
     isStudentParticipant &&
     !classStarted &&
-    !hasDeclined &&
-    cancelInstanceId != null;
+    !hasDeclined;
 
   const startEdit = () => {
     if (!canManage || !onEdit) return;
@@ -447,11 +565,25 @@ export function ClassDetailSheet({
     "color",
     "maxPlayers",
     "levelId",
+    "courtId",
     "recurrenceEnd",
     "notificationsEnabled",
+    // PAD-129: the eligibility tier this sheet addresses (null / [] / rules).
+    "eligibilityRules",
+    // PAD-130: the open-spot toggle at this tier (null / true / false).
+    "openSpotsVisible",
   ] as const;
 
-  const commitEdit = (scope: ApplyScope) => {
+  /** The save itself, once any eligibility warning has been answered. */
+  const finalizeEdit = (changes: Record<string, unknown>, scope: ApplyScope) => {
+    if (!onEdit || !event) return;
+    setEditScopeDialogOpen(false);
+    setIsEditing(false);
+    onEdit(event, changes, scope);
+    setDraft(null);
+  };
+
+  const commitEdit = async (scope: ApplyScope) => {
     if (!canManage || !onEdit) return;
     if (!draft || !event || !classInstance) return;
 
@@ -470,11 +602,30 @@ export function ClassDetailSheet({
       return;
     }
 
-    setEditScopeDialogOpen(false);
-    setIsEditing(false);
+    // PAD-150 (eligibility.enforcement rules 6, 7, 7d): adding students by
+    // hand asks first when the bar says no — and names why. A failed check
+    // never blocks the save: the warning is a courtesy, the enrolment is the
+    // coach's.
+    if (addPlayers.length > 0) {
+      try {
+        const { ineligible: failing } = await checkEligibility(
+          event.model,
+          String(event.originalId),
+          event.date,
+          addPlayers
+        );
+        if (failing.length > 0) {
+          setEditScopeDialogOpen(false);
+          setIneligible(failing);
+          setPendingEdit({ changes: changes as Record<string, unknown>, scope });
+          return;
+        }
+      } catch {
+        // Fall through: rule 6 warns, it never blocks.
+      }
+    }
 
-    onEdit(event, changes, scope);
-    setDraft(null);
+    finalizeEdit(changes as Record<string, unknown>, scope);
   };
 
   const handleDeleteClick = () => {
@@ -606,14 +757,56 @@ export function ClassDetailSheet({
     }
   };
 
+  // PAD-315 rule 26: coming back after saying no. Offered on the STATE alone —
+  // never on a guess about capacity, which the client cannot know without
+  // racing the invitation engine — and the server decides the outcome.
+  const ownState = attendanceStateOf(ownPresence);
+  const canReturn =
+    isStudentParticipant && canComeBack({ state: ownState, classStarted });
+  const ownInstanceId = Number(ownPresence?.lessonInstanceId);
+
+  const handleComeBack = async () => {
+    if (!Number.isFinite(ownInstanceId) || returning) return;
+    setReturning(true);
+    try {
+      const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
+      if (outcome.messageKey) {
+        toast({
+          title: t(outcome.messageKey),
+          variant: outcome.tone === "error" ? "destructive" : "default",
+        });
+      }
+      if (outcome.record === "confirmed") {
+        setAttendanceCancelled(false);
+        toast({ title: t("calendar.detail.comeBackDone") });
+      }
+      // Either way the server is the truth: re-read rather than paint.
+      await refreshInstance();
+    } catch {
+      toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
+    } finally {
+      setReturning(false);
+    }
+  };
+
   const handleCancelAttendance = async () => {
-    if (cancelInstanceId == null || cancellingAttendance) return;
+    if (cancelTarget == null || cancellingAttendance) return;
     setCancellingAttendance(true);
     try {
-      await cancelAttendance(cancelInstanceId);
+      // PAD-313 rule 25: the SERVER says which kind of decline this was; the
+      // client never decided it, and no longer pretends to by drawing a
+      // different button.
+      const result = await cancelAttendance(cancelTarget);
       setAttendanceCancelled(true);
       setCancelAttendanceOpen(false);
-      toast({ title: t("calendar.detail.attendanceCancelled") });
+      toast({
+        title: result?.proactive
+          ? t("calendar.detail.proactiveDeclineDone")
+          : t("calendar.detail.attendanceCancelled"),
+      });
+      // Rule 20: re-read the payload — it now resolves to the materialised
+      // instance and carries the student's presence.
+      await refreshInstance();
     } catch {
       // 409 (class already started) and any other failure surface the same
       // graceful error toast.
@@ -629,23 +822,8 @@ export function ClassDetailSheet({
   // PAD-73: proactive decline. Same endpoint as the plain cancel — the server
   // classifies which kind of decline it was and reports it back in `proactive`,
   // so this handler never has to reason about the reminder cutoff itself.
-  const handleProactiveDecline = async () => {
-    if (cancelInstanceId == null || decliningProactively) return;
-    setDecliningProactively(true);
-    try {
-      await cancelAttendance(cancelInstanceId);
-      setAttendanceCancelled(true);
-      setProactiveDeclineOpen(false);
-      toast({ title: t("calendar.detail.proactiveDeclineDone") });
-    } catch {
-      toast({
-        variant: "destructive",
-        title: t("calendar.detail.proactiveDeclineFailed"),
-      });
-    } finally {
-      setDecliningProactively(false);
-    }
-  };
+  // PAD-313 rule 25: `handleProactiveDecline` is gone — it called the same
+  // endpoint with the same payload as `handleCancelAttendance`.
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -705,11 +883,11 @@ export function ClassDetailSheet({
               ) : (
                 <div>
                   <p className="text-sm font-medium">
-                    {format(new Date(active.date), "EEE, d MMM", { locale: dateFnsLocale(i18n.language) })}
+                    {format(parseISODate(active.date), "EEE, d MMM", { locale: dateFnsLocale(i18n.language) })}
                   </p>
                   {active.recurrenceEnd && !active.parentClassId && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("calendar.detail.untilDate", { date: format(new Date(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })}
+                      {t("calendar.detail.untilDate", { date: format(parseISODate(active.recurrenceEnd), "d MMM", { locale: dateFnsLocale(i18n.language) }) })}
                     </p>
                   )}
                 </div>
@@ -835,6 +1013,38 @@ export function ClassDetailSheet({
                 </p>
               )}
             </div>
+
+            {/* Club · Court (clubs.courts rule 7, PAD-194) */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1" data-testid="class-detail-place">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-xs font-medium">{t("calendar.detail.club")}</span>
+              </div>
+              {isEditing && courts.length > 0 ? (
+                <Select
+                  value={active.courtId ? String(active.courtId) : "none"}
+                  onValueChange={(value) =>
+                    setDraft((d) => (d ? { ...d, courtId: value === "none" ? null : Number(value) } : d))
+                  }
+                >
+                  <SelectTrigger className="h-8 text-sm" data-testid="class-detail-court">
+                    <SelectValue placeholder={t("calendar.detail.noCourt")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t("calendar.detail.noCourt")}</SelectItem>
+                    {courts.map((court) => (
+                      <SelectItem key={court.id} value={String(court.id)}>
+                        {court.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium">
+                  {active.clubName ?? "—"}
+                  {active.courtName ? ` · ${active.courtName}` : ""}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Auto notifications */}
@@ -857,6 +1067,25 @@ export function ClassDetailSheet({
                 />
               </div>
             </div>
+          )}
+
+          {/* PAD-129: which eligibility tier applies, and the override editor in edit mode */}
+          {canManage && event?.type === "class" && active && (
+            <ClassEligibilityBlock
+              current={active.eligibilityRules ?? null}
+              effective={active.effectiveEligibilityRules ?? null}
+              source={active.eligibilitySource ?? "coach"}
+              editing={isEditing}
+              onChange={(eligibilityRules) =>
+                setDraft((d) => (d ? { ...d, eligibilityRules } : d))
+              }
+              openSpots={active.openSpotsVisible ?? null}
+              effectiveOpenSpots={active.effectiveOpenSpotsVisible ?? false}
+              openSpotsSource={active.openSpotsSource ?? "coach"}
+              onOpenSpotsChange={(openSpotsVisible) =>
+                setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
+              }
+            />
           )}
 
           {/* Color — only in edit mode */}
@@ -965,7 +1194,13 @@ export function ClassDetailSheet({
                 <Users className="w-4 h-4" />
                 {t("calendar.detail.participantsCount", {
                   label: isValidating ? t("calendar.detail.attendance") : t("calendar.detail.participants"),
-                  current: active.participants.length,
+                  // PAD-313 (`calendar.event-detail` rule 5): ONE meaning for the
+                  // count on this sheet. The header reads `effectiveFilledSpots`
+                  // and this list read `participants.length`, so a cancelled
+                  // student made the two contradict each other — "0/4, 4 open"
+                  // above "Participants (1/4)". A not-coming student is listed,
+                  // visibly not coming, and not counted as filling a spot.
+                  current: effectiveFilledSpots(active.participants.length, active.presences),
                   max: active.maxPlayers,
                 })}
               </h4>
@@ -1007,8 +1242,11 @@ export function ClassDetailSheet({
                       attendance={attendance[p.id] || { status: null }}
                       onChange={(state) => handleAttendanceChange(p.id, state)}
                       disabled={!isValidating || isCanceled}
-                      invited={presence?.invited}
-                      confirmed={presence?.confirmed}
+                      // PAD-313 rule 25: the row reads ONE state from the
+                      // presence. A student is only ever served their own
+                      // presence, so `!canManage` identifies their own row.
+                      presence={presence}
+                      audience={canManage ? "coach" : "student"}
                     />
                   );
                 })}
@@ -1019,43 +1257,111 @@ export function ClassDetailSheet({
                   </p>
                 )}
 
-                {/* PAD-73: the proactive-decline affordance lives here, on the
-                    student's own row in the participants area, because that is
-                    where a student looks to answer "am I in this class?". It is
-                    shown only while the server says the window is still open;
-                    once the reminder instant passes it disappears and the
-                    regular cancel action below takes over. */}
-                {!canManage && hasDeclined && (
-                  <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-                    <UserX className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium">{t("calendar.detail.notAttending")}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("calendar.detail.notAttendingJustified")}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {/* PAD-313 rule 25: the student's own state is the ONE state word
+                    on their participant row above. The "not attending /
+                    justified absence" panel that used to sit here, and the
+                    separate "I can't attend" button beside it, were two more
+                    renderings of the same fact — the founder read three at once.
+                    The single cancel action lives in the action area below. */}
+              </div>
+            )}
+          </div>
 
-                {canDeclineProactively && (
-                  <div className="pt-1 space-y-1">
+          {/* PAD-131: a student outside the class asks for the open spot
+              (rule 1) or withdraws their pending ask (rule 4). */}
+          {!canManage &&
+            !isEditing &&
+            !isCanceled &&
+            !classStarted &&
+            !isStudentParticipant &&
+            (event.openSpot || active.myJoinRequest) && (
+              <div
+                className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                data-testid="class-join-request"
+              >
+                {active.myJoinRequest?.status === "pending" ? (
+                  <>
+                    <p className="text-sm font-medium">{t("calendar.joinRequest.pending")}</p>
                     <Button
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => setProactiveDeclineOpen(true)}
+                      disabled={joinBusy}
+                      onClick={() => handleWithdrawJoinRequest(active.myJoinRequest!.id)}
+                      data-testid="class-join-withdraw"
                     >
-                      <UserX className="w-4 h-4 mr-2" />
-                      {t("calendar.detail.proactiveDecline")}
+                      {t("calendar.joinRequest.withdraw")}
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      {t("calendar.detail.proactiveDeclineHint")}
-                    </p>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    {active.myJoinRequest && active.myJoinRequest.status !== "withdrawn" && (
+                      <p className="text-xs text-muted-foreground">
+                        {t(`calendar.joinRequest.${active.myJoinRequest.status}`)}
+                      </p>
+                    )}
+                    {event.openSpot && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          disabled={joinBusy}
+                          onClick={handleJoinRequest}
+                          data-testid="class-join-request-button"
+                        >
+                          {t("calendar.joinRequest.request")}
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          {event.coachName
+                            ? t("calendar.joinRequest.requestHint", { coach: event.coachName })
+                            : t("calendar.joinRequest.requestHintNoCoach")}
+                        </p>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             )}
-          </div>
+
+          {/* PAD-131 (rules 5, 7, 9): the coach decides each pending request. */}
+          {canManage && !isEditing && (active.joinRequests?.length ?? 0) > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-1" data-testid="class-join-requests">
+                <p className="text-sm font-medium py-1">
+                  {t("calendar.joinRequest.coachTitle", { count: active.joinRequests!.length })}
+                </p>
+                {active.joinRequests!.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between gap-2 py-1"
+                    data-testid="class-join-request-row"
+                  >
+                    <span className="text-sm truncate">{req.playerName}</span>
+                    <div className="flex shrink-0 gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={joinBusy}
+                        onClick={() => handleDecideJoinRequest(req.id, false)}
+                        data-testid="class-join-reject"
+                      >
+                        {t("calendar.joinRequest.reject")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={joinBusy}
+                        onClick={() => handleDecideJoinRequest(req.id, true)}
+                        data-testid="class-join-accept"
+                      >
+                        {t("calendar.joinRequest.accept")}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {canManage && !isEditing && approvalBundle && (
             <>
@@ -1165,6 +1471,7 @@ export function ClassDetailSheet({
                   <Button
                     variant="outline"
                     className="flex-1"
+                    data-testid="class-edit"
                     onClick={startEdit}
                     disabled={isValidating}
                   >
@@ -1260,13 +1567,31 @@ export function ClassDetailSheet({
                       `attendanceCancelled`) so this state survives a reload —
                       it is re-derived from the student's own serialized
                       presence, no new column required. */}
-                  {hasDeclined ? (
-                    <div className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
-                      <X className="w-4 h-4" />
-                      {t("calendar.detail.attendanceCancelled")}
+                  {/* PAD-315 rule 26: the way back. Same place as the decline
+                      action it undoes, offered on the state alone. */}
+                  {canReturn && (
+                    <div className="space-y-1">
+                      <Button
+                        data-testid="class-come-back"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleComeBack}
+                        disabled={returning}
+                      >
+                        {returning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {t("calendar.detail.comeBack")}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {t("calendar.detail.comeBackHint")}
+                      </p>
                     </div>
-                  ) : canCancelAttendance ? (
+                  )}
+
+                  {/* PAD-313 rule 25: one action, and no state pill here — the
+                      student's state is the one word on their row above. */}
+                  {hasDeclined ? null : canCancelAttendance ? (
                     <Button
+                      data-testid="class-cancel-attendance"
                       variant="outline"
                       className="w-full text-destructive"
                       onClick={() => setCancelAttendanceOpen(true)}
@@ -1277,7 +1602,7 @@ export function ClassDetailSheet({
                       ) : (
                         <X className="w-4 h-4 mr-2" />
                       )}
-                      {t("calendar.detail.cancelAttendance")}
+                      {t("calendar.detail.proactiveDecline")}
                     </Button>
                   ) : null}
                 </>
@@ -1344,6 +1669,7 @@ export function ClassDetailSheet({
                 {t("calendar.detail.keepAttendance")}
               </AlertDialogCancel>
               <AlertDialogAction
+                data-testid="class-cancel-attendance-confirm"
                 onClick={(e) => {
                   e.preventDefault();
                   handleCancelAttendance();
@@ -1354,47 +1680,45 @@ export function ClassDetailSheet({
                 {cancellingAttendance ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
-                {t("calendar.detail.cancelAttendance")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-
-      {/* PAD-73: confirm a PROACTIVE decline. Distinct copy from the plain
-          cancellation above — there is no deadline warning to show, because by
-          definition this is happening before the student was even reminded. */}
-      {!canManage && (
-        <AlertDialog open={proactiveDeclineOpen} onOpenChange={setProactiveDeclineOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("calendar.detail.proactiveDeclineConfirmTitle")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("calendar.detail.proactiveDeclineConfirmBody")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={decliningProactively}>
-                {t("calendar.detail.keepAttendance")}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleProactiveDecline();
-                }}
-                disabled={decliningProactively}
-              >
-                {decliningProactively ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
+                {/* PAD-313 rule 25: the confirmation speaks the same words as
+                    the trigger — one string, so they cannot drift apart. */}
                 {t("calendar.detail.proactiveDecline")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      <EligibilityConfirmDialog
+        open={pendingEdit !== null}
+        ineligible={ineligible}
+        onCancel={() => {
+          // Back to the edit, draft intact — nothing was saved.
+          setPendingEdit(null);
+          setIneligible([]);
+        }}
+        onConfirm={() => {
+          const parked = pendingEdit;
+          setPendingEdit(null);
+          setIneligible([]);
+          if (parked) finalizeEdit(parked.changes, parked.scope);
+        }}
+      />
+
+      {/* PAD-131 rule 7: accepting a request is a manual add — same warning. */}
+      <EligibilityConfirmDialog
+        open={pendingAccept !== null}
+        ineligible={pendingAccept?.ineligible ?? []}
+        onCancel={() => setPendingAccept(null)}
+        onConfirm={() => {
+          const parked = pendingAccept;
+          setPendingAccept(null);
+          if (parked) void handleDecideJoinRequest(parked.id, true, true);
+        }}
+      />
+
+      {/* PAD-313 rule 25: the separate proactive-decline dialog is gone with its
+          button — the one confirmation above carries the deadline instead. */}
 
       {canManage && event && (
         <ManualNotificationModal

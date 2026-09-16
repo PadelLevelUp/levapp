@@ -22,10 +22,10 @@ Automatically send class reminders to enrolled players at a configured time befo
 7. Reminders sent via in-app messaging (system message in conversation)
 8. Push notification also sent
 9. Only the latest reminder for a given (player, instance) is actionable (PAD-49). When a newer reminder is sent for the same (player, instance), every prior reminder message for that pair that the player has NOT yet actioned is marked **superseded** (`msg_metadata.superseded = true`). A superseded reminder renders its action area as a disabled "expired" indicator instead of live Yes/No buttons; responding to it is a no-op. Reminders the player already actioned (confirmed/declined) keep their existing status badge and are never marked superseded. Superseding is idempotent and is delivered to live clients via a `message_edited` event so the buttons update without a reload.
-10. A reminder is **expired** once its class has started, or the instance is canceled/completed (PAD-68). The class is closed: nothing about its roster can still usefully change.
+10. A reminder is **expired** once its class has started, or the instance is canceled/completed (PAD-68). "Started" is judged on the club's clock: the stored start is Lisbon wall-clock (R-023), compared with Lisbon now by `_instance_is_over` (PAD-256). The class is closed: nothing about its roster can still usefully change.
     - `respond_to_reminder()` on an expired reminder is a no-op returning `{"action": "expired"}`. It does NOT update Presence (the coach's attendance record for a class that happened is authoritative), does NOT create a Vacancy, and does NOT trigger replacement invitations.
     - The un-actioned reminder messages for that (player, instance) are marked `superseded = true` + `expired = true` and pushed to live clients via `message_edited`.
-    - Clients also derive expiry from `msg_metadata.startsAt`, so reminders already sitting in message history stop offering Yes/No the moment their class passes, with no data backfill.
+    - Clients also derive expiry from `msg_metadata.startsAt`, so reminders already sitting in message history stop offering Yes/No the moment their class passes, with no data backfill. `startsAt` (and `cancellationDeadline`) are naive club wall-clock strings, and the clients compare them with the club's clock (`lisbonNow()` in `@levelup/config`), never with the device's (PAD-295).
     - The invitation engine enforces the same rule independently: `trigger_invitations()` and the `_send_invitation_batch()` send chokepoint refuse to act for a class that has started, and expire any still-open Vacancy instead. This backstops every fan-out path (scheduler jobs, batch processor, round advance, decline-driven next-invite, and late responses to stale invite messages).
 11. A player's answer is always durably recorded (PAD-69). If no Presence row exists for the (player, instance) when they respond, one is created — otherwise the answer is dropped and the next reminder pass treats them as never having replied.
 12. Responding is **idempotent** (PAD-94). Re-submitting the answer already on record for a (player, instance) is a no-op that returns the recorded action plus `"duplicate": True`. It sends no second `reminder_confirmed`/`reminder_declined` system message, creates no extra Vacancy, and does not re-drive the invitation engine — so N rapid taps on **No** produce exactly ONE decline message and ONE round of replacement invitations, not N.
@@ -42,8 +42,74 @@ Automatically send class reminders to enrolled players at a configured time befo
     answer still does. A duplicate answer (rule 12) or an expired reminder (rule 10) does not
     touch the marker. (The read state is one watermark per conversation, so "read up to the
     answer" is the finest grain the model allows.)
+14. **Reminder state has its own table (PAD-207, audit M6).** Every reminder sent is one row of
+    `reminder_attempts` (`lesson_instance_id`, `player_id`, `presence_id`, `number`, `message_id`,
+    `sent_at`, `responded_at`, `response`, `superseded`, `expired`). Every read that asks "how many
+    reminders has this player had for this class", "which reminder is still pending" or "the
+    latest reminder to mark answered" goes through that table — never through a scan of the
+    conversation's messages. The message keeps being the delivery record the clients render, so
+    `msg_metadata` (`responded`, `response`, `superseded`, `expired`, `reminderNumber`) is written
+    in step with the row and nothing the clients see changes. The migration is idempotent and
+    backfills one row per existing `notification_reminder` message from its metadata.
+15. **When a reminder fires, and when a class has started (PAD-256).** A class's `start_datetime`
+    is the Lisbon wall-clock time the coach typed (R-023; decision
+    `2026-09-10-class-time-storage`, option B). The scheduler turns it into a UTC instant before
+    it arms a job:
+    - `hours_before: N` fires N real hours before the class's real start, even across a
+      daylight-saving change;
+    - `days_before: D, time: "HH:MM"` fires at HH:MM on the club's clock, on the class's own date
+      minus D days.
+
+    For reminders, "has the class started" compares the class's wall time with the club's clock,
+    never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
+    armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
+    October, and a class at 23:00 or later got its day-before reminder a day late.
+16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
+    `init_scheduler` returns without starting APScheduler when the process is a migration
+    (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
+    `run`. That holds whether the process was launched as the `flask` console script or as
+    `python -m flask`, which is how the production entrypoint (`backend/scripts/entrypoint.sh`)
+    runs `db upgrade`. Server processes (gunicorn, `flask run`, including `flask --app app.py
+    run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
+    `flask/__main__.py`, the guard missed it, and every deploy's migration started the
+    scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
+    twice.
+    *(Numbered 16 in batch 2: PAD-207 holds 14, PAD-256 15 and PAD-258 17.)*
+
+17. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
+    the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
+    the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
+    written. Before this, any student could "decline" any class: a stray absent Presence was
+    created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
+    replacement invitations for a spot that was never theirs.
+
+18. **A late arrival is asked (PAD-331, PAD-318; rule numbers self-assigned, unconfirmed).** Reminder passes are a chain: a pass schedules the next one only while it reports `more_due`. With the default `reminderCount` of 1 the first pass reports `false` — everyone has had their reminder — so **the chain ends after one pass** and the occurrence's job is spent. Anyone who joins the class after that was therefore never asked by anything: a coach's fresh add, a coach re-adding someone who had cancelled, any late arrival, with no cancellation anywhere in the story.
+    So enrolling a student **arms one pass for them** when, and only when, the ordinary reminder has already come and gone. While that reminder is still ahead it asks them at the coach's configured moment, and arming here would ask a student the instant they were added — three weeks early for a class three weeks out, which is exactly what the configured timing exists to prevent.
+    Nothing is armed when the student has already answered, when a reminder of theirs is still live and unanswered (asking again is the noise `notifications.reminders` removed in PAD-49 and PAD-94), when the class is over or cancelled, or when the earliest permitted moment falls at or after the class starts.
+    **Quiet hours defer it forward, never back.** Outside the permitted window the ask is scheduled for the next permitted instant — the end of quiet hours on the club's clock. It is deliberately *not* deferred to the occurrence's configured fire time, which is in the past for exactly the cases this rule exists for; deferring to it would reinstate the bug on the path hardest to test.
+    A pass is armed rather than a bespoke message sent: `send_class_reminders` already skips everyone who has answered or exhausted their reminders, so one pass reaches precisely the people who still owe an answer and nobody else.
+    **Told, then asked (with PAD-330).** On a coach's add after the chain has stopped the student receives two messages in that order: the `added_to_class` message, sent synchronously inside the enrolment, then the reminder when the armed pass runs — at once, or at the end of quiet hours. A coach's add *before* the ordinary reminder is told only; the ordinary reminder asks later, as it always has.
+    **An accepted class request is not told, but it is asked (deliberate).** Accepting a student's own request stays silent on "told" (`add_class_service(..., notify_students=False)`, PAD-330). "Asked" follows this rule like any other enrolment: a request accepted for a class whose reminder time is still ahead is asked by the ordinary reminder, as before; one accepted *inside* the reminder window — tomorrow's class — is asked once, when its occurrence first materialises (the one-off's instance is created lazily and enrols through `enrol()` as `roster`). Before PAD-331 that student was asked by nothing: the ordinary job is skipped when its fire time has passed. Treating a request as the student's own confirmation (recording them `coming` rather than asking) would silence both cases and is a separate product decision, not taken here.
+    **Reading the coach's timing creates nothing.** Arming runs inside every enrolment, so it reads the coach's `NotificationConfig` and, when there is none, answers with the defaults an unsaved row carries — the timing the reminder pass would create and use. It never inserts the row (the PAD-330 lesson: an enrolment that creates settings collides with the row its caller makes next).
+19. **The cap counts the seat a student holds now (PAD-318).** A student who cancelled and was put back by their coach has a new seat; the reminders from before the cancellation asked about a seat they no longer held, so they no longer count toward `reminderCount` and their bubbles are retired — an un-actioned Yes/No about a surrendered seat must not stay tappable. `superseded` alone is not the discriminator: every new reminder supersedes the previous one, so a cap that ignored superseded attempts would uncap reminders entirely. A voided round is also excluded from `reminderSentAt` (`attendance.presence` rule 1a), so the class sheet does not tell a coach a reminder is outstanding for a student who is about to be asked for the first time about the seat they now hold
 
 ### Acceptance Criteria
+
+#### A student added after the chain has stopped is still asked (PAD-331)
+- **Given** a class whose reminder pass has already run, so nothing is armed for it
+- **When** the coach adds a student who was not on the list
+- **Then** one pass is armed for that class
+- **And** adding a student while the ordinary reminder is still ahead arms nothing — that reminder will ask them
+
+#### A re-added student is asked about the seat they now hold (PAD-318)
+- **Given** a student who answered, cancelled, and was put back by the coach
+- **Then** their earlier reminders no longer count toward the cap, their old bubble is retired, and one pass is armed
+- **And** the class sheet does not show "reminder sent" for them until the new one goes out
+
+#### Quiet hours defer the ask to the morning
+- **Given** a coach with quiet hours enabled and a student added at 02:00 on the club's clock
+- **Then** the ask is scheduled for the end of quiet hours, never for a time already past
+- **And** nothing is armed at all when the earliest permitted moment is at or after the class start
 
 #### Reminder job fires
 - **Given** a recurring lesson on Mondays at 10:00 with reminder timing "24 hours before"
@@ -107,3 +173,36 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **Then** the first reminder message is marked superseded (`msg_metadata.superseded = true`) and its action area renders as a disabled "expired" indicator (no live Yes/No buttons)
 - **And** only the second (latest) reminder shows actionable Yes/No buttons
 - **And** if the player had already confirmed/declined the first reminder, it keeps its status badge and is NOT marked superseded
+
+#### Reminder state is read from reminder_attempts (PAD-207)
+- **Given** a player who was sent two reminders for instance 10 and answered the second
+- **Then** `reminder_attempts` holds rows 1 and 2 for that (player, instance), row 1 `superseded`, row 2 `responded_at` set with `response: "yes"`, and each message's `msg_metadata` mirrors its row
+- **Given** a reminder message whose `msg_metadata` still says pending while its row says responded
+- **When** the pending reminder is looked up
+- **Then** nothing is pending — the table, not the metadata, is the source of truth
+- **Given** the migration source
+- **Then** the table is created only if absent and the backfill inserts only messages without a row
+
+#### Reminders fire at the club's time in summer and in winter (PAD-256)
+- **Given** a class stored at 14:00 on 2026-07-14 (Lisbon summer, UTC+1) and a reminder timing of
+  24 hours before
+- **When** the scheduler arms the reminder
+- **Then** it fires at 13:00 UTC on 2026-07-13, which is 14:00 in Lisbon
+- **And** for the same class on 2026-01-13 (winter, UTC+0) it fires at 14:00 UTC on 2026-01-12
+
+#### A late class's day-before reminder lands on the day before (PAD-256)
+- **Given** a class stored at 23:30 on 2026-07-14 and a timing of 1 day before at 18:00
+- **When** the scheduler arms the reminder
+- **Then** it fires at 17:00 UTC on 2026-07-13 (18:00 Lisbon), not on 2026-07-14
+
+#### A class that has started gets no reminder (PAD-256)
+- **Given** a class stored at 10:00 on 2026-07-14
+- **When** the reminder pass runs at 09:30 UTC, which is 10:30 in Lisbon
+- **Then** no reminder is sent
+- **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
+
+#### The scheduler does not start inside a migration (PAD-264)
+- **Given** the production entrypoint running `python -m flask --app app.py db upgrade`
+- **When** the app factory runs
+- **Then** APScheduler is not started and no reminder job is rescheduled
+- **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it

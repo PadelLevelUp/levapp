@@ -229,7 +229,7 @@ export function ManualNotificationModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm" data-testid="notify-students-dialog">
         <DialogHeader>
           <DialogTitle>{t("calendar.notify.title")}</DialogTitle>
         </DialogHeader>

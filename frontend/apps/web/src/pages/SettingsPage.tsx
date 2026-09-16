@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -38,6 +39,8 @@ import {
   Upload,
   User,
   UserX,
+  Link2,
+  QrCode,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
@@ -71,6 +74,7 @@ type SettingsTab =
   | "myNotifications"
   | "import"
   | "club"
+  | "connections"
   | "account"
   | "admin";
 
@@ -126,6 +130,8 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   { id: "tutorials", labelKey: "settings.nav.tutorials", icon: <GraduationCap className="w-4 h-4" />, audience: "coach" },
   { id: "import", labelKey: "settings.nav.import", icon: <Upload className="w-4 h-4" />, audience: "coach" },
   { id: "club", labelKey: "settings.nav.club", icon: <Building2 className="w-4 h-4" />, audience: "coach" },
+  // PAD-287 (settings.role-scope rule 2): the connection actions, out of Account.
+  { id: "connections", labelKey: "settings.nav.connections", icon: <Link2 className="w-4 h-4" />, audience: "everyone" },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
   // auth.coach-approval rule 7: the LevApp admin approves self-registered coaches here.
   { id: "admin", labelKey: "settings.nav.admin", icon: <ShieldCheck className="w-4 h-4" />, audience: "superadmin" },
@@ -207,7 +213,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   // PAD-103: backend roles are mutually exclusive (`["coach"] if user.coach else
   // ["player"]`), so a single flag is enough to decide what this page offers.
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
   const isSuperAdmin = user?.isSuperAdmin === true;
   const tabs = visibleSettingsTabs(isCoach, isSuperAdmin);
@@ -243,7 +249,12 @@ export default function SettingsPage() {
   }, [isCoach]);
   // Default tab stays "preferences" (unchanged): Profile is reachable from the
   // nav, and several existing flows/tests land on Preferences first.
-  const [tab, setTab] = useState<SettingsTab>("preferences");
+  // PAD-287: `/settings?tab=<id>` (the avatar menu's "My connections") lands on
+  // that section; an unknown or disallowed id falls back through `activeTab`.
+  const [tab, setTab] = useState<SettingsTab>(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
+  });
   // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
   // first and opens one on tap. Landing straight inside Preferences with a
   // section picker above it hid what else existed and made the page read as a
@@ -262,6 +273,10 @@ export default function SettingsPage() {
   const profileDirty = useRef(false);
   // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
   const { theme, setTheme } = useTheme();
+  // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
+  // `undefined` until /me answers, so the switch never flashes the default
+  // before the server value lands.
+  const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -286,6 +301,7 @@ export default function SettingsPage() {
         };
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
+        setRequestAlerts(me.requestAlerts !== false);
         if (!profileDirty.current) setProfile(loaded);
       })
       .catch(() => {
@@ -295,6 +311,22 @@ export default function SettingsPage() {
       active = false;
     };
   }, []);
+
+  const handleRequestAlertsChange = async (checked: boolean) => {
+    const previous = requestAlerts;
+    setRequestAlerts(checked);
+    try {
+      await updateMe({ requestAlerts: checked });
+      toast({ title: t("settings.preferences.requestAlertsSaved") });
+    } catch {
+      setRequestAlerts(previous);
+      toast({
+        title: t("settings.toast.couldNotSaveTitle"),
+        description: t("settings.preferences.requestAlertsSaveFailed"),
+        variant: "destructive",
+      });
+    }
+  };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
     profileDirty.current = true;
@@ -349,6 +381,9 @@ export default function SettingsPage() {
 
     // settings.profile rule 9: a new address is verified right away.
     if (payload.email !== undefined && updated.emailVerification === "pending") {
+      // B-050: the verify screen reads the signed-in user; refresh it first, or a
+      // coach who was already verified is sent straight back here.
+      await refreshUser();
       navigate("/verify-email?next=/settings");
     }
   };
@@ -549,6 +584,28 @@ export default function SettingsPage() {
                     </Select>
                   </div>
 
+                  {/* PAD-232: request alerts, for every role — a student is
+                      asked to link accounts, a coach hears about club join
+                      requests, an admin about approvals. */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="request-alerts-switch">
+                        {t("settings.preferences.requestAlerts")}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.preferences.requestAlertsDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="request-alerts-switch"
+                      data-testid="settings-request-alerts"
+                      aria-label={t("settings.preferences.requestAlerts")}
+                      checked={requestAlerts ?? true}
+                      disabled={requestAlerts === undefined}
+                      onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
+                    />
+                  </div>
+
                   {/* PAD-103: language + theme are per-user and stay for both
                       roles; skill levels and evaluation categories are the
                       coach's own configuration. */}
@@ -640,6 +697,57 @@ export default function SettingsPage() {
             )}
 
             {/* ACCOUNT */}
+            {/* PAD-287 (settings.role-scope rule 2): My connections — the actions
+                that used to sit under Account, regrouped. Nothing here is new. */}
+            {activeTab === "connections" && (
+              <Card data-testid="settings-connections">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="w-5 h-5" />
+                    {t("settings.connections.title")}
+                  </CardTitle>
+                  <CardDescription>{t("settings.connections.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {!isCoach && (
+                    /* players.claim rule 4: the second place a student can answer a
+                       coach's link request (the first is the dashboard banner). */
+                    <ClaimRequestsList variant="list" />
+                  )}
+                  {!isCoach && (
+                    /* players.join-token rule 8: Settings → My connections is one of
+                       the three ways a student reaches "Connect with a coach". */
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <span className="text-sm">{t("players.connect.settingsLink")}</span>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/connect" data-testid="settings-connect-coach">
+                          {t("players.connect.go")}
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                  {isCoach && (
+                    /* players.join-token rule 7: the invite dialog lives on Players;
+                       this is a way in, not a second copy of it. */
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+                      <div className="min-w-0">
+                        <p className="text-sm">{t("settings.connections.addByQr")}</p>
+                        <p className="text-xs text-muted-foreground">{t("settings.connections.addByQrHint")}</p>
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to="/players?addByQr=1" data-testid="settings-add-by-qr">
+                          <QrCode className="w-4 h-4 mr-1" />
+                          {t("settings.connections.open")}
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+                  <Separator />
+                  <BlockedUsersSection />
+                </CardContent>
+              </Card>
+            )}
+
             {activeTab === "account" && (
               <Card>
                 <CardHeader>
@@ -652,25 +760,6 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <BlockedUsersSection />
-                  <Separator />
-                  {!isCoach && (
-                    /* players.claim rule 4: the second place a student can answer a
-                       coach's link request (the first is the dashboard banner). */
-                    <ClaimRequestsList variant="list" />
-                  )}
-                  {!isCoach && (
-                    /* players.join-token rule 8: Settings → Account is one of the
-                       three ways a student reaches "Connect with a coach". */
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
-                      <span className="text-sm">{t("players.connect.settingsLink")}</span>
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/connect" data-testid="settings-connect-coach">
-                          {t("players.connect.go")}
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
                   <AccountSection />
                   <Separator />
                   <p className="text-xs text-muted-foreground">

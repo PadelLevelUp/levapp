@@ -40,7 +40,7 @@ test("US-68: calendar tab is present in settings", async ({ page }) => {
   // (dead UI cleanup) but kept SeasonsSection, which renders its own "Seasons"
   // heading — assert on that instead.
   await expect(
-    page.getByRole("heading", { name: /^seasons$/i })
+    page.getByRole("heading", { name: /^season$/i })
   ).toBeVisible({ timeout: 5000 });
 });
 

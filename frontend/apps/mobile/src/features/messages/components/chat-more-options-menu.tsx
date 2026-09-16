@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { Portal } from "@rn-primitives/portal";
+import { useAndroidBack } from "@/lib/android-back";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Dimensions, Pressable, StyleSheet, View } from "react-native";
@@ -32,6 +33,8 @@ export function ChatMoreOptionsMenu({
   onToggleBlock,
   onReport,
 }: Props) {
+  // Android back closes the menu (mobile.android-runtime rule 3); it is mounted only while open.
+  useAndroidBack(true, onClose);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width: vw } = Dimensions.get("window");

@@ -2,16 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
-import {
-  describeGate,
-  describePriority,
-  describeRules,
-  describeSendStatus,
-  describeVerdict,
-  formatClubTime,
-  resolveText,
-  sortGates,
-} from "@levelup/config";
+import { describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates } from "@levelup/config";
 
 import type {
   CalendarEvent,
@@ -77,7 +68,7 @@ export function UnderstandInvitesTutorial() {
 
   useEffect(() => {
     let active = true;
-    const today = new Date();
+    const today = lisbonNow(); // B-060: the club's date, as the iOS twin
     getCalendarEvents(
       format(today, "yyyy-MM-dd"),
       format(addDays(today, WEEKS_AHEAD * 7), "yyyy-MM-dd"),

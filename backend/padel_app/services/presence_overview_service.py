@@ -31,7 +31,7 @@ That LEFT JOIN being NULL is the definition used throughout this module.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
@@ -44,10 +44,11 @@ from padel_app.models import (
     LessonInstance,
     Player,
     Presence,
+    User,
 )
 from padel_app.services.attendance_history_service import (
     GRANULARITIES,
-    _as_naive_utc,
+    _as_club_wall,
     _bucket_series,
     _bucket_start,
     pick_granularity,
@@ -62,15 +63,15 @@ def default_overview_range(now: Optional[datetime] = None) -> Tuple[datetime, da
     this tab is a roster-wide overview, and a single month of a small academy can
     be too sparse for the trend chart to say anything.
     """
-    end = _as_naive_utc(now or datetime.now(timezone.utc))
+    end = _as_club_wall(now or datetime.now(timezone.utc))
     end = end.replace(hour=23, minute=59, second=59, microsecond=0)
     start = (end - timedelta(days=89)).replace(hour=0, minute=0, second=0)
     return start, end
 
 
 def _normalize_range(range_start: datetime, range_end: datetime) -> Tuple[datetime, datetime]:
-    start = _as_naive_utc(range_start)
-    end = _as_naive_utc(range_end)
+    start = _as_club_wall(range_start)
+    end = _as_club_wall(range_end)
     if end < start:
         start, end = end, start
     return start, end
@@ -147,6 +148,10 @@ def build_presence_stats(
         )
         .options(joinedload(Player.user))
         .filter(Association_CoachPlayer.coach_id == coach_id)
+        # PAD-268: a deleted account leaves the roster table (privacy policy
+        # §11); build_presence_trend drops it too so the page stays consistent.
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
         .all()
     )
 
@@ -197,23 +202,36 @@ def build_presence_trend(
     range_start: datetime,
     range_end: datetime,
     granularity: Optional[str] = None,
+    player_ids: Optional[Sequence[int]] = None,
 ) -> Dict[str, Any]:
     """Roster-wide attended-class counts over time, gap-filled.
 
     The roster-wide sibling of ``build_attendance_history``: same granularity
     rules, same gap-filling, same naive-UTC handling — reused rather than
     reimplemented so the two charts can never bucket a date differently.
+
+    ``player_ids`` (PAD-192, ``attendance.validation`` rule 17a) narrows the
+    series to those players so the over-time chart can follow the table's
+    filters like the other two charts do. ``None`` is the whole roster; an
+    empty list is a filter that matched nobody and yields an all-zero series.
     """
     start, end = _normalize_range(range_start, range_end)
     if granularity not in GRANULARITIES:
         granularity = pick_granularity(start, end)
 
-    rows = (
+    query = (
         _coach_presence_query(coach_id, start, end)
         .with_entities(LessonInstance.start_datetime)
         .filter(Presence.status == "present")
-        .all()
+        # PAD-268: the same player set as the table: a deleted account's
+        # presences stay in the database and on class pages, not in this series.
+        .join(Player, Player.id == Presence.player_id)
+        .join(User, User.id == Player.user_id)
+        .filter(User.status != "disabled")
     )
+    if player_ids is not None:
+        query = query.filter(Presence.player_id.in_(list(player_ids)))
+    rows = query.all()
 
     counts: Dict[date, int] = {}
     for (started,) in rows:
@@ -237,22 +255,24 @@ def build_presence_trend(
 def _response_state(presence: Presence) -> str:
     """How the player answered before the class — the RSVP tri-state.
 
-    ``declined`` is a real answer (the student said they weren't coming), so it
-    does not block validation; only ``none`` does.
+    A projection of ``Presence.attendance_state`` (PAD-313, attendance.presence
+    rule 9), never a second ordering of the same columns: this function used to
+    hand-order that precedence itself, tested ``confirmed`` first, and so
+    reported a student who had just cancelled as "confirmed" (B-073). Two places
+    deriving one fact is how that survived, so there is now one.
 
-    The ``validated`` guard matters. A coach marking someone absent from the
-    class-detail sheet writes exactly the same columns a student decline does
-    (``status='absent'``, ``confirmed=False``) — the difference is that
-    ``add_presences`` also stamps ``validated=True``. Without the guard this
-    would report the coach's own decision back to them as "the student said they
-    couldn't make it", which is a claim the student never made. When the record
-    is already the coach's, fall back to what ``confirmed`` alone can support.
+    ``declined`` is a real answer — the student said they were not coming — so it
+    does not block validation; only ``none`` does. A validated row the coach
+    actually marked reports ``none``, because the record is then the coach's and
+    reporting it back as the student's answer would be a claim they never made.
+    A validated row with NO status is the exception: ``attendance_state`` falls
+    back to the student's own intent there (rather than inventing an absence the
+    coach never stated), so this reports that intent too.
     """
-    if presence.confirmed:
+    state = presence.attendance_state
+    if state == "coming":
         return "confirmed"
-    if presence.validated:
-        return "none"
-    if presence.status == "absent":
+    if state == "not_coming":
         return "declined"
     return "none"
 
@@ -265,6 +285,8 @@ def _serialize_pending_player(presence: Presence, *, is_guest: bool) -> Dict[str
         "playerId": presence.player_id,
         "name": user.name if user else f"Player {presence.player_id}",
         "response": _response_state(presence),
+        # PAD-313 (rule 9): the same derived state the class detail serves.
+        "attendanceState": presence.attendance_state,
         "status": presence.status,
         "justification": presence.justification,
         "validated": bool(presence.validated),
@@ -292,7 +314,7 @@ def list_pending_validation(
     coach-settable, so validation is derived from the presence rows instead.
     """
     start, end = _normalize_range(range_start, range_end)
-    cutoff = _as_naive_utc(now or datetime.now(timezone.utc))
+    cutoff = _as_club_wall(now or datetime.now(timezone.utc))
 
     instances = (
         db.session.query(LessonInstance)
@@ -374,6 +396,28 @@ def list_pending_validation(
         "validated": validated,
         "pendingCount": len(pending),
     }
+
+
+def count_pending_validation(
+    *,
+    coach_id: int,
+    range_start: datetime,
+    range_end: datetime,
+    now: Optional[datetime] = None,
+) -> int:
+    """How many classes in the window still have an unvalidated presence.
+
+    ``attendance.validation`` rule 18: this is ``len(pending)`` of
+    :func:`list_pending_validation` for the same bounds — deliberately not a
+    leaner second query. The coach dashboard's ``validation`` queue item and
+    the Presences tab's trigger both read this, so the two surfaces show one
+    number by construction (B-045).
+    """
+    return len(
+        list_pending_validation(
+            coach_id=coach_id, range_start=range_start, range_end=range_end, now=now
+        )["pending"]
+    )
 
 
 def unvalidate_instance(instance: LessonInstance) -> List[Presence]:

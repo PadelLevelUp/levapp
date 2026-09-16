@@ -1,0 +1,55 @@
+# PAD-286 — calendar.mobile-views rules 3 and 17 on iOS: the day sheet's grab
+# handle and its travel in Mês. Mirrors apps/web/e2e/schedule-calendar/
+# mobile-week-view.spec.ts (US-286-2) and mobile-month-view.spec.ts (US-286-1)
+# for what Maestro can observe: the handle is there in Semana, and in Mês a swipe
+# up on it raises the sheet past its resting height (rule 18 then hides the add
+# buttons) and a swipe down brings it back. The sheet's corners, shadow and
+# exact travel are checked on a simulator screenshot (B-065), not here.
+# Reads only, so its position in the suite is not load bearing.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-sheet-handle"
+    timeout: 10000
+- tapOn:
+    id: "calendar-view-month"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-month-grid"
+    timeout: 10000
+- assertVisible:
+    id: "calendar-sheet-handle"
+- assertVisible:
+    id: "calendar-add-class"
+- swipe:
+    from:
+      id: "calendar-sheet-handle"
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    notVisible:
+      id: "calendar-add-class"
+    timeout: 5000
+- assertNotVisible:
+    id: "calendar-add-event"
+- swipe:
+    from:
+      id: "calendar-sheet-handle"
+    direction: DOWN
+    duration: 600
+- extendedWaitUntil:
+    visible:
+      id: "calendar-add-class"
+    timeout: 5000
+- assertVisible:
+    id: "calendar-add-event"

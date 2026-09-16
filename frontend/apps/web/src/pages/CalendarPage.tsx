@@ -6,7 +6,13 @@ import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClassDetailSheet } from "@/components/calendar/ClassDetailSheet";
-import { MobileCalendarView } from "@/components/calendar/MobileCalendarView";
+import {
+  ENABLED_VIEW_MODES,
+  MobileCalendar,
+} from "@/components/calendar/mobile/MobileCalendar";
+import type { CalendarViewMode } from "@levelup/hooks";
+import { CalendarPlus, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AddClassSheet,
   AddClassRejected,
@@ -41,7 +47,36 @@ function readDeepLink(search: string) {
   return {
     classId: params.get("classId"),
     date: parsedDate && isValid(parsedDate) ? parsedDate : null,
+    // PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class with Notificar open.
+    notify: params.get("notify") === "1",
   };
+}
+
+/**
+ * PAD-246 (calendar.mobile-views rule 1): the phone view mode is remembered
+ * on the device. A stored mode that has not shipped yet falls back to Dia, so
+ * a value written by a newer build never strands an older one.
+ */
+const VIEW_MODE_STORAGE_KEY = "levapp.calendar.viewMode";
+
+function readStoredViewMode(): CalendarViewMode {
+  try {
+    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (stored && ENABLED_VIEW_MODES.includes(stored as CalendarViewMode)) {
+      return stored as CalendarViewMode;
+    }
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data).
+  }
+  return "day";
+}
+
+function writeStoredViewMode(mode: CalendarViewMode) {
+  try {
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Best effort — the mode still applies for this session.
+  }
 }
 
 export default function CalendarPage() {
@@ -53,6 +88,8 @@ export default function CalendarPage() {
   // Frozen at first render: the calendar must open on the deep-linked week straight
   // away, so the very first events fetch already targets the right range.
   const [deepLink] = useState(() => readDeepLink(window.location.search));
+  // PAD-285: `&notify=1` on the deep link opens the sheet with Notificar open.
+  const [notifyOnOpen, setNotifyOnOpen] = useState(false);
   const [pendingClassId, setPendingClassId] = useState<string | null>(
     deepLink.classId
   );
@@ -64,6 +101,8 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
+  const [addButtonsHidden, setAddButtonsHidden] = useState(false);
 
   const canManageClasses = user?.roles.includes("coach") ?? false;
   const calendar = useCalendar(allEvents, {
@@ -73,16 +112,28 @@ export default function CalendarPage() {
     // keeps `@levelup/hooks` platform-neutral and re-renders the label when the
     // coach switches language.
     language: i18n.language,
+    initialViewMode: readStoredViewMode(),
+    onViewModeChange: writeStoredViewMode,
   });
+
+  // PAD-248: in Mês the phone fetches every week the month grid touches;
+  // otherwise (and always on desktop) the visible week. Both the initial load
+  // and refreshEvents use this range, so a save in Mês keeps the dots.
+  const fetchMonth = isMobile && calendar.viewMode === "month";
+  const fetchFrom = format(
+    fetchMonth ? calendar.monthRange.start : calendar.weekStart,
+    "yyyy-MM-dd'T'00:00:00"
+  );
+  const fetchTo = format(
+    fetchMonth ? calendar.monthRange.end : addDays(calendar.weekStart, 6),
+    "yyyy-MM-dd'T'23:59:59"
+  );
 
   useEffect(() => {
     async function loadEvents() {
       setLoading(true);
       try {
-        const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
-        const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
-
-        const data = await getCalendarEvents(from, to);
+        const data = await getCalendarEvents(fetchFrom, fetchTo);
         setAllEvents(data);
       } catch (err: any) {
         setError(err.message);
@@ -93,7 +144,7 @@ export default function CalendarPage() {
     }
 
     loadEvents();
-  }, [calendar.weekStart]);
+  }, [fetchFrom, fetchTo]);
 
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
@@ -102,6 +153,7 @@ export default function CalendarPage() {
 
     const next = new URLSearchParams(searchParams);
     next.delete("classId");
+    next.delete("notify");
     next.delete("date");
     setSearchParams(next, { replace: true });
     // Runs once — the guard above makes it a no-op afterwards.
@@ -165,7 +217,10 @@ export default function CalendarPage() {
     if (!pendingClassId || !eventsLoadedOnce) return;
 
     const match = allEvents.find((e) => e.id === pendingClassId);
-    if (match) handleEventClick(match);
+    if (match) {
+      setNotifyOnOpen(deepLink.notify);
+      handleEventClick(match);
+    }
 
     setPendingClassId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,7 +229,15 @@ export default function CalendarPage() {
   const [newClassDate, setNewClassDate] = useState<Date>();
   const [newClassTime, setNewClassTime] = useState<string>();
   const [newClassEndTime, setNewClassEndTime] = useState<string>();
-  const [mobileSelectedDay, setMobileSelectedDay] = useState<Date>();
+
+  // On a phone the new class lands on the selected day (calendar.slot-click's
+  // date prefill); on desktop the toolbar button opens on today.
+  const openAddClass = () => {
+    setNewClassDate(isMobile ? calendar.selectedDay : new Date());
+    setNewClassTime(undefined);
+    setNewClassEndTime(undefined);
+    setAddClassOpen(true);
+  };
 
   const handleSlotClick = (date: Date, time: string) => {
     setNewClassDate(date);
@@ -287,9 +350,7 @@ export default function CalendarPage() {
 
 
   const refreshEvents = async () => {
-    const from = format(calendar.weekStart, "yyyy-MM-dd'T'00:00:00");
-    const to = format(addDays(calendar.weekStart, 6), "yyyy-MM-dd'T'23:59:59");
-    setAllEvents(await getCalendarEvents(from, to));
+    setAllEvents(await getCalendarEvents(fetchFrom, fetchTo));
   };
 
   const handleEventDrop = (event: CalendarEvent, newDate: string, newStartTime: string) => {
@@ -385,28 +446,69 @@ export default function CalendarPage() {
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        <CalendarToolbar
-          weekLabel={calendar.weekLabel}
-          onPrevWeek={() => calendar.navigateWeek("prev")}
-          onNextWeek={() => calendar.navigateWeek("next")}
-          onToday={calendar.goToToday}
-          onAddEvent={() => setAddEventOpen(true)}
-          onAddClass={canManageClasses ? () => {
-            setNewClassDate(isMobile && mobileSelectedDay ? mobileSelectedDay : new Date());
-            setNewClassTime(undefined);
-            setNewClassEndTime(undefined);
-            setAddClassOpen(true);
-          } : undefined}
-        />
+        {/* PAD-246 (calendar.mobile-views rules 9, 18, 21): the toolbar — and
+            the legend inside it — is desktop-only. On a phone the add actions
+            are floating buttons, as on iOS. */}
+        {!isMobile && (
+          <CalendarToolbar
+            weekLabel={calendar.weekLabel}
+            onPrevWeek={() => calendar.navigateWeek("prev")}
+            onNextWeek={() => calendar.navigateWeek("next")}
+            onToday={calendar.goToToday}
+            onAddEvent={() => setAddEventOpen(true)}
+            onAddClass={canManageClasses ? openAddClass : undefined}
+          />
+        )}
 
         {isMobile ? (
-          <MobileCalendarView
-            levels={levels}
-            weekDays={calendar.weekDays}
-            events={calendar.events}
-            onEventClick={handleEventClick}
-            onDaySelect={setMobileSelectedDay}
-          />
+          <>
+            <MobileCalendar
+              viewMode={calendar.viewMode}
+              onViewModeChange={calendar.setViewMode}
+              weekDays={calendar.weekDays}
+              selectedDay={calendar.selectedDay}
+              onSelectDay={calendar.selectDay}
+              onPrevWeek={() => calendar.navigateWeek("prev")}
+              onNextWeek={() => calendar.navigateWeek("next")}
+              onToday={calendar.goToToday}
+              weekLabel={calendar.weekLabel}
+              monthLabel={calendar.monthLabel}
+              monthDays={calendar.monthDays}
+              monthStart={calendar.monthStart}
+              onPrevMonth={() => calendar.navigateMonth("prev")}
+              onNextMonth={() => calendar.navigateMonth("next")}
+              events={calendar.events}
+              monthEvents={calendar.monthEvents}
+              onAddButtonsHiddenChange={setAddButtonsHidden}
+              levels={levels}
+              onEventClick={handleEventClick}
+            />
+            {!addButtonsHidden && (
+            <button
+              type="button"
+              data-testid="calendar-add-event"
+              aria-label={t("calendar.toolbar.addEvent")}
+              onClick={() => setAddEventOpen(true)}
+              className={cn(
+                "fixed right-6 z-40 grid h-12 w-12 place-items-center rounded-full border border-border bg-card text-foreground shadow-lg transition-all hover:brightness-95",
+                canManageClasses ? "bottom-40" : "bottom-[5.5rem]"
+              )}
+            >
+              <CalendarPlus className="h-5 w-5" />
+            </button>
+            )}
+            {canManageClasses && !addButtonsHidden && (
+              <button
+                type="button"
+                data-testid="calendar-add-class"
+                aria-label={t("calendar.toolbar.addClass")}
+                onClick={openAddClass}
+                className="fixed bottom-[5.5rem] right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all hover:brightness-95"
+              >
+                <Plus className="h-7 w-7" />
+              </button>
+            )}
+          </>
         ) : (
           <>
             <CalendarHeader weekDays={calendar.weekDays} />
@@ -428,7 +530,11 @@ export default function CalendarPage() {
         open={!!selectedClassEvent}
         players={coachPlayers}
         levels={levels}
-        onClose={() => setSelectedClassEvent(null)}
+        onClose={() => {
+          setSelectedClassEvent(null);
+          setNotifyOnOpen(false);
+        }}
+        openNotify={notifyOnOpen}
         canManage={canManageClasses}
         onDelete={canManageClasses ? handleDeleteClass : undefined}
         onEdit={canManageClasses ? handleEditClass : undefined}

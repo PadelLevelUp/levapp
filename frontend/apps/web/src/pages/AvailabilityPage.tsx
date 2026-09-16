@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { format, addMonths } from "date-fns";
+import { addMonthsToIsoDate, weekdayOfIsoDate } from "@/lib/dateOnly";
 import { CalendarOff, Repeat, Trash2, Plus, Pencil } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
 import {
   Card,
   CardContent,
@@ -148,7 +150,7 @@ export default function AvailabilityPage() {
     let days = form.selectedDays;
     if (form.isRecurring && days.length === 0) {
       // Default recurring blocker to the weekday of the chosen date.
-      days = [new Date(form.date).getDay()];
+      days = [weekdayOfIsoDate(form.date)];
     }
 
     const payload: BlockerInput = {
@@ -161,7 +163,7 @@ export default function AvailabilityPage() {
         ? { frequency: "weekly", daysOfWeek: days }
         : null,
       endDate: form.isRecurring
-        ? form.endDate || format(addMonths(new Date(form.date), 3), "yyyy-MM-dd")
+        ? form.endDate || addMonthsToIsoDate(form.date, 3)
         : null,
     };
 
@@ -229,6 +231,9 @@ export default function AvailabilityPage() {
             </Button>
           )}
         </div>
+
+        {/* PAD-104: the student books a class in the coach's free time. */}
+        {!showForm && <ClassRequestsSection role="student" />}
 
         {showForm && (
           <Card>

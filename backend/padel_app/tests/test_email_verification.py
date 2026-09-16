@@ -35,7 +35,8 @@ def _auth(app, user_id):
 def _register(client, role="student", username="ana", email="ana@example.com"):
     res = client.post(
         "/api/auth/register",
-        json={"role": role, "name": "Ana Silva", "username": username, "email": email, "password": "Segura123"},
+        json={"role": role, "name": "Ana Silva", "username": username, "email": email, "password": "Segura123",
+              "birthDate": "2000-01-01", "country": "PT"},
     )
     assert res.status_code == 201, res.get_json()
     return res.get_json()

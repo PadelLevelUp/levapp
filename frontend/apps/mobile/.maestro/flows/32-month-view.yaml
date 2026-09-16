@@ -1,0 +1,56 @@
+# PAD-248 — calendar.mobile-views rules 15–17: the Mês view on iOS.
+# Mirrors: apps/web/e2e/schedule-calendar/mobile-month-view.spec.ts (the parts
+# observable without mocking the API).
+# - the Mês segment shows the month grid, the month nav and the day sheet
+# - the seeded Monday (next week's Monday, see scripts/seeded-monday.js) is
+#   reached in the month grid — paging forward when it falls in next month —
+#   and its class appears in the sheet and opens its detail
+# - back on the calendar the mode is remembered
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-month"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-month-grid"
+    timeout: 10000
+- assertVisible:
+    id: "calendar-month-next"
+- assertVisible:
+    id: "calendar-sheet-handle"
+- runScript: ../scripts/seeded-monday.js
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-month-cell-${output.seededMonday}"
+    commands:
+      - tapOn:
+          id: "calendar-month-next"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-month-cell-${output.seededMonday}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 20000
+- tapOn:
+    text: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+# Maestro's `back` is Android-only; the screen's own back button is used.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-month-grid"
+    timeout: 10000

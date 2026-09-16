@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { clubTodayISO, lightTheme } from "@levelup/config";
 import type { CalendarBlockType } from "@levelup/types";
 import { classFormSchema } from "@levelup/validation";
 import { addMonths, format } from "date-fns";
@@ -8,7 +8,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -33,6 +32,7 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useAddEvent } from "@/features/calendar/hooks";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 // Monday-first, matching web's AddEventSheet. Values only: the chip label is
 // `availability.dayInitials.<value>` and the a11y label
@@ -67,7 +67,7 @@ export default function NewEventScreen() {
   const initialDate =
     typeof params.date === "string" && DATE_RE.test(params.date)
       ? params.date
-      : format(new Date(), "yyyy-MM-dd");
+      : clubTodayISO(); // B-060: the club's date
 
   const [type, setType] = React.useState<Option>(TYPE_OPTIONS[0]);
   const [title, setTitle] = React.useState("");
@@ -193,7 +193,7 @@ export default function NewEventScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={keyboardAvoidingBehavior()}
       >
         <ScrollView
           className="flex-1"

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, Date, DateTime, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, Date, DateTime, Text, Index
 from sqlalchemy.orm import relationship
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -7,6 +7,7 @@ from padel_app import model
 
 class CalendarBlock(db.Model, model.Model):
     __tablename__ = "calendar_blocks"
+    __table_args__ = (Index("ix_calendar_blocks_user_id", "user_id"),)  # PAD-263
     
     page_title = "CalendarBlocks"
     model_name = "CalendarBlock"

@@ -1,6 +1,7 @@
 import {
   FILL_AWAITING_ALPHA,
   FILL_TRACK_ALPHA,
+  lightTheme,
   withAlpha,
 } from "@levelup/config";
 import * as React from "react";
@@ -28,6 +29,7 @@ export function ClassFillBar({
   filled,
   capacity,
   color,
+  tone = "current",
 }: {
   confirmed: number;
   /** Spots taken — confirmed plus not-yet-answered. */
@@ -35,6 +37,11 @@ export function ClassFillBar({
   capacity: number;
   /** The already-legible ink for this card. Must be a concrete colour. */
   color: string;
+  /**
+   * PAD-246 (calendar.mobile-views rule 7): `warning` paints the bar amber for
+   * a class the coach can still fill; the card keeps the coach's colour.
+   */
+  tone?: "current" | "warning";
 }) {
   if (!capacity || capacity <= 0) return null;
 
@@ -42,22 +49,24 @@ export function ClassFillBar({
   const safeConfirmed = Math.max(0, Math.min(confirmed, safeFilled));
   const pct = (n: number) => `${(n / capacity) * 100}%` as const;
 
+  const ink = tone === "warning" ? lightTheme.warning : color;
+
   // An undefined backgroundColor renders transparent in RN without an error,
   // which would silently erase the split. Falling back to the solid colour
   // keeps the bar visible if `color` ever arrives in a notation withAlpha
   // cannot read.
-  const track = withAlpha(color, FILL_TRACK_ALPHA) ?? color;
-  const awaiting = withAlpha(color, FILL_AWAITING_ALPHA) ?? color;
+  const track = withAlpha(ink, FILL_TRACK_ALPHA) ?? ink;
+  const awaiting = withAlpha(ink, FILL_AWAITING_ALPHA) ?? ink;
 
   return (
     <View
-      testID="class-fill-bar"
+      testID={tone === "warning" ? "class-fill-bar-warning" : "class-fill-bar"}
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: capacity, now: safeConfirmed }}
       className="h-1.5 flex-1 flex-row overflow-hidden rounded-full"
       style={{ backgroundColor: track }}
     >
-      <View style={{ width: pct(safeConfirmed), backgroundColor: color }} />
+      <View style={{ width: pct(safeConfirmed), backgroundColor: ink }} />
       <View
         style={{
           width: pct(safeFilled - safeConfirmed),

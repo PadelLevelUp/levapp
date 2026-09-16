@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CourtDiagramEditor } from "@/components/training/CourtDiagramEditor";
+import { TacticalBoard } from "@/components/training/board/TacticalBoard";
+import { isPristineGameDiagram, upgradeCourtDiagram } from "@levelup/config";
 import { EXERCISE_TYPE_OPTIONS, DIFFICULTY_OPTIONS } from "@/types/training";
-import type { ExercisePayload, CourtDiagram, Exercise, Difficulty, ExerciseType } from "@/types/training";
+import type { ExercisePayload, CourtDiagramV2, Exercise, Difficulty, ExerciseType } from "@/types/training";
 import { getCoachLevels } from "@/api/coachLevel";
 import { X } from "lucide-react";
 
@@ -22,8 +23,6 @@ interface Props {
   loading?: boolean;
 }
 
-const emptyDiagram: CourtDiagram = { elements: [] };
-
 export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, loading }: Props) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
@@ -32,7 +31,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
   const [customType, setCustomType] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>(1);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
-  const [diagram, setDiagram] = useState<CourtDiagram>(emptyDiagram);
+  const [diagram, setDiagram] = useState<CourtDiagramV2>(() => upgradeCourtDiagram(undefined));
   const [notes, setNotes] = useState("");
 
   const { data: levels = [] } = useQuery({
@@ -48,7 +47,8 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
       setCustomType(exercise.customType || "");
       setDifficulty(exercise.difficulty);
       setSelectedLevels(exercise.levelIds);
-      setDiagram(exercise.diagram || emptyDiagram);
+      // Legacy diagrams are upgraded on read and saved back as v2 (training.tactical-board rule 12).
+      setDiagram(upgradeCourtDiagram(exercise.diagram));
       setNotes(exercise.notes || "");
     } else {
       setName("");
@@ -57,7 +57,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
       setCustomType("");
       setDifficulty(1);
       setSelectedLevels([]);
-      setDiagram(emptyDiagram);
+      setDiagram(upgradeCourtDiagram(undefined));
       setNotes("");
     }
   }, [exercise, open]);
@@ -71,7 +71,8 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
       customType: type === "custom" ? customType : undefined,
       difficulty,
       levelIds: selectedLevels,
-      diagram: diagram.elements.length > 0 ? diagram : undefined,
+      // An untouched 2v2 board is not worth storing; anything else is sent as v2.
+      diagram: isPristineGameDiagram(diagram) ? undefined : diagram,
       notes: notes || undefined,
     });
   }
@@ -84,7 +85,7 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{exercise ? t("training.form.editExercise") : t("training.form.newExercise")}</SheetTitle>
         </SheetHeader>
@@ -163,7 +164,10 @@ export function ExerciseFormSheet({ open, onOpenChange, exercise, onSubmit, load
             </div>
           )}
 
-          <CourtDiagramEditor value={diagram} onChange={setDiagram} />
+          <div className="space-y-1.5">
+            <Label>{t("training.diagram.label")}</Label>
+            <TacticalBoard value={diagram} onChange={setDiagram} />
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="ex-notes">{t("training.form.additionalNotes")}</Label>

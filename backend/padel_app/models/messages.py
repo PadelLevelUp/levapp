@@ -74,7 +74,7 @@ class Message(db.Model, model.Model):
     message_type = Column(String, default="text", nullable=False, server_default="text")
     msg_metadata = Column(JSON, nullable=True)
 
-    reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
+    reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan", passive_deletes=True)
 
     @property
     def attachment_url(self):

@@ -108,8 +108,15 @@ Skipping this needs a very strong reason recorded in the PR body **and** the spe
 Run the test(s) from Step 2 until green. Max 5 iterations. Then typecheck — `vite build` does not:
 
 ```bash
-cd frontend && npx tsc --noEmit -p apps/web/tsconfig.json && (cd apps/mobile && npx tsc --noEmit)
+cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json && (cd apps/mobile && npx tsc --noEmit)
 ```
+
+**Not `apps/web/tsconfig.json`** (PAD-189). That is a solution file — `"files": []` plus
+project references — so `tsc --noEmit -p` on it checks **zero** files and always passes.
+Verified with `--listFiles`: 0 files vs 1205 for `tsconfig.app.json`, and a deliberate
+`const x: number = "str"` in `apps/web/src` goes uncaught. `tsconfig.app.json` is the app's
+real source graph. The same pair of commands is the CI gate in
+`.github/workflows/checks-frontend.yaml`.
 
 ## Step 6: Regression
 

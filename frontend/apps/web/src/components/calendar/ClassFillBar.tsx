@@ -21,12 +21,19 @@ export function ClassFillBar({
   filled,
   capacity,
   className,
+  tone = "current",
 }: {
   confirmed: number;
   /** Spots taken — confirmed plus not-yet-answered. */
   filled: number;
   capacity: number;
   className?: string;
+  /**
+   * PAD-246 (calendar.mobile-views rule 7): `warning` paints the bar amber for
+   * a class the coach can still fill. The card surface stays the coach's
+   * colour — amber lives on the bar and the count only.
+   */
+  tone?: "current" | "warning";
 }) {
   if (!capacity || capacity <= 0) return null;
 
@@ -42,8 +49,9 @@ export function ClassFillBar({
   // 18/45 ramp worked on a saturated block, where lower alpha moves toward
   // the fill colour, but on the white next-class body it just moves toward
   // white and the split stopped reading.
+  const ink = tone === "warning" ? "hsl(var(--warning))" : "currentColor";
   const tint = (pctOfColor: number) =>
-    `color-mix(in srgb, currentColor ${pctOfColor}%, transparent)`;
+    `color-mix(in srgb, ${ink} ${pctOfColor}%, transparent)`;
 
   return (
     <div
@@ -54,13 +62,14 @@ export function ClassFillBar({
       aria-valuemin={0}
       aria-valuemax={capacity}
       data-testid="class-fill-bar"
+      data-fill-tone={tone}
       data-confirmed={safeConfirmed}
       data-filled={safeFilled}
       data-capacity={capacity}
     >
       <div
         className="h-full transition-[width] duration-300 ease-out motion-reduce:transition-none"
-        style={{ width: pct(safeConfirmed), backgroundColor: "currentColor" }}
+        style={{ width: pct(safeConfirmed), backgroundColor: ink }}
       />
       <div
         className="h-full transition-[width] duration-300 ease-out motion-reduce:transition-none"

@@ -2,7 +2,8 @@ import * as React from "react";
 import { TextInput } from "react-native";
 import { cn } from "@/lib/utils";
 
-type InputProps = React.ComponentProps<typeof TextInput>;
+// ComponentPropsWithRef: React 19 passes `ref` as a prop, and the spread hands it to TextInput.
+type InputProps = React.ComponentPropsWithRef<typeof TextInput>;
 
 function Input({ className, ...props }: InputProps) {
   return (

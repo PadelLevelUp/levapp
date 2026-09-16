@@ -1,10 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { seasonsApi } from "@levelup/api";
-import {
-  findOverlappingEvent,
-  findSeasonCoveringDate,
-  lightTheme,
-} from "@levelup/config";
+import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
+import { CLASS_COLOR_SWATCHES, clubTodayISO, findOverlappingEvent, lightTheme, seasonOccurrenceContaining } from "@levelup/config";
 import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import { classFormSchema } from "@levelup/validation";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +10,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
@@ -40,17 +35,10 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
-const COLORS = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#ef4444",
-  "#6366f1",
-];
+// PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
+const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
 // Monday-first, matching the web AddClassSheet. Initials and day names come
 // from availability.dayInitials.<n> / availability.days.<n>, keyed by getDay().
@@ -85,7 +73,7 @@ export default function NewClassScreen() {
   const initialDate =
     typeof params.date === "string" && DATE_RE.test(params.date)
       ? params.date
-      : format(new Date(), "yyyy-MM-dd");
+      : clubTodayISO(); // B-060: the club's date
 
   const [name, setName] = React.useState("");
   // Stable value in state, translated label derived — otherwise the trigger
@@ -103,6 +91,15 @@ export default function NewClassScreen() {
   const [maxPlayers, setMaxPlayers] = React.useState("4");
   const [color, setColor] = React.useState(COLORS[0]);
   const [levelOption, setLevelOption] = React.useState<Option>(undefined);
+  // clubs.courts rule 7 (PAD-194): the coach's current club's courts.
+  const [courtOption, setCourtOption] = React.useState<Option>(undefined);
+  const { data: clubCourts } = useQuery({
+    queryKey: ["current-club-courts"],
+    queryFn: async () => {
+      const club = await invitationsApi.getCoachClub();
+      return club ? courtsApi.listCourts(club.id) : [];
+    },
+  });
   const [isRecurring, setIsRecurring] = React.useState(false);
   const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [endDate, setEndDate] = React.useState("");
@@ -130,19 +127,20 @@ export default function NewClassScreen() {
   // that no season covers this date. Web only learns that from the backend's
   // rejection; asking here costs one cached request and turns a failed create
   // into a hint next to the toggle that caused it.
-  const { data: seasons } = useQuery({
-    queryKey: ["seasons"],
-    queryFn: seasonsApi.getSeasons,
+  const { data: season } = useQuery({
+    queryKey: ["season"],
+    queryFn: seasonsApi.getSeason,
   });
 
-  // A hint, never a gate: the phone's season list can be stale and the backend
-  // stays the authority (`calendar.seasons` rule 8 fails closed either way).
-  const coveringSeason = findSeasonCoveringDate(date, seasons);
+  // A hint, never a gate: the phone's copy of the definition can be stale and
+  // the backend stays the authority (`calendar.seasons` rule 9 fails closed
+  // either way). `season === null` is "no definition": warn too.
+  const coveringOccurrence = seasonOccurrenceContaining(date, season);
   const showNoSeasonWarning =
     isRecurring &&
     recursUntilSeasonEnd &&
     (rejection === NO_SEASON_COVERS_DATE ||
-      (seasons != null && coveringSeason == null));
+      (season !== undefined && coveringOccurrence == null));
 
   // When recurring turns on, pre-select the weekday of the chosen date (web parity).
   React.useEffect(() => {
@@ -240,6 +238,7 @@ export default function NewClassScreen() {
       maxPlayers: Number(maxPlayers),
       color,
       levelId: levelOption?.value || null,
+      courtId: courtOption?.value ? Number(courtOption.value) : null,
       playerIds: [] as string[],
       notificationsEnabled: false,
       recurrenceRule: isRecurring
@@ -290,7 +289,7 @@ export default function NewClassScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={keyboardAvoidingBehavior()}
       >
         <ScrollView
           className="flex-1"
@@ -417,6 +416,24 @@ export default function NewClassScreen() {
                       value={level.id}
                       label={level.label || level.code}
                     />
+                  ))}
+                </SelectContent>
+              </Select>
+            </View>
+          ) : null}
+
+          {/* Court (clubs.courts rule 7, PAD-194) */}
+          {clubCourts && clubCourts.length > 0 ? (
+            <View className="gap-1.5">
+              <Label>{t("calendar.addClass.court")}</Label>
+              <Select value={courtOption} onValueChange={setCourtOption}>
+                <SelectTrigger testID="class-court-select" accessibilityLabel={t("calendar.addClass.court")}>
+                  <SelectValue placeholder={t("calendar.addClass.noCourt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" label={t("calendar.addClass.noCourt")} />
+                  {clubCourts.map((court) => (
+                    <SelectItem key={court.id} value={String(court.id)} label={court.name} />
                   ))}
                 </SelectContent>
               </Select>

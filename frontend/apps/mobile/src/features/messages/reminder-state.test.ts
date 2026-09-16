@@ -48,6 +48,26 @@ describe("reminderState", () => {
     expect(s.canCancel).toBe(false);
   });
 
+  it("shows the settled not-enrolled state for a recorded not_enrolled answer (PAD-259 rule 7)", () => {
+    const state = reminderState(
+      { responded: true, response: "not_enrolled", startsAt: LATER },
+      null,
+      NOW
+    );
+    expect(state.notEnrolled).toBe(true);
+    expect(state.declined).toBe(false);
+    expect(state.confirmed).toBe(false);
+    expect(state.canCancel).toBe(false);
+    expect(state.showResponseButtons).toBe(false);
+  });
+
+  it("shows the settled not-enrolled state for a not_enrolled answer given in this session", () => {
+    const state = reminderState({ startsAt: LATER }, "not_enrolled", NOW);
+    expect(state.notEnrolled).toBe(true);
+    expect(state.declined).toBe(false);
+    expect(state.showResponseButtons).toBe(false);
+  });
+
   it("fails safe to absent for an unrecognised recorded answer", () => {
     // Anything that is not "yes" reads as declined, so a bad value never
     // paints a confirmation the student did not give.
@@ -186,11 +206,71 @@ describe("reminderResponseOutcome", () => {
     });
   });
 
-  it("fails safe to absent for an unrecognised or missing action", () => {
-    // Never invent a confirmation: anything we cannot read reads as absent,
-    // the same asymmetry `reminderState` applies to recorded metadata.
-    expect(reminderResponseOutcome("something-new").write).toBe("no");
-    expect(reminderResponseOutcome(undefined).write).toBe("no");
-    expect(reminderResponseOutcome(null).write).toBe("no");
+  it("settles a not_enrolled answer without painting absent (PAD-259 rule 7)", () => {
+    // The student was taken off that date after the reminder went out. The
+    // server recorded the answer on the reminder attempt and enrolled nobody;
+    // the bubble must say the class no longer includes them, never "Absent".
+    expect(reminderResponseOutcome("not_enrolled")).toEqual({
+      write: "not_enrolled",
+      toastKey: null,
+    });
+  });
+
+  it("writes NOTHING for an unrecognised or missing action (B-074)", () => {
+    // This test used to assert `write === "no"`, on the reasoning that anything
+    // unreadable should read as absent rather than invent a confirmation. That
+    // reasoning was half right: it does not invent a confirmation, it invents a
+    // DECLINE — and the server then gained an answer where that is exactly
+    // wrong. `spot_filled` means the student asked to come back and was
+    // refused; recording "no" tells them they declined, silently. So the rule
+    // is narrower than "fail safe to absent": write nothing at all, and say so.
+    for (const action of ["something-new", undefined, null]) {
+      const outcome = reminderResponseOutcome(action as never);
+      expect(outcome.write).toBeNull();
+      expect(outcome.toastKey).toBe("messages.somethingWentWrong");
+    }
+  });
+
+  it("records nothing and names the refusal when the spot has gone (PAD-315)", () => {
+    expect(reminderResponseOutcome("spot_filled")).toEqual({
+      write: null,
+      toastKey: "calendar.detail.spotFilled",
+    });
+  });
+});
+
+import { afterEach, beforeEach, vi } from "vitest";
+
+/**
+ * PAD-295 / B-066 — notifications.reminders rule 10: `startsAt` and
+ * `cancellationDeadline` are naive club wall-clock strings, so the default clock
+ * must be the club's. Under `TZ=Asia/Tokyo` device-time code expires the
+ * reminder eight hours early.
+ */
+describe("reminderState defaults to the club's clock (PAD-295)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // 09:00 UTC on 15 July 2027 = 10:00 in Lisbon (summer).
+    vi.setSystemTime(new Date(Date.UTC(2027, 6, 15, 9, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a reminder for a class at 10:30 Lisbon is still answerable on any device", () => {
+    const s = reminderState({ startsAt: "2027-07-15T10:30:00" }, null);
+    expect(s.superseded).toBe(false);
+    expect(s.showResponseButtons).toBe(true);
+  });
+
+  it("a reminder for a class at 09:30 Lisbon is expired on any device", () => {
+    const s = reminderState({ startsAt: "2027-07-15T09:30:00" }, null);
+    expect(s.superseded).toBe(true);
+  });
+
+  it("a deadline at 09:45 Lisbon makes the cancel late, a deadline at 10:15 does not", () => {
+    const base = { responded: true, response: "yes", startsAt: "2027-07-15T10:30:00" } as const;
+    expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T09:45:00" }, null).isLateCancellation).toBe(true);
+    expect(reminderState({ ...base, cancellationDeadline: "2027-07-15T10:15:00" }, null).isLateCancellation).toBe(false);
   });
 });

@@ -4,7 +4,8 @@
  * Three web URLs must open the app instead of Safari:
  *   /invite/player/:token   — player completes their profile
  *   /invite/coach/:token    — coach joins a club
- *   /register/:userId       — newcomer activates an account
+ *   /register/:userId?t=…   — newcomer activates an account (PAD-254: `t` is
+ *                             the account's secret; the id alone is not a link)
  *
  * ## Why a pure module
  *
@@ -48,7 +49,7 @@ export const UNIVERSAL_LINK_HOSTS = ["levapp.app", "padellevelup.com"] as const;
 export type UniversalLinkTarget =
   | { kind: "player-invite"; token: string; path: string }
   | { kind: "coach-invite"; token: string; path: string }
-  | { kind: "register"; userId: string; path: string };
+  | { kind: "register"; userId: string; token: string | null; path: string };
 
 /** `scheme://host/rest` — captures host and the remainder (path + anything after). */
 const ABSOLUTE_URL_RE = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^]*)$/i;
@@ -99,10 +100,13 @@ export function parseUniversalLink(input: string): UniversalLinkTarget | null {
     rest = absolute[3] ?? "";
   }
 
-  // Drop the fragment first, then the query: neither carries routing meaning
-  // for these three paths, and `?next=/invite/...` must not be mistaken for one.
+  // Drop the fragment first, then split off the query: the path decides the
+  // route (`?next=/invite/...` must not be mistaken for one), and the only
+  // query key with meaning is register's `t` — the activation secret.
   const withoutHash = rest.split("#")[0] ?? "";
-  const pathname = withoutHash.split("?")[0] ?? "";
+  const queryIndex = withoutHash.indexOf("?");
+  const pathname = queryIndex === -1 ? withoutHash : withoutHash.slice(0, queryIndex);
+  const query = queryIndex === -1 ? "" : withoutHash.slice(queryIndex + 1);
 
   const segments = pathname
     .split("/")
@@ -125,7 +129,8 @@ export function parseUniversalLink(input: string): UniversalLinkTarget | null {
 
   if (segments.length === 2 && segments[0] === "register") {
     const userId = segments[1] as string;
-    return { kind: "register", userId, path: registerPath(userId) };
+    const token = activationTokenFromQuery(query);
+    return { kind: "register", userId, token, path: registerPath(userId, token) };
   }
 
   return null;
@@ -139,8 +144,21 @@ function coachInvitePath(token: string): string {
   return `/invite/coach/${encodeURIComponent(token)}`;
 }
 
-function registerPath(userId: string): string {
-  return `/register/${encodeURIComponent(userId)}`;
+function registerPath(userId: string, token: string | null): string {
+  const base = `/register/${encodeURIComponent(userId)}`;
+  return token ? `${base}?t=${encodeURIComponent(token)}` : base;
+}
+
+/** The `t` value of a query string, trimmed, or `null` when absent or blank. */
+function activationTokenFromQuery(query: string): string | null {
+  for (const pair of query.split("&")) {
+    const eq = pair.indexOf("=");
+    const key = safeDecode(eq === -1 ? pair : pair.slice(0, eq)).trim();
+    if (key !== "t") continue;
+    const value = safeDecode(eq === -1 ? "" : pair.slice(eq + 1)).trim();
+    return value || null;
+  }
+  return null;
 }
 
 /**

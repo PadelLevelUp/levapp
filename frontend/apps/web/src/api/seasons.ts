@@ -1,38 +1,53 @@
 import "@/api/client";
-import type { Season } from "@/types";
+import type { SeasonDefinition, SeasonDefinitionInput } from "@/types";
 import * as seasonsApi from "@levelup/api/src/resources/seasons";
-import type { SeasonUpsert } from "@levelup/api/src/resources/seasons";
+import { nextSeasonOccurrence, seasonOccurrenceContaining, seasonOccurrenceLabel, seasonWrapsYear } from "@levelup/config";
 import { USE_MOCK_DATA } from "@/config";
 
-export type { SeasonUpsert };
+/**
+ * calendar.seasons (PAD-82): the coach's single recurring day/month season.
+ * Thin wrapper over the shared resource with the web-only mock switch.
+ */
 
-export async function getSeasons(): Promise<Season[]> {
-  if (USE_MOCK_DATA) {
-    // The demo dataset in `@/data` has no seasons to fake; Settings → Calendar
-    // renders its empty state under mock mode, as it always has.
-    return [];
-  }
+let mockDefinition: SeasonDefinition | null = null;
 
-  return seasonsApi.getSeasons();
+function mockFrom(input: SeasonDefinitionInput): SeasonDefinition {
+  const today = new Date().toISOString().slice(0, 10);
+  const current = seasonOccurrenceContaining(today, input);
+  const upcoming = nextSeasonOccurrence(today, input);
+  const label = input.label?.trim() || null;
+  return {
+    label,
+    startDay: input.startDay,
+    startMonth: input.startMonth,
+    endDay: input.endDay,
+    endMonth: input.endMonth,
+    wrapsYear: seasonWrapsYear(input),
+    needsReview: false,
+    current: current ? { ...current, label: seasonOccurrenceLabel(current, label) } : null,
+    upcoming: upcoming ? { ...upcoming, label: seasonOccurrenceLabel(upcoming, label) } : null,
+  };
 }
 
-export async function addSeasons(data: SeasonUpsert[]): Promise<Season[]> {
-  if (USE_MOCK_DATA) {
-    console.log("[mock] addSeasons", data);
-    return data.map((s) => ({
-      ...s,
-      id: String(s.id ?? crypto.randomUUID()),
-    }));
-  }
-
-  return seasonsApi.addSeasons(data);
+export async function getSeason(): Promise<SeasonDefinition | null> {
+  if (USE_MOCK_DATA) return mockDefinition;
+  return seasonsApi.getSeason();
 }
 
-export async function deleteSeason(id: string): Promise<void> {
+export async function saveSeason(data: SeasonDefinitionInput): Promise<SeasonDefinition> {
   if (USE_MOCK_DATA) {
-    console.log("[mock] deleteSeason", id);
+    console.log("[mock] saveSeason", data);
+    mockDefinition = mockFrom(data);
+    return mockDefinition;
+  }
+  return seasonsApi.saveSeason(data);
+}
+
+export async function deleteSeason(): Promise<void> {
+  if (USE_MOCK_DATA) {
+    console.log("[mock] deleteSeason");
+    mockDefinition = null;
     return;
   }
-
-  return seasonsApi.deleteSeason(id);
+  return seasonsApi.deleteSeason();
 }

@@ -49,7 +49,7 @@ for every bucket and every history row.
 5. The response contains a **contiguous, gap-filled** bucket series covering the whole requested
    range (empty buckets are present with `count: 0`), so the chart's x-axis is continuous rather
    than skipping periods with no attendance.
-6. The default range when no `from`/`to` is supplied is the current month.
+6. The default range when no `from`/`to` is supplied is the current month on the club's clock (PAD-256).
 7. The response also contains a `sessions[]` list of the attended classes in range, most recent
    first, each carrying the class title, its `startDatetime`, its `lessonInstanceId`, and an
    `href` deep link.
@@ -66,7 +66,8 @@ for every bucket and every history row.
    The coach variant identifies whose history is shown and offers a way back to that player's
    profile. Both routes render the same component; the data source is the single endpoint in
    rule 1, which re-authorizes server-side.
-10. Range controls sit **below** the chart: `1W`, `1M`, `1Y`, and `…`.
+10. Range controls sit **below** the chart: `1W`, `1M`, `1Y`, and `…`. The presets are computed on
+    the club's day (`Europe/Lisbon`), whatever the device's zone (B-060).
     - `1W` = the current week, bucketed into its 7 days
     - `1M` = the current month, bucketed by day
     - `1Y` = the current year, bucketed into its 12 months

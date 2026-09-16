@@ -66,6 +66,14 @@ def _signing_credentials():
     return _SIGNING_CREDENTIALS
 
 
+def _commit_or_flush():
+    """PAD-272: commit, unless a unit of work is open on this thread — then
+    flush, and the unit commits once at its end (tools/unit_of_work.py)."""
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    commit_or_flush()
+
+
 class Model:
 
     _name = None
@@ -73,7 +81,9 @@ class Model:
     __tablename__ = None
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    # PAD-273 (audit M13): bumped on EVERY ORM update, not only through save();
+    # most services commit directly. UTC like everything else (R-023).
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         try:
@@ -97,7 +107,7 @@ class Model:
         if inspect(self).key is not None:
             inspect(self).key = None
         db.session.add(self)
-        db.session.commit()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def add_to_session(self):
@@ -106,12 +116,14 @@ class Model:
 
     def delete(self):
         db.session.delete(self)
-        db.session.commit()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def save(self):
-        self.updated_at = datetime.now()
-        db.session.commit()
+        # PAD-273: this used to stamp LOCAL time (datetime.now()) into a column
+        # everything else fills with UTC.
+        self.updated_at = datetime.utcnow()
+        _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 
     def logout(self):
@@ -303,6 +315,11 @@ class Model:
         else:
             ordered_query = self.query.order_by(model_class.id.asc())
         searchable_column, table_columns = self.display_all_info()
+        # settings.admin-editor rule 3 (PAD-267): list pages never print a secret column.
+        from padel_app.tools.redaction import redacted_columns
+
+        hidden = redacted_columns(self)
+        table_columns = [column for column in table_columns if column.get("field") not in hidden]
         pagination = ordered_query.paginate(
             page=page, per_page=per_page, error_out=False
         )
@@ -315,15 +332,20 @@ class Model:
             "objects": pagination.items,
             "pagination": pagination,
             "general_delete_url": url_for("api.delete", model=self.model_name, id=""),
-            "download_csv_url": url_for("api.download_csv", model=self.model_name),
-            "upload_csv_url": url_for("api.upload_csv_to_db", model=self.model_name),
         }
         return data
 
     def get_edit_form(self):
+        # settings.admin-editor rule 3 (PAD-267): a secret column never
+        # pre-fills a form, so the Jinja display page cannot render it. The
+        # only models with redacted columns are not edited through this form by
+        # any service; editor writes drop those keys anyway (strip_redacted).
+        from padel_app.tools.redaction import redacted_columns
+
+        hidden = redacted_columns(self)
         form = self.get_create_form()
         for field in form.fields:
-            field.value = getattr(self, field.name)
+            field.value = None if field.name in hidden else getattr(self, field.name)
         return form
 
     def get_display_data(self):
@@ -382,7 +404,7 @@ class Image(db.Model):
     object_key = Column(String(512), nullable=False, unique=True)
     content_type = Column(String(128))
     size_bytes = Column(BigInteger)
-    # Private by default: the bucket carries no public ACL (B-015), so an
+    # Private by default: the bucket carries no public ACL (B-047), so an
     # object is only reachable through a signed URL unless something
     # deliberately marks it public.
     is_public = Column(Boolean, nullable=False, default=False)
@@ -390,7 +412,9 @@ class Image(db.Model):
     imageable_id = Column(
         Integer, ForeignKey("imageables.imageable_id", ondelete="CASCADE")
     )
-    imageable = relationship("Imageable", back_populates="images", cascade="all")
+    # PAD-274 (audit M15b): no delete cascade on the many-to-one side — deleting
+    # an Image must never delete the object that owns it.
+    imageable = relationship("Imageable", back_populates="images")
 
     def create(self):
         db.session.add(self)
@@ -424,7 +448,7 @@ class Image(db.Model):
         rather than falling back on its own. Signing has to be routed through
         the IAM `signBlob` API by naming the service account and passing a live
         access token, which is why `vm_sa` holds
-        `roles/iam.serviceAccountTokenCreator` on itself (B-015). Locally, where
+        `roles/iam.serviceAccountTokenCreator` on itself (B-047). Locally, where
         credentials do have a signer, the plain call already works.
         """
         blob = self._blob()
@@ -472,7 +496,7 @@ class Imageable(db.Model):
     imageable_id = Column(Integer, primary_key=True)
     type = Column(String(50))
     __mapper_args__ = {"polymorphic_identity": "imageable", "polymorphic_on": type}
-    images = relationship("Image", back_populates="imageable", cascade="all")
+    images = relationship("Image", back_populates="imageable", cascade="all", passive_deletes=True)
 
     def create(self):
         db.session.add(self)

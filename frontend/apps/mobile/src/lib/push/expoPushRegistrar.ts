@@ -17,6 +17,13 @@ import type { PushRegistrar } from "./types";
 export const PUSH_TOKEN_ENDPOINT: string = "/notifications/device";
 
 /**
+ * Android notification channel id. Must match the backend's
+ * `ANDROID_CHANNEL_ID` (padel_app/utils/expo_push.py) and app.json's
+ * expo-notifications `defaultChannel` (PAD-307).
+ */
+export const ANDROID_CHANNEL_ID = "default";
+
+/**
  * expo-notifications implementation. Every step is best-effort: missing
  * permissions, simulators, or network failures all resolve silently —
  * callers can fire-and-forget.
@@ -40,25 +47,42 @@ export class ExpoPushRegistrar implements PushRegistrar {
 
   async register(): Promise<void> {
     try {
-      if (!Device.isDevice) {
-        // Simulators/emulators cannot obtain push tokens.
-        console.log("[push] skipping registration: not a physical device");
-        return;
-      }
-
       if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync("default", {
-          name: "Default",
-          importance: Notifications.AndroidImportance.DEFAULT,
+        // PAD-307 (messaging.push-notifications rule 11d): the channel the
+        // backend names in every Expo message (`channelId: "default"`, also
+        // app.json's expo-notifications `defaultChannel`). HIGH importance is
+        // what makes a message a heads-up banner with sound; DEFAULT would only
+        // land it in the shade. Created before the permission prompt so the
+        // first notification already finds it. Android keeps whatever the user
+        // later changes in system settings — this call never lowers it.
+        await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+          name: "Messages",
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: "default",
+          vibrationPattern: [0, 250, 250, 250],
         });
       }
 
+      // On Android 13+ this is the runtime POST_NOTIFICATIONS prompt (the
+      // manifest permission comes from expo-notifications' plugin); below 13,
+      // and on a device that already answered, it resolves without UI. iOS:
+      // the usual alert/badge/sound prompt.
       let { status } = await Notifications.getPermissionsAsync();
       if (status !== "granted") {
         status = (await Notifications.requestPermissionsAsync()).status;
       }
       if (status !== "granted") {
         console.log("[push] notification permission not granted");
+        return;
+      }
+
+      // Simulators/emulators cannot obtain push tokens, but they CAN hold
+      // notification permission — and without it iOS drops every
+      // `xcrun simctl push`, which is how the PAD-240 Maestro flow delivers
+      // its probe. So the permission is asked for above on every platform;
+      // only the token fetch and the registration are device-only.
+      if (!Device.isDevice) {
+        console.log("[push] skipping registration: not a physical device");
         return;
       }
 

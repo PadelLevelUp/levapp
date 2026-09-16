@@ -268,9 +268,49 @@ export function useConfirmPresences() {
 export function useCancelAttendance() {
   const invalidate = useInvalidateClassData();
   return useMutation({
-    mutationFn: (lessonInstanceId: number) =>
-      notificationEngineApi.cancelAttendance(lessonInstanceId),
+    // PAD-288 / PAD-282: an instance id when the row exists, else the
+    // calendar event's (model, originalId, date) — the server materialises.
+    mutationFn: (target: number | notificationEngineApi.CancelAttendanceTarget) =>
+      notificationEngineApi.cancelAttendance(target),
     onSuccess: invalidate,
+  });
+}
+
+/** Student action (PAD-236): answer an engine invitation (POST /app/notify/respond). */
+export function useRespondInvite() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      notificationEventId,
+      action,
+    }: {
+      notificationEventId: number;
+      action: "yes" | "no";
+    }) => notificationEngineApi.respondToNotification(notificationEventId, action),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
+/** Student action (PAD-236): answer a waiting-list offer (POST /app/notify/respond_waiting_list). */
+export function useRespondWaitingListOffer() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: ({
+      lessonInstanceId,
+      action,
+    }: {
+      lessonInstanceId: number;
+      action: "yes" | "no";
+    }) => notificationEngineApi.respondToWaitingList(lessonInstanceId, action),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
   });
 }
 

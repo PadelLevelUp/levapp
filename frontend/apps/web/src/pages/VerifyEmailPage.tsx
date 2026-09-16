@@ -83,8 +83,9 @@ const VerifyEmailPage = () => {
       const data = (err as ApiError).response?.data;
       const status = (err as ApiError).response?.status;
       if (status === 429 && data?.retryAfterSeconds) {
+        // Rule 8a / B-042: "too soon" means a code is already in the inbox.
+        // The counting-down button says so; nothing turns red.
         setCountdown(data.retryAfterSeconds);
-        setError(t("auth.verifyEmail.tooSoon", { seconds: data.retryAfterSeconds }));
       } else if (status === 409) {
         void refreshUser().then((me) => leave(me ?? user));
       } else {
@@ -96,7 +97,9 @@ const VerifyEmailPage = () => {
   }, [leave, refreshUser, t, toast, user]);
 
   // Already verified: nothing to do here. Never asked (Settings → Verify):
-  // request the first code now.
+  // request the first code now. A `pending` user is NOT asked again — signup
+  // and a Settings email change already sent one (rule 8a); the countdown
+  // seeded from /me above is the whole story.
   useEffect(() => {
     if (!user) return;
     if (user.emailVerification === "verified" || !user.email) {
@@ -129,6 +132,9 @@ const VerifyEmailPage = () => {
           setError(left > 0 ? t("auth.verifyEmail.invalidCode", { count: left }) : t("auth.verifyEmail.invalidCodeLocked"));
         } else if (status === 410) {
           setError(t("auth.verifyEmail.expired"));
+        } else if (status === 429) {
+          // auth.email-verification rule 13 (PAD-269): the per-IP throttle.
+          setError(t("auth.login.rateLimited", { seconds: data?.retryAfterSeconds ?? 60 }));
         } else {
           setError(t("auth.login.networkError"));
         }

@@ -1,6 +1,10 @@
 import { getApi } from "../client";
 
 export type MeResponse = {
+  /** auth.parental-consent rule 11 (PAD-198): "granted" once a guardian consented; null otherwise. */
+  guardianConsent?: "granted" | null;
+  birthDate?: string | null;
+  country?: string | null;
   id: number;
   username: string;
   name: string;
@@ -27,6 +31,8 @@ export type MeResponse = {
   blockAllNotifications?: boolean;
   /** Free text the student writes; deliberately visible to their coach. */
   notificationBlockReason?: string;
+  /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
+  requestAlerts?: boolean;
   /**
    * auth.coach-approval: a self-registered coach is `pending` until a LevApp
    * admin approves them; `null` for students. Existing coaches were backfilled
@@ -61,23 +67,37 @@ export type PendingClubJoinRequest = {
   clubName: string;
 };
 
-/** auth.register rule 1: the self-service signup body. */
+/** auth.register rule 1 (+ rules 16–17, PAD-198): the self-service signup body. */
 export type RegisterPayload = {
   role: "coach" | "student";
   name: string;
   username: string;
   email: string;
   password: string;
+  /** YYYY-MM-DD, required since PAD-198. */
+  birthDate: string;
+  /** ISO 3166-1 alpha-2, required since PAD-198. */
+  country: string;
+  /** Required when the person is under their country's age of digital consent. */
+  guardianEmail?: string;
 };
 
-/** Same shape `POST /auth/login` returns, so the client signs in without a second request. */
+/**
+ * An adult gets the login shape (`accessToken` + `user`). A minor gets no
+ * token: `guardianConsent: "pending"` plus where the guardian's mail went
+ * (auth.parental-consent rule 3).
+ */
 export type RegisterResponse = {
-  accessToken: string;
+  accessToken?: string;
+  guardianConsent?: "pending";
+  guardianEmail?: string | null;
+  resendAvailableInSeconds?: number;
   user: {
     id: number;
     name: string;
     role: "coach" | "player";
     emailVerification?: EmailVerificationState;
+    guardianConsent?: "pending";
   };
 };
 
@@ -106,6 +126,8 @@ export type UpdateMePayload = {
   blockManualInvitations?: boolean;
   blockAllNotifications?: boolean;
   notificationBlockReason?: string;
+  /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
+  requestAlerts?: boolean;
 };
 
 export async function getMe(): Promise<MeResponse> {
@@ -148,5 +170,134 @@ export async function sendEmailVerificationCode(): Promise<SendVerificationCodeR
  */
 export async function confirmEmailVerificationCode(code: string): Promise<MeResponse> {
   const res = await getApi().post("/auth/email-verification/confirm", { code });
+  return res.data;
+}
+
+// ── auth.password-recovery (PAD-139) ────────────────────────────────────────
+
+export type PasswordRecoveryRequestResponse = {
+  ok: true;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+};
+
+export type PasswordRecoveryConfirmPayload = {
+  email: string;
+  code: string;
+  newPassword: string;
+};
+
+export type PasswordRecoveryConfirmResponse = {
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player" };
+};
+
+/**
+ * Rule 2: mail the username and a 6-digit code to the account with this
+ * email. Always 200 with the same body, whether or not the email has an
+ * account; the only error is 400 `INVALID_EMAIL`. No session needed.
+ */
+export async function requestPasswordRecovery(email: string): Promise<PasswordRecoveryRequestResponse> {
+  const res = await getApi().post("/auth/password-recovery/request", { email });
+  return res.data;
+}
+
+/**
+ * Rule 6: code + new password. 200 answers with the login body (token +
+ * user); 400 `{error: "INVALID_CODE", attemptsLeft}` or `WEAK_PASSWORD`;
+ * 410 `{error: "CODE_EXPIRED"}` — offer "Send a new code".
+ */
+export async function confirmPasswordRecovery(
+  payload: PasswordRecoveryConfirmPayload,
+): Promise<PasswordRecoveryConfirmResponse> {
+  const res = await getApi().post("/auth/password-recovery/confirm", payload);
+  return res.data;
+}
+
+// ── auth.coach-approval rule 12 (PAD-233) ───────────────────────────────────
+
+/**
+ * A rejected coach asks for approval again, from the login screen, with the
+ * credentials they just typed. 200 answers with the login body (the client
+ * signs them in and lands on the pending screen); 401 wrong credentials;
+ * 410 not a rejected coach. The login itself answers 403
+ * `{error: "COACH_REJECTED", reason}` for a rejected coach (rule 11).
+ */
+export async function reapplyCoachApproval(payload: { username: string; password: string }): Promise<{
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player" };
+}> {
+  const res = await getApi().post("/auth/coach-approval/reapply", payload);
+  return res.data;
+}
+
+// ── auth.parental-consent (PAD-198) ─────────────────────────────────────────
+
+/** Where the guardian's mail went and when another may be sent. */
+export type GuardianPendingInfo = {
+  guardianEmail: string | null;
+  resendAvailableInSeconds: number;
+};
+
+/**
+ * Rule 5: a pending minor asks for a new consent link, with the credentials
+ * they just typed (no session exists). 401 wrong credentials; 409 NOT_PENDING;
+ * 429 RESEND_TOO_SOON {retryAfterSeconds}; 400 {field: "guardianEmail"}.
+ */
+export async function resendGuardianConsent(payload: {
+  username: string;
+  password: string;
+  guardianEmail?: string;
+}): Promise<GuardianPendingInfo> {
+  const res = await getApi().post("/auth/guardian-consent/resend", payload);
+  return res.data;
+}
+
+export type GuardianConsentRequest = {
+  minor: { name: string; username: string; birthDate: string | null; country: string | null; role: "coach" | "player" };
+  guardianEmail: string;
+  termsVersion: string;
+  expiresAt: string;
+};
+
+/** Rule 7: what the guardian confirms. 410 CONSENT_LINK_EXPIRED; 409 ALREADY_DECIDED. */
+export async function getGuardianConsent(token: string): Promise<GuardianConsentRequest> {
+  const res = await getApi().get(`/auth/guardian-consent/${encodeURIComponent(token)}`);
+  return res.data;
+}
+
+export type GuardianConsentPayload = {
+  guardianName: string;
+  relationship: "parent" | "legal_guardian";
+  confirmMinorDetails: boolean;
+  acceptTerms: boolean;
+};
+
+/** Rule 8: the guardian consents. 400 {field}; 410; 409. */
+export async function giveGuardianConsent(token: string, payload: GuardianConsentPayload): Promise<{ ok: true }> {
+  const res = await getApi().post(`/auth/guardian-consent/${encodeURIComponent(token)}`, payload);
+  return res.data;
+}
+
+/** Rule 9: the guardian declines before consenting — the account is removed. */
+export async function declineGuardianConsent(token: string): Promise<{ ok: true }> {
+  const res = await getApi().post(`/auth/guardian-consent/${encodeURIComponent(token)}/decline`, { confirm: true });
+  return res.data;
+}
+
+export type GuardianRevokeRequest = {
+  minor: { name: string; username: string };
+  consentedAt: string | null;
+};
+
+/** Rule 9: the withdraw page's data. 410 once withdrawn. */
+export async function getGuardianRevoke(token: string): Promise<GuardianRevokeRequest> {
+  const res = await getApi().get(`/auth/guardian-consent/revoke/${encodeURIComponent(token)}`);
+  return res.data;
+}
+
+/** Rule 9: withdraw consent — the account and its data are removed. */
+export async function revokeGuardianConsent(token: string): Promise<{ ok: true }> {
+  const res = await getApi().post(`/auth/guardian-consent/revoke/${encodeURIComponent(token)}`, { confirm: true });
   return res.data;
 }

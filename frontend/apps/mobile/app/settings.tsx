@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/auth/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
@@ -13,6 +14,8 @@ import { AccountSection } from "@/features/settings/account-section";
 import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { ClubSection } from "@/features/settings/club-section";
+import { ConnectionsSection } from "@/features/settings/connections-section";
+import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
 import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
@@ -85,6 +88,10 @@ function SectionRow({
  */
 export default function SettingsScreen() {
   const { t } = useTranslation();
+  // The list ends under the system bar on Android's edge-to-edge (the transparent
+  // 3-button bar): pad by the bottom inset so the last row — logout — is tappable
+  // and not behind the Home button (PAD-304; Maestro hit Home 1 run in 5).
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
 
   // Fresh profile straight from /auth/me; `user` is the cached fallback so the
@@ -96,7 +103,13 @@ export default function SettingsScreen() {
   const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
   const isSuperAdmin = (me ?? user)?.isSuperAdmin === true;
 
-  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(null);
+  // PAD-281: the chat bubble's "Propose another time" on a student's
+  // counter-proposal opens the coach's class-requests pane on that request.
+  const params = useLocalSearchParams<{ section?: string; proposeFor?: string }>();
+  const [openId, setOpenId] = React.useState<SettingsSectionId | null>(
+    params.section === "classRequests" ? "classRequests" : null
+  );
+  const proposeFor = params.proposeFor ? Number(params.proposeFor) : null;
 
   // Web's drill-in resets because navigating away unmounts SettingsPage.
   // Popping this screen off the stack unmounts it too, so the reset is
@@ -124,6 +137,10 @@ export default function SettingsScreen() {
         return <SeasonsSection />;
       case "notifications":
         return <AutoInviteSection />;
+      case "classRequests":
+        return <ClassRequestsSection role="coach" proposeFor={proposeFor} />;
+      case "connections":
+        return <ConnectionsSection />;
       case "myNotifications":
         return <StudentNotificationBlocksSection />;
       case "tutorials":
@@ -158,7 +175,23 @@ export default function SettingsScreen() {
         }}
       />
 
-      <ScrollView className="flex-1" contentContainerClassName="gap-4 p-4 pb-10">
+      {/*
+       * The inset is reserved on the scroll view itself, not only inside its
+       * content: under edge-to-edge the app window runs beneath the
+       * transparent 3-button navigation bar, so a row resting at the bottom of
+       * the window is drawn under the bar and the bar takes the touch. Content
+       * padding alone only protects the END of the list, which leaves the last
+       * row (logout) untappable whenever a scroll happens to stop there — a
+       * real thumb problem, and the one that made every logging-out Maestro
+       * flow tap Home instead (PAD-304). Ending the viewport above the bar
+       * makes that position unreachable.
+       */}
+      <ScrollView
+        className="flex-1"
+        style={{ marginBottom: insets.bottom }}
+        contentContainerClassName="gap-4 p-4"
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {activeSection === null ? (
           <>
             <Card testID="settings-section-list">
