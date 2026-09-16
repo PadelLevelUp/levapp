@@ -41,7 +41,6 @@ from padel_app.sql_db import db
 from padel_app.services.presence_response import record_response, presence_late_cancellation  # noqa: F401  (PAD-271 M5)
 from padel_app.utils.dates import CLUB_TZ, club_day_start_utc, to_utc_iso, utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 from padel_app.models import (
-    Association_CoachLessonInstance,
     Association_CoachPlayer,
     LessonInstance,
     NotificationConfig,
@@ -1478,16 +1477,6 @@ def _weekday_pt(start_datetime) -> str:
     return _PT_WEEKDAYS[start_datetime.weekday()]
 
 
-def _level_label(instance) -> str:
-    """Class-name / modality for the ``{level}`` placeholder.
-
-    Returns the level code when the instance has a level, otherwise an empty
-    string. The previous ``"this"`` fallback was an English filler word that
-    leaked into pt templates as "aula de this".
-    """
-    level = getattr(instance, "level", None)
-    return level.code if level else ""
-
 
 def _resolve_locale(coach):
     """Resolve the coach's preferred locale, falling back to Portuguese."""
@@ -2312,7 +2301,7 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
         existing_count = Vacancy.query.filter_by(
             lesson_instance_id=instance.id,
         ).filter(Vacancy.status.in_(["open", "filled"])).count()
-        open_spots = instance.max_players - _effective_filled_spots(instance)
+        open_spots = instance.effective_max_players - _effective_filled_spots(instance)
         return max(0, open_spots - existing_count)
 
     if _spots_to_create() == 0:
@@ -3172,7 +3161,6 @@ def _resolve_occurrence_for_student(player, model, original_id, date):
     from flask import abort
     from padel_app.models import Association_PlayerLesson
     from padel_app.services.lesson_service import get_or_materialize_instance, parse_event_target
-    from padel_app.tools.calendar_tools import expand_occurrences
 
     kind, target, occ_date = parse_event_target(model, original_id, date)
     if kind == "lessoninstance":
@@ -3187,10 +3175,9 @@ def _resolve_occurrence_for_student(player, model, original_id, date):
 
     day_start = datetime.combine(occ_date, time.min)
     day_end = day_start + timedelta(days=1)
+    # PAD-275 rule 7: the lesson expands itself, so an excluded date is 404 too.
     produced = [
-        occ for occ in expand_occurrences(
-            lesson.start_datetime, lesson.recurrence_rule, lesson.recurrence_end, day_start, day_end
-        )
+        occ for occ in lesson.occurrences_between(day_start, day_end)
         if occ.date() == occ_date
     ]
     if not produced:
@@ -3767,7 +3754,7 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
     if instance is None or _instance_is_over(instance):
         return []
     db.session.expire(instance, ["presences"])
-    open_spots = max(0, (instance.max_players or 0) - _effective_filled_spots(instance))
+    open_spots = max(0, (instance.effective_max_players or 0) - _effective_filled_spots(instance))
     open_vacancies = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
         .order_by(Vacancy.id.asc())
@@ -4005,7 +3992,7 @@ def respond_to_notification(
             return {"action": "spot_filled_waiting_list_offered"}
 
         # Re-check capacity
-        if _effective_filled_spots(instance) >= instance.max_players:
+        if _effective_filled_spots(instance) >= instance.effective_max_players:
             event.status = "expired"
             event.save()
             if coach_user_id:
@@ -4112,7 +4099,7 @@ def coach_respond_to_notification(
             event.save()
             return {"action": "spot_filled"}
 
-        if _effective_filled_spots(instance) >= instance.max_players:
+        if _effective_filled_spots(instance) >= instance.effective_max_players:
             event.status = "expired"
             event.save()
             return {"action": "spot_filled"}
@@ -4614,7 +4601,7 @@ def _fill_from_waiting_list(
             vacancy.status = "expired"
         db.session.commit()  # the expiry, and the end of the lock
         return False
-    if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.max_players:
+    if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.effective_max_players:
         db.session.commit()  # release the lock; nothing was written
         return False
 

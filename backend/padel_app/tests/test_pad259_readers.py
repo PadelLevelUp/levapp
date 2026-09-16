@@ -42,6 +42,9 @@ def test_capacity_counts_presences_and_a_decline_frees_the_spot(app):
     carol, carol_uid = _second_student(app, ids["coach_id"], "carol")
     with app.app_context():
         instance = db.session.get(LessonInstance, instance_id)
+        # PAD-275 (classes.edit rule 4): capacity is the override, never the
+        # copied column, so the fixture caps the occurrence the way an edit does.
+        instance.max_players_override = 2
         instance.max_players = 2
         db.session.commit()
         enrol(carol, instance, "coach")

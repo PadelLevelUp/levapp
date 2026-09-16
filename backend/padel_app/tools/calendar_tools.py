@@ -61,7 +61,16 @@ def expand_occurrences(
     recurrence_end,
     range_start,
     range_end,
+    excluded=None,
 ):
+    """Occurrences of a series inside [range_start, range_end].
+
+    ``excluded`` (PAD-275, classes.recurrence rule 7): dates removed from the
+    series one at a time; an occurrence on one of them is not produced. This is
+    the ONE place exclusions are honoured — every caller goes through here (or
+    through ``Lesson.occurrences_between``, which passes the lesson's own list).
+    """
+    excluded = {d for d in (excluded or ())}
     range_start = ensure_utc(range_start)
     range_end = ensure_utc(range_end)
     start_datetime = ensure_utc(start_datetime)
@@ -69,7 +78,7 @@ def expand_occurrences(
 
     # Non-recurring
     if not recurrence_rule:
-        if range_start <= start_datetime <= range_end:
+        if range_start <= start_datetime <= range_end and start_datetime.date() not in excluded:
             return [start_datetime]
         return []
 
@@ -82,7 +91,10 @@ def expand_occurrences(
     if not rule:
         return []
 
-    return rule.between(range_start, range_end, inc=True)
+    occurrences = rule.between(range_start, range_end, inc=True)
+    if excluded:
+        occurrences = [occ for occ in occurrences if occ.date() not in excluded]
+    return occurrences
 
 def build_datetime(date_str: str, time_str: str) -> datetime:
     return datetime.strptime(
