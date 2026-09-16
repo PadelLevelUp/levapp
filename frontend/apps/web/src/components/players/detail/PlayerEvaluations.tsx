@@ -11,7 +11,7 @@ export function PlayerEvaluations({ evaluations }: PlayerEvaluationsProps) {
   const { t } = useTranslation();
   if (evaluations.length === 0) {
     return (
-      <Card>
+      <Card data-testid="player-evaluations-section">
         <CardHeader>
           <CardTitle className="text-lg">{t("players.evaluation")}</CardTitle>
         </CardHeader>
@@ -23,7 +23,7 @@ export function PlayerEvaluations({ evaluations }: PlayerEvaluationsProps) {
   }
 
   return (
-    <Card>
+    <Card data-testid="player-evaluations-section">
       <CardHeader>
         <CardTitle className="text-lg">{t("players.evaluation")}</CardTitle>
       </CardHeader>
