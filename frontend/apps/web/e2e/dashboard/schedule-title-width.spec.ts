@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openDashboard } from "../helpers/navigation";
 
-// PAD-336 / dashboard.blocks rule 3 (schedule rows follow the list's width).
+// PAD-336 / dashboard.blocks rule 3a (schedule rows follow the list's width).
 // At 1280×800 the "Next 7 days" list is ~530px wide, and the desktop row's
 // fixed columns left the class title 66px, so every seeded row read "E2E …".
 // The seeded titles (up to "E2E Pending Confirm Class", ~193px) must fit.
