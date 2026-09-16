@@ -196,3 +196,21 @@ as though the procedure exists.
   first deploy after this merges is its first run. The parts that can be proven off the VM were:
   actionlint clean, every embedded script passes `bash -n`, the retention pipeline against four
   sample inputs (five distinct images, one image on two rows, one image, no images).
+
+## Pending: the rehearsal (coordinator's decision, 2026-09-16)
+
+The rollback path is proven the first time it runs, and that must not be the night it is
+needed. **After this change has reached production** through a promotion, on a quiet evening,
+the coordinator runs it as a no-op — `rollback_to` set to the commit that is already live:
+
+```bash
+git fetch origin && LIVE=$(git rev-parse origin/main)
+gh workflow run deploy-prod.yaml --ref main -f target=both -f rollback_to="$LIVE"
+```
+
+Expected: the `Build and push image` steps show as skipped, both deploys pull the existing
+`:<sha>` images, the wait loop prints "migrations applied", `levapp.app` and
+`padellevelup.com` answer 200, and `docker ps` on the VM shows the containers running the
+`:<sha>` tags. Outage: the usual stop-to-ready window, about fifteen seconds, with no
+migration pending. When it has run, record the run id and the date here and this section
+becomes "Rehearsed". Until then the one command above is **written, linted and unrun**.
