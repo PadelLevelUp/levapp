@@ -83,13 +83,13 @@ def _messages_for(app, ids, pid):
 
 
 def _enrolled(app, ids, pid):
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.presences import Presence
 
     with app.app_context():
-        assoc = Association_PlayerLessonInstance.query.filter_by(player_id=pid, lesson_instance_id=ids["instance_id"]).first()
+        # PAD-301: the Presence row IS the enrolment; the shadow junction is gone.
+        # Both halves of the pair callers compare against now read the same row.
         pres = Presence.query.filter_by(player_id=pid, lesson_instance_id=ids["instance_id"]).first()
-        return assoc is not None, pres is not None
+        return pres is not None, pres is not None
 
 
 def _status(app, request_id):

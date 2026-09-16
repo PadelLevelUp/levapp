@@ -30,6 +30,7 @@ import {
 } from "../helpers/auth";
 import { openCalendar, openSettings, openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 // ---------------------------------------------------------------------------
 // Constants / API helpers
@@ -222,7 +223,7 @@ async function openClassDetail(page: Page, title: string = CLASS_TITLE) {
       .isVisible()
       .catch(() => false);
     if (visible) break;
-    await page.getByRole("button", { name: /next week/i }).first().click();
+    await page.getByRole("button", { name: ui("calendar.toolbar.nextWeek") }).first().click();
     await page.waitForTimeout(400);
   }
   await page.getByText(title).first().click();
@@ -245,10 +246,10 @@ async function markSeededStudentAbsentAndConfirm(page: Page) {
   await expect(
     dialog.getByText("E2E Student", { exact: true })
   ).toBeVisible({ timeout: 5000 });
-  await dialog.getByRole("button", { name: /^absent$/i }).first().click();
-  await dialog.getByRole("button", { name: /^unjustified$/i }).first().click();
+  await dialog.getByRole("button", { name: ui("calendar.attendance.absent") }).first().click();
+  await dialog.getByRole("button", { name: ui("calendar.attendance.unjustified") }).first().click();
 
-  await dialog.getByRole("button", { name: /^confirm$/i }).first().click();
+  await dialog.getByRole("button", { name: ui("calendar.detail.confirm") }).first().click();
   await page.waitForTimeout(1000);
 }
 
@@ -293,7 +294,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
   // /notifications/i ("My notifications"), so the old role+name locator is
   // ambiguous for a coach. Target the stable testid instead.
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({
     timeout: 5000,
   });
 
@@ -301,7 +302,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
 
   // The new invitation-mode control (this is the missing feature today)
   await expect(
-    page.getByText(/invitation mode/i).first(),
+    page.getByTestId("notification-engine-invitation-mode"),
     "Settings → Notifications must expose an 'Invitation mode' control (automatic | semi-automatic)"
   ).toBeVisible({ timeout: 5000 });
 
@@ -359,7 +360,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
     "approval card must show the full ordered invite queue"
   ).toBeVisible({ timeout: 5000 });
 
-  const approveNowBtn = page.getByRole("button", { name: /yes, right now/i });
+  const approveNowBtn = page.getByRole("button", { name: ui("notificationsUi.replacementApproval.yesRightNow") });
   await expect(
     approveNowBtn.first(),
     "approval card must offer a 'Yes, right now' action"
@@ -402,7 +403,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
   });
   await page.getByText(/e2e coach/i).first().click();
   await expect(
-    page.getByRole("button", { name: /^yes$/i }).first(),
+    page.getByRole("button", { name: ui("messages.yes") }).first(),
     "invitation message must offer the usual Yes action to the student"
   ).toBeVisible({ timeout: 10_000 });
 });
@@ -460,7 +461,7 @@ test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and t
 
   // Card actions are gone after dismissal (terminal decision)
   await expect(
-    page.getByRole("button", { name: /yes, right now/i })
+    page.getByRole("button", { name: ui("notificationsUi.replacementApproval.yesRightNow") })
   ).not.toBeVisible();
 
   // ── Step 4: no invitations were sent ──────────────────────────────────────
@@ -473,7 +474,7 @@ test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and t
 
   // ── Step 5: the prompt is persisted in the coach's Assistant conversation ─
   await openMessages(page);
-  const assistantConv = page.getByText(/assistant/i).first();
+  const assistantConv = page.getByTestId("conversation-assistant").first();
   await expect(
     assistantConv,
     "coach must have an Assistant conversation containing the replacement prompt"

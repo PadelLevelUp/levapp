@@ -7,6 +7,7 @@ import {
   STUDENT3_USERNAME,
 } from "../helpers/auth";
 import { openMessages, openSettings } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * messaging.block-and-report rules 7–10 (PAD-215): a message from someone the
@@ -19,7 +20,7 @@ import { openMessages, openSettings } from "../helpers/navigation";
  */
 
 async function openNewConversation(page: Page) {
-  await page.getByRole("button", { name: /new conversation|nova conversa/i }).click();
+  await page.getByRole("button", { name: ui("messages.newConversation") }).click();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 }
 
@@ -168,7 +169,7 @@ test("US-215: Report and block from the banner, then Unblock from Settings → A
         r.status() < 400,
       { timeout: 10_000 }
     ),
-    list.getByRole("button", { name: /unblock|desbloquear/i }).first().click(),
+    list.getByRole("button", { name: ui("settings.account.blockedUsers.unblock") }).first().click(),
   ]);
   await expect(page.getByTestId("blocked-users-empty")).toBeVisible({ timeout: 5000 });
 

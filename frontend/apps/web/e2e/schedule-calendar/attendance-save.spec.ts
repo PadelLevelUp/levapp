@@ -56,10 +56,9 @@ async function markPresentAndSave(page: Page, title: string): Promise<void> {
     `presences/confirm should return 200 for "${title}" (was ${resp.status()})`
   ).toBe(200);
 
-  await expect(page.getByText("Attendance saved").first()).toBeVisible({
-    timeout: 5000,
-  });
-  await expect(page.getByText("Failed to save attendance")).not.toBeVisible();
+  const saveToast = page.getByTestId("toast");
+  await expect(saveToast).toBeVisible({ timeout: 5000 });
+  await expect(saveToast).toHaveAttribute("data-variant", "default");
 }
 
 /**

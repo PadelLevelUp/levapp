@@ -346,7 +346,11 @@ export default function PlayersPage() {
                       <Badge variant="secondary">{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
                     )}
                     {!cs.validated && (
-                      <Badge variant="outline" className="border-warning/40 text-warning">
+                      <Badge
+                        variant="outline"
+                        className="border-warning/40 text-warning"
+                        data-testid="pending-registration-badge"
+                      >
                         {t("players.pendingRegistration")}
                       </Badge>
                     )}

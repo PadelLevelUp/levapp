@@ -12,7 +12,6 @@ from padel_app.models import (
     Presence,
     Association_CoachLesson,
     Association_PlayerLesson,
-    Association_PlayerLessonInstance,
     Association_CoachLessonInstance,
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
@@ -52,9 +51,8 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
     """Put a player on one occurrence. THE single writer (rule 4).
 
     The `Presence` row is the enrolment (rule 1). Idempotent: an existing row is
-    returned untouched — its response and attendance are never reset. Phase 1
-    also writes the shadow `player_in_lesson_instance` row, which nothing reads
-    and phase 2 drops.
+    returned untouched — its response and attendance are never reset. The
+    phase-1 shadow junction is gone (PAD-301).
 
     Transactions (PAD-272): flushes inside a unit of work and commits outside
     one, so a caller that enrols a whole roster under ``with unit_of_work():``
@@ -77,12 +75,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         ),
         **key,
     )
-    _get_or_insert(
-        Association_PlayerLessonInstance,
-        lambda: Association_PlayerLessonInstance(**key),
-        **key,
-    )
-    db.session.expire(instance, ["players_relations", "presences"])
+    db.session.expire(instance, ["presences"])
 
     # PAD-316: a re-enrolment of someone who gave their spot up is a RETURN, not
     # a no-op. The row already existed, so `created` is False, and before this
@@ -170,7 +163,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
                 primary_coach(instance), player_id, instance=instance,
             )
     commit_or_flush()
-    db.session.expire(instance, ["players_relations", "presences"])
+    db.session.expire(instance, ["presences"])
     return presence
 
 
@@ -190,36 +183,9 @@ def unenrol(player_id, instance) -> bool:
     if presence is not None:
         db.session.delete(presence)
         existed = True
-    shadow = Association_PlayerLessonInstance.query.filter_by(
-        player_id=player_id, lesson_instance_id=instance.id
-    ).first()
-    if shadow is not None:
-        db.session.delete(shadow)
     commit_or_flush()
-    db.session.expire(instance, ["players_relations", "presences"])
+    db.session.expire(instance, ["presences"])
     return existed
-
-
-def reconcile_enrolment(instance_id=None) -> list:
-    """Junction pairs (player_id, lesson_instance_id) that have NO presence
-    (rule 9). One-directional on purpose: a presence with no shadow row is what
-    option A is for and never needs one; a shadow row with no presence would be
-    an enrolment the code cannot see. Empty is the phase-2 gate."""
-    q = (
-        db.session.query(
-            Association_PlayerLessonInstance.player_id,
-            Association_PlayerLessonInstance.lesson_instance_id,
-        )
-        .outerjoin(
-            Presence,
-            (Presence.player_id == Association_PlayerLessonInstance.player_id)
-            & (Presence.lesson_instance_id == Association_PlayerLessonInstance.lesson_instance_id),
-        )
-        .filter(Presence.id.is_(None))
-    )
-    if instance_id is not None:
-        q = q.filter(Association_PlayerLessonInstance.lesson_instance_id == instance_id)
-    return sorted(tuple(r) for r in q.all())
 
 
 def parse_event_target(model, original_id, date):
@@ -782,7 +748,7 @@ def add_presences(lesson_instance, payload):
             # No presence row yet means this player was not on the instance's
             # roster — a walk-in the coach is adding after the fact (PAD-140).
             # They also need the instance association, because
-            # `effective_filled_spots` counts `players_relations`, not
+            # `effective_filled_spots` counts presences, not
             # presences: without it the walk-in occupies a spot that the
             # calendar badge, the class-detail capacity field and the
             # invitation engine all fail to see (`calendar.view` rule 9 makes
@@ -1435,6 +1401,27 @@ def edit_class_service(data):
     lesson = Lesson.query.get_or_404(original_id)
 
     if scope == "single":
+        # B-046 / PAD-303: the occurrence may already be materialised — the web
+        # sheet keeps event.model="Lesson" after confirming attendance (the
+        # PAD-335 seam), so "edit this occurrence" can name a date that has an
+        # instance. Creating a second one duplicated the occurrence before the
+        # unique index and 500s on IntegrityError with it; the existing
+        # instance is edited instead, exactly as the LessonInstance path does.
+        existing = _instances_on_date(lesson, event_date)
+        if existing:
+            instance = existing[0]
+            _ensure_date(payload, event_date)
+            edit_lesson_instance_helper(payload, instance)
+            if notifications_enabled is not None:
+                instance.notifications_enabled = notifications_enabled
+                instance.save()
+            if eligibility_touched:
+                instance.eligibility_rules = eligibility_rules
+                instance.save()
+            if visibility_touched:
+                instance.open_spots_visible = open_spots_visible
+                instance.save()
+            return {"id": instance.id}, 200
         payload["original_lesson_occurence_date"] = event_date.strftime("%Y-%m-%d")
         _ensure_date(payload, event_date)
         instance = create_lesson_instance_helper(data=payload, parent_lesson=lesson)

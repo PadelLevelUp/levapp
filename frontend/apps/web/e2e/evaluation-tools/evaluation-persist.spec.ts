@@ -28,11 +28,15 @@ test("PAD-56: saving an evaluation persists it and survives a reload", async ({ 
   await slider.press("ArrowRight");
   await slider.press("ArrowRight");
 
-  // Save.
+  // Save. Armed BEFORE the click — the persisted effect (the save actually
+  // landing), not the toast copy, is the observable here (the page renders
+  // pt in E2E).
+  const saved = page.waitForResponse(
+    (r) => /\/add_evaluation_entry/.test(r.url()) && r.request().method() === "POST" && r.ok(),
+    { timeout: 8000 },
+  );
   await page.getByRole("button", { name: /save evaluation/i }).click();
-
-  // Success toast appears...
-  await expect(page.getByText(/evaluation saved/i).first()).toBeVisible({ timeout: 8000 });
+  await saved;
 
   // ...the sheet closes on success (so "Forehand" only remains in the panel)...
   await expect(page.getByRole("button", { name: /save evaluation/i })).toHaveCount(0);

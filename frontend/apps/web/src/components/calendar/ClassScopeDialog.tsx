@@ -75,6 +75,7 @@ export function ClassScopeDialog({
             variant="outline"
             className="justify-start h-auto p-4 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
             onClick={() => onConfirm('single')}
+            data-testid="class-scope-single"
           >
             <CalendarX className="w-5 h-5 mr-3 shrink-0" />
             <div className="text-left">
@@ -89,6 +90,7 @@ export function ClassScopeDialog({
             variant="outline"
             className="justify-start h-auto p-4 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
             onClick={() => onConfirm('future')}
+            data-testid="class-scope-future"
           >
             <CalendarX2 className="w-5 h-5 mr-3 shrink-0" />
             <div className="text-left">

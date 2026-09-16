@@ -84,6 +84,10 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 - **Then** they land on `/calendar`, the calendar is showing the week that contains the class, and
   the class detail sheet for that exact occurrence is already open — they never have to page
   through weeks or hunt for the event
+- *Test note (PAD-343):* `upcoming-class-deeplink.spec.ts` reads the seed's "E2E Upcoming
+  Class", which meets this Given on six weekdays. On a Monday before 10:00 nothing inside the
+  coach's 7-day list can be in a later week, so that run checks the same click on a class in the
+  current week; `test_seed_dates.py` pins both halves.
 
 #### Student upcoming lesson opens that exact class
 - **Given** an authenticated student with an upcoming lesson

@@ -42,8 +42,8 @@ type Piece =
 
 type PieceColor = "white" | "green" | "blue" | "red" | "amber";                        // the five swatches
 
-type BallPath = { from: Point; to: Point; style: "flat" | "lob" };                      // plana | lob
-type Movement = { pieceId: string; to: Point };                                        // dashed path for a player
+type BallPath = { from: Point; to: Point; style: "flat" | "lob"; seq?: number };       // plana | lob; seq: PAD-311
+type Movement = { pieceId: string; to: Point; seq?: number };                          // dashed path for a player; seq: PAD-311
 
 type Step = {
   id: string;
@@ -101,7 +101,18 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
    travel, matching the canvas `M58,20 Q70,50 40,80`). Rule 23 says how several paths are
    numbered, reordered and removed.
 10. Movimentação: tap a player then a destination → a dashed movement for that player in the
-    current step. A player has at most one movement per step; drawing again replaces it.
+    current step. **(PAD-309) A player can follow several trajectories in one step.** After a
+    leg is drawn the player stays armed: each further tap on the court appends another leg
+    starting where the last one ended, and tapping the player again later also continues from
+    its last leg. Tapping another player arms that one; changing tool disarms. The step's
+    `movements` list keeps a player's legs in the order they were drawn. Each leg is drawn
+    dashed from the previous leg's end, with its own end dot; the first leg keeps the test id
+    `movement-<pieceId>`, and later legs are `movement-<pieceId>-<n>` (n = 1, 2, … as for ball
+    paths). Undo removes the last leg like any other mutation. Dragging a player with
+    Selecionar in a later step still records a single movement for it (rule 18), replacing
+    its legs. Compatibility: the shape is unchanged (a `pieceId` may simply repeat), so no
+    migration is needed; a build that predates PAD-309 still ends the step with the player at
+    its last leg's end, but draws every leg from the step's starting position.
 11. Cone places a cone at the tapped point; selecting a cone and pressing delete/eraser removes it.
 
 **Legacy diagrams**
@@ -141,9 +152,38 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     to the starting position after the last step.
 20. **▶ AUTO** animates every step in order: the ball travels the step's paths **one after the
     other, in their order** (flat: linear, lob: along the quadratic), 800 ms per path, while each
-    moved player travels its dashed path over the whole step — so a step lasts 800 ms × max(1,
-    paths) (`stepDurationMs`, PAD-289) — then the next step starts. AUTO becomes ■ while playing; any edit stops playback and returns to the
+    moved player travels its dashed path over the whole step (a player with several legs, rule
+    10, splits the step evenly between them and walks them in order, PAD-309) — so a step lasts 800 ms × max(1,
+    paths) (`stepDurationMs`, PAD-289) — then the next step starts. **(PAD-311)** This is the
+    *legacy* timing: it applies only to a step with no `seq` on any action. A sequenced step
+    plays by rule 26. AUTO becomes ■ while playing; any edit stops playback and returns to the
     starting position. Nothing bounces (design-system motion rule).
+26. **(PAD-311; number self-assigned) Actions play in the order they were drawn.** Every ball
+    path and movement drawn in a step is stamped with `seq`, a per-step creation counter (the
+    next number after the highest in the step). Drawing the first action into a step that
+    already holds unstamped actions first stamps those: balls in list order, then movements in
+    list order. ▶ AUTO plays a sequenced step as a timeline of **moments** in `seq` order:
+    - a ball path is a moment of its own;
+    - consecutive movements of *different* players share one moment and run in parallel;
+    - a movement of a player already moving in the current moment starts the next moment (a
+      player's legs, rule 10, are sequential).
+
+    Each moment lasts 800 ms (decision (b)), so a step lasts 800 ms × max(1, moments), at the
+    speed of rule 25. During a movement moment the ball rests where the last ball path ended
+    (before any has played: at the first path's start). Passo still jumps to the step's end
+    state. On the court, when a sequenced step has more than one moment, every action shows its
+    moment number (ball paths: `ball-number-<i>`; movements: `movement-order-<pieceId>[-<n>]`),
+    and parallel movements share a number. **Legacy fallback (decision (a)):** a step with no
+    `seq` on any action, which is every exercise saved before PAD-311, plays exactly as rule 20
+    describes and shows only the ball numbers of rule 23. No migration; App Store builds that
+    predate PAD-311 ignore `seq` and play every step the legacy way.
+25. **(PAD-310; number self-assigned) Playback speed.** A "Velocidade" control under the step
+    strip offers **Lento 0.5× · Normal 1× · Rápido 2×** (`board-speed-slow|normal|fast`, one
+    selected, default Normal) on web and iOS. The speed scales ▶ AUTO's clock: a step lasts
+    `stepDurationMs / speed`. Changing it while AUTO plays keeps the current position and
+    continues at the new speed, with no restart. The choice lives with the open board only: it is
+    not saved with the exercise and does not change Passo. The clock arithmetic is shared
+    (`@levelup/config` `playbackClock` helpers) so both shells time a step identically.
 
 **Several ball paths per step** — PAD-289 (founders' note 2026-09-11)
 23. A step holds an **ordered list** of ball paths, `balls`. Each new Bola path is appended; the
@@ -152,7 +192,11 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     path. Reordering renumbers; removing the only path leaves the step without a ball. In basket
     mode every feed starts at the feeder, so consecutive feeds are simply several numbered paths.
     Undo covers adding, reordering, removing and toggling a path exactly as it covers any other
-    mutation (rule 4; the history stores whole diagrams).
+    mutation (rule 4; the history stores whole diagrams). **(PAD-311)** In a sequenced step the
+    number on the court is the path's place in the step's whole play order (rule 26), not only
+    among the balls. ▲ ▼ still reorders the balls, and the balls take each other's places in the
+    play order, while movements keep theirs. (Decision (c), confirmed by the coordinator: removing
+    this control would be a regression.)
 24. **Compatibility.** `balls` is the source of truth on read: a step with `balls` uses it; a step
     with only `ball` (every diagram saved before PAD-289, and every legacy upgrade, rule 12) reads
     as `[ball]`. On write the board always mirrors `ball = balls[0]` (absent when there are no
@@ -187,6 +231,34 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Given** the board in game mode with the Movimentação tool
 - **When** the coach taps A1 then taps (20 %, 40 %)
 - **Then** a dashed path is drawn from A1 to that point and the step holds `{pieceId: A1, to: {20, 40}}`
+
+#### A player follows several trajectories in one step (PAD-309)
+- **Given** the board in game mode with the Movimentação tool
+- **When** the coach taps A1, then taps (20 %, 40 %), then taps (10 %, 60 %)
+- **Then** the step holds `[{pieceId: A1, to: {20, 40}}, {pieceId: A1, to: {10, 60}}]`, the second dashed leg starts at (20 %, 40 %), and Passo ends the step with A1 at (10 %, 60 %)
+- **And** halfway through ▶ AUTO the player stands at the end of the first leg
+
+#### Actions play in the order they were drawn (PAD-311)
+- **Given** a new game board; the coach draws a ball path (58 %, 20 %) → (50 %, 50 %), then moves A1 to (50 %, 50 %), then draws a ball path (50 %, 50 %) → (40 %, 80 %)
+- **When** ▶ AUTO plays at Normal
+- **Then** the step lasts 2400 ms; at 400 ms the ball is halfway along the first path and A1 has not moved; at 1200 ms the ball rests at (50 %, 50 %) and A1 is halfway; at 2000 ms A1 is at (50 %, 50 %) and the ball is halfway along the second path
+- **And** the court numbers the actions 1, 2, 3
+
+#### Parallel movements share a moment (PAD-311)
+- **Given** a sequenced step where A1 and B1 were moved one after the other, then A1 again
+- **When** ▶ AUTO plays
+- **Then** A1 and B1 move together in moment 1, and A1's second leg is moment 2
+
+#### An exercise saved before sequencing plays as before (PAD-311)
+- **Given** a step with a ball path and a movement and no `seq` on either
+- **When** ▶ AUTO plays
+- **Then** the step lasts 800 ms and the player moves while the ball travels, exactly as rule 20
+
+#### Playback speed scales AUTO (PAD-310)
+- **Given** a board with one step and one ball path (800 ms at Normal)
+- **When** the coach selects Rápido and presses ▶ AUTO
+- **Then** the step finishes after 400 ms; at Lento it finishes after 1600 ms
+- **And** switching from Normal to Rápido halfway keeps the ball where it was and plays the rest at 2×
 
 #### Tap-to-move and drag both move a piece
 - **Given** the Selecionar tool

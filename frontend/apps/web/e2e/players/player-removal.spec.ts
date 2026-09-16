@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 // PAD-274 / players.remove (B-057). A coach DISCONNECTS from a student who has
 // an account, and can never delete them; a coach DELETES only a placeholder
@@ -48,18 +49,18 @@ test("PAD-274: a student with an account offers Disconnect, shows what goes, and
 
   await loginAsCoach(page);
   await page.goto(`/players/${studentId}`);
-  const disconnect = page.getByRole("button", { name: /^(disconnect|desassociar)$/i });
+  const disconnect = page.getByRole("button", { name: ui("players.disconnectPlayer") });
   await expect(disconnect).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: /^(delete player|eliminar jogador)$/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: ui("players.deletePlayer") })).toHaveCount(0);
 
   await disconnect.click();
   const dialog = page.getByRole("alertdialog");
   // Notes and evaluations; no attendance line, because attendance stays.
   await expect(dialog.getByTestId("player-removal-impact").getByRole("listitem")).toHaveCount(2, { timeout: 10_000 });
-  await expect(dialog.getByTestId("player-remove-confirm")).toHaveText(/disconnect|desassociar/i);
+  await expect(dialog.getByTestId("player-remove-confirm")).toHaveText(ui("players.disconnect"));
 
   // Cancel: this spec never removes the seeded student.
-  await dialog.getByRole("button", { name: /^(cancel|cancelar)$/i }).click();
+  await dialog.getByRole("button", { name: ui("common.cancel") }).click();
   await expect(dialog).toHaveCount(0);
 });
 
@@ -72,9 +73,9 @@ test("PAD-274: a placeholder the coach created offers Delete and is deleted", as
 
   await loginAsCoach(page);
   await page.goto(`/players/${placeholderId}`);
-  const del = page.getByRole("button", { name: /^(delete player|eliminar jogador)$/i });
+  const del = page.getByRole("button", { name: ui("players.deletePlayer") });
   await expect(del).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: /^(disconnect|desassociar)$/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: ui("players.disconnectPlayer") })).toHaveCount(0);
 
   await del.click();
   const dialog = page.getByRole("alertdialog");

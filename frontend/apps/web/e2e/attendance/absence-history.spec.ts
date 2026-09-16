@@ -37,6 +37,7 @@ import {
   loginAsStudent,
 } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 const API_BASE = `${API_ROOT}/app`;
 
@@ -137,8 +138,8 @@ test.describe("PAD-141: student absence history", () => {
     const empty = page.getByTestId("attendance-chart-empty");
     await expect(empty).toBeVisible({ timeout: 15_000 });
     // pt is the default locale: "Sem faltas…" vs the attendance "Sem presenças…".
-    await expect(empty).toHaveText(/faltas|absences/i);
-    await expect(empty).not.toHaveText(/presenças|attendance/i);
+    await expect(empty).toHaveText(ui("absences.chart.empty", { exact: false }));
+    await expect(empty).not.toHaveText(ui("attendance.chart.empty", { exact: false }));
   });
 
   test("PAD-141: the page lists all three seeded absences", async ({ page }) => {

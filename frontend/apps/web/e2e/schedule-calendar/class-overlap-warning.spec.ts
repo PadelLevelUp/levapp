@@ -2,6 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-99: warn the coach (non-blocking) when a class is scheduled at a time
@@ -27,11 +28,15 @@ function firstMondayAfterTodayISO(): string {
 
 async function openAddClass(page: Page) {
   const addBtn = page
-    .getByRole("button", { name: /add class|new class/i })
+    .getByRole("button", { name: ui("calendar.toolbar.addClass") })
     .first();
   await expect(addBtn).toBeVisible({ timeout: 5000 });
   await addBtn.click();
-  const nameField = page.getByPlaceholder(/beginner academy|private/i).first();
+  // The sheet opens on the "academy" tab (AddClassSheet's default classType),
+  // so the name field's placeholder is always the academy one here.
+  const nameField = page
+    .getByPlaceholder(ui("calendar.addClass.namePlaceholderAcademy", { exact: false }))
+    .first();
   await expect(nameField).toBeVisible({ timeout: 5000 });
 }
 
@@ -43,8 +48,12 @@ async function fillClassForm(
   end: string
 ) {
   const sheet = page.locator('[role="dialog"]').first();
-  // A name is required by the backend (title is NOT NULL).
-  await sheet.getByPlaceholder(/beginner academy|private/i).first().fill(name);
+  // A name is required by the backend (title is NOT NULL). Same academy-tab
+  // default as openAddClass above.
+  await sheet
+    .getByPlaceholder(ui("calendar.addClass.namePlaceholderAcademy", { exact: false }))
+    .first()
+    .fill(name);
   await sheet.locator('input[type="date"]').first().fill(dateISO);
   const times = sheet.locator('input[type="time"]');
   await times.nth(0).fill(start);

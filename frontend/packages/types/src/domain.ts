@@ -487,6 +487,12 @@ export interface Message {
   replyTo?: string | number | null;
   edited?: boolean;
   isDeleted?: boolean;
+  /**
+   * messaging.conversation-detail rule 15 (PAD-325): the class this message
+   * points at (`metadata.lessonInstanceId`) was deleted. Derived by the server
+   * per conversation page; absent from older servers, so treat as false.
+   */
+  classDeleted?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
   actions?: MessageAction[];
   messageType?: string;

@@ -27,6 +27,12 @@ import {
   MAX_BASKET_PLAYERS,
   piecesAtStep,
   playbackFrameAt,
+  PLAYBACK_SPEEDS,
+  clockElapsed,
+  clockWithSpeed,
+  startClock,
+  type PlaybackClock,
+  type PlaybackSpeedKey,
   playerCount,
   popHistory,
   pushHistory,
@@ -127,6 +133,14 @@ export function TacticalBoard({ value, onChange }: Props) {
   const [playback, setPlayback] = React.useState<{ step: number; t: number } | null>(null);
   const [playing, setPlaying] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  // PAD-310 (rule 25): AUTO's speed, and the clock that runs at it.
+  const [speed, setSpeed] = React.useState<PlaybackSpeedKey>("normal");
+  const clock = React.useRef<PlaybackClock>(startClock(0, PLAYBACK_SPEEDS.normal));
+  const changeSpeed = (next: PlaybackSpeedKey) => {
+    setSpeed(next);
+    // mid-play: keep the position, continue at the new rate
+    clock.current = clockWithSpeed(clock.current, Date.now(), PLAYBACK_SPEEDS[next]);
+  };
 
   const stopPlayback = React.useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -164,12 +178,13 @@ export function TacticalBoard({ value, onChange }: Props) {
   const startAuto = () => {
     if (diagram.steps.length === 0) return;
     stopPlayback();
-    const startedAt = Date.now();
+    clock.current = startClock(Date.now(), PLAYBACK_SPEEDS[speed]);
     setPlaying(true);
     setPlayback({ step: 0, t: 0 });
     timer.current = setInterval(() => {
       // PAD-289 (rule 20): a step lasts 800 ms per ball path; the shared scheduler decides.
-      const frame = playbackFrameAt(diagram, Date.now() - startedAt);
+      // PAD-310 (rule 25): at the chosen speed.
+      const frame = playbackFrameAt(diagram, clockElapsed(clock.current, Date.now()));
       if (!frame) {
         stopPlayback();
         return;
@@ -465,6 +480,26 @@ export function TacticalBoard({ value, onChange }: Props) {
         <Pressable testID="board-auto" accessibilityRole="button" accessibilityLabel={playing ? t("training.board.playback.stop") : t("training.board.playback.auto")} accessibilityState={{ selected: playing }} disabled={steps === 0} onPress={playing ? stopPlayback : startAuto} className={cn("ml-1 h-10 justify-center rounded-full bg-primary px-4", steps === 0 && "opacity-40")}>
           <Text className="font-sans-bold text-xs text-primary-foreground">{playing ? t("training.board.playback.stop") : t("training.board.playback.auto")}</Text>
         </Pressable>
+      </View>
+
+      {/* playback speed (PAD-310, rule 25) */}
+      <View testID="board-speed" accessibilityRole="radiogroup" accessibilityLabel={t("training.board.playback.speed")} className="flex-row flex-wrap items-center gap-2 px-3 pb-3">
+        <Text className="font-sans-semibold text-[11px] text-white/70">{t("training.board.playback.speed")}</Text>
+        {(["slow", "normal", "fast"] as const).map((key) => (
+          <Pressable
+            key={key}
+            testID={`board-speed-${key}`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: speed === key }}
+            accessibilityLabel={t(`training.board.playback.speeds.${key}`)}
+            onPress={() => changeSpeed(key)}
+            className={cn("min-h-[32px] justify-center rounded-full border px-3", speed === key ? "border-white bg-white/15" : "border-white/15")}
+          >
+            <Text className={cn("font-sans-semibold text-[11px]", speed === key ? "text-white" : "text-white/70")}>
+              {t(`training.board.playback.speeds.${key}`)}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       {/* ball paths of the current step (PAD-289, rule 23) */}

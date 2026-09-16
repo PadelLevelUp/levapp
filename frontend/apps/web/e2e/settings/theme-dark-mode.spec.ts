@@ -70,7 +70,11 @@ test("PAD-57: choosing Dark applies the dark theme and persists across reload", 
     .toBe(true);
 
   await openPreferences(page);
-  await expect(page.getByLabel(/^theme$/i)).toContainText(/dark/i, {
+  // The Select must reflect the persisted theme via the same value next-themes
+  // applies (data-theme-value, driven by the same `theme` state that picks the
+  // rendered label) — not the label itself, which is translated (the page
+  // renders pt in E2E).
+  await expect(page.locator("#theme-select")).toHaveAttribute("data-theme-value", "dark", {
     timeout: 5000,
   });
 

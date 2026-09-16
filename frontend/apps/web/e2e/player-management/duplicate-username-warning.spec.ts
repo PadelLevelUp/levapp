@@ -25,9 +25,9 @@ test.describe("PAD-7: unique field validation", () => {
 
     await page.getByRole("button", { name: /add player/i }).click();
 
-    await page.getByPlaceholder("e.g. John Doe").fill("Email Dup Test");
+    await page.locator("#player-name").fill("Email Dup Test");
 
-    const emailInput = page.getByPlaceholder("e.g. john@email.com");
+    const emailInput = page.locator("#player-email");
     await emailInput.fill("e2e-coach@test.com"); // taken email
 
     // Error should appear automatically
@@ -36,7 +36,7 @@ test.describe("PAD-7: unique field validation", () => {
     await expect(emailInput).toHaveClass(/border-destructive/);
 
     // Form data should be preserved
-    await expect(page.getByPlaceholder("e.g. John Doe")).toHaveValue("Email Dup Test");
+    await expect(page.locator("#player-name")).toHaveValue("Email Dup Test");
 
     // Create is blocked while a unique field is in error
     await expect(
@@ -54,7 +54,7 @@ test.describe("PAD-7: unique field validation", () => {
 
     await page.getByRole("button", { name: /add player/i }).click();
     await page
-      .getByPlaceholder("e.g. John Doe")
+      .locator("#player-name")
       .fill(`Dup Username Invitee ${Date.now()}`);
     await page
       .getByRole("button", { name: /create.*invite|invite.*player/i })
