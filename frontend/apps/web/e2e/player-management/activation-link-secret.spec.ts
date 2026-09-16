@@ -13,8 +13,11 @@ const UNIQUE = Date.now();
 async function createInactivePlayer(page: Page, name: string): Promise<string> {
   await openPlayers(page);
   await page.getByRole("button", { name: /add player/i }).first().click();
-  await expect(page.getByText("New player")).toBeVisible({ timeout: 5000 });
-  await page.getByPlaceholder("e.g. John Doe").fill(name);
+  // The sheet's name field, located by its stable id rather than its
+  // (translated) placeholder — the page renders pt in E2E.
+  const nameInput = page.locator("#player-name");
+  await expect(nameInput).toBeVisible({ timeout: 5000 });
+  await nameInput.fill(name);
   await page.getByRole("button", { name: /create player/i }).click();
 
   await page.getByPlaceholder(/search/i).first().fill(name);
