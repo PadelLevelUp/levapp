@@ -38,6 +38,14 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: pip install . pytest
+      # B-091: the VM-side scripts are shell; shellcheck had flagged the
+      # restore-check bug (SC2318) and nothing ran it. The runner image ships
+      # shellcheck, so this costs a second. startup.sh is a Terraform template
+      # (${var.…} interpolations), not a shell script, so it is left out.
+      - run: |
+          files=()
+          for f in scripts/*.sh; do [ "$f" = scripts/startup.sh ] || files+=("$f"); done
+          shellcheck -S warning "${files[@]}"
       - run: python -m pytest padel_app/tests -q -p no:warnings
 
   postgres:
