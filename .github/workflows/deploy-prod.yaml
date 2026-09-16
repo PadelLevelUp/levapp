@@ -8,6 +8,14 @@ name: Deploy prod
 # deployed frontend violates), dispatch this workflow twice by hand with
 # target=frontend and then target=backend.
 #
+# Rolling back (PAD-338): every build is pushed under its commit sha as well as
+# :latest, and the VM pulls and runs the sha tag. To put an earlier build back,
+# dispatch with rollback_to=<sha of a commit this workflow already deployed>;
+# the build is skipped and the deploy runs the same script with the same
+# secrets. What that does not cover is in
+# .cortex/atlas/decisions/2026-09-13-prod-rollback-procedure.md — read it before
+# rolling back: a migration that has applied since is not undone.
+#
 # Path filtering happens INSIDE the jobs (dorny/paths-filter), never at the
 # workflow level: a workflow-level `paths:` filter that skips a required check
 # blocks the PR forever, because "skipped" is not "success".
@@ -22,6 +30,10 @@ on:
         type: choice
         default: both
         options: [ both, backend, frontend ]
+      rollback_to:
+        description: "Rollback: full commit sha of an ALREADY-DEPLOYED build to put back (skips the build). Empty = normal deploy."
+        type: string
+        default: ""
 
 concurrency:
   group: deploy-prod
@@ -108,17 +120,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        # PAD-338: on a rollback, .env.prod (copied below) must be the one that
+        # commit was deployed with, not main's.
+        ref: ${{ inputs.rollback_to || github.sha }}
     - uses: docker/setup-buildx-action@v3
     - uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
     - name: Install Poetry
+      if: ${{ !inputs.rollback_to }}
       run: pipx install poetry
     - name: Check lockfile is up-to-date
+      if: ${{ !inputs.rollback_to }}
       run: poetry check --lock
       working-directory: backend
     - name: Build and push image
+      # PAD-338: a rollback deploys an image that already exists on the registry.
+      if: ${{ !inputs.rollback_to }}
       uses: docker/build-push-action@v6
       with:
         context: backend
@@ -148,7 +168,14 @@ jobs:
         script: |
           set -euo pipefail
           docker network create levelup_net || true
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+          # PAD-338: pull and run the COMMIT tag, never :latest. A pulled :latest
+          # loses its name at the next pull and becomes an untagged image — one
+          # the retention below cannot see and a rollback cannot name. The sha
+          # tag stays on the VM until retention removes it. A pull that fails
+          # (a rollback_to that was never deployed) stops here, before the
+          # running container is touched.
+          TAG="${{ inputs.rollback_to || github.sha }}"
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           docker stop padelapp || true && docker rm padelapp || true
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           docker run -d --name padelapp -p 127.0.0.1:5000:80 \
@@ -165,7 +192,7 @@ jobs:
             -e VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}" \
             -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
             -e EXPO_ACCESS_TOKEN="${{ secrets.EXPO_ACCESS_TOKEN }}" \
-            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           # PAD-220: `docker run` succeeding proves nothing about migrations — the
           # entrypoint runs them, and a failed one crash-loops the container
           # while this job reports green. Wait for the entrypoint to reach
@@ -188,13 +215,17 @@ jobs:
           # three is removed, which is what the original prune was protecting
           # (the 9.7G VM disk has filled up twice). `docker rmi` refuses an image
           # a container is using, which is why this cannot remove what is running.
-          # `!seen[$1]++` first: the newest image carries BOTH :latest and its
-          # commit tag, so it occupies two rows and an un-deduplicated "keep 3"
-          # would keep two images, not three.
+          # `!seen[$1]++` first: an image with two tags occupies two rows, and an
+          # un-deduplicated "keep 3" would then keep two images, not three. The VM
+          # now pulls one tag per image, so this is a guard, not the common case.
           docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend" \
             --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
             | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
             | xargs -r docker rmi 2>/dev/null || true
+          # Untagged leftovers only (the :latest-only images from before the sha
+          # tags, and anything a failed pull left behind). Every image this deploy
+          # wants to keep carries a tag, so this cannot remove a rollback target.
+          docker image prune -f || true
 
   # PAD-353 (B-090): the schedule is installed in its OWN job. These two steps
   # used to end the `backend` job, so when the cron step failed it failed that
@@ -270,12 +301,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_to || github.sha }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Build and push image
+        # PAD-338: a rollback deploys an image that already exists on the registry.
+        if: ${{ !inputs.rollback_to }}
         uses: docker/build-push-action@v6
         with:
           context: frontend
@@ -292,17 +327,23 @@ jobs:
           username: ${{ secrets.GCE_USER }}
           key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
           script: |
+            # PAD-338: fail loudly. Without this a failed pull ran on into
+            # `docker run` with no image, and the job stayed green.
+            set -euo pipefail
             docker network create levelup_net || true
             docker network connect levelup_net padelapp || true
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+            # PAD-338: by commit tag, as the backend deploy does.
+            TAG="${{ inputs.rollback_to || github.sha }}"
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             docker stop levelup_frontend || true && docker rm levelup_frontend || true
             docker run -d --name levelup_frontend \
               --restart unless-stopped \
               --network levelup_net \
               -p 127.0.0.1:3000:80 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             # PAD-338: keep the last three, as the backend deploy does.
             docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend" \
               --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
               | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
               | xargs -r docker rmi 2>/dev/null || true
+            docker image prune -f || true
