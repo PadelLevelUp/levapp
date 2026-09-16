@@ -45,10 +45,6 @@ EXPECTED = {
     ),
     "ix_lesson_instances_start_datetime": ("lesson_instances", ["start_datetime"]),
     "ix_presences_lesson_instance_id": ("presences", ["lesson_instance_id"]),
-    "ix_player_in_lesson_instance_lesson_instance_id": (
-        "player_in_lesson_instance",
-        ["lesson_instance_id"],
-    ),
     "ix_coach_in_lesson_instance_lesson_instance_id": (
         "coach_in_lesson_instance",
         ["lesson_instance_id"],
@@ -88,6 +84,11 @@ EXPECTED = {
 }
 
 OPEN_VACANCY_WHERE = "status = 'open'"
+
+# PAD-301 dropped the shadow junction `player_in_lesson_instance`, and with it
+# the model that declared this index. The revision is history and still names
+# it; the models no longer do.
+RETIRED = {"ix_player_in_lesson_instance_lesson_instance_id": "player_in_lesson_instance"}
 
 
 def _load_migration():
@@ -129,7 +130,9 @@ def test_the_open_vacancy_index_is_partial(app):
 
 def test_the_migration_creates_exactly_the_indexes_the_models_declare(app):
     migration = _load_migration()
-    declared = {name: (table, list(cols)) for name, table, cols, _ in migration.INDEXES}
+    declared = {
+        name: (table, list(cols)) for name, table, cols, _ in migration.INDEXES if name not in RETIRED
+    }
     assert declared == EXPECTED
     wheres = {name: where for name, _, _, where in migration.INDEXES if where}
     assert wheres == {"ix_vacancies_open": OPEN_VACANCY_WHERE}
@@ -161,10 +164,6 @@ def test_the_lesson_instance_lookup_uses_the_occurrence_index(app):
     [
         ("SELECT id FROM presences WHERE lesson_instance_id = 1", "ix_presences_lesson_instance_id"),
         (
-            "SELECT id FROM player_in_lesson_instance WHERE lesson_instance_id = 1",
-            "ix_player_in_lesson_instance_lesson_instance_id",
-        ),
-        (
             "SELECT id FROM notification_events WHERE vacancy_id = 1 AND status = 'sent'",
             "ix_notification_events_vacancy_id_status",
         ),
@@ -194,7 +193,13 @@ def test_upgrade_and_downgrade_are_idempotent(app, tmp_path, already_there):
     with app.app_context():
         db.metadata.create_all(engine)
     # The schema as it was before this revision, except whatever prod already has.
+    # The junction this revision also indexes existed then (PAD-301 drops it later
+    # in the chain), so the scratch schema carries it too.
     with engine.begin() as connection:
+        for name, table in RETIRED.items():
+            connection.execute(sa.text(
+                f"CREATE TABLE {table} (id INTEGER PRIMARY KEY, player_id INTEGER, lesson_instance_id INTEGER)"
+            ))
         for name in EXPECTED:
             if name not in already_there:
                 connection.execute(sa.text(f"DROP INDEX {name}"))

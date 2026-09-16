@@ -132,32 +132,18 @@ def test_club_membership_moves_without_duplicates(app, world):
 
 # ── b. enrolments and waiting lists ─────────────────────────────────────────
 
-def test_lesson_and_instance_enrolments_move(app, world):
-    from padel_app.models import Association_PlayerLesson, Association_PlayerLessonInstance
+def test_lesson_enrolments_move(app, world):
+    # PAD-301: the instance half of this test (the shadow junction) is gone;
+    # per-occurrence enrolments are presences, covered below.
+    from padel_app.models import Association_PlayerLesson
 
-    lesson_id, inst_id = _lesson_with_instance(app, world["club"], world["coach"])
+    lesson_id, _ = _lesson_with_instance(app, world["club"], world["coach"])
     with app.app_context():
         db.session.add(Association_PlayerLesson(player_id=world["ph_player"], lesson_id=lesson_id))
-        db.session.add(Association_PlayerLessonInstance(player_id=world["ph_player"], lesson_instance_id=inst_id))
         db.session.commit()
     _merge(app, world["ph_player"], world["st_user"])
     with app.app_context():
         assert Association_PlayerLesson.query.filter_by(lesson_id=lesson_id).one().player_id == world["st_player"]
-        assert Association_PlayerLessonInstance.query.filter_by(lesson_instance_id=inst_id).one().player_id == world["st_player"]
-
-
-def test_duplicate_instance_enrolment_is_dropped(app, world):
-    from padel_app.models import Association_PlayerLessonInstance
-
-    _, inst_id = _lesson_with_instance(app, world["club"], world["coach"])
-    with app.app_context():
-        db.session.add(Association_PlayerLessonInstance(player_id=world["ph_player"], lesson_instance_id=inst_id))
-        db.session.add(Association_PlayerLessonInstance(player_id=world["st_player"], lesson_instance_id=inst_id))
-        db.session.commit()
-    _merge(app, world["ph_player"], world["st_user"])
-    with app.app_context():
-        rows = Association_PlayerLessonInstance.query.filter_by(lesson_instance_id=inst_id).all()
-        assert [r.player_id for r in rows] == [world["st_player"]]
 
 
 def test_waiting_list_entries_move(app, world):

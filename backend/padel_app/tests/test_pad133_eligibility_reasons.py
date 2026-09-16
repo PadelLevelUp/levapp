@@ -26,11 +26,6 @@ from padel_app.tests.test_pad128_eligibility import _seed, _add_student, _cp
 
 def _enrol(player_id, instance_id):
     """Put a player IN the class (what rule 9 means by "enrolled")."""
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
-    db.session.add(Association_PlayerLessonInstance(
-        player_id=player_id, lesson_instance_id=instance_id))
     db.session.add(Presence(
         player_id=player_id, lesson_instance_id=instance_id, invited=True, enrolment_source="coach"))  # PAD-259
     db.session.flush()
@@ -355,7 +350,7 @@ def test_stricter_bar_names_the_enrolled_students_it_would_exclude(app):
         # Rule 8: reporting NEVER un-enrols. All 6 are still in the class.
         db.session.expire_all()
         again = LessonInstance.query.get(ids["instance_id"])
-        assert len(list(again.players_relations)) == 6
+        assert len(list(again.presences)) == 6
 
 
 def test_report_is_empty_for_an_unset_bar(app):

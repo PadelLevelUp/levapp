@@ -44,8 +44,8 @@ def load_lesson_instances_for_coach(coach_id, range_start, range_end):
         LessonInstance.query
         .join(Lesson)
         # PAD-71: the serialized event's participantCount reads
-        # LessonInstance.effective_filled_spots, which walks both
-        # players_relations and presences — eager-load them so a week of
+        # LessonInstance.effective_filled_spots, which walks the
+        # presences — eager-load them so a week of
         # classes stays at a constant number of queries. PAD-262 adds the
         # lesson, its coaches and the instance's own coaches, which the
         # serializer and the coach index below otherwise lazy-load per row.

@@ -146,9 +146,7 @@ def repeat_invite_scenario(app):
     from padel_app.models.Association_CoachLessonInstance import (
         Association_CoachLessonInstance,
     )
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
+    from padel_app.services.lesson_service import enrol
 
     with app.app_context():
         coach_user = User(name="Coach", username="dedupe_coach", password="x")
@@ -198,11 +196,7 @@ def repeat_invite_scenario(app):
                 coach_id=coach.id, lesson_instance_id=instance.id
             )
         )
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=alice.id, lesson_instance_id=instance.id
-            )
-        )
+        enrol(alice.id, instance, "roster")  # PAD-301: the Presence row is the enrolment
 
         # Bob got invited four times for this one class; Alice once.
         db.session.add_all(

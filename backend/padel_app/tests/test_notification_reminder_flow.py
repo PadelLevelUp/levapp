@@ -85,7 +85,6 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 
     with app.app_context():
         club = Club(name="Test Club", description="", location="Test City")
@@ -130,8 +129,7 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
             lesson_instance_id=instance.id,
         ))
         db.session.commit()
-        # PAD-259: the presence row is the enrolment; the shadow junction row
-        # is written by the same single writer.
+        # PAD-259: the presence row is the enrolment (single writer).
         from padel_app.services.lesson_service import enrol
 
         enrol(student_id, instance, "coach")
@@ -240,7 +238,7 @@ class TestSendClassRemindersIntegration:
         from padel_app.models.coach_levels import CoachLevel
         from padel_app.models.coaches import Coach
         from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-        from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+        from padel_app.services.lesson_service import enrol
         from padel_app.services.notification_service import send_class_reminders
         from padel_app.models.messages import Message
         from padel_app.models.clubs import Club
@@ -282,9 +280,8 @@ class TestSendClassRemindersIntegration:
 
             db.session.add(Association_CoachLessonInstance(coach_id=coach.id,
                                                             lesson_instance_id=instance.id))
-            db.session.add(Association_PlayerLessonInstance(player_id=ghost.id,
-                                                             lesson_instance_id=instance.id))
             db.session.commit()
+            enrol(ghost.id, instance, "roster")  # PAD-301: the Presence row is the enrolment
 
             instance_id = instance.id
             now = datetime.utcnow()

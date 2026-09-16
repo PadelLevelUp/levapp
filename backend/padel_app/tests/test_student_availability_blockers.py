@@ -241,11 +241,6 @@ def test_recurring_weekly_blocker_suppresses_matching_weekday(app):
 # ---------------------------------------------------------------------------
 
 def _enrol(instance, player):
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
-    db.session.add(Association_PlayerLessonInstance(
-        player_id=player.id, lesson_instance_id=instance.id))
     db.session.add(Presence(
         player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()

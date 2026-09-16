@@ -27,7 +27,6 @@ from padel_app.models import (
     Association_CoachPlayer,
     Association_PlayerClub,
     Association_PlayerLesson,
-    Association_PlayerLessonInstance,
     BlockedUser,
     CalendarBlock,
     Coach,
@@ -68,7 +67,6 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "coach_in_player",
     "player_in_club",
     "player_in_lesson",
-    "player_in_lesson_instance",
     "waiting_list_entries",
     "standing_waiting_list_entries",
     "presences",
@@ -235,7 +233,6 @@ def merge_placeholder_player_into(placeholder_player, claimant_user):
 
         # b. enrolments and waiting lists
         _repoint_unique_pairs(Association_PlayerLesson, "lesson_id", pid, cid)
-        _repoint_unique_pairs(Association_PlayerLessonInstance, "lesson_instance_id", pid, cid)
         _repoint_unique_pairs(WaitingListEntry, "lesson_instance_id", pid, cid)
         # PAD-131: one pending join request per (class, player) — same rule
         _repoint_unique_pairs(ClassJoinRequest, "lesson_instance_id", pid, cid)
