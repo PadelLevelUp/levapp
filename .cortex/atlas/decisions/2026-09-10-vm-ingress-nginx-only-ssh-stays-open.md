@@ -10,9 +10,9 @@ sources:
 
 # The VM takes internet traffic only through nginx; SSH stays open for the deploys
 
-PAD-229 (coordinator decisions, 2026-09-10). A read-only sweep of `levelup-instance`
+PAD-229 (coordinator decisions, 2026-09-10). A read-only sweep of the VM
 found the prod Flask API answering `/api/app/healthz` with 200 from gunicorn on
-`34.78.247.45:5000`: the hand-made firewall rule `backend` (tcp:5000 from 0.0.0.0/0) let
+`<public address>:5000`: the hand-made firewall rule `backend` (tcp:5000 from 0.0.0.0/0) let
 anyone skip nginx and TLS. `default-allow-rdp` (tcp:3389 from anywhere) opened a port
 nothing listens on.
 
@@ -29,9 +29,34 @@ nothing listens on.
    VM from GitHub-hosted runners, whose addresses change, so IAP-only SSH would break every
    deploy. The VM accepts keys only. Revisit when deploys move to an IAP tunnel or a
    self-hosted runner.
+
+   **Reaffirmed by the coordinator on 2026-09-16 (PAD-229 close-out): SSH stays on 22 for
+   now, because the deploy pipeline depends on it.** Every production and staging deploy is
+   an `appleboy/scp-action` + `appleboy/ssh-action` from a GitHub-hosted runner to the VM's
+   public address over tcp:22; the runner pool has no fixed egress range, so the alternatives
+   each move the deploy first: an IAP tunnel needs `gcloud` on the runner with a service
+   account allowed `roles/iap.tunnelResourceAccessor` and a rewrite of both workflows; a
+   self-hosted runner needs a machine to host it; a source-range allowlist needs an egress
+   range GitHub does not publish as stable. None of that is in the deploy pipeline's scope
+   this wave. What limits the exposure today: the VM accepts keys only (no password auth),
+   the deploy key is a GitHub secret, and `default-allow-ssh` is the only rule reaching 22.
+   No new ticket: the condition for revisiting is written here — the day the deploys stop
+   using SSH from GitHub-hosted runners, `default-allow-ssh` narrows or goes.
 4. **Postgres stays closed** (PAD-197); workstations reach it over an SSH tunnel.
+
+## Status of the sweep (2026-09-16)
+
+- `backend` (tcp:5000) deleted 2026-09-11 (audit log, Session H's read of 2026-09-15).
+- `default-allow-rdp` (tcp:3389) deleted 2026-09-15 ~17:25 UTC by the coordinator,
+  owner-approved; 3389 times out from outside afterwards.
+- The four surviving rules — `default-allow-icmp`, `default-allow-internal` (10.128.0.0/9),
+  `default-allow-ssh` (tcp:22), `levelup-allow-http-https` (tcp:80,443) — are defined in
+  `backend/terraform/main.tf` and present in the GCS state (PAD-230). Verified 2026-09-16 by
+  Session A with `terraform plan -lock=false` against the live project: **"No changes. Your
+  infrastructure matches the configuration."** — the instance included. Nothing was imported
+  and nothing applied; the plan wrote nothing, not even the state lock.
 
 ## Related
 
-- PAD-230 brings the surviving firewall rules into Terraform, with state in the versioned
-  bucket `padel-levelup-2026-tfstate`.
+- PAD-230 brought the surviving firewall rules into Terraform, with state in the versioned
+  the versioned state bucket (name in the local `docs/infra/environment.md`); PAD-229 verified the match above.

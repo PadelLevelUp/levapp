@@ -614,6 +614,21 @@ def schedule_lesson_reminder_jobs(
         # excluded date never gets a job.
         occurrences = lesson.occurrences_between(wall_cutoff, horizon)
 
+        # PAD-347 (notifications.reminders rule 20, B-097): a date that already
+        # has a LessonInstance belongs to the instance job, never to an
+        # occurrence job. Keyed the way get_or_materialize_instance looks an
+        # instance up — original_lesson_occurence_date, falling back to the
+        # start date for legacy rows where the column is unset.
+        from padel_app.models import LessonInstance
+
+        materialised = {}
+        for inst in LessonInstance.query.filter_by(lesson_id=lesson.id).all():
+            key = inst.original_lesson_occurence_date or (
+                inst.start_datetime.date() if inst.start_datetime else None
+            )
+            if key is not None:
+                materialised[key] = inst
+
         scheduled = 0
         for occ_dt in occurrences:
             # expand_occurrences labels the wall-clock occurrence as UTC; drop the label.
@@ -624,6 +639,20 @@ def schedule_lesson_reminder_jobs(
                 continue
 
             date_str = occ_dt_naive.date().isoformat()
+
+            instance = materialised.get(occ_dt_naive.date())
+            if instance is not None:
+                if instance.status in ("canceled", "completed"):
+                    # Nothing to remind about; make sure no stale occurrence
+                    # job from before the cancellation can fire either.
+                    cancel_lesson_occurrence_job(lesson_id, date_str)
+                    continue
+                # The instance job is the truth (its start_datetime survives a
+                # single-occurrence edit); arming it also removes the
+                # occurrence job for this date.
+                schedule_instance_jobs(instance.id, coach_id, now=cutoff)
+                scheduled += 1
+                continue
 
             if reminder_dt <= cutoff:
                 _app.logger.warning(
@@ -806,6 +835,19 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
                 "schedule_instance_jobs: reminder for instance %s is in the past (%s) — skipping",
                 instance_id, reminder_dt,
             )
+
+        # PAD-347 (notifications.reminders rule 20, B-097): once the instance
+        # exists, its reminder job is the occurrence's ONLY reminder job. The
+        # template-level reminder_lesson_<lesson>_<date> job fired at the same
+        # instant and ran send_class_reminders a second time — two reminders in
+        # one minute for any coach with reminder_count >= 2. Removed even when
+        # the instance job was skipped as past, so a stale occurrence job cannot
+        # fire later against a class whose own reminder time has gone.
+        occ_date = instance.original_lesson_occurence_date or (
+            instance.start_datetime.date() if instance.start_datetime else None
+        )
+        if occ_date is not None:
+            cancel_lesson_occurrence_job(instance.lesson_id, occ_date.isoformat())
 
         invite_dt = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
         if invite_dt and invite_dt > cutoff:

@@ -1,0 +1,28 @@
+# PAD-351 (`mobile.release-build-target` rules 6 and 10): Settings says which
+# build this is and which server it talks to. TestFlight builds 12 and 14-22
+# talked to staging and nothing on screen said so.
+#
+# Flow number 54 (renumbered from 53 at batch integration: PAD-335 took 53).
+#
+# This runs on the debug build, whose API is the local backend, so the
+# test-server marker must be visible too. The sign-in notice (rule 7) shows
+# only in a release build that is not production, which Maestro does not run;
+# its predicate is unit-tested in src/lib/api-target.test.ts.
+#
+# Read-only: it opens Settings and scrolls to the end of the section list.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-build-info"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "settings-build-info-test-server"

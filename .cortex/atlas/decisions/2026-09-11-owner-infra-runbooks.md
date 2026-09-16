@@ -15,6 +15,8 @@ sources:
   - 2026-09-10-vm-ingress-nginx-only-ssh-stays-open.md
 ---
 
+
+> **Identifiers (PAD-344, R-036):** every command below takes `VM`, `ZONE` and `PROJECT` from the local, gitignored `docs/infra/environment.md` — `export VM=… ZONE=… PROJECT=…` first. They are never written into this tracked file.
 # Owner runbooks — DKIM for levapp.app, Postgres password rotation, retiring the legacy Terraform state
 
 **Status:** DRAFT, 2026-09-11, Session G for coordinator levapp-ee. Read-only inventory of staging
@@ -113,10 +115,10 @@ rua=mailto:admin@levapp.app`. Do **not** do this if anything ever needs to send 
 | 2 | **GitHub Actions secret `POSTGRES_PW`** in `PadelLevelUp/levapp` (created 2026-09-03) | set by the owner | **yes** — feeds both deploys |
 | 3 | **Prod container `padelapp`** env | `deploy-prod.yaml:154` `-e POSTGRES_PW="${{ secrets.POSTGRES_PW }}"` on `docker run` | **yes** — by re-running the deploy (or a hand re-create) |
 | 4 | **Staging container `padelapp_staging`** env | `deploy-staging.yaml:175`, same secret | **yes** — same |
-| 5 | VM env files `~/.env.prod`, `~/.env.staging` | scp'd from the tracked, secret-free `backend/.env.*` on every deploy | **no** — they carry `POSTGRES_HOST=10.132.0.2`, `POSTGRES_USER`, `POSTGRES_DB`, never the password |
+| 5 | VM env files `~/.env.prod`, `~/.env.staging` | scp'd from the tracked, secret-free `backend/.env.*` on every deploy | **no** — they carry `POSTGRES_HOST=<the VM's internal address>`, `POSTGRES_USER`, `POSTGRES_DB`, never the password |
 | 6 | **VM instance metadata `startup-script`** | Terraform embedded `-e POSTGRES_PASSWORD=${var.postgres_password}` (`main.tf:89`) | plaintext of the **old** password stays there until removed; harmless after rotation, see step 9 |
 | 7 | Terraform `var.postgres_password` (`variables.tf:13-17`, sensitive, no default) | passed at plan time | **no** — `ignore_changes = [metadata_startup_script]` (PAD-230) means any value plans clean; nothing to store |
-| 8 | Terraform state in `gs://padel-levelup-2026-tfstate/levapp/prod` | rendered startup script inside `google_compute_instance.levelup` | contains the **old** password; harmless after rotation; the bucket is private and versioned |
+| 8 | Terraform state in `gs://<project>-tfstate/levapp/prod` | rendered startup script inside `google_compute_instance.levelup` | contains the **old** password; harmless after rotation; the bucket is private and versioned |
 | 9 | Legacy local states (`levelup/levelup_backend/terraform/terraform.tfstate` + `.backup`, `olds/padel_app/terraform/*.tfstate*` + `terraform.tfvars`, and both inside `levelup.zip`) | rendered startup scripts | plaintext **old** password on an iCloud-synced disk → **runbook 3 deletes them after this rotation** |
 | 10 | `.claude/secrets.env` on the owner's Mac (`POSTGRES_PW`) | typed by the owner; used by E2E/Maestro/backend Postgres runs against the **local** servers on 5432/5433 | see the decision below — recommended: local gets its **own** password, so the laptop stops holding prod's |
 | 11 | Local Postgres servers (5432 E2E, 5433 dev) hold their own copy of the role | created locally | only if the owner keeps one shared value |
@@ -135,18 +137,18 @@ shell command line over SSH, so the new password must be **alphanumeric only**.
 ### Commands — paste in order
 ```bash
 # 0. read-only: where things stand (VM). All ssh calls as admin@levapp.app.
-gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026 --command \
+gcloud compute ssh "$VM" --zone "$ZONE" --project "$PROJECT" --command \
   'sudo docker ps --format "{{.Names}}\t{{.Status}}"; sudo docker exec postgres psql -U padel_app_user -d postgres -Atc "select rolname, rolcanlogin from pg_roles where rolname=current_user; select datname from pg_database where datname like '"'"'padel_app%'"'"'"; ls -la ~/backup.log 2>/dev/null; tail -3 ~/backup.log 2>/dev/null; which pg_dump || echo "no pg_dump on host"'
 curl -s -o /dev/null -w 'prod %{http_code}\n'    https://levapp.app/api/app/healthz
 curl -s -o /dev/null -w 'staging %{http_code}\n' https://staging.levapp.app/api/app/healthz
 
 # 1. BACKUP FIRST (the nightly one is a no-op, B-080). Compressed custom-format dumps, inside the container:
-gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026 --command \
+gcloud compute ssh "$VM" --zone "$ZONE" --project "$PROJECT" --command \
   'set -eo pipefail; D=$(date +%F-%H%M); sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app > ~/padel_app-$D.dump; sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app_staging > ~/padel_app_staging-$D.dump; ls -la ~/*.dump; sudo docker exec -i postgres pg_restore --list < ~/padel_app-$D.dump | grep -c "TABLE DATA"'
 #    the dump must be non-empty and the TABLE DATA count non-zero (2026-09-15: 0.65 MB, 54 — prod is small,
 #    so "several MB" is not the bar). `-i` is what gets the archive into the container, and pipefail is
 #    what makes a failed list fail the step instead of hiding behind the pipe. Copy it off the VM:
-gcloud compute scp --zone europe-west1-b --project padel-levelup-2026 'levelup-instance:~/padel_app-*.dump' ~/Desktop/
+gcloud compute scp --zone "$ZONE" --project "$PROJECT" "$VM:~/padel_app-*.dump" ~/Desktop/
 
 # 2. generate the new password LOCALLY (alphanumeric, 40 chars) and store it in the password manager:
 openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-40
@@ -157,7 +159,7 @@ export GH_TOKEN=$(gh auth token --user pedropacheco95)
 gh secret set POSTGRES_PW -R PadelLevelUp/levapp
 
 # 4. change the role's password (interactive prompt inside psql, so it never touches shell history):
-gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026 -- -t \
+gcloud compute ssh "$VM" --zone "$ZONE" --project "$PROJECT" -- -t \
   'sudo docker exec -it postgres psql -U padel_app_user -d postgres -c "\password padel_app_user"'
 #    From here new app connections fail until step 5 completes — go straight on.
 
@@ -169,7 +171,7 @@ gh run list -R PadelLevelUp/levapp --limit 4        # then: gh run watch <id> fo
 # 6. verify
 curl -s -o /dev/null -w 'prod %{http_code}\n'    https://levapp.app/api/app/healthz     # 200 (healthz runs SELECT 1)
 curl -s -o /dev/null -w 'staging %{http_code}\n' https://staging.levapp.app/api/app/healthz
-gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026 --command \
+gcloud compute ssh "$VM" --zone "$ZONE" --project "$PROJECT" --command \
   'sudo docker logs --tail 5 padelapp; sudo docker logs --tail 5 padelapp_staging; sudo docker exec postgres psql -U padel_app_user -d postgres -Atc "select datname, count(*) from pg_stat_activity where usename=current_user group by 1"'
 #    then log in on levapp.app and on staging.levapp.app, open the calendar (a real query), send a message.
 #    The staging deploy also runs sync-staging-db.sh (no password involved) — check its job is green too.
@@ -190,7 +192,7 @@ gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelu
 #    Postgres after a VM reboot (the container has no --restart policy), so first
 #    `sudo docker update --restart unless-stopped postgres` (PAD-292's runbook does the same when it
 #    re-creates the container), and only then consider
-#    `gcloud compute instances remove-metadata levelup-instance --zone europe-west1-b --keys startup-script`
+#    `gcloud compute instances remove-metadata "$VM" --zone "$ZONE" --keys startup-script`
 #    (Terraform ignores metadata changes, so no drift).
 ```
 
@@ -217,7 +219,7 @@ tick (`process_batches` is `coalesce=True`). Pick a quiet hour and say so in Dis
 ### What exists (verified, read-only)
 | File | Backend | Serial | Lineage | Resources | Note |
 |---|---|---|---|---|---|
-| `gs://padel-levelup-2026-tfstate/levapp/prod` (monorepo `backend/terraform/backend.tf`) | GCS, versioned, public-access prevention | — | migrated from the file below (PAD-230, #189) | 14 (`terraform plan` = **No changes** on 2026-09-10) | **the only live state** |
+| `gs://<project>-tfstate/levapp/prod` (monorepo `backend/terraform/backend.tf`) | GCS, versioned, public-access prevention | — | migrated from the file below (PAD-230, #189) | 14 (`terraform plan` = **No changes** on 2026-09-10) | **the only live state** |
 | `~/Documents/Projetos/padel_app/levelup/levelup_backend/terraform/terraform.tfstate` | local | 11 | `b2431c64-0338-4d3c-a0c5-6c809683bd8c` | 9 — network, static_ip, `allow-postgres` (B-048, gone), http-https, instance, vm_sa, bucket general, `allow_instance_uploads`, `public_all` (B-047, gone) | the source of the migration; **stale**; contains the rendered startup script with the password (twice) |
 | same dir, `terraform.tfstate.backup` | local | 7 | same | 8 | stale, same content class |
 | `…/levelup_backend/terraform/.terraform/` | providers only | — | — | — | no state inside; safe to delete with the dir |
@@ -270,9 +272,9 @@ cd ~/Documents/Projetos/padel_app
 for f in levelup/levelup_backend/terraform/terraform.tfstate levelup/levelup_backend/terraform/terraform.tfstate.backup olds/padel_app/terraform/terraform.tfstate olds/padel_app/terraform/terraform.tfstate.backup; do
   python3 -c "import json,sys;s=json.load(open('$f'));print('$f', 'serial', s['serial'], 'lineage', s['lineage'])"; done
 unzip -l levelup.zip | grep -i tfstate
-gcloud compute instances list --project padel-levelup-2026 --format='table(name,zone,status)'           # only levelup-instance expected
-gcloud compute firewall-rules list --project padel-levelup-2026 --format='table(name,sourceRanges.list(),allowed[].map().firewall_rule().list())'
-gcloud compute addresses list --project padel-levelup-2026 --format='table(name,address,status)'
+gcloud compute instances list --project "$PROJECT" --format='table(name,zone,status)'           # only $VM expected
+gcloud compute firewall-rules list --project "$PROJECT" --format='table(name,sourceRanges.list(),allowed[].map().firewall_rule().list())'
+gcloud compute addresses list --project "$PROJECT" --format='table(name,address,status)'
 #    If anything named padel-app-* appears, it is orphaned (no state owns it): decide, then delete it
 #    by hand with gcloud — never by running terraform in olds/.
 
@@ -287,7 +289,7 @@ find . -name '*.tfstate*' -not -path '*/node_modules/*'; find . -name 'terraform
 #    Time Machine snapshots are not touched — the rotation is what makes those copies harmless.
 
 # 2. leave a tombstone so nobody re-creates the directory's meaning
-printf 'Terraform state moved to gs://padel-levelup-2026-tfstate/levapp/prod on 2026-09-10 (PAD-230).\nThis directory is retired. Run Terraform only from levapp/backend/terraform.\n' > levelup/levelup_backend/terraform/RETIRED.md
+printf 'Terraform state moved to gs://<project>-tfstate/levapp/prod on 2026-09-10 (PAD-230).\nThis directory is retired. Run Terraform only from levapp/backend/terraform.\n' > levelup/levelup_backend/terraform/RETIRED.md
 ```
 
 ### Decisions for the owner (runbook 3)

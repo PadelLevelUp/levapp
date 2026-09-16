@@ -261,9 +261,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # PAD-345: pinned, so a lane result on one commit cannot change with the
+      # Maestro release of the day. Local runs match it: see the Maestro
+      # README's "Maestro version" section. Bump both together.
       - name: Install Maestro
+        env:
+          MAESTRO_VERSION: "2.6.1"
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version | grep -qx "$MAESTRO_VERSION" || { echo "Maestro is not $MAESTRO_VERSION"; exit 1; }
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Enable KVM

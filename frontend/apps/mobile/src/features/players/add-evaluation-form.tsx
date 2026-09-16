@@ -49,25 +49,37 @@ export function AddEvaluationForm({
     useEvaluationCategories(open);
   const postEntry = usePostEvaluationEntry();
 
-  const [scores, setScores] = React.useState<Record<string, number>>({});
+  // A category without a value is unrated (PAD-337): it shows "not rated" and
+  // is never submitted. `openingScores` holds the player's existing score, if
+  // any, so a save only posts what the coach changed in this form.
+  const [scores, setScores] = React.useState<Record<string, number | undefined>>({});
+  const [openingScores, setOpeningScores] = React.useState<
+    Record<string, number | undefined>
+  >({});
 
   React.useEffect(() => {
     if (!open || !categories) return;
-    const initial: Record<string, number> = {};
+    const initial: Record<string, number | undefined> = {};
     for (const cat of categories) {
       const existing = currentEvaluations.find(
         (e) => e.categoryName.toLowerCase() === cat.name.toLowerCase()
       );
-      initial[cat.id] =
-        existing?.score ?? Math.round((cat.scaleMin + cat.scaleMax) / 2);
+      initial[cat.id] = existing?.score;
     }
     setScores(initial);
+    setOpeningScores(initial);
   }, [open, categories, currentEvaluations]);
 
+  // The first press on an unrated category rates it at the scale midpoint,
+  // the stepper's starting position; later presses step from there.
   const adjust = (catId: string, min: number, max: number, delta: number) => {
     setScores((prev) => {
-      const current = prev[catId] ?? min;
-      return { ...prev, [catId]: Math.min(max, Math.max(min, current + delta)) };
+      const current = prev[catId];
+      const next =
+        current === undefined
+          ? Math.round((min + max) / 2)
+          : Math.min(max, Math.max(min, current + delta));
+      return { ...prev, [catId]: next };
     });
   };
 
@@ -78,10 +90,13 @@ export function AddEvaluationForm({
 
   const handleSave = async () => {
     if (!categories || categories.length === 0) return;
-    const scoreEntries = categories.map((cat) => ({
-      categoryId: cat.id,
-      value: scores[cat.id] ?? cat.scaleMin,
-    }));
+    // Only categories the coach scored in this form (evaluations.entries rule 6).
+    const scoreEntries = categories
+      .filter(
+        (cat) =>
+          scores[cat.id] !== undefined && scores[cat.id] !== openingScores[cat.id]
+      )
+      .map((cat) => ({ categoryId: cat.id, value: scores[cat.id] as number }));
     try {
       await postEntry.mutateAsync({
         playerId,
@@ -117,9 +132,11 @@ export function AddEvaluationForm({
               </Text>
             ) : (
               (categories ?? []).map((cat) => {
-                const value = scores[cat.id] ?? cat.scaleMin;
-                const atMin = value <= cat.scaleMin;
-                const atMax = value >= cat.scaleMax;
+                const value = scores[cat.id];
+                const rated = value !== undefined;
+                const atMin = rated && value <= cat.scaleMin;
+                const atMax = rated && value >= cat.scaleMax;
+                const changed = value !== openingScores[cat.id];
                 return (
                   <View
                     key={cat.id}
@@ -133,6 +150,29 @@ export function AddEvaluationForm({
                       {cat.name}
                     </Text>
                     <View className="flex-row items-center gap-3">
+                      {changed ? (
+                        <Pressable
+                          testID={`evaluation-score-reset-${cat.id}`}
+                          accessibilityLabel={t("players.resetScoreAria", {
+                            name: cat.name,
+                          })}
+                          role="button"
+                          hitSlop={8}
+                          onPress={() =>
+                            setScores((prev) => ({
+                              ...prev,
+                              [cat.id]: openingScores[cat.id],
+                            }))
+                          }
+                          className="h-8 w-8 items-center justify-center"
+                        >
+                          <Ionicons
+                            name="refresh"
+                            size={16}
+                            color={lightTheme.mutedForeground}
+                          />
+                        </Pressable>
+                      ) : null}
                       <Pressable
                         accessibilityLabel={t("players.decreaseScoreAria", {
                           name: cat.name,
@@ -154,8 +194,17 @@ export function AddEvaluationForm({
                           color={lightTheme.foreground}
                         />
                       </Pressable>
-                      <Text className="w-12 text-center text-sm font-semibold tabular-nums">
-                        {value}/{cat.scaleMax}
+                      <Text
+                        testID={`evaluation-score-value-${cat.id}`}
+                        className={cn(
+                          "min-w-12 text-center text-sm",
+                          rated
+                            ? "font-semibold tabular-nums"
+                            : "text-muted-foreground"
+                        )}
+                        numberOfLines={1}
+                      >
+                        {rated ? `${value}/${cat.scaleMax}` : t("players.notRated")}
                       </Text>
                       <Pressable
                         accessibilityLabel={t("players.increaseScoreAria", {
