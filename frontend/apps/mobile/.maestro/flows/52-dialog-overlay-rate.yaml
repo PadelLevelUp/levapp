@@ -37,7 +37,7 @@ appId: com.padellevelup.app
 - runFlow: ../subflows/login-coach.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml
 - repeat:
-    times: 20
+    times: 60
     commands:
       - tapOn:
           id: "calendar-add-class"
