@@ -89,7 +89,7 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+    from padel_app.services.lesson_service import enrol
 
     club = Club(name="Test Club", description="", location="City")
     db.session.add(club)
@@ -114,10 +114,9 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
 
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id,
                                                     lesson_instance_id=instance.id))
-    for player in enrolled_players:
-        db.session.add(Association_PlayerLessonInstance(player_id=player.id,
-                                                         lesson_instance_id=instance.id))
     db.session.commit()
+    for player in enrolled_players:
+        enrol(player.id, instance, "roster")  # PAD-301: the Presence row is the enrolment
     return instance
 
 
@@ -130,13 +129,25 @@ def _seed_config(coach_id, auto_notify=True, mode="semi_automatic"):
     return cfg
 
 
-def _mark_absent(instance, player, justification="unjustified"):
+def _set_presence(instance, player, **flags):
+    """Set the flags on the player's enrolment row. PAD-301: the fixture's
+    enrol() already wrote the Presence row (it IS the enrolment), so the
+    test's own flags are applied to that row rather than inserting a second
+    one for the same pair."""
     from padel_app.models.presences import Presence
-    p = Presence(lesson_instance_id=instance.id, player_id=player.id,
-                 invited=True, confirmed=True, status="absent",
-                 justification=justification)
-    p.create()
+    p = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player.id).first()
+    if p is None:
+        p = Presence(lesson_instance_id=instance.id, player_id=player.id)
+        db.session.add(p)
+    for k, v in flags.items():
+        setattr(p, k, v)
+    db.session.commit()
     return p
+
+
+def _mark_absent(instance, player, justification="unjustified"):
+    return _set_presence(instance, player, invited=True, confirmed=True,
+                         status="absent", justification=justification)
 
 
 def _seed_world(prefix, *, mode="semi_automatic", start_offset_hours=48,
@@ -241,7 +252,6 @@ class TestReminderDeclineSemiAuto:
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
         from padel_app.models.vacancy import Vacancy
-        from padel_app.models.presences import Presence
         from padel_app.services.notification_service import respond_to_reminder
 
         with app.app_context():
@@ -249,8 +259,7 @@ class TestReminderDeclineSemiAuto:
             instance = world["instance"]
             decl_user, decl_player = world["enrolled"][0]
 
-            Presence(lesson_instance_id=instance.id, player_id=decl_player.id,
-                     invited=True, confirmed=False).create()
+            _set_presence(instance, decl_player, invited=True, confirmed=False)
 
             with _patched_io():
                 result = respond_to_reminder(instance.id, "no", decl_user.id,
@@ -671,9 +680,7 @@ class TestStale:
 class TestWaitingListGating:
 
     def test_waiting_list_disclosed_and_gated_until_approval(self, app):
-        from padel_app.models.Association_PlayerLessonInstance import (
-            Association_PlayerLessonInstance,
-        )
+        from padel_app.models.presences import Presence
         from padel_app.models.vacancy import Vacancy
         from padel_app.models.waiting_list_entry import WaitingListEntry
         from padel_app.services.notification_service import process_invitation_batches
@@ -704,7 +711,7 @@ class TestWaitingListGating:
             with _patched_io():
                 process_invitation_batches(now=now)
             assert Vacancy.query.get(vacancy.id).status == "open"
-            assert Association_PlayerLessonInstance.query.filter_by(
+            assert Presence.query.filter_by(
                 player_id=wl_player.id, lesson_instance_id=instance.id
             ).first() is None
 
@@ -715,7 +722,7 @@ class TestWaitingListGating:
             v = Vacancy.query.get(vacancy.id)
             assert v.status == "filled"
             assert v.filled_by_player_id == wl_player.id
-            assert Association_PlayerLessonInstance.query.filter_by(
+            assert Presence.query.filter_by(
                 player_id=wl_player.id, lesson_instance_id=instance.id
             ).first() is not None
 
@@ -762,7 +769,6 @@ class TestAutomaticModeUnchanged:
 
     def test_reminder_decline_automatic_mode_unchanged(self, app):
         from padel_app.models.notification_event import NotificationEvent
-        from padel_app.models.presences import Presence
         from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
         from padel_app.models.vacancy import Vacancy
         from padel_app.services.notification_service import respond_to_reminder
@@ -776,8 +782,7 @@ class TestAutomaticModeUnchanged:
             decl_user, decl_player = world["enrolled"][0]
             _, candidate = world["candidates"][0]
 
-            Presence(lesson_instance_id=instance.id, player_id=decl_player.id,
-                     invited=True, confirmed=False).create()
+            _set_presence(instance, decl_player, invited=True, confirmed=False)
 
             with _patched_io():
                 result = respond_to_reminder(instance.id, "no", decl_user.id,

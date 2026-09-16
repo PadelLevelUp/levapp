@@ -98,6 +98,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
               <button
                 key={conversation.id}
                 onClick={() => onSelect(conversation.id)}
+                data-testid={conversation.isAssistant ? "conversation-assistant" : undefined}
                 className={cn(
                   "w-full flex items-start gap-3 p-3 transition-colors text-left",
                   // bg-secondary alone measured 1.03:1 against the list panel

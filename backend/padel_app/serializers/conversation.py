@@ -1,4 +1,4 @@
-from padel_app.serializers.message import serialize_message
+from padel_app.serializers.message import deleted_class_message_ids, serialize_message
 from padel_app.utils.dates import to_utc_iso
 
 # Distinguishes "the caller has already resolved this for the whole page" from
@@ -141,6 +141,8 @@ def serialize_conversation_detail(
 
     if messages is None:
         messages = sorted(conversation.messages, key=lambda m: m.sent_at)
+    # messaging.conversation-detail rule 15: one lookup for the whole page.
+    deleted = deleted_class_message_ids(messages)
 
     return {
         **serialize_conversation(conversation, user_id),
@@ -148,7 +150,10 @@ def serialize_conversation_detail(
         "isKnownContact": (
             is_known_contact(viewer, conversation) if viewer else True
         ),
-        "messages": [serialize_message(m, last_read_at) for m in messages],
+        "messages": [
+            serialize_message(m, last_read_at, class_deleted=m.id in deleted)
+            for m in messages
+        ],
         "hasMore": has_more,
         "oldestMessageId": messages[0].id if messages else None,
     }

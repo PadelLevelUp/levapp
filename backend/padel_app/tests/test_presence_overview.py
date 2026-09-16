@@ -499,11 +499,10 @@ def test_coach_marked_absence_is_not_reported_as_a_student_decline(app, coach_wo
 def test_walk_in_occupies_a_spot_in_effective_filled_spots(app, coach_world):
     """A walk-in added from the Presences tab must count toward capacity.
 
-    `effective_filled_spots` counts `players_relations` (the instance
-    association), NOT presences — so creating only a Presence row would leave
-    the walk-in invisible to the calendar badge, the class-detail capacity
-    field and the invitation engine, all of which read that one property
-    (`calendar.view` rule 9).
+    `effective_filled_spots` counts the enrolment rows (presences minus the
+    absent ones, PAD-259/PAD-301) — the calendar badge, the class-detail
+    capacity field and the invitation engine all read that one property
+    (`calendar.view` rule 9), so the walk-in's row must be an enrolment.
     """
     from padel_app.models import User
     from padel_app.models.players import Player

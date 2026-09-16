@@ -1,6 +1,7 @@
 """PAD-259 (audit H5, classes.instance-enrollment rules 1-9): the presence row is
-the per-occurrence enrolment, written by one function, with the phase-1 shadow
-junction kept in step. Owner decision 2026-09-11, option A."""
+the per-occurrence enrolment, written by one function. Owner decision
+2026-09-11, option A. The phase-1 shadow junction is gone (PAD-301); its
+reconcile tests went with it."""
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -62,8 +63,6 @@ def _edit_payload(instance):
 
 def test_materialisation_writes_one_enrolment_per_roster_player(app):
     from padel_app.models import LessonInstance, Presence
-    from padel_app.services.lesson_service import reconcile_enrolment
-
     ids = _seed_coach_and_student(app)
     bob = _extra_player(app, "Bob")
     lesson_id, day = _seed_roster_lesson(app, ids["coach_id"], [ids["student_id"], bob])
@@ -74,12 +73,11 @@ def test_materialisation_writes_one_enrolment_per_roster_player(app):
             (ids["student_id"], True, "roster"), (bob, True, "roster"),
         ]
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
-        assert reconcile_enrolment() == []
 
 
 def test_a_coach_adds_a_player_to_one_occurrence(app):
     from padel_app.models import LessonInstance, Presence
-    from padel_app.services.lesson_service import edit_lesson_instance_helper, reconcile_enrolment
+    from padel_app.services.lesson_service import edit_lesson_instance_helper
 
     ids = _seed_coach_and_student(app)
     carol = _extra_player(app, "Carol")
@@ -91,12 +89,11 @@ def test_a_coach_adds_a_player_to_one_occurrence(app):
         row = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=carol).one()
         assert row.enrolment_source == "coach"
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
-        assert reconcile_enrolment(instance_id) == []
 
 
 def test_a_walk_in_on_the_attendance_sheet_becomes_an_enrolment(app):
     from padel_app.models import LessonInstance, Presence
-    from padel_app.services.lesson_service import add_presences, reconcile_enrolment
+    from padel_app.services.lesson_service import add_presences
 
     ids = _seed_coach_and_student(app)
     eve = _extra_player(app, "Eve")
@@ -108,13 +105,12 @@ def test_a_walk_in_on_the_attendance_sheet_becomes_an_enrolment(app):
         row = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=eve).one()
         assert (row.enrolment_source, row.validated, row.status) == ("walk_in", True, "present")
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
-        assert reconcile_enrolment(instance_id) == []
 
 
 def test_removing_a_player_deletes_the_enrolment_and_retires_the_reminder(app):
     from padel_app.models import LessonInstance, Presence, ReminderAttempt
     from padel_app.services import reminder_attempt_service as attempts
-    from padel_app.services.lesson_service import edit_lesson_instance_helper, reconcile_enrolment
+    from padel_app.services.lesson_service import edit_lesson_instance_helper
 
     ids = _seed_coach_and_student(app)
     lesson_id, day = _seed_roster_lesson(app, ids["coach_id"], [ids["student_id"]])
@@ -132,27 +128,6 @@ def test_removing_a_player_deletes_the_enrolment_and_retires_the_reminder(app):
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 0
         assert attempts.pending_attempts(instance_id, ids["student_id"]) == []
         assert ReminderAttempt.query.filter_by(lesson_instance_id=instance_id).one().superseded is True
-        assert reconcile_enrolment(instance_id) == []
-
-
-def test_shadow_and_presences_agree_after_every_path(app):
-    from padel_app.models import LessonInstance
-    from padel_app.services.lesson_service import (
-        add_presences, edit_lesson_instance_helper, enrol, reconcile_enrolment,
-    )
-
-    ids = _seed_coach_and_student(app)
-    carol, dave, eve = (_extra_player(app, n) for n in ("Carol", "Dave", "Eve"))
-    lesson_id, day = _seed_roster_lesson(app, ids["coach_id"], [ids["student_id"]])
-    instance_id = _materialise(app, lesson_id, day)
-    with app.app_context(), patch("padel_app.scheduler._maybe_schedule_instance"):
-        instance = LessonInstance.query.get(instance_id)
-        edit_lesson_instance_helper({**_edit_payload(instance), "add_player_ids": [carol]}, instance)
-        enrol(dave, instance, "fill", confirmed=True)
-        add_presences(instance, [{"playerId": eve, "status": "present"}])
-        edit_lesson_instance_helper({**_edit_payload(instance), "remove_player_ids": [carol]}, instance)
-        assert reconcile_enrolment() == []
-        assert LessonInstance.query.get(instance_id).enrolled_player_ids == {ids["student_id"], dave, eve}
 
 
 # ── rule 4: the unique pair is the lock ──
@@ -165,7 +140,6 @@ def test_enrol_survives_a_concurrent_insert_of_the_same_pair(app):
     from unittest.mock import patch
 
     from padel_app.models import LessonInstance, Presence
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.services import lesson_service
     from padel_app.tests.test_notification_reminder_flow import _seed_instance
 
@@ -217,9 +191,5 @@ def test_enrol_survives_a_concurrent_insert_of_the_same_pair(app):
             returned = lesson_service.enrol(ids["student_id"], instance, "coach")
         assert returned.id == existing.id
         assert Presence.query.filter_by(player_id=ids["student_id"], lesson_instance_id=instance_id).count() == 1
-        assert Association_PlayerLessonInstance.query.filter_by(
-            player_id=ids["student_id"], lesson_instance_id=instance_id
-        ).count() == 1
-        assert lesson_service.reconcile_enrolment(instance_id) == []
         # The session is still usable after the rolled-back savepoint.
         db.session.commit()

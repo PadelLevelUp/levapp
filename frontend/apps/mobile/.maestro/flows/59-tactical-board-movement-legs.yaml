@@ -1,0 +1,108 @@
+# PAD-309 — training.tactical-board rules 10 and 20: one player follows several
+# trajectories in one step. PAD-311 (rule 26) appends the order numbers. (Flow number 59 is from Session E's reserved range.)
+#
+# Maestro cannot aim a tap inside an element, so the first leg ends on a cone
+# placed at the court's centre (tapOn without a point taps the element's centre;
+# a press on a cone is a press on the court for Movimentação), and the second
+# leg ends at a screen point inside the court, the same region flow 46 swipes.
+# The second leg carries the `-1` suffix; the first keeps `movement-a1`.
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board-movement-legs.spec.ts
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Two Legs"
+# Enter blurs the single-line Input and dismisses the keyboard (flow 41).
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "piece-b2"
+    direction: DOWN
+    timeout: 15000
+
+# ── A cone at the centre is the first leg's target ──
+- tapOn:
+    id: "board-tool-cone"
+- tapOn:
+    id: "court-surface"
+- assertVisible:
+    id: "piece-cone-1"
+
+# ── A1: first leg to the cone, second leg to another point; both drawn ──
+- tapOn:
+    id: "board-tool-movement"
+- tapOn:
+    id: "piece-a1"
+- tapOn:
+    id: "piece-cone-1"
+- assertVisible:
+    id: "movement-a1"
+- assertNotVisible:
+    id: "movement-a1-1"
+- tapOn:
+    point: "40%, 45%"
+- assertVisible:
+    id: "movement-a1-1"
+- assertVisible:
+    id: "movement-a1"
+
+# ── Undo removes only the last leg ──
+- tapOn:
+    id: "board-undo"
+- assertNotVisible:
+    id: "movement-a1-1"
+- assertVisible:
+    id: "movement-a1"
+
+# ── PAD-311 (rule 26): actions are numbered in the order they were drawn ──
+# After the undo the step holds one A1 leg (moment 1). A ball path drawn now
+# is moment 2, and a movement of A2 after it is moment 3 (A2, not B1: B1 sits
+# below the fold behind the tab bar at this scroll position). Playback itself is
+# not asserted: Maestro cannot observe the board mid-playback on iOS (B-114);
+# the shared timeline tests in @levelup/config prove the order.
+- tapOn:
+    id: "board-tool-ball"
+- tapOn:
+    id: "piece-cone-1"
+- tapOn:
+    point: "40%, 45%"
+- assertVisible:
+    id: "ball-number-0"
+- assertVisible:
+    id: "movement-order-a1"
+- tapOn:
+    id: "board-tool-movement"
+- tapOn:
+    id: "piece-a2"
+- tapOn:
+    id: "piece-cone-1"
+- assertVisible:
+    id: "movement-order-a2"

@@ -52,46 +52,57 @@ def _reflected(engine, table):
 
 # ── seed helpers (one coach, one club, one lesson, two players) ──────────────
 
-def _world():
-    from padel_app.models import Club, Coach, Lesson, Player, User
+def _insert(table, **cols):
+    """Raw insert, returning the new id. Raw on purpose (batch-2 review): the
+    Postgres walk below downgrades to PAD-303's parent, which also unwinds every
+    migration stacked AFTER it (PAD-271's presences.response, PAD-275's
+    lessons.series_id ...). An ORM insert would name those columns and die with
+    UndefinedColumn on the downgraded schema, so the fixtures speak only the
+    columns every revision from fed5ed4916a8 onward has."""
+    keys = ", ".join(cols)
+    params = ", ".join(f":{k}" for k in cols)
+    db.session.execute(text(f"INSERT INTO {table} ({keys}) VALUES ({params})"), cols)
+    return db.session.execute(text(f"SELECT max(id) FROM {table}")).scalar()
 
-    coach_user = User(name="C", username="p303c", email="p303c@t.test", password="x", status="active")
-    student_a = User(name="A", username="p303a", email="p303a@t.test", password="x", status="active")
-    student_b = User(name="B", username="p303b", email="p303b@t.test", password="x", status="active")
-    db.session.add_all([coach_user, student_a, student_b])
-    db.session.flush()
-    coach = Coach(user_id=coach_user.id)
-    club = Club(name="P303", description="", location="X")
-    pa, pb = Player(user_id=student_a.id), Player(user_id=student_b.id)
-    db.session.add_all([coach, club, pa, pb])
-    db.session.flush()
+
+class _Row:
+    def __init__(self, id):
+        self.id = id
+
+
+def _world():
+    coach_user = _insert("users", name="C", username="p303c", email="p303c@t.test", password="x",
+                         status="active", is_admin=False, is_superadmin=False)
+    student_a = _insert("users", name="A", username="p303a", email="p303a@t.test", password="x",
+                        status="active", is_admin=False, is_superadmin=False)
+    student_b = _insert("users", name="B", username="p303b", email="p303b@t.test", password="x",
+                        status="active", is_admin=False, is_superadmin=False)
+    coach = _insert("coaches", user_id=coach_user)
+    club = _insert("clubs", name="P303", description="", location="X")
+    pa = _insert("players", user_id=student_a)
+    pb = _insert("players", user_id=student_b)
     start = datetime(2027, 9, 10, 10, 0)
-    lesson = Lesson(title="P303", type="academy", status="active", start_datetime=start,
-                    end_datetime=start + timedelta(hours=1), max_players=4, color="#000", club_id=club.id)
-    db.session.add(lesson)
+    lesson = _insert("lessons", title="P303", type="academy", status="active", start_datetime=start,
+                     end_datetime=start + timedelta(hours=1), max_players=4, color="#000", club_id=club,
+                     is_recurring=False)
     db.session.commit()
-    return {"coach_id": coach.id, "lesson_id": lesson.id, "player_a": pa.id, "player_b": pb.id, "start": start}
+    return {"coach_id": coach, "lesson_id": lesson, "player_a": pa, "player_b": pb, "start": start}
 
 
 def _instance(w, occurrence, **extra):
-    from padel_app.models import LessonInstance
-
-    inst = LessonInstance(lesson_id=w["lesson_id"], original_lesson_occurence_date=occurrence,
-                          start_datetime=w["start"], end_datetime=w["start"] + timedelta(hours=1),
-                          max_players=4, status="scheduled", **extra)
-    db.session.add(inst)
-    db.session.flush()
-    return inst
+    inst_id = _insert("lesson_instances", lesson_id=w["lesson_id"], original_lesson_occurence_date=occurrence,
+                      start_datetime=w["start"], end_datetime=w["start"] + timedelta(hours=1),
+                      max_players=4, status="scheduled", **extra)
+    return _Row(inst_id)
 
 
 def _vacancy(w, instance_id, player_id, status="open"):
-    from padel_app.models import Vacancy
+    v_id = _insert("vacancies", lesson_instance_id=instance_id, coach_id=w["coach_id"],
+                   original_player_id=player_id, status=status, approval_status="not_required",
+                   current_round_number=1, current_batch_number=1)
+    return _Row(v_id)
 
-    v = Vacancy(lesson_instance_id=instance_id, coach_id=w["coach_id"], original_player_id=player_id,
-                status=status, approval_status="not_required")
-    db.session.add(v)
-    db.session.flush()
-    return v
+
 
 
 # ── the model: both uniques declared and enforced on both backends ───────────
@@ -233,8 +244,16 @@ def test_the_migration_refuses_on_duplicates_then_applies_reapplies_downgrades_a
             assert OCCURRENCE_UNIQUE in _reflected(db.engine, "lesson_instances")
             assert OPEN_VACANCY_UNIQUE in _reflected(db.engine, "vacancies")
         finally:
-            _release()
-            upgrade(directory=str(MIGRATIONS_DIR))  # leave the shared scratch DB at head
+            # Leave the shared scratch DB at head whatever happened above: a
+            # failed statement leaves the session PendingRollback, and a
+            # `_release()` that raises here would skip the upgrade and strand
+            # every later test on the downgraded schema.
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            db.session.remove()
+            upgrade(directory=str(MIGRATIONS_DIR))
 
 
 # ── the migration module on a scratch SQLite: guards and idempotency ─────────

@@ -353,7 +353,10 @@ export function AddClassSheet({
   return (
     <>
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent
+        className="w-full sm:max-w-md overflow-y-auto"
+        data-testid="add-class-sheet"
+      >
         <SheetHeader>
           <SheetTitle>{t("calendar.addClass.title")}</SheetTitle>
         </SheetHeader>

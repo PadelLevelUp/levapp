@@ -1,0 +1,83 @@
+# PAD-310 — training.tactical-board rule 25: a speed control (Lento 0.5x, Normal
+# 1x, Rápido 2x) under the step strip; AUTO plays at the chosen speed.
+# (Flow number 60 is from Session E's reserved range.) The clock arithmetic is
+# unit-tested in @levelup/config (board-playback-speed.test.ts); this flow proves
+# the control is on the iOS board and selectable.
+# Playback itself is NOT asserted here: Maestro on iOS cannot observe the board
+# mid-playback (tapOn and queries wait for the UI to settle, so they land after
+# AUTO ends), although AUTO plays on schedule (ledger B-114).
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Speed"
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+# Basket mode: a feed is one tap on a player (flow 41), so the step has a ball path.
+- tapOn:
+    id: "board-tab-basket"
+- scrollUntilVisible:
+    element:
+      id: "piece-feeder"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "board-tool-ball"
+# Three feeds make the step 2400 ms at Normal (4800 ms Lento, 1200 ms Rápido),
+# long enough for Maestro to observe; a single 800 ms path at 2x is over before
+# an assertion can run.
+- tapOn:
+    id: "piece-a1"
+- tapOn:
+    id: "piece-a2"
+- tapOn:
+    id: "piece-a1"
+- assertVisible:
+    id: "ball-path-2-flat"
+- scrollUntilVisible:
+    element:
+      id: "board-speed-fast"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "board-speed-slow"
+- assertVisible:
+    id: "board-speed-normal"
+
+# ── Each speed can be selected ──
+- tapOn:
+    id: "board-speed-fast"
+- assertVisible:
+    id: "board-speed-fast"
+- tapOn:
+    id: "board-speed-slow"
+- assertVisible:
+    id: "board-speed-slow"

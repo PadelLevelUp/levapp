@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsStudent } from "../helpers/auth";
+import { ui } from "../helpers/i18n";
 
 // PAD-28: Student calendar blockers to prevent auto-invitations.
 // A student can access blocker management, create recurring and one-time
@@ -15,17 +16,17 @@ test("US-PAD28: student can access availability blocker management", async ({
   page,
 }) => {
   await expect(
-    page.getByRole("main").getByRole("heading", { name: "Availability" })
+    page.getByRole("main").getByRole("heading", { name: ui("availability.title") })
   ).toBeVisible({ timeout: 10_000 });
   await expect(
-    page.getByRole("button", { name: /add blocker/i })
+    page.getByRole("button", { name: ui("availability.addBlocker") })
   ).toBeVisible();
 });
 
 test("US-PAD28: student can create a one-time blocker and see it listed", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: /add blocker/i }).click();
+  await page.getByRole("button", { name: ui("availability.addBlocker") }).click();
 
   await page.getByLabel(/title/i).fill("Away for work");
   // Default new blocker is one-time. Pick a concrete date/time.
@@ -33,7 +34,7 @@ test("US-PAD28: student can create a one-time blocker and see it listed", async 
   await page.getByLabel(/start time/i).fill("18:00");
   await page.getByLabel(/end time/i).fill("20:00");
 
-  await page.getByRole("button", { name: /^save/i }).click();
+  await page.getByRole("button", { name: ui("common.save") }).click();
 
   // The new blocker appears in the list with a clear "unavailable" indication.
   const listedBlocker = page.getByText("Away for work", { exact: false });
@@ -44,7 +45,7 @@ test("US-PAD28: student can create a one-time blocker and see it listed", async 
 });
 
 test("US-PAD28: student can create a recurring blocker", async ({ page }) => {
-  await page.getByRole("button", { name: /add blocker/i }).click();
+  await page.getByRole("button", { name: ui("availability.addBlocker") }).click();
 
   await page.getByLabel(/title/i).fill("Monday evenings");
   await page.getByLabel(/^date$/i).fill("2026-08-03");
@@ -54,7 +55,7 @@ test("US-PAD28: student can create a recurring blocker", async ({ page }) => {
   // Toggle recurring on.
   await page.getByLabel(/recurring/i).click();
 
-  await page.getByRole("button", { name: /^save/i }).click();
+  await page.getByRole("button", { name: ui("common.save") }).click();
 
   await expect(
     page.getByText("Monday evenings", { exact: false })
@@ -63,12 +64,12 @@ test("US-PAD28: student can create a recurring blocker", async ({ page }) => {
 
 test("US-PAD28: student can delete an existing blocker", async ({ page }) => {
   // Create one first.
-  await page.getByRole("button", { name: /add blocker/i }).click();
+  await page.getByRole("button", { name: ui("availability.addBlocker") }).click();
   await page.getByLabel(/title/i).fill("Temporary blocker");
   await page.getByLabel(/^date$/i).fill("2026-08-20");
   await page.getByLabel(/start time/i).fill("09:00");
   await page.getByLabel(/end time/i).fill("11:00");
-  await page.getByRole("button", { name: /^save/i }).click();
+  await page.getByRole("button", { name: ui("common.save") }).click();
 
   await expect(
     page.getByText("Temporary blocker", { exact: false })
@@ -78,16 +79,16 @@ test("US-PAD28: student can delete an existing blocker", async ({ page }) => {
   const row = page
     .locator("div")
     .filter({ hasText: "Temporary blocker" })
-    .filter({ has: page.getByRole("button", { name: /delete blocker/i }) })
+    .filter({ has: page.getByRole("button", { name: ui("availability.deleteBlockerAria") }) })
     .last();
 
-  await row.getByRole("button", { name: /delete blocker/i }).click();
+  await row.getByRole("button", { name: ui("availability.deleteBlockerAria") }).click();
 
   // A confirm dialog must appear before the blocker is actually removed.
   await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 5_000 });
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: /^delete$/i })
+    .getByRole("button", { name: ui("common.delete") })
     .click();
 
   await expect(

@@ -20,7 +20,7 @@ test.describe("PAD-30: player validation watermark", () => {
     await loginAsCoach(page);
     await openPlayers(page);
 
-    const searchInput = page.getByPlaceholder("Search players...");
+    const searchInput = page.getByTestId("players-search-input");
 
     // --- Validated player: no pending badge, not faded ---
     await searchInput.fill("E2E Student");
@@ -30,7 +30,7 @@ test.describe("PAD-30: player validation watermark", () => {
       .first();
     await expect(studentCard).toBeVisible();
     await expect(
-      studentCard.getByText("Pending registration"),
+      studentCard.getByTestId("pending-registration-badge"),
     ).toHaveCount(0);
     await expect(studentCard).toHaveAttribute("data-validated", "true");
 
@@ -42,7 +42,7 @@ test.describe("PAD-30: player validation watermark", () => {
       .first();
     await expect(ghostCard).toBeVisible();
     await expect(
-      ghostCard.getByText("Pending registration"),
+      ghostCard.getByTestId("pending-registration-badge"),
     ).toBeVisible();
     await expect(ghostCard).toHaveAttribute("data-validated", "false");
     // Faded appearance is applied via an opacity utility class.

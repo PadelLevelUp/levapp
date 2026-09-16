@@ -101,9 +101,9 @@ export function NotificationsEngineSection() {
   }
 
   return (
-    <Card>
+    <Card data-testid="notifications-engine-card">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2" data-testid="notification-engine-title">
           <BellRing className="w-4 h-4" />
           {t("settings.engine.title")}
         </CardTitle>
@@ -115,12 +115,13 @@ export function NotificationsEngineSection() {
         {/* Master toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">{t("settings.engine.automaticNotifications")}</p>
+            <p className="text-sm font-medium" data-testid="notification-engine-auto-notify-label">{t("settings.engine.automaticNotifications")}</p>
             <p className="text-xs text-muted-foreground">
               {t("settings.engine.automaticNotificationsDescription")}
             </p>
           </div>
           <Switch
+            data-testid="notification-engine-auto-notify-toggle"
             checked={config.autoNotifyEnabled}
             onCheckedChange={async (val) => {
               if (val && (config.invitationGroups ?? []).length === 0) {
@@ -138,7 +139,7 @@ export function NotificationsEngineSection() {
 
         {/* Invitation mode — only relevant when the engine is on */}
         {config.autoNotifyEnabled && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-testid="notification-engine-invitation-mode">
             <div>
               <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
               <p className="text-xs text-muted-foreground">

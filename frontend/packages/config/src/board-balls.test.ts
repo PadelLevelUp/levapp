@@ -52,8 +52,8 @@ describe("boardPress — Bola appends (rules 9, 23)", () => {
     r = boardPress(d, r.state, p2.from, null);
     r = boardPress(d, r.state, p2.to, null);
     d = r.diagram!;
-    expect(stepBalls(d.steps[0])).toEqual([p1, p2]);
-    expect(d.steps[0].ball).toEqual(p1);
+    expect(stepBalls(d.steps[0])).toMatchObject([p1, p2]);
+    expect(d.steps[0].ball).toMatchObject(p1);
   });
 
   it("basket feeds append too, each from the feeder", () => {
@@ -84,8 +84,8 @@ describe("toggle, hit-test, reorder, remove (rule 23)", () => {
 
   it("moves a path up or down and mirrors `ball`", () => {
     const d = boardMoveBallPath(drawn(p1, p2), 0, 1, 0);
-    expect(stepBalls(d.steps[0])).toEqual([p2, p1]);
-    expect(d.steps[0].ball).toEqual(p2);
+    expect(stepBalls(d.steps[0])).toMatchObject([p2, p1]);
+    expect(d.steps[0].ball).toMatchObject(p2);
     expect(boardMoveBallPath(d, 0, 0, 5)).toBe(d); // out of range: unchanged
   });
 

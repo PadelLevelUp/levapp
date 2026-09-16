@@ -4,6 +4,8 @@ import {
   BOUNDARY_INSET,
   COURT_COLORS,
   movementPathD,
+  movementLegs,
+  stepActionNumbers,
   NET_Y,
   PLAYER_RADIUS,
   SERVICE_LINES_Y,
@@ -84,6 +86,7 @@ export function CourtSurface({
     return { x: piece.x, y: piece.y };
   };
   const pieceById = (id: string) => diagram.pieces.find((p) => p.id === id);
+  const actionNumbers = stepActionNumbers(step);
 
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="xMidYMid meet" testID={testID}>
@@ -140,21 +143,34 @@ export function CourtSurface({
         />
       ) : null}
 
-      {step?.movements.map((m) => {
-        const piece = pieceById(m.pieceId);
-        const from = piece ? position(piece) : null;
-        if (!from) return null;
+      {/* PAD-309: a player may have several legs; each starts where the last ended (rule 10) */}
+      {movementLegs(step, (id) => {
+        const piece = pieceById(id);
+        return piece ? position(piece) : null;
+      }).map((m) => {
+        const suffix = m.leg === 0 ? "" : `-${m.leg}`;
         const end = toView(m.to);
+        const order = actionNumbers.movements[m.index];
+        const mid = toView({ x: (m.from.x + m.to.x) / 2, y: (m.from.y + m.to.y) / 2 });
         return (
-          <G key={`mv-${m.pieceId}`} testID={tid(`movement-${m.pieceId}`)}>
-            <Path d={movementPathD(from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
+          <G key={`mv-${m.pieceId}${suffix}`} testID={tid(`movement-${m.pieceId}${suffix}`)}>
+            {/* PAD-311: the leg's moment number when the step plays in order (rule 26) */}
+            {order !== null && order !== undefined && !compact ? (
+              <G testID={`movement-order-${m.pieceId}${suffix}`} x={mid.x + 12} y={mid.y}>
+                <Circle r={8} fill={COURT_COLORS.movement} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+                <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill={COURT_COLORS.frame}>
+                  {order}
+                </SvgText>
+              </G>
+            ) : null}
+            <Path d={movementPathD(m.from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
             <Circle cx={end.x} cy={end.y} r={compact ? 2.5 : 4} fill={COURT_COLORS.movement} />
           </G>
         );
       })}
 
       {/* ball paths, in order (PAD-289, rules 9, 13, 23) */}
-      {stepBalls(step).map((path, index, all) => {
+      {stepBalls(step).map((path, index) => {
         const suffix = index === 0 ? "" : `-${index}`;
         const startV = toView(path.from);
         return (
@@ -174,12 +190,12 @@ export function CourtSurface({
               </>
             ) : null}
             <BallDot at={path.from} />
-            {all.length > 1 && !compact ? (
+            {actionNumbers.balls[index] != null && !compact ? (
               // Offset per index: several paths may start at one point (basket feeds), so the badges fan out.
               <G testID={`ball-number-${index}`} x={startV.x + 13 + index * 18} y={startV.y - 24}>
                 <Circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
                 <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill="#fff">
-                  {index + 1}
+                  {actionNumbers.balls[index]}
                 </SvgText>
               </G>
             ) : null}

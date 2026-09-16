@@ -63,7 +63,6 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 
     club = Club(name="Test Club", description="", location="City")
     db.session.add(club)
@@ -91,10 +90,7 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     from padel_app.models.presences import Presence
 
     for player in enrolled_players:
-        # PAD-259: the presence row is the enrolment; the junction row is the
-        # phase-1 shadow copy.
-        db.session.add(Association_PlayerLessonInstance(player_id=player.id,
-                                                         lesson_instance_id=instance.id))
+        # PAD-259: the presence row is the enrolment.
         db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id,
                                 invited=True, confirmed=False, enrolment_source="coach"))
     db.session.commit()
@@ -263,10 +259,10 @@ class TestRespondToNotification:
         return vacancy, event
 
     def test_yes_adds_player_to_instance_and_confirms_presence(self, app):
-        """Responding 'yes' creates Association_PlayerLessonInstance and sets event status=confirmed."""
+        """Responding 'yes' enrols the player (a Presence row) and sets event status=confirmed."""
         from padel_app.services.notification_service import respond_to_notification
         from padel_app.models.notification_event import NotificationEvent
-        from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
+        from padel_app.models.presences import Presence
 
         with app.app_context():
             cu = _create_user("Coach", "coach-yes")
@@ -286,7 +282,7 @@ class TestRespondToNotification:
                 result = respond_to_notification(event_id, "yes", student_user_id)
 
             updated_event = NotificationEvent.query.get(event_id)
-            enrolled = Association_PlayerLessonInstance.query.filter_by(
+            enrolled = Presence.query.filter_by(
                 player_id=student.id, lesson_instance_id=instance.id
             ).first()
 
@@ -618,9 +614,7 @@ class TestPastClassInvitationExpiry:
     def test_timely_yes_still_confirms(self, app):
         """And a normal, in-time acceptance is unaffected."""
         from padel_app.services.notification_service import respond_to_notification
-        from padel_app.models.Association_PlayerLessonInstance import (
-            Association_PlayerLessonInstance,
-        )
+        from padel_app.models.presences import Presence
         from padel_app.models.notification_event import NotificationEvent
 
         with app.app_context():
@@ -633,7 +627,7 @@ class TestPastClassInvitationExpiry:
 
             assert result["action"] == "confirmed"
             assert NotificationEvent.query.get(ids["event_id"]).status == "confirmed"
-            assert Association_PlayerLessonInstance.query.filter_by(
+            assert Presence.query.filter_by(
                 player_id=ids["candidate_id"], lesson_instance_id=ids["instance_id"]
             ).first() is not None
 
@@ -643,9 +637,7 @@ class TestPastClassInvitationExpiry:
         """A late 'I'll take it' records nothing and puts nobody in a class that
         already happened."""
         from padel_app.services.notification_service import respond_to_notification
-        from padel_app.models.Association_PlayerLessonInstance import (
-            Association_PlayerLessonInstance,
-        )
+        from padel_app.models.presences import Presence
 
         with app.app_context():
             ids = self._seed_pending_invite(suffix="lateyes")
@@ -656,7 +648,7 @@ class TestPastClassInvitationExpiry:
                 )
 
             assert result == {"action": "expired"}
-            assert Association_PlayerLessonInstance.query.filter_by(
+            assert Presence.query.filter_by(
                 player_id=ids["candidate_id"], lesson_instance_id=ids["instance_id"]
             ).first() is None
             self._assert_retired(ids)
@@ -687,9 +679,7 @@ class TestPastClassInvitationExpiry:
     def test_late_coach_recorded_yes_enrols_nobody(self, app):
         """The coach's manual 'they said yes' path is gated by the same rule."""
         from padel_app.services.notification_service import coach_respond_to_notification
-        from padel_app.models.Association_PlayerLessonInstance import (
-            Association_PlayerLessonInstance,
-        )
+        from padel_app.models.presences import Presence
 
         with app.app_context():
             ids = self._seed_pending_invite(suffix="coachlate")
@@ -700,7 +690,7 @@ class TestPastClassInvitationExpiry:
                 )
 
             assert result == {"action": "expired"}
-            assert Association_PlayerLessonInstance.query.filter_by(
+            assert Presence.query.filter_by(
                 player_id=ids["candidate_id"], lesson_instance_id=ids["instance_id"]
             ).first() is None
             self._assert_retired(ids)

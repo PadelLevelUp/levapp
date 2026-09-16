@@ -16,6 +16,7 @@ import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 const CLASS = "E2E Academy Class";
 const TARGET_STUDENT = "Filler Player 01";
@@ -66,8 +67,8 @@ async function openClassEdit(page: import("@playwright/test").Page) {
   await sheet.getByTestId("class-edit").click();
   // The picker opens on the "Participants" tab; the search box lives on the
   // "All" tab.
-  await sheet.getByRole("tab", { name: /^(all|todos)$/i }).click();
-  const search = sheet.getByPlaceholder(/search|procurar|pesquisar/i).first();
+  await sheet.getByRole("tab", { name: ui("calendar.playerSelector.all") }).click();
+  const search = sheet.getByPlaceholder(ui("calendar.playerSelector.searchPlaceholder", { exact: false })).first();
   await expect(search).toBeVisible({ timeout: 10_000 });
   await search.fill("Filler Player 01");
   await expect(sheet.getByText(TARGET_STUDENT).first()).toBeVisible({ timeout: 10_000 });
@@ -88,26 +89,26 @@ test.describe("PAD-150: manual add warns with the named reason", () => {
 
       // Tick the stronger student and try to save.
       await sheet.getByText(TARGET_STUDENT).first().click();
-      await sheet.getByRole("button", { name: /^(save|guardar)$/i }).first().click();
+      await sheet.getByRole("button", { name: ui("common.save") }).first().click();
 
       const dialog = page.getByTestId("eligibility-confirm");
       await expect(dialog).toBeVisible({ timeout: 10_000 });
       await expect(dialog.getByTestId("eligibility-confirm-student")).toHaveCount(1);
       await expect(dialog.getByTestId("eligibility-confirm-student")).toContainText(TARGET_STUDENT);
       await expect(dialog.getByTestId("eligibility-confirm-reason")).toContainText(
-        /1 level above this class|1 nível acima desta aula/i
+        ui("tutorials.eligibility.levelAboveOne")
       );
 
       // Cancel: still in the edit, nothing saved.
       await dialog.getByTestId("eligibility-confirm-cancel").click();
       await expect(dialog).toBeHidden();
-      await expect(sheet.getByRole("button", { name: /^(save|guardar)$/i }).first()).toBeVisible();
+      await expect(sheet.getByRole("button", { name: ui("common.save") }).first()).toBeVisible();
 
       // Save again and confirm this time: the student is enrolled.
       const saved = page.waitForResponse(
         (r) => /\/api\/app\/edit_class/.test(r.url()) && r.status() === 200
       );
-      await sheet.getByRole("button", { name: /^(save|guardar)$/i }).first().click();
+      await sheet.getByRole("button", { name: ui("common.save") }).first().click();
       await page.getByTestId("eligibility-confirm-proceed").click({ timeout: 10_000 });
       const result = await saved;
       expect(result.ok()).toBeTruthy();
@@ -155,14 +156,14 @@ test.describe("PAD-150: saving a stricter bar reports who it would exclude", () 
       await loginAsCoach(page);
       await page.goto("/settings");
       await page.getByTestId("settings-nav-notifications").click();
-      await page.getByRole("button", { name: /eligibility|elegibilidade/i }).first().click();
+      await page.getByRole("button", { name: ui("settings.engine.eligibility") }).first().click();
       await expect(page.getByTestId("eligibility-section")).toBeVisible({ timeout: 10_000 });
 
       const saved = page.waitForResponse(
         (r) => /\/api\/app\/notify\/config/.test(r.url()) && r.request().method() === "POST" && r.status() === 200
       );
       // "Add rule" defaults to the level rule (same as the class) and saves at once.
-      await page.getByRole("button", { name: /add rule|adicionar regra/i }).first().click();
+      await page.getByRole("button", { name: ui("settings.eligibility.addRule") }).first().click();
       await saved;
 
       const note = page.getByTestId("eligibility-impact");

@@ -162,11 +162,12 @@ test("US-61: coach can delete a sent message", async ({ page }) => {
     deleteBtn.click(),
   ]);
 
-  // The deleted message renders as a "Message deleted" italic placeholder
-  // inside the conversation thread. (The original text may still appear in
-  // the conversation list sidebar as a "last message" preview, which is
-  // expected — we only need the bubble itself to be replaced.)
-  await expect(page.getByText("Message deleted").last()).toBeVisible({ timeout: 5000 });
+  // The deleted message renders as an italic placeholder bubble (asserted by
+  // testid, not its copy, which is translated — the page renders pt in
+  // E2E) inside the conversation thread. (The original text may still
+  // appear in the conversation list sidebar as a "last message" preview,
+  // which is expected — we only need the bubble itself to be replaced.)
+  await expect(page.getByTestId("message-bubble-deleted").last()).toBeVisible({ timeout: 5000 });
 });
 
 // US-62: Unread badge updates when a new message arrives

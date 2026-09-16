@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -14,7 +15,7 @@ async function findClass(page: import("@playwright/test").Page, title: string) {
       await expect(page.getByText(title).first()).toBeVisible({ timeout: 3000 });
       return true;
     } catch {
-      await page.getByRole("button", { name: /next week/i }).first().click();
+      await page.getByRole("button", { name: ui("calendar.toolbar.nextWeek") }).first().click();
       await page.waitForTimeout(300);
     }
   }
@@ -22,7 +23,7 @@ async function findClass(page: import("@playwright/test").Page, title: string) {
 }
 
 async function createClass(page: import("@playwright/test").Page, title: string) {
-  await page.getByRole("button", { name: /add class/i }).first().click();
+  await page.getByRole("button", { name: ui("calendar.toolbar.addClass") }).first().click();
   await page.getByPlaceholder(/beginner academy|private/i).first().fill(title);
   // PAD-300 (load flake, B-079): a fixed 800 ms is not a settle — under load
   // the create took longer and `findClass` walked weeks past a class that had
@@ -33,9 +34,9 @@ async function createClass(page: import("@playwright/test").Page, title: string)
     (r) => /\/app\/add_class$/.test(r.url()) && r.status() < 300,
     { timeout: 30_000 }
   );
-  await page.getByRole("button", { name: /create class/i }).click();
+  await page.getByRole("button", { name: ui("calendar.addClass.createClass") }).click();
   await created;
-  await expect(page.getByRole("dialog").filter({ hasText: /create class/i })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("add-class-sheet")).toHaveCount(0, { timeout: 15_000 });
   const found = await findClass(page, title);
   expect(found).toBe(true);
 }
@@ -50,7 +51,7 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
 
   // Open the class detail sheet.
   await page.getByText(title).first().click();
-  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first();
+  const deleteBtn = page.getByRole("dialog").getByRole("button", { name: ui("calendar.detail.deleteClass") }).first();
   await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 
   // Clicking Delete opens a confirmation dialog — it must NOT delete immediately.
@@ -61,18 +62,20 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
 
   // Cancel keeps the class: dialog closes, no success toast, detail sheet still
   // open (delete button still present) — nothing was deleted.
-  await dialog.getByRole("button", { name: /^cancel$/i }).click();
+  await dialog.getByRole("button", { name: ui("calendar.detail.cancel") }).click();
   await expect(dialog).not.toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Class deleted", { exact: true })).not.toBeVisible();
+  await expect(page.getByTestId("toast")).not.toBeVisible();
   await expect(deleteBtn).toBeVisible();
 
   // Confirm the delete this time (the detail sheet is still open).
   await deleteBtn.click();
   await expect(dialog).toBeVisible({ timeout: 5000 });
-  await dialog.getByRole("button", { name: /^delete$/i }).click();
+  await dialog.getByRole("button", { name: ui("calendar.detail.delete") }).click();
 
   // Now it deletes: success toast, class gone from the grid.
-  await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
+  const deleteToast = page.getByTestId("toast");
+  await expect(deleteToast).toBeVisible({ timeout: 5000 });
+  await expect(deleteToast).toHaveAttribute("data-variant", "default");
   await expect(page.getByRole("main").getByText(title)).not.toBeVisible({ timeout: 3000 });
 });
 
