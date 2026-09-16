@@ -68,7 +68,6 @@ export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:calendar/season-end-no-season.spec.ts", max: 1, reason: "1 en UI string, e.g. 'new class'" },
   { file: "pw:clubs/courts.spec.ts", max: 1, reason: "1 en UI string, e.g. 'new class'" },
   { file: "pw:notification-engine/class-cancellation-notification.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Class deleted'" },
-  { file: "pw:notification-engine/manual-notify-selection.spec.ts", max: 1, reason: "1 en UI string, e.g. 'notify students'" },
   { file: "pw:notification-engine/standing-waitlist-expired.spec.ts", max: 1, reason: "1 en UI string, e.g. 'auto-invite engine'" },
   { file: "pw:player-management/level-formatting.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Select level'" },
   { file: "pw:players/set-player-level.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Intermediate'" },
