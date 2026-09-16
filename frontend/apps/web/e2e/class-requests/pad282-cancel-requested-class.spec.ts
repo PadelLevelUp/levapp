@@ -15,6 +15,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
 
@@ -35,12 +36,6 @@ async function token(request: APIRequestContext, username: string, password: str
   return (json.accessToken ?? json.access_token) as string;
 }
 
-async function dayEvents(request: APIRequestContext, auth: Record<string, string>, day: string) {
-  const res = await request.get(`${API_ROOT}/app/calendar?from=${day}T00:00:00&to=${day}T23:59:59`, { headers: auth });
-  expect(res.ok()).toBeTruthy();
-  return (await res.json()) as Array<Record<string, unknown>>;
-}
-
 test("US-PAD-282: a student can cancel a class they requested for tomorrow — it is materialised on demand", async ({
   page,
   request,
@@ -49,6 +44,7 @@ test("US-PAD-282: a student can cancel a class they requested for tomorrow — i
   const coachAuth = { Authorization: `Bearer ${await token(request, COACH_USERNAME, COACH_PASSWORD)}` };
   const studentAuth = { Authorization: `Bearer ${await token(request, STUDENT_USERNAME, STUDENT_PASSWORD)}` };
   const day = isoDaysAhead(1);
+  const requestIds: Array<string | number> = [];
 
   try {
     // The student books a free slot tomorrow (classes.class-requests rules 1–2).
@@ -73,6 +69,7 @@ test("US-PAD-282: a student can cancel a class they requested for tomorrow — i
     });
     expect(createRes.ok(), await createRes.text()).toBeTruthy();
     const created = await createRes.json();
+    requestIds.push(created.id);
 
     // The coach accepts (rule 4): a private class with the student, no instance row.
     const acceptRes = await request.post(`${API_ROOT}/app/class-requests/${created.id}/accept`, { headers: coachAuth });
@@ -124,15 +121,10 @@ test("US-PAD-282: a student can cancel a class they requested for tomorrow — i
     expect(presences[0].status).toBe("absent");
     expect(presences[0].justification).toBe("justified");
   } finally {
-    // Put the coach's calendar back.
-    const leftovers = await dayEvents(request, coachAuth, day);
-    for (const e of leftovers) {
-      if (e.type === "class" && e.title === STUDENT_NAME) {
-        await request.post(`${API_ROOT}/app/remove_class`, { headers: coachAuth, data: { event: e, scope: "single" } });
-      }
-      if (e.type === "block" && String(e.title).includes(STUDENT_NAME)) {
-        await request.delete(`${API_ROOT}/app/calendar_block/${e.originalId}`, { headers: coachAuth, data: { scope: "all" } });
-      }
-    }
+    // PAD-341: remove the class until it stops re-projecting, drop any hold, and
+    // delete the request itself — removing the class leaves it `accepted`.
+    await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
+    await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));
+    await deleteClassRequests(request, coachAuth, requestIds);
   }
 });

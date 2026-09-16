@@ -10,6 +10,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -28,12 +29,6 @@ async function coachToken(request: APIRequestContext) {
   return (json.accessToken ?? json.access_token) as string;
 }
 
-async function dayEvents(request: APIRequestContext, auth: Record<string, string>, day: string) {
-  const res = await request.get(`${API_ROOT}/app/calendar?from=${day}T00:00:00&to=${day}T23:59:59`, { headers: auth });
-  expect(res.ok()).toBeTruthy();
-  return (await res.json()) as Array<Record<string, unknown>>;
-}
-
 test("PAD-104: a student books a free slot, the slot is held, and the coach's accept creates the class", async ({
   page,
   browser,
@@ -43,6 +38,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
   const token = await coachToken(request);
   const auth = { Authorization: `Bearer ${token}` };
   const day = isoDaysAhead(12);
+  const requestIds: string[] = [];
 
   try {
     // The student books from the Availability tab (rules 1–2).
@@ -68,6 +64,8 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     const row = page.locator('[data-testid="class-request-row"][data-status="pending"]');
     await expect(row).toHaveCount(1, { timeout: 15_000 });
     await expect(row).toContainText(start);
+    // Recorded for cleanup straight away, so a failure further down still deletes it.
+    requestIds.push((await row.getAttribute("data-request-id")) ?? "");
 
     // Rule 3: the slot is held on the coach's calendar and no longer free.
     const held = await dayEvents(request, auth, day);
@@ -105,15 +103,10 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     await page.reload();
     await expect(page.locator('[data-testid="class-request-row"][data-status="accepted"]')).toHaveCount(1, { timeout: 15_000 });
   } finally {
-    // Put the coach's calendar back.
-    const leftovers = await dayEvents(request, auth, day);
-    for (const e of leftovers) {
-      if (e.type === "class" && e.title === STUDENT_NAME) {
-        await request.post(`${API_ROOT}/app/remove_class`, { headers: auth, data: { event: e, scope: "single" } });
-      }
-      if (e.type === "block" && String(e.title).includes(STUDENT_NAME)) {
-        await request.delete(`${API_ROOT}/app/calendar_block/${e.originalId}`, { headers: auth, data: { scope: "all" } });
-      }
-    }
+    // PAD-341: remove the class until it stops re-projecting, drop any hold, and
+    // delete the request itself — removing the class leaves it `accepted`.
+    await removeClassesOnDay(request, auth, day, (e) => e.title === STUDENT_NAME);
+    await removeBlocksOnDay(request, auth, day, (e) => String(e.title).includes(STUDENT_NAME));
+    await deleteClassRequests(request, auth, requestIds);
   }
 });
