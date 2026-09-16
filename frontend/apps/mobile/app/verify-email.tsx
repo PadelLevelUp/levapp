@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { d314Tag } from "@/lib/d314-tag";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -235,31 +236,32 @@ export default function VerifyEmailScreen() {
   const activeIndex = Math.min(code.length, CODE_LENGTH - 1);
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={keyboardAvoidingBehavior()}>
+    <KeyboardAvoidingView ref={d314Tag("v.kav")} className="flex-1 bg-sidebar" behavior={keyboardAvoidingBehavior()}>
       <ScrollView
+        ref={d314Tag("v.scroll")}
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <View className="mb-6 items-center">
+        <View ref={d314Tag("v.markWrap")} className="mb-6 items-center">
           <LevAppMark size={30} />
         </View>
 
-        <Card testID="verify-email">
-          <CardHeader className="items-center">
-            <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+        <Card ref={d314Tag("v.card")} testID="verify-email">
+          <CardHeader ref={d314Tag("v.header")} className="items-center">
+            <View ref={d314Tag("v.iconWrap")} className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Ionicons name="mail-open-outline" size={24} color={lightTheme.primary} />
             </View>
-            <CardTitle className="text-center">{t("auth.verifyEmail.title")}</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle ref={d314Tag("v.title")} className="text-center">{t("auth.verifyEmail.title")}</CardTitle>
+            <CardDescription ref={d314Tag("v.desc")} className="text-center">
               {t("auth.verifyEmail.description")}{" "}
-              <Text className="text-sm font-medium text-foreground" testID="verify-email-address">
+              <Text ref={d314Tag("v.descEmail")} className="text-sm font-medium text-foreground" testID="verify-email-address">
                 {email}
               </Text>
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="gap-4">
+          <CardContent ref={d314Tag("v.content")} className="gap-4">
             {editing ? (
               <View className="gap-1.5" testID="verify-email-edit">
                 <Label>{t("auth.verifyEmail.newEmail")}</Label>
@@ -301,17 +303,19 @@ export default function VerifyEmailScreen() {
             ) : (
               <>
                 <Pressable
+                  ref={d314Tag("v.cellsPress")}
                   accessibilityRole="none"
                   accessibilityLabel={t("auth.verifyEmail.codeLabel")}
                   onPress={() => inputRef.current?.focus()}
                   className="items-center"
                 >
-                  <View className="flex-row justify-center gap-2">
+                  <View ref={d314Tag("v.cellsRow")} className="flex-row justify-center gap-2">
                     {Array.from({ length: CODE_LENGTH }).map((_, i) => {
                       const active = focused && i === activeIndex && !submitting;
                       return (
                         <View
                           key={i}
+                          ref={d314Tag(`v.cell${i}`)}
                           testID={`verify-email-cell-${i}`}
                           className={cn(
                             "h-14 w-11 items-center justify-center rounded-lg border bg-background",
@@ -319,7 +323,7 @@ export default function VerifyEmailScreen() {
                             submitting && "opacity-50"
                           )}
                         >
-                          <Text className="text-2xl font-semibold text-foreground tabular-nums">{code[i] ?? ""}</Text>
+                          <Text ref={d314Tag(`v.cellText${i}`)} className="text-2xl font-semibold text-foreground tabular-nums">{code[i] ?? ""}</Text>
                         </View>
                       );
                     })}
@@ -345,6 +349,7 @@ export default function VerifyEmailScreen() {
                   />
                 </Pressable>
                 <Text
+                  ref={d314Tag("v.hint")}
                   className={cn("text-center text-sm", error ? "text-destructive" : "text-muted-foreground")}
                   accessibilityLiveRegion="polite"
                   testID={error ? "verify-email-error" : "verify-email-hint"}
@@ -354,40 +359,43 @@ export default function VerifyEmailScreen() {
 
                 <Button
                   variant="outline"
+                  ref={d314Tag("v.pasteBtn")}
                   testID="verify-email-paste"
                   accessibilityLabel={t("auth.verifyEmail.pasteCode")}
                   disabled={submitting}
                   onPress={() => void paste()}
                 >
                   <Ionicons name="clipboard-outline" size={18} color={lightTheme.primary} />
-                  <Text>{t("auth.verifyEmail.pasteCode")}</Text>
+                  <Text ref={d314Tag("v.pasteText")}>{t("auth.verifyEmail.pasteCode")}</Text>
                 </Button>
 
                 <Button
                   variant="outline"
+                  ref={d314Tag("v.resendBtn")}
                   testID="verify-email-resend"
                   disabled={countdown > 0 || sending}
                   onPress={() => void send()}
                 >
-                  <Text>
+                  <Text ref={d314Tag("v.resendText")}>
                     {countdown > 0 ? t("auth.verifyEmail.resendIn", { seconds: countdown }) : t("auth.verifyEmail.resend")}
                   </Text>
                 </Button>
                 <Button
                   variant="ghost"
+                  ref={d314Tag("v.changeBtn")}
                   testID="verify-email-change"
                   onPress={() => {
                     setNewEmail(email);
                     setEditing(true);
                   }}
                 >
-                  <Text>{t("auth.verifyEmail.changeEmail")}</Text>
+                  <Text ref={d314Tag("v.changeText")}>{t("auth.verifyEmail.changeEmail")}</Text>
                 </Button>
               </>
             )}
 
-            <Button variant="ghost" testID="verify-email-signout" onPress={() => void logout()}>
-              <Text className="text-muted-foreground">{t("auth.verifyEmail.signOut")}</Text>
+            <Button ref={d314Tag("v.signoutBtn")} variant="ghost" testID="verify-email-signout" onPress={() => void logout()}>
+              <Text ref={d314Tag("v.signoutText")} className="text-muted-foreground">{t("auth.verifyEmail.signOut")}</Text>
             </Button>
           </CardContent>
         </Card>

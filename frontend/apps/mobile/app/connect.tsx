@@ -1,3 +1,4 @@
+import { d314Tag } from "@/lib/d314-tag";
 import { Ionicons } from "@expo/vector-icons";
 import { joinTokensApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
@@ -37,20 +38,20 @@ export default function ConnectScreen() {
   };
 
   return (
-    <View className="flex-1 justify-center bg-sidebar p-4">
-      <View className="mb-6 items-center">
+    <View ref={d314Tag("c.root")} className="flex-1 justify-center bg-sidebar p-4">
+      <View ref={d314Tag("c.markWrap")} className="mb-6 items-center">
         <LevAppMark size={30} />
       </View>
-      <Card testID="connect-with-coach">
-        <CardHeader className="items-center">
-          <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+      <Card ref={d314Tag("c.card")} testID="connect-with-coach">
+        <CardHeader ref={d314Tag("c.header")} className="items-center">
+          <View ref={d314Tag("c.iconWrap")} className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Ionicons name="qr-code-outline" size={24} color={lightTheme.primary} />
           </View>
-          <CardTitle className="text-center">{t("players.connect.title")}</CardTitle>
-          <CardDescription className="text-center">{t("players.connect.description")}</CardDescription>
+          <CardTitle ref={d314Tag("c.title")} className="text-center">{t("players.connect.title")}</CardTitle>
+          <CardDescription ref={d314Tag("c.desc")} className="text-center">{t("players.connect.description")}</CardDescription>
         </CardHeader>
-        <CardContent className="gap-3">
-          <Text className="text-sm font-medium">{t("players.connect.pasteLabel")}</Text>
+        <CardContent ref={d314Tag("c.content")} className="gap-3">
+          <Text ref={d314Tag("c.pasteLabel")} className="text-sm font-medium">{t("players.connect.pasteLabel")}</Text>
           <Input
             testID="connect-paste-input"
             placeholder={t("players.connect.pastePlaceholder")}
@@ -70,16 +71,17 @@ export default function ConnectScreen() {
               {error}
             </Text>
           ) : null}
-          <Button testID="connect-paste-go" onPress={handleGo}>
-            <Text>{t("players.connect.go")}</Text>
+          <Button ref={d314Tag("c.goBtn")} testID="connect-paste-go" onPress={handleGo}>
+            <Text ref={d314Tag("c.goText")}>{t("players.connect.go")}</Text>
           </Button>
-          <Text className="text-sm text-muted-foreground">{t("players.connect.stepWait")}</Text>
+          <Text ref={d314Tag("c.stepWait")} className="text-sm text-muted-foreground">{t("players.connect.stepWait")}</Text>
           <Button
             variant="outline"
+            ref={d314Tag("c.dashBtn")}
             testID="connect-go-dashboard"
             onPress={() => router.replace("/(tabs)/dashboard")}
           >
-            <Text>{t("players.connect.goToDashboard")}</Text>
+            <Text ref={d314Tag("c.dashText")}>{t("players.connect.goToDashboard")}</Text>
           </Button>
         </CardContent>
       </Card>
