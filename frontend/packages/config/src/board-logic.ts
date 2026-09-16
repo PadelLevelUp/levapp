@@ -6,7 +6,7 @@
  * events on web, a gesture-handler Pan on iOS) so the behaviour cannot drift
  * between them, and iOS gets unit coverage its component layer cannot have.
  */
-import type { BoardMode, CourtDiagramV2, Piece, PieceColor, Point, Step } from "@levelup/types";
+import type { BallPath, BoardMode, CourtDiagramV2, Piece, PieceColor, Point, Step } from "@levelup/types";
 import {
   BASKET_START_POSITION,
   GAME_START_POSITION,
@@ -14,6 +14,8 @@ import {
   MIN_PATH_LENGTH,
   addPlayer,
   ballPathMidpoint,
+  ensureSequenced,
+  nextSeq,
   newDiagram,
   newStep,
   removePlayer,
@@ -194,7 +196,11 @@ export function boardMoveBallPath(d: CourtDiagramV2, stepIndex: number, from: nu
   const next = [...balls];
   const [moved] = next.splice(from, 1);
   next.splice(to, 0, moved);
-  return withStep(d, stepIndex, (s) => withBalls(s, next));
+  // PAD-311 (rules 23, 26): the balls take each other's places in the play
+  // order; movements keep theirs. A legacy step has no seq to move.
+  const places = balls.map((b) => b.seq);
+  const ordered = next.map((b, i) => (typeof places[i] === "number" ? { ...b, seq: places[i] } : b));
+  return withStep(d, stepIndex, (s) => withBalls(s, ordered));
 }
 
 /** Remove one path of the step (rule 23); removing the last leaves the step without a ball. */
@@ -212,12 +218,21 @@ export function boardRemoveBallPath(d: CourtDiagramV2, stepIndex: number, pathIn
 function moveOrRecord(d: CourtDiagramV2, state: BoardState, id: string, to: Point): CourtDiagramV2 {
   const piece = d.pieces.find((p) => p.id === id);
   if (state.stepIndex > 0 && piece?.kind === "player") {
-    return withStep(d, state.stepIndex, (s) => ({
-      ...s,
-      movements: [...s.movements.filter((m) => m.pieceId !== id), { pieceId: id, to }],
-    }));
+    return withStep(d, state.stepIndex, (s) => {
+      const base = ensureSequenced(s);
+      return {
+        ...base,
+        movements: [...base.movements.filter((m) => m.pieceId !== id), { pieceId: id, to, seq: nextSeq(base) }],
+      };
+    });
   }
   return boardMovePiece(d, id, to);
+}
+
+/** Append a ball path stamped with its place in the step's play order (rules 23, 26). */
+function appendBall(s: Step, path: BallPath): Step {
+  const base = ensureSequenced(s);
+  return withBalls(base, [...stepBalls(base), { ...path, seq: nextSeq(base) }]);
 }
 
 /** Where a player's last leg in `step` ends, or null when it does not move there (PAD-309). */
@@ -310,7 +325,7 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
         return {
           state: { ...state, pending: null },
           // PAD-289: each feed is appended to the step's ordered paths (rule 23)
-          diagram: withStep(d, state.stepIndex, (s) => withBalls(s, [...stepBalls(s), { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" }])),
+          diagram: withStep(d, state.stepIndex, (s) => appendBall(s, { from: { x: feeder.x, y: feeder.y }, to: pt, style: "flat" })),
         };
       }
       const pending = state.pending;
@@ -318,7 +333,7 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
         return {
           state: { ...state, pending: null },
           // PAD-289: appended, never replaced (rules 9, 23)
-          diagram: withStep(d, state.stepIndex, (s) => withBalls(s, [...stepBalls(s), { from: pending.from, to: pt, style: "flat" }])),
+          diagram: withStep(d, state.stepIndex, (s) => appendBall(s, { from: pending.from, to: pt, style: "flat" })),
         };
       }
       return { state: { ...state, pending: { kind: "ball", from: pt } } };
@@ -335,10 +350,11 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
       return {
         // the player stays armed: the next press on the court is its next leg
         state: { ...state, pendingPlayerId: playerId, pending: { kind: "movement", from: pt } },
-        diagram: withStep(d, state.stepIndex, (s) => ({
-          ...s,
-          movements: [...s.movements, { pieceId: playerId, to: pt }],
-        })),
+        diagram: withStep(d, state.stepIndex, (s) => {
+          // PAD-311 (rule 26): stamped with its place in the step's play order
+          const base = ensureSequenced(s);
+          return { ...base, movements: [...base.movements, { pieceId: playerId, to: pt, seq: nextSeq(base) }] };
+        }),
       };
     }
     case "cone": {

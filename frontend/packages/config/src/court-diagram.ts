@@ -274,8 +274,98 @@ export function movementPathD(from: Point, to: Point): string {
 /** How long one ball path takes on ▶ AUTO (rule 20). */
 export const STEP_DURATION_MS = 800;
 
-/** A step lasts 800 ms per ball path, at least one (rule 20, PAD-289). */
+// ── Sequencing (rule 26, PAD-311) ────────────────────────────────────────────
+
+/** One moment of a sequenced step: a ball path alone, or movements in parallel. */
+export type StepMoment = { kind: "ball"; ball: number } | { kind: "move"; moves: number[] };
+
+/** A step is sequenced once any of its actions carries a `seq` (rule 26). */
+export function isSequencedStep(step: Step | undefined): boolean {
+  if (!step) return false;
+  return stepBalls(step).some((b) => typeof b.seq === "number") || step.movements.some((m) => typeof m.seq === "number");
+}
+
+/** The seq the next action drawn into `step` gets. */
+export function nextSeq(step: Step | undefined): number {
+  if (!step) return 0;
+  let max = -1;
+  for (const b of stepBalls(step)) if (typeof b.seq === "number") max = Math.max(max, b.seq);
+  for (const m of step.movements) if (typeof m.seq === "number") max = Math.max(max, m.seq);
+  return max + 1;
+}
+
+/**
+ * A legacy step about to receive a sequenced action: stamp what it already
+ * holds, balls in list order then movements in list order (rule 26). A step
+ * that is already sequenced, or empty, is returned unchanged.
+ */
+export function ensureSequenced(step: Step): Step {
+  if (isSequencedStep(step)) return step;
+  const balls = stepBalls(step);
+  if (balls.length === 0 && step.movements.length === 0) return step;
+  const stamped = withBalls(step, balls.map((b, i) => ({ ...b, seq: i })));
+  return { ...stamped, movements: step.movements.map((m, i) => ({ ...m, seq: balls.length + i })) };
+}
+
+/**
+ * The moments of a sequenced step in play order, or null for a legacy step
+ * (rule 26). A ball path is a moment of its own; consecutive movements of
+ * different players share one; a player already moving starts the next.
+ */
+export function stepTimeline(step: Step | undefined): StepMoment[] | null {
+  if (!step || !isSequencedStep(step)) return null;
+  const balls = stepBalls(step);
+  const actions = [
+    ...balls.map((b, i) => ({ kind: "ball" as const, index: i, seq: b.seq ?? -1, order: i })),
+    ...step.movements.map((m, i) => ({ kind: "move" as const, index: i, seq: m.seq ?? -1, order: balls.length + i })),
+  ].sort((a, b) => a.seq - b.seq || a.order - b.order);
+  const moments: StepMoment[] = [];
+  for (const action of actions) {
+    if (action.kind === "ball") {
+      moments.push({ kind: "ball", ball: action.index });
+      continue;
+    }
+    const last = moments[moments.length - 1];
+    const pieceId = step.movements[action.index].pieceId;
+    if (last && last.kind === "move" && !last.moves.some((i) => step.movements[i].pieceId === pieceId)) {
+      last.moves.push(action.index);
+    } else {
+      moments.push({ kind: "move", moves: [action.index] });
+    }
+  }
+  return moments;
+}
+
+/**
+ * The number each action shows on the court (rules 23, 26): its moment in a
+ * sequenced step with more than one moment; in a legacy step only the ball
+ * paths, 1..n, when there are several. `null` means no number.
+ */
+export function stepActionNumbers(step: Step | undefined): { balls: (number | null)[]; movements: (number | null)[] } {
+  const balls = stepBalls(step);
+  const movements = step?.movements ?? [];
+  const timeline = stepTimeline(step);
+  if (!timeline) {
+    return { balls: balls.map((_, i) => (balls.length > 1 ? i + 1 : null)), movements: movements.map(() => null) };
+  }
+  const ballNumbers: (number | null)[] = balls.map(() => null);
+  const moveNumbers: (number | null)[] = movements.map(() => null);
+  if (timeline.length > 1) {
+    timeline.forEach((moment, i) => {
+      if (moment.kind === "ball") ballNumbers[moment.ball] = i + 1;
+      else for (const m of moment.moves) moveNumbers[m] = i + 1;
+    });
+  }
+  return { balls: ballNumbers, movements: moveNumbers };
+}
+
+/**
+ * A legacy step lasts 800 ms per ball path, at least one (rule 20, PAD-289); a
+ * sequenced step 800 ms per moment (rule 26).
+ */
 export function stepDurationMs(step: Step | undefined): number {
+  const timeline = stepTimeline(step);
+  if (timeline) return STEP_DURATION_MS * Math.max(1, timeline.length);
   return STEP_DURATION_MS * Math.max(1, stepBalls(step).length);
 }
 
@@ -355,6 +445,8 @@ export interface MovementLeg {
   to: Point;
   /** 0 for the player's first leg in the step, 1 for the next, … */
   leg: number;
+  /** Position of this movement in `step.movements` (PAD-311: indexes `stepActionNumbers`). */
+  index: number;
 }
 
 /**
@@ -368,14 +460,14 @@ export function movementLegs(step: Step | undefined, startOf: (pieceId: string) 
   if (!step) return [];
   const at = new Map<string, { point: Point; leg: number }>();
   const legs: MovementLeg[] = [];
-  for (const m of step.movements) {
+  step.movements.forEach((m, index) => {
     const current = at.get(m.pieceId);
     const from = current?.point ?? startOf(m.pieceId);
-    if (!from) continue;
+    if (!from) return;
     const leg = current ? current.leg + 1 : 0;
-    legs.push({ pieceId: m.pieceId, from, to: m.to, leg });
+    legs.push({ pieceId: m.pieceId, from, to: m.to, leg, index });
     at.set(m.pieceId, { point: m.to, leg });
-  }
+  });
   return legs;
 }
 
@@ -407,6 +499,8 @@ export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { 
   const pieces = piecesAtStep(d, index);
   if (!step) return { pieces };
   const k = Math.min(1, Math.max(0, t));
+  const timeline = stepTimeline(step);
+  if (timeline) return interpolateSequenced(step, timeline, pieces, k);
   const startOf = (id: string) => {
     const p = pieces.find((x) => x.id === id);
     return p && p.kind !== "stroke" ? { x: p.x, y: p.y } : null;
@@ -432,6 +526,37 @@ export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { 
     const scaled = k * balls.length;
     const i = Math.min(balls.length - 1, Math.floor(scaled));
     ball = pointOnBallPath(balls[i], k >= 1 ? 1 : scaled - i);
+  }
+  return { pieces, ball };
+}
+
+/**
+ * One frame of a sequenced step (rule 26): the moments before the current one
+ * have played, the current one is at `u`, later ones have not started. The ball
+ * rests where the last ball path ended (before any: at the first path's start).
+ */
+function interpolateSequenced(step: Step, timeline: StepMoment[], pieces: Piece[], k: number): { pieces: Piece[]; ball?: Point } {
+  const balls = stepBalls(step);
+  const n = Math.max(1, timeline.length);
+  const scaled = k * n;
+  const current = k >= 1 ? n - 1 : Math.min(n - 1, Math.floor(scaled));
+  const u = k >= 1 ? 1 : scaled - current;
+  let ball: Point | undefined = balls.length ? balls[0].from : undefined;
+  for (let i = 0; i <= current && i < timeline.length; i++) {
+    const moment = timeline[i];
+    const local = i < current ? 1 : u;
+    if (moment.kind === "ball") {
+      ball = pointOnBallPath(balls[moment.ball], local);
+      continue;
+    }
+    for (const index of moment.moves) {
+      const mv = step.movements[index];
+      const piece = pieces.find((p) => p.id === mv.pieceId);
+      if (!piece || piece.kind === "stroke") continue;
+      const at = lerp({ x: piece.x, y: piece.y }, mv.to, local);
+      piece.x = at.x;
+      piece.y = at.y;
+    }
   }
   return { pieces, ball };
 }

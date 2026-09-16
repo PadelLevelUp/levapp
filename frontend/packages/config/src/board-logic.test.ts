@@ -41,7 +41,7 @@ describe("boardPress — Bola", () => {
     expect(r1.diagram).toBeUndefined();
     expect(r1.state.pending).toEqual({ kind: "ball", from: { x: 58, y: 20 } });
     const r2 = boardPress(game(), r1.state, { x: 40, y: 80 }, null);
-    expect(r2.diagram?.steps[0].ball).toEqual({ from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" });
+    expect(r2.diagram?.steps[0].ball).toMatchObject({ from: { x: 58, y: 20 }, to: { x: 40, y: 80 }, style: "flat" });
     expect(r2.state.pending).toBeNull();
   });
 
@@ -69,7 +69,7 @@ describe("boardPress — Movimentação", () => {
     expect(r1.diagram).toBeUndefined();
     expect(r1.state.pendingPlayerId).toBe("a1");
     const r2 = boardPress(game(), r1.state, { x: 20, y: 40 }, null);
-    expect(r2.diagram?.steps[0].movements).toEqual([{ pieceId: "a1", to: { x: 20, y: 40 } }]);
+    expect(r2.diagram?.steps[0].movements).toMatchObject([{ pieceId: "a1", to: { x: 20, y: 40 } }]);
     // PAD-309: the player stays armed for a further leg (rule 10).
     expect(r2.state.pendingPlayerId).toBe("a1");
   });
@@ -82,7 +82,7 @@ describe("boardPress — Movimentação", () => {
     expect(r2.state.pendingPlayerId).toBe("a1");
     expect(r2.state.pending).toEqual({ kind: "movement", from: { x: 20, y: 40 } });
     const r3 = boardPress(r2.diagram!, r2.state, { x: 10, y: 60 }, null);
-    expect(r3.diagram?.steps[0].movements).toEqual([
+    expect(r3.diagram?.steps[0].movements).toMatchObject([
       { pieceId: "a1", to: { x: 20, y: 40 } },
       { pieceId: "a1", to: { x: 10, y: 60 } },
     ]);
@@ -94,7 +94,7 @@ describe("boardPress — Movimentação", () => {
     const again = boardPress(d1, state, { x: 32, y: 26 }, a1);
     expect(again.state.pending).toEqual({ kind: "movement", from: { x: 20, y: 40 } });
     const d2 = boardPress(d1, again.state, { x: 10, y: 50 }, null).diagram!;
-    expect(d2.steps[0].movements).toEqual([
+    expect(d2.steps[0].movements).toMatchObject([
       { pieceId: "a1", to: { x: 20, y: 40 } },
       { pieceId: "a1", to: { x: 10, y: 50 } },
     ]);
@@ -174,7 +174,7 @@ describe("boardPress — basket tools (rule 15)", () => {
   it("Bola runs from the feeder to the tapped point in one press", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "ball" };
     const r = boardPress(basket(), state, { x: 30, y: 18 }, null);
-    expect(r.diagram?.steps[0].ball).toEqual({ from: { x: feeder().x, y: feeder().y }, to: { x: 30, y: 18 }, style: "flat" });
+    expect(r.diagram?.steps[0].ball).toMatchObject({ from: { x: feeder().x, y: feeder().y }, to: { x: 30, y: 18 }, style: "flat" });
     expect(r.state.pending).toBeNull();
   });
 
@@ -291,7 +291,7 @@ describe("step management (rule 18)", () => {
     const s1 = { ...added.state, tool: "ball" as const };
     const r1 = boardPress(added.diagram, s1, { x: 20, y: 40 }, null);
     const r2 = boardPress(added.diagram, r1.state, { x: 60, y: 60 }, null);
-    expect(r2.diagram?.steps[1].ball).toEqual({ from: { x: 20, y: 40 }, to: { x: 60, y: 60 }, style: "flat" });
+    expect(r2.diagram?.steps[1].ball).toMatchObject({ from: { x: 20, y: 40 }, to: { x: 60, y: 60 }, style: "flat" });
     expect(r2.diagram?.steps[0].ball).toBeUndefined();
     expect(boardToggleBallStyle(r2.diagram!, 1).steps[1].ball?.style).toBe("lob");
     expect(boardToggleBallStyle(r2.diagram!, 0)).toBe(r2.diagram);
