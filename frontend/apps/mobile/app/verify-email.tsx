@@ -72,9 +72,19 @@ export default function VerifyEmailScreen() {
 
   const email = user?.email ?? "";
 
+  // PROBE ONLY (B-089 face C trace).
+  React.useEffect(() => {
+    console.log(`D314 verify-mount t=${Date.now()}`);
+    return () => console.log(`D314 verify-unmount t=${Date.now()}`);
+  }, []);
+  React.useEffect(() => {
+    console.log(`D314 submitting=${submitting} t=${Date.now()}`);
+  }, [submitting]);
   const leave = React.useCallback(
-    (me: authApi.MeResponse | null | undefined = user) => {
+    (me: authApi.MeResponse | null | undefined = user, from: string = "?") => {
+      console.log(`D314 leave from=${from} to=${String(next ?? postLoginLanding(me))} t=${Date.now()}`);
       router.replace((next ?? postLoginLanding(me)) as never);
+      console.log(`D314 replace-returned from=${from} t=${Date.now()}`);
     },
     [next, user]
   );
@@ -117,7 +127,7 @@ export default function VerifyEmailScreen() {
   React.useEffect(() => {
     if (!user) return;
     if (user.emailVerification === "verified" || !user.email) {
-      leave();
+      leave(user, "effect");
       return;
     }
     if (user.emailVerification !== "pending" && !autoSent.current) {
@@ -134,9 +144,12 @@ export default function VerifyEmailScreen() {
       setError(null);
       try {
         const me = await authApi.confirmEmailVerificationCode(value);
+        console.log(`D314 confirm-ok t=${Date.now()}`);
         await refreshUser();
+        console.log(`D314 refresh-done t=${Date.now()}`);
         toast.success(t("auth.verifyEmail.verified"));
-        leave(me);
+        console.log(`D314 toast-called t=${Date.now()}`);
+        leave(me, "submit");
       } catch (err) {
         const status = (err as ApiErr).response?.status;
         const data = (err as ApiErr).response?.data;

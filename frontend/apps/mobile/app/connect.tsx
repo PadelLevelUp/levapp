@@ -23,6 +23,11 @@ import { Text } from "@/components/ui/text";
  * student can paste the link a coach sent them instead.
  */
 export default function ConnectScreen() {
+  // PROBE ONLY (B-089 face C trace).
+  React.useEffect(() => {
+    console.log(`D314 connect-mount t=${Date.now()}`);
+    return () => console.log(`D314 connect-unmount t=${Date.now()}`);
+  }, []);
   const { t } = useTranslation();
   const [value, setValue] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
