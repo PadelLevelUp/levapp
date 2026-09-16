@@ -228,9 +228,12 @@ export function MessageBubble({
   if (message.isDeleted) {
     return (
       <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
-        <div className={`rounded-2xl px-3.5 py-2 italic text-sm text-muted-foreground bg-muted border border-border shadow-sm ${
-          isMine ? (showTail ? 'rounded-br-md' : '') : (showTail ? 'rounded-bl-md' : '')
-        }`}>
+        <div
+          className={`rounded-2xl px-3.5 py-2 italic text-sm text-muted-foreground bg-muted border border-border shadow-sm ${
+            isMine ? (showTail ? 'rounded-br-md' : '') : (showTail ? 'rounded-bl-md' : '')
+          }`}
+          data-testid="message-bubble-deleted"
+        >
           {t("messages.messageDeleted")}
         </div>
       </div>
