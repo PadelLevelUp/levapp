@@ -4,7 +4,7 @@ Revision ID: 5f2a0bb50712
 Revises: fed5ed4916a8
 Create Date: 2026-09-11
 
-classes.instances rule 9 and notifications.invitations rule 13. Two indexes:
+classes.instances rule 9 and notifications.invitations rule 14. Two indexes:
 
 1. ``uq_lesson_instance_occurrence`` UNIQUE on
    ``lesson_instances (lesson_id, original_lesson_occurence_date)`` — the occurrence

@@ -107,7 +107,7 @@ scan in the migration's dry run against a fresh prod copy before promoting — t
 - **Step 3 + 5:** migration `5f2a0bb50712` (after `fed5ed4916a8`) creates `uq_lesson_instance_occurrence`
   and the partial `uq_vacancies_open_original_player`, drops PAD-263's plain occurrence index, and
   REFUSES with the offending groups if any exist (never skips); downgrade restores the prior state.
-  Declared on the models. Specs: `classes.instances` rule 9, `notifications.invitations` rule 13.
+  Declared on the models. Specs: `classes.instances` rule 9, `notifications.invitations` rule 14 (renumbered on the 2026-09-16 rebase: PAD-271 holds 13, PAD-317 holds 15).
 - **Step 4:** not needed — PAD-261's per-series lock already serialises materialisation, so the
   unique index turns a lost race into a second caller finding the first row, never an IntegrityError
   in a request path.
