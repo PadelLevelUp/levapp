@@ -3,9 +3,9 @@
 # (Flow number 60 is from Session E's reserved range.) The clock arithmetic is
 # unit-tested in @levelup/config (board-playback-speed.test.ts); this flow proves
 # the control is on the iOS board and selectable.
-# Playback itself is NOT asserted here: on 2026-09-16 the iOS board's ▶ AUTO did
-# not start playback on this build or on origin/staging (ledger B-114). Once
-# B-114 is fixed, extend this flow to press AUTO at Lento and Rápido.
+# Playback itself is NOT asserted here: Maestro on iOS cannot observe the board
+# mid-playback (tapOn and queries wait for the UI to settle, so they land after
+# AUTO ends), although AUTO plays on schedule (ledger B-114).
 #
 # Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
 appId: com.padellevelup.app
