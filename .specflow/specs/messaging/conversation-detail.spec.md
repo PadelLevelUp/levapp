@@ -66,8 +66,28 @@ through the history without the thread ever moving under the reader.
     competing buttons. Both shells
 13. The composer row is padded symmetrically: the space below the input equals the space above it. While the keyboard is open the row adds no extra bottom inset (the keyboard already covers the home indicator); while the keyboard is down the row clears the home indicator by the safe-area inset
 14. The send control is an icon button with the same height as the single-line input, the standard button corner radius (not a circle), and the outline paper-plane glyph — identical on web and iOS
+15. **A message whose class is gone says so (PAD-325; number from Session E's range).** A message
+    can point at a class occurrence through `metadata.lessonInstanceId` (older rows:
+    `metadata.instanceId`), with no foreign key (ledger B-059). Every serialized message carries
+    `classDeleted: boolean`, which is true when that id no longer resolves to a `lesson_instances`
+    row. It is derived on read for the whole list with **one** lookup per conversation page (never
+    one per message) and never stored. A single message serialized on the realtime path (just
+    created or edited, about a class that exists) opts out explicitly and reads `false`. The
+    field is additive: clients that ignore it (App Store 1.0/1.1.0) behave as before. On both
+    shells a message with `classDeleted` shows, in place of its reminder area (Yes/No, confirmed
+    plus cancel attendance, absent, expired) or its waiting-list offer area, one muted note
+    "this class no longer exists" (`message-class-deleted`) and no answer buttons, because every
+    answer would act on a class that is gone. No message bubble links to a class, so there is
+    no link to retire. An invite's Yes/No keys on its notification event, not the instance, and
+    is unchanged.
 
 ### Acceptance Criteria
+
+#### A reminder for a deleted class offers no answer (PAD-325)
+- **Given** a student's thread holds a reminder whose class occurrence was deleted, and a reminder for a live class
+- **When** the thread loads
+- **Then** the deleted-class reminder shows `message-class-deleted` and no Yes/No; the live one shows its Yes/No and no note
+- **And** the conversation payload flags only the first (`classDeleted: true`), with one `lesson_instances` lookup for the page
 
 #### Coach participant shown with correct role
 - **Given** a conversation whose other participant is a coach

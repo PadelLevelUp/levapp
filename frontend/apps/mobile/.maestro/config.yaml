@@ -29,6 +29,8 @@ executionOrder:
     # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
     # itself, so it sits early, beside the other player-detail flow.
     - 57-evaluation-untouched-categories
+    # 58 (PAD-325) reads only: opens a class id no seed creates.
+    - 58-class-gone-way-back
     - 09-direct-messages
     - 10-exercise-crud
     - 11-exercise-groups
@@ -79,6 +81,10 @@ executionOrder:
     - 40-admin-coach-approval-switch
     # 41 creates its own exercise (PAD-289), so its position is not load bearing.
     - 41-tactical-board-ball-paths
+    # 59 (PAD-309) never saves its exercise, so its position is not load bearing.
+    - 59-tactical-board-movement-legs
+    # 60 (PAD-310) never saves its exercise, so its position is not load bearing.
+    - 60-tactical-board-speed
     # PAD-300: the five flows below arrived with prefixes already taken (19, 22,
     # 23, 28, 29) and were renumbered 43–47 (coordinator, 2026-09-11); each one
     # creates and cleans up its own fixtures, so their positions are not load

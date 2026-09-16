@@ -26,6 +26,12 @@ import {
   MAX_BASKET_PLAYERS,
   piecesAtStep,
   playbackFrameAt,
+  PLAYBACK_SPEEDS,
+  clockElapsed,
+  clockWithSpeed,
+  startClock,
+  type PlaybackClock,
+  type PlaybackSpeedKey,
   playerCount,
   stepBalls,
   stepCount,
@@ -116,6 +122,14 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   const [playback, setPlayback] = useState<{ step: number; t: number } | null>(null);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // PAD-310 (rule 25): AUTO's speed, and the clock that runs at it.
+  const [speed, setSpeed] = useState<PlaybackSpeedKey>("normal");
+  const clock = useRef<PlaybackClock>(startClock(0, PLAYBACK_SPEEDS.normal));
+  const changeSpeed = (next: PlaybackSpeedKey) => {
+    setSpeed(next);
+    // mid-play: keep the position, continue at the new rate
+    clock.current = clockWithSpeed(clock.current, Date.now(), PLAYBACK_SPEEDS[next]);
+  };
 
   const stopPlayback = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -145,12 +159,13 @@ export function TacticalBoard({ value, onChange, className }: Props) {
   const startAuto = () => {
     if (diagram.steps.length === 0) return;
     stopPlayback();
-    const startedAt = Date.now();
+    clock.current = startClock(Date.now(), PLAYBACK_SPEEDS[speed]);
     setPlaying(true);
     setPlayback({ step: 0, t: 0 });
     timer.current = setInterval(() => {
       // PAD-289 (rule 20): a step lasts 800 ms per ball path; the shared scheduler decides.
-      const frame = playbackFrameAt(diagram, Date.now() - startedAt);
+      // PAD-310 (rule 25): at the chosen speed.
+      const frame = playbackFrameAt(diagram, clockElapsed(clock.current, Date.now()));
       if (!frame) {
         stopPlayback();
         return;
@@ -460,6 +475,27 @@ export function TacticalBoard({ value, onChange, className }: Props) {
         <button type="button" aria-label={playing ? t("training.board.playback.stop") : t("training.board.playback.auto")} aria-pressed={playing} data-testid="board-auto" disabled={steps === 0} onClick={playing ? stopPlayback : startAuto} className="rounded-full bg-primary px-5 py-2 text-xs font-bold tracking-[0.06em] text-primary-foreground disabled:opacity-40">
           {playing ? t("training.board.playback.stop") : t("training.board.playback.auto")}
         </button>
+      </div>
+
+      {/* playback speed (PAD-310, rule 25) */}
+      <div role="radiogroup" aria-label={t("training.board.playback.speed")} data-testid="board-speed" className="flex flex-wrap items-center gap-2 px-6 pb-3">
+        <span className="text-[11px] font-semibold text-sidebar-foreground/70">{t("training.board.playback.speed")}</span>
+        {(["slow", "normal", "fast"] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={speed === key}
+            data-testid={`board-speed-${key}`}
+            onClick={() => changeSpeed(key)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+              speed === key ? "border-white bg-white/15 text-white" : "border-white/15 text-sidebar-foreground/70 hover:text-white"
+            )}
+          >
+            {t(`training.board.playback.speeds.${key}`)}
+          </button>
+        ))}
       </div>
 
       {/* ball paths of the current step (PAD-289, rule 23) */}

@@ -366,6 +366,15 @@ export interface Presence {
    */
   reminderSentAt?: string | null;
   /**
+   * PAD-271 (attendance.presence rule 7): the student's own answer, kept apart
+   * from the coach's `status`. `lateCancellation` is derived server-side from
+   * `response` + `respondedAt` against the cancellation deadline.
+   */
+  response?: 'none' | 'confirmed' | 'declined' | 'cancelled' | 'proactive_decline';
+  respondedAt?: string | null;
+  recordedBy?: 'student' | 'coach' | 'system' | 'import' | null;
+  lateCancellation?: boolean;
+  /**
    * PAD-313 (`attendance.presence` rule 9): the ONE state of this row, derived
    * server-side — `planned` | `coming` | `not_coming` | `attended` | `missed`.
    * While the coach has not validated it reports the student's intent; once
@@ -478,6 +487,12 @@ export interface Message {
   replyTo?: string | number | null;
   edited?: boolean;
   isDeleted?: boolean;
+  /**
+   * messaging.conversation-detail rule 15 (PAD-325): the class this message
+   * points at (`metadata.lessonInstanceId`) was deleted. Derived by the server
+   * per conversation page; absent from older servers, so treat as false.
+   */
+  classDeleted?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
   actions?: MessageAction[];
   messageType?: string;

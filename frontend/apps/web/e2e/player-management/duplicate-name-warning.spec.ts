@@ -15,7 +15,9 @@ test.describe("PAD-17: Duplicate player name warning in creation", () => {
   }) => {
     await page.getByRole("button", { name: /add player/i }).click();
 
-    const nameInput = page.getByPlaceholder("e.g. John Doe");
+    // The sheet's name field, located by its stable id rather than its
+    // (translated) placeholder — the page renders pt in E2E.
+    const nameInput = page.locator("#player-name");
     // "E2E Student" is a seeded player; type it in a different case.
     await nameInput.fill("e2e student");
 
@@ -32,7 +34,7 @@ test.describe("PAD-17: Duplicate player name warning in creation", () => {
   test("PAD-17: no warning for a genuinely new name", async ({ page }) => {
     await page.getByRole("button", { name: /add player/i }).click();
 
-    const nameInput = page.getByPlaceholder("e.g. John Doe");
+    const nameInput = page.locator("#player-name");
     await nameInput.fill("Totally Unique Newcomer");
 
     const warning = page.getByText(/already have a player.*this name|possible duplicate|duplicate name/i);

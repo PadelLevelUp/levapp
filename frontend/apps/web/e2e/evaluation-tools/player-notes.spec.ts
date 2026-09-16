@@ -16,14 +16,14 @@ test.beforeEach(async ({ page }) => {
 // US-44: Coach adds a strength note to a player
 test("US-44: coach adds a strength note", async ({ page }) => {
   // Wait for the Strengths & Weaknesses section to appear
-  await expect(page.getByText("Strengths & Weaknesses")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("sw-section")).toBeVisible({ timeout: 5000 });
 
   // The S&W section has its own "Edit" button — it is the last "Edit" on the page
   // (PlayerHeader has the first "Edit"; S&W section has the last)
   await page.getByRole("button", { name: "Edit" }).last().click();
 
   // After clicking Edit, the strength input appears
-  const input = page.getByPlaceholder("Add a strength...");
+  const input = page.getByTestId("sw-add-strength-input");
   await expect(input).toBeVisible({ timeout: 3000 });
   await input.fill("Consistent serve");
 
@@ -35,13 +35,13 @@ test("US-44: coach adds a strength note", async ({ page }) => {
 
 // US-45: Coach adds a weakness note to a player
 test("US-45: coach adds a weakness note", async ({ page }) => {
-  await expect(page.getByText("Strengths & Weaknesses")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("sw-section")).toBeVisible({ timeout: 5000 });
 
   // Toggle edit mode on the S&W section
   await page.getByRole("button", { name: "Edit" }).last().click();
 
   // Fill the weakness input
-  const input = page.getByPlaceholder("Add a weakness...");
+  const input = page.getByTestId("sw-add-weakness-input");
   await expect(input).toBeVisible({ timeout: 3000 });
   await input.fill("Backhand under pressure");
 

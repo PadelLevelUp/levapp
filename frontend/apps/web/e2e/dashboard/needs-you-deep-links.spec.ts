@@ -9,6 +9,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
+import { ui } from "../helpers/i18n";
 
 async function openDashboard(page: import("@playwright/test").Page) {
   const dashboard = page.waitForResponse((r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200);
@@ -41,5 +42,5 @@ test("PAD-285: Convidar opens the class with Notificar already open", async ({ p
   // the outer sheet's focus trap marks it aria-hidden, which role queries skip.
   const notify = page.getByTestId("notify-students-dialog");
   await expect(notify).toBeVisible({ timeout: 15_000 });
-  await expect(notify).toContainText(/Notificar alunos|Notify students/);
+  await expect(notify).toContainText(ui("calendar.notify.title", { exact: false }));
 });

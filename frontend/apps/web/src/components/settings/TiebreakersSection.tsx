@@ -75,7 +75,7 @@ export function TiebreakersSection({ tiebreakers, onChange, disabled }: Tiebreak
             {idx + 1}
           </span>
 
-          <span className="flex-1 text-sm">
+          <span className="flex-1 text-sm" data-testid={`tiebreaker-label-${tiebreaker.id}`}>
             {TIEBREAKER_LABEL_KEYS[tiebreaker.id]
               ? t(TIEBREAKER_LABEL_KEYS[tiebreaker.id])
               : tiebreaker.label}

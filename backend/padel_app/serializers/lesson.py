@@ -103,7 +103,7 @@ def serialize_lesson_instance(instance):
 
         "name": lesson.title if lesson else None,
         "color": lesson.color if lesson else None,
-        "maxPlayers": instance.max_players,
+        "maxPlayers": instance.effective_max_players,
     }
 
     
@@ -148,10 +148,8 @@ def overridden_fields_for(instance) -> list:
     level_id = getattr(instance, "level_id", None)
     if level_id is not None and (lesson is None or level_id != lesson.default_level_id):
         out.append("level")
-    # `maxPlayers` is NOT derivable until the per-occurrence override column
-    # exists (`classes.edit` rule 4, migration f50214af74f1, batch 7): the
-    # copied `max_players` is written on every materialisation, so deriving
-    # from it would report a capacity override on every occurrence.
+    if getattr(instance, "max_players_override", None) is not None:
+        out.append("maxPlayers")
     if getattr(instance, "notes", None):
         out.append("notes")
     return out

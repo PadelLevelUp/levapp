@@ -25,7 +25,6 @@ def _h(app, user_id):
 def world(app):
     from padel_app.models import (
         User, Player, Presence, Association_CoachClub, Association_CoachPlayer,
-        Association_PlayerLessonInstance,
     )
     from padel_app.models.coaches import Coach
     from padel_app.models.clubs import Club
@@ -71,7 +70,6 @@ def world(app):
                               status="scheduled", notifications_enabled=True)
         db.session.add(inst); db.session.flush()
         db.session.add(Association_CoachLessonInstance(coach_id=ana.id, lesson_instance_id=inst.id))
-        db.session.add(Association_PlayerLessonInstance(player_id=rui.id, lesson_instance_id=inst.id))
         db.session.add(Presence(lesson_instance_id=inst.id, player_id=rui.id, invited=True, confirmed=True))
         db.session.commit()
         return {

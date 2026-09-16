@@ -3,7 +3,7 @@ id: B-089
 title: "Android: a portal dialog can be drawn without its React component, or dimmed without its content"
 type: incomplete-rule
 severity: high
-status: open
+status: resolved
 affects:
   - mobile.android-runtime
   - frontend/apps/mobile/src/components/ui/dialog.tsx
@@ -73,7 +73,7 @@ work around the defect today and must be simplified when it is fixed:
 
 ### Resolution
 
-**Partial — face A resolved, faces B and C open.** Status stays `open`.
+**Resolved — faces A, B and C fixed in PAD-314** (#251, #311, #330).
 
 - **Face A (content without a component) — resolved in PAD-314, PR #251.** Portal surfaces keep
   their fade-in and drop the exit animation on Android (`src/lib/dialog-motion.ts`); iOS keeps
@@ -83,11 +83,25 @@ work around the defect today and must be simplified when it is fixed:
   Root cause section remains **inferred, not demonstrated**: the fix changes the animation rather
   than instrumenting Fabric's mount, so what is proven is that removing the exit animation removes
   the symptom.
-- **Face B (overlay without content) — open.** Occurred once in 20 iterations of flow 52 on the
-  FIXED build (run 34782038154), so it is not gone. The pre-fix build read 0 in 20 (run
-  34782075764); at that sample size the two numbers are indistinguishable, so no claim is made
-  about whether the fix changed its rate. Instrumenting Fabric's mount is authorised and is the
-  next step, preceded by more iterations.
+- **Face B (overlay without content) — resolved in PAD-314 (Session D, 2026-09-16).** Localised by
+  measurement. On a build with a `B089` mount/layout trace, flow 52 (named alone, 60 iterations)
+  failed on **iteration 1** (run 35114681841):
+  - The alert dialog's overlay mounted and laid out at 411×914 dp.
+  - Its content laid out at 398×216 dp, centred.
+  - The entering `FadeIn` reported `finished: true` 5 ms after mount.
+  - Maestro's device log skipped the content node as "invisible", at bounds `Rect(18, 917 – 1062,
+    1483)`, exactly the content at 2.625×.
+  - The screenshot shows the form dimmed and no dialog.
+  - There was no remount or unmount, so the portal-host keying lead was refuted.
+  - The keyboard's IME inset animation was force-finished at the same instant.
+
+  So the entering layout animation ended without taking the content to opacity 1. The same build
+  without the Android entering animation passed **60 of 60** (run 35114685284). The fix: portal
+  surfaces carry no entering animation on Android either (`src/lib/dialog-motion.ts`,
+  `mobile.android-runtime` rule 9). Flow 52 lost its `open-defect-probe` tag and is a suite guard.
+  Why the animation ends early is not demonstrated (the concurrent IME animation is the
+  best-fitting candidate); what is demonstrated is where the content was stuck and that removing
+  the animation removes it.
 - **Face C (blank surface after the post-verification transition) — fixed in PAD-314 (Session D,
   2026-09-16).** Measured, and deterministic on the Android lane: flow 51 failed at walk 1 in six
   of six runs before the fix. Each run hit one `addViewAt: cannot insert view … View already has a

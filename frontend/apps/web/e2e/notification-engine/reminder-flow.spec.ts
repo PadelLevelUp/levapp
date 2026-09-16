@@ -51,7 +51,7 @@ async function sendNotificationFromModal(page: Page): Promise<boolean> {
   await expect(dialog).toBeVisible({ timeout: 5000 });
 
   // Expand the "All students" group so we can find E2E Student Two
-  const allStudentsGroup = dialog.getByText(/all students/i).first();
+  const allStudentsGroup = dialog.getByTestId("notify-group-all_students");
   const allStudentsVisible = await allStudentsGroup.isVisible({ timeout: 3000 }).catch(() => false);
   if (!allStudentsVisible) {
     await page.getByRole("button", { name: /cancel/i }).first().click().catch(() => null);
@@ -294,7 +294,7 @@ test("US-REM-05: coach can add student to standing waiting list", async ({ page 
   // /notifications/i ("My notifications"), so the old role+name locator is
   // ambiguous for a coach. Target the stable testid instead.
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({ timeout: 5000 });
 
   // Open Standing Waiting List section
   await page.getByRole("button", { name: /standing waiting list/i }).first().click();
@@ -412,20 +412,14 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
   await loginAsCoach(page);
   await openSettings(page);
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({ timeout: 5000 });
 
-  // Locate the Auto-Invite Engine toggle specifically (near "Automatic notifications" text)
-  // Using a broad scoped locator to avoid picking up other switches on the page
-  const autoInviteSection = page.getByText(/auto-invite engine/i).first().locator("..").locator("..");
-  const toggle = autoInviteSection.locator('[role="switch"]').first();
+  // Locate the Auto-Invite Engine toggle specifically, by its own testid.
+  const toggle = page.getByTestId("notification-engine-auto-notify-toggle");
   const toggleVisible = await toggle.isVisible({ timeout: 3000 }).catch(() => false);
   if (!toggleVisible) {
-    // Fallback: find the switch within the auto-invite card
-    const cardToggle = page.locator('[role="switch"]').filter({ has: page.locator("..") }).last();
-    if (!await cardToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      test.skip(true, "Auto-Invite Engine toggle not found");
-      return;
-    }
+    test.skip(true, "Auto-Invite Engine toggle not found");
+    return;
   }
   await expect(toggle).toBeVisible();
 
@@ -453,10 +447,10 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
   // Verify the state persisted by reloading the page
   await page.reload();
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({ timeout: 5000 });
 
-  const autoInviteSectionAfter = page.getByText(/auto-invite engine/i).first().locator("..").locator("..");
-  const afterReload = await autoInviteSectionAfter.locator('[role="switch"]').first().getAttribute("aria-checked");
+  const toggleAfterReload = page.getByTestId("notification-engine-auto-notify-toggle");
+  const afterReload = await toggleAfterReload.getAttribute("aria-checked");
 
   // Toggle should still be in the changed state (save persisted to DB)
   expect(afterReload).toBe(afterToggle);
@@ -467,7 +461,7 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
       (resp) => resp.url().includes("/notify/config") && resp.request().method() === "POST",
       { timeout: 5000 }
     ).catch(() => null),
-    autoInviteSectionAfter.locator('[role="switch"]').first().click(),
+    toggleAfterReload.click(),
   ]);
   await page.waitForTimeout(500);
 });

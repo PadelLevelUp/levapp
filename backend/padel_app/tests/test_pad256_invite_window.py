@@ -66,7 +66,7 @@ def test_min_time_before_class_counts_real_minutes(wall_start, utc_now, allowed)
     restrictions["minTimeBeforeClass"] = {"enabled": True, "value": 60}
     restrictions["maxTotal"] = {"enabled": False, "value": 10}
     instance = SimpleNamespace(id=1, start_datetime=wall_start, status="scheduled", max_players=4,
-                               notifications_enabled=True, players_relations=[], presences=[])
+                               notifications_enabled=True, presences=[])
     with patch("padel_app.services.notification_service.NotificationEvent") as mock_event:
         mock_event.query.filter_by.return_value.filter.return_value.count.return_value = 0
         assert _check_restrictions(instance, coach_id=1, restrictions=restrictions, now=utc_now) is allowed
