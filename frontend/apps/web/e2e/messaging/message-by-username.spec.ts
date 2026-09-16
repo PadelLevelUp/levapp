@@ -7,6 +7,7 @@ import {
   STUDENT2_USERNAME,
 } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * messaging.direct-by-username (PAD-214): a student opens a conversation with
@@ -21,7 +22,7 @@ function usernameForm(page: import("@playwright/test").Page) {
 }
 
 async function openNewConversation(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: /new conversation|nova conversa/i }).click();
+  await page.getByRole("button", { name: ui("messages.newConversation") }).click();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 }
 
@@ -81,7 +82,7 @@ test("US-214: an unknown username is reported inline and nothing opens", async (
   await page.getByTestId("message-by-username-submit").click();
 
   await expect(page.getByTestId("message-by-username-error")).toHaveText(
-    /no user with that username|não existe nenhum utilizador/i,
+    ui("messages.noUserWithUsername"),
     { timeout: 5000 }
   );
   await expect(page.getByRole("dialog")).toBeVisible();

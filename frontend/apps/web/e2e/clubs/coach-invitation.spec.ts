@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 // Seeded in e2e/scripts/seed.py
 const CLUB_NAME = "E2E Club";
@@ -73,21 +74,21 @@ test.describe("clubs.coach-invitation", () => {
 
     // Fill the registration form (Label htmlFor + Input id pattern). The invite
     // page renders in the default locale (pt) pre-auth, so match either language.
-    await invitePage.getByLabel(/^(name|nome)$/i).fill(NEW_COACH_NAME);
+    await invitePage.getByLabel(ui("auth.coachInvite.name")).fill(NEW_COACH_NAME);
     await invitePage
-      .getByLabel(/^(username|nome de utilizador)$/i)
+      .getByLabel(ui("auth.coachInvite.username"))
       .fill(NEW_COACH_USERNAME);
     await invitePage
-      .getByLabel(/^(password|palavra-passe)$/i)
+      .getByLabel(ui("auth.coachInvite.password"))
       .fill(NEW_COACH_PASSWORD);
-    const repeat = invitePage.getByLabel(/repeat password|repetir palavra-passe/i);
+    const repeat = invitePage.getByLabel(ui("auth.coachInvite.repeatPassword"));
     if (await repeat.isVisible({ timeout: 1000 }).catch(() => false)) {
       await repeat.fill(NEW_COACH_PASSWORD);
     }
 
     await invitePage
       .getByRole("button", {
-        name: /join|accept|register|create account|juntar|criar conta/i,
+        name: ui("auth.coachInvite.join"),
       })
       .click();
 
@@ -111,7 +112,7 @@ test.describe("clubs.coach-invitation", () => {
     await expect(
       invitePage
         .getByRole("link", {
-          name: /players|calendar|dashboard|jogadores|calendário|painel/i,
+          name: ui("nav.dashboard"),
         })
         .first()
     ).toBeVisible({ timeout: 10_000 });
@@ -127,7 +128,7 @@ test.describe("clubs.coach-invitation", () => {
     // Pre-auth page renders in the default locale (pt): EN "invalid/expired" or
     // PT "inválido" / "já não é válido".
     await expect(
-      page.getByText(/invalid|expired|no longer valid|inválid|já não é válid/i).first()
+      page.getByText(ui("auth.coachInvite.invalidTitle")).first()
     ).toBeVisible({ timeout: 10_000 });
   });
 });

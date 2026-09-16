@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-90: "Recurs until season end" with no matching season must fail closed.
@@ -37,23 +38,23 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
 
   await expect(
     page
-      .getByRole("heading", { name: /new class/i })
+      .getByRole("heading", { name: ui("calendar.addClass.title") })
       .or(page.getByText(/new class/i).first())
   ).toBeVisible({ timeout: 5000 });
 
   await page.getByPlaceholder(/e\.g\./i).first().fill("PAD-90 Unbounded Class");
   await page.locator('input[type="date"]').first().fill(uncoveredDate());
 
-  await page.getByRole("switch", { name: /^recurring$/i }).click();
+  await page.getByRole("switch", { name: ui("calendar.addClass.recurring") }).click();
 
   const seasonEndSwitch = page.getByRole("switch", {
-    name: /recurs until season end/i,
+    name: ui("calendar.addClass.recursUntilSeasonEnd"),
   });
   await expect(seasonEndSwitch).toBeVisible({ timeout: 5000 });
   await seasonEndSwitch.click();
   await expect(seasonEndSwitch).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: /create class/i }).click();
+  await page.getByRole("button", { name: ui("calendar.addClass.createClass") }).click();
 
   // The sheet stays open and explains why, rather than closing on a class that
   // would have recurred forever.
@@ -78,10 +79,10 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
     .last()
     .fill(end.toISOString().slice(0, 10));
 
-  await page.getByRole("button", { name: /create class/i }).click();
+  await page.getByRole("button", { name: ui("calendar.addClass.createClass") }).click();
 
   // Sheet closed => the create went through.
   await expect(
-    page.getByRole("button", { name: /create class/i })
+    page.getByRole("button", { name: ui("calendar.addClass.createClass") })
   ).toHaveCount(0, { timeout: 10_000 });
 });

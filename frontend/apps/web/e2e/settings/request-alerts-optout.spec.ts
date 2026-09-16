@@ -11,15 +11,16 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
 import { API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 async function openPreferences(page: Page) {
   await openSettings(page);
   await page
-    .getByRole("button", { name: /^(preferences|preferências)$/i })
+    .getByRole("button", { name: ui("settings.nav.preferences") })
     .first()
     .click();
   await expect(
-    page.getByRole("heading", { name: /^(preferences|preferências)$/i })
+    page.getByRole("heading", { name: ui("settings.preferences.title") })
   ).toBeVisible({ timeout: 5000 });
 }
 
