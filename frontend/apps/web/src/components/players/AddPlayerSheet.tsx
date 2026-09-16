@@ -197,7 +197,7 @@ export function AddPlayerSheet({
           <div className="space-y-2">
             <Label>{t("players.levelOptional")}</Label>
             <Select value={levelId} onValueChange={setLevelId}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="player-level-select">
                 <SelectValue placeholder={t("players.selectLevel")} />
               </SelectTrigger>
               <SelectContent>
