@@ -37,8 +37,25 @@ echo "flows: $FLOWS"
 # run on demand only; config.yaml excludes the same tag for iOS whole-suite runs.
 # PAD-345 (Maestro 2.6.1, verified): such a flow runs only when it is the ONLY
 # entry in MAESTRO_FLOWS. Listed next to another flow it is silently dropped.
+# PAD-314 (B-089 face C): stream the WHOLE run's device log. Maestro keeps a
+# device-logcat.txt only for a flow that fails, so a passing run left no device
+# evidence at all, and "no mounting exception" could not be checked. The file
+# lands in ~/.maestro/tests, which the workflow uploads as maestro-results.
+# Streaming, not `logcat -d` at the end: the ring buffer drops early lines on a
+# long run.
+mkdir -p "$HOME/.maestro/tests"
+adb logcat -c || true
+adb logcat -v threadtime > "$HOME/.maestro/tests/full-logcat.txt" 2>&1 &
+LOGCAT_PID=$!
+set +e
 # shellcheck disable=SC2086  # FLOWS is a space-separated list on purpose
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
   --exclude-tags ios-only,open-defect-probe \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=$NOCLUB_USER" -e "MAESTRO_COACH_NOCLUB_PASSWORD=$NOCLUB_PASS" \
   $FLOWS
+RC=$?
+set -e
+sleep 2
+kill "$LOGCAT_PID" 2>/dev/null || true
+echo "full-logcat.txt: $(wc -l < "$HOME/.maestro/tests/full-logcat.txt") lines"
+exit "$RC"
