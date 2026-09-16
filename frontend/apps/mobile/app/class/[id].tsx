@@ -220,7 +220,14 @@ export default function ClassDetailScreen() {
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
   // confirmation, with no deadline warning, because by definition it happens
   // before the student was even reminded.
-  const [feedback, setFeedback] = React.useState<string | null>(null);
+  const [feedback, setFeedbackText] = React.useState<string | null>(null);
+  // PAD-320: what the feedback line says, as an id a flow can assert without
+  // reading the rendered (translated) sentence. null for the generic cases.
+  const [feedbackKind, setFeedbackKind] = React.useState<string | null>(null);
+  const setFeedback = (text: string | null, kind: string | null = null) => {
+    setFeedbackText(text);
+    setFeedbackKind(text ? kind : null);
+  };
   // PAD-168: semi-automatic mode returns the vacancies awaiting approval from
   // the presence-confirm call; it is only ever set by that response.
   const [approvalBundle, setApprovalBundle] =
@@ -617,10 +624,11 @@ export default function ClassDetailScreen() {
       setFeedback(
         bundle
           ? t("calendar.detail.approvalNeededDescription")
-          : t("calendar.detail.attendanceSavedTitle")
+          : t("calendar.detail.attendanceSavedTitle"),
+        bundle ? "attendance-approval-needed" : "attendance-saved"
       );
     } catch {
-      setFeedback(t("calendar.detail.failedSaveAttendance"));
+      setFeedback(t("calendar.detail.failedSaveAttendance"), "attendance-failed");
     }
   };
 
@@ -1418,7 +1426,7 @@ export default function ClassDetailScreen() {
                     variant={STATE_VARIANT[attendanceStateTone(myState)]}
                     testID="attendance-state"
                   >
-                    <Text>{t(attendanceStateLabelKey(myState, "student"))}</Text>
+                    <Text testID={`attendance-state-${myState}`}>{t(attendanceStateLabelKey(myState, "student"))}</Text>
                   </Badge>
                 </View>
 
@@ -1461,7 +1469,10 @@ export default function ClassDetailScreen() {
           ) : null}
 
           {feedback ? (
-            <Text className="text-center text-sm text-muted-foreground">
+            <Text
+              className="text-center text-sm text-muted-foreground"
+              testID={`class-feedback-${feedbackKind ?? "message"}`}
+            >
               {feedback}
             </Text>
           ) : null}

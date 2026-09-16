@@ -23,7 +23,7 @@ appId: com.padellevelup.app
     id: "attendance-confirm"
 - extendedWaitUntil:
     visible:
-      text: "Attendance saved"
+      id: "class-feedback-attendance-saved"
     timeout: 15000
 
 # ── Reopen: the saved presence initializes the row with a Present badge ──
@@ -41,8 +41,10 @@ appId: com.padellevelup.app
 # PAD-313: the row carries ONE state word. Saving attendance ends with
 # `validated = True` in `add_presences` ("attendance was explicitly recorded by
 # the coach"), so the saved row reads "Attended" — the coach's record.
-# The mark-present BUTTON is exposed as "Mark E2E Student present" (a11y
-# label), so this exact match only passes when the saved badge is rendered.
+# The state is in the badge text's id (attendance-state-<state>, mirroring web's
+# data-state), so this only passes when the saved badge renders "attended",
+# in any language (PAD-320).
 - assertVisible:
     id: "attendance-state"
-- assertVisible: "Attended"
+- assertVisible:
+    id: "attendance-state-attended"
