@@ -9,7 +9,8 @@ governs:
   - ".specflow/**/*.md"
   - ".claude/**/*"
   - "*.md"
-check: "backend/padel_app/tests/test_public_knowledge_layer_guard.py — fails when a guarded identifier appears in a tracked knowledge-layer file"
+check:
+  kind: none
 confidence: MEASURED
 status: active
 ---
