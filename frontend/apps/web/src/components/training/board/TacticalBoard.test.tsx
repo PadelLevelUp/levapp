@@ -404,6 +404,53 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
   });
 });
 
+// ── PAD-311 — actions play in the order they were drawn (rule 26) ────────────
+describe("sequenced steps (PAD-311)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function ballMoveBall() {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("ball");
+    tapCourt(58, 20);
+    tapCourt(50, 50);
+    pickTool("movement");
+    tapPiece("a1", 32, 26);
+    tapCourt(50, 50);
+    pickTool("ball");
+    tapCourt(50, 50);
+    tapCourt(40, 80);
+    return onChange;
+  }
+
+  it("numbers every action by its place in the play order", () => {
+    const onChange = ballMoveBall();
+    const d = lastDiagram(onChange);
+    expect(d.steps[0].movements[0].seq).toBe(1);
+    expect(screen.getByTestId("ball-number-0")).toHaveTextContent("1");
+    expect(screen.getByTestId("movement-order-a1")).toHaveTextContent("2");
+    expect(screen.getByTestId("ball-number-1")).toHaveTextContent("3");
+  });
+
+  it("AUTO plays the ball first and moves A1 only after it", () => {
+    vi.useFakeTimers();
+    ballMoveBall();
+    const start = screen.getByTestId("piece-a1").getAttribute("transform");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.auto" }));
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.getByTestId("playback-ball")).toBeInTheDocument();
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe(start);
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).not.toBe(start);
+  });
+});
+
 // ── PAD-310 — playback speed (rule 25) ───────────────────────────────────────
 describe("playback speed (PAD-310)", () => {
   afterEach(() => {

@@ -12,6 +12,7 @@ import {
   ballPathMidpoint,
   movementPathD,
   movementLegs,
+  stepActionNumbers,
   swatchHex as swatch,
   toView, stepBalls } from "@levelup/config";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,7 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
   };
 
   const pieceById = (id: string) => diagram.pieces.find((p) => p.id === id);
+  const actionNumbers = stepActionNumbers(step);
 
   return (
     <svg
@@ -163,14 +165,23 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
 
       {/* movements (dashed) */}
       {/* PAD-309: a player may have several legs; each starts where the last ended (rule 10) */}
+      {/* PAD-311: each carries its moment number when the step plays in order (rule 26) */}
       {movementLegs(step, (id) => {
         const piece = pieceById(id);
         return piece ? position(piece) : null;
       }).map((m) => {
         const suffix = m.leg === 0 ? "" : `-${m.leg}`;
         const end = toView(m.to);
+        const order = actionNumbers.movements[m.index];
+        const mid = toView({ x: (m.from.x + m.to.x) / 2, y: (m.from.y + m.to.y) / 2 });
         return (
           <g key={`mv-${m.pieceId}${suffix}`}>
+            {order !== null && order !== undefined && !compact ? (
+              <g data-testid={`movement-order-${m.pieceId}${suffix}`} transform={`translate(${mid.x + 12} ${mid.y})`} pointerEvents="none">
+                <circle r={8} fill={COURT_COLORS.movement} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+                <text textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill={COURT_COLORS.frame}>{order}</text>
+              </g>
+            ) : null}
             <path data-testid={tid(`movement-${m.pieceId}${suffix}`)} d={movementPathD(m.from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
             <circle cx={end.x} cy={end.y} r={compact ? 2.5 : 4} fill={COURT_COLORS.movement} />
           </g>
@@ -178,12 +189,12 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
       })}
 
       {/* ball paths, in order (PAD-289, rules 9, 13, 23) */}
-      {stepBalls(step).map((path, index, all) => (
+      {stepBalls(step).map((path, index) => (
         <BallPathLayer
           key={`ball-${index}`}
           path={path}
           index={index}
-          numbered={all.length > 1}
+          number={actionNumbers.balls[index] ?? null}
           compact={compact}
           tid={tid}
           handleLabel={ballHandleLabel}
@@ -280,7 +291,7 @@ function Waypoint({ at }: { at: Point }) {
 function BallPathLayer({
   path,
   index,
-  numbered,
+  number,
   compact,
   tid,
   handleLabel,
@@ -289,8 +300,8 @@ function BallPathLayer({
   path: NonNullable<CourtDiagramV2["steps"][number]["ball"]>;
   /** Position in the step's ordered paths; the first keeps the un-suffixed test ids. */
   index: number;
-  /** Show the 1-based number at the path's start (rule 23: only when a step has several). */
-  numbered: boolean;
+  /** The number shown at the path's start (rules 23, 26), or null for none. */
+  number: number | null;
   compact: boolean;
   tid: (name: string) => string;
   handleLabel?: string;
@@ -303,11 +314,11 @@ function BallPathLayer({
   return (
     <g data-index={index}>
       <path data-testid={tid(`ball-path${suffix}`)} data-style={path.style} d={ballPathD(path)} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={compact ? 1.5 : 2} strokeLinecap="round" />
-      {numbered && !compact ? (
+      {number !== null && !compact ? (
         // Offset per index: several paths may start at one point (basket feeds), so the badges fan out.
         <g data-testid={`ball-number-${index}`} transform={`translate(${from.x + 13 + index * 18} ${from.y - 24})`} pointerEvents="none">
           <circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
-          <text textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill="#fff">{index + 1}</text>
+          <text textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill="#fff">{number}</text>
         </g>
       ) : null}
       {!compact ? (

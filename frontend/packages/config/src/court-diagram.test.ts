@@ -237,9 +237,9 @@ describe("a player with several legs in a step", () => {
   it("movementLegs chains each player's legs and numbers them per player", () => {
     const legs = movementLegs(LEGS.steps[0], start);
     expect(legs).toEqual([
-      { pieceId: "a1", from: { x: 32, y: 26 }, to: { x: 20, y: 40 }, leg: 0 },
-      { pieceId: "b1", from: start("b1"), to: { x: 50, y: 80 }, leg: 0 },
-      { pieceId: "a1", from: { x: 20, y: 40 }, to: { x: 10, y: 60 }, leg: 1 },
+      { pieceId: "a1", from: { x: 32, y: 26 }, to: { x: 20, y: 40 }, leg: 0, index: 0 },
+      { pieceId: "b1", from: start("b1"), to: { x: 50, y: 80 }, leg: 0, index: 1 },
+      { pieceId: "a1", from: { x: 20, y: 40 }, to: { x: 10, y: 60 }, leg: 1, index: 2 },
     ]);
   });
 

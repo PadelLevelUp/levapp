@@ -445,6 +445,8 @@ export interface MovementLeg {
   to: Point;
   /** 0 for the player's first leg in the step, 1 for the next, … */
   leg: number;
+  /** Position of this movement in `step.movements` (PAD-311: indexes `stepActionNumbers`). */
+  index: number;
 }
 
 /**
@@ -458,14 +460,14 @@ export function movementLegs(step: Step | undefined, startOf: (pieceId: string) 
   if (!step) return [];
   const at = new Map<string, { point: Point; leg: number }>();
   const legs: MovementLeg[] = [];
-  for (const m of step.movements) {
+  step.movements.forEach((m, index) => {
     const current = at.get(m.pieceId);
     const from = current?.point ?? startOf(m.pieceId);
-    if (!from) continue;
+    if (!from) return;
     const leg = current ? current.leg + 1 : 0;
-    legs.push({ pieceId: m.pieceId, from, to: m.to, leg });
+    legs.push({ pieceId: m.pieceId, from, to: m.to, leg, index });
     at.set(m.pieceId, { point: m.to, leg });
-  }
+  });
   return legs;
 }
 
