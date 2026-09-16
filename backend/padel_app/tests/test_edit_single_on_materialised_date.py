@@ -79,3 +79,43 @@ def test_single_edit_on_a_materialised_date_edits_that_instance(app, one_off_wit
         edited = LessonInstance.query.get(instance_id)
         assert edited.overwrite_title == "Edited Once"
         assert edited.confirmed_spots == 1, "the register survives the edit"
+
+
+def test_single_edit_on_an_unmaterialised_date_still_creates_exactly_one_instance(app):
+    """The other branch, pinned directly (review note on #322): a date with no
+    instance materialises exactly one and answers 201."""
+    from padel_app.models import User
+    from padel_app.models.coaches import Coach
+    from padel_app.models.clubs import Club
+    from padel_app.models.Association_CoachClub import Association_CoachClub
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.lesson_service import edit_class_service
+
+    with app.app_context():
+        cu = User(name="Coach", username="edit2_coach", password="x")
+        db.session.add(cu); db.session.flush()
+        coach = Coach(user_id=cu.id); db.session.add(coach); db.session.flush()
+        club = Club(name="Edit2 Club", description="c", location="x"); db.session.add(club); db.session.flush()
+        db.session.add(Association_CoachClub(coach_id=coach.id, club_id=club.id))
+        start = (datetime.utcnow().replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=4))
+        lesson = Lesson(
+            title="Not Yet", start_datetime=start, end_datetime=start + timedelta(hours=1),
+            is_recurring=False, type="academy", max_players=4, status="active", club_id=club.id,
+        )
+        db.session.add(lesson); db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=lesson.id))
+        db.session.commit()
+        assert LessonInstance.query.filter_by(lesson_id=lesson.id).count() == 0
+
+        result, status = edit_class_service({
+            "event": {"model": "Lesson", "originalId": lesson.id, "date": start.date().isoformat()},
+            "scope": "single",
+            "updates": {"name": "Edited Fresh"},
+        })
+        assert status == 201, result
+        rows = LessonInstance.query.filter_by(lesson_id=lesson.id).all()
+        assert len(rows) == 1 and rows[0].id == result["id"]
+        assert rows[0].overwrite_title == "Edited Fresh"
+        assert rows[0].original_lesson_occurence_date == start.date()
