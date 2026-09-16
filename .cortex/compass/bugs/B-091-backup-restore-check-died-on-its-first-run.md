@@ -15,8 +15,8 @@ opened: 2026-09-16T15:10:00Z
 
 **Source:** the coordinator ran `bash ~/backup.sh restore-check` on the VM on 2026-09-16 after
 the first real nightly-style backup (15:08 UTC, both databases, real sizes, in the bucket) and
-got `./backup.sh: line 108: db: unbound variable`, exit 1. Ledger number from Session A's
-reserved range (unconfirmed until the coordinator vetoes). Related: PAD-296, PAD-354, B-080,
+got `./backup.sh: line 108: db: unbound variable`, exit 1. Ledger number B-091 confirmed by the
+coordinator on 2026-09-16. Related: PAD-296, PAD-354, B-080,
 R-028; the same family as R-035 — a path written and never executed.
 
 **What happened:** `local db="${1:-padel_app}" scratch="${db}_restore_check"` expands `${db}`
