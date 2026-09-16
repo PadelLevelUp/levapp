@@ -105,7 +105,15 @@ export function PlayerHeader({
               </SelectContent>
             </Select>
             <Select value={draftLevelId} onValueChange={onDraftLevelIdChange}>
-              <SelectTrigger className="h-10 w-full sm:flex-1">
+              {/* data-selected-level-id, not data-state: Radix's own SelectTrigger
+                  already writes data-state="open"/"closed" from its internal
+                  context, spread in AFTER any props we pass — a data-state prop
+                  here would silently replace that, not extend it. */}
+              <SelectTrigger
+                className="h-10 w-full sm:flex-1"
+                data-testid="player-header-level-select"
+                data-selected-level-id={draftLevelId}
+              >
                 <SelectValue placeholder={t("players.noLevel")} />
               </SelectTrigger>
               <SelectContent>

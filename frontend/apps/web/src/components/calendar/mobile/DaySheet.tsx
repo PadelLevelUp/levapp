@@ -92,7 +92,7 @@ export function DaySheet({
             under the buttons. */}
         <div className="flex flex-col gap-3 px-5 pt-3" style={{ paddingBottom: FAB_CLEARANCE_PX }}>
         {events.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">
+          <p className="py-8 text-center text-muted-foreground" data-testid="calendar-day-sheet-empty">
             {t("calendar.mobile.noClassesScheduled")}
           </p>
         ) : (
