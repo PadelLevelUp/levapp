@@ -14,7 +14,12 @@ import { describe, expect, it } from "vitest";
  * reads the source (the api-capabilities.test.ts pattern) and, per R-032,
  * first proves it found the submit callback.
  */
-const SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "verify-email.tsx");
+// Lives under src/, not app/: expo-router bundles every file in app/ as a route,
+// and Metro rejects a test file there (import.meta is not supported in Hermes).
+const SOURCE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..", "..", "..", "app", "verify-email.tsx"
+);
 
 function submitCallback(): string {
   expect(fs.existsSync(SOURCE), `cannot find ${SOURCE}`).toBe(true);
