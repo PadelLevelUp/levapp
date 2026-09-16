@@ -14,7 +14,7 @@ opened: 2026-09-11T12:45:00Z
 
 # B-069 — The Postgres container is published on 0.0.0.0:5432; only the firewall keeps it off the internet
 
-**Source:** verified on `levelup-instance` on 2026-09-10 (wave-2 plan file, 19:15) while
+**Source:** verified on the prod VM on 2026-09-10 (wave-2 plan file, 19:15) while
 landing #188 (PAD-229). Ticket PAD-292.
 
 **What happens:** the startup script in `backend/terraform/main.tf` runs the database as
@@ -36,8 +36,7 @@ implicit. This entry makes it explicit.
    VM; the live container has to be re-created by hand.
 2. The deploy workflows do not run Postgres. Their `ports: ["5432:5432"]` lines are the
    PAD-220 drift-gate `services:` on the GitHub runner — changing them changes nothing on the VM.
-3. **The app containers reach the database at `POSTGRES_HOST=10.132.0.2`** — the VM's internal
-   IP — set in `backend/.env.prod` and `backend/.env.staging`. Those two files are **tracked
+3. **The app containers reach the database at the VM's internal address (local map: docs/infra/environment.md)** — `POSTGRES_HOST` set in `backend/.env.prod` and `backend/.env.staging`. Those two files are **tracked
    templates that every deploy scp's to the VM**, so a VM-side edit is overwritten by the next
    deploy. A bridge-network container cannot reach the host's `127.0.0.1`, so a loopback-only
    publish with the IP still in the env files takes prod and staging down. The host change
@@ -59,7 +58,7 @@ Workflows untouched.
 The app containers take `POSTGRES_HOST` from `backend/.env.prod` / `.env.staging`, which every deploy scp's to the VM and passes with `--env-file` when it **re-creates** the app container. So:
 
 - **Step B (network join, no recreate, no downtime) must happen before the first deploy that carries this PR.** That deploy re-creates `padelapp_staging` with `POSTGRES_HOST=postgres`; the name resolves only if the `postgres` container is on `levelup_net`. Without B, staging's entrypoint cannot reach the database, `flask db upgrade` fails, the deploy's wait loop goes red and staging is down (prod untouched).
-- **Step D (re-create Postgres on loopback, seconds of downtime) must happen after the prod promotion that carries this PR.** Until then prod still reaches the database at `10.132.0.2:5432`, which only answers while the container is published on `0.0.0.0`. D before promotion takes production down.
+- **Step D (re-create Postgres on loopback, seconds of downtime) must happen after the prod promotion that carries this PR.** Until then prod still reaches the database at the VM's internal address (local map: docs/infra/environment.md) on port 5432, which only answers while the container is published on `0.0.0.0`. D before promotion takes production down.
 - Between merge and promotion both work: staging by name on `levelup_net`, prod by the internal IP. Nothing else on the VM uses the host port — `sync-staging-db.sh` and `backup.sh` both go through `docker exec postgres`, and the workstation tunnel (`-L 5434:localhost:5432`) lands on the VM's loopback.
 - Once B is confirmed, #210 no longer needs its own deploy; it can ride any batch. The constraint is only "B before the first deploy carrying it, D after the promotion carrying it".
 
@@ -76,8 +75,8 @@ sudo docker inspect postgres --format '{{range $k,$v := .NetworkSettings.Network
 sudo docker inspect postgres --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -v PASSWORD
 #  expect POSTGRES_USER=padel_app_user POSTGRES_DB=padel_app; PGDATA=/var/lib/postgresql/data is the image default
 sudo ss -ltnp | grep 5432                                  # expect 0.0.0.0:5432 (docker-proxy)
-sudo docker exec padelapp env | grep POSTGRES_HOST         # expect 10.132.0.2 — what the container actually runs with
-sudo docker exec padelapp_staging env | grep POSTGRES_HOST # expect 10.132.0.2
+sudo docker exec padelapp env | grep POSTGRES_HOST         # expect $POSTGRES_HOST from backend/.env.prod (the VM's internal address) — what the container actually runs with
+sudo docker exec padelapp_staging env | grep POSTGRES_HOST # expect $POSTGRES_HOST from backend/.env.staging (the VM's internal address)
 sudo find /home -maxdepth 2 \( -name .env.prod -o -name .env.staging \) -exec grep -H POSTGRES_HOST {} +
 #  the deploys scp the templates to /home/<deploy user>/ (the GCE_USER secret); the SSH user
 #  running this runbook is a different account, so no `~` anywhere in these steps
@@ -105,7 +104,7 @@ sudo docker exec padelapp_staging env | grep POSTGRES_HOST                      
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/app/healthz   # prod 200
 sudo docker exec padelapp env | grep POSTGRES_HOST                                 # postgres — only now may step 5 run
 ```
-Back-out for the merge (before step 5): revert #210 on staging; the redeploy puts `10.132.0.2` back and the `0.0.0.0` binding still answers.
+Back-out for the merge (before step 5): revert #210 on staging; the redeploy puts the VM's internal address (local map: docs/infra/environment.md) back and the `0.0.0.0` binding still answers.
 
 **5. Step D — after BOTH environments show `POSTGRES_HOST=postgres`. Not between 02:30 and 03:30 VM time (backup cron), and not while a staging deploy's `sync-db` job is running.**
 ```bash
