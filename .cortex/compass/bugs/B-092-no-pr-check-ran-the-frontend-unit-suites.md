@@ -16,7 +16,7 @@ opened: 2026-09-16T21:30:00Z
 (rendered-text, role-name, bilingual alternation) are vitest tests, and the PR checks were
 typecheck, pytest ×2, one Alembic head, APK and Maestro — no vitest anywhere. Four files
 that violated the guards were green on every PR and failed together on the batch branch.
-Ledger number from Session A's reserved range (unconfirmed until the coordinator vetoes).
+Ledger number B-092 confirmed by the coordinator on 2026-09-16.
 
 **What happens:** a guard that only runs when someone types `npm test` is a guard that runs
 at batch time, by the integrator, on everyone's work at once — the worst moment to learn
