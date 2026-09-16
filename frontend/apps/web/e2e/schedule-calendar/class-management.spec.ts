@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -15,13 +16,13 @@ const findSeededClass = (page: import("@playwright/test").Page) =>
 test("US-40: coach creates a new class from calendar", async ({ page }) => {
   // Button is labelled "Add class"
   const newClassBtn = page
-    .getByRole("button", { name: /add class|new class|\+/i })
+    .getByRole("button", { name: ui("calendar.toolbar.addClass") })
     .first();
   await expect(newClassBtn).toBeVisible({ timeout: 5000 });
   await newClassBtn.click();
 
   // Form/sheet should open — the Name field has a placeholder like "e.g. Beginner Academy"
-  const nameField = page.getByPlaceholder(/beginner academy|private/i).first();
+  const nameField = page.getByPlaceholder(ui("calendar.addClass.namePlaceholderAcademy", { exact: false })).first();
   await expect(nameField).toBeVisible({ timeout: 5000 });
 });
 
@@ -39,7 +40,7 @@ test("US-41: coach can open class detail sheet", async ({ page }) => {
   await expect(page.locator('[role="dialog"]').first()).toBeVisible({ timeout: 5000 });
   const detailOpen = await page
     .locator('[role="dialog"]')
-    .getByText(/participants|attendance|edit/i)
+    .getByText(ui("calendar.detail.participants", { exact: false }))
     .first()
     .isVisible({ timeout: 5000 })
     .catch(() => false);
@@ -74,7 +75,7 @@ test("US-43: edit class option is available in class detail", async ({ page }) =
   await expect(page.locator('[role="dialog"]').first()).toBeVisible({ timeout: 5000 });
 
   const editBtn = page.locator('[role="dialog"]')
-    .getByRole("button", { name: /edit|update/i })
+    .getByRole("button", { name: ui("calendar.detail.edit") })
     .first();
   await expect(editBtn).toBeVisible({ timeout: 5000 });
 });

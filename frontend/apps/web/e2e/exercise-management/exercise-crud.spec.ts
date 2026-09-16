@@ -21,7 +21,7 @@ test("US-16: coach creates a new exercise", async ({ page }) => {
   await nameInput.fill("E2E Test Exercise");
 
   // Submit — button text is "Create Exercise"
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
 
   // Should appear in the list
   await expect(page.getByText("E2E Test Exercise")).toBeVisible({ timeout: 5000 });
@@ -35,7 +35,7 @@ test("US-18: coach can delete an exercise", async ({ page }) => {
   const nameInput = page.getByRole("textbox", { name: ui("training.form.name") }).first();
   await expect(nameInput).toBeVisible({ timeout: 5000 });
   await nameInput.fill("Exercise To Delete");
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Exercise To Delete")).toBeVisible({ timeout: 5000 });
 
   // Each ExerciseCard has a hover-revealed Trash2 button with aria-label
@@ -60,7 +60,7 @@ test("US-48: coach edits an exercise", async ({ page }) => {
   const createNameInput = page.getByRole("textbox", { name: ui("training.form.name") }).first();
   await expect(createNameInput).toBeVisible({ timeout: 5000 });
   await createNameInput.fill("Exercise To Edit");
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Exercise To Edit")).toBeVisible({ timeout: 5000 });
 
   // Wait for the create sheet (a dialog) to fully close before clicking the
@@ -77,7 +77,7 @@ test("US-48: coach edits an exercise", async ({ page }) => {
   await nameInput.clear();
   await nameInput.fill("Exercise Edited");
 
-  await page.getByRole("button", { name: /save|update/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.saveChanges") }).last().click();
   await expect(page.getByText("Exercise Edited")).toBeVisible({ timeout: 5000 });
 });
 
@@ -86,7 +86,7 @@ test("US-49: type filter narrows exercise list", async ({ page }) => {
   // Open type select and pick a type
   const typeSelect = page
     .getByRole("combobox")
-    .filter({ hasText: /all types|type/i })
+    .filter({ hasText: ui("training.exercises.allTypes", { exact: false }) })
     .first();
 
   if (await typeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {

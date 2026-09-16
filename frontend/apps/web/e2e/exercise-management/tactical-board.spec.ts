@@ -63,7 +63,7 @@ test("US-61: coach draws a lob ball path and it survives save and reopen", async
   await page.getByTestId("ball-style-handle").click();
   await expect(page.getByTestId("ball-path")).toHaveAttribute("d", /Q/);
 
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Lob Drill")).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -117,7 +117,7 @@ test("US-62: a legacy diagram is upgraded on open and saved back as v2", async (
   await expect(page.getByTestId("piece-e4")).toHaveCount(0); // the blocker is gone
   await expect(page.getByTestId("ball-path")).toHaveAttribute("d", /Q/);
 
-  await page.getByRole("button", { name: /save|update/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.saveChanges") }).last().click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   const res = await request.get(`${API_APP}/exercises/${created.id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -152,7 +152,7 @@ test("US-64: basket mode feeds from the feeder and is stored as mode basket", as
   await tapCourt(page, 30, 18);
   await expect(page.getByTestId("ball-path")).toBeVisible();
 
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Basket Feed")).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -212,7 +212,7 @@ test("US-67: a red pen stroke on the magnetic board is saved with the exercise",
   await tapCourt(page, 70, 75);
   await expect(court.getByText("B1", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Magnetic Pen")).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -261,7 +261,7 @@ test("US-68: a second step starts where the first one ended and Passo walks the 
   await passo.click();
   await expectPieceAt(page, "a1", 108.8, 156);
 
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Two Steps")).toBeVisible({ timeout: 5000 });
   const token = await getToken(request, COACH_USERNAME, COACH_PASSWORD);
   const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });
@@ -316,7 +316,7 @@ test("US-70: two ball paths in one step are numbered, reorderable, removable and
   await expect(page.getByTestId("ball-path")).toHaveAttribute("d", /Q/);
   await expect(page.getByTestId("ball-path-1")).not.toHaveAttribute("d", /Q/);
 
-  await page.getByRole("button", { name: /create exercise|save/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByText("Two Paths")).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
