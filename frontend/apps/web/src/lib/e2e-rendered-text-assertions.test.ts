@@ -378,6 +378,9 @@ describe("the alternation scan counts copy, not data (PAD-322)", () => {
     const long = localeValues({ a: "No", b: "Yes" }, new Set(), 3);
     expect([...short].sort()).toEqual(["no", "yes"]);
     expect([...long]).toEqual(["yes"]);
+  });
+});
+
 describe("the widened scanner catches what the exact match missed", () => {
   // Final slice of the rendered-text ticket. Each case below is a real miss the
   // conversions found; each "leaves" case is the false positive its rule must not add.
