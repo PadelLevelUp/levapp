@@ -101,14 +101,14 @@ def test_downgrade_recreates_and_refills_from_presences_then_is_a_no_op():
     assert "player_in_lesson_instance" in _tables(conn)
     assert _pairs(conn) == [(1, 10), (3, 11)]
     # The shape the pre-drop code writes (review round, Session A): the mixin
-    # timestamps, NOT NULL keys, named FKs, the unique pair and PAD-263's index.
+    # timestamps, NOT NULL keys, the FKs under production's names, the unique pair and PAD-263's index.
     insp = sa.inspect(conn)
     cols = {c["name"]: c for c in insp.get_columns("player_in_lesson_instance")}
     assert set(cols) == {"created_at", "updated_at", "id", "player_id", "lesson_instance_id"}
     assert cols["player_id"]["nullable"] is False and cols["lesson_instance_id"]["nullable"] is False
     assert sorted(fk["name"] for fk in insp.get_foreign_keys("player_in_lesson_instance")) == [
-        "fk_player_in_lesson_instance_lesson_instance_id",
-        "fk_player_in_lesson_instance_player_id",
+        "player_in_lesson_instance_lesson_instance_id_fkey",
+        "player_in_lesson_instance_player_id_fkey",
     ]
     assert [ix["name"] for ix in insp.get_indexes("player_in_lesson_instance")] == [
         "ix_player_in_lesson_instance_lesson_instance_id"

@@ -16,7 +16,7 @@ Upgrade, guarded and fail-closed:
 
 Downgrade recreates the table with the shape the pre-drop code wrote — the
 mixin ``created_at`` / ``updated_at`` (initial migration), NOT NULL keys
-(PAD-273), the named ``fk_player_in_lesson_instance_*`` foreign keys (PAD-274),
+(PAD-273), the CASCADE foreign keys under the ``_fkey`` names production has,
 the unique pair and PAD-263's index — and refills it with one row per presence,
 so the shadow is faithful and writable again and ``flask db check`` is clean
 against the pre-drop models; a second downgrade is a no-op (the index is
@@ -102,14 +102,15 @@ def downgrade():
             # NOT NULL since PAD-273 (501dcb2c12f5).
             sa.Column("player_id", sa.Integer(), nullable=False),
             sa.Column("lesson_instance_id", sa.Integer(), nullable=False),
-            # Named since PAD-274 (76395824b9cf).
+            # The names production and staging carry: Postgres's auto names from the
+            # initial migration (PAD-274 renamed only non-CASCADE keys, a no-op here).
             sa.ForeignKeyConstraint(
                 ["player_id"], ["players.id"], ondelete="CASCADE",
-                name="fk_player_in_lesson_instance_player_id",
+                name="player_in_lesson_instance_player_id_fkey",
             ),
             sa.ForeignKeyConstraint(
                 ["lesson_instance_id"], ["lesson_instances.id"], ondelete="CASCADE",
-                name="fk_player_in_lesson_instance_lesson_instance_id",
+                name="player_in_lesson_instance_lesson_instance_id_fkey",
             ),
             sa.UniqueConstraint("player_id", "lesson_instance_id", name="uq_player_lesson_instance"),
         )
