@@ -1448,14 +1448,21 @@ def _dispatch_remove_class(obj, model_name, scope, event_date):
             occ_date = obj.original_lesson_occurence_date or obj.start_datetime.date()
             _maybe_cancel_instance(obj.id)
             obj.delete()
-            # When the instance overrides a recurring parent, deleting it is not
-            # enough: the parent series would re-project that occurrence (with
-            # its pre-edit values) on reload. Exclude the date from the parent
-            # recurrence, mirroring the Lesson scope="single" path (PAD-65).
-            if parent_lesson is not None and parent_lesson.recurrence_rule:
-                _remove_single_occurrence_from_lesson(
-                    lesson=parent_lesson, date=occ_date
-                )
+            if parent_lesson is None:
+                return {"status": "deleted"}, 200
+            # Deleting the instance alone is never enough (classes.delete rules
+            # 5-6). A recurring parent would re-project the occurrence (with its
+            # pre-edit values) on reload, so its date is excluded from the series
+            # (PAD-65). A one-off parent has no other occurrence: left alone it
+            # re-projects as a fresh, attendance-less card while the API has
+            # already said "deleted" (PAD-335, B-096) — so the Lesson goes too.
+            # `_remove_single_occurrence_from_lesson` does both and cancels the
+            # lesson-occurrence reminder job either way (rule 4).
+            is_recurring_parent = bool(parent_lesson.recurrence_rule)
+            _remove_single_occurrence_from_lesson(
+                lesson=parent_lesson, date=occ_date
+            )
+            if is_recurring_parent:
                 return {"status": "single_removed"}, 200
             return {"status": "deleted"}, 200
 

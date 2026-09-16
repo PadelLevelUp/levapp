@@ -27,6 +27,11 @@ interface ClassScopeDialogProps {
    * same default, on the mobile port.
    */
   keyPrefix?: string;
+  /**
+   * PAD-335 (`classes.delete` rule 7): an extra sentence under the description,
+   * used to say that recorded attendance goes with the occurrence.
+   */
+  note?: string;
 }
 
 export function ClassScopeDialog({
@@ -35,6 +40,7 @@ export function ClassScopeDialog({
   onClose,
   onConfirm,
   keyPrefix = 'calendar.scope',
+  note,
 }: ClassScopeDialogProps) {
   const { t } = useTranslation();
   const text = {
@@ -54,6 +60,14 @@ export function ClassScopeDialog({
           <AlertDialogDescription>
             {text.description}
           </AlertDialogDescription>
+          {note && (
+            <p
+              data-testid="delete-attendance-note"
+              className="text-sm font-medium text-destructive"
+            >
+              {note}
+            </p>
+          )}
         </AlertDialogHeader>
 
         <div className="flex flex-col gap-3 py-4">
