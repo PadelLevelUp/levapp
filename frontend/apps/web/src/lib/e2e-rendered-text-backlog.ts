@@ -70,5 +70,4 @@ export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:notification-engine/class-cancellation-notification.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Class deleted'" },
   { file: "pw:notification-engine/standing-waitlist-expired.spec.ts", max: 1, reason: "1 en UI string, e.g. 'auto-invite engine'" },
   { file: "pw:settings/season-definition.spec.ts", max: 1, reason: "1 en UI string, e.g. 'new class'" },
-  { file: "pw:settings/ticket-pad-109-standing-waitlist-search.spec.ts", max: 1, reason: "1 en UI string, e.g. 'auto-invite engine'" },
 ] as const;
