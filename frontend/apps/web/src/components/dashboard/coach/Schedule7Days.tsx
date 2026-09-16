@@ -10,6 +10,13 @@
  *
  * Rows sit in a 1px-gap group so the separators are the group background
  * showing through, rather than per-row borders that would double up.
+ *
+ * The row layout follows the LIST's width, not the viewport's (PAD-336). On a
+ * 1280px desktop this list sits in a ~530px column, and the one-row layout's
+ * fixed columns left the class title 66px, so every row read "E2E …". Fixed
+ * columns now apply only when the list is at least 760px wide; below that the
+ * title stacks over time and bar as on a phone. The invite action shows from
+ * 480px, so a phone keeps its layout.
  */
 import type { DashboardSchedule7dBlock } from "@levelup/types";
 import { useTranslation } from "react-i18next";
@@ -83,7 +90,7 @@ export function Schedule7Days({
           {t(student ? "dashboard.schedule.noneUpcoming" : "dashboard.schedule.none")}
         </div>
       ) : (
-        <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border">
+        <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border [container-type:inline-size]">
           {items.map((row) => {
             const short = row.capacity > 0 && row.filled < row.capacity;
             const pending = student && row.pendingConfirmation === true && typeof row.lessonInstanceId === "number";
@@ -100,7 +107,7 @@ export function Schedule7Days({
                     navigate(row.href);
                   }
                 }}
-                className="flex cursor-pointer items-center gap-3.5 bg-card px-4 py-3.5 text-left transition-colors hover:bg-accent/40 lg:gap-4"
+                className="flex cursor-pointer items-center gap-3.5 bg-card px-4 py-3.5 text-left transition-colors hover:bg-accent/40 [@container(min-width:760px)]:gap-4"
               >
                 {/* Date column — fixed width so a week scans vertically. */}
                 <div className="flex w-10 shrink-0 flex-col items-center">
@@ -110,17 +117,20 @@ export function Schedule7Days({
                   <span className="text-[15px] font-bold tabular-nums">{row.dayOfMonth}</span>
                 </div>
 
-                {/* Mobile: name over time + bar + count. Desktop: fixed columns. */}
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-4">
-                  <span className="truncate text-[15px] font-bold lg:order-2 lg:flex-1">
+                {/* Narrow list: name over time + bar + count. Wide list: fixed columns. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 [@container(min-width:760px)]:flex-row [@container(min-width:760px)]:items-center [@container(min-width:760px)]:gap-4">
+                  <span
+                    data-testid="dashboard-schedule-title"
+                    className="truncate text-[15px] font-bold [@container(min-width:760px)]:order-2 [@container(min-width:760px)]:flex-1"
+                  >
                     {row.title}
                   </span>
-                  <div className="flex items-center gap-2 lg:order-1 lg:w-14 lg:shrink-0">
+                  <div className="flex items-center gap-2 [@container(min-width:760px)]:order-1 [@container(min-width:760px)]:w-14 [@container(min-width:760px)]:shrink-0">
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {row.timeLabel}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 lg:order-3 lg:w-24 lg:shrink-0">
+                  <div className="flex items-center gap-2 [@container(min-width:760px)]:order-3 [@container(min-width:760px)]:w-24 [@container(min-width:760px)]:shrink-0">
                     <FillBar filled={row.filled} capacity={row.capacity} neutral={student} />
                     <FillCount filled={row.filled} capacity={row.capacity} neutral={student} />
                   </div>
@@ -137,17 +147,18 @@ export function Schedule7Days({
 
                 {/* Fixed-width so rows with and without a badge stay aligned. */}
                 {!student && (
-                  <div className="flex w-auto shrink-0 justify-end lg:w-20">
+                  <div className="flex w-auto shrink-0 justify-end [@container(min-width:480px)]:w-20">
                     {badgeFor(row, t)}
                   </div>
                 )}
 
-                {/* Desktop-only action column. Rows that don't need it render an
-                    empty cell so the grid never shifts. */}
+                {/* Action column from 480px of list width. Rows that don't need it
+                    render an empty cell so the grid never shifts. */}
                 {!student && (
-                <div className="hidden w-20 shrink-0 justify-end lg:flex">
+                <div className="hidden w-20 shrink-0 justify-end [@container(min-width:480px)]:flex">
                   {short && (
                     <Button
+                      data-testid="dashboard-schedule-invite"
                       size="sm"
                       variant="outline"
                       onClick={(e) => {

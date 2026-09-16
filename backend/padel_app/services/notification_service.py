@@ -1432,7 +1432,19 @@ def _check_per_student_daily_limit(
 
 def _format_template(template: str, **variables) -> str:
     for key, val in variables.items():
-        template = template.replace("{" + key + "}", str(val))
+        val = str(val)
+        if val == "":
+            # PAD-346 (notifications.message-templates rule 7, B-098): an empty
+            # phrase disappears whole. Every pt default puts {level} after the
+            # genitive "de", so an empty string alone left "aula de esta
+            # quarta-feira"; the connector goes with the placeholder.
+            template = re.sub(
+                r"\b(?:de|da|do|of)\s+\{" + re.escape(key) + r"\}",
+                "{" + key + "}",
+                template,
+                flags=re.IGNORECASE,
+            )
+        template = template.replace("{" + key + "}", val)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
     # double space or a space before punctuation; collapse those so the rendered
     # message stays grammatical.

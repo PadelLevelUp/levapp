@@ -657,6 +657,11 @@
       "addByQr": "Adicionar alunos por ligação ou código QR",
       "addByQrHint": "Abre o código de adesão na página Jogadores.",
       "open": "Abrir"
+    },
+    "buildInfo": {
+      "line": "LevApp {{version}} · {{host}}",
+      "testServer": "Servidor de testes: {{host}}",
+      "loginNotice": "Versão de teste. Esta app usa o servidor de testes {{host}}; o que fizer aqui é apagado quando o servidor é atualizado."
     }
   }
 }

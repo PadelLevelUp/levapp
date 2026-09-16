@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
+import { Plus, RotateCcw, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deleteCoachNote } from "@/api/players";
 
@@ -44,7 +44,11 @@ export function AddEvaluationSheet({
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const [scores, setScores] = useState<Record<string, number>>({});
+  // A category without a value is unrated (PAD-337): it renders as "not rated"
+  // and is never submitted. `openingScores` holds the player's existing score,
+  // if any, so a save only posts what the coach changed in this sheet.
+  const [scores, setScores] = useState<Record<string, number | undefined>>({});
+  const [openingScores, setOpeningScores] = useState<Record<string, number | undefined>>({});
   const [strengths, setStrengths] = useState<CoachNote[]>([]);
   const [weaknesses, setWeaknesses] = useState<CoachNote[]>([]);
   const [newStrength, setNewStrength] = useState("");
@@ -54,15 +58,16 @@ export function AddEvaluationSheet({
   useEffect(() => {
     if (!open) return;
 
-    // Pre-fill scores from current evaluations
-    const initial: Record<string, number> = {};
+    // Pre-fill scores from current evaluations; a category with no score opens unrated.
+    const initial: Record<string, number | undefined> = {};
     categories.forEach((cat) => {
       const existing = currentEvaluations.find(
         (e) => e.categoryName.toLowerCase() === cat.name.toLowerCase()
       );
-      initial[cat.id] = existing?.score ?? Math.round((cat.scaleMin + cat.scaleMax) / 2);
+      initial[cat.id] = existing?.score;
     });
     setScores(initial);
+    setOpeningScores(initial);
     setStrengths([...currentStrengths]);
     setWeaknesses([...currentWeaknesses]);
     setNewStrength("");
@@ -86,10 +91,10 @@ export function AddEvaluationSheet({
   };
 
   const handleSave = async () => {
-    const scoreEntries = categories.map((cat) => ({
-      categoryId: cat.id,
-      value: scores[cat.id] ?? cat.scaleMin,
-    }));
+    // Only categories the coach scored in this sheet (evaluations.entries rule 6).
+    const scoreEntries = categories
+      .filter((cat) => scores[cat.id] !== undefined && scores[cat.id] !== openingScores[cat.id])
+      .map((cat) => ({ categoryId: cat.id, value: scores[cat.id] as number }));
 
     // Locally-added notes carry a negative (client-generated) id; only these
     // would actually be persisted by the backend (pre-existing notes are skipped).
@@ -139,23 +144,49 @@ export function AddEvaluationSheet({
               <p className="text-sm text-muted-foreground">{t("players.noCategoriesHint")}</p>
             )}
             {categories.map((cat) => {
-              const value = scores[cat.id] ?? cat.scaleMin;
+              const value = scores[cat.id];
+              const rated = value !== undefined;
+              // The midpoint is only where an unrated slider's thumb rests.
+              const position = value ?? Math.round((cat.scaleMin + cat.scaleMax) / 2);
+              const changed = value !== openingScores[cat.id];
+              const rate = (v: number) => setScores((prev) => ({ ...prev, [cat.id]: v }));
               return (
-                <div key={cat.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
+                <div key={cat.id} className="space-y-2" data-testid={`evaluation-score-${cat.id}`}>
+                  <div className="flex items-center justify-between gap-2">
                     <Label>{cat.name}</Label>
-                    <span className="text-sm font-medium tabular-nums">
-                      {value}/{cat.scaleMax}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      {changed && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          aria-label={t("players.resetScoreAria", { name: cat.name })}
+                          data-testid={`evaluation-score-reset-${cat.id}`}
+                          onClick={() => setScores((prev) => ({ ...prev, [cat.id]: openingScores[cat.id] }))}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <span
+                        className={rated ? "text-sm font-medium tabular-nums" : "text-sm text-muted-foreground"}
+                        data-testid={`evaluation-score-value-${cat.id}`}
+                        data-rated={rated}
+                      >
+                        {rated ? `${value}/${cat.scaleMax}` : t("players.notRated")}
+                      </span>
+                    </div>
                   </div>
                   <Slider
                     min={cat.scaleMin}
                     max={cat.scaleMax}
                     step={1}
-                    value={[value]}
-                    onValueChange={([v]) =>
-                      setScores((prev) => ({ ...prev, [cat.id]: v }))
-                    }
+                    value={[position]}
+                    className={rated ? undefined : "opacity-50"}
+                    // Pressing the thumb where it rests rates the category at that
+                    // value; Radix only reports a change when the value moves.
+                    onPointerDown={() => rate(position)}
+                    onValueChange={([v]) => rate(v)}
                   />
                 </div>
               );
@@ -237,7 +268,7 @@ export function AddEvaluationSheet({
 
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={onClose} disabled={isSaving}>{t("common.cancel")}</Button>
-          <Button onClick={handleSave} disabled={isSaving}>{t("players.saveEvaluation")}</Button>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="evaluation-save">{t("players.saveEvaluation")}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

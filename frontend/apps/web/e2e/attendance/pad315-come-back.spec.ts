@@ -14,6 +14,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 
@@ -32,12 +33,6 @@ async function token(request: APIRequestContext, username: string, password: str
   expect(res.ok()).toBeTruthy();
   const json = await res.json();
   return (json.accessToken ?? json.access_token) as string;
-}
-
-async function dayEvents(request: APIRequestContext, auth: Record<string, string>, day: string) {
-  const res = await request.get(`${API_ROOT}/app/calendar?from=${day}T00:00:00&to=${day}T23:59:59`, { headers: auth });
-  expect(res.ok()).toBeTruthy();
-  return (await res.json()) as Array<Record<string, unknown>>;
 }
 
 /** Scan by the card, not by the title: the student's own name is also the sidebar chip. */
@@ -75,6 +70,7 @@ test("US-PAD-315: a student who said they are not coming can come back while the
   expect(blocks.length, "a free block exists eight to fourteen days out").toBeGreaterThan(0);
   const slot = blocks[0];
   const day = slot.date;
+  const requestIds: Array<string | number> = [];
 
   try {
     const [h, m] = slot.startTime.split(":").map(Number);
@@ -85,6 +81,7 @@ test("US-PAD-315: a student who said they are not coming can come back while the
     });
     expect(createRes.ok(), await createRes.text()).toBeTruthy();
     const created = await createRes.json();
+    requestIds.push(created.id);
     const acceptRes = await request.post(`${API_ROOT}/app/class-requests/${created.id}/accept`, { headers: coachAuth });
     expect(acceptRes.ok(), await acceptRes.text()).toBeTruthy();
 
@@ -125,14 +122,10 @@ test("US-PAD-315: a student who said they are not coming can come back while the
     await expect(page.getByTestId("class-cancel-attendance")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("class-come-back")).toHaveCount(0);
   } finally {
-    const leftovers = await dayEvents(request, coachAuth, day);
-    for (const e of leftovers) {
-      if (e.type === "class" && e.title === STUDENT_NAME) {
-        await request.post(`${API_ROOT}/app/remove_class`, { headers: coachAuth, data: { event: e, scope: "single" } });
-      }
-      if (e.type === "block" && String(e.title).includes(STUDENT_NAME)) {
-        await request.delete(`${API_ROOT}/app/calendar_block/${e.originalId}`, { headers: coachAuth, data: { scope: "all" } });
-      }
-    }
+    // PAD-341: the class needs two passes (the cancel materialised an instance
+    // over a one-off lesson), and the accepted request outlives the class.
+    await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
+    await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));
+    await deleteClassRequests(request, coachAuth, requestIds);
   }
 });
