@@ -44,9 +44,6 @@ def class_scenario(app):
     from padel_app.models.Association_CoachLessonInstance import (
         Association_CoachLessonInstance,
     )
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
     from datetime import datetime, timedelta
 
     with app.app_context():
@@ -97,17 +94,6 @@ def class_scenario(app):
                 coach_id=coach.id, lesson_instance_id=instance.id
             )
         )
-        db.session.add_all(
-            [
-                Association_PlayerLessonInstance(
-                    player_id=alice.id, lesson_instance_id=instance.id
-                ),
-                Association_PlayerLessonInstance(
-                    player_id=bob.id, lesson_instance_id=instance.id
-                ),
-            ]
-        )
-
         # Presences: Alice present, Bob absent (unjustified)
         db.session.add_all(
             [

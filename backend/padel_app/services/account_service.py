@@ -53,7 +53,6 @@ def _remove_student_from_future(player, now):
     """Rule 6: out of every class that has not started, silently."""
     from padel_app.models import (
         Association_PlayerLesson,
-        Association_PlayerLessonInstance,
         Presence,
         StandingWaitingListEntry,
         WaitingListEntry,
@@ -62,9 +61,6 @@ def _remove_student_from_future(player, now):
     def _not_started(instance):
         return instance is not None and instance.start_datetime is not None and instance.start_datetime > now
 
-    for rel in Association_PlayerLessonInstance.query.filter_by(player_id=player.id).all():
-        if _not_started(rel.lesson_instance):
-            db.session.delete(rel)
     for presence in Presence.query.filter_by(player_id=player.id).all():
         if _not_started(presence.lesson_instance):
             db.session.delete(presence)

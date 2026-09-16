@@ -42,7 +42,6 @@ def _world(app):
         Association_CoachLessonInstance,
         Association_CoachPlayer,
         Association_PlayerLesson,
-        Association_PlayerLessonInstance,
         Club,
         Presence,
         StandingWaitingListEntry,
@@ -121,13 +120,10 @@ def _world(app):
             return inst
 
         future = instance(lesson("Tomorrow", now + timedelta(days=1)), now + timedelta(days=1))
-        db.session.add(Association_PlayerLessonInstance(player_id=rita.id, lesson_instance_id=future.id))
         db.session.add(Presence(lesson_instance_id=future.id, player_id=rita.id, invited=True))
 
         past = instance(lesson("Last week", now - timedelta(days=7)), now - timedelta(days=7))
-        db.session.add(Association_PlayerLessonInstance(player_id=rita.id, lesson_instance_id=past.id))
         db.session.add(Presence(lesson_instance_id=past.id, player_id=rita.id, status="present", validated=True))
-        db.session.add(Association_PlayerLessonInstance(player_id=bruno.id, lesson_instance_id=past.id))
         db.session.add(Presence(lesson_instance_id=past.id, player_id=bruno.id, status="present", validated=True))
 
         series = lesson("Weekly", now - timedelta(days=2), weekly_until=(now + timedelta(weeks=8)).date())
@@ -309,7 +305,6 @@ def test_blocks_both_ways_and_calendar_blocks_are_deleted(app, client):
 def test_the_student_leaves_future_classes_only_and_silently(app, client):
     from padel_app.models import (
         Association_PlayerLesson,
-        Association_PlayerLessonInstance,
         NotificationEvent,
         Presence,
         Vacancy,
@@ -321,11 +316,10 @@ def test_the_student_leaves_future_classes_only_and_silently(app, client):
     _delete(app, client, ids)
     pid = ids["rita_id"]
     with app.app_context():
-        enrolled = {r.lesson_instance_id for r in Association_PlayerLessonInstance.query.filter_by(player_id=pid)}
         presences = {p.lesson_instance_id for p in Presence.query.filter_by(player_id=pid)}
         series = {r.lesson_id for r in Association_PlayerLesson.query.filter_by(player_id=pid)}
-        assert ids["future_id"] not in enrolled and ids["future_id"] not in presences
-        assert ids["past_id"] in enrolled and ids["past_id"] in presences, "the past stays"
+        assert ids["future_id"] not in presences
+        assert ids["past_id"] in presences, "the past stays"
         assert ids["series_id"] not in series, "a series with occurrences ahead is left"
         assert ids["old_single_id"] in series, "a class that already happened is the coach's record"
         assert (Vacancy.query.count(), NotificationEvent.query.count()) == (vacancies, events), "silent"

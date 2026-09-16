@@ -40,7 +40,6 @@ def _make_instance(start: datetime, status: str = "scheduled", max_players: int 
         status=status,
         max_players=max_players,
         notifications_enabled=True,
-        players_relations=[],
         presences=[],
     )
 
@@ -433,7 +432,7 @@ class TestSendClassRemindersGuard:
         inst = MagicMock()
         inst.start_datetime = start
         inst.status = status
-        inst.players_relations = []
+        inst.presences = []
         return inst
 
     def _run(self, now: datetime, instance_start: datetime, status: str = "scheduled"):

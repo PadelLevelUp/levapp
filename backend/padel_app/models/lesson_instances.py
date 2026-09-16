@@ -76,13 +76,8 @@ class LessonInstance(db.Model, model.Model):
         passive_deletes=True,
     )
     
-    # Many-to-many: LessonInstance <-> Player
-    players_relations = relationship(
-        "Association_PlayerLessonInstance",
-        back_populates="lesson_instance",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    # PAD-301: the roster is `presences` (classes.instance-enrollment rule 1);
+    # the shadow junction and its `players_relations` are gone.
     
     coaches_relations = relationship(
         "Association_CoachLessonInstance", 
@@ -245,12 +240,6 @@ class LessonInstance(db.Model, model.Model):
                     "Select",
                     label="Status",
                     options=["scheduled", "canceled", "completed"],
-                ),
-                get_field(
-                    "players_relations",
-                    "OneToMany",
-                    label="Players",
-                    related_model="Association_PlayerLessonInstance",
                 ),
             ],
         )

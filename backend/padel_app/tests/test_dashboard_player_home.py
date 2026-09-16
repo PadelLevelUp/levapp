@@ -30,7 +30,6 @@ def _seed(app, *, now):
         Association_CoachLesson,
         Association_CoachPlayer,
         Association_PlayerLesson,
-        Association_PlayerLessonInstance,
         LessonInstance,
         Presence,
         User,
@@ -97,12 +96,8 @@ def _seed(app, *, now):
             db.session.flush()
             for p in signed_up:
                 db.session.add(Association_PlayerLesson(player_id=p.id, lesson_id=lesson.id))
-                db.session.add(
-                    Association_PlayerLessonInstance(player_id=p.id, lesson_instance_id=inst.id)
-                )
-                # PAD-259: the presence row is the enrolment; the junction is the shadow.
-                # PAD-259: the presence row is the enrolment; the junction is the
-                # shadow. `invited=False` here means "enrolled, not asked yet" —
+                # PAD-259/PAD-301: the presence row is the enrolment.
+                # `invited=False` here means "enrolled, not asked yet" —
                 # the queue reads `invited and not confirmed` as an open ask.
                 db.session.add(
                     Presence(lesson_instance_id=inst.id, player_id=p.id, invited=False,

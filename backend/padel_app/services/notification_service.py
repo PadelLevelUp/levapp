@@ -2100,7 +2100,7 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
     # — invitation "yes", waiting-list placement, accepted request — converges
     # here, so this is where the other pending requests learn the spot is gone.
     from padel_app.services.class_join_request_service import supersede_pending_requests
-    db.session.expire(instance, ["players_relations", "presences"])
+    db.session.expire(instance, ["presences"])
     supersede_pending_requests(instance, filled_by_player_id=player_id)
 
 
@@ -2224,7 +2224,7 @@ def _lock_instance(instance: LessonInstance) -> LessonInstance:
         .populate_existing()
         .one()
     )
-    db.session.expire(locked, ["players_relations", "presences"])
+    db.session.expire(locked, ["presences"])
     return locked
 
 

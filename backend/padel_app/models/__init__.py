@@ -37,7 +37,6 @@ from .Association_CoachLessonInstance import Association_CoachLessonInstance
 from .Association_CoachPlayer import Association_CoachPlayer
 from .Association_PlayerClub import Association_PlayerClub
 from .Association_PlayerLesson import Association_PlayerLesson
-from .Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from .Association_CoachExercise import Association_CoachExercise
 from .Association_CoachExerciseGroup import Association_CoachExerciseGroup
 from .lesson_instance_training import LessonInstanceTraining
@@ -100,7 +99,6 @@ MODELS = {
     "association_coachplayer": Association_CoachPlayer,
     "association_playerclub": Association_PlayerClub,
     "association_playerlesson": Association_PlayerLesson,
-    "association_playerlessoninstance": Association_PlayerLessonInstance,
     "association_coachexercise": Association_CoachExercise,
     "association_coachexercisegroup": Association_CoachExerciseGroup,
     # NOTE: LessonInstanceTraining is deliberately excluded (PAD-280, B-052), for
