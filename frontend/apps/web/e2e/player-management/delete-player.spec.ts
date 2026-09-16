@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 test.use({ video: "on" });
 
@@ -34,8 +35,9 @@ test.describe("PAD-18: Player deletion with confirmation dialog", () => {
       timeout: 3000,
     });
 
-    // Confirm deletion
-    await page.getByRole("button", { name: /confirm|yes|delete$/i }).click();
+    // Confirm deletion. Ghost Player is a placeholder (no password, inactive —
+    // seed.py) so `canDelete` is true and the confirm button reads Delete.
+    await page.getByRole("button", { name: ui("common.delete") }).click();
 
     // Should redirect back to players list
     await page.waitForURL("**/players", { timeout: 5000 });
@@ -54,9 +56,11 @@ test.describe("PAD-18: Player deletion with confirmation dialog", () => {
 
     // PAD-274 (players.remove): the action reads "Disconnect" for a student
     // with an account and "Delete player" only for a placeholder. Either way,
-    // Cancel must keep the player.
+    // Cancel must keep the player. Filler Player 01 has a real account
+    // (password set, status active — seed.py), so `canDelete` is false and
+    // the button reads Disconnect.
     await page
-      .getByRole("button", { name: /^(delete player|disconnect|eliminar jogador|desassociar)$/i })
+      .getByRole("button", { name: ui("players.disconnectPlayer") })
       .click({ timeout: 5000 });
 
     // Confirmation dialog should appear
@@ -64,7 +68,7 @@ test.describe("PAD-18: Player deletion with confirmation dialog", () => {
     await expect(dialog).toBeVisible({ timeout: 3000 });
 
     // Cancel
-    await dialog.getByRole("button", { name: /^(cancel|cancelar)$/i }).click();
+    await dialog.getByRole("button", { name: ui("common.cancel") }).click();
 
     // Dialog should close, still on detail page
     await expect(dialog).not.toBeVisible({ timeout: 3000 });

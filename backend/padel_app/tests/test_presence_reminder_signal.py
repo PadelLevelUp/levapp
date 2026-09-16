@@ -19,7 +19,7 @@ from padel_app.tests.test_notification_reminder_flow import (
 
 
 def _add_second_student(app, instance_id):
-    from padel_app.models import Association_PlayerLessonInstance, Presence, User
+    from padel_app.models import Presence, User
     from padel_app.models.players import Player
 
     with app.app_context():
@@ -29,9 +29,6 @@ def _add_second_student(app, instance_id):
         player = Player(user_id=user.id)
         db.session.add(player)
         db.session.flush()
-        db.session.add(
-            Association_PlayerLessonInstance(player_id=player.id, lesson_instance_id=instance_id)
-        )
         # Materialisation's row: invited=True before any message exists.
         db.session.add(
             Presence(lesson_instance_id=instance_id, player_id=player.id, invited=True, confirmed=False)

@@ -65,7 +65,9 @@ def test_a_cancellation_a_month_ahead_frees_the_spot_messages_the_coach_and_does
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open").one()
         assert vacancy.invite_not_before is not None
         presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=ids["student_id"]).one()
-        assert presence.late_cancellation is False
+        # PAD-271 M5: lateness is derived from response + responded_at (no column).
+        from padel_app.services.presence_response import presence_late_cancellation
+        assert presence_late_cancellation(presence) is False
         row = serialize_presence(presence)
         assert row["cancelledByStudent"] is True
         assert row["cancelledAt"] is not None and row["cancelledAt"].endswith("+00:00")  # a UTC instant

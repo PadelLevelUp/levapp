@@ -96,7 +96,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 # calendar block show confirmed / awaiting / free in one bar
                 # without a per-class request.
                 "confirmedCount": obj.confirmed_spots,
-                "maxPlayers": obj.max_players,
+                "maxPlayers": obj.effective_max_players,
                 "color": lesson.color,
                 # PAD-270: the one class-level fallback (PAD-86).
                 "levelId": effective_level_id(obj),
@@ -115,7 +115,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
             {
                 "type": "class",
                 "classType": obj.type,
-                "maxPlayers": obj.max_players,
+                "maxPlayers": obj.effective_max_players,
                 # A Lesson template has no presences (nobody can have declined a
                 # class that was never materialized), so enrolment IS the
                 # effective filled count here. See LessonInstance.effective_filled_spots.

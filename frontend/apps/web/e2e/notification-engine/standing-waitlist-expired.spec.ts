@@ -20,6 +20,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 const API_BASE = API_APP;
 const AUTH_BASE = API_AUTH;
@@ -92,8 +93,8 @@ test.describe("PAD-110: expired standing waiting list entries", () => {
       await expect(activeRow).toBeVisible();
 
       // 1. The expired row says so; the valid row does not.
-      await expect(expiredRow.getByText(/expired|expirado/i)).toBeVisible();
-      await expect(activeRow.getByText(/expired|expirado/i)).toHaveCount(0);
+      await expect(expiredRow.getByText(ui("settings.standingList.expired"))).toBeVisible();
+      await expect(activeRow.getByText(ui("settings.standingList.expired"))).toHaveCount(0);
 
       // 2. The expired row is de-emphasised using the app's existing muted token, and the valid
       //    row keeps full emphasis.
@@ -106,7 +107,7 @@ test.describe("PAD-110: expired standing waiting list entries", () => {
 
       // 3. Removing an expired entry is exactly what a coach wants to do next, so the delete
       //    control must stay fully visible, enabled and undimmed.
-      const removeBtn = expiredRow.getByRole("button", { name: /remove|delete/i }).first();
+      const removeBtn = expiredRow.getByRole("button", { name: ui("settings.standingList.remove") }).first();
       await expect(removeBtn).toBeVisible();
       await expect(removeBtn).toBeEnabled();
       const removeOpacity = await removeBtn.evaluate((el) => getComputedStyle(el).opacity);

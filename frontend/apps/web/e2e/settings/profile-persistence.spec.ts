@@ -117,9 +117,9 @@ test("PAD-81: saved profile changes persist after a reload", async ({
   await save(page);
   expect((await patch).status()).toBe(200);
 
-  await expect(page.getByText(/settings saved/i).first()).toBeVisible({
-    timeout: 5000,
-  });
+  const successToast = page.getByTestId("toast");
+  await expect(successToast).toBeVisible({ timeout: 5000 });
+  await expect(successToast).toHaveAttribute("data-variant", "default");
 
   // PAD-234: changing the address re-verifies it (auth.email-verification
   // rule 3 / settings.profile rule 9), so the app sends the coach to the code
@@ -156,10 +156,9 @@ test("PAD-81: a failed save reports an error, not success", async ({ page }) => 
 
   await save(page);
 
-  await expect(
-    page.getByText(/could not save settings/i).first()
-  ).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText(/settings saved/i)).toHaveCount(0);
+  const errorToast = page.getByTestId("toast");
+  await expect(errorToast).toBeVisible({ timeout: 5000 });
+  await expect(errorToast).toHaveAttribute("data-variant", "destructive");
 
   await page.unroute("**/api/auth/me");
 

@@ -42,7 +42,6 @@ def _seed(wall_start, *, cancellation_hours=None):
     `wall_start`. Returns (instance_id, student_user_id, student_player_id)."""
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.coaches import Coach
@@ -79,7 +78,6 @@ def _seed(wall_start, *, cancellation_hours=None):
     db.session.flush()
     db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=lesson.id))
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
-    db.session.add(Association_PlayerLessonInstance(player_id=player.id, lesson_instance_id=instance.id))
     db.session.add(Presence(lesson_instance_id=instance.id, player_id=player.id, status="present",
                             invited=True, confirmed=True))
     if cancellation_hours is not None:
@@ -106,7 +104,10 @@ def test_late_cancellation_flag_uses_the_club_clock(app, wall_start, utc_now, la
         result = cancel_attendance(user_id, lesson_instance_id=instance_id, now=utc_now)
         presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).one()
         assert result["proactive"] is False
-        assert presence.late_cancellation is late
+        # PAD-271 M5: lateness is derived from response + responded_at against the deadline.
+        from padel_app.serializers.presence import serialize_presence
+        assert presence.response == "cancelled"
+        assert serialize_presence(presence)["lateCancellation"] is late
 
 
 # ── a class that has started can no longer be cancelled ────────────────────

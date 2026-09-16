@@ -197,7 +197,9 @@ def test_cancel_ten_days_out_is_proactive_and_holds_invitations(app):
         instance = LessonInstance.query.filter_by(lesson_id=lesson_id).one()
         assert {p.player_id for p in instance.presences} == {ids["player_id"], bob}
         mine = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=ids["player_id"]).one()
-        assert mine.late_cancellation is False
+        assert mine.response == "proactive_decline" and mine.recorded_by == "student"  # PAD-271 M5
+        from padel_app.serializers.presence import serialize_presence
+        assert serialize_presence(mine)["lateCancellation"] is False
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id, original_player_id=ids["player_id"]).one()
         assert vacancy.status == "open"
         assert vacancy.invite_not_before is not None

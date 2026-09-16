@@ -114,8 +114,6 @@
     },
     "attendance": {
       "playerFallback": "Player",
-      "confirmedAttendance": "Confirmed attendance",
-      "reminderSent": "Reminder sent",
       "present": "Present",
       "justified": "Justified",
       "unjustified": "Unjustified",
@@ -193,8 +191,6 @@
       "proactiveDeclineHint": "Tell your coach early and another student can take your spot.",
       "proactiveDeclineDone": "Your coach has been notified. Your spot has been freed.",
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
-      "notAttending": "Not attending",
-      "notAttendingJustified": "Justified absence",
       "cancelledByStudentAt": "Cancelled by the student on {{when}}",
       "colorOption": "Color {{color}}",
       "invitedCount": "Invited ({{count}})",

@@ -58,9 +58,9 @@ def _world(app, *, max_players=1, students=2):
 
 
 def _enrolled(instance_id):
-    from padel_app.models import Association_PlayerLessonInstance
+    from padel_app.models import Presence
 
-    return {r.player_id for r in Association_PlayerLessonInstance.query.filter_by(lesson_instance_id=instance_id)}
+    return {r.player_id for r in Presence.query.filter_by(lesson_instance_id=instance_id)}
 
 
 # ── invitations rule 10 ──────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-32 — Allow players to complete their own profile via invite link.
@@ -77,19 +78,19 @@ test.describe("players.invite-completion", () => {
     // The player chooses their own username + password. The completion page renders
     // in the default locale (pt) pre-auth, so match either language.
     await invitePage
-      .getByLabel(/^(username|nome de utilizador)$/i)
+      .getByLabel(ui("auth.playerInvite.username"))
       .fill(NEW_PLAYER_USERNAME);
     await invitePage
-      .getByLabel(/^(password|palavra-passe)$/i)
+      .getByLabel(ui("auth.playerInvite.password"))
       .fill(NEW_PLAYER_PASSWORD);
-    const repeat = invitePage.getByLabel(/repeat password|repetir palavra-passe/i);
+    const repeat = invitePage.getByLabel(ui("auth.playerInvite.repeatPassword"));
     if (await repeat.isVisible({ timeout: 1000 }).catch(() => false)) {
       await repeat.fill(NEW_PLAYER_PASSWORD);
     }
 
     await invitePage
       .getByRole("button", {
-        name: /complete|join|accept|create account|finish|concluir/i,
+        name: ui("auth.playerInvite.complete"),
       })
       .click();
 
@@ -123,7 +124,7 @@ test.describe("players.invite-completion", () => {
     // Pre-auth page renders in the default locale (pt): EN "invalid/expired" or
     // PT "inválido" / "já não é válido".
     await expect(
-      page.getByText(/invalid|expired|no longer valid|inválid|já não é válid/i).first()
+      page.getByText(ui("auth.playerInvite.invalidTitle")).first()
     ).toBeVisible({ timeout: 10_000 });
   });
 });

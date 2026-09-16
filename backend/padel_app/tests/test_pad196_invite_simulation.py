@@ -50,14 +50,9 @@ def _patched_io():
 # ---------------------------------------------------------------------------
 
 def _enrol(player_id, instance_id):
-    """Put a player IN the class: enrolment association + an unanswered presence."""
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
+    """Put a player IN the class: an unanswered presence (the row is the enrolment)."""
     from padel_app.models.presences import Presence
 
-    db.session.add(Association_PlayerLessonInstance(
-        player_id=player_id, lesson_instance_id=instance_id))
     db.session.add(Presence(
         player_id=player_id, lesson_instance_id=instance_id,
         invited=True, confirmed=False))

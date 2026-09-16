@@ -141,7 +141,6 @@ def test_a_class_under_way_is_not_offered_as_an_open_spot(app, wall_start, utc_n
     (at(WINTER, 10), "2027-01-12T10:00:00+00:00"),
 ])
 def test_the_eligibility_note_sends_the_real_start_instant(app, wall_start, start_iso):
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.services.notification_service import students_failing_eligibility_bar
     from padel_app.tests.test_pad128_eligibility import _add_student, _seed
 
@@ -149,7 +148,6 @@ def test_the_eligibility_note_sends_the_real_start_instant(app, wall_start, star
     with app.app_context():
         instance = _class_at(ids, wall_start)
         bad = _add_student(ids["coach_id"], "bad", ids["level_ids"]["5-"])
-        db.session.add(Association_PlayerLessonInstance(player_id=bad, lesson_instance_id=instance.id))
         db.session.add(Presence(player_id=bad, lesson_instance_id=instance.id, invited=True, enrolment_source="coach"))  # PAD-259
         db.session.commit()
         affected = students_failing_eligibility_bar(

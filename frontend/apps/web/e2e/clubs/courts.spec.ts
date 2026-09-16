@@ -95,7 +95,12 @@ test.describe("PAD-194 courts", () => {
 
     await openCalendar(page);
     await page.getByRole("button", { name: /new class|add class/i }).first().click();
-    await expect(page.getByRole("heading", { name: /new class/i }).or(page.getByText(/new class/i).first())).toBeVisible({
+    await expect(
+      page
+        .getByRole("heading", { name: /new class/i })
+        .or(page.getByTestId("add-class-sheet"))
+        .first()
+    ).toBeVisible({
       timeout: 5000,
     });
     await page.getByPlaceholder(/e\.g\./i).first().fill("PAD-194 Court Class");

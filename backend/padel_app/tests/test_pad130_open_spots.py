@@ -43,12 +43,9 @@ def _student(app, ids, name, level="5"):
 
 def _fill(app, ids, count):
     """Enrol `count` other students so the class holds that many."""
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
-
     with app.app_context():
         for i in range(count):
             pid = _add_student(ids["coach_id"], f"filler{i}", level_id=ids["level_ids"]["5"])
-            db.session.add(Association_PlayerLessonInstance(player_id=pid, lesson_instance_id=ids["instance_id"]))
             db.session.add(Presence(player_id=pid, lesson_instance_id=ids["instance_id"], invited=True, enrolment_source="coach"))  # PAD-259
         db.session.commit()
 

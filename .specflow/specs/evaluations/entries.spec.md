@@ -28,6 +28,11 @@ Coaches record evaluation scores for players over time, tracking progress across
    coach changed to how it opened (unrated, or its existing score). On save the client posts only
    the categories whose value differs from how they opened. An untouched category submits nothing.
    A category that already had a score opens pre-filled with it, and is posted only if changed.
+   "Changed" is judged against how the form opened, not against the server at save time. If the
+   score changed elsewhere (another device, another tab) while the form was open, an untouched
+   category is still not re-posted; the other change stands. Rule 7's "equal to the latest"
+   compares with the latest score only, so re-rating back to an earlier grade (5 → 3 → 5) is
+   written.
 7. **`POST /api/app/add_evaluation_entry` backs rule 6 up for every caller.** A score whose `value`
    is null is an abstention and writes nothing. A score equal to the category's latest score for
    that coach-player writes no new entry, so a re-posted unchanged score cannot move `evaluatedAt`.

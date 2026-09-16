@@ -114,8 +114,6 @@
     },
     "attendance": {
       "playerFallback": "Jogador",
-      "confirmedAttendance": "Presença confirmada",
-      "reminderSent": "Lembrete enviado",
       "present": "Presente",
       "justified": "Justificada",
       "unjustified": "Injustificada",
@@ -193,8 +191,6 @@
       "proactiveDeclineHint": "Avisa com antecedência e a tua vaga pode ser ocupada por outro aluno.",
       "proactiveDeclineDone": "Avisámos o teu professor. A tua vaga foi libertada.",
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
-      "notAttending": "Não vais comparecer",
-      "notAttendingJustified": "Falta justificada",
       "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
       "colorOption": "Cor {{color}}",
       "invitedCount": "Convidados ({{count}})",

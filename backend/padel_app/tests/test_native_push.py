@@ -323,7 +323,6 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.services.notification_service import send_class_reminders
 
@@ -362,7 +361,6 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
         db.session.flush()
 
         db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
-        db.session.add(Association_PlayerLessonInstance(player_id=player.id, lesson_instance_id=instance.id))
         db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
         db.session.commit()
 
