@@ -10,9 +10,9 @@ sources:
 
 # The VM takes internet traffic only through nginx; SSH stays open for the deploys
 
-PAD-229 (coordinator decisions, 2026-09-10). A read-only sweep of `levelup-instance`
+PAD-229 (coordinator decisions, 2026-09-10). A read-only sweep of the VM
 found the prod Flask API answering `/api/app/healthz` with 200 from gunicorn on
-`34.78.247.45:5000`: the hand-made firewall rule `backend` (tcp:5000 from 0.0.0.0/0) let
+`<public address>:5000`: the hand-made firewall rule `backend` (tcp:5000 from 0.0.0.0/0) let
 anyone skip nginx and TLS. `default-allow-rdp` (tcp:3389 from anywhere) opened a port
 nothing listens on.
 
@@ -59,4 +59,4 @@ nothing listens on.
 ## Related
 
 - PAD-230 brought the surviving firewall rules into Terraform, with state in the versioned
-  bucket `padel-levelup-2026-tfstate`; PAD-229 verified the match above.
+  the versioned state bucket (name in the local `docs/infra/environment.md`); PAD-229 verified the match above.
