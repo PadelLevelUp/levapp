@@ -27,6 +27,7 @@ import {
   classify,
   localeValues,
   scanMaestro,
+  regexCopy,
   scanPlaywright,
   scanAlternations,
   scanRoleNames,
@@ -377,6 +378,57 @@ describe("the alternation scan counts copy, not data (PAD-322)", () => {
     const long = localeValues({ a: "No", b: "Yes" }, new Set(), 3);
     expect([...short].sort()).toEqual(["no", "yes"]);
     expect([...long]).toEqual(["yes"]);
+  });
+});
+
+describe("the widened scanner catches what the exact match missed", () => {
+  // Final slice of the rendered-text ticket. Each case below is a real miss the
+  // conversions found; each "leaves" case is the false positive its rule must not add.
+  const fixture: Locales = {
+    en: new Set([
+      "are you sure?",
+      "successfully reverted import",
+      "{{count}} players",
+      "remove category {{name}}",
+      "{{name}}",
+      "students",
+      "automatic notifications",
+      "e.g. away for work",
+    ]),
+    pt: new Set(["tem a certeza?"]),
+  };
+
+  it("drops edge punctuation before comparing", () => {
+    expect(classify("pw:x.spec.ts", "are you sure", fixture)).toBe("en");
+    expect(classify("pw:x.spec.ts", "Tem a certeza", fixture)).toBe("pt");
+  });
+
+  it("matches interpolated copy, but not a template that is only a placeholder", () => {
+    expect(classify("pw:x.spec.ts", "2 players", fixture)).toBe("en");
+    expect(classify("pw:x.spec.ts", "Remove category Maestro Cat", fixture)).toBe("en");
+    expect(classify("pw:x.spec.ts", "e2e-coach", fixture)).toBe("data");
+  });
+
+  it("matches a substantial word-bounded part of a value only for substring matchers", () => {
+    expect(classify("pw:x.spec.ts", "successfully reverted", fixture, false, true)).toBe("en");
+    expect(classify("pw:x.spec.ts", "successfully reverted", fixture, false, false)).toBe("data");
+    expect(classify("pw:x.spec.ts", "successfully.*import", fixture, false, true)).toBe("en");
+  });
+
+  it("leaves short words, word fragments and an input's example text alone", () => {
+    expect(classify("pw:x.spec.ts", "student", fixture, false, true)).toBe("data");
+    expect(classify("pw:x.spec.ts", "reverted imp", fixture, false, true)).toBe("data");
+    expect(classify("pw:x.spec.ts", "Away for work", fixture, false, true)).toBe("data");
+  });
+
+  it("reads the copy inside an anchored or escaped regex literal", () => {
+    expect(regexCopy("^automatic notifications$")).toBe("automatic notifications");
+    expect(regexCopy("are you sure\\?")).toBe("are you sure?");
+    expect(regexCopy("of \\d+ lessons")).toBe("of \\d+ lessons");
+    const spec = `await expect(page.getByText(/^automatic notifications$/i)).toBeVisible();`;
+    expect(scanPlaywright("pw:x.spec.ts", spec, fixture)).toEqual([
+      { file: "pw:x.spec.ts", literal: "^automatic notifications$", bucket: "en" },
+    ]);
   });
 });
 

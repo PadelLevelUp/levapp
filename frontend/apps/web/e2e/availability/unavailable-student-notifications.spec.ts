@@ -131,27 +131,26 @@ test("PAD-107: scheduling a class into the blocked window warns the coach", asyn
   await page.getByRole("button", { name: /create class/i }).first().click();
 
   // The warning names the student and explains notifications are impossible.
-  const dialog = page.getByRole("alertdialog");
+  const dialog = page.getByTestId("unavailable-student-dialog");
   await expect(dialog).toBeVisible({ timeout: 5000 });
   await expect(dialog).toContainText(STUDENT_NAME);
-  await expect(dialog).toContainText(/unavailable/i);
   await expect(dialog).toContainText(/notification/i);
 
   // Cancelling aborts the create — the sheet stays open, no class is made.
   await dialog.getByRole("button", { name: /^cancel$/i }).click();
   await expect(dialog).toBeHidden({ timeout: 5000 });
-  await expect(page.getByText(/class created/i)).toHaveCount(0);
+  await expect(page.getByTestId("toast")).toHaveCount(0);
 
   // Confirming goes ahead and creates the class with the student enrolled.
   await page.getByRole("button", { name: /create class/i }).first().click();
   await page
-    .getByRole("alertdialog")
+    .getByTestId("unavailable-student-dialog")
     .getByRole("button", { name: /proceed|continue|add anyway|confirm/i })
     .click();
 
-  await expect(page.getByText(/class created/i).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  const createdToast = page.getByTestId("toast");
+  await expect(createdToast).toBeVisible({ timeout: 10_000 });
+  await expect(createdToast).toHaveAttribute("data-variant", "default");
 });
 
 test("PAD-107: a class outside the blocked window does not warn", async ({
@@ -173,9 +172,9 @@ test("PAD-107: a class outside the blocked window does not warn", async ({
 
   await page.getByRole("button", { name: /create class/i }).first().click();
 
-  await expect(page.getByText(/class created/i).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  const createdToast = page.getByTestId("toast");
+  await expect(createdToast).toBeVisible({ timeout: 10_000 });
+  await expect(createdToast).toHaveAttribute("data-variant", "default");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
