@@ -180,8 +180,10 @@ it is designed to be switched off later without a data change.
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 7.
-- Mail sender: prod runs `MAIL_USERNAME=padelapp2025@gmail.com` with the `MAIL_PASSWORD` secret
-  (`backend/.env.prod`, `deploy-prod.yaml`); `ADMIN_NOTIFY_EMAIL=admin@levapp.app` was added to
+- Mail sender: prod runs `MAIL_USERNAME=admin@levapp.app` and sends as
+  `MAIL_DEFAULT_SENDER=noreply@levapp.app` with the `MAIL_PASSWORD` secret (a Google app
+  password; `backend/.env.prod`, `deploy-prod.yaml`; the personal Gmail was retired by
+  `a3dcc2fe5`, PAD-187 step 3); `ADMIN_NOTIFY_EMAIL=admin@levapp.app` was added to
   `.env.prod` on 2026-09-07 (PAD-231). Staging has the same sender behind
   `MAIL_ALLOWED_RECIPIENTS=@levapp.app` (`auth.email-verification` rule 12), so an approval
   there can only ever reach the team.
