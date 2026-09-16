@@ -92,3 +92,19 @@ def test_an_unchanged_score_adds_no_history_row(app, client):
 
     _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 9}])
     assert _entries(app, ids, "forehand_id") == 2
+
+
+def test_re_rating_back_to_an_earlier_score_is_written(app, client):
+    """5 → 3 → 5: the third save compares against the latest score (3), not
+    against any earlier one, so returning to a former grade is a new entry."""
+    ids = _seed(app)
+    for value in (5, 3, 5):
+        _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": value}])
+    assert _entries(app, ids, "forehand_id") == 3
+
+    from padel_app.models import Association_CoachPlayer
+
+    with app.app_context():
+        rel = Association_CoachPlayer.query.get(ids["rel_id"])
+        latest = {e.category_id: e.score for e in rel.current_evaluations}
+        assert float(latest[ids["forehand_id"]]) == 5.0
