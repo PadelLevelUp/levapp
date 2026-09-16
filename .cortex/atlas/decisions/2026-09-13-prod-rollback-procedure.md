@@ -160,8 +160,7 @@ needs that split, run `flask db upgrade` on a restored dump locally and time it 
 ## Why this is written as steps rather than a summary
 
 **Analysis missed what enumeration caught**, three times now on this one ticket, by two sessions
-independently — which is why it became R-035 on 2026-09-16 (number self-assigned from the
-coordinator's reserved range, unconfirmed). The three cases are written as commands someone
+independently — which is why it became R-035 on 2026-09-16 (confirmed by the coordinator). The three cases are written as commands someone
 can run, in order, including the ones that do not work, because a summary of a procedure reads
 as though the procedure exists.
 

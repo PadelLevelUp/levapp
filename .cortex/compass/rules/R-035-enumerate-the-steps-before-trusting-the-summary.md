@@ -1,6 +1,6 @@
 ---
 id: R-035
-title: "A procedure is proven by enumerating its steps against what the system actually runs, not by summarising it"
+title: "Prove a procedure by enumerating its commands against what the system actually runs"
 source:
   - ../../atlas/decisions/2026-09-13-prod-rollback-procedure.md
 governs:
@@ -11,7 +11,7 @@ confidence: EXTRACTED
 status: active
 ---
 
-# R-035 — Enumerate the steps before trusting the summary
+# R-035 — Prove a procedure by enumerating its commands against what the system actually runs
 
 A summary of a procedure reads as though the procedure exists. Before a runbook, a recovery
 path or a deploy change is called done, write it out as the commands someone will run, in
@@ -32,9 +32,11 @@ confident summary and enumeration found it wrong:
 
 The first version of the decision recorded this as "a pattern worth liking, not yet seen twice
 independently; if another session hits it on its own, it earns a number". Session A hit it on
-its own on 2026-09-16. Number self-assigned from the coordinator's reserved range (unconfirmed).
+its own on 2026-09-16. Number R-035 confirmed by the coordinator on 2026-09-16, with the title reworded.
 
 **How to apply:**
+- The one-command version of a recovery path is the deliverable; a paragraph describing the
+  recovery is not. The rest of this list is how to get there.
 - For every command in a runbook, name where its inputs come from (a file on the host, a
   secret in CI, a tag on a registry) and confirm that source exists *at that point in the
   sequence*. "It is on the VM" is a claim to check, not a premise.
@@ -43,5 +45,3 @@ its own on 2026-09-16. Number self-assigned from the coordinator's reserved rang
   one row, no rows.
 - Write the cases that do not work as steps too, ending in "this has no recovery" where that is
   the truth. A reader who finds only the working cases assumes the others are covered.
-- The one-command version of a recovery path is the deliverable; a paragraph describing the
-  recovery is not.
