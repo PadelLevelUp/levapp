@@ -22,8 +22,9 @@ export interface Violation {
   file: string;
   literal: string;
   bucket: Bucket;
-  /** `text` (PAD-320's matchers, the default) or `role` (PAD-342: a typed role name). */
-  kind?: "text" | "role";
+  /** `text` (PAD-320's matchers, the default), `role` (PAD-342: a typed role name) or
+   *  `alternation` (PAD-322: a bilingual `/delete|eliminar/i` with a locale half). */
+  kind?: "text" | "role" | "alternation";
 }
 
 export interface Locales {
@@ -46,14 +47,18 @@ const SUBJECT_RE = /i18n|language|locale/i;
 export const norm = (s: string): string => s.replace(/\s+/g, " ").trim().toLowerCase();
 
 /** Collect every string value in a nested locale JSON object. */
-export function localeValues(tree: unknown, out: Set<string> = new Set()): Set<string> {
+export function localeValues(
+  tree: unknown,
+  out: Set<string> = new Set(),
+  minLength = 3,
+): Set<string> {
   if (typeof tree === "string") {
     const v = norm(tree);
-    if (v.length >= 3) out.add(v);
+    if (v.length >= minLength) out.add(v);
   } else if (Array.isArray(tree)) {
-    for (const v of tree) localeValues(v, out);
+    for (const v of tree) localeValues(v, out, minLength);
   } else if (tree && typeof tree === "object") {
-    for (const v of Object.values(tree)) localeValues(v, out);
+    for (const v of Object.values(tree)) localeValues(v, out, minLength);
   }
   return out;
 }
@@ -167,6 +172,48 @@ export function scanRoleNames(file: string, source: string, locales: Locales): V
     if ((CONVERTIBLE as readonly string[]).includes(bucket)) {
       found.push({ file, literal: core, bucket, kind: "role" });
     }
+  }
+  return found;
+}
+
+/**
+ * PAD-322 — bilingual alternations. `/delete|eliminar/i` was somebody's workaround
+ * for exactly the problem PAD-320 fixes: it survives a language switch, so it never
+ * made the suite order-dependent, but it still breaks on a rename. It is counted here
+ * when at least one half resolves to a locale value — that is what makes it copy and
+ * not test data (`/I1\s*\|\s*Intermediate/` has an ESCAPED bar and is not an
+ * alternation; `/create.*invite|invite.*player/i` resolves to nothing and is left).
+ * The fix is the same resolved shape as a role name: `ui("common.delete")` as the
+ * matcher's argument, which the scanner cannot see. Scanned across the text
+ * matchers and role names alike, so a text slice and a role slice never move it.
+ */
+const PW_ALT = new RegExp(
+  String.raw`(getByText|getByPlaceholder|getByLabel|toContainText|toHaveText|hasText|\bname)\s*[:(]?\s*\/((?:[^/\\\n]|\\.)*[^\\]\|(?:[^/\\\n]|\\.)*)\/[a-z]*`,
+  "gs",
+);
+
+/** The halves of an alternation regex, each cleaned like a role-name regex. */
+export const alternationHalves = (raw: string): string[] => {
+  const outer = raw.replace(/^\^/, "").replace(/\$$/, "").replace(/^\((.*)\)$/, "$1");
+  return outer
+    .split(/(?<!\\)\|/)
+    .map((h) => roleRegexCore(h.trim()))
+    .filter((h) => /[A-Za-z]/.test(h));
+};
+
+/** Bilingual alternations with a locale half, in one Playwright spec. */
+export function scanAlternations(file: string, source: string, locales: Locales): Violation[] {
+  const found: Violation[] = [];
+  for (const m of source.matchAll(PW_ALT)) {
+    const halves = alternationHalves(m[2]);
+    if (halves.length < 2) continue;
+    const resolved = halves.some((h) => {
+      const core = norm(h);
+      return locales.en.has(core) || locales.pt.has(core);
+    });
+    if (!resolved) continue;
+    if (SUBJECT_RE.test(file) || file in SUBJECT_ALLOWLIST) continue;
+    found.push({ file, literal: m[2], bucket: "bilingual", kind: "alternation" });
   }
   return found;
 }
