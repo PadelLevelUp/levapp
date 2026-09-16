@@ -58,4 +58,5 @@ could not execute.
 **Rule this reinforces:** R-034 (a check that has never failed has not been validated) and
 R-035 (enumerate the commands against what the system runs). A script path that exists only
 to be run by hand is exactly the path that ships untested; it needs the same stub-driven test
-as the nightly path, and `shellcheck` belongs in the backend test run for `backend/scripts/*.sh`.
+as the nightly path, and `shellcheck` now runs over `backend/scripts/*.sh` (bar the Terraform template) in the
+backend test job.

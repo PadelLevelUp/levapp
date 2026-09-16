@@ -40,8 +40,9 @@ jobs:
       - run: pip install . pytest
       # B-091: the VM-side scripts are shell; shellcheck had flagged the
       # restore-check bug (SC2318) and nothing ran it. The runner image ships
-      # shellcheck, so this costs a second.
-      - run: shellcheck -S style scripts/*.sh
+      # shellcheck, so this costs a second. startup.sh is a Terraform template
+      # (${var.…} interpolations), not a shell script, so it is left out.
+      - run: shellcheck -S warning $(ls scripts/*.sh | grep -v '/startup\.sh$')
       - run: python -m pytest padel_app/tests -q -p no:warnings
 
   postgres:
