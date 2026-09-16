@@ -141,7 +141,7 @@ export function PlayerHeader({
 
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (
-                <Badge variant="secondary">
+                <Badge variant="secondary" data-testid="player-side-badge" data-state={player.side}>
                   {t(SIDE_LABEL_KEYS[player.side])}
                 </Badge>
               )}

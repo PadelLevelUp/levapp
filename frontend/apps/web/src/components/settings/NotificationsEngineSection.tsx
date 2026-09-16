@@ -101,7 +101,7 @@ export function NotificationsEngineSection() {
   }
 
   return (
-    <Card>
+    <Card data-testid="notifications-engine-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2" data-testid="notification-engine-title">
           <BellRing className="w-4 h-4" />
