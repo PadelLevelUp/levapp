@@ -106,7 +106,7 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
           <p className="text-sm font-medium mt-4 mb-2">{t(group.labelKey)}</p>
           <div className="space-y-4">
             {group.keys.map((key) => (
-              <div key={key} className="space-y-1.5">
+              <div key={key} className="space-y-1.5" data-testid={`template-row-${key}`}>
                 <Label className="text-sm font-medium flex items-center gap-1.5">
                   <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                   {t(LABEL_KEYS[key])}

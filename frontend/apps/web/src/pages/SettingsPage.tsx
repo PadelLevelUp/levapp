@@ -646,7 +646,7 @@ export default function SettingsPage() {
             {activeTab === "import" && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2" data-testid="import-data-title">
                     <Upload className="w-5 h-5" />
                     {t("settings.import.title")}
                   </CardTitle>
