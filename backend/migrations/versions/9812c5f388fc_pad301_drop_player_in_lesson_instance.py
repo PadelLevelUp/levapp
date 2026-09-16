@@ -14,8 +14,13 @@ Upgrade, guarded and fail-closed:
    might still be able to see only through the junction.
 3. The table (with its unique constraint and index) is dropped.
 
-Downgrade recreates the table with the same shape and refills it with one row
-per presence, so the shadow is faithful again; a second downgrade is a no-op.
+Downgrade recreates the table with the shape the pre-drop code wrote — the
+mixin ``created_at`` / ``updated_at`` (initial migration), NOT NULL keys
+(PAD-273), the named ``fk_player_in_lesson_instance_*`` foreign keys (PAD-274),
+the unique pair and PAD-263's index — and refills it with one row per presence,
+so the shadow is faithful and writable again and ``flask db check`` is clean
+against the pre-drop models; a second downgrade is a no-op (the index is
+re-guarded on its own).
 
 Revision ID: 9812c5f388fc
 Revises: f50214af74f1
@@ -44,8 +49,8 @@ ORPHANS_SQL = (
 )
 
 REFILL_SQL = (
-    "INSERT INTO player_in_lesson_instance (player_id, lesson_instance_id) "
-    "SELECT p.player_id, p.lesson_instance_id FROM presences p "
+    "INSERT INTO player_in_lesson_instance (player_id, lesson_instance_id, created_at, updated_at) "
+    "SELECT p.player_id, p.lesson_instance_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM presences p "
     "LEFT JOIN player_in_lesson_instance j ON j.player_id = p.player_id "
     "AND j.lesson_instance_id = p.lesson_instance_id "
     "WHERE j.id IS NULL"
@@ -79,20 +84,36 @@ def upgrade():
     log.info("PAD-301: dropped %s (%s shadow rows, every one with a presence)", TABLE, held)
 
 
+INDEX = "ix_player_in_lesson_instance_lesson_instance_id"
+
+
+def _has_index(table, name):
+    return any(ix["name"] == name for ix in sa_inspect(op.get_bind()).get_indexes(table))
+
+
 def downgrade():
     if not _has_table(TABLE):
         op.create_table(
             TABLE,
+            # model.Model's mixin columns (initial migration e5442f6c568d).
+            sa.Column("created_at", sa.DateTime(), nullable=True),
+            sa.Column("updated_at", sa.DateTime(), nullable=True),
             sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("player_id", sa.Integer(), sa.ForeignKey("players.id", ondelete="CASCADE"), nullable=False),
-            sa.Column(
-                "lesson_instance_id", sa.Integer(),
-                sa.ForeignKey("lesson_instances.id", ondelete="CASCADE"), nullable=False,
+            # NOT NULL since PAD-273 (501dcb2c12f5).
+            sa.Column("player_id", sa.Integer(), nullable=False),
+            sa.Column("lesson_instance_id", sa.Integer(), nullable=False),
+            # Named since PAD-274 (76395824b9cf).
+            sa.ForeignKeyConstraint(
+                ["player_id"], ["players.id"], ondelete="CASCADE",
+                name="fk_player_in_lesson_instance_player_id",
+            ),
+            sa.ForeignKeyConstraint(
+                ["lesson_instance_id"], ["lesson_instances.id"], ondelete="CASCADE",
+                name="fk_player_in_lesson_instance_lesson_instance_id",
             ),
             sa.UniqueConstraint("player_id", "lesson_instance_id", name="uq_player_lesson_instance"),
         )
-        op.create_index(
-            "ix_player_in_lesson_instance_lesson_instance_id", TABLE, ["lesson_instance_id"]
-        )
+    if not _has_index(TABLE, INDEX):
+        op.create_index(INDEX, TABLE, ["lesson_instance_id"])  # PAD-263 (cf030b78b088)
     refilled = op.get_bind().execute(sa.text(REFILL_SQL)).rowcount
     log.info("PAD-301 downgrade: %s back, %s row(s) refilled from presences", TABLE, refilled)

@@ -27,8 +27,9 @@ DDL = (
     "CREATE TABLE players (id INTEGER PRIMARY KEY)",
     "CREATE TABLE lesson_instances (id INTEGER PRIMARY KEY)",
     "CREATE TABLE presences (id INTEGER PRIMARY KEY, lesson_instance_id INTEGER, player_id INTEGER)",
-    "CREATE TABLE player_in_lesson_instance (id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, "
-    "lesson_instance_id INTEGER NOT NULL, CONSTRAINT uq_player_lesson_instance UNIQUE (player_id, lesson_instance_id))",
+    "CREATE TABLE player_in_lesson_instance (created_at DATETIME, updated_at DATETIME, id INTEGER PRIMARY KEY, "
+    "player_id INTEGER NOT NULL REFERENCES players (id), lesson_instance_id INTEGER NOT NULL REFERENCES lesson_instances (id), "
+    "CONSTRAINT uq_player_lesson_instance UNIQUE (player_id, lesson_instance_id))",
     "CREATE INDEX ix_player_in_lesson_instance_lesson_instance_id ON player_in_lesson_instance (lesson_instance_id)",
 )
 
@@ -99,6 +100,22 @@ def test_downgrade_recreates_and_refills_from_presences_then_is_a_no_op():
     _run(conn, "downgrade")
     assert "player_in_lesson_instance" in _tables(conn)
     assert _pairs(conn) == [(1, 10), (3, 11)]
+    # The shape the pre-drop code writes (review round, Session A): the mixin
+    # timestamps, NOT NULL keys, named FKs, the unique pair and PAD-263's index.
+    insp = sa.inspect(conn)
+    cols = {c["name"]: c for c in insp.get_columns("player_in_lesson_instance")}
+    assert set(cols) == {"created_at", "updated_at", "id", "player_id", "lesson_instance_id"}
+    assert cols["player_id"]["nullable"] is False and cols["lesson_instance_id"]["nullable"] is False
+    assert sorted(fk["name"] for fk in insp.get_foreign_keys("player_in_lesson_instance")) == [
+        "fk_player_in_lesson_instance_lesson_instance_id",
+        "fk_player_in_lesson_instance_player_id",
+    ]
+    assert [ix["name"] for ix in insp.get_indexes("player_in_lesson_instance")] == [
+        "ix_player_in_lesson_instance_lesson_instance_id"
+    ]
+    assert conn.exec_driver_sql(
+        "SELECT count(*) FROM player_in_lesson_instance WHERE created_at IS NULL OR updated_at IS NULL"
+    ).scalar() == 0
     _run(conn, "downgrade")
     assert _pairs(conn) == [(1, 10), (3, 11)]
     # And up again.

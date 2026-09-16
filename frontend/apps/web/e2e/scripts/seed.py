@@ -21,7 +21,6 @@ from padel_app.models.lessons import Lesson
 from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 from padel_app.models.presences import Presence
 from padel_app.services.lesson_service import enrol
 from padel_app.tools.unit_of_work import unit_of_work
@@ -541,7 +540,7 @@ with app.app_context(), unit_of_work():
     #     EARLIER week than today, so none of these ever appear in the calendar's
     #     default (current) week;
     #   * they hang off their own lesson, and the student is attached to the
-    #     INSTANCES only (Association_PlayerLessonInstance + Presence), never to
+    #     INSTANCES only (Presence rows — PAD-301 dropped the shadow junction), never to
     #     the parent Lesson, so no "my classes" list gains an entry;
     #   * `validated=True`, because the coach dashboard's "Pending validation"
     #     KPI counts `Presence.validated == False` — unvalidated rows would have
