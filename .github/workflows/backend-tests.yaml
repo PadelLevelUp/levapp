@@ -10,7 +10,11 @@ name: Backend tests
 #
 # No workflow-level `paths:` filter, on purpose: a required check that is
 # skipped blocks the PR forever (see deploy-staging.yaml). The suite takes about
-# two minutes, so it simply runs on every pull request.
+# ten minutes on a quiet runner and up to ~30 under load (2026-09-16: 27m30s on
+# sqlite while ten runs were in flight), so it simply runs on every pull request
+# with a 45-minute budget — headroom above the slowest run seen, not a hang
+# detector. A job cancelled at the budget is progress, not a stall, unless its
+# last dot-line is old (B-099).
 
 on:
   pull_request:
@@ -29,7 +33,7 @@ jobs:
   sqlite:
     name: pytest (sqlite, FK on)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,7 +55,7 @@ jobs:
   postgres:
     name: pytest (postgres, real migrations)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:15
