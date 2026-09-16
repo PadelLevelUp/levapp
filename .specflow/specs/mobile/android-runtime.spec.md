@@ -73,6 +73,15 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    (`alignSelf: "stretch"`, which the dialogs already carry from PAD-102). B-067 is the
    failure this rule prevents: the select's option list shrink-wrapped to 0 × 0, and no
    Android user could pick a value in any select in the app while the list sat open on screen.
+   **Portalled dialogs, alert dialogs and selects carry no layout animation on Android**, entering
+   or exiting (`src/lib/dialog-motion.ts`); iOS keeps a 150 ms fade both ways. The exit
+   animation left a dialog drawn after React removed it (B-089 face A, PAD-314 #251). The
+   entering animation could report itself finished at once and leave the content at opacity 0:
+   mounted, laid out in place, but invisible and inert behind a drawn overlay (B-089 face B,
+   PAD-314). It was measured, not inferred. With a mount/layout trace, flow 52 failed on
+   iteration 1 with the content node present at its full bounds and reported not visible to
+   the user (run 35114681841). The same build without the entering animation passed 60 of 60
+   (run 35114685284).
 
 #### Verification
 8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
@@ -122,6 +131,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the dialog is gone within a second and the app is still on the player screen, with no
   hardware back needed — Maestro flow `49-dialog-cancel-closes`, which fails on the code before
   PAD-314 (the dialog stays drawn with nothing behind it, B-089 face A) and passes after it
+
+#### A dialog's content is visible when it opens on Android
+- **Given** the coach is on the new-class form on the emulator, with a class already on that day
+- **When** they save and the overlap confirmation opens
+- **Then** its Cancel and Confirm (`overlap-cancel`, `overlap-confirm`) are visible, every time.
+  Maestro flow `52-dialog-overlay-rate` raises it 20 times. It failed on the code before this
+  change (content at opacity 0, B-089 face B) and passes after it
 
 #### Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a
