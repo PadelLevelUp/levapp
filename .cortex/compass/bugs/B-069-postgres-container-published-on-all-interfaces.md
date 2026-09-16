@@ -144,3 +144,9 @@ Back-out for D: the same `docker run` with `-p 5432:5432` in place of `-p 127.0.
   `/data/postgres:/var/lib/postgresql/data`, networks `bridge` only, env `POSTGRES_USER=padel_app_user
   POSTGRES_DB=padel_app PGDATA=/var/lib/postgresql/data PG_VERSION=15.15`; `levelup_net` exists; the
   container has been up two months. Matches the expectations; step 5's `docker run` reproduces it.
+- **Steps 2–3 (network join and its verification) run by the coordinator 2026-09-16 15:11:26–15:11:34
+  UTC:** `docker network connect levelup_net postgres` succeeded; the container is now on
+  `bridge=172.17.0.2` and `levelup_net=172.18.0.7`; `getent hosts postgres` from **both**
+  `padelapp_staging` and `padelapp` returns `172.18.0.7`; healthz 200 on :5100 and :5000; `ss` still
+  shows `0.0.0.0:5432`, as expected until step 5. **Step B is done: #210 may merge in any batch.**
+  Step 5 (loopback re-create) stays with the coordinator, after the promotion that carries #210.
