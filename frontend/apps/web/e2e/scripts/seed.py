@@ -280,8 +280,8 @@ with app.app_context(), unit_of_work():
     db.session.flush()
 
     # ── Lesson + LessonInstance ───────────────────────────────────────────────
-    # Future class (next Monday 10:00) — naive UTC to match the backend's
-    # datetime contract. Dates come from seed_dates.py (PAD-223).
+    # Future class (next Monday 10:00) — Lisbon wall-clock like every class
+    # time (R-023). Dates come from seed_dates.py (PAD-223).
     today = DATES.today
     class_start = DATES.academy_start
     class_end = DATES.academy_end
@@ -810,6 +810,50 @@ with app.app_context(), unit_of_work():
         sent_at=yesterday_noon,
     ))
 
+    # ── Coach "Next 7 days" fixture (PAD-343) ────────────────────────────────
+    # "E2E Upcoming Class": the class the coach dashboard's upcoming list is
+    # asserted on. The academy class cannot be — on a Monday it is 7 days out and
+    # a run before 10:00 does not list it. Dates and the invariants they keep are
+    # in seed_dates.py and test_seed_dates.py. Placement rules:
+    #   * created LAST, so every existing lesson and instance id stays put
+    #     (proactive-decline and class-detail-privacy read instance ids 1 and 2);
+    #   * two filler players fill both seats, so it raises no empty-seats card in
+    #     the coach's needs-you queue and touches no e2e-student view;
+    #   * 09:00–10:00 is clear of every slot the specs book on next Monday
+    #     (07:00, 10:00 academy, 10:30, 12:00, 13:00, 15:00, 18:00–20:00, 19:00,
+    #     19:15) and leaves pad282's 08:00 block free on a Sunday run.
+    upcoming_lesson = Lesson(
+        title="E2E Upcoming Class",
+        start_datetime=DATES.upcoming_start,
+        end_datetime=DATES.upcoming_end,
+        is_recurring=False,
+        type="academy",
+        max_players=2,
+        club_id=club.id,
+        color="#0891B2",
+        status="active",
+    )
+    db.session.add(upcoming_lesson)
+    db.session.flush()
+    db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=upcoming_lesson.id))
+    upcoming_instance = LessonInstance(
+        lesson_id=upcoming_lesson.id,
+        start_datetime=DATES.upcoming_start,
+        end_datetime=DATES.upcoming_end,
+        max_players=2,
+        status="scheduled",
+        level_id=level_beginner.id,
+        notifications_enabled=True,
+        original_lesson_occurence_date=DATES.upcoming_start.date(),
+    )
+    db.session.add(upcoming_instance)
+    db.session.flush()
+    db.session.add(
+        Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=upcoming_instance.id)
+    )
+    for upcoming_member in filler_players[20:22]:
+        _enrol(upcoming_instance, upcoming_member, invited=True, confirmed=True)
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
@@ -818,6 +862,7 @@ with app.app_context(), unit_of_work():
     print(f"  Student 2: {student2_user.username} / E2eStudent2123!")
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")
+    print(f"  Upcoming (coach next-7-days) instance: {upcoming_instance.id} '{upcoming_lesson.title}' at {DATES.upcoming_start} (2/2)")
     print(f"  Recurring lesson: {recurring_lesson.id} '{recurring_lesson.title}' (weekly on Tue, {recurring_start} - {recurrence_end_date})")
     print(f"  Declined-count instance: {declined_instance.id} '{declined_lesson.title}' at {declined_start} (3 enrolled, 2 declined, max 4)")
     print(f"  Conversation {conversation.id} (coach<->student) with 2 messages (1 unread for coach)")
