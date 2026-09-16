@@ -45,7 +45,7 @@ appId: com.padellevelup.app
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - repeat:
-    times: 10
+    times: 30
     commands:
       - launchApp:
           clearState: true
