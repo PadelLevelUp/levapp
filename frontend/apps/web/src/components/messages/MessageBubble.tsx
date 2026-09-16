@@ -69,6 +69,19 @@ export function MessageBubble({
   // self-service route onto the waiting list, and it rendered as plain text — so
   // `POST /app/notify/respond_waiting_list` had no caller in either client.
   const isWaitingListOffer = message.messageType === "waiting_list_offer";
+  // messaging.conversation-detail rule 15 (PAD-325): the class this message
+  // acts on was deleted. Its answers can only fail, so the reminder and
+  // waiting-list buttons give way to a note saying what happened.
+  const classDeleted = message.classDeleted === true;
+  const classDeletedBadge = (
+    <span
+      data-testid="message-class-deleted"
+      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70"
+    >
+      <MinusCircle className="w-3.5 h-3.5" />
+      {t("messages.classDeleted")}
+    </span>
+  );
   const alreadyResponded = !!message.metadata?.responded;
 
   const approvalBundle = isReplacementApproval
@@ -398,7 +411,9 @@ export function MessageBubble({
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1">
-              {confirmed ? (
+              {classDeleted ? (
+                classDeletedBadge
+              ) : confirmed ? (
                 <>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
                     <Check className="w-3.5 h-3.5" />
@@ -466,6 +481,7 @@ export function MessageBubble({
               ) : (
                 <>
                   <button
+                    data-testid="message-reminder-yes"
                     onClick={() => handleRespondReminder("yes")}
                     disabled={responding}
                     className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
@@ -473,6 +489,7 @@ export function MessageBubble({
                     {responding ? "…" : t("messages.yes")}
                   </button>
                   <button
+                    data-testid="message-reminder-no"
                     onClick={() => handleRespondReminder("no")}
                     disabled={responding}
                     className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
@@ -506,7 +523,9 @@ export function MessageBubble({
 
           return (
             <div className="flex flex-wrap gap-2 mt-1.5 ml-1" data-testid="waiting-list-offer-actions">
-              {joined ? (
+              {classDeleted ? (
+                classDeletedBadge
+              ) : joined ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
                   <Check className="w-3.5 h-3.5" />
                   {t("messages.waitingListJoined")}

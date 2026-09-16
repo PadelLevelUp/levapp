@@ -34,6 +34,7 @@
     "cancelAttendance": "Cancel attendance",
     "absent": "Absent",
     "reminderExpired": "Reminder expired",
+    "classDeleted": "This class no longer exists",
     "reminderNotEnrolled": "This class no longer includes you",
     "waitingListJoined": "On the waiting list",
     "waitingListOfferExpired": "Offer expired",

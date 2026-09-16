@@ -3,6 +3,7 @@
     "notFound": "Não foi possível encontrar esta aula.",
     "couldNotLoad": "Não foi possível carregar esta aula.",
     "classFallbackTitle": "Aula",
+    "classGoneTitle": "Aula removida",
     "canceled": "Cancelada",
     "classNameAria": "Nome da aula",
     "decreaseCapacityAria": "Diminuir lotação",
