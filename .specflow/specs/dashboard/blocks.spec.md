@@ -131,6 +131,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - Desktop (≥1024px) is a page header plus two columns: the work (queue, schedule) scrolling on
      the left, the context (hero, metrics) sticky on the right. Below that, one priority-ordered
      stack: hero → queue → schedule → metrics.
+   - **(PAD-336, B-112) A schedule row's layout follows the width of the list, not the viewport.**
+     The fixed columns (time, fill bar and count, badge, invite action) sit in one row only when
+     the list itself is at least 760px wide. Below that, the title sits over the time and bar, the
+     way it does on a phone, with the badge and invite action to its right. The class title gets
+     the room that is left and ellipsizes only when it is longer than that room. The invite action
+     shows whenever the list is at least 480px wide, so a phone keeps its layout. Web-only: iOS
+     already stacks the title over the time (ticket PAD-336 measured it rendering in full at 375px).
+     At a 1280px desktop the list is about 530px wide, and the one-row layout left the title 66px.
    - Copy ships in pt-PT (default, informal "tu") and en; dates are formatted client-side from
      ISO values in the active locale (`@levelup/config`), never from server-formatted strings.
 3b. **(PAD-202)** The client tells the two homes apart by the payload `id`
@@ -350,3 +358,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** the dashboards are built at 22:30 UTC
 - **Then** the class is the coach's next-class hero, an empty-seats item on the needs-you queue and a row in the next 7 days
 - **And** it is the student's next-class hero and a row on their schedule
+
+#### A desktop schedule row shows the class title (PAD-336)
+- **Given** a coach with seeded classes in the next 7 days, some under capacity
+- **When** the dashboard renders at 1280×800
+- **Then** every schedule row's title fits its element (`scrollWidth <= clientWidth`) and under-capacity rows still show their invite action

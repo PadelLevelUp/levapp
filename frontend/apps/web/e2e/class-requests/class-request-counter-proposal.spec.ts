@@ -12,6 +12,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -28,12 +29,6 @@ async function tokenFor(request: APIRequestContext, username: string, password: 
   return { Authorization: `Bearer ${(json.accessToken ?? json.access_token) as string}` };
 }
 
-async function dayEvents(request: APIRequestContext, auth: Record<string, string>, day: string) {
-  const res = await request.get(`${API_ROOT}/app/calendar?from=${day}T00:00:00&to=${day}T23:59:59`, { headers: auth });
-  expect(res.ok()).toBeTruthy();
-  return (await res.json()) as Array<Record<string, unknown>>;
-}
-
 test("PAD-281: the student answers the coach's proposal from chat, proposes another time, and the loop closes on accept", async ({
   page,
   request,
@@ -42,6 +37,7 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
   const coach = await tokenFor(request, COACH_USERNAME, COACH_PASSWORD);
   const student = await tokenFor(request, STUDENT_USERNAME, STUDENT_PASSWORD);
   const day = isoDaysAhead(13);
+  const requestIds: Array<string | number> = [];
 
   try {
     // The student's request and the coach's first proposal (rules 2, 4) — over the API.
@@ -53,6 +49,7 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     });
     expect(created.status(), await created.text()).toBe(201);
     const requestId = (await created.json()).id as number;
+    requestIds.push(requestId);
     const proposed = await request.post(`${API_ROOT}/app/class-requests/${requestId}/propose`, {
       headers: coach,
       data: { date: day, startTime: "15:00", endTime: "16:00" },
@@ -115,14 +112,10 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     expect(klass!.startTime).toBe("19:00");
     expect(after.some((e) => e.type === "block" && String(e.title).includes(STUDENT_NAME))).toBe(false);
   } finally {
-    const leftovers = await dayEvents(request, coach, day);
-    for (const e of leftovers) {
-      if (e.type === "class" && e.title === STUDENT_NAME) {
-        await request.post(`${API_ROOT}/app/remove_class`, { headers: coach, data: { event: e, scope: "single" } });
-      }
-      if (e.type === "block" && String(e.title).includes(STUDENT_NAME)) {
-        await request.delete(`${API_ROOT}/app/calendar_block/${e.originalId}`, { headers: coach, data: { scope: "all" } });
-      }
-    }
+    // PAD-341: remove the class until it stops re-projecting, drop any hold, and
+    // delete the request itself — removing the class leaves it `accepted`.
+    await removeClassesOnDay(request, coach, day, (e) => e.title === STUDENT_NAME);
+    await removeBlocksOnDay(request, coach, day, (e) => String(e.title).includes(STUDENT_NAME));
+    await deleteClassRequests(request, coach, requestIds);
   }
 });

@@ -19,7 +19,7 @@ resolved: 2026-09-06T12:00:00Z
 
 It was also **load-bearing**, which is why closing it was not a one-line change: `backend/.env.dev` set `POSTGRES_HOST` to the VM's external IP, so the shared dev database was reached over the internet. Production and staging use the VM-internal address and never needed the rule.
 
-**Resolved 2026-09-06:** the rule is deleted. The shared database is now reached with `gcloud compute ssh levelup-instance -- -N -L 5434:localhost:5432`.
+**Resolved 2026-09-06:** the rule is deleted. The shared database is now reached with `gcloud compute ssh "$VM" -- -N -L 5434:localhost:5432`.
 
 The tunnel introduced a second-order risk worth recording: it makes a remote database answer on `localhost`, which would have silently disarmed the PAD-95 guard (`assert_safe_migration_target`) — the check that stops a workstation migrating real data. The guard is now keyed on the endpoint rather than the host alone, with 5434 reserved as "forwarded remote" (5432 and 5433 are the local multi-tenant and dev servers, per `backend/CLAUDE.md`). Fixing that also exposed a latent defect at `padel_app/__init__.py`: the `create_app` call passed `env` positionally into what became the `port` parameter, which would have disabled the guard at its most important call site.
 

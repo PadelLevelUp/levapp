@@ -180,3 +180,15 @@ export function reminderHint(
   if (attendanceStateOf(presence) !== "planned") return null;
   return "calendar.attendanceState.reminderSent";
 }
+
+/**
+ * PAD-335 (`classes.delete` rule 7): has the coach recorded attendance on this
+ * occurrence? `validated` is the coach's record (`attendance.presence` rule 9);
+ * an enrolment row alone, or a student's own answer, is not one. Both shells
+ * use this to tell the coach that deleting the class removes the register.
+ */
+export function hasRecordedAttendance(
+  presences: ReadonlyArray<AttendancePresenceLike> | null | undefined,
+): boolean {
+  return (presences ?? []).some((p) => p.validated === true);
+}

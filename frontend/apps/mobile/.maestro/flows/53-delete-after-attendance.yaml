@@ -1,0 +1,68 @@
+# PAD-335 — classes.delete rules 5 and 7 (B-096): deleting a one-off class whose
+# attendance the coach recorded deletes the CLASS, not just the LessonInstance
+# that recording attendance materialised; the delete dialog says the register
+# goes with it.
+#
+# Setup through the API: a one-off class on the seeded Monday with E2E Student
+# (player id 1, deterministic on a fresh seed) enrolled, attendance confirmed
+# from the projected Lesson occurrence — the payload the sheet sends before any
+# refetch — which materialises the instance. The delete goes through the UI;
+# the final check is the server's calendar payload. Removes nothing on the way
+# out: the class is the thing deleted. Order: not load bearing.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad335-delete-materialised-one-off.spec.ts
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.created = json(http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: 'PAD-335 Delete After Attendance', classType: 'academy', maxPlayers: 4, date: output.seededMonday, startTime: '07:00', endTime: '08:00', playerIds: [1], isRecurring: false, notificationsEnabled: false }) }).body)}"
+- evalScript: "${output.lessonId = output.created.originalId}"
+- evalScript: "${output.confirmed = http.post(output.api + '/api/app/class_instance/presences/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ classInstance: { id: 'lesson-' + output.lessonId + '-' + output.seededMonday, originalId: output.lessonId, date: output.seededMonday, model: 'Lesson' }, presences: [{ playerId: '1', status: 'present' }] }) }).ok}"
+- assertTrue: "${output.confirmed == true}"
+# After the confirm, the server's card for that day is the materialised instance.
+- evalScript: "${output.before = json(http.get(output.api + '/api/app/calendar?from=' + output.seededMonday + 'T00:00:00&to=' + output.seededMonday + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.title === 'PAD-335 Delete After Attendance'; })}"
+- assertTrue: "${output.before.length == 1 && output.before[0].model == 'LessonInstance' && output.before[0].confirmedCount == 1}"
+
+# ── Coach opens the class and deletes it ──
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- extendedWaitUntil:
+    visible:
+      text: "PAD-335 Delete After Attendance"
+    timeout: 20000
+- tapOn: "PAD-335 Delete After Attendance"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "class-delete"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-delete"
+- extendedWaitUntil:
+    visible:
+      id: "class-delete-confirm"
+    timeout: 10000
+# Rule 7: the dialog says the recorded attendance goes with the class.
+- assertVisible:
+    id: "delete-attendance-note"
+- tapOn:
+    id: "class-delete-confirm"
+
+# ── Back on the calendar: gone from the grid, gone from the server ──
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 20000
+- assertNotVisible: "PAD-335 Delete After Attendance"
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/calendar?from=' + output.seededMonday + 'T00:00:00&to=' + output.seededMonday + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.title === 'PAD-335 Delete After Attendance'; })}"
+- assertTrue: "${output.after.length == 0}"

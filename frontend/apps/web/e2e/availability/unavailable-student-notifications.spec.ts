@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
-import { loginAsCoach, loginAsStudent } from "../helpers/auth";
+import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
+import { API_ROOT } from "../helpers/api";
+import { removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 
@@ -20,6 +22,27 @@ const BLOCKER_TITLE = "PAD-107 Unavailable";
 const STUDENT_NAME = "E2E Student";
 
 test.describe.configure({ mode: "serial" });
+
+const CREATED_CLASSES = ["PAD-107 Blocked Class", "PAD-107 Free Class"];
+
+// PAD-341: the two classes this file creates are the student's and the coach's
+// next Monday — the academy class's day. Removed in afterAll, which runs even
+// when a serial test fails and skips the rest.
+test.afterAll(async ({ playwright }) => {
+  const request = await playwright.request.newContext();
+  try {
+    const login = await request.post(`${API_ROOT}/auth/login`, {
+      data: { username: COACH_USERNAME, password: COACH_PASSWORD },
+    });
+    const json = await login.json();
+    const coachAuth = { Authorization: `Bearer ${json.accessToken ?? json.access_token}` };
+    await removeClassesOnDay(request, coachAuth, firstMondayAfterTodayISO(), (e) =>
+      CREATED_CLASSES.includes(String(e.title))
+    );
+  } finally {
+    await request.dispose();
+  }
+});
 
 function firstMondayAfterTodayISO(): string {
   const today = new Date();

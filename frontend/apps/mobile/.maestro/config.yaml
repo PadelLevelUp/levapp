@@ -26,6 +26,9 @@ executionOrder:
     - 05-class-deletion
     - 06-add-player
     - 07-player-notes
+    # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
+    # itself, so it sits early, beside the other player-detail flow.
+    - 57-evaluation-untouched-categories
     - 09-direct-messages
     - 10-exercise-crud
     - 11-exercise-groups
@@ -102,6 +105,12 @@ executionOrder:
     # 50 books, cancels, comes back and removes its own class through the API
     # (PAD-315), so its position is not load bearing.
     - 50-come-back
+    # 53 creates, marks and deletes its own one-off class (PAD-335); the delete
+    # is the subject, so it leaves nothing behind and its position is not load
+    # bearing.
+    - 53-delete-after-attendance
+    # 54 opens Settings and reads the build line (PAD-351); read-only.
+    - 54-settings-build-info
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

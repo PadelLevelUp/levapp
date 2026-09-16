@@ -12,7 +12,8 @@ PRODUCTION_POSTGRES_HOSTS = frozenset(
     {
         "34.77.91.59",  # production Cloud SQL public IP
         "34.78.247.45",  # shared dev/staging VM
-        "10.132.0.2",  # production Cloud SQL private IP
+        "10.132.0.2",  # the VM's internal IP (how the apps reached Postgres before PAD-292)
+        "postgres",  # the Postgres container's name on the VM's levelup_net network (PAD-292, B-069)
     }
 )
 
