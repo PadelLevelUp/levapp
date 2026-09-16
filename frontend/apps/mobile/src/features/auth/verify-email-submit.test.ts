@@ -49,6 +49,16 @@ describe("verify-email submit (B-089 face C)", () => {
     expect(body.slice(catchAt)).toMatch(/setSubmitting\(false\)/);
   });
 
+  it("does not reset submitting anywhere on the success path (inside the try)", () => {
+    // Session A's review: a setSubmitting(false) re-added before or after
+    // leave(me) would pass the finally/catch checks and bring the bug back.
+    const body = submitCallback();
+    const tryAt = body.indexOf("try {");
+    const catchAt = body.indexOf("catch (err)");
+    expect(tryAt, "no try block").toBeGreaterThan(0);
+    expect(body.slice(tryAt, catchAt)).not.toMatch(/setSubmitting\(false\)/);
+  });
+
   it("navigates explicitly on success, independent of the [user] effect", () => {
     const body = submitCallback();
     const tryAt = body.indexOf("try {");
