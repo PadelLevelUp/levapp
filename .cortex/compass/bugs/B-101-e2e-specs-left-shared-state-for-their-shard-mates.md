@@ -13,7 +13,7 @@ affects:
   - frontend/apps/web/e2e/class-requests/pad282-cancel-requested-class.spec.ts
   - frontend/apps/web/e2e/dashboard/student-dashboard-home.spec.ts
   - frontend/apps/web/e2e/dashboard/upcoming-class-deeplink.spec.ts
-proposed_fix: "Every spec that writes to the shared E2E database removes what it wrote (e2e/helpers/cleanup.ts), and an assertion addresses the rows its own test created rather than counting a table."
+proposed_fix: "R-040. Every spec that writes to the shared E2E database removes what it wrote (e2e/helpers/cleanup.ts), and an assertion addresses the rows its own test created rather than counting a table."
 opened: 2026-09-13T21:11:30Z
 ---
 
