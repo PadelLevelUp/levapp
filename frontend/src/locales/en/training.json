@@ -247,6 +247,8 @@
         "step": "Step",
         "auto": "▶ AUTO",
         "stop": "■ Stop",
+        "speed": "Speed",
+        "speeds": { "slow": "Slow 0.5×", "normal": "Normal 1×", "fast": "Fast 2×" },
         "hint": "Each step holds the ball's paths, in order, and the players' movements. Passo advances one; AUTO plays them all."
       }
     }
