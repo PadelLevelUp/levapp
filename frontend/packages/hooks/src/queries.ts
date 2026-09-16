@@ -70,6 +70,9 @@ export function useCalendarEvents(
     queryKey: queryKeys.calendarEvents(from, to),
     queryFn: () => calendarApi.getCalendarEvents(from, to),
     ...options,
+    // calendar.view rule 17 (PAD-348): an empty range is a 400, never a query.
+    // The iOS class screen passes "" until its instance has a date.
+    enabled: !!from && !!to && (options?.enabled ?? true),
   });
 }
 
