@@ -37,16 +37,13 @@ export interface BacklogEntry {
 
 export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:settings/notification-engine-settings.spec.ts", max: 14, reason: "14 en UI strings, e.g. '^automatic notifications$', '^group 1$'" },
-  { file: "mz:flows/34-player-removal.yaml", max: 6, reason: "6 en UI strings, e.g. 'Attendance records: .*', 'Attendance records: 0'" },
+  { file: "mz:flows/34-player-removal.yaml", max: 4, reason: "4 en UI strings, e.g. 'Attendance records: .*', 'Attendance records: 0'" },
   { file: "pw:dashboard/student-dashboard-home.spec.ts", max: 4, reason: "4 en UI strings, e.g. 'NEEDS YOU', 'NEEDS YOU · \\d+'" },
   { file: "pw:evaluation-tools/evaluation-persist.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'no evaluations yet'" },
   { file: "pw:import-history/import-history.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'are you sure', 'successfully reverted'" },
-  { file: "mz:flows/04-attendance.yaml", max: 2, reason: "2 en UI strings, e.g. 'Attendance saved', 'Attended'" },
   { file: "pw:exercise-management/tactical-board.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'draw the balls path', 'tap a piece to select it'" },
   { file: "pw:notification-engine/cancellation-deadline.spec.ts", max: 2, reason: "2 en UI strings, e.g. '^automatic notifications$', '^cancellation deadline$'" },
   { file: "pw:settings/season-definition.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'does not exist in that month', 'season:'" },
-  { file: "mz:flows/13-student-availability.yaml", max: 1, reason: "1 en UI string, e.g. 'No blockers yet'" },
-  { file: "mz:flows/43-tutorials-understand-invites.yaml", max: 1, reason: "1 en UI string, e.g. 'first batch'" },
   { file: "pw:availability/unavailable-student-notifications.spec.ts", max: 1, reason: "1 en UI string, e.g. 'notification'" },
   { file: "pw:clubs/courts.spec.ts", max: 1, reason: "1 en UI string, e.g. 'already exists'" },
   { file: "pw:messaging/conversation-day-label.spec.ts", max: 1, reason: "1 en UI string, e.g. '^Yesterday$'" },
