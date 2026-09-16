@@ -23,7 +23,9 @@ import { FadeIn, FadeOut } from "react-native-reanimated";
  * that the exit animation is what orphaned the view. Flow 49 guards the
  * behaviour either way.
  */
-export const dialogEntering = () => FadeIn.duration(150);
+// PROBE VARIANT: no entering animation on Android.
+export const dialogEntering = () =>
+  Platform.OS === "ios" ? FadeIn.duration(150) : undefined;
 
 export const dialogExiting = () =>
   Platform.OS === "ios" ? FadeOut.duration(150) : undefined;
