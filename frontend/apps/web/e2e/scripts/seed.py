@@ -138,6 +138,20 @@ with app.app_context(), unit_of_work():
     )
     db.session.add(nolevels_coach_user)
 
+    # PAD-306: an APPROVED coach with NO club — the prerequisite of the mobile
+    # flow 45-club-join-request (clubs.join-request), which used to depend on an
+    # account prepared by hand (MAESTRO_COACH_NOCLUB_*). Deliberately gets no
+    # Association_CoachClub row below; nothing else in the suite uses it.
+    noclub_coach_user = User(
+        name="E2E Coach No Club",
+        username="e2e-coach-noclub",
+        email="e2e-coach-noclub@test.com",
+        password=generate_password_hash("E2eCoach123!"),
+        status="active",
+        language="en",
+    )
+    db.session.add(noclub_coach_user)
+
     db.session.flush()
 
     # ── Coach / Player rows ────────────────────────────────────────────────────
@@ -147,6 +161,10 @@ with app.app_context(), unit_of_work():
     # Coach with no levels (PAD-29) — deliberately gets no CoachLevel rows below.
     nolevels_coach = Coach(user_id=nolevels_coach_user.id)
     db.session.add(nolevels_coach)
+
+    # PAD-306: approved, and never linked to a club (see the user above).
+    noclub_coach = Coach(user_id=noclub_coach_user.id, approval_status="approved")
+    db.session.add(noclub_coach)
 
     student = Player(user_id=student_user.id)
     db.session.add(student)

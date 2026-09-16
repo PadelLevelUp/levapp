@@ -83,6 +83,13 @@ held on the coach's calendar while the request is open.
     student (Propose opens the inbox on that request). Any other status answers `409 not_countered`; another
     student's request answers `403`. `GET /app/class-requests/free-blocks?…&excludeRequestId=<id>`
     leaves the caller's own hold out of the busy time so the picker can offer it.
+11. **The booking form opens on the first day with a free block (PAD-302; rule number
+    self-assigned, unconfirmed).** Once the student has picked a coach, the form's date
+    defaults to the earliest day — today if any block remains, else the next day in the coming
+    14 days — for which `free-blocks` returns a block, so the student never lands on an empty
+    slot picker late in the day. The date stays editable, and a date the student has typed is
+    never overridden by a later coach change. `firstFreeDay()` in `packages/config` is the one
+    derivation, shared by both shells.
 
 ### Acceptance Criteria
 
@@ -102,6 +109,12 @@ held on the coach's calendar while the request is open.
 - **When** the coach accepts
 - **Then** a private class at that slot exists with the student enrolled
 - **And** the hold block is gone and the student is told
+
+#### The form opens on a day that still has free time (PAD-302)
+- **Given** the coach's calendar is blocked from 08:00 to 22:00 today
+- **When** the student opens "Book a class" and picks that coach
+- **Then** the date is the first later day with a free block and the slot list is not empty
+- **And** typing another date keeps the typed date
 
 #### Counter-proposal round-trips
 - **Given** a pending request for 11:00–12:00

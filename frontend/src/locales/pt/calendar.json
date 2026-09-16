@@ -179,9 +179,9 @@
       "remindersSent_other": "Lembretes enviados a {{count}} alunos",
       "failedSendReminders": "Falha ao enviar lembretes",
       "cancelAttendance": "Cancelar presença",
-      "cancelAttendanceConfirmTitle": "Cancelar a tua presença?",
-      "cancelAttendanceConfirmBody": "Serás removido desta aula e a tua vaga será libertada.",
-      "cancelAttendanceLateBody": "O prazo de cancelamento já passou. Ainda podes cancelar, mas isto conta como um cancelamento tardio.",
+      "cancelAttendanceConfirmTitle": "Não vais poder ir?",
+      "cancelAttendanceConfirmBody": "Libertamos a tua vaga e avisamos o teu professor.",
+      "cancelAttendanceLateBody": "O prazo já passou. Podes mesmo assim avisar que não vais, mas conta como aviso tardio e o teu professor é notificado.",
       "cancelAttendanceLateBadge": "Prazo ultrapassado",
       "keepAttendance": "Manter a minha vaga",
       "attendanceCancelled": "Presença cancelada.",
@@ -194,11 +194,16 @@
       "proactiveDeclineFailed": "Não foi possível registar a tua ausência. Tenta novamente.",
       "notAttending": "Não vais comparecer",
       "notAttendingJustified": "Falta justificada",
+      "cancelledByStudentAt": "Cancelado pelo aluno a {{when}}",
       "colorOption": "Cor {{color}}",
       "invitedCount": "Convidados ({{count}})",
       "club": "Clube",
       "court": "Campo",
-      "noCourt": "Sem campo"
+      "noCourt": "Sem campo",
+      "comeBack": "Afinal já posso ir",
+      "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
+      "spotFilled": "A tua vaga já foi ocupada.",
+      "comeBackDone": "Estás de volta a esta aula."
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -435,6 +440,29 @@
       "classClosedToast": "A aula já não está aberta — o pedido foi encerrado",
       "confirmTitle": "Aceitar um aluno que já não cumpre os critérios?",
       "confirmBody": "Aceitar um pedido é uma adição manual — os critérios dizem o que mudou; a decisão é tua."
+    },
+    "attendanceState": {
+      "planned": {
+        "student": "Inscrito",
+        "coach": "Inscrito"
+      },
+      "coming": {
+        "student": "Vais",
+        "coach": "Vai"
+      },
+      "not_coming": {
+        "student": "Não vais",
+        "coach": "Não vai"
+      },
+      "attended": {
+        "student": "Presente",
+        "coach": "Presente"
+      },
+      "missed": {
+        "student": "Faltou",
+        "coach": "Faltou"
+      },
+      "reminderSent": "Lembrete enviado"
     }
   }
 }

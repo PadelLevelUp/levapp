@@ -77,7 +77,47 @@ three separate fields on it. Decision record:
    difference. The test suite asserts the list is empty after every write path, and it is run once
    on the staging copy of prod before phase 2 drops the junction (the phase-2 gate).
 
+10. **A re-enrolment of someone who gave their spot up is a RETURN, not a no-op (PAD-316; rule number self-assigned, unconfirmed).** Rule 4's idempotence means an existing row is not *duplicated*; it never meant the row is untouched whatever it says. When `enrol()` finds a presence that is `status = 'absent'` and not validated, the player is coming back: the absence, its justification and the late-cancellation flag are cleared, their own open vacancy is closed and the instance reconciled (`notifications.invitations` rule 13). A row the coach has validated is left alone — that record is theirs to change on the attendance sheet.
+   **The previous answer is void.** It recorded a "no" to a seat they no longer held, and nobody has asked them about this one, so the caller's `confirmed` stands rather than the stored flag: a coach's re-add leaves them `planned`, an engine fill arrives `coming`. Claiming they said yes would be the same over-reach as `confirmed` meaning *coming*.
+   **The coach's own reversal is the same door.** Marking a student absent frees their spot and the engine opens a vacancy for it; marking them present again restores the count, so the reversal closes that vacancy too. Capacity alone will not: the vacancy names a player who is no longer absent, and that is what makes it stale, not the arithmetic — a class with spare room keeps offering a seat its owner has taken back.
+   **A re-added student shows as `planned` until they answer of their own accord, and nothing asks them again.** `send_class_reminders` skips anyone whose reminder-attempt count has reached the coach's `reminderCount` (default 1), and a student who cancelled consumed their attempt before doing so; the pass reports no more due, so the scheduler does not re-arm for that occurrence. The coach therefore sees no answer and gets no signal to ask. Accepted deliberately (2026-09-12) rather than fixed here: it fails in the safe direction — before this rule the re-add did nothing at all and the seat was being offered to other people, whereas now they hold the seat and the class counts them, and what is missing is only the question. Asking them again means superseding the earlier attempts, which is a change to reminder behaviour that PAD-49 and PAD-94 spent effort making quiet; it has its own ticket.
+   Both doors existed because "idempotent" was read as "returns untouched": before this, a coach re-adding a cancelled student changed nothing at all, and the app went on showing a seat the class did not count.
+
+11. **A coach-initiated placement tells the student (PAD-330; rule number self-assigned, unconfirmed).** Enrolment was silent on every path a coach's own hand takes — creating a class with students on it, adding one to the series, adding one to a single occurrence, and putting back someone who had cancelled. A class simply appeared on a student's calendar: a commitment they never agreed to, with no reason to go looking. They learned of it only because the ordinary reminder eventually asked them, which is a side effect rather than a notification and never happens at all for a student added after that reminder has fired.
+    So each of those four paths sends the student one `added_to_class` message. **Once per placement, never per occurrence:** materialisation enrols every roster player on every occurrence, and telling them there would send a weekly student a message a week about a class they were told about once, when the coach put them in it. The engine's own fills (`fill`) stay silent here because they already send their own — an invitation confirmation, a waiting-list placement, an accepted join request — and `walk_in` and `import` record a class that has already happened.
+    **It is a message in the coach–student thread, not a new push type.** `_send_system_message` writes the Message, publishes it and pushes it as `{"type": "message", "conversationId": …}`. A class-shaped push would tempt `type: "class"`, which the mobile class screen cannot open from a push, and which produced the founder-facing "não foi possível encontrar esta aula" (PAD-324, `messaging.push-notifications` rule 7). Telling the student therefore costs no client work on either shell.
+    Sending is **best-effort**: a messaging failure is contained and logged, never failing the enrolment that triggered it.
+
+   **The silence on an accepted class request is deliberate, not a gap.** A student who asks for a class through `classes.class-requests` already receives the acceptance; telling them a coach added them would be a second message for one event, about something they initiated — the app narrating a person's own action back at them as news. `add_class_service` therefore takes `notify_students=False` on that path only. Anyone later reading it as a missing notification should read this sentence instead.
+
 ### Acceptance Criteria
+
+#### A coach placing a student tells them (PAD-330)
+- **Given** a coach who creates a class with a student on it, adds one to the series, adds one to a single occurrence, or puts back a student who had cancelled
+- **Then** that student receives one `added_to_class` message in their thread with the coach, naming the class and when it is
+- **And** the push for it carries `type: "message"` with a `conversationId`, never a class-shaped payload
+
+#### Materialising a class tells nobody (PAD-330)
+- **Given** a recurring class with three students, each told once when the coach placed them
+- **When** three of its occurrences are materialised
+- **Then** no further `added_to_class` message is sent — they were told when they were placed, not once per week
+
+#### The engine's own placements are not announced twice (PAD-330)
+- **Given** a student enrolled by an invitation acceptance, a waiting-list placement or an accepted join request
+- **Then** no `added_to_class` message is sent, because that path already sends its own
+- **And** a walk-in or an import, which record a class that already happened, send nothing
+
+#### A coach puts a cancelled student back (PAD-316)
+- **Given** a student who confirmed and then cancelled, so the class does not count them and a vacancy is open for their spot
+- **When** the coach re-adds them to that occurrence
+- **Then** the class counts them again, their vacancy is closed, and their state is `planned` — on the list, not yet answered
+- **And** re-enrolling a student who never left changes nothing at all, including their own `confirmed` answer
+
+#### A coach reverses their own absent mark (PAD-316)
+- **Given** a student the coach marked absent, freeing the spot and opening a vacancy
+- **When** the coach marks them present instead
+- **Then** the class counts them again and no vacancy is left offering their seat
+- **And** marking a student absent still frees the spot as before
 
 #### Materialisation writes one enrolment per roster player
 - **Given** a recurring lesson with Alice and Bob on its roster

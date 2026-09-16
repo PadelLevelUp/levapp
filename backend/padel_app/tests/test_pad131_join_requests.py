@@ -327,7 +327,12 @@ def test_class_payload_carries_requests_per_role_and_routes_work(app, client):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     pid = _student(app, ids, "asker")
     with app.app_context():
-        student = {"Authorization": f"Bearer {create_access_token(identity=str(db.session.get(Player, pid).user_id))}"}
+        # PAD-352: a student asking to join is on a capable client (web or the
+        # current app), which declares open spots. Undeclared reads: test_pad352.
+        student = {
+            "Authorization": f"Bearer {create_access_token(identity=str(db.session.get(Player, pid).user_id))}",
+            "X-LevApp-Capabilities": "open-spots",
+        }
         coach = {"Authorization": f"Bearer {create_access_token(identity=str(ids['coach_user_id']))}"}
 
     res = client.post("/api/app/class-join-requests", headers=student,
@@ -357,7 +362,12 @@ def _read_as(app, client, pid, ids):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     with app.app_context():
         user_id = db.session.get(Player, pid).user_id
-        headers = {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
+        # PAD-352: read as a capable client, so a 403 below is about eligibility
+        # or visibility, never the missing declaration (test_pad352 covers that).
+        headers = {
+            "Authorization": f"Bearer {create_access_token(identity=str(user_id))}",
+            "X-LevApp-Capabilities": "open-spots",
+        }
     return client.post(
         f"/api/app/class_instance?model=LessonInstance&id={ids['instance_id']}", headers=headers
     )

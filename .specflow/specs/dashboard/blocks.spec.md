@@ -170,8 +170,15 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    start date to `endTime` put its end before its start, and every block built on the shared
    window silently dropped it: the coach hero, needs-you empty seats, next 7 days and week
    pulse, and the student hero and schedule.
-10. **(PAD-283 / PAD-284 / PAD-285, B-078) Where a needs-you item lands.** An item's `href` is
-   the web path; iOS maps it through `features/dashboard/routes.ts` (`dashboardRoute`, pure).
+10. **(PAD-283 / PAD-284 / PAD-285, B-078; extended by PAD-327) Where a needs-you item lands.**
+   An item's `href` is the web path; iOS maps it through `features/dashboard/routes.ts`
+   (`nativeRouteForWebPath`, pure — renamed from `dashboardRoute` when push tap-routing became
+   its second caller, because a name that says "dashboard" while serving pushes is a small lie
+   that costs later). **The mapper is now the app's single answer to "the server gave me a web
+   path"**, shared by the dashboard's needs-you items and by `messaging.push-notifications`
+   rule 7's `path` pushes, and it gained `/settings` (carrying its `section`) and `/dashboard`
+   for the request alerts. It returns null for a path it does not know, and both callers treat
+   null as "go nowhere".
    Per kind:
    - `validation` → `/presences?validate=1` (or `…&week=-1`): the Presences tab on that week
      **with the validate view already open** (`attendance.validation` rule 19), so the coach

@@ -56,12 +56,17 @@ test("PAD-199: the attendance badge follows reminderSentAt, never invited", asyn
   // Nothing in the suite sends this student a reminder for this class.
   expect(presence!.reminderSentAt).toBeNull();
 
-  const reminderBadge = row.locator('[data-testid="attendance-signal"][data-signal="reminder-sent"]');
-  await expect(reminderBadge).toHaveCount(0);
+  // PAD-313: B-017's guarantee survives, demoted from a chip to a conditional
+  // detail line — still gated on `reminderSentAt`, never on `invited`, and shown
+  // only while nobody has answered. No reminder here, so no line.
+  await expect(row.locator('[data-testid="attendance-reminder-hint"]')).toHaveCount(0);
 
-  // And the badge that IS allowed follows the record too.
-  const confirmedBadge = row.locator('[data-testid="attendance-signal"][data-signal="confirmed"]');
-  await expect(confirmedBadge).toHaveCount(presence!.confirmed ? 1 : 0);
+  // The chip itself is gone: a row now carries exactly ONE state word, because
+  // the "confirmed" face of that chip read `Presence.confirmed`, which means
+  // ANSWERED — so a student who had cancelled showed as confirmed
+  // (`attendance.confirm` rule 25).
+  await expect(row.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
+  await expect(row.locator('[data-testid="attendance-state"]')).toHaveCount(1);
 
   // The API says the same thing the sheet shows (same serializer everywhere).
   const login = await request.post(`${API_AUTH}/login`, {

@@ -41,9 +41,23 @@ Exactly three, all account-creation entry points:
    URL, a rooted path or a bare path; it percent-decodes the token; it ignores query string and
    fragment; and it returns nothing for an unknown path, a wrong segment count, a blank token, or an
    absolute URL on a host the app does not claim.
-4. Universal-link routing does not interact with push-notification tap routing
-   (`usePushNotificationRouting`). The two use different transports and disjoint route sets
-   (`/conversation/:id` and `/class/:id` versus the three above), so neither intercepts the other.
+4. **What the two transports actually guarantee (corrected by PAD-326).** ~~Universal-link
+   routing does not interact with push-notification tap routing. The two use different
+   transports and disjoint route sets, so neither intercepts the other.~~ That claimed a
+   property the code does not have, which is worth naming: **the parser's route set and the
+   app's route set are not the same thing.** `parseUniversalLink` handles only the three paths
+   above and returns nothing for anything else — but the app CLAIMS whole hosts
+   (`levapp.app`, `padellevelup.com`, `www.padellevelup.com`), so iOS still opens the app for
+   every URL on them, and a path the parser declines falls through to **expo-router's default
+   path matching**, which resolves it against the app's own file-based routes. A link to
+   `/class/5` in an email therefore reaches the class screen without the parser ever being
+   consulted.
+   What is guaranteed is narrower and true: **the parser never routes a path it does not
+   handle, and it never intercepts a push.** Where an unhandled claimed-host path lands is
+   decided by the app's routes, not by this module. Since PAD-326 that is a working
+   destination for `/class/<id>` (`calendar.event-detail` rule 15) rather than a dead screen —
+   but it is a fall-through, not a claim this spec makes, and any new app route silently
+   becomes reachable from an email the day it is added.
 5. This is additive. Universal links do not fire from every context — a URL typed into Safari's
    address bar, some in-app browsers, some QR scanners — so the web flow remains the fallback and is
    unchanged.
@@ -61,6 +75,18 @@ Exactly three, all account-creation entry points:
    placeholder, which would be a claim nobody can verify.
 
 ### Acceptance Criteria
+
+#### A claimed-host path the parser does not handle (PAD-326)
+- **Given** a URL on a claimed host whose path is not one of the three above — say
+  `https://levapp.app/class/5`
+- **When** it is tapped in Mail
+- **Then** `parseUniversalLink` returns nothing and routes nothing
+
+- **And** the app still opens, because the host is claimed, and expo-router matches the path
+  against the app's own routes
+
+- **Then** the destination is whatever that route renders — for `/class/<id>`, a class resolved
+  from the id (`calendar.event-detail` rule 15), not a "could not find" screen
 
 #### Android declares the same three paths (PAD-216)
 - **Given** `apps/mobile/app.json`

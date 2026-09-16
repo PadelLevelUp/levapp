@@ -441,7 +441,9 @@ class TestSendClassRemindersGuard:
         inst = self._mock_instance(instance_start, status)
         with patch("padel_app.services.notification_service.LessonInstance") as MockLI:
             MockLI.query.get.return_value = inst
-            with patch("padel_app.services.notification_service.Association_CoachLessonInstance"):
+            # PAD-275 rule 4: the coach is resolved through lesson_service.primary_coach,
+            # not a direct Association_CoachLessonInstance query; a None coach exits.
+            with patch("padel_app.services.lesson_service.primary_coach", return_value=None):
                 # We only care whether the function returns early — not about message sending
                 try:
                     send_class_reminders(instance_id=1, now=now)
@@ -456,10 +458,8 @@ class TestSendClassRemindersGuard:
         inst = self._mock_instance(future)
         with patch("padel_app.services.notification_service.LessonInstance") as MockLI:
             MockLI.query.get.return_value = inst
-            with patch(
-                "padel_app.services.notification_service.Association_CoachLessonInstance"
-            ) as MockACLI:
-                MockACLI.query.filter_by.return_value.first.return_value = None  # no coach → exits
+            # PAD-275 rule 4: no coach (primary_coach → None) → exits after the guard.
+            with patch("padel_app.services.lesson_service.primary_coach", return_value=None):
                 send_class_reminders(instance_id=1, now=now)
             # query.get was called — guard didn't abort before it
             MockLI.query.get.assert_called_once_with(1)
@@ -471,12 +471,11 @@ class TestSendClassRemindersGuard:
         inst = self._mock_instance(past)
         with patch("padel_app.services.notification_service.LessonInstance") as MockLI:
             MockLI.query.get.return_value = inst
-            with patch(
-                "padel_app.services.notification_service.Association_CoachLessonInstance"
-            ) as MockACLI:
+            # PAD-275 rule 4: the coach lookup is lesson_service.primary_coach.
+            with patch("padel_app.services.lesson_service.primary_coach") as MockPC:
                 send_class_reminders(instance_id=1, now=now)
-                # No coach query should happen — we exited before it
-                MockACLI.query.filter_by.assert_not_called()
+                # No coach lookup should happen — we exited before it
+                MockPC.assert_not_called()
 
     def test_canceled_instance_returns_early(self):
         from padel_app.services.notification_service import send_class_reminders
@@ -485,11 +484,9 @@ class TestSendClassRemindersGuard:
         inst = self._mock_instance(future, status="canceled")
         with patch("padel_app.services.notification_service.LessonInstance") as MockLI:
             MockLI.query.get.return_value = inst
-            with patch(
-                "padel_app.services.notification_service.Association_CoachLessonInstance"
-            ) as MockACLI:
+            with patch("padel_app.services.lesson_service.primary_coach") as MockPC:
                 send_class_reminders(instance_id=1, now=now)
-                MockACLI.query.filter_by.assert_not_called()
+                MockPC.assert_not_called()
 
     def test_missing_instance_returns_early(self):
         from padel_app.services.notification_service import send_class_reminders

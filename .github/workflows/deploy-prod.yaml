@@ -160,6 +160,7 @@ jobs:
             -e VAPID_PUBLIC_KEY="${{ secrets.VAPID_PUBLIC_KEY }}" \
             -e VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}" \
             -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
+            -e EXPO_ACCESS_TOKEN="${{ secrets.EXPO_ACCESS_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
           # PAD-220: `docker run` succeeding proves nothing about migrations — the
           # entrypoint runs them, and a failed one crash-loops the container
@@ -179,13 +180,26 @@ jobs:
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
 
-    - name: Copy backup script to VM
+  # PAD-353 (B-090): the schedule is installed in its OWN job. These two steps
+  # used to end the `backend` job, so when the cron step failed it failed that
+  # job, and `frontend` (guarded by `needs.backend.result != 'failure'`) was
+  # skipped — production served the new backend with the previous web bundle
+  # until the frontend was dispatched by hand. A scheduling step must not be
+  # able to hold back the app's deploy. It still fails loudly: this job goes
+  # red and the run is red with it, so an unscheduled nightly backup is as
+  # visible as before. It just fails on its own.
+  backup-cron:
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Copy backup script and its installer to VM
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
-        source: "backend/scripts/backup.sh"
+        source: "backend/scripts/backup.sh,backend/scripts/install_backup_cron.sh"
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 2
 
@@ -210,16 +224,23 @@ jobs:
         envs: BACKUP_BUCKET,DISCORD_WEBHOOK_URL
         script: |
           set -euo pipefail
-          chmod +x /home/${{ secrets.GCE_USER }}/backup.sh
+          chmod +x /home/${{ secrets.GCE_USER }}/backup.sh /home/${{ secrets.GCE_USER }}/install_backup_cron.sh
           umask 077
           {
             echo "BACKUP_BUCKET=${BACKUP_BUCKET:-gs://padel-levelup-2026-backups}"
             echo "BACKUP_RETENTION_DAYS=14"
             echo "BACKUP_DATABASES=padel_app padel_app_staging"
-            [ -n "${DISCORD_WEBHOOK_URL:-}" ] && echo "DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}"
+            # `[ -n … ] && echo` would be the last command of this group when the
+            # webhook is unset: under `set -e` that killed the step (the same
+            # shape as the crontab one-liner in B-090).
+            if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then echo "DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}"; fi
           } > /home/${{ secrets.GCE_USER }}/.backup.env
-          (crontab -l 2>/dev/null | grep -v backup.sh; echo "0 3 * * * /home/${{ secrets.GCE_USER }}/backup.sh >> /home/${{ secrets.GCE_USER }}/backup.log 2>&1") | crontab -
-          echo "backup cron installed; bucket: $(grep BACKUP_BUCKET /home/${{ secrets.GCE_USER }}/.backup.env)"
+          # Installs idempotently and reads the crontab back, failing unless
+          # exactly one backup.sh line is there (B-090).
+          BACKUP_SH=/home/${{ secrets.GCE_USER }}/backup.sh \
+          BACKUP_LOG=/home/${{ secrets.GCE_USER }}/backup.log \
+            bash /home/${{ secrets.GCE_USER }}/install_backup_cron.sh
+          echo "bucket: $(grep BACKUP_BUCKET /home/${{ secrets.GCE_USER }}/.backup.env)"
 
   frontend:
     needs: [ changes, backend ]

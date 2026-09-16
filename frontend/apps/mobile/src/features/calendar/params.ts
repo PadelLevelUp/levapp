@@ -108,3 +108,63 @@ export function parseDashboardItemId(
     date: match[3] ?? "",
   };
 }
+
+/**
+ * PAD-326 (`calendar.event-detail` rule 15): the instance id in a route, when
+ * there is one worth asking the server about.
+ *
+ * Accepts a bare numeric id and the materialised calendar-event id
+ * (`lessoninstance-<n>`). Returns null for a PROJECTED occurrence
+ * (`lesson-<n>-<date>`): that has no instance row yet, so fetching by id would
+ * 404 on something that is not missing — the screen must fall back to its
+ * params for those, which is exactly what they carry.
+ */
+export function instanceIdFromParams(
+  params: Partial<Record<keyof ClassRouteParams, string | string[]>>
+): number | null {
+  const raw = first(params.id);
+  if (!raw) return null;
+  const bare = raw.startsWith("lessoninstance-") ? raw.slice("lessoninstance-".length) : raw;
+  if (!/^\d+$/.test(bare)) return null;
+  const id = Number(bare);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/** The `lessonInstance` half of `GET /api/app/lesson_instance/<id>`. */
+export type LessonInstancePayload = {
+  id: number;
+  lessonId?: number;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  status?: string;
+  name?: string | null;
+  color?: string | null;
+  maxPlayers?: number | null;
+};
+
+/**
+ * Turn a fetched instance into the event the screen renders.
+ *
+ * Deliberately produces the SAME shape `paramsToEvent` does — id, model and
+ * originalId above all — so the screen cannot behave differently depending on
+ * how it was opened. A route with full params never reaches here; this is for
+ * the ones carrying an id alone (a push, an email link, a message's
+ * `lessonInstanceId`).
+ */
+export function eventFromLessonInstance(instance: LessonInstancePayload): CalendarEvent {
+  return {
+    id: `lessoninstance-${instance.id}`,
+    model: "LessonInstance",
+    originalId: instance.id,
+    type: "class",
+    isRecurring: false,
+    date: instance.date,
+    startTime: instance.startTime,
+    endTime: instance.endTime,
+    title: instance.name ?? undefined,
+    color: instance.color ?? undefined,
+    status: (instance.status || undefined) as CalendarEvent["status"],
+    maxPlayers: typeof instance.maxPlayers === "number" ? instance.maxPlayers : undefined,
+  } as CalendarEvent;
+}

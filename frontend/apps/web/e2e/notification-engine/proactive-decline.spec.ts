@@ -388,8 +388,11 @@ test("US-73-06: student proactively declines from the participants section and i
     await page.getByText(CLASS_TITLE).first().click();
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 
-    // The proactive action sits on the student's own participant row.
-    const declineBtn = page.getByRole("button", { name: /can'?t attend|não vou poder ir/i }).first();
+    // PAD-313 rule 25: there is ONE decline action, and it carries this label.
+    // Addressed by id, because matching the label is what broke this spec: the
+    // confirmation dialog's own button still reads "Cancel attendance", so a
+    // name matcher found the trigger and then never found the confirm.
+    const declineBtn = page.getByTestId("class-cancel-attendance");
     await expect(declineBtn).toBeVisible({ timeout: 5000 });
 
     await declineBtn.click();
@@ -401,7 +404,7 @@ test("US-73-06: student proactively declines from the participants section and i
           /\/api\/app\/notify\/cancel_attendance(\?|$)/.test(r.url()) && r.status() === 200,
         { timeout: 10_000 },
       ),
-      confirmDialog.getByRole("button", { name: /can'?t attend|não vou poder ir/i }).click(),
+      page.getByTestId("class-cancel-attendance-confirm").click(),
     ]);
 
     // Rule 16 — the declined state is derived from the serialized presence, so
@@ -411,9 +414,11 @@ test("US-73-06: student proactively declines from the participants section and i
     await findClassOnCalendar(page, CLASS_TITLE);
     await page.getByText(CLASS_TITLE).first().click();
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.getByText(/not attending|não vais|não vou comparecer/i).first(),
-    ).toBeVisible({ timeout: 5000 });
+    // PAD-313: the declined state is ONE state word on the student's own row,
+    // asserted by value rather than by text.
+    const ownState = page.getByTestId("attendance-state").first();
+    await expect(ownState).toBeVisible({ timeout: 5000 });
+    await expect(ownState).toHaveAttribute("data-state", "not_coming");
   } finally {
     await restoreReminderTiming(request, coachT, previous);
     await resetStudentPresence(request, coachT);

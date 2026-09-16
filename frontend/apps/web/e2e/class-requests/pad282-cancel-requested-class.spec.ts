@@ -105,8 +105,12 @@ test("US-PAD-282: a student can cancel a class they requested for tomorrow — i
     const body = await cancelResponse.json();
     expect(body.action).toBe("declined");
 
-    // The sheet now shows the not-attending state from server data.
-    await expect(page.getByTestId("class-not-attending")).toBeVisible({ timeout: 10_000 });
+    // The sheet now shows the not-attending state from server data — PAD-313
+    // replaced the separate panel with ONE state word on the student's own row,
+    // asserted by id and value rather than by text (the app renders in pt).
+    const ownState = page.getByTestId("attendance-state").first();
+    await expect(ownState).toBeVisible({ timeout: 10_000 });
+    await expect(ownState).toHaveAttribute("data-state", "not_coming");
 
     // Rule 18: the occurrence was materialised and the decline recorded on it.
     const after = await dayEvents(request, coachAuth, day);

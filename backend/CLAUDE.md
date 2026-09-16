@@ -31,7 +31,7 @@ migration, or a second Alembic head, fails there.
 
 ## Testing Patterns
 
-- Fixtures in `tests/conftest.py`: `app` (SQLite with FK enforcement, or Postgres via `LEVAPP_TEST_DB=postgres`), `client`, `seed_users`, `auth` — never branch a test on the backend (compass R-026)
+- Fixtures in `tests/conftest.py`: `app` (SQLite with FK enforcement, or Postgres via `LEVAPP_TEST_DB=postgres`), `client`, `seed_users`, `auth` — never branch a test on the backend (compass R-030)
 - `make_coach(app)` from `tests/helpers.py` for creating test coaches
 - Import services inside test body (not at module top) to avoid circular imports
 - Wrap DB operations in `with app.app_context():`

@@ -87,6 +87,28 @@ export function useClassInstance(
   });
 }
 
+/**
+ * PAD-326 (`calendar.event-detail` rule 15): resolve one occurrence from its id
+ * alone, for a route that carries nothing else.
+ *
+ * `retry: false` on purpose. The failure this exists to surface is a 404 — an
+ * instance that is gone — and retrying a deleted class cannot succeed; it only
+ * delays telling the student the truth. The caller distinguishes "gone" from a
+ * transient failure by the status.
+ */
+export function useLessonInstanceById(
+  instanceId: number | null | undefined,
+  options?: QueryOverrides<Awaited<ReturnType<typeof classesApi.getLessonInstanceById>>>
+) {
+  return useQuery({
+    queryKey: ["lesson-instance", instanceId ?? "none"],
+    queryFn: () => classesApi.getLessonInstanceById(instanceId as number),
+    enabled: typeof instanceId === "number" && instanceId > 0,
+    retry: false,
+    ...options,
+  });
+}
+
 // ── Players ──
 
 export function useCoachPlayersPaginated(

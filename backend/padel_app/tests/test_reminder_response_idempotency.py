@@ -44,10 +44,16 @@ def _system_messages(coach_user_id, student_user_id):
     )
 
     conv = _get_or_create_direct_conversation(coach_user_id, student_user_id)
-    return Message.query.filter_by(
+    rows = Message.query.filter_by(
         conversation_id=conv.id,
         message_type="text",
     ).all()
+    # PAD-330 put a second kind of plain-text system message in this thread: the
+    # coach telling a student they were added to a class. The filter was always
+    # broader than the docstring — it counted every text message and happened to
+    # be right because nothing else wrote one. These tests are about reminder
+    # answers, so they count reminder answers.
+    return [m for m in rows if not (m.msg_metadata or {}).get("addedToClass")]
 
 
 def _invitation_events(instance_id):
