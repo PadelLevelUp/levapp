@@ -36,6 +36,9 @@ Coaches recording evaluations; students/players seeing their own scores on their
 - A player can be scored in a category more than once over time; the player's profile always
   shows the latest score per category.
 - A recorded score must fall within its category's defined scale.
+- A player's record holds only scores a coach actually gave. Saving an evaluation records the
+  categories the coach scored and nothing for the ones left alone, and a coach can decline to score
+  a category. A category without a score shows as not rated, never as a number (PAD-337).
 - Bulk-imported evaluations are created the same way as ones entered by hand — same entities,
   same rules.
 

@@ -76,7 +76,7 @@ Coach:
 | POST | `/api/app/delete/evaluation_category` | None | `{id}` | `{status}` |
 | POST | `/api/app/add_coach_note` | JWT | `{player_id, type: "strength"\|"weakness", text}` | result |
 | POST | `/api/app/delete/coach_note` | None | `{id}` | `{status}` |
-| POST | `/api/app/add_evaluation_entry` | JWT | `{player_id, category_id, value, notes?}` | result |
+| POST | `/api/app/add_evaluation_entry` | JWT | `{playerId, scores: [{categoryId, value}], strengths, weaknesses}`; post only scored categories. A null `value`, or one equal to the latest score, writes nothing (PAD-337) | `{status, playerId}` |
 
 Players:
 | GET | `/api/app/players` | JWT | — | `[{id, userId, name, email, phone}]` |

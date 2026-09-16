@@ -652,7 +652,10 @@ export default function PlayerDetailScreen() {
           </CardHeader>
           <CardContent className="gap-3">
             {(profile?.evaluations ?? []).length === 0 ? (
-              <Text className="text-sm text-muted-foreground">
+              <Text
+                testID="player-evaluations-empty"
+                className="text-sm text-muted-foreground"
+              >
                 {t("players.noEvaluations")}
               </Text>
             ) : (
