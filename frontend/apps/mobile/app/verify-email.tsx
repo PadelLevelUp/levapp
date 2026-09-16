@@ -135,7 +135,7 @@ export default function VerifyEmailScreen() {
       try {
         const me = await authApi.confirmEmailVerificationCode(value);
         await refreshUser();
-        toast.success(t("auth.verifyEmail.verified"));
+        // PROBE V3: no success toast.
         leave(me);
       } catch (err) {
         const status = (err as ApiErr).response?.status;
