@@ -1,0 +1,4 @@
+{
+  "production": "https://levapp.app/api",
+  "staging": "https://staging.levapp.app/api"
+}

@@ -101,6 +101,8 @@
     "evaluation": "Avaliação",
     "noEvaluations": "Ainda não há avaliações.",
     "scoreValue": "{{score}} / {{max}}",
+    "notRated": "Sem avaliação",
+    "resetScoreAria": "Repor a pontuação de {{name}}",
     "addEvaluationTitle": "Adicionar avaliação",
     "scores": "Pontuações",
     "noCategoriesHint": "Ainda não há categorias de avaliação. Defina categorias de avaliação nas Definições para pontuar este jogador.",

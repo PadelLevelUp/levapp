@@ -35,6 +35,8 @@ echo "flows: $FLOWS"
 # stay out of the Android run until wave C brings FCM push.
 # PAD-314: flows tagged `open-defect-probe` (51, 52) probe a known-open defect and
 # run on demand only; config.yaml excludes the same tag for iOS whole-suite runs.
+# PAD-345 (Maestro 2.6.1, verified): such a flow runs only when it is the ONLY
+# entry in MAESTRO_FLOWS. Listed next to another flow it is silently dropped.
 # shellcheck disable=SC2086  # FLOWS is a space-separated list on purpose
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
   --exclude-tags ios-only,open-defect-probe \

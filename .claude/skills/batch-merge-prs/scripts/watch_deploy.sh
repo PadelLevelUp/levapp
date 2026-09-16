@@ -111,7 +111,7 @@ Most likely the backend container is crash-looping on startup. The classic cause
 after a batch merge is multiple Alembic heads — \`flask db upgrade\` aborts, the
 container Exits(1), nginx returns 502 on every /api/* call. Diagnose with:
 
-  gcloud compute ssh levelup-instance --zone=europe-west1-b --project=padel-levelup-2026
+  gcloud compute ssh "$LEVAPP_VM" --zone="$LEVAPP_ZONE" --project="$LEVAPP_PROJECT"   # values: local docs/infra/environment.md
   sudo docker ps -a && sudo docker logs padelapp --tail 50        # prod
   sudo docker logs padelapp_staging --tail 50                       # staging
 

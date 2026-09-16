@@ -38,7 +38,7 @@ a bucket to be filled in) and nothing checked it after the move to containers.
 ### Change Plan
 - Rewrite `backup.sh`: `docker exec postgres pg_dump -U padel_app_user -Fc padel_app` (trust auth on
   the container socket, no password), `gsutil cp` to a private bucket declared in config (a new
-  `padel-levelup-2026-backups` with versioning, or a `backups/` prefix on the existing one), keep 14
+  `<project>-backups` with versioning, or a `backups/` prefix on the existing one), keep 14
   daily files, exit non-zero and post to the Discord webhook on failure.
 - `deploy-prod.yaml`: keep installing the cron; add a read-only "last backup age" check to the
   repair workflow.

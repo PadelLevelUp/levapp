@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -420,6 +420,12 @@ export function ClassDetailSheet({
   };
 
   const attendanceAlreadyMarked : boolean = (active?.presences?.length ?? 0) > 0;
+  // PAD-335 (`classes.delete` rule 7): the delete dialogs say when the coach's
+  // register goes with the class. Enrolment rows alone are not a register.
+  const attendanceRecorded = hasRecordedAttendance(active?.presences);
+  const deleteAttendanceNote = attendanceRecorded
+    ? t("calendar.detail.deleteAttendanceNote")
+    : undefined;
 
   if (!event || !classInstance || !players || !levels) return null;
   if (!active) return null;
@@ -1743,6 +1749,14 @@ export function ClassDetailSheet({
               <AlertDialogDescription>
                 {t("calendar.detail.deleteConfirmBody")}
               </AlertDialogDescription>
+              {deleteAttendanceNote && (
+                <p
+                  data-testid="delete-attendance-note"
+                  className="text-sm font-medium text-destructive"
+                >
+                  {deleteAttendanceNote}
+                </p>
+              )}
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>
@@ -1768,6 +1782,7 @@ export function ClassDetailSheet({
         <ClassScopeDialog
           open={deleteDialogOpen}
           mode="delete"
+          note={deleteAttendanceNote}
           onClose={() => setDeleteDialogOpen(false)}
           onConfirm={(scope) => {
             setDeleteDialogOpen(false);

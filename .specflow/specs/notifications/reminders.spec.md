@@ -92,8 +92,35 @@ Automatically send class reminders to enrolled players at a configured time befo
     **An accepted class request is not told, but it is asked (deliberate).** Accepting a student's own request stays silent on "told" (`add_class_service(..., notify_students=False)`, PAD-330). "Asked" follows this rule like any other enrolment: a request accepted for a class whose reminder time is still ahead is asked by the ordinary reminder, as before; one accepted *inside* the reminder window — tomorrow's class — is asked once, when its occurrence first materialises (the one-off's instance is created lazily and enrols through `enrol()` as `roster`). Before PAD-331 that student was asked by nothing: the ordinary job is skipped when its fire time has passed. Treating a request as the student's own confirmation (recording them `coming` rather than asking) would silence both cases and is a separate product decision, not taken here.
     **Reading the coach's timing creates nothing.** Arming runs inside every enrolment, so it reads the coach's `NotificationConfig` and, when there is none, answers with the defaults an unsaved row carries — the timing the reminder pass would create and use. It never inserts the row (the PAD-330 lesson: an enrolment that creates settings collides with the row its caller makes next).
 19. **The cap counts the seat a student holds now (PAD-318).** A student who cancelled and was put back by their coach has a new seat; the reminders from before the cancellation asked about a seat they no longer held, so they no longer count toward `reminderCount` and their bubbles are retired — an un-actioned Yes/No about a surrendered seat must not stay tappable. `superseded` alone is not the discriminator: every new reminder supersedes the previous one, so a cap that ignored superseded attempts would uncap reminders entirely. A voided round is also excluded from `reminderSentAt` (`attendance.presence` rule 1a), so the class sheet does not tell a coach a reminder is outstanding for a student who is about to be asked for the first time about the seat they now hold
+20. **One reminder job per occurrence (PAD-347, B-097; rule number self-assigned, unconfirmed).**
+    Rule 1's `reminder_lesson_{lesson_id}_{date}` job exists only while the occurrence is NOT
+    materialised. Once a `LessonInstance` exists, `reminder_{instance_id}` is the occurrence's
+    only reminder job: arming it cancels the occurrence job, and the lesson-occurrence scheduler
+    (class creation, future edits, the startup re-arm, the daily window extension, a settings
+    save) hands a date that already has an instance to `schedule_instance_jobs` instead of
+    arming its own job — a canceled or completed instance gets no job at all. The instance job
+    is the truth because its `start_datetime` survives a single-occurrence edit; the occurrence
+    job's fire time is derived from the template. Second and later reminders still arrive
+    `hours_between_reminders` apart through the instance runner's chain (rule 18); only the
+    duplicate goes, never the feature.
 
 ### Acceptance Criteria
+
+#### Materialising an occurrence leaves one reminder job (PAD-347)
+- **Given** a one-off class with its `reminder_lesson_<lesson>_<date>` job armed
+- **When** the occurrence materialises (attendance confirmed, a single edit, the runner itself)
+- **Then** `reminder_<instance>` is armed and `reminder_lesson_<lesson>_<date>` is gone
+
+#### The re-arm does not bring the pair back (PAD-347)
+- **Given** a materialised occurrence with only `reminder_<instance>` armed
+- **When** the startup re-arm or the daily window extension schedules the lesson's occurrences again
+- **Then** the occurrence still has exactly one reminder job
+
+#### Two reminders are two passes, not one minute (PAD-347)
+- **Given** a coach with `reminderCount` 2 and a materialised occurrence with one enrolled, unanswered student
+- **When** every armed reminder job runs once
+- **Then** the student receives exactly one reminder, and a retry job is armed `hoursBetweenReminders` later
+- **And** when that retry runs, the student receives the second reminder
 
 #### A student added after the chain has stopped is still asked (PAD-331)
 - **Given** a class whose reminder pass has already run, so nothing is armed for it
