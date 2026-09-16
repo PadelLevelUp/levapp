@@ -43,7 +43,9 @@ test.describe("PAD-101: just-added rows are deletable without a reload", () => {
     // real numeric ids. The success toast is dispatched in the same tick as that
     // state update, so its appearance is a reliable signal the re-keyed rows have
     // flushed to the DOM — click before that and we'd grab the stale temp-id row.
-    await expect(page.getByText(/levels saved/i).first()).toBeVisible({ timeout: 10000 });
+    const savedToast = page.getByTestId("toast");
+    await expect(savedToast).toBeVisible({ timeout: 10000 });
+    await expect(savedToast).toHaveAttribute("data-variant", "default");
 
     // Now delete that same row WITHOUT reloading. On main the temp string id
     // (`new-…`) is still attached → backend int() → HTTP 500.
@@ -75,7 +77,7 @@ test.describe("PAD-101: just-added rows are deletable without a reload", () => {
     // Add a strength. The optimistic note is appended to local state with a
     // temp id (`-Date.now()` on main).
     const uniqueText = `Temp strength ${Date.now()}`;
-    await page.getByPlaceholder("Add a strength...").fill(uniqueText);
+    await page.getByTestId("sw-add-strength-input").fill(uniqueText);
     const addResp = page.waitForResponse((r) =>
       r.url().includes("/add_coach_note")
     );

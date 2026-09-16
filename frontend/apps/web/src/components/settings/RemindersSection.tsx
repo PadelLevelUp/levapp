@@ -16,12 +16,14 @@ function TimingSelector({
   label,
   description,
   disabled,
+  testId,
 }: {
   value: ReminderTiming;
   onChange: (v: ReminderTiming) => void;
   label: string;
   description: string;
   disabled?: boolean;
+  testId?: string;
 }) {
   const { t } = useTranslation();
   const mode = value.type;
@@ -35,7 +37,7 @@ function TimingSelector({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" data-testid={testId}>
       <p className="text-sm font-medium">{label}</p>
       <p className="text-xs text-muted-foreground">{description}</p>
       <div className="flex items-center gap-2 flex-wrap">
@@ -130,9 +132,10 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
         label={t("settings.reminders.firstReminderTiming")}
         description={t("settings.reminders.firstReminderDescription")}
         disabled={disabled}
+        testId="reminder-first-reminder-timing"
       />
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5" data-testid="reminder-per-student">
         <p className="text-sm font-medium">{t("settings.reminders.remindersPerStudent")}</p>
         <p className="text-xs text-muted-foreground">
           {t("settings.reminders.remindersPerStudentDescription")}
@@ -163,7 +166,7 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
       </div>
 
       {reminderTiming.reminderCount > 1 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-testid="reminder-hours-between">
           <p className="text-sm font-medium">{t("settings.reminders.hoursBetween")}</p>
           <p className="text-xs text-muted-foreground">
             {t("settings.reminders.hoursBetweenDescription")}
@@ -201,6 +204,7 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
         label={t("settings.reminders.startInvitations")}
         description={t("settings.reminders.startInvitationsDescription")}
         disabled={disabled}
+        testId="reminder-start-invitations"
       />
     </div>
   );

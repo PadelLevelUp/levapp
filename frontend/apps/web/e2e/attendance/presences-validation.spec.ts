@@ -27,6 +27,7 @@ import {
   loginAsCoach,
 } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 
 async function getToken(
@@ -58,7 +59,7 @@ async function openQueueAtFixtureWeek(page: import("@playwright/test").Page) {
     { timeout: 30_000 }
   );
   await page
-    .getByRole("button", { name: /previous week|semana anterior/i })
+    .getByRole("button", { name: ui("presences.week.previous") })
     .click();
   await previousWeekLoaded;
   await expect(
@@ -211,7 +212,7 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
     // Earlier tests in this file may already have validated the fixture's
     // ready class; reopen anything validated so the run has N = 2 again
     // (spec rule 9: undo keeps the record, so the class comes back ready).
-    const undo = page.getByRole("button", { name: /^(undo|anular)$/i });
+    const undo = page.getByRole("button", { name: ui("presences.validate.undo") });
     while ((await undo.count()) > 0) {
       const before = await page.locator('[data-testid="presences-class-card"]').count();
       await undo.first().click();
@@ -267,7 +268,7 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
     // Leave the fixture as the run found it: later specs (dashboard/validation-count,
     // PAD-201) count the seed's classes awaiting validation. Undo keeps the record
     // (spec rule 9), so each class returns to the queue.
-    const undoAfter = page.getByRole("button", { name: /^(undo|anular)$/i });
+    const undoAfter = page.getByRole("button", { name: ui("presences.validate.undo") });
     for (let i = 0; i < 12 && (await undoAfter.count()) > 0; i++) {
       const before = await page.locator('[data-testid="presences-class-card"]').count();
       await undoAfter.first().click();

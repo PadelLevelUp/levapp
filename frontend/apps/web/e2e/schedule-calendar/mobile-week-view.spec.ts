@@ -321,7 +321,9 @@ test.describe("PAD-247: phone calendar Semana view", () => {
     const grid = page.getByTestId("calendar-time-grid");
     await expect(grid).toHaveAttribute("data-hour-start", "8");
     await expect(grid).toHaveAttribute("data-hour-end", "20");
-    await expect(page.getByTestId("calendar-day-sheet")).toContainText("No classes scheduled");
+    // Empty-state placeholder, asserted by testid rather than its (English,
+    // for this seeded coach) copy.
+    await expect(page.getByTestId("calendar-day-sheet-empty")).toBeVisible();
   });
 
   test("US-247-6: Hoje returns to today's week and reselects today", async ({ page }) => {

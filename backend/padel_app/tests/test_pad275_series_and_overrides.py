@@ -146,7 +146,6 @@ def test_c2_overridden_fields_is_derived_from_the_non_null_overrides(app, recurr
 # A — series identity (held: lessons.series_id)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_a2_a_fork_belongs_to_the_root_series(app, recurring_with_coach):
     _coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.services.lesson_service import split_lesson
@@ -162,7 +161,6 @@ def test_a2_a_fork_belongs_to_the_root_series(app, recurring_with_coach):
         assert root.series_root_id == root.id
 
 
-@pytest.mark.skip(reason="PAD-275 reminder-job move/prune lands with the columns (batch 7): prune needs excluded_dates")
 def test_a3_reminder_jobs_move_to_the_fork_instead_of_being_rebuilt(app, recurring_with_coach, live_scheduler):
     coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.services.lesson_service import split_lesson
@@ -192,7 +190,6 @@ def test_a3_reminder_jobs_move_to_the_fork_instead_of_being_rebuilt(app, recurri
 # B — single-occurrence delete is an exclusion (held: lessons.excluded_dates)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_b1_deleting_one_occurrence_records_an_exclusion_and_does_not_fork(app, recurring_with_coach):
     coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.models.lessons import Lesson
@@ -214,7 +211,6 @@ def test_b1_deleting_one_occurrence_records_an_exclusion_and_does_not_fork(app, 
     assert _events_on(app, coach_id, (first_start + timedelta(weeks=2)).date(), "Recurring Class")
 
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_b2_deleting_a_materialised_occurrence_removes_it_and_excludes_its_date(app, recurring_with_coach):
     coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.models.lesson_instances import LessonInstance
@@ -238,7 +234,6 @@ def test_b2_deleting_a_materialised_occurrence_removes_it_and_excludes_its_date(
 # C — capacity override (held: lesson_instances.max_players_override)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_c3_effective_max_players_inherits_unless_overridden(app, recurring_with_coach):
     _coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.services.lesson_service import get_or_materialize_instance
@@ -318,7 +313,6 @@ def test_d1_instance_coaches_are_the_lessons_unless_the_occurrence_has_its_own(a
 # B — an excluded date is skipped everywhere (classes.recurrence rule 7)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_b3_an_excluded_date_gets_no_reminder_job_and_a_stale_one_is_pruned(app, recurring_with_coach, live_scheduler):
     coach_id, _user_id, lesson_id, first_start = recurring_with_coach
     from padel_app.services.lesson_service import remove_class_service
@@ -352,7 +346,6 @@ def test_b3_an_excluded_date_gets_no_reminder_job_and_a_stale_one_is_pruned(app,
         assert f"reminder_lesson_{lesson_id}_{second.isoformat()}" not in _job_ids(live_scheduler, lesson_id)
 
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_b4_a_student_cannot_cancel_or_request_an_excluded_date(app, recurring_with_coach):
     """attendance.confirm rule 18 + classes.join-requests rule 2 through
     classes.recurrence rule 7: an excluded date is a date the series does not
@@ -400,7 +393,6 @@ def test_b4_a_student_cannot_cancel_or_request_an_excluded_date(app, recurring_w
         assert _lesson(lesson_id).produces(third)
 
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_b5_a_fork_and_a_created_lesson_carry_series_ids(app, recurring_with_coach):
     """classes.recurrence rule 6: a lesson created through the service is its
     own series; the code-only `duplicate_lesson_helper` copies the root's id."""
@@ -521,7 +513,6 @@ def test_c5_a_title_equal_to_the_series_title_is_not_reported_as_overridden(app,
         assert serialize_class_instance(instance)["overriddenFields"] == []
 
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_c6_max_players_is_reported_from_the_override_column_only(app, recurring_with_coach):
     """classes.edit rule 4: the copied `max_players` column is a shadow; only
     `max_players_override` means the occurrence's capacity was changed."""
@@ -550,7 +541,6 @@ def test_c6_max_players_is_reported_from_the_override_column_only(app, recurring
         assert instance.effective_max_players == 2
 
 
-@pytest.mark.skip(reason="PAD-275 columns land with migration f50214af74f1 (batch 7): series_id, excluded_dates, max_players_override")
 def test_a4_a_fork_of_a_fork_still_points_at_the_root(app, recurring_with_coach):
     """classes.recurrence rule 6: `series_id` is the ROOT's for every fork, not
     the parent fork's (the mapper copy carries it; the explicit line must agree)."""

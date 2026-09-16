@@ -343,12 +343,30 @@ export default function ClassDetailScreen() {
   } | null>(null);
 
   if (!event) {
+    // PAD-325: none of these states had a way out but the swipe gesture (the
+    // stack hides its header), so each gets the same back control as the
+    // full screen. Falls back to home when the class was the first screen
+    // (a cold start from a link).
+    const backBar = (
+      <View className="flex-row items-center px-2 py-2">
+        <Pressable
+          testID="class-detail-back"
+          accessibilityLabel={t("common.back")}
+          role="button"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+          className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
+        >
+          <Ionicons name="chevron-back" size={22} color={lightTheme.foreground} />
+        </Pressable>
+      </View>
+    );
     // Three states, never one (rule 15). Collapsing them is what made the
     // founder's screenshot unreadable: it said "could not find" for a route it
     // had never asked about, which reads identically to a class that is gone.
     if (fallbackId && byId.isPending) {
       return (
         <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+          {backBar}
           <View className="gap-3 p-4">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-14 w-full" />
@@ -366,8 +384,16 @@ export default function ClassDetailScreen() {
       const gone = status === 404 || status === 403;
       return (
         <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+          {backBar}
           {gone ? (
-            <ErrorState message={t("classDetail.classGone")} testID="class-gone" />
+            // PAD-325: a deleted class is not a failure, so it does not wear
+            // the generic "something went wrong" title.
+            <ErrorState
+              icon="calendar-clear-outline"
+              title={t("classDetail.classGoneTitle")}
+              message={t("classDetail.classGone")}
+              testID="class-gone"
+            />
           ) : (
             <ErrorState message={t("classDetail.couldNotLoad")} onRetry={() => byId.refetch()} />
           )}
@@ -376,6 +402,7 @@ export default function ClassDetailScreen() {
     }
     return (
       <Screen title={t("classDetail.classFallbackTitle")} testID="class-detail">
+        {backBar}
         <ErrorState message={t("classDetail.notFound")} />
       </Screen>
     );

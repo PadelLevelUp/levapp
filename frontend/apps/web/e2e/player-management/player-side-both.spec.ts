@@ -25,7 +25,9 @@ test("PAD-15: coach sets player side to Both and it persists", async ({ page }) 
   // Save
   await page.getByRole("button", { name: /^save$/i }).click();
 
-  // No error, and the "Both" badge is displayed on the profile after save
+  // No error, and the side badge reflects "both" after save — asserted via
+  // data-state (the same value that picks the rendered label), never the
+  // rendered label itself (the page renders pt in E2E).
   const errorVisible = await page
     .getByText(/error|failed/i)
     .first()
@@ -33,13 +35,16 @@ test("PAD-15: coach sets player side to Both and it persists", async ({ page }) 
     .catch(() => false);
   expect(errorVisible).toBe(false);
 
-  await expect(page.getByText("Both", { exact: true }).first()).toBeVisible({
+  const sideBadge = page.getByTestId("player-side-badge").first();
+  await expect(sideBadge).toHaveAttribute("data-state", "both", {
     timeout: 5000,
   });
 
   // Reload to confirm the value was persisted to the backend
   await page.reload();
-  await expect(page.getByText("Both", { exact: true }).first()).toBeVisible({
-    timeout: 5000,
-  });
+  await expect(page.getByTestId("player-side-badge").first()).toHaveAttribute(
+    "data-state",
+    "both",
+    { timeout: 5000 },
+  );
 });

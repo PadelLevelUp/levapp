@@ -573,7 +573,11 @@ export default function SettingsPage() {
                   <div className="max-w-xs space-y-2">
                     <Label htmlFor="theme-select">{t("settings.preferences.theme")}</Label>
                     <Select value={theme} onValueChange={(v) => setTheme(v)}>
-                      <SelectTrigger id="theme-select" aria-label={t("settings.preferences.theme")}>
+                      <SelectTrigger
+                        id="theme-select"
+                        aria-label={t("settings.preferences.theme")}
+                        data-theme-value={theme}
+                      >
                         <SelectValue placeholder={t("settings.preferences.theme")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -646,7 +650,7 @@ export default function SettingsPage() {
             {activeTab === "import" && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2" data-testid="import-data-title">
                     <Upload className="w-5 h-5" />
                     {t("settings.import.title")}
                   </CardTitle>

@@ -1,0 +1,25 @@
+# PAD-325 / calendar.event-detail rule 15. (Flow number 58 is from Session E's
+# reserved range.)
+# A class that no longer exists (an id the server answers 404 for) opens on the
+# "class removed" state, not on "something went wrong", and the screen has a
+# way back. Before PAD-325 the only exit was the swipe gesture.
+# - open the class screen for an instance id no seed creates
+# - the class-gone state shows, with no Retry
+# - the back control returns to the dashboard
+# Asserts test ids only; the rendered copy differs between locales.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- openLink: levelup://class/987654321
+- extendedWaitUntil:
+    visible:
+      id: "class-gone"
+    timeout: 20000
+- assertNotVisible:
+    id: "error-state-retry"
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 15000

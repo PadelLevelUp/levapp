@@ -54,7 +54,6 @@ class LessonInstance(db.Model, model.Model):
         Enum(
             "scheduled",
             "canceled",
-            "rescheduled",
             "completed",
             name="lesson_instance_status",
         ),
@@ -63,7 +62,11 @@ class LessonInstance(db.Model, model.Model):
     )
     
     notes = Column(Text, nullable=True)
+    # PAD-275 (classes.edit rule 4): the copied capacity stays as a shadow for
+    # one release, written from the effective value; readers use
+    # `effective_max_players`. NULL override inherits the lesson's capacity.
     max_players = Column(Integer, nullable=False)
+    max_players_override = Column(Integer, nullable=True)
     overridden_fields = Column(Text)
 
     presences = relationship(
@@ -73,13 +76,8 @@ class LessonInstance(db.Model, model.Model):
         passive_deletes=True,
     )
     
-    # Many-to-many: LessonInstance <-> Player
-    players_relations = relationship(
-        "Association_PlayerLessonInstance",
-        back_populates="lesson_instance",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    # PAD-301: the roster is `presences` (classes.instance-enrollment rule 1);
+    # the shadow junction and its `players_relations` are gone.
     
     coaches_relations = relationship(
         "Association_CoachLessonInstance", 
@@ -111,6 +109,38 @@ class LessonInstance(db.Model, model.Model):
     @property
     def title(self):
         return self.overwrite_title or self.lesson.title
+
+    @property
+    def effective_max_players(self):
+        """Capacity of this occurrence (PAD-275, classes.edit rule 4): the
+        override when set, else the lesson's. Every capacity comparison reads
+        this, never the copied `max_players` column."""
+        if self.max_players_override is not None:
+            return self.max_players_override
+        lesson = self.lesson
+        if lesson is not None and lesson.max_players is not None:
+            return lesson.max_players
+        return self.max_players
+
+    @property
+    def effective_level_id(self):
+        """Level of this occurrence (PAD-275, classes.edit rule 4): its own
+        `level_id` when set, else the lesson's default. Same rule as
+        `level_service.effective_level_id`, which readers outside the model use."""
+        if self.level_id:
+            return self.level_id
+        lesson = self.lesson
+        return lesson.default_level_id if lesson is not None else None
+
+    @property
+    def effective_level(self):
+        """The `CoachLevel` behind `effective_level_id`, or None."""
+        if self.level_id and self.level is not None:
+            return self.level
+        lesson = self.lesson
+        if lesson is not None and lesson.default_level_id:
+            return getattr(lesson, "default_level", None) or _load_level(lesson.default_level_id)
+        return None
 
     @property
     def players(self):
@@ -209,13 +239,7 @@ class LessonInstance(db.Model, model.Model):
                     "status",
                     "Select",
                     label="Status",
-                    options=["scheduled", "canceled", "rescheduled", "completed"],
-                ),
-                get_field(
-                    "players_relations",
-                    "OneToMany",
-                    label="Players",
-                    related_model="Association_PlayerLessonInstance",
+                    options=["scheduled", "canceled", "completed"],
                 ),
             ],
         )

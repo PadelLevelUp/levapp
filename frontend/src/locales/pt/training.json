@@ -247,6 +247,8 @@
         "step": "Passo",
         "auto": "▶ AUTO",
         "stop": "■ Parar",
+        "speed": "Velocidade",
+        "speeds": { "slow": "Lento 0.5×", "normal": "Normal 1×", "fast": "Rápido 2×" },
         "hint": "Cada passo tem as trajetórias da bola, por ordem, e os movimentos dos jogadores. Passo avança um; AUTO anima todos."
       }
     }

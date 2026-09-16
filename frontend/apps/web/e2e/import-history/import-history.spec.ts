@@ -46,7 +46,7 @@ async function openImportTab(page: import("@playwright/test").Page) {
   await loginAsCoach(page);
   await openSettings(page);
   await page.getByRole("button", { name: /import data/i }).click();
-  await expect(page.getByText(/import data/i).first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-data-title")).toBeVisible({ timeout: 5000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -59,12 +59,12 @@ test("PAD-21: import history section shows past uploads", async ({ page, request
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   // Should show at least one import entry
   const entry = page.locator("[data-testid='import-history-entry']").first();
   await expect(entry).toBeVisible({ timeout: 5000 });
-  await expect(entry.getByText(/players/i)).toBeVisible();
+  await expect(entry.getByTestId("import-history-summary")).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -77,14 +77,14 @@ test("PAD-21: import history entry shows date and item counts", async ({ page, r
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   const historyEntry = page.locator("[data-testid='import-history-entry']").first();
   await expect(historyEntry).toBeVisible({ timeout: 5000 });
 
   // Should show item counts and status badge
   await expect(historyEntry.getByText(/2 players/i)).toBeVisible();
-  await expect(historyEntry.getByText(/active/i)).toBeVisible();
+  await expect(historyEntry.getByTestId("import-history-status")).toHaveAttribute("data-status", "active");
 });
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ test("PAD-21: clicking revert shows confirmation dialog with item counts", async
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   // Click revert on the first import entry
   const entry = page.locator("[data-testid='import-history-entry']").first();
@@ -107,7 +107,7 @@ test("PAD-21: clicking revert shows confirmation dialog with item counts", async
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toBeVisible({ timeout: 3000 });
   await expect(dialog.getByText(/are you sure/i)).toBeVisible();
-  await expect(dialog.getByText(/players/i)).toBeVisible();
+  await expect(dialog.getByTestId("import-revert-summary")).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ test("PAD-21: canceling revert dismisses dialog", async ({ page, request }) => {
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   // Open revert dialog
   const entry = page.locator("[data-testid='import-history-entry']").first();
@@ -136,7 +136,7 @@ test("PAD-21: canceling revert dismisses dialog", async ({ page, request }) => {
   await expect(dialog).not.toBeVisible();
 
   // Import entry should still be visible with active status
-  await expect(entry.getByText(/active/i)).toBeVisible();
+  await expect(entry.getByTestId("import-history-status")).toHaveAttribute("data-status", "active");
 });
 
 // ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ test("PAD-21: confirming revert removes imported items", async ({ page, request 
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   // Open revert dialog
   const entry = page.locator("[data-testid='import-history-entry']").first();
@@ -187,7 +187,7 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
 
   await openImportTab(page);
 
-  await expect(page.getByText(/import history/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("import-history-title")).toBeVisible({ timeout: 5000 });
 
   // Should have at least two import entries. Wait for the list to render before
   // counting — count() is a one-shot read and does not auto-wait like the

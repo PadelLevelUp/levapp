@@ -107,15 +107,9 @@ def _create_instance(coach, level, start, max_players=4):
 
 
 def _enrol(instance, player):
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
-    rel = Association_PlayerLessonInstance(
-        player_id=player.id, lesson_instance_id=instance.id,
-    )
+    rel = Presence(  # PAD-259: the presence row is the enrolment
+        player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster")
     db.session.add(rel)
-    db.session.add(Presence(  # PAD-259: the presence row is the enrolment
-        player_id=player.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))
     db.session.commit()
     return rel
 

@@ -21,8 +21,9 @@ three separate fields on it. Decision record:
 - **READS:** Presence, Association_PlayerLesson (the series roster, `classes.enrollment`)
 - **WRITES:** Presence — `enrolment_source` (new, PAD-259): `roster | coach | fill | walk_in | import | unknown`,
   a CHECK-constrained string with server default `unknown`
-- **SHADOW (phase 1 only):** Association_PlayerLessonInstance (`player_in_lesson_instance`) is still
-  written by the single writer of rule 4 and read by nothing; phase 2 drops it
+- **Gone (PAD-301, phase 2):** the phase-1 shadow junction `player_in_lesson_instance` was dropped by
+  migration `9812c5f388fc` once a production copy reconciled with no difference (0 of 4,443 on
+  2026-09-16); nothing writes or reads it
 
 ### Rules
 1. **The presence row is the enrolment.** A `presences` row for `(player_id, lesson_instance_id)`
@@ -44,12 +45,11 @@ three separate fields on it. Decision record:
    `enrol(player_id, instance, source)` in `lesson_service`: materialisation (`roster`), instance
    create and edit-add (`coach`), the engine's `_add_player_to_instance` (`fill`), the attendance
    sheet walk-in (`walk_in`), the presences import (`import`). It is idempotent — an existing row is
-   returned untouched, its response and attendance never reset — and in phase 1 it also writes the
-   shadow junction row. It is race-safe without a lock: the unique pair is the lock, so the insert
+   returned untouched, its response and attendance never reset. It is race-safe without a lock: the unique pair is the lock, so the insert
    runs in a savepoint and a concurrent winner's collision is rolled back and re-read. It flushes
    inside a unit of work and commits outside one (PAD-272), so a roster materialises in one commit.
-   `unenrol(player_id, instance)` deletes the row and the shadow. No other code constructs a
-   `Presence` for an enrolment.
+   `unenrol(player_id, instance)` deletes the row. No other code constructs a `Presence` for an
+   enrolment.
 5. **Capacity** is presences minus those with `status = 'absent'`, floored at 0 — the same
    arithmetic as before, now over one table (`calendar.view` rules 8–9, `LessonInstance.effective_filled_spots`).
 6. **Reads.** "Is this player in this occurrence", the class-detail participants list, the engine's
@@ -71,11 +71,11 @@ three separate fields on it. Decision record:
    instances whose filled count changed) and fails if the "after" count is not equal to the orphan
    count of rows it was told to skip. On Postgres the backfill is one statement; SQLite (tests)
    may loop. A second run inserts nothing.
-9. **Reconcile check, one-directional.** `reconcile_enrolment()` returns the shadow junction pairs
-   `(player_id, lesson_instance_id)` that have no presence — an enrolment the code could not see.
-   A presence with no shadow row is what option A is for and never needs one, so it is not a
-   difference. The test suite asserts the list is empty after every write path, and it is run once
-   on the staging copy of prod before phase 2 drops the junction (the phase-2 gate).
+9. **Reconcile check — retired with the junction (PAD-301).** `reconcile_enrolment()` returned the
+   shadow junction pairs with no presence; it was the phase-2 gate and was run on a production
+   copy before the drop (0 differences on 2026-09-16). The drop migration carries the same check
+   inside it and refuses — never drops — while any junction pair has no presence. With the table
+   gone the function and its test are gone too.
 
 10. **A re-enrolment of someone who gave their spot up is a RETURN, not a no-op (PAD-316; rule number self-assigned, unconfirmed).** Rule 4's idempotence means an existing row is not *duplicated*; it never meant the row is untouched whatever it says. When `enrol()` finds a presence that is `status = 'absent'` and not validated, the player is coming back: the absence, its justification and the late-cancellation flag are cleared, their own open vacancy is closed and the instance reconciled (`notifications.invitations` rule 13). A row the coach has validated is left alone — that record is theirs to change on the attendance sheet.
    **The previous answer is void.** It recorded a "no" to a seat they no longer held, and nobody has asked them about this one, so the caller's `confirmed` stands rather than the stored flag: a coach's re-add leaves them `planned`, an engine fill arrives `coming`. Claiming they said yes would be the same over-reach as `confirmed` meaning *coming*.
@@ -175,12 +175,20 @@ three separate fields on it. Decision record:
 - **And** the log carries `junction_without_presence_before=3`, `presences_inserted=2`,
   `junction_without_presence_after=1` (the orphan), and a second upgrade inserts nothing
 
-#### Shadow and presences agree after every path
-- **Given** a materialisation, an edit-add, a vacancy fill, a walk-in and a removal
-- **When** `reconcile_enrolment()` runs
-- **Then** it returns an empty list
+#### The drop refuses while any junction pair has no presence (PAD-301)
+- **Given** a database where one `player_in_lesson_instance` row has no matching presence
+- **When** migration `9812c5f388fc` upgrades
+- **Then** it raises naming that pair and drops nothing
+- **And** with every pair backed by a presence it drops the table, a second upgrade is a no-op, and the downgrade recreates the table refilled from presences
+
+#### A player's occurrences read from presences (PAD-301)
+- **Given** a player enrolled on an occurrence through `enrol()`
+- **When** `Player.lesson_instances` is read
+- **Then** it lists that occurrence, with no junction table involved
 
 ### Notes
-- Phase 2 (a later batch): drop `player_in_lesson_instance`, remove the shadow writes, remove it
-  from the player-claim and account-deletion table lists.
+- Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the
+  shadow writes, the `players_relations` / `lesson_instances_relations` relationships, the
+  player-claim and account-deletion entries and the dev seed entry removed. `Player.lesson_instances`
+  now reads presences. Downgrade recreates the table and refills it from presences.
 - Rule numbers assigned by Session H on 2026-09-11, unconfirmed by the coordinator.

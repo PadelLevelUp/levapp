@@ -100,12 +100,16 @@ export interface BallPath {
   from: Point;
   to: Point;
   style: "flat" | "lob";
+  /** PAD-311 (rule 26): creation order within the step; absent on legacy steps. */
+  seq?: number;
 }
 
 /** A player's dashed movement path within a step. */
 export interface Movement {
   pieceId: string;
   to: Point;
+  /** PAD-311 (rule 26): creation order within the step; absent on legacy steps. */
+  seq?: number;
 }
 
 export interface Step {

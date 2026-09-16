@@ -20,6 +20,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsStudent } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 const API_BASE = API_APP;
 const AUTH_BASE = API_AUTH;
@@ -91,7 +92,7 @@ test("US-WL-01: Yes on a waiting_list_offer queues the student and settles the b
     const actions = studentPage.getByTestId("waiting-list-offer-actions").last();
     await expect(actions).toBeVisible({ timeout: 10_000 });
 
-    const yes = actions.getByRole("button", { name: /^yes$|^sim$/i });
+    const yes = actions.getByRole("button", { name: ui("messages.yes") });
     await expect(yes).toBeVisible();
 
     const [respondRes] = await Promise.all([
@@ -107,15 +108,15 @@ test("US-WL-01: Yes on a waiting_list_offer queues the student and settles the b
     // The bubble settles into the answered state, exactly as the reminder does.
     // Locale is pt pre-auth on some runs, so match either language.
     await expect(
-      actions.getByText(/on the waiting list|na lista de espera/i)
+      actions.getByText(ui("messages.waitingListJoined"))
     ).toBeVisible({ timeout: 5000 });
-    await expect(actions.getByRole("button", { name: /^yes$|^sim$/i })).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: ui("messages.yes") })).toHaveCount(0);
 
     // And it survives a reload — the answer is recorded on the message, not
     // just in component state.
     await studentPage.reload();
     await expect(
-      studentPage.getByText(/on the waiting list|na lista de espera/i).last()
+      studentPage.getByText(ui("messages.waitingListJoined")).last()
     ).toBeVisible({ timeout: 15_000 });
 
     // The entry the coach sees is the one the student just created.
@@ -166,13 +167,13 @@ test("US-WL-02: No on a waiting_list_offer closes it and queues nobody", async (
         (r) => r.url().includes("/notify/respond_waiting_list"),
         { timeout: 10_000 }
       ),
-      actions.getByRole("button", { name: /^no$|^não$/i }).click(),
+      actions.getByRole("button", { name: ui("messages.no") }).click(),
     ]);
     expect(respondRes.status()).toBe(200);
     expect((await respondRes.json()).action).toBe("declined");
 
     await expect(
-      actions.getByText(/^declined$|^recusado$/i)
+      actions.getByText(ui("messages.declined"))
     ).toBeVisible({ timeout: 5000 });
 
     const listRes = await request.get(`${API_BASE}/notify/waiting_list/${instanceId}`, {

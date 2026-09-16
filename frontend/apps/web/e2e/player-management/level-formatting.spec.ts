@@ -11,7 +11,7 @@ test("PAD-14: level dropdown renders code bold and separated from label", async 
 
   // Open the add-player sheet, then the Level select.
   await page.getByRole("button", { name: /add player/i }).first().click();
-  await page.getByText("Select level").click();
+  await page.getByTestId("player-level-select").click();
 
   // Seeded level "B1" / "Beginner": the option must contain the code in a bold
   // element, visually separated from the label by a "|".

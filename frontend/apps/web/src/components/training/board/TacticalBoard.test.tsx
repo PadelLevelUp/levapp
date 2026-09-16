@@ -124,6 +124,26 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByTestId("movement-a1")).toHaveAttribute("stroke-dasharray");
   });
 
+  it("PAD-309: further taps add legs, each drawn from where the last one ended", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("movement");
+    tapPiece("a1", 32, 26);
+    tapCourt(20, 40);
+    tapCourt(10, 60);
+    const d = lastDiagram(onChange);
+    expect(d.steps[0].movements.map((m) => m.pieceId)).toEqual(["a1", "a1"]);
+    expect(d.steps[0].movements[1].to.x).toBeCloseTo(10, 0);
+    const first = screen.getByTestId("movement-a1").getAttribute("d") ?? "";
+    const second = screen.getByTestId("movement-a1-1").getAttribute("d") ?? "";
+    // the second leg starts at the first leg's end
+    const end = /L\s*([-\d.]+)[ ,]([-\d.]+)/.exec(first);
+    const start = /M\s*([-\d.]+)[ ,]([-\d.]+)/.exec(second);
+    expect(end && start).toBeTruthy();
+    expect(Number(start![1])).toBeCloseTo(Number(end![1]), 1);
+    expect(Number(start![2])).toBeCloseTo(Number(end![2]), 1);
+  });
+
   it("Selecionar moves a piece by tap-to-move and by drag", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
@@ -381,6 +401,101 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
       vi.advanceTimersByTime(2000);
     });
     expect(screen.getByRole("button", { name: "training.board.playback.auto" })).toBeInTheDocument();
+  });
+});
+
+// ── PAD-311 — actions play in the order they were drawn (rule 26) ────────────
+describe("sequenced steps (PAD-311)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function ballMoveBall() {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("ball");
+    tapCourt(58, 20);
+    tapCourt(50, 50);
+    pickTool("movement");
+    tapPiece("a1", 32, 26);
+    tapCourt(50, 50);
+    pickTool("ball");
+    tapCourt(50, 50);
+    tapCourt(40, 80);
+    return onChange;
+  }
+
+  it("numbers every action by its place in the play order", () => {
+    const onChange = ballMoveBall();
+    const d = lastDiagram(onChange);
+    expect(d.steps[0].movements[0].seq).toBe(1);
+    expect(screen.getByTestId("ball-number-0")).toHaveTextContent("1");
+    expect(screen.getByTestId("movement-order-a1")).toHaveTextContent("2");
+    expect(screen.getByTestId("ball-number-1")).toHaveTextContent("3");
+  });
+
+  it("AUTO plays the ball first and moves A1 only after it", () => {
+    vi.useFakeTimers();
+    ballMoveBall();
+    const start = screen.getByTestId("piece-a1").getAttribute("transform");
+    fireEvent.click(screen.getByRole("button", { name: "training.board.playback.auto" }));
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.getByTestId("playback-ball")).toBeInTheDocument();
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).toBe(start);
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(screen.getByTestId("piece-a1").getAttribute("transform")).not.toBe(start);
+  });
+});
+
+// ── PAD-310 — playback speed (rule 25) ───────────────────────────────────────
+describe("playback speed (PAD-310)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function oneStepOnePath() {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("ball");
+    tapCourt(58, 20);
+    tapCourt(40, 80);
+  }
+  const autoButton = () => screen.queryByRole("button", { name: "training.board.playback.auto" });
+
+  it("Normal is selected by default, and Rápido finishes an 800 ms step in about 400 ms", () => {
+    vi.useFakeTimers();
+    oneStepOnePath();
+    expect(screen.getByTestId("board-speed-normal")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByTestId("board-speed-fast"));
+    expect(screen.getByTestId("board-speed-fast")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(autoButton()!);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(autoButton()).toBeNull(); // still playing
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(autoButton()).toBeInTheDocument(); // done by ~450 ms, not 800
+  });
+
+  it("Lento is still playing after 1000 ms", () => {
+    vi.useFakeTimers();
+    oneStepOnePath();
+    fireEvent.click(screen.getByTestId("board-speed-slow"));
+    fireEvent.click(autoButton()!);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(autoButton()).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(autoButton()).toBeInTheDocument();
   });
 });
 

@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 // PAD-274 / evaluations.categories rule 7. Deleting a saved category deletes
 // every score in it, so the coach first sees how many scores across how many
@@ -91,7 +92,7 @@ test("PAD-274: a category added in the form but never saved is removed without a
     if (/\/delete\/evaluation_category|\/evaluation_category\/\d+\/impact/.test(r.url())) calls.push(r.url());
   });
 
-  await page.getByRole("button", { name: /^(add category|adicionar categoria)$/i }).click();
+  await page.getByRole("button", { name: ui("settings.evaluationCategories.addCategory") }).click();
   await expect(deletes).toHaveCount(before + 1);
   await deletes.last().click();
   await expect(deletes).toHaveCount(before);
@@ -106,13 +107,13 @@ test("PAD-274: a category saved in this form asks before it is deleted, without 
   await expect(deletes.first()).toBeVisible({ timeout: 10_000 });
 
   const name = `E2E Saved Cat ${Date.now().toString().slice(-6)}`;
-  await page.getByRole("button", { name: /^(add category|adicionar categoria)$/i }).click();
-  await page.getByRole("textbox", { name: /^(name|nome)$/i }).last().fill(name);
+  await page.getByRole("button", { name: ui("settings.evaluationCategories.addCategory") }).click();
+  await page.getByRole("textbox", { name: ui("settings.evaluationCategories.name") }).last().fill(name);
   const saved = page.waitForResponse((r) => r.url().includes("/add_evaluation_categories"));
   const reloaded = page.waitForResponse(
     (r) => r.url().includes("/evaluation_categories") && r.request().method() === "GET",
   );
-  await page.getByRole("button", { name: /^(save categories|guardar categorias)$/i }).click();
+  await page.getByRole("button", { name: ui("settings.evaluationCategories.saveCategories") }).click();
   expect((await saved).status()).toBe(200);
   await reloaded;
 

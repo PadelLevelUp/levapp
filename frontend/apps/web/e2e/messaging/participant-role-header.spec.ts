@@ -30,9 +30,12 @@ test("PAD-31: coach participant shows 'Coach' role in chat header, not 'Player'"
     timeout: 5000,
   });
 
-  // The subtitle must say "Coach" and must NOT say "Player".
-  await expect(header.getByText("Coach", { exact: true })).toBeVisible({
+  // The subtitle must reflect the coach role and must NOT be the hardcoded
+  // "player" default — asserted via data-state, never the rendered label
+  // itself (the page renders pt in E2E, en on mobile).
+  const roleLabel = header.getByTestId("chat-participant-role");
+  await expect(roleLabel).toHaveAttribute("data-state", "coach", {
     timeout: 5000,
   });
-  await expect(header.getByText("Player", { exact: true })).toHaveCount(0);
+  await expect(roleLabel).not.toHaveAttribute("data-state", "player");
 });

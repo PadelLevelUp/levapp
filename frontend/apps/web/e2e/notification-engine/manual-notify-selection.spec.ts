@@ -31,7 +31,7 @@ async function openNotifyModal(page: Page) {
   await notifyBtn.waitFor({ state: "visible", timeout: 10_000 });
   await notifyBtn.click();
 
-  const modal = page.getByRole("dialog").filter({ hasText: /notify students/i });
+  const modal = page.getByTestId("notify-students-dialog");
   await expect(modal).toBeVisible({ timeout: 10_000 });
   return modal;
 }

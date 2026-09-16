@@ -26,6 +26,9 @@ class NotificationEvent(db.Model, model.Model):
     type = Column(Enum("manual", "auto", name="notification_event_type"), default="manual", nullable=False)
     round_number = Column(Integer, default=1, nullable=False)
     status = Column(
+        # PAD-271 M5 meant to drop 'queued' as never written; PAD-317 (batch 6)
+        # then made it a live invitation state (LIVE_INVITATION_STATES), so it
+        # stays.
         Enum("sent", "confirmed", "expired", "queued", name="notification_event_status"),
         default="sent",
         nullable=False,

@@ -48,7 +48,7 @@ export function PlayerStrengthsWeaknesses({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="sw-section">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">{t("players.strengthsAndWeaknesses")}</h3>
         {canEdit && (
@@ -98,6 +98,7 @@ export function PlayerStrengthsWeaknesses({
             {editing && (
               <div className="flex gap-2 mt-3">
                 <Input
+                  data-testid="sw-add-strength-input"
                   placeholder={t("players.addStrengthPlaceholder")}
                   value={newStrength}
                   onChange={(e) => setNewStrength(e.target.value)}
@@ -145,6 +146,7 @@ export function PlayerStrengthsWeaknesses({
             {editing && (
               <div className="flex gap-2 mt-3">
                 <Input
+                  data-testid="sw-add-weakness-input"
                   placeholder={t("players.addWeaknessPlaceholder")}
                   value={newWeakness}
                   onChange={(e) => setNewWeakness(e.target.value)}

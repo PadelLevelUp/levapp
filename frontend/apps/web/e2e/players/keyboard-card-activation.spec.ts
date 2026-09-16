@@ -49,7 +49,7 @@ async function findCard(page: Page): Promise<Locator> {
   const searched = page.waitForResponse(
     (r) => /\/app\/coach_players/.test(r.url()) && /[?&]search=/.test(r.url()) && r.status() === 200,
   );
-  await page.getByPlaceholder("Search players...").fill(PLAYER);
+  await page.getByTestId("players-search-input").fill(PLAYER);
   await searched;
   const card = page.getByRole("button", { name: CARD_NAME }).first();
   await expect(card, "the player card must be exposed as a button").toBeVisible();
@@ -67,7 +67,7 @@ async function findCard(page: Page): Promise<Locator> {
 
 /** Put focus in the search box and prove it is there before the Tab walk starts. */
 async function focusSearch(page: Page) {
-  const search = page.getByPlaceholder("Search players...");
+  const search = page.getByTestId("players-search-input");
   await expect
     .poll(async () => {
       await search.focus();
