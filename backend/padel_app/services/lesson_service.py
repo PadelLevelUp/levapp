@@ -1369,8 +1369,18 @@ def _truncate_lesson_future(*, lesson, from_date):
 
 
 def _remove_single_occurrence_from_lesson(*, lesson, date):
-    from padel_app.scheduler import cancel_lesson_occurrence_job
+    from padel_app.scheduler import _maybe_cancel_instance, cancel_lesson_occurrence_job
     cancel_lesson_occurrence_job(lesson.id, date.isoformat())
+    # PAD-335 review (classes.delete rules 5-7): the occurrence may already be
+    # materialised — the web sheet keeps event.model="Lesson" after confirming
+    # attendance, so "delete this occurrence" arrives here with an instance on
+    # the date. The split below only moves LATER instances and the calendar
+    # re-appends any instance the projection did not render, so an instance
+    # left on this date came back with its register after a 200. It goes
+    # first, jobs included, whatever the parent is.
+    for instance in _instances_on_date(lesson, date):
+        _maybe_cancel_instance(instance.id)
+        instance.delete()
     if not lesson.recurrence_rule:
         lesson.delete()
         return
@@ -1426,7 +1436,14 @@ def remove_class_service(data):
     except Exception:
         cancellation_recipients = []
 
-    result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
+    # PAD-335 review: the removal is one transaction. Model.delete() commits
+    # on its own outside a unit of work, so a failure between the instance's
+    # delete and the parent's answered 500 with the register gone and the
+    # Lesson re-projecting the occurrence — the B-096 symptom by another door.
+    from padel_app.tools.unit_of_work import unit_of_work
+
+    with unit_of_work():
+        result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
 
     if 200 <= status < 300 and cancellation_recipients:
         try:
@@ -1440,6 +1457,30 @@ def remove_class_service(data):
     return result, status
 
 
+def _instances_on_date(lesson, date):
+    """The materialised instance(s) of ``lesson`` on ``date`` — the same key
+    ``get_or_materialize_instance`` uses: ``original_lesson_occurence_date``,
+    or the start day for legacy rows where that column is unset."""
+    from sqlalchemy import and_, or_
+
+    day_start = datetime.combine(date, time.min)
+    return (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id == lesson.id)
+        .filter(
+            or_(
+                LessonInstance.original_lesson_occurence_date == date,
+                and_(
+                    LessonInstance.original_lesson_occurence_date.is_(None),
+                    LessonInstance.start_datetime >= day_start,
+                    LessonInstance.start_datetime < day_start + timedelta(days=1),
+                ),
+            )
+        )
+        .all()
+    )
+
+
 def _dispatch_remove_class(obj, model_name, scope, event_date):
     """Execute the scope-aware removal for a resolved class object (PAD-75 split).
 
@@ -1447,6 +1488,16 @@ def _dispatch_remove_class(obj, model_name, scope, event_date):
     can wrap it without threading through every early return.
     """
     from padel_app.scheduler import _maybe_cancel_instance
+
+    # PAD-335 review (classes.delete rule 5): a one-off has no "future" beyond
+    # itself. Both shells hide the scope choice for a non-recurring class, but a
+    # stale client or a crafted body can still send scope="future"; treated as
+    # "this and future" it truncated a recurrence the lesson does not have and
+    # answered 200 with the occurrence still there (or, on the instance, gone
+    # and re-projected without its register). It is the whole-class delete.
+    parent = obj if model_name == "Lesson" else obj.lesson
+    if scope == "future" and parent is not None and not parent.recurrence_rule:
+        scope = "single"
 
     if model_name == "LessonInstance":
         if scope == "single" or not scope:
@@ -1456,14 +1507,21 @@ def _dispatch_remove_class(obj, model_name, scope, event_date):
             occ_date = obj.original_lesson_occurence_date or obj.start_datetime.date()
             _maybe_cancel_instance(obj.id)
             obj.delete()
-            # When the instance overrides a recurring parent, deleting it is not
-            # enough: the parent series would re-project that occurrence (with
-            # its pre-edit values) on reload. Exclude the date from the parent
-            # recurrence, mirroring the Lesson scope="single" path (PAD-65).
-            if parent_lesson is not None and parent_lesson.recurrence_rule:
-                _remove_single_occurrence_from_lesson(
-                    lesson=parent_lesson, date=occ_date
-                )
+            if parent_lesson is None:
+                return {"status": "deleted"}, 200
+            # Deleting the instance alone is never enough (classes.delete rules
+            # 5-6). A recurring parent would re-project the occurrence (with its
+            # pre-edit values) on reload, so its date is excluded from the series
+            # (PAD-65). A one-off parent has no other occurrence: left alone it
+            # re-projects as a fresh, attendance-less card while the API has
+            # already said "deleted" (PAD-335, B-096) — so the Lesson goes too.
+            # `_remove_single_occurrence_from_lesson` does both and cancels the
+            # lesson-occurrence reminder job either way (rule 4).
+            is_recurring_parent = bool(parent_lesson.recurrence_rule)
+            _remove_single_occurrence_from_lesson(
+                lesson=parent_lesson, date=occ_date
+            )
+            if is_recurring_parent:
                 return {"status": "single_removed"}, 200
             return {"status": "deleted"}, 200
 
@@ -1483,7 +1541,10 @@ def _dispatch_remove_class(obj, model_name, scope, event_date):
             return {"status": "recurrence_truncated"}, 200
 
         if scope == "single":
+            is_recurring = bool(obj.recurrence_rule)
             _remove_single_occurrence_from_lesson(lesson=obj, date=event_date)
-            return {"status": "single_removed"}, 200
+            # A one-off's only occurrence and the class are the same delete
+            # (classes.delete rule 5); say so.
+            return ({"status": "single_removed"} if is_recurring else {"status": "deleted"}), 200
 
     return {"error": "Invalid request"}, 400

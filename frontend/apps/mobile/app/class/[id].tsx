@@ -17,6 +17,7 @@ import {
   lightTheme,
   shouldReportSent,
   splitBlockedByCause,
+  hasRecordedAttendance,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -384,6 +385,9 @@ export default function ClassDetailScreen() {
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
   const isRecurring = event.isRecurring || instance?.isRecurring === true;
+  // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
+  // register goes with the class. Same helper as the web sheet.
+  const attendanceRecorded = isCoach && hasRecordedAttendance(instance?.presences);
   const canApplyScope = event.isRecurring === true;
 
   const participants = instance?.participants ?? [];
@@ -1686,6 +1690,14 @@ export default function ClassDetailScreen() {
                 ? t("classDetail.deleteRecurringDescription")
                 : t("classDetail.deleteSingleDescription", { title })}
             </AlertDialogDescription>
+            {attendanceRecorded ? (
+              <Text
+                testID="delete-attendance-note"
+                className="text-sm font-medium text-destructive"
+              >
+                {t("calendar.detail.deleteAttendanceNote")}
+              </Text>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             {isRecurring ? (

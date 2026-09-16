@@ -1,0 +1,30 @@
+---
+id: B-113
+title: "The iOS class screen requested the calendar with an empty range before the class loaded"
+type: missing-criterion
+severity: low
+status: resolved
+affects:
+  - frontend/packages/hooks/src/queries.ts
+  - frontend/apps/mobile/app/class/[id].tsx
+proposed_fix: "useCalendarEvents is disabled while from or to is empty."
+opened: 2026-09-16T15:39:35Z
+---
+
+# B-113: an empty calendar range on every class open
+
+**Source:** seen by Session J on 2026-09-15 while verifying #256 (PAD-326). Ticket PAD-348.
+Bug number from Session E's reserved range (unconfirmed).
+
+**What happened:** `app/class/[id].tsx` feeds `useCalendarEvents` the day of the draft or
+instance for its PAD-159 overlap check, and `""` until the instance loads. The shared hook had
+no `enabled` gate, so every class open sent `GET /api/app/calendar?from=&to=` and got a 400
+before the real request. Nothing was visible to the user; each open left one 400 in the
+server log, noise that hides real 400s.
+
+**Why the spec did not catch it:** `calendar.view` defined the endpoint's range, never that a
+client must not ask for an empty one.
+
+**Fix (PAD-348):** `calendar.view` rule 17. The hook is disabled while either end is empty, so
+every caller is covered, not only the class screen. Guarded by
+`packages/hooks/src/useCalendarEvents.test.tsx`.

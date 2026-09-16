@@ -2,13 +2,15 @@
 
 ## What this is
 
-Outcomes about where the app runs, not what it does: today, Android.
+Outcomes about where the app runs and which build reaches whom, not what it does.
 
 ## What it covers
 
 - `mobile.app-runs-on-android` — draft: a coach or student on an Android phone uses everything
   the iOS app has (waves A and B of the 2026-09-11 Android decision; push and the Play Store
   listing follow).
+- `mobile.store-build-reaches-real-users` — draft: the App Store build talks to production by
+  construction, and a test build says which server it uses (PAD-351).
 
 ## Why it's grouped this way
 

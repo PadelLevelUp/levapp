@@ -326,6 +326,7 @@ export default function PlayerDetailPage() {
                 icon: <ClipboardPlus className="mr-2 h-4 w-4" />,
                 onClick: handleOpenEval,
                 disabled: categoriesLoading,
+                testId: "player-add-evaluation",
                 variant: "default" as const,
               },
               {

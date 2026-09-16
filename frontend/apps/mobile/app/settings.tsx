@@ -13,6 +13,7 @@ import { Text } from "@/components/ui/text";
 import { AccountSection } from "@/features/settings/account-section";
 import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
+import { BuildInfoLine } from "@/features/settings/build-info";
 import { ClubSection } from "@/features/settings/club-section";
 import { ConnectionsSection } from "@/features/settings/connections-section";
 import { ClassRequestsSection } from "@/features/class-requests/class-requests-section";
@@ -225,6 +226,8 @@ export default function SettingsScreen() {
                 {t("settings.mobile.logout")}
               </Text>
             </Pressable>
+
+            <BuildInfoLine />
           </>
         ) : (
           <>

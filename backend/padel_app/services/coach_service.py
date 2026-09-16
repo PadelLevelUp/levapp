@@ -207,7 +207,22 @@ def add_evaluation_entry_service(coach, data):
         .first_or_404()
     )
 
+    # evaluations.entries rules 6-7 (PAD-337): write only the scores a coach
+    # gave. A null value is an abstention, and a value equal to the category's
+    # latest score adds no history row, so it cannot move `evaluatedAt`. Old
+    # App Store builds still post every category, which this keeps harmless for
+    # categories that already hold a score.
+    latest = {e.category_id: e.score for e in coach_player.current_evaluations}
     for score in scores:
+        value = score.get("value")
+        if value is None:
+            continue
+        try:
+            unchanged = float(latest[int(score.get("categoryId"))]) == float(value)
+        except (KeyError, TypeError, ValueError):
+            unchanged = False  # new category, or malformed input the form rejects below
+        if unchanged:
+            continue
         ev_payload = {
             "coach_player": coach_player.id,
             "category": score.get("categoryId"),

@@ -28,6 +28,7 @@ import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
+import { TestServerNotice } from "@/features/settings/build-info";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type FieldErrors = { username?: string; password?: string };
@@ -146,6 +147,8 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        {/* PAD-351: a TestFlight build on staging says so before anyone signs in. */}
+        <TestServerNotice />
         <View className="mb-8 items-center">
           {/* The mark, not a hand-typed wordmark. This screen still spelled
               "LevelUp" in live text with a hardcoded blue split — it predates
