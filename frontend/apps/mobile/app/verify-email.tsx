@@ -301,17 +301,19 @@ export default function VerifyEmailScreen() {
             ) : (
               <>
                 <Pressable
+                  collapsable={false}
                   accessibilityRole="none"
                   accessibilityLabel={t("auth.verifyEmail.codeLabel")}
                   onPress={() => inputRef.current?.focus()}
                   className="items-center"
                 >
-                  <View className="flex-row justify-center gap-2">
+                  <View collapsable={false} className="flex-row justify-center gap-2">
                     {Array.from({ length: CODE_LENGTH }).map((_, i) => {
                       const active = focused && i === activeIndex && !submitting;
                       return (
                         <View
                           key={i}
+                          collapsable={false}
                           testID={`verify-email-cell-${i}`}
                           className={cn(
                             "h-14 w-11 items-center justify-center rounded-lg border bg-background",

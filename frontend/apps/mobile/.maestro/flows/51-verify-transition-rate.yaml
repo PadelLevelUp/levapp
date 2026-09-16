@@ -51,12 +51,10 @@
 # the lane actually uses, before relying on it. If it does not hold, add
 # --include-tags open-defect-probe to the run.
 appId: com.padellevelup.app
-tags:
-  - open-defect-probe
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - repeat:
-    times: 10
+    times: 30
     commands:
       - launchApp:
           clearState: true
