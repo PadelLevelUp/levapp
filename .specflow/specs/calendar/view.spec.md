@@ -77,6 +77,11 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     `@levelup/config` — a `Date` whose local fields carry the `Europe/Lisbon` wall clock, with the
     same UTC fallback as `clubTodayISO` — and `isClubToday()` for day matching. Stored times are
     Lisbon wall-clock digits (R-023), so this is the client half of rule 11's server comparison.
+17. **(PAD-348; rule number unconfirmed)** The shared `useCalendarEvents` hook (`@levelup/hooks`)
+    never requests an empty range. While `from` or `to` is empty, for example on the iOS class
+    screen before the instance has loaded its date, the query is disabled and makes no request. It
+    runs once both ends are known. A caller's own `enabled: false` still wins. Rule 1's endpoint
+    answers an empty range with 400; the client must not ask it one.
 
 ### Acceptance Criteria
 
@@ -158,3 +163,9 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **And** pressing `Enter` on the focused card opens the class detail sheet
 - **And** dragging the card to another slot still reschedules it, exactly as before
 
+
+
+#### The calendar hook waits for both ends of the range (PAD-348)
+- **Given** a screen that calls `useCalendarEvents` before its date is known (`from` and `to` empty)
+- **When** it renders
+- **Then** no `GET /api/app/calendar` request is made; once the date arrives, exactly one request with that range is made
