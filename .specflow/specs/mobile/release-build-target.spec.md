@@ -48,6 +48,13 @@ It also makes the target visible inside the app.
    - it contains the capabilities header name (`X-LevApp-Capabilities`) and the `open-spots`
      token (PAD-352, `eligibility.open-spot-visibility` rule 12). Hermes keeps string literals
      readable in the bytecode, so a byte search works.
+
+   The capability check is weaker than it looks, and this is stated so nobody over-reads it. The
+   header name is a constant in `@levelup/api`, and `open-spots` also appears as a testID, so a
+   bundle would carry both strings even if `initApi` dropped the declaration. The bundle check
+   proves the build came from source at or after PAD-352; build 22 fails it. The declaration
+   itself is pinned in source by `src/lib/api-capabilities.test.ts`, which runs in the unit suite
+   before any release.
 5. **The checker is unit-tested.** `scripts/release-bundle-check.mjs` contains the logic as a
    pure function. Its tests prove it rejects a staging bundle named `production`, a bundle with
    no capability declaration, and a bundle carrying two targets.
