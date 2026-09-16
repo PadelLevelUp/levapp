@@ -34,10 +34,9 @@ fresh worktree or a teammate, and it is not backed up. That is by design — it 
 internal prose out of a public repository — so it is never tracked. Anything that must
 outlive this machine is written into `.cortex/`, publicly.
 
-**Why:** PAD-344 found `.cortex/compass/environment.md` world-readable with the VM's name,
-project, zone, public IP, the exact SSH command, every container and host port, the identity
-accounts and the fact that staging holds an unanonymised copy of production where prod
-passwords work — beside PAD-229's then-open tcp:5000. PAD-339 found three sessions in one
+**Why:** PAD-344 found `.cortex/compass/environment.md` world-readable with the operational
+identifiers and data-handling specifics that the guard now hashes — beside PAD-229's then-open
+tcp:5000. PAD-339 found three sessions in one
 night writing durable lessons into `docs/`, told by `.claude/CLAUDE.md` that it was "the one
 home for prose", and losing them at the next worktree.
 
@@ -56,5 +55,4 @@ home for prose", and losing them at the next worktree.
   code's history regardless, and the exposure that made the map dangerous (tcp:5000, tcp:3389)
   is closed (PAD-229). Treat the identifiers as known-public; the rule stops the aggregate map
   going forward.
-- Rule number from Session A's reserved range, 2026-09-16 (unconfirmed until the coordinator
-  vetoes).
+- Number R-036 confirmed by the coordinator on 2026-09-16.
