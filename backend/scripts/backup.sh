@@ -47,8 +47,14 @@ log() { printf '%s %s\n' "$(now)" "$*"; }
 
 notify() {
   [ -n "${DISCORD_WEBHOOK_URL:-}" ] || return 0
+  # B-091: the message is interpolated into JSON, so a quote or backslash in it
+  # (the ERR trap quotes $BASH_COMMAND) made the payload invalid; Discord rejected
+  # it and `|| true` swallowed the rejection — a failure notification that never
+  # arrived. Escape the two characters JSON cares about.
+  local text
+  text="$(printf '%s' "levapp backup ($(hostname)): $1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
   curl -fsS -m 10 -H 'Content-Type: application/json' \
-    -d "{\"content\": \"levapp backup ($(hostname)): $1\"}" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+    -d "{\"content\": \"$text\"}" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
 }
 
 fail() {
@@ -96,7 +102,11 @@ backup() {
       day="${name#"$db"-}"; day="${day:0:10}"
       [[ "$day" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue
       if [[ "$day" < "$cutoff" ]]; then
-        gsutil rm "$url" && log "PRUNED $url"
+        # B-091: `gsutil rm … && log` skipped a failed prune silently (a failing
+        # left side of && is exempt from set -e and the ERR trap). The backup
+        # itself succeeded, so a prune failure is logged and does not fail the
+        # run; the object is retried tomorrow.
+        if gsutil rm "$url"; then log "PRUNED $url"; else log "PRUNE FAILED $url"; fi
       fi
     done
   done
@@ -105,8 +115,15 @@ backup() {
 }
 
 restore_check() {
-  local db="${1:-padel_app}" scratch="${db}_restore_check" latest users
-  latest="$(gsutil ls "$BACKUP_BUCKET/$db/" | sort | tail -1)"
+  # B-091: one `local` per dependent assignment. `local a=x b="$a"` expands $a
+  # BEFORE local assigns it, so under set -u this line was "db: unbound
+  # variable" the first time anyone ran restore-check (VM, 2026-09-16).
+  local db="${1:-padel_app}"
+  local scratch="${db}_restore_check"
+  local latest users
+  # An empty prefix makes `gsutil ls` exit 1; `|| true` keeps that out of the
+  # ERR trap so the message below is the one that reaches the log.
+  latest="$(gsutil ls "$BACKUP_BUCKET/$db/" 2>/dev/null | sort | tail -1 || true)"
   [ -n "$latest" ] || fail "restore-check: no dump found under $BACKUP_BUCKET/$db/"
   log "RESTORE CHECK restoring $latest into $scratch"
   pg postgres "DROP DATABASE IF EXISTS $scratch" >/dev/null
