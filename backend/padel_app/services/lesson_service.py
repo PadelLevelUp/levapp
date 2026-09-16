@@ -1428,7 +1428,14 @@ def remove_class_service(data):
     except Exception:
         cancellation_recipients = []
 
-    result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
+    # PAD-335 review: the removal is one transaction. Model.delete() commits
+    # on its own outside a unit of work, so a failure between the instance's
+    # delete and the parent's answered 500 with the register gone and the
+    # Lesson re-projecting the occurrence — the B-096 symptom by another door.
+    from padel_app.tools.unit_of_work import unit_of_work
+
+    with unit_of_work():
+        result, status = _dispatch_remove_class(obj, model_name, scope, event_date)
 
     if 200 <= status < 300 and cancellation_recipients:
         try:

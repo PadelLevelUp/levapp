@@ -264,3 +264,37 @@ def test_delete_recurring_occurrence_via_lesson_path_removes_its_materialised_in
     assert _events_on(app, coach_id, second, "Weekly") == [], "the occurrence came back"
     assert _events_on(app, coach_id, start.date(), "Weekly"), "first occurrence remains"
     assert _events_on(app, coach_id, (start + timedelta(weeks=2)).date(), "Weekly"), "third remains"
+
+
+def test_a_failure_after_the_instance_delete_leaves_everything_in_place(
+    app, one_off_with_confirmed_attendance, monkeypatch
+):
+    """Review round: the instance delete and the parent delete are ONE
+    transaction. A failure between them must leave the instance, its
+    register and the Lesson exactly as they were — never a 500 with the
+    register gone and the occurrence re-projected."""
+    coach_id, lesson_id, instance_id, date = one_off_with_confirmed_attendance
+    import padel_app.services.lesson_service as ls
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+
+    def boom(**kwargs):
+        raise RuntimeError("injected after the instance delete")
+
+    monkeypatch.setattr(ls, "_remove_single_occurrence_from_lesson", boom)
+
+    with app.app_context():
+        with pytest.raises(RuntimeError, match="injected"):
+            ls.remove_class_service({
+                "event": {"model": "LessonInstance", "originalId": instance_id,
+                          "date": date.isoformat()},
+                "scope": "single",
+            })
+        db.session.rollback()
+        assert LessonInstance.query.get(instance_id) is not None, "instance delete leaked out"
+        assert Lesson.query.get(lesson_id) is not None
+        assert Presence.query.filter_by(lesson_instance_id=instance_id, validated=True).count() == 1
+
+    before = _events_on(app, coach_id, date, "QA Verify Delete")
+    assert len(before) == 1 and before[0]["confirmedCount"] == 1
