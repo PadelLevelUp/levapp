@@ -39,11 +39,23 @@ appId: com.padellevelup.app
     timeout: 30000
 
 # ── Open the form: nothing is rated, so no reset control shows ──
+# The actions sit in a horizontal bar at the top; Add Evaluation is last, so
+# bring the bar back into view (top of the screen, ~15% down), then swipe it
+# left along that row. Swiping from a button fails once it scrolls away.
 - scrollUntilVisible:
     element:
-      id: "player-add-evaluation"
+      id: "player-attendance-link"
     direction: UP
     timeout: 30000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: "player-add-evaluation"
+    commands:
+      - swipe:
+          start: "85%, 15%"
+          end: "15%, 15%"
 - tapOn:
     id: "player-add-evaluation"
 - extendedWaitUntil:
