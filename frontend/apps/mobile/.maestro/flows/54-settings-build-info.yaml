@@ -2,7 +2,7 @@
 # build this is and which server it talks to. TestFlight builds 12 and 14-22
 # talked to staging and nothing on screen said so.
 #
-# Flow number 53 is from Session D's reserved range (unconfirmed).
+# Flow number 54 (renumbered from 53 at batch integration: PAD-335 took 53).
 #
 # This runs on the debug build, whose API is the local backend, so the
 # test-server marker must be visible too. The sign-in notice (rule 7) shows

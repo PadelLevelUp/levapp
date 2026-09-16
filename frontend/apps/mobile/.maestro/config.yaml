@@ -102,8 +102,12 @@ executionOrder:
     # 50 books, cancels, comes back and removes its own class through the API
     # (PAD-315), so its position is not load bearing.
     - 50-come-back
-    # 53 opens Settings and reads the build line (PAD-351); read-only.
-    - 53-settings-build-info
+    # 53 creates, marks and deletes its own one-off class (PAD-335); the delete
+    # is the subject, so it leaves nothing behind and its position is not load
+    # bearing.
+    - 53-delete-after-attendance
+    # 54 opens Settings and reads the build line (PAD-351); read-only.
+    - 54-settings-build-info
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

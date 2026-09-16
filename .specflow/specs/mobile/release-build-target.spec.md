@@ -77,7 +77,7 @@ It also makes the target visible inside the app.
 9. Unit (vitest, apps/mobile): the table/source/EAS agreement (rules 1–2), the release script's
    target handling (rule 3, read statically), the bundle checker (rules 4–5), and the target
    helpers (rule 7).
-10. Maestro flow `53-settings-build-info` (number unconfirmed, from the reserved range 53–56):
+10. Maestro flow `54-settings-build-info` (renumbered from 53 at batch integration; PAD-335 holds 53):
     Settings shows `settings-build-info`, and on the debug build (local backend) it also shows
     `settings-build-info-test-server`.
 
