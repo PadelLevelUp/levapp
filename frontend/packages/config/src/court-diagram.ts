@@ -318,6 +318,37 @@ export function piecesAtStep(d: CourtDiagramV2, index: number): Piece[] {
   return pieces;
 }
 
+/** One drawn leg of a player's movement in a step (rule 10, PAD-309). */
+export interface MovementLeg {
+  pieceId: string;
+  from: Point;
+  to: Point;
+  /** 0 for the player's first leg in the step, 1 for the next, … */
+  leg: number;
+}
+
+/**
+ * The step's movements as legs, in list order. A player may appear several
+ * times (PAD-309): each leg starts where that player's previous leg ended, the
+ * first where `startOf` says the player stands when the step begins. Movements
+ * whose piece has no start position are dropped. Shared by both renderers and
+ * by playback so the legs cannot be drawn one way and walked another.
+ */
+export function movementLegs(step: Step | undefined, startOf: (pieceId: string) => Point | null): MovementLeg[] {
+  if (!step) return [];
+  const at = new Map<string, { point: Point; leg: number }>();
+  const legs: MovementLeg[] = [];
+  for (const m of step.movements) {
+    const current = at.get(m.pieceId);
+    const from = current?.point ?? startOf(m.pieceId);
+    if (!from) continue;
+    const leg = current ? current.leg + 1 : 0;
+    legs.push({ pieceId: m.pieceId, from, to: m.to, leg });
+    at.set(m.pieceId, { point: m.to, leg });
+  }
+  return legs;
+}
+
 /** Where every piece stands once step `index` has played (Passo, rule 19). */
 export function positionAfterStep(d: CourtDiagramV2, index: number): Piece[] {
   return piecesAtStep(d, index + 1);
@@ -346,13 +377,24 @@ export function interpolateStep(d: CourtDiagramV2, index: number, t: number): { 
   const pieces = piecesAtStep(d, index);
   if (!step) return { pieces };
   const k = Math.min(1, Math.max(0, t));
-  for (const m of step.movements) {
-    const piece = pieces.find((p) => p.id === m.pieceId);
-    if (piece && piece.kind !== "stroke") {
-      const at = lerp({ x: piece.x, y: piece.y }, m.to, k);
-      piece.x = at.x;
-      piece.y = at.y;
-    }
+  const startOf = (id: string) => {
+    const p = pieces.find((x) => x.id === id);
+    return p && p.kind !== "stroke" ? { x: p.x, y: p.y } : null;
+  };
+  // PAD-309: a player with several legs splits the step evenly between them
+  // and walks them in order (rule 20).
+  const byPlayer = new Map<string, MovementLeg[]>();
+  for (const leg of movementLegs(step, startOf)) {
+    byPlayer.set(leg.pieceId, [...(byPlayer.get(leg.pieceId) ?? []), leg]);
+  }
+  for (const [id, legs] of byPlayer) {
+    const piece = pieces.find((p) => p.id === id);
+    if (!piece || piece.kind === "stroke") continue;
+    const scaled = k * legs.length;
+    const i = Math.min(legs.length - 1, Math.floor(scaled));
+    const at = lerp(legs[i].from, legs[i].to, k >= 1 ? 1 : scaled - i);
+    piece.x = at.x;
+    piece.y = at.y;
   }
   const balls = stepBalls(step);
   let ball: Point | undefined;

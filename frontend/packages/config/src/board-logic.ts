@@ -220,6 +220,12 @@ function moveOrRecord(d: CourtDiagramV2, state: BoardState, id: string, to: Poin
   return boardMovePiece(d, id, to);
 }
 
+/** Where a player's last leg in `step` ends, or null when it does not move there (PAD-309). */
+function lastLegEnd(step: Step | undefined, pieceId: string): Point | null {
+  const legs = step?.movements.filter((m) => m.pieceId === pieceId) ?? [];
+  return legs.length ? legs[legs.length - 1].to : null;
+}
+
 /**
  * What can be deleted: cones, loose balls and strokes anywhere; players only in
  * basket and magnetic mode (down to one in basket, rule 14); the feeder and the
@@ -319,15 +325,19 @@ export function boardPress(d: CourtDiagramV2, state: BoardState, pt: Point, hit:
     }
     case "movement": {
       if (hit && hit.kind === "player") {
-        return { state: { ...state, pendingPlayerId: hit.id, pending: { kind: "movement", from: { x: hit.x, y: hit.y } } } };
+        // PAD-309 (rule 10): a player that already moves in this step continues
+        // from its last leg's end; it never replaces what was drawn.
+        const from = lastLegEnd(d.steps[state.stepIndex], hit.id) ?? { x: hit.x, y: hit.y };
+        return { state: { ...state, pendingPlayerId: hit.id, pending: { kind: "movement", from } } };
       }
       const playerId = state.pendingPlayerId;
       if (!playerId) return { state };
       return {
-        state: { ...state, pendingPlayerId: null, pending: null },
+        // the player stays armed: the next press on the court is its next leg
+        state: { ...state, pendingPlayerId: playerId, pending: { kind: "movement", from: pt } },
         diagram: withStep(d, state.stepIndex, (s) => ({
           ...s,
-          movements: [...s.movements.filter((m) => m.pieceId !== playerId), { pieceId: playerId, to: pt }],
+          movements: [...s.movements, { pieceId: playerId, to: pt }],
         })),
       };
     }
