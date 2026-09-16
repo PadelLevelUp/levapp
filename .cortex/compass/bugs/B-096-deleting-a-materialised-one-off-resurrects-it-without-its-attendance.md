@@ -62,6 +62,24 @@ present after a 200, and `get_lesson_instances_in_range` returning the occurrenc
 3. Playwright `e2e/schedule-calendar/pad335-delete-materialised-one-off.spec.ts`: create, mark,
    confirm, refetch, delete, refetch, assert absent from `GET /api/app/calendar`.
 
+### Review round (Session A, 2026-09-16; fixed the same day)
+
+Two sibling branches of the same defect, both inside rule 7's "never 2xx with the occurrence
+still visible":
+- **F2, recurring series.** The web sheet keeps `event.model="Lesson"` after confirming
+  attendance, so "delete this occurrence" arrives as `model=Lesson, scope=single` on a date that
+  now has an instance. `split_lesson` moves only instances after the date and
+  `build_lesson_events` re-appends any instance the projection did not render, so the occurrence
+  came back with its register after 200 `single_removed`. `_remove_single_occurrence_from_lesson`
+  now deletes the instance(s) on that date (jobs cancelled) before excluding it.
+- **F3, one-off + `scope=future`.** Both shells hide the scope choice for a one-off, but a stale
+  client or crafted body could send it; the truncation did nothing on a lesson with no
+  recurrence (200, occurrence still there) or, on the instance, deleted it and let the parent
+  re-project (the original symptom). A one-off's `future` is now the whole-class delete.
+- F1 (nothing refuses; the register goes with the class the coach confirmed deleting) is rule 7
+  by design; F4 (superadmin generic deletes bypass the service) is by design — one sentence on
+  the ticket, no change.
+
 ### Resolution
 
 - Spec changes: `.specflow/specs/classes/delete.spec.md` (rules 5–7, two criteria)
