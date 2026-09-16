@@ -121,6 +121,7 @@ export function NotificationsEngineSection() {
             </p>
           </div>
           <Switch
+            data-testid="notification-engine-auto-notify-toggle"
             checked={config.autoNotifyEnabled}
             onCheckedChange={async (val) => {
               if (val && (config.invitationGroups ?? []).length === 0) {

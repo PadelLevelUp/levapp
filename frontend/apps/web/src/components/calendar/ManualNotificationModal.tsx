@@ -256,6 +256,7 @@ export function ManualNotificationModal({
                       type="button"
                       className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
                       onClick={() => toggleExpanded(group.id)}
+                      data-testid={`notify-group-${group.id}`}
                     >
                       <span className="text-sm font-medium truncate">{group.label}</span>
                       <span className="text-xs text-muted-foreground shrink-0">
