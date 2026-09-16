@@ -51,7 +51,6 @@ export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:settings/profile-persistence.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'could not save settings', 'settings saved'" },
   { file: "mz:flows/04-attendance.yaml", max: 2, reason: "2 en UI strings, e.g. 'Attendance saved', 'Attended'" },
   { file: "mz:flows/34-player-removal.yaml", max: 2, reason: "2 en UI strings, e.g. 'Delete Player', 'Disconnect'" },
-  { file: "pw:players/keyboard-card-activation.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'Search players...'" },
   { file: "pw:schedule-calendar/attendance-save.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'Attendance saved', 'Failed to save attendance'" },
   { file: "pw:schedule-calendar/class-overlap-warning.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'class created'" },
   { file: "pw:schedule-calendar/recurring-occurrence-delete.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'Class deleted', 'Only this class'" },
