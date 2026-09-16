@@ -52,6 +52,7 @@ export const ALT_BACKLOG: readonly AltBacklogEntry[] = [
   { file: "pw:schedule-calendar/attendance-save.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /mark attendance|edit attendance/" },
   { file: "pw:schedule-calendar/class-delete-confirm.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /beginner academy|private/" },
   { file: "pw:schedule-calendar/class-deletion.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /beginner academy|private/" },
+  { file: "pw:schedule-calendar/pad335-delete-materialised-one-off.spec.ts", max: 1, reason: "pre-existing, landed in batch 1 with #278 before either rule; ambiguous keys (Delete class x3, Present x3, Confirm x2, Delete x5) need a judgement, not a swap" },
   { file: "pw:settings/my-connections.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /delete account|eliminar conta/" },
   { file: "pw:settings/season-definition.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /new class|add class/" },
   { file: "pw:settings/student-notification-blocks.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /injustificada|unjustified/" },

@@ -37,6 +37,7 @@ export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:settings/temp-id-delete-after-save.spec.ts", max: 6, reason: "6 en role names, e.g. 'add level', 'add strength'" },
   { file: "pw:player-management/create-player-level-dropdown.spec.ts", max: 5, reason: "5 en role names, e.g. 'Beginner', 'Intermediate'" },
   { file: "pw:players/claim-existing-account.spec.ts", max: 5, reason: "5 en role names, e.g. 'Edit', 'Intermediate'" },
+  { file: "pw:schedule-calendar/pad335-delete-materialised-one-off.spec.ts", max: 5, reason: "pre-existing, landed in batch 1 with #278 before either rule; ambiguous keys (Delete class x3, Present x3, Confirm x2, Delete x5) need a judgement, not a swap" },
   { file: "pw:evaluation-tools/player-notes.spec.ts", max: 4, reason: "4 en role names, e.g. 'Edit', 'add strength'" },
   { file: "pw:player-management/duplicate-name-warning.spec.ts", max: 4, reason: "4 en role names, e.g. 'add player', 'create player'" },
   { file: "pw:player-management/duplicate-username-warning.spec.ts", max: 4, reason: "4 en role names, e.g. 'add player', 'create player'" },
