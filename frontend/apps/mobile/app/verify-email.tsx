@@ -6,6 +6,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -74,6 +75,9 @@ export default function VerifyEmailScreen() {
 
   const leave = React.useCallback(
     (me: authApi.MeResponse | null | undefined = user) => {
+      // PROBE V5: close the number pad before the screen swap.
+      inputRef.current?.blur();
+      Keyboard.dismiss();
       router.replace((next ?? postLoginLanding(me)) as never);
     },
     [next, user]
