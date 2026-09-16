@@ -44,9 +44,6 @@
     "spotReleased": "A tua vaga foi libertada",
     "couldNotCancelAttendance": "Não foi possível cancelar a presença",
     "deleteFailed": "Não foi possível eliminar a aula",
-    "statusConfirmed": "Confirmado",
-    "statusInvited": "Convidado",
-    "statusRegistered": "Inscrito",
     "yourAttendance": "A tua presença",
     "classGone": "Esta aula já não existe."
   }

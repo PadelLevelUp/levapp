@@ -44,9 +44,6 @@
     "spotReleased": "Your spot was released",
     "couldNotCancelAttendance": "Could not cancel attendance",
     "deleteFailed": "The class could not be deleted",
-    "statusConfirmed": "Confirmed",
-    "statusInvited": "Invited",
-    "statusRegistered": "Registered",
     "yourAttendance": "Your attendance",
     "classGone": "This class no longer exists."
   }
