@@ -97,7 +97,7 @@ decided until the owner answers the questions at the end.
 | Backend: identities table and migration, token verification, sign-in, link and unlink endpoints, a completion endpoint reusing register and parental consent, tests | 2 to 2.5 |
 | Web: Google button, Apple JS, completion form, Settings link and unlink, Playwright | 1.5 |
 | iOS: native Google Sign-In and `expo-apple-authentication` config plugins, completion screen, Settings, new EAS build and TestFlight | 2 to 2.5 |
-| Consoles: OAuth clients in `padel-levelup-2026`, Apple Services ID and domain, relay sender registration | 0.5 |
+| Consoles: OAuth clients in the GCP project, Apple Services ID and domain, relay sender registration | 0.5 |
 | Specs: business and dev | 0.5 |
 | **Total** | **about 6.5 to 7.5** |
 

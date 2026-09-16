@@ -153,6 +153,7 @@ test.describe("PAD-202: student dashboard home", () => {
  * the unread badge are all driven by a genuine reminder message.
  */
 import { API_ROOT } from "../helpers/api";
+import { deleteNewEditorRows, editorIds, removeClassesOnDay } from "../helpers/cleanup";
 import {
   COACH_PASSWORD,
   COACH_USERNAME,
@@ -180,6 +181,35 @@ async function studentDashboard(request: import("@playwright/test").APIRequestCo
   return { rows, unread: overview?.unreadMessages ?? 0 };
 }
 
+/**
+ * The debug endpoint creates a one-off Lesson AND an instance of it that is not
+ * keyed to the Lesson's occurrence, so the coach's calendar shows the class
+ * twice. Remove both, found by the instance's own date and start time.
+ */
+async function removeDebugClass(
+  request: import("@playwright/test").APIRequestContext,
+  coachAuth: Record<string, string>,
+  instanceId: number
+) {
+  const days = [1, 2, 3].map((n) => {
+    const d = new Date(Date.now() + n * 86_400_000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  for (const day of days) {
+    const res = await request.get(`${API_ROOT}/app/calendar?from=${day}T00:00:00&to=${day}T23:59:59`, { headers: coachAuth });
+    const events = (await res.json()) as Array<Record<string, unknown>>;
+    const own = events.find((e) => e.model === "LessonInstance" && String(e.originalId) === String(instanceId));
+    if (!own) continue;
+    await removeClassesOnDay(
+      request,
+      coachAuth,
+      day,
+      (e) => e.title === own.title && e.startTime === own.startTime
+    );
+    return;
+  }
+}
+
 test.describe("PAD-202: answering a reminder on the dashboard", () => {
   test("PAD-202: Yes on the class row confirms, clears the buttons and drops the unread count", async ({
     page,
@@ -187,67 +217,81 @@ test.describe("PAD-202: answering a reminder on the dashboard", () => {
   }) => {
     test.setTimeout(150_000);
     const coachJwt = await token(request, COACH_USERNAME, COACH_PASSWORD);
-    // The debug class starts 48h + 5s from now; the reminder fires "48h before",
-    // i.e. in 5 seconds — only if the coach's config says 48h (default is 24h).
-    const cfg = await request.post(`${API_ROOT}/app/notify/config`, {
-      headers: { Authorization: `Bearer ${coachJwt}` },
-      data: {
-        autoNotifyEnabled: true,
-        reminderTiming: {
-          firstReminder: { type: "hours_before", value: 48 },
-          reminderCount: 1,
-          hoursBetweenReminders: 24,
-          invitationStart: { type: "hours_before", value: 24 },
+    const coachAuth = { Authorization: `Bearer ${coachJwt}` };
+    // PAD-341: this test rewrites the coach's reminder timing and creates a class
+    // two days out with two students answering it. Both go back in `finally`, or
+    // the class takes a row of every later dashboard's 5-row schedule.
+    const savedCfg = await (await request.get(`${API_ROOT}/app/notify/config`, { headers: coachAuth })).json();
+    let instanceId: number | undefined;
+    try {
+      // The debug class starts 48h + 5s from now; the reminder fires "48h before",
+      // i.e. in 5 seconds — only if the coach's config says 48h (default is 24h).
+      const cfg = await request.post(`${API_ROOT}/app/notify/config`, {
+        headers: { Authorization: `Bearer ${coachJwt}` },
+        data: {
+          autoNotifyEnabled: true,
+          reminderTiming: {
+            firstReminder: { type: "hours_before", value: 48 },
+            reminderCount: 1,
+            hoursBetweenReminders: 24,
+            invitationStart: { type: "hours_before", value: 24 },
+          },
         },
-      },
-    });
-    expect(cfg.ok(), `config ${cfg.status()}`).toBeTruthy();
-    const scheduled = await request.post(`${API_ROOT}/app/notify/debug/schedule_reminder_test`, {
-      headers: { Authorization: `Bearer ${coachJwt}` },
-      data: { secondsUntilReminderFires: 5 },
-    });
-    expect(scheduled.ok(), `debug endpoint ${scheduled.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
-    const { instanceId } = (await scheduled.json()) as { instanceId: number };
+      });
+      expect(cfg.ok(), `config ${cfg.status()}`).toBeTruthy();
+      const scheduled = await request.post(`${API_ROOT}/app/notify/debug/schedule_reminder_test`, {
+        headers: { Authorization: `Bearer ${coachJwt}` },
+        data: { secondsUntilReminderFires: 5 },
+      });
+      expect(scheduled.ok(), `debug endpoint ${scheduled.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
+      ({ instanceId } = (await scheduled.json()) as { instanceId: number });
 
-    // Wait for the real reminder job to fire. The debug endpoint may already
-    // leave the presence pending; the signal that the REMINDER MESSAGE exists is
-    // the unread count rising above its pre-schedule baseline.
-    const studentJwt = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
-    const baseline = (await studentDashboard(request, studentJwt)).unread;
-    let before = await studentDashboard(request, studentJwt);
-    await expect
-      .poll(
-        async () => {
-          before = await studentDashboard(request, studentJwt);
-          const pending = before.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation ?? false;
-          return pending && before.unread > baseline;
-        },
-        { timeout: 60_000, intervals: [2_000] }
-      )
-      .toBe(true);
+      // Wait for the real reminder job to fire. The debug endpoint may already
+      // leave the presence pending; the signal that the REMINDER MESSAGE exists is
+      // the unread count rising above its pre-schedule baseline.
+      const studentJwt = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+      const baseline = (await studentDashboard(request, studentJwt)).unread;
+      let before = await studentDashboard(request, studentJwt);
+      await expect
+        .poll(
+          async () => {
+            before = await studentDashboard(request, studentJwt);
+            const pending = before.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation ?? false;
+            return pending && before.unread > baseline;
+          },
+          { timeout: 60_000, intervals: [2_000] }
+        )
+        .toBe(true);
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await loginAsStudent(page);
-    await loadDashboard(page);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await loginAsStudent(page);
+      await loadDashboard(page);
 
-    const row = page.getByTestId("dashboard-schedule-row").filter({ hasText: "E2E Auto-Reminder Test" }).first();
-    await expect(row).toBeVisible({ timeout: 10_000 });
-    const yes = row.getByTestId("dashboard-confirm-yes");
-    await expect(yes).toBeVisible();
-    await expect(row.getByTestId("dashboard-confirm-no")).toBeVisible();
+      const row = page.getByTestId("dashboard-schedule-row").filter({ hasText: "E2E Auto-Reminder Test" }).first();
+      await expect(row).toBeVisible({ timeout: 10_000 });
+      const yes = row.getByTestId("dashboard-confirm-yes");
+      await expect(yes).toBeVisible();
+      await expect(row.getByTestId("dashboard-confirm-no")).toBeVisible();
 
-    const refetch = page.waitForResponse(
-      (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
-      { timeout: 15_000 }
-    );
-    await yes.click();
-    await refetch;
+      const refetch = page.waitForResponse(
+        (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
+        { timeout: 15_000 }
+      );
+      await yes.click();
+      await refetch;
 
-    await expect(row.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
+      await expect(row.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
 
-    const after = await studentDashboard(request, studentJwt);
-    expect(after.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation).toBe(false);
-    expect(after.unread).toBeLessThan(before.unread);
+      const after = await studentDashboard(request, studentJwt);
+      expect(after.rows.find((r) => r.lessonInstanceId === instanceId)?.pendingConfirmation).toBe(false);
+      expect(after.unread).toBeLessThan(before.unread);
+    } finally {
+      await request.post(`${API_ROOT}/app/notify/config`, {
+        headers: coachAuth,
+        data: { autoNotifyEnabled: savedCfg.autoNotifyEnabled, reminderTiming: savedCfg.reminderTiming },
+      });
+      if (instanceId !== undefined) await removeDebugClass(request, coachAuth, instanceId);
+    }
   });
 });
 
@@ -271,38 +315,45 @@ test.describe("PAD-236: chat-born asks reach the student's queue", () => {
     const seeded = rows.find((r) => r.title === SEEDED_CLASS && typeof r.lessonInstanceId === "number");
     expect(seeded, "seeded class row with an instance id").toBeTruthy();
 
-    const offered = await request.post(`${API_ROOT}/app/notify/debug/offer_waiting_list`, {
-      headers: { Authorization: `Bearer ${coachJwt}` },
-      data: { lessonInstanceId: seeded!.lessonInstanceId, username: STUDENT_USERNAME },
-    });
-    expect(offered.ok(), `debug endpoint ${offered.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
+    // PAD-341: the offer's Yes leaves a waiting-list entry on the seeded academy
+    // class, which every later spec reading that class inherits.
+    const entriesBefore = await editorIds(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry");
+    try {
+      const offered = await request.post(`${API_ROOT}/app/notify/debug/offer_waiting_list`, {
+        headers: { Authorization: `Bearer ${coachJwt}` },
+        data: { lessonInstanceId: seeded!.lessonInstanceId, username: STUDENT_USERNAME },
+      });
+      expect(offered.ok(), `debug endpoint ${offered.status()} — is E2E_DEBUG_ENDPOINTS set?`).toBeTruthy();
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await loginAsStudent(page);
-    await loadDashboard(page);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await loginAsStudent(page);
+      await loadDashboard(page);
 
-    const card = page.getByTestId("dashboard-queue-waiting-list-offer").first();
-    await expect(card).toBeVisible({ timeout: 10_000 });
-    await expect(card).toContainText(SEEDED_CLASS);
-    const eyebrow = page.getByTestId("student-dashboard").getByText(/NEEDS YOU · \d+/);
-    const before = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
+      const card = page.getByTestId("dashboard-queue-waiting-list-offer").first();
+      await expect(card).toBeVisible({ timeout: 10_000 });
+      await expect(card).toContainText(SEEDED_CLASS);
+      const eyebrow = page.getByTestId("student-dashboard").getByText(/NEEDS YOU · \d+/);
+      const before = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
 
-    const refetch = page.waitForResponse(
-      (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
-    );
-    await card.getByTestId("dashboard-confirm-yes").click();
-    await refetch;
+      const refetch = page.waitForResponse(
+        (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
+      );
+      await card.getByTestId("dashboard-confirm-yes").click();
+      await refetch;
 
-    await expect(page.getByTestId("dashboard-queue-waiting-list-offer")).toHaveCount(0);
-    const after = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
-    expect(after).toBe(before - 1);
+      await expect(page.getByTestId("dashboard-queue-waiting-list-offer")).toHaveCount(0);
+      const after = Number((await eyebrow.textContent())?.match(/\d+/)?.[0] ?? "0");
+      expect(after).toBe(before - 1);
 
-    // Settled server-side, not just hidden: the offer no longer comes back.
-    const again = await request.get(`${API_ROOT}/app/dashboard`, {
-      headers: { Authorization: `Bearer ${studentJwt}` },
-    });
-    const blocks = ((await again.json()).blocks ?? []) as Array<{ type: string; data: { items?: Array<{ kind: string }> } }>;
-    const kinds = (blocks.find((b) => b.type === "needs_you")?.data.items ?? []).map((i) => i.kind);
-    expect(kinds).not.toContain("waiting_list_offer");
+      // Settled server-side, not just hidden: the offer no longer comes back.
+      const again = await request.get(`${API_ROOT}/app/dashboard`, {
+        headers: { Authorization: `Bearer ${studentJwt}` },
+      });
+      const blocks = ((await again.json()).blocks ?? []) as Array<{ type: string; data: { items?: Array<{ kind: string }> } }>;
+      const kinds = (blocks.find((b) => b.type === "needs_you")?.data.items ?? []).map((i) => i.kind);
+      expect(kinds).not.toContain("waiting_list_offer");
+    } finally {
+      await deleteNewEditorRows(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry", entriesBefore);
+    }
   });
 });

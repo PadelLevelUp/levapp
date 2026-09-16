@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { hasRecordedAttendance } from "./attendance-state";
 import {
   ATTENDANCE_STATES,
   attendanceStateOf,
@@ -214,5 +215,24 @@ describe("reminderHint — B-017's signal, demoted and conditional", () => {
     expect(
       reminderHint({ confirmed: true, reminderSentAt: "2026-09-18T08:00:00+00:00" })
     ).toBeNull();
+  });
+});
+
+describe("hasRecordedAttendance — PAD-335, only the coach's record counts", () => {
+  it("is false for no presences, enrolment-only rows and a student's own answer", () => {
+    expect(hasRecordedAttendance(undefined)).toBe(false);
+    expect(hasRecordedAttendance([])).toBe(false);
+    expect(hasRecordedAttendance([{ confirmed: false, status: null, validated: false }])).toBe(false);
+    expect(hasRecordedAttendance([{ confirmed: true, status: "present", validated: false }])).toBe(false);
+  });
+
+  it("is true once any row is validated, present or absent", () => {
+    expect(hasRecordedAttendance([{ status: "present", validated: true }])).toBe(true);
+    expect(
+      hasRecordedAttendance([
+        { status: null, validated: false },
+        { status: "absent", validated: true },
+      ]),
+    ).toBe(true);
   });
 });

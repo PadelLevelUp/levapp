@@ -43,8 +43,8 @@ push needs is in place after PAD-307; the rest is accounts and keys.
 
 ```bash
 # 1. Firebase project (browser, console.firebase.google.com, as the Google account that owns the
-#    GCP project padel-levelup-2026 — a Firebase project IS a GCP project; reuse it rather than
-#    creating a second billing surface): Add project → select existing "padel-levelup-2026"
+#    the existing GCP project — a Firebase project IS a GCP project; reuse it rather than
+#    creating a second billing surface): Add project → select the existing project (its id is in the local docs/infra/environment.md)
 #    → disable Analytics (not needed) → Create.
 # 2. Android app in Firebase: Project settings → Your apps → Add app → Android
 #    → package name com.padellevelup.app → register → download google-services.json.
@@ -93,7 +93,7 @@ eas build --platform android --profile production && eas submit --platform andro
   depends on it until release.
 
 ## What this needs from the owner (not discoverable from the repo)
-- Access to the Google account owning `padel-levelup-2026`, the `levapps-team` Expo organisation
+- Access to the Google account owning the GCP project, the `levapps-team` Expo organisation
   and the `PadelLevelUp/levapp` GitHub secrets.
 - One physical Android phone (Android 13+ ideally, to see the permission prompt).
 - Whether the Play listing reuses the App Store copy and screenshots (marketing constraint: no

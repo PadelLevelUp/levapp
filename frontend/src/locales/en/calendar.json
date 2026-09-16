@@ -165,6 +165,7 @@
       "deleteClass": "Delete class",
       "deleteConfirmTitle": "Delete this class?",
       "deleteConfirmBody": "This class will be permanently removed. This can't be undone.",
+      "deleteAttendanceNote": "Attendance has been recorded for this class. Deleting it removes that register too.",
       "delete": "Delete",
       "cancel": "Cancel",
       "save": "Save",

@@ -25,7 +25,7 @@ self-assigned (unconfirmed until the coordinator vetoes).
 
 The VM's crontab held exactly one line — the old `backup.sh` job. `grep -v backup.sh` therefore
 matched nothing and exited 1, which under `set -e` killed the subshell **before** the `echo`, so
-`crontab -` received an empty document. Verified on `levelup-instance` at 10:30 UTC:
+`crontab -` received an empty document. Verified on the VM at 10:30 UTC:
 `/var/spool/cron/crontabs/…` (written 10:20:20) held only its three comment lines. The step
 removed the old schedule and installed nothing, so production had **no nightly backup scheduled
 at all** — while `backup.sh` and `.backup.env` sat correctly in place.

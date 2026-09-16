@@ -165,6 +165,7 @@
       "deleteClass": "Eliminar aula",
       "deleteConfirmTitle": "Eliminar esta aula?",
       "deleteConfirmBody": "Esta aula será removida permanentemente. Esta ação não pode ser anulada.",
+      "deleteAttendanceNote": "Esta aula já tem presenças registadas. Ao eliminá-la, esse registo é removido também.",
       "delete": "Eliminar",
       "cancel": "Cancelar",
       "save": "Guardar",
