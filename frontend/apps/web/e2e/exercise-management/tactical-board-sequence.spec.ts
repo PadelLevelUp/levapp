@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openExercises } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 // PAD-311 / training.tactical-board rule 26: actions play in the order they were
 // drawn. Ball → A1 moves → ball: the court numbers them 1, 2, 3, and AUTO plays
@@ -17,7 +18,7 @@ async function tapCourt(page: Page, xPct: number, yPct: number) {
 test("PAD-311: the ball plays before the player moves, and the court numbers the actions in order", async ({ page }) => {
   await loginAsCoach(page);
   await openExercises(page);
-  await page.getByRole("button", { name: /new exercise|novo exercício|\+/i }).first().click();
+  await page.getByRole("button", { name: ui("training.exercises.newExercise") }).first().click();
   await expect(page.getByTestId("tactical-board")).toBeVisible({ timeout: 5000 });
 
   await page.getByTestId("board-tool-ball").click();

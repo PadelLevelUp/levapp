@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { openExercises } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 // PAD-309 / training.tactical-board rules 10 and 20: a player can follow several
@@ -36,7 +37,7 @@ test("PAD-309: one player draws two trajectories in a step, and they survive sav
   const name = `Two Legs ${Date.now().toString().slice(-6)}`;
   await loginAsCoach(page);
   await openExercises(page);
-  await page.getByRole("button", { name: /new exercise|novo exercício|\+/i }).first().click();
+  await page.getByRole("button", { name: ui("training.exercises.newExercise") }).first().click();
   await expect(page.getByTestId("tactical-board")).toBeVisible({ timeout: 5000 });
   await page.getByRole("textbox").first().fill(name);
 
@@ -53,7 +54,7 @@ test("PAD-309: one player draws two trajectories in a step, and they survive sav
   await page.getByTestId("board-passo").click();
   await expectPieceAt(page, "a1", 34, 360);
 
-  await page.getByRole("button", { name: /create exercise|criar exercício|save|guardar/i }).last().click();
+  await page.getByRole("button", { name: ui("training.form.createExercise") }).last().click();
   await expect(page.getByTestId("tactical-board")).toHaveCount(0, { timeout: 10_000 });
   const token = await getToken(request);
   const res = await request.get(`${API_APP}/exercises`, { headers: { Authorization: `Bearer ${token}` } });

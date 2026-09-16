@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openExercises } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 // PAD-310 / training.tactical-board rule 25: AUTO plays at Lento 0.5x, Normal 1x
 // or Rápido 2x. Mirrored on iOS by Maestro flow 60. Timing is asserted loosely
@@ -25,7 +26,7 @@ async function playOnceMs(page: Page): Promise<number> {
 test("PAD-310: the speed control defaults to Normal and Rápido plays faster than Lento", async ({ page }) => {
   await loginAsCoach(page);
   await openExercises(page);
-  await page.getByRole("button", { name: /new exercise|novo exercício|\+/i }).first().click();
+  await page.getByRole("button", { name: ui("training.exercises.newExercise") }).first().click();
   await expect(page.getByTestId("tactical-board")).toBeVisible({ timeout: 5000 });
 
   await page.getByTestId("board-tool-ball").click();
