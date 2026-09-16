@@ -384,6 +384,54 @@ describe("TacticalBoard — steps and playback (training.tactical-board rules 18
   });
 });
 
+// ── PAD-310 — playback speed (rule 25) ───────────────────────────────────────
+describe("playback speed (PAD-310)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function oneStepOnePath() {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("ball");
+    tapCourt(58, 20);
+    tapCourt(40, 80);
+  }
+  const autoButton = () => screen.queryByRole("button", { name: "training.board.playback.auto" });
+
+  it("Normal is selected by default, and Rápido finishes an 800 ms step in about 400 ms", () => {
+    vi.useFakeTimers();
+    oneStepOnePath();
+    expect(screen.getByTestId("board-speed-normal")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByTestId("board-speed-fast"));
+    expect(screen.getByTestId("board-speed-fast")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(autoButton()!);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(autoButton()).toBeNull(); // still playing
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(autoButton()).toBeInTheDocument(); // done by ~450 ms, not 800
+  });
+
+  it("Lento is still playing after 1000 ms", () => {
+    vi.useFakeTimers();
+    oneStepOnePath();
+    fireEvent.click(screen.getByTestId("board-speed-slow"));
+    fireEvent.click(autoButton()!);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(autoButton()).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(autoButton()).toBeInTheDocument();
+  });
+});
+
 // ── PAD-289 — several ball paths per step ────────────────────────────────────
 describe("several ball paths per step (PAD-289)", () => {
   it("appends a second path, numbers both, toggles only one, reorders and removes", () => {

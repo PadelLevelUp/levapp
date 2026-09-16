@@ -294,6 +294,36 @@ export function playbackFrameAt(d: CourtDiagramV2, elapsedMs: number): { step: n
   return null;
 }
 
+// ── Playback speed (rule 25, PAD-310) ────────────────────────────────────────
+
+/** Lento · Normal · Rápido: the multipliers ▶ AUTO's clock runs at. */
+export const PLAYBACK_SPEEDS = { slow: 0.5, normal: 1, fast: 2 } as const;
+export type PlaybackSpeedKey = keyof typeof PLAYBACK_SPEEDS;
+
+/**
+ * AUTO's clock: playback time advances `speed` ms per wall-clock ms from an
+ * anchor. Re-anchoring on a speed change is what keeps the position.
+ */
+export interface PlaybackClock {
+  wallStart: number;
+  playStart: number;
+  speed: number;
+}
+
+export function startClock(now: number, speed: number): PlaybackClock {
+  return { wallStart: now, playStart: 0, speed };
+}
+
+/** Playback milliseconds elapsed at wall time `now` — feed to `playbackFrameAt`. */
+export function clockElapsed(clock: PlaybackClock, now: number): number {
+  return clock.playStart + (now - clock.wallStart) * clock.speed;
+}
+
+/** The same position at `now`, continuing at `speed`. */
+export function clockWithSpeed(clock: PlaybackClock, now: number, speed: number): PlaybackClock {
+  return { wallStart: now, playStart: clockElapsed(clock, now), speed };
+}
+
 function lerp(a: Point, b: Point, t: number): Point {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }

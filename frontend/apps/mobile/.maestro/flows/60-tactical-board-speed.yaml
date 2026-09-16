@@ -1,0 +1,92 @@
+# PAD-310 — training.tactical-board rule 25: a speed control (Lento 0.5x, Normal
+# 1x, Rápido 2x) under the step strip; AUTO plays at the chosen speed.
+# (Flow number 60 is from Session E's reserved range.) The clock arithmetic is
+# unit-tested in @levelup/config (board-playback-speed.test.ts); this flow proves
+# the control is on the iOS board, selectable, and that AUTO still plays and
+# returns to ▶ at each end of the range.
+#
+# Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-training"
+- extendedWaitUntil:
+    visible:
+      id: "screen-training"
+    timeout: 15000
+- tapOn:
+    id: "exercise-add"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-name"
+    timeout: 15000
+- tapOn:
+    id: "exercise-name"
+- inputText: "Maestro Speed"
+- pressKey: Enter
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
+- scrollUntilVisible:
+    element:
+      id: "exercise-diagram-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "exercise-diagram-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "tactical-board"
+    timeout: 15000
+# Basket mode: a feed is one tap on a player (flow 41), so the step has a ball path.
+- tapOn:
+    id: "board-tab-basket"
+- scrollUntilVisible:
+    element:
+      id: "piece-feeder"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "board-tool-ball"
+- tapOn:
+    id: "piece-a1"
+- assertVisible:
+    id: "ball-path-flat"
+- scrollUntilVisible:
+    element:
+      id: "board-speed-fast"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "board-speed-slow"
+- assertVisible:
+    id: "board-speed-normal"
+
+# ── Rápido: AUTO plays and returns ──
+- tapOn:
+    id: "board-speed-fast"
+- tapOn:
+    id: "board-auto"
+- extendedWaitUntil:
+    visible:
+      id: "playback-ball"
+    timeout: 3000
+- extendedWaitUntil:
+    notVisible:
+      id: "playback-ball"
+    timeout: 5000
+
+# ── Lento: AUTO plays and returns ──
+- tapOn:
+    id: "board-speed-slow"
+- tapOn:
+    id: "board-auto"
+- extendedWaitUntil:
+    visible:
+      id: "playback-ball"
+    timeout: 3000
+- extendedWaitUntil:
+    notVisible:
+      id: "playback-ball"
+    timeout: 8000
