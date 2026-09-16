@@ -36,7 +36,7 @@ class Lesson(db.Model, model.Model):
 
     color = Column(String(10))
     status = Column(
-        Enum("active", "ended", name="lesson_status"),
+        Enum("active", name="lesson_status"),  # PAD-271: 'ended' dropped (never written)
         default="active",
         nullable=False,
         server_default="active",
@@ -127,7 +127,7 @@ class Lesson(db.Model, model.Model):
                 get_field("club", type="ManyToOne", label="Club", related_model="Club"),
                 get_field("description", type="Text", label="Description"),
                 get_field("type", type="Select", label="Type", options=["academy", "private"]),
-                get_field("status", type="Select", label="Status", options=["active", "ended"]),
+                get_field("status", type="Select", label="Status", options=["active"]),
                 get_field("color", type="Color", label="Color"),
                 get_field("max_players", type="Integer", label="Max players"),
                 get_field("level", type="ManyToOne", label="Level", related_model="CoachLevel"),

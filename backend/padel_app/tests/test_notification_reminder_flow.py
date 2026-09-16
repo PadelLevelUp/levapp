@@ -1301,8 +1301,8 @@ class TestCancelAttendance:
             ).first()
             assert presence.confirmed is True
             assert presence.status is None
-            # And it is not flagged as a late cancellation.
-            assert presence.late_cancellation is False
+            # And it is not flagged as a late cancellation (PAD-271 M5: no answer was recorded).
+            assert presence.response != "cancelled"
 
     def test_cancel_before_deadline_not_flagged_and_spot_freed(self, app):
         """Cancelling well before the deadline (start 48h away, default 24h
@@ -1335,7 +1335,9 @@ class TestCancelAttendance:
             ).first()
             assert presence.status == "absent"
             assert presence.justification == "justified"
-            assert presence.late_cancellation is False
+            assert presence.response == "cancelled"  # PAD-271 M5
+            from padel_app.serializers.presence import serialize_presence
+            assert serialize_presence(presence)["lateCancellation"] is False
 
             vacancy = Vacancy.query.filter_by(
                 lesson_instance_id=instance_id,
@@ -1376,7 +1378,9 @@ class TestCancelAttendance:
             ).first()
             assert presence.status == "absent"
             assert presence.justification == "justified"
-            assert presence.late_cancellation is True
+            assert presence.response == "cancelled"  # PAD-271 M5
+            from padel_app.serializers.presence import serialize_presence
+            assert serialize_presence(presence)["lateCancellation"] is True
 
             # Spot still freed.
             vacancy = Vacancy.query.filter_by(

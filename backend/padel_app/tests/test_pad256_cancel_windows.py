@@ -106,7 +106,10 @@ def test_late_cancellation_flag_uses_the_club_clock(app, wall_start, utc_now, la
         result = cancel_attendance(user_id, lesson_instance_id=instance_id, now=utc_now)
         presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).one()
         assert result["proactive"] is False
-        assert presence.late_cancellation is late
+        # PAD-271 M5: lateness is derived from response + responded_at against the deadline.
+        from padel_app.serializers.presence import serialize_presence
+        assert presence.response == "cancelled"
+        assert serialize_presence(presence)["lateCancellation"] is late
 
 
 # ── a class that has started can no longer be cancelled ────────────────────

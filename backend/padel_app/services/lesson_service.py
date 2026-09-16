@@ -112,7 +112,12 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             )
         presence.status = None
         presence.justification = None
-        presence.late_cancellation = False
+        # PAD-271 M5: the answer is one field. Voiding it is resetting it, not
+        # recording a new one — `responded_at` goes with it so the derived
+        # lateness reads false and `recorded_by` names nobody.
+        presence.response = "none"
+        presence.responded_at = None
+        presence.recorded_by = None
         # Their previous answer is void: it recorded a "no" to a seat they no
         # longer hold, and nobody has asked them about this one. So the caller's
         # value stands — a coach's re-add leaves them un-answered (`planned`),
@@ -660,7 +665,7 @@ def add_presences(lesson_instance, payload):
         ).first()
 
         # Attendance marking only owns status/justification. The reminder-flow
-        # flags (invited/confirmed) and late_cancellation are deliberately NOT
+        # flags (invited/confirmed) and the student's response are deliberately NOT
         # routed through the form layer: every Boolean form field is written on
         # every submit, so a payload that merely omits them — or a coercion bug
         # like PAD-69 — would silently reset the student's reminder answer.
@@ -692,10 +697,13 @@ def add_presences(lesson_instance, payload):
         fake_request = JsonRequestAdapter(data, form)
         values = form.set_values(fake_request)
 
-        for reminder_flag in ("invited", "confirmed", "late_cancellation"):
+        # PAD-271 M5: the student's answer (response / responded_at) is never
+        # written by the coach's attendance mark; recorded_by names who wrote status.
+        for reminder_flag in ("invited", "confirmed", "response", "responded_at", "recorded_by"):
             values.pop(reminder_flag, None)
         # Attendance was explicitly recorded by the coach.
         values["validated"] = True
+        values["recorded_by"] = "coach"
 
         was_absent = presence_obj.status == "absent"
         presence_obj.update_with_dict(values)
