@@ -38,7 +38,8 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
   await expect(
     page
       .getByRole("heading", { name: /new class/i })
-      .or(page.getByText(/new class/i).first())
+      .or(page.getByTestId("add-class-sheet"))
+      .first()
   ).toBeVisible({ timeout: 5000 });
 
   await page.getByPlaceholder(/e\.g\./i).first().fill("PAD-90 Unbounded Class");

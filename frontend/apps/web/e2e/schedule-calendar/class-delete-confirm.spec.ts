@@ -35,7 +35,7 @@ async function createClass(page: import("@playwright/test").Page, title: string)
   );
   await page.getByRole("button", { name: /create class/i }).click();
   await created;
-  await expect(page.getByRole("dialog").filter({ hasText: /create class/i })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("add-class-sheet")).toHaveCount(0, { timeout: 15_000 });
   const found = await findClass(page, title);
   expect(found).toBe(true);
 }
@@ -63,7 +63,7 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
   // open (delete button still present) — nothing was deleted.
   await dialog.getByRole("button", { name: /^cancel$/i }).click();
   await expect(dialog).not.toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Class deleted", { exact: true })).not.toBeVisible();
+  await expect(page.getByTestId("toast")).not.toBeVisible();
   await expect(deleteBtn).toBeVisible();
 
   // Confirm the delete this time (the detail sheet is still open).
@@ -72,7 +72,9 @@ test("PAD-58: deleting a class requires confirmation — Cancel keeps it, Delete
   await dialog.getByRole("button", { name: /^delete$/i }).click();
 
   // Now it deletes: success toast, class gone from the grid.
-  await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
+  const deleteToast = page.getByTestId("toast");
+  await expect(deleteToast).toBeVisible({ timeout: 5000 });
+  await expect(deleteToast).toHaveAttribute("data-variant", "default");
   await expect(page.getByRole("main").getByText(title)).not.toBeVisible({ timeout: 3000 });
 });
 

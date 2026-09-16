@@ -139,7 +139,7 @@ export function NotificationsEngineSection() {
 
         {/* Invitation mode — only relevant when the engine is on */}
         {config.autoNotifyEnabled && (
-          <div className="space-y-2">
+          <div className="space-y-2" data-testid="notification-engine-invitation-mode">
             <div>
               <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
               <p className="text-xs text-muted-foreground">

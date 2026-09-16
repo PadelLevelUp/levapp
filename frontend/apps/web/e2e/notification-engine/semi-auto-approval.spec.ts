@@ -293,7 +293,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
   // /notifications/i ("My notifications"), so the old role+name locator is
   // ambiguous for a coach. Target the stable testid instead.
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({
     timeout: 5000,
   });
 
@@ -301,7 +301,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
 
   // The new invitation-mode control (this is the missing feature today)
   await expect(
-    page.getByText(/invitation mode/i).first(),
+    page.getByTestId("notification-engine-invitation-mode"),
     "Settings → Notifications must expose an 'Invitation mode' control (automatic | semi-automatic)"
   ).toBeVisible({ timeout: 5000 });
 
@@ -473,7 +473,7 @@ test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and t
 
   // ── Step 5: the prompt is persisted in the coach's Assistant conversation ─
   await openMessages(page);
-  const assistantConv = page.getByText(/assistant/i).first();
+  const assistantConv = page.getByTestId("conversation-assistant").first();
   await expect(
     assistantConv,
     "coach must have an Assistant conversation containing the replacement prompt"
