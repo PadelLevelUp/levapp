@@ -67,7 +67,6 @@ export const BACKLOG: readonly BacklogEntry[] = [
   { file: "mz:flows/43-tutorials-understand-invites.yaml", max: 1, reason: "1 en UI string, e.g. 'first batch'" },
   { file: "pw:calendar/season-end-no-season.spec.ts", max: 1, reason: "1 en UI string, e.g. 'new class'" },
   { file: "pw:clubs/courts.spec.ts", max: 1, reason: "1 en UI string, e.g. 'new class'" },
-  { file: "pw:evaluation-tools/evaluation-persist.spec.ts", max: 1, reason: "1 en UI string, e.g. 'evaluation saved'" },
   { file: "pw:messaging/direct-messages.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Message deleted'" },
   { file: "pw:notification-engine/class-cancellation-notification.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Class deleted'" },
   { file: "pw:notification-engine/manual-notify-selection.spec.ts", max: 1, reason: "1 en UI string, e.g. 'notify students'" },
