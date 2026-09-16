@@ -48,6 +48,11 @@ invited — and a coach deciding whether they want their open spots advertised a
   one initiating.
 - Looking at the calendar never creates anything — no class record is materialized and no data
   changes just because a student looked.
+- Open spots are only shown in an app version that knows what they are. A student still on an older
+  App Store version sees just their own classes, with no open spots and no way to open one, until
+  they update. Those versions would draw an open spot as one of the student's own bookings, and
+  showing nothing is better than showing that. This is temporary and lifts once nobody uses those
+  versions any more.
 
 ## Success Metrics
 

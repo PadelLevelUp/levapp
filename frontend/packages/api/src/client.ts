@@ -10,16 +10,30 @@ export interface ApiClientOptions {
    * screen.
    */
   onUnauthorized?: () => void;
+  /**
+   * What this shell understands, sent on every request as one
+   * `X-LevApp-Capabilities` header (PAD-352, `eligibility.open-spot-visibility`
+   * rule 12). The server withholds features from a client that doesn't list
+   * them, because the App Store builds that predate a feature would draw it
+   * wrongly. Default: none. A shell declares only what it renders, so a new
+   * shell never inherits a promise it can't keep.
+   */
+  capabilities?: readonly string[];
 }
+
+/** The header the server reads capabilities from (PAD-352). */
+export const CAPABILITIES_HEADER = "X-LevApp-Capabilities";
 
 /**
  * Creates an axios instance replicating the app's auth behavior:
- * - request interceptor attaches `Authorization: Bearer <token>`
+ * - request interceptor attaches `Authorization: Bearer <token>`, and the
+ *   shell's declared capabilities, if any
  * - response interceptor persists the rolling-refresh `x-new-token` header
  * - a 401 removes the token and invokes `onUnauthorized`
  */
 export function createApiClient(options: ApiClientOptions): AxiosInstance {
-  const { baseURL, storage, onUnauthorized } = options;
+  const { baseURL, storage, onUnauthorized, capabilities } = options;
+  const declared = (capabilities ?? []).join(", ");
 
   const api = axios.create({ baseURL });
 
@@ -27,6 +41,9 @@ export function createApiClient(options: ApiClientOptions): AxiosInstance {
     const token = await storage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (declared) {
+      config.headers[CAPABILITIES_HEADER] = declared;
     }
     return config;
   });

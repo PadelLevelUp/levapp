@@ -26,6 +26,10 @@ jobs:
           tail -n 5 ~/backup.log 2>/dev/null || echo "no ~/backup.log"
           BUCKET=$(grep -s '^BACKUP_BUCKET=' ~/.backup.env | cut -d= -f2-)
           if [ -n "$BUCKET" ]; then gsutil ls -l "$BUCKET/padel_app/" 2>&1 | tail -n 3; else echo "no ~/.backup.env — deploy-prod has not run since PAD-296"; fi
+          # B-090: this section printed the log and the bucket but never the
+          # SCHEDULE, so a crontab with no backup line looked exactly like a
+          # healthy one that had not run yet. Read-only.
+          crontab -l 2>/dev/null | grep 'backup\.sh' || echo "NO backup.sh line in the crontab — the nightly backup is NOT SCHEDULED"
           echo "=== postgres activity ==="
           PG=$(sudo docker ps --format '{{.Names}}' | grep -i -m1 'postgres\|db' || true)
           echo "PG container: ${PG:-none}"
