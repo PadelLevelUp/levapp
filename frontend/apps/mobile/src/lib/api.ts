@@ -47,4 +47,8 @@ export const api = initApi({
   baseURL: API_URL,
   storage: secureTokenStorage,
   onUnauthorized: () => unauthorizedHandler?.(),
+  // PAD-352 (eligibility.open-spot-visibility rule 12): this app renders open
+  // spots, so it asks for them. The App Store build made from this source
+  // (PAD-351) must keep this line, or its students silently get none.
+  capabilities: ["open-spots"],
 });

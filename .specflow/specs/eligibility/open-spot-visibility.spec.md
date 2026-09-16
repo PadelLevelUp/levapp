@@ -57,6 +57,24 @@ separate browse screen. A coach controls whether their open spots are advertised
     "Open spot" chip, so it reads as an offer beside the filled cards that are the student's
     own. Tapping it opens the same class detail the student already has (their own data only,
     `classes.detail-visibility`), where `classes.join-requests` adds the request action.
+12. **(PAD-352) Only a client that says it understands open spots is sent them. It fails
+    closed.**
+    - **The declaration:** a request declares its capabilities in the `X-LevApp-Capabilities`
+      header, a comma-separated list of tokens (case-insensitive, surrounding whitespace ignored).
+    - **The gate:** rule 10's open-spot events are appended to a student's calendar only when that
+      list contains `open-spots`. With no header, or without that token, the calendar is exactly
+      rule 9's (the student's enrolled classes only) whatever the coach's toggle says. The same
+      declaration gates the open-spot read exception in `classes.detail-visibility` rule 5.
+    - **Why:** the App Store builds live since August, 1.0 (`6f5d0c1ce`) and 1.1.0 (`6b48f79e3`),
+      predate rule 10's flag. They send only `Authorization` and draw every calendar event as the
+      student's own class, so to them an open spot looks like a booking that doesn't exist.
+    - **Who declares:** each shell passes its capabilities to the shared API client explicitly.
+      Web and mobile both render the flag (rule 11), so both declare `open-spots`. The client's
+      default is none, so a shell never inherits a promise it can't keep. The next App Store build
+      (PAD-351) declares it because it is built from the mobile source.
+    - **Retirement:** once no App Store build that predates the declaration is still in use, serve
+      open spots regardless of the header and delete this rule and its check. The header itself
+      stays for later capabilities.
 
 ### Acceptance Criteria
 
@@ -94,6 +112,29 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **When** any student of theirs loads their calendar
 - **Then** only the classes that student is enrolled in appear
 
+#### Open spots need both the coach's toggle and the client's declaration (PAD-352)
+- **Given** a future class at an eligible student's level with 5 of 6 spots filled, the student not
+  enrolled in it, and its coach's visibility toggle either on or off
+- **When** the student loads a calendar range covering it, once with
+  `X-LevApp-Capabilities: open-spots` and once with no `X-LevApp-Capabilities` header
+- **Then** the class appears, flagged `openSpot: true`, only when the toggle is on **and** the header
+  declares `open-spots`
+- **And** in the other three cases the calendar holds exactly the student's enrolled classes, and no
+  event carries `openSpot`
+
+#### An old client cannot take an attendance action on an open spot (PAD-352)
+- **Given** that advertised class and the same student, not enrolled in it
+- **When** they send `POST /api/app/notify/cancel_attendance` for it, which is the only attendance
+  action the student's class screen offers in App Store 1.0 and 1.1.0 (and it is shown only for a
+  class they have a presence row in)
+- **Then** the server answers 403 and writes no Presence row
+
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
   the visibility cascade reuses the tier walk and the class-sheet block that PAD-129 introduced.
+- **[PAD-352, 2026-09-15]** Rule 12 is a compatibility rule. It exists only because App Store
+  1.0/1.1.0 can't be changed, and the rule itself says when to retire it. The marker
+  (`X-LevApp-Capabilities: open-spots`) is the one PAD-351's next App Store build must send. The
+  surfaces were found by tracing every use of the open-spot machinery: the calendar append (rule 10)
+  and the class-detail read exception (`classes.detail-visibility` rule 5). The dashboard, push and
+  SSE carry no open-spot events.

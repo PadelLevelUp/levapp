@@ -22,7 +22,9 @@ def create_app(test_config=None):
             "http://34.78.247.45",
         ]}},
         supports_credentials=False,
-        allow_headers=["Content-Type", "Authorization"],
+        # PAD-352: the shells declare what they understand; a cross-origin
+        # client (local dev) must be allowed to send it.
+        allow_headers=["Content-Type", "Authorization", "X-LevApp-Capabilities"],
         expose_headers=["X-New-Token"],
     )
 
