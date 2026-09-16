@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -50,9 +51,10 @@ test("US-37: coach edits player level and side", async ({ page }) => {
   // Save — button label is "Save" (or "Saving" while in-flight)
   await page.getByRole("button", { name: /^save$/i }).click();
 
-  // Should succeed without error
+  // Should succeed without error. The inline-edit save path's only failure
+  // toast is players.saveChangesFailed (PlayerDetailPage.tsx).
   const errorVisible = await page
-    .getByText(/error|failed/i)
+    .getByText(ui("players.saveChangesFailed", { exact: false }))
     .first()
     .isVisible({ timeout: 3000 })
     .catch(() => false);
@@ -67,6 +69,6 @@ test("US-31: coach sees invite link for inactive player", async ({ page }) => {
 
   // Profile shows "This player doesn't have an account" and the invite link
   await expect(
-    page.getByText(/doesn't have an account|can register|invite/i).first()
+    page.getByText(ui("players.noAccountMessage")).first()
   ).toBeVisible({ timeout: 5000 });
 });
