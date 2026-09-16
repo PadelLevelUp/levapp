@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { openExercises } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 // training.tactical-board (PAD-242, wave 1): the Quadro Tático inside the exercise form.
 // Mirrored on iOS by apps/mobile/.maestro/flows/28-tactical-board.yaml.
@@ -31,7 +32,7 @@ async function tapCourt(page: Page, xPct: number, yPct: number) {
 
 async function openNewExercise(page: Page, name: string) {
   await page.getByRole("button", { name: /new exercise|\+/i }).first().click();
-  const nameInput = page.getByRole("textbox", { name: /name/i }).first();
+  const nameInput = page.getByRole("textbox", { name: ui("training.form.name") }).first();
   await expect(nameInput).toBeVisible({ timeout: 5000 });
   await nameInput.fill(name);
 }
@@ -43,17 +44,17 @@ test.beforeEach(async ({ page }) => {
 
 test("US-60: a new exercise opens the tactical board in game mode with the 2v2", async ({ page }) => {
   await openNewExercise(page, "Board Default");
-  await expect(page.getByRole("tab", { name: /game situations/i })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: ui("training.board.modes.game.title", { exact: false }) })).toHaveAttribute("aria-selected", "true");
   for (const label of ["A1", "A2", "B1", "B2"]) {
     await expect(page.getByTestId("court-surface").getByText(label, { exact: true })).toBeVisible();
   }
-  await expect(page.getByRole("radio", { name: /^select$/i })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radio", { name: ui("training.board.tools.select") })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText(/tap a piece to select it/i)).toBeVisible();
 });
 
 test("US-61: coach draws a lob ball path and it survives save and reopen", async ({ page, request }) => {
   await openNewExercise(page, "Lob Drill");
-  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.ball") }).click();
   await expect(page.getByText(/draw the ball's path/i)).toBeVisible();
   await tapCourt(page, 58, 20);
   await tapCourt(page, 40, 80);
@@ -130,10 +131,10 @@ test("US-62: a legacy diagram is upgraded on open and saved back as v2", async (
 
 test("US-63: undo removes the last placed cone", async ({ page }) => {
   await openNewExercise(page, "Undo Cone");
-  await page.getByRole("radio", { name: /^cone$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.cone") }).click();
   await tapCourt(page, 50, 40);
   await expect(page.getByTestId(/^piece-cone/)).toHaveCount(1);
-  await page.getByRole("button", { name: /^undo$/i }).click();
+  await page.getByRole("button", { name: ui("training.board.undo") }).click();
   await expect(page.getByTestId(/^piece-cone/)).toHaveCount(0);
 });
 
@@ -141,13 +142,13 @@ test("US-63: undo removes the last placed cone", async ({ page }) => {
 
 test("US-64: basket mode feeds from the feeder and is stored as mode basket", async ({ page, request }) => {
   await openNewExercise(page, "Basket Feed");
-  await page.getByRole("tab", { name: /basket drills/i }).click();
+  await page.getByRole("tab", { name: ui("training.board.modes.basket.title", { exact: false }) }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /basket drills/i })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: ui("training.board.modes.basket.title", { exact: false }) })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("piece-feeder")).toBeVisible();
   await expect(page.getByTestId("court-surface").getByText("B1", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.ball") }).click();
   await tapCourt(page, 30, 18);
   await expect(page.getByTestId("ball-path")).toBeVisible();
 
@@ -165,8 +166,8 @@ test("US-64: basket mode feeds from the feeder and is stored as mode basket", as
 
 test("US-65: adding players in basket mode stops at four", async ({ page }) => {
   await openNewExercise(page, "Basket Four");
-  await page.getByRole("tab", { name: /basket drills/i }).click();
-  const add = page.getByRole("button", { name: /add players/i });
+  await page.getByRole("tab", { name: ui("training.board.modes.basket.title", { exact: false }) }).click();
+  const add = page.getByRole("button", { name: ui("training.board.addPlayers") });
   await add.click();
   await add.click();
   const court = page.getByTestId("court-surface");
@@ -177,11 +178,11 @@ test("US-65: adding players in basket mode stops at four", async ({ page }) => {
 
 test("US-66: switching mode on a board with content asks first", async ({ page }) => {
   await openNewExercise(page, "Switch Guard");
-  await page.getByRole("radio", { name: /^cone$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.cone") }).click();
   await tapCourt(page, 50, 40);
-  await page.getByRole("tab", { name: /basket drills/i }).click();
+  await page.getByRole("tab", { name: ui("training.board.modes.basket.title", { exact: false }) }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
-  await page.getByRole("alertdialog").getByRole("button", { name: /^switch$/i }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: ui("training.board.switchMode.confirm") }).click();
   await expect(page.getByTestId("piece-feeder")).toBeVisible();
   await expect(page.getByTestId(/^piece-cone/)).toHaveCount(0);
 });
@@ -190,9 +191,9 @@ test("US-66: switching mode on a board with content asks first", async ({ page }
 
 test("US-67: a red pen stroke on the magnetic board is saved with the exercise", async ({ page, request }) => {
   await openNewExercise(page, "Magnetic Pen");
-  await page.getByRole("tab", { name: /magnetic/i }).click();
-  await expect(page.getByRole("radio", { name: /^pen$/i })).toHaveAttribute("aria-checked", "true");
-  await page.getByRole("radio", { name: /^red$/i }).click();
+  await page.getByRole("tab", { name: ui("training.board.modes.magnetic.title", { exact: false }) }).click();
+  await expect(page.getByRole("radio", { name: ui("training.board.tools.pen") })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: ui("training.board.colors.red") }).click();
 
   // Raw mouse events do not auto-scroll the way `click` does: bring the court on screen first.
   const court = page.getByTestId("court-surface");
@@ -207,7 +208,7 @@ test("US-67: a red pen stroke on the magnetic board is saved with the exercise",
   await page.mouse.up();
   await expect(page.getByTestId("piece-stroke-1")).toBeVisible();
 
-  await page.getByRole("radio", { name: /^player$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.player") }).click();
   await tapCourt(page, 70, 75);
   await expect(court.getByText("B1", { exact: true })).toBeVisible();
 
@@ -238,7 +239,7 @@ async function expectPieceAt(page: Page, pieceId: string, x: number, y: number) 
 }
 
 async function drawMovement(page: Page, pieceId: string, toX: number, toY: number) {
-  await page.getByRole("radio", { name: /^movement$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.movement") }).click();
   await page.getByTestId(`piece-${pieceId}`).click();
   await tapCourt(page, toX, toY);
 }
@@ -247,12 +248,12 @@ test("US-68: a second step starts where the first one ended and Passo walks the 
   await openNewExercise(page, "Two Steps");
   await drawMovement(page, "a1", 20, 40);
   await expect(page.getByTestId("board-step-indicator")).toHaveText(/1 of 1/);
-  await page.getByRole("button", { name: /^add step$/i }).click();
+  await page.getByRole("button", { name: ui("training.board.playback.addStep") }).click();
   await expect(page.getByTestId("board-step-indicator")).toHaveText(/2 of 2/);
   await expectPieceAt(page, "a1", 68, 240);
   await drawMovement(page, "a1", 10, 60);
 
-  const passo = page.getByRole("button", { name: /^step$/i });
+  const passo = page.getByRole("button", { name: ui("training.board.playback.step") });
   await passo.click();
   await expectPieceAt(page, "a1", 68, 240);
   await passo.click();
@@ -272,16 +273,16 @@ test("US-68: a second step starts where the first one ended and Passo walks the 
 
 test("US-69: AUTO animates the steps, reads stop while playing, and ends back at the start", async ({ page }) => {
   await openNewExercise(page, "Auto Play");
-  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.ball") }).click();
   await tapCourt(page, 58, 20);
   await tapCourt(page, 40, 80);
-  await page.getByRole("button", { name: /^add step$/i }).click();
+  await page.getByRole("button", { name: ui("training.board.playback.addStep") }).click();
   await drawMovement(page, "a1", 10, 60);
 
-  await page.getByRole("button", { name: /auto/i }).click();
-  await expect(page.getByRole("button", { name: /stop/i })).toBeVisible();
+  await page.getByRole("button", { name: ui("training.board.playback.auto") }).click();
+  await expect(page.getByRole("button", { name: ui("training.board.playback.stop") })).toBeVisible();
   await expect(page.getByTestId("playback-ball")).toBeVisible();
-  await expect(page.getByRole("button", { name: /auto/i })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("button", { name: ui("training.board.playback.auto") })).toBeVisible({ timeout: 5000 });
   await expect(page.getByTestId("playback-ball")).toHaveCount(0);
   // Editing view again: step 2 shows A1 where step 1 left it (no movement in step 1 → start).
   await expectPieceAt(page, "a1", 108.8, 156);
@@ -291,7 +292,7 @@ test("US-69: AUTO animates the steps, reads stop while playing, and ends back at
 
 test("US-70: two ball paths in one step are numbered, reorderable, removable and saved in order", async ({ page, request }) => {
   await openNewExercise(page, "Two Paths");
-  await page.getByRole("radio", { name: /^ball$/i }).click();
+  await page.getByRole("radio", { name: ui("training.board.tools.ball") }).click();
   await tapCourt(page, 58, 20);
   await tapCourt(page, 40, 80);
   await expect(page.getByTestId("ball-path")).toBeVisible();
@@ -334,6 +335,6 @@ test("US-70: two ball paths in one step are numbered, reorderable, removable and
   await page.getByTestId("board-ball-1-remove").click();
   await expect(page.getByTestId("ball-path-1")).toHaveCount(0);
   await expect(page.getByTestId("ball-number-0")).toHaveCount(0);
-  await page.getByRole("button", { name: /^undo$/i }).click();
+  await page.getByRole("button", { name: ui("training.board.undo") }).click();
   await expect(page.getByTestId("ball-path-1")).toBeVisible();
 });
