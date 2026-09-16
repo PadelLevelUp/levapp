@@ -19,6 +19,7 @@ import {
   toView,
   upgradeCourtDiagram,
   interpolateStep,
+  movementLegs,
   piecesAtStep,
   positionAfterStep,
 } from "./court-diagram";
@@ -210,5 +211,52 @@ describe("interpolateStep (rule 20)", () => {
   it("a step without a ball has no ball position", () => {
     const d: CourtDiagramV2 = { ...TWO_STEPS, steps: [{ id: "s", movements: [] }] };
     expect(interpolateStep(d, 0, 0.5).ball).toBeUndefined();
+  });
+});
+
+// PAD-309 (rules 10, 20): several legs for one player in one step.
+describe("a player with several legs in a step", () => {
+  const LEGS: CourtDiagramV2 = {
+    ...newDiagram("game"),
+    steps: [
+      {
+        id: "s1",
+        movements: [
+          { pieceId: "a1", to: { x: 20, y: 40 } },
+          { pieceId: "b1", to: { x: 50, y: 80 } },
+          { pieceId: "a1", to: { x: 10, y: 60 } },
+        ],
+      },
+    ],
+  };
+  const start = (id: string) => {
+    const p = LEGS.pieces.find((x) => x.id === id);
+    return p && p.kind !== "stroke" ? { x: p.x, y: p.y } : null;
+  };
+
+  it("movementLegs chains each player's legs and numbers them per player", () => {
+    const legs = movementLegs(LEGS.steps[0], start);
+    expect(legs).toEqual([
+      { pieceId: "a1", from: { x: 32, y: 26 }, to: { x: 20, y: 40 }, leg: 0 },
+      { pieceId: "b1", from: start("b1"), to: { x: 50, y: 80 }, leg: 0 },
+      { pieceId: "a1", from: { x: 20, y: 40 }, to: { x: 10, y: 60 }, leg: 1 },
+    ]);
+  });
+
+  it("the step ends with the player at its last leg's end", () => {
+    expect(piecesAtStep(LEGS, 1).find((p) => p.id === "a1")).toMatchObject({ x: 10, y: 60 });
+  });
+
+  it("AUTO walks the legs in order, splitting the step evenly", () => {
+    const at = (t: number) => interpolateStep(LEGS, 0, t).pieces.find((p) => p.id === "a1");
+    expect(at(0)).toMatchObject({ x: 32, y: 26 });
+    expect(at(0.25)).toMatchObject({ x: 26, y: 33 });
+    expect(at(0.5)).toMatchObject({ x: 20, y: 40 });
+    expect(at(0.75)).toMatchObject({ x: 15, y: 50 });
+    expect(at(1)).toMatchObject({ x: 10, y: 60 });
+    // a player with one leg still travels it over the whole step
+    const b1Start = start("b1")!;
+    const b1 = interpolateStep(LEGS, 0, 0.5).pieces.find((p) => p.id === "b1");
+    expect(b1).toMatchObject({ x: (b1Start.x + 50) / 2, y: (b1Start.y + 80) / 2 });
   });
 });

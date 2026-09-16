@@ -124,6 +124,26 @@ describe("TacticalBoard — Situações de jogo (training.tactical-board)", () =
     expect(screen.getByTestId("movement-a1")).toHaveAttribute("stroke-dasharray");
   });
 
+  it("PAD-309: further taps add legs, each drawn from where the last one ended", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    pickTool("movement");
+    tapPiece("a1", 32, 26);
+    tapCourt(20, 40);
+    tapCourt(10, 60);
+    const d = lastDiagram(onChange);
+    expect(d.steps[0].movements.map((m) => m.pieceId)).toEqual(["a1", "a1"]);
+    expect(d.steps[0].movements[1].to.x).toBeCloseTo(10, 0);
+    const first = screen.getByTestId("movement-a1").getAttribute("d") ?? "";
+    const second = screen.getByTestId("movement-a1-1").getAttribute("d") ?? "";
+    // the second leg starts at the first leg's end
+    const end = /L\s*([-\d.]+)[ ,]([-\d.]+)/.exec(first);
+    const start = /M\s*([-\d.]+)[ ,]([-\d.]+)/.exec(second);
+    expect(end && start).toBeTruthy();
+    expect(Number(start![1])).toBeCloseTo(Number(end![1]), 1);
+    expect(Number(start![2])).toBeCloseTo(Number(end![2]), 1);
+  });
+
   it("Selecionar moves a piece by tap-to-move and by drag", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);

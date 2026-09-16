@@ -4,6 +4,7 @@ import {
   BOUNDARY_INSET,
   COURT_COLORS,
   movementPathD,
+  movementLegs,
   NET_Y,
   PLAYER_RADIUS,
   SERVICE_LINES_Y,
@@ -140,14 +141,16 @@ export function CourtSurface({
         />
       ) : null}
 
-      {step?.movements.map((m) => {
-        const piece = pieceById(m.pieceId);
-        const from = piece ? position(piece) : null;
-        if (!from) return null;
+      {/* PAD-309: a player may have several legs; each starts where the last ended (rule 10) */}
+      {movementLegs(step, (id) => {
+        const piece = pieceById(id);
+        return piece ? position(piece) : null;
+      }).map((m) => {
+        const suffix = m.leg === 0 ? "" : `-${m.leg}`;
         const end = toView(m.to);
         return (
-          <G key={`mv-${m.pieceId}`} testID={tid(`movement-${m.pieceId}`)}>
-            <Path d={movementPathD(from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
+          <G key={`mv-${m.pieceId}${suffix}`} testID={tid(`movement-${m.pieceId}${suffix}`)}>
+            <Path d={movementPathD(m.from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
             <Circle cx={end.x} cy={end.y} r={compact ? 2.5 : 4} fill={COURT_COLORS.movement} />
           </G>
         );

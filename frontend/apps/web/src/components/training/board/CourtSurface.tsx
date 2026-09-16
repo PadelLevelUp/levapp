@@ -11,6 +11,7 @@ import {
   ballPathD,
   ballPathMidpoint,
   movementPathD,
+  movementLegs,
   swatchHex as swatch,
   toView, stepBalls } from "@levelup/config";
 import { cn } from "@/lib/utils";
@@ -161,14 +162,16 @@ export const CourtSurface = forwardRef<SVGSVGElement, CourtSurfaceProps>(functio
       ) : null}
 
       {/* movements (dashed) */}
-      {step?.movements.map((m) => {
-        const piece = pieceById(m.pieceId);
-        const from = piece ? position(piece) : null;
-        if (!from) return null;
+      {/* PAD-309: a player may have several legs; each starts where the last ended (rule 10) */}
+      {movementLegs(step, (id) => {
+        const piece = pieceById(id);
+        return piece ? position(piece) : null;
+      }).map((m) => {
+        const suffix = m.leg === 0 ? "" : `-${m.leg}`;
         const end = toView(m.to);
         return (
-          <g key={`mv-${m.pieceId}`}>
-            <path data-testid={tid(`movement-${m.pieceId}`)} d={movementPathD(from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
+          <g key={`mv-${m.pieceId}${suffix}`}>
+            <path data-testid={tid(`movement-${m.pieceId}${suffix}`)} d={movementPathD(m.from, m.to)} fill="none" stroke={COURT_COLORS.movement} strokeWidth={compact ? 1.5 : 2} strokeDasharray="6 5" strokeLinecap="round" />
             <circle cx={end.x} cy={end.y} r={compact ? 2.5 : 4} fill={COURT_COLORS.movement} />
           </g>
         );

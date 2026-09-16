@@ -19,6 +19,7 @@ import {
   boardPress,
   boardSetColor,
   boardSetStep,
+  boardSelectTool,
   boardStrokeEnd,
   boardSwitchMode,
   boardToggleBallStyle,
@@ -69,14 +70,41 @@ describe("boardPress — Movimentação", () => {
     expect(r1.state.pendingPlayerId).toBe("a1");
     const r2 = boardPress(game(), r1.state, { x: 20, y: 40 }, null);
     expect(r2.diagram?.steps[0].movements).toEqual([{ pieceId: "a1", to: { x: 20, y: 40 } }]);
-    expect(r2.state.pendingPlayerId).toBeNull();
+    // PAD-309: the player stays armed for a further leg (rule 10).
+    expect(r2.state.pendingPlayerId).toBe("a1");
   });
 
-  it("a second movement for the same player replaces the first", () => {
+  // PAD-309 (rule 10): a player can follow several trajectories in one step.
+  it("each further press on the court appends a leg that starts where the last one ended", () => {
+    const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "movement" };
+    const r1 = boardPress(game(), state, { x: 32, y: 26 }, a1);
+    const r2 = boardPress(game(), r1.state, { x: 20, y: 40 }, null);
+    expect(r2.state.pendingPlayerId).toBe("a1");
+    expect(r2.state.pending).toEqual({ kind: "movement", from: { x: 20, y: 40 } });
+    const r3 = boardPress(r2.diagram!, r2.state, { x: 10, y: 60 }, null);
+    expect(r3.diagram?.steps[0].movements).toEqual([
+      { pieceId: "a1", to: { x: 20, y: 40 } },
+      { pieceId: "a1", to: { x: 10, y: 60 } },
+    ]);
+  });
+
+  it("pressing the player again later continues from its last leg, never replaces", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "movement" };
     const d1 = boardPress(game(), boardPress(game(), state, { x: 32, y: 26 }, a1).state, { x: 20, y: 40 }, null).diagram!;
-    const d2 = boardPress(d1, boardPress(d1, state, { x: 32, y: 26 }, a1).state, { x: 10, y: 50 }, null).diagram!;
-    expect(d2.steps[0].movements).toEqual([{ pieceId: "a1", to: { x: 10, y: 50 } }]);
+    const again = boardPress(d1, state, { x: 32, y: 26 }, a1);
+    expect(again.state.pending).toEqual({ kind: "movement", from: { x: 20, y: 40 } });
+    const d2 = boardPress(d1, again.state, { x: 10, y: 50 }, null).diagram!;
+    expect(d2.steps[0].movements).toEqual([
+      { pieceId: "a1", to: { x: 20, y: 40 } },
+      { pieceId: "a1", to: { x: 10, y: 50 } },
+    ]);
+  });
+
+  it("changing tool disarms the player", () => {
+    const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "movement" };
+    const r2 = boardPress(game(), boardPress(game(), state, { x: 32, y: 26 }, a1).state, { x: 20, y: 40 }, null);
+    const disarmed = boardSelectTool(r2.state, "movement");
+    expect(boardPress(r2.diagram!, disarmed, { x: 10, y: 60 }, null).diagram).toBeUndefined();
   });
 
   it("pressing the court with no player pending does nothing", () => {
