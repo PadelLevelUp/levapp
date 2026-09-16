@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers, openCalendar } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-24: Remove optimistic UI updates, add loading states for all backend calls
@@ -17,7 +18,7 @@ async function findSeededClass(page: import("@playwright/test").Page) {
   for (let i = 0; i < 4; i++) {
     const visible = await page.getByText(title).isVisible().catch(() => false);
     if (visible) return true;
-    await page.getByRole("button", { name: /next week/i }).first().click();
+    await page.getByRole("button", { name: ui("calendar.toolbar.nextWeek") }).first().click();
     await page.waitForTimeout(400);
   }
   return false;
@@ -38,11 +39,11 @@ test.describe("PAD-24: Loading states for backend calls", () => {
     await page.waitForURL(/\/players\//);
 
     // The player detail page has inline editing
-    const saveBtn = page.getByRole("button", { name: /^save$/i });
+    const saveBtn = page.getByRole("button", { name: ui("common.save") });
     const isAlreadyEditing = await saveBtn.isVisible({ timeout: 2000 }).catch(() => false);
 
     if (!isAlreadyEditing) {
-      await page.getByRole("button", { name: "Edit" }).first().click();
+      await page.getByRole("button", { name: ui("common.edit") }).first().click();
       await expect(saveBtn).toBeVisible({ timeout: 3000 });
     }
 
@@ -111,7 +112,7 @@ test.describe("PAD-24: Loading states for backend calls", () => {
 
     // Click delete
     const deleteBtn = page
-      .getByRole("button", { name: /delete class/i })
+      .getByRole("button", { name: ui("calendar.detail.deleteClass") })
       .first();
     await deleteBtn.click();
 
@@ -120,7 +121,7 @@ test.describe("PAD-24: Loading states for backend calls", () => {
     // for non-recurring ones. Click whichever appears so remove_class fires.
     const dialog = page.getByRole("alertdialog");
     const scopeBtn = dialog.getByRole("button", { name: /only this|this class|single/i });
-    const confirmBtn = dialog.getByRole("button", { name: /^delete$/i });
+    const confirmBtn = dialog.getByRole("button", { name: ui("calendar.detail.delete") });
     if (await scopeBtn.first().isVisible({ timeout: 800 }).catch(() => false)) {
       await scopeBtn.first().click();
     } else if (await confirmBtn.first().isVisible({ timeout: 800 }).catch(() => false)) {
@@ -175,7 +176,7 @@ test.describe("PAD-24: Loading states for backend calls", () => {
 
     // Find and click the submit button
     const submitBtn = page
-      .getByRole("button", { name: /create class/i })
+      .getByRole("button", { name: ui("calendar.addClass.createClass") })
       .first();
     await submitBtn.click();
 
