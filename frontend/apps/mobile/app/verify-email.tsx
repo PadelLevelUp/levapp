@@ -136,7 +136,8 @@ export default function VerifyEmailScreen() {
         const me = await authApi.confirmEmailVerificationCode(value);
         await refreshUser();
         toast.success(t("auth.verifyEmail.verified"));
-        leave(me);
+        // PROBE V2: no explicit leave; the [user] effect navigates once refreshUser flips the state.
+        void me;
       } catch (err) {
         const status = (err as ApiErr).response?.status;
         const data = (err as ApiErr).response?.data;
