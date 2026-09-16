@@ -60,12 +60,22 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     const firstSlot = form.getByTestId("class-request-slot").first();
     const start = (await firstSlot.textContent())?.trim() ?? "";
     await firstSlot.click();
+    const createdResponse = page.waitForResponse(
+      (r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/app/class-requests"),
+    );
     await form.getByTestId("class-request-send").click();
-    const row = page.locator('[data-testid="class-request-row"][data-status="pending"]');
-    await expect(row).toHaveCount(1, { timeout: 15_000 });
-    await expect(row).toContainText(start);
+    const created = await createdResponse;
+    expect(created.status(), await created.text()).toBe(201);
+    const requestId = String((await created.json()).id);
     // Recorded for cleanup straight away, so a failure further down still deletes it.
-    requestIds.push((await row.getAttribute("data-request-id")) ?? "");
+    requestIds.push(requestId);
+    // PAD-341: every assertion addresses THIS request by id. Counting every
+    // pending or accepted row in the shared database made this test fail
+    // whenever an earlier spec in its shard had booked a class of its own.
+    const ownRow = `[data-testid="class-request-row"][data-request-id="${requestId}"]`;
+    const row = page.locator(ownRow);
+    await expect(row).toHaveAttribute("data-status", "pending", { timeout: 15_000 });
+    await expect(row).toContainText(start);
 
     // Rule 3: the slot is held on the coach's calendar and no longer free.
     const held = await dayEvents(request, auth, day);
@@ -82,11 +92,11 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     try {
       await loginAsCoach(coachPage);
       await coachPage.goto("/class-requests");
-      const inbox = coachPage.locator('[data-testid="class-request-row"][data-status="pending"]');
-      await expect(inbox).toHaveCount(1, { timeout: 15_000 });
+      const inbox = coachPage.locator(ownRow);
+      await expect(inbox).toHaveAttribute("data-status", "pending", { timeout: 15_000 });
       await expect(inbox).toContainText(STUDENT_NAME);
       await inbox.getByTestId("class-request-accept").click();
-      await expect(coachPage.locator('[data-testid="class-request-row"][data-status="pending"]')).toHaveCount(0, { timeout: 15_000 });
+      await expect(inbox).toHaveAttribute("data-status", "accepted", { timeout: 15_000 });
     } finally {
       await coachCtx.close();
     }
@@ -101,7 +111,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
 
     // The student sees it booked.
     await page.reload();
-    await expect(page.locator('[data-testid="class-request-row"][data-status="accepted"]')).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.locator(ownRow)).toHaveAttribute("data-status", "accepted", { timeout: 15_000 });
   } finally {
     // PAD-341: remove the class until it stops re-projecting, drop any hold, and
     // delete the request itself — removing the class leaves it `accepted`.
