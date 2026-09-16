@@ -144,6 +144,13 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
     moved player travels its dashed path over the whole step — so a step lasts 800 ms × max(1,
     paths) (`stepDurationMs`, PAD-289) — then the next step starts. AUTO becomes ■ while playing; any edit stops playback and returns to the
     starting position. Nothing bounces (design-system motion rule).
+25. **(PAD-310; number self-assigned) Playback speed.** A "Velocidade" control under the step
+    strip offers **Lento 0.5× · Normal 1× · Rápido 2×** (`board-speed-slow|normal|fast`, one
+    selected, default Normal) on web and iOS. The speed scales ▶ AUTO's clock: a step lasts
+    `stepDurationMs / speed`. Changing it while AUTO plays keeps the current position and
+    continues at the new speed, with no restart. The choice lives with the open board only: it is
+    not saved with the exercise and does not change Passo. The clock arithmetic is shared
+    (`@levelup/config` `playbackClock` helpers) so both shells time a step identically.
 
 **Several ball paths per step** — PAD-289 (founders' note 2026-09-11)
 23. A step holds an **ordered list** of ball paths, `balls`. Each new Bola path is appended; the
@@ -187,6 +194,12 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Given** the board in game mode with the Movimentação tool
 - **When** the coach taps A1 then taps (20 %, 40 %)
 - **Then** a dashed path is drawn from A1 to that point and the step holds `{pieceId: A1, to: {20, 40}}`
+
+#### Playback speed scales AUTO (PAD-310)
+- **Given** a board with one step and one ball path (800 ms at Normal)
+- **When** the coach selects Rápido and presses ▶ AUTO
+- **Then** the step finishes after 400 ms; at Lento it finishes after 1600 ms
+- **And** switching from Normal to Rápido halfway keeps the ball where it was and plays the rest at 2×
 
 #### Tap-to-move and drag both move a piece
 - **Given** the Selecionar tool
