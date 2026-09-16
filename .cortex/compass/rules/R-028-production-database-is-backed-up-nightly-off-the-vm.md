@@ -33,4 +33,16 @@ failed and nothing noticed, so production ran for months with no automatic backu
   script; an unset bucket is a failure, not a skip.
 - `set -euo pipefail`, an `ERR` trap that logs `BACKUP FAILED`, a status file the repair workflow
   prints; success logs the object and its size.
+- **The deploy reads the schedule back** (B-090, 2026-09-16). Installing the cron entry is not the
+  same as having one: the step must print the crontab after writing it and fail unless exactly one
+  `backup.sh` line is there. The inline one-liner it replaced wiped the crontab — `grep -v` matched
+  nothing, exited 1, and killed the subshell under `set -e` before the `echo`, so `crontab -` was
+  handed an empty document — and reported success for months, because nothing ever looked. A
+  scheduling step that cannot fail is not a check. The install lives in
+  `backend/scripts/install_backup_cron.sh` so it can be exercised from both starting states (no
+  crontab, and one that already holds the line) instead of only in production.
+- **Scheduling the backup must not gate the app's deploy** (B-090). The cron install runs in its
+  own job, after the backend deploy and beside the frontend's: its failure turns the run red
+  without skipping the frontend, which is what left production serving the new backend with the
+  previous web bundle on 2026-09-16.
 - Rule number 28 self-assigned on 2026-09-11 (unconfirmed until the coordinator vetoes).
