@@ -136,6 +136,7 @@ export default function AvailabilityScreen() {
     if (items.length === 0 && !showForm) {
       return (
         <EmptyState
+          testID="availability-blockers-empty"
           icon="calendar-outline"
           title={t("availability.noBlockersTitle")}
           message={t("availability.noBlockersMessage")}

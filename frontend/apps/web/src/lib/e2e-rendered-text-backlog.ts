@@ -37,11 +37,7 @@ export interface BacklogEntry {
 
 export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:availability/unavailable-student-notifications.spec.ts", max: 4, reason: "4 en UI strings, e.g. 'class created', 'unavailable'" },
-  { file: "mz:flows/04-attendance.yaml", max: 2, reason: "2 en UI strings, e.g. 'Attendance saved', 'Attended'" },
-  { file: "mz:flows/34-player-removal.yaml", max: 2, reason: "2 en UI strings, e.g. 'Delete Player', 'Disconnect'" },
   { file: "pw:schedule-calendar/class-overlap-warning.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'class created'" },
-  { file: "mz:flows/13-student-availability.yaml", max: 1, reason: "1 en UI string, e.g. 'No blockers yet'" },
-  { file: "mz:flows/43-tutorials-understand-invites.yaml", max: 1, reason: "1 en UI string, e.g. 'first batch'" },
   { file: "pw:notification-engine/class-cancellation-notification.spec.ts", max: 1, reason: "1 en UI string, e.g. 'Class deleted'" },
   { file: "pw:notification-engine/standing-waitlist-expired.spec.ts", max: 1, reason: "1 en UI string, e.g. 'auto-invite engine'" },
 ] as const;

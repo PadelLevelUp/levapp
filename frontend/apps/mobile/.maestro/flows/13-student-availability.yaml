@@ -167,5 +167,5 @@ appId: com.padellevelup.app
     id: "blocker-delete-confirm"
 - extendedWaitUntil:
     visible:
-      text: "No blockers yet"
+      id: "availability-blockers-empty"
     timeout: 15000
