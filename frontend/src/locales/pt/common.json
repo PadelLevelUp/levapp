@@ -1,5 +1,10 @@
 {
   "common": {
+    "fieldConflict": {
+      "username_taken": "Este nome de utilizador já está a ser usado.",
+      "email_taken": "Este email já está a ser usado.",
+      "duplicate_name": "Já tens um jogador com este nome."
+    },
     "save": "Guardar",
     "saveChanges": "Guardar alterações",
     "saved": "Guardado",

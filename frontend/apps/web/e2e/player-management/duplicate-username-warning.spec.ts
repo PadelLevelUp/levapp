@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-7 — real-time unique-field validation.
@@ -30,9 +31,12 @@ test.describe("PAD-7: unique field validation", () => {
     const emailInput = page.locator("#player-email");
     await emailInput.fill("e2e-coach@test.com"); // taken email
 
-    // Error should appear automatically
-    const errorMsg = page.getByText("This email is already taken");
+    // Error should appear automatically. B-102: the warning carries its reason
+    // and renders the locale key for it, never the backend's English message.
+    const errorMsg = page.getByTestId("player-email-conflict");
     await expect(errorMsg).toBeVisible({ timeout: 3000 });
+    await expect(errorMsg).toHaveAttribute("data-reason", "email_taken");
+    await expect(errorMsg).toHaveText(ui("common.fieldConflict.email_taken"));
     await expect(emailInput).toHaveClass(/border-destructive/);
 
     // Form data should be preserved
