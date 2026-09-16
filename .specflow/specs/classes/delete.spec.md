@@ -25,7 +25,11 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    (instance and presences) and excludes its date from the series (rule 3); the response is
    `single_removed`. The scope dialog says which of the two the coach is doing
 7. A removal is whole or nothing: after a 2xx no calendar fetch shows the removed occurrence in
-   any state. Confirmed attendance is never lost without the coach being told: when attendance
+   any state. Whichever way the client names the occurrence: `model=Lesson, scope=single` on a
+   date that already has a materialised instance deletes that instance (and its jobs) before
+   excluding the date, and `scope=future` on a one-off — which has no future beyond itself — is
+   the whole-class delete (`deleted`), never a truncation of a recurrence the class does not
+   have (review round, 2026-09-16). Confirmed attendance is never lost without the coach being told: when attendance
    has been marked, the confirmation dialog says it is removed with the class
 
 ### Acceptance Criteria
@@ -37,6 +41,16 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
 - **Then** the response is 200 `deleted`, the `Lesson` and the instance are gone, both reminder
   jobs are cancelled
 - **And** the next `GET /api/app/calendar` for that week does not contain the class
+
+#### Deleting a materialised occurrence through the Lesson path removes it too
+- **Given** a weekly class whose second occurrence was materialised by confirming attendance, and a sheet that still names it `model=Lesson`
+- **When** the coach deletes it with scope `single`
+- **Then** the response is 200 `single_removed`, the instance and its register are gone, the date is excluded, and the next calendar fetch shows the first and third occurrences and not the second
+
+#### A one-off has no future scope
+- **Given** a one-off class, with or without a materialised instance
+- **When** a stale client sends `remove_class` with scope `future` for the Lesson or the instance
+- **Then** the response is 200 `deleted`, the Lesson (and instance) are gone, and the next calendar fetch does not contain the class
 
 #### Delete dialog names marked attendance
 - **Given** a class whose attendance has been marked
