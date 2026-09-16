@@ -26,12 +26,19 @@ function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
+/** The participant's role as a stable key; the label and `data-state` both derive from it. */
+function getRoleKey(conversation: Conversation): string {
+  if (conversation.isAssistant) return 'assistant';
+  return conversation.participantRole?.toLowerCase() ?? '';
+}
+
 function getRoleLabel(conversation: Conversation, t: TFunction): string {
-  if (conversation.isAssistant) return t('messages.roleAssistant');
-  const role = conversation.participantRole;
-  if (!role) return '';
-  if (role.toLowerCase() === 'coach') return t('messages.roleCoach');
-  if (role.toLowerCase() === 'player') return t('messages.rolePlayer');
+  const key = getRoleKey(conversation);
+  if (key === 'assistant') return t('messages.roleAssistant');
+  if (!key) return '';
+  if (key === 'coach') return t('messages.roleCoach');
+  if (key === 'player') return t('messages.rolePlayer');
+  const role = conversation.participantRole ?? '';
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
@@ -94,7 +101,13 @@ export function ChatHeader({ conversation, onBack, showBack, isBlocked, onConfir
       <div className="flex-1 min-w-0">
         <h2 className="text-sm font-semibold text-foreground truncate">{participantName}</h2>
         {getRoleLabel(conversation, t) && (
-          <p className="text-xs text-muted-foreground">{getRoleLabel(conversation, t)}</p>
+          <p
+            className="text-xs text-muted-foreground"
+            data-testid="chat-participant-role"
+            data-state={getRoleKey(conversation)}
+          >
+            {getRoleLabel(conversation, t)}
+          </p>
         )}
       </div>
 

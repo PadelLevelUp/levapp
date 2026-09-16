@@ -51,7 +51,6 @@ export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:settings/profile-persistence.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'could not save settings', 'settings saved'" },
   { file: "mz:flows/04-attendance.yaml", max: 2, reason: "2 en UI strings, e.g. 'Attendance saved', 'Attended'" },
   { file: "mz:flows/34-player-removal.yaml", max: 2, reason: "2 en UI strings, e.g. 'Delete Player', 'Disconnect'" },
-  { file: "pw:messaging/participant-role-header.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'Coach', 'Player'" },
   { file: "pw:notification-engine/cancellation-deadline.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'auto-invite engine'" },
   { file: "pw:player-management/activation-link-secret.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'New player', 'e.g. John Doe'" },
   { file: "pw:player-management/add-player.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'Evaluation', 'e.g. John Doe'" },
