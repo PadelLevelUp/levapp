@@ -2,8 +2,10 @@
 # 1x, Rápido 2x) under the step strip; AUTO plays at the chosen speed.
 # (Flow number 60 is from Session E's reserved range.) The clock arithmetic is
 # unit-tested in @levelup/config (board-playback-speed.test.ts); this flow proves
-# the control is on the iOS board, selectable, and that AUTO still plays and
-# returns to ▶ at each end of the range.
+# the control is on the iOS board and selectable.
+# Playback itself is NOT asserted here: Maestro on iOS cannot observe the board
+# mid-playback (tapOn and queries wait for the UI to settle, so they land after
+# AUTO ends), although AUTO plays on schedule (ledger B-114).
 #
 # Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
 appId: com.padellevelup.app
@@ -49,10 +51,17 @@ appId: com.padellevelup.app
     timeout: 15000
 - tapOn:
     id: "board-tool-ball"
+# Three feeds make the step 2400 ms at Normal (4800 ms Lento, 1200 ms Rápido),
+# long enough for Maestro to observe; a single 800 ms path at 2x is over before
+# an assertion can run.
+- tapOn:
+    id: "piece-a1"
+- tapOn:
+    id: "piece-a2"
 - tapOn:
     id: "piece-a1"
 - assertVisible:
-    id: "ball-path-flat"
+    id: "ball-path-2-flat"
 - scrollUntilVisible:
     element:
       id: "board-speed-fast"
@@ -63,30 +72,12 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "board-speed-normal"
 
-# ── Rápido: AUTO plays and returns ──
+# ── Each speed can be selected ──
 - tapOn:
     id: "board-speed-fast"
-- tapOn:
-    id: "board-auto"
-- extendedWaitUntil:
-    visible:
-      id: "playback-ball"
-    timeout: 3000
-- extendedWaitUntil:
-    notVisible:
-      id: "playback-ball"
-    timeout: 5000
-
-# ── Lento: AUTO plays and returns ──
+- assertVisible:
+    id: "board-speed-fast"
 - tapOn:
     id: "board-speed-slow"
-- tapOn:
-    id: "board-auto"
-- extendedWaitUntil:
-    visible:
-      id: "playback-ball"
-    timeout: 3000
-- extendedWaitUntil:
-    notVisible:
-      id: "playback-ball"
-    timeout: 8000
+- assertVisible:
+    id: "board-speed-slow"
