@@ -1297,6 +1297,27 @@ def edit_class_service(data):
     lesson = Lesson.query.get_or_404(original_id)
 
     if scope == "single":
+        # B-046 / PAD-303: the occurrence may already be materialised — the web
+        # sheet keeps event.model="Lesson" after confirming attendance (the
+        # PAD-335 seam), so "edit this occurrence" can name a date that has an
+        # instance. Creating a second one duplicated the occurrence before the
+        # unique index and 500s on IntegrityError with it; the existing
+        # instance is edited instead, exactly as the LessonInstance path does.
+        existing = _instances_on_date(lesson, event_date)
+        if existing:
+            instance = existing[0]
+            _ensure_date(payload, event_date)
+            edit_lesson_instance_helper(payload, instance)
+            if notifications_enabled is not None:
+                instance.notifications_enabled = notifications_enabled
+                instance.save()
+            if eligibility_touched:
+                instance.eligibility_rules = eligibility_rules
+                instance.save()
+            if visibility_touched:
+                instance.open_spots_visible = open_spots_visible
+                instance.save()
+            return {"id": instance.id}, 200
         payload["original_lesson_occurence_date"] = event_date.strftime("%Y-%m-%d")
         _ensure_date(payload, event_date)
         instance = create_lesson_instance_helper(data=payload, parent_lesson=lesson)
