@@ -33,7 +33,7 @@ Coaches record evaluation scores for players over time, tracking progress across
    that coach-player writes no new entry, so a re-posted unchanged score cannot move `evaluatedAt`.
    This keeps App Store builds that still post every category harmless for categories that already
    hold a score. It cannot tell their midpoint seed for a never-scored category from a real grade;
-   those builds keep writing it until they update. Rows already written from midpoint seeds stay as
+   those builds keep writing it until they update. **Known gap:** a never-scored category saved from a 1.0/1.1.0 App Store client still gets a midpoint entry; the next App Store build (PAD-351) removes it. Rows already written from midpoint seeds stay as
    they are: nothing in the database tells a fabricated midpoint from an intended one (Coordinator
    decision, 2026-09-16).
 

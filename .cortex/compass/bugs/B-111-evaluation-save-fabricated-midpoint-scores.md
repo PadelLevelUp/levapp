@@ -37,4 +37,4 @@ the latest. Guarded by `backend/padel_app/tests/test_pad337_evaluation_entry_abs
 **Not fixed, by decision:** midpoint rows already in the database stay. Nothing tells them from
 intended scores. App Store builds released before this fix still post every category. The
 endpoint neutralises that for categories with a score, but a never-scored category still gets
-the old build's midpoint until the build is updated.
+the old build's midpoint until the build is updated. Known gap: 1.0/1.1.0 clients keep doing it; the next App Store build (PAD-351) removes it.
