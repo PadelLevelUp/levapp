@@ -18,7 +18,7 @@ const UNIQUE = Date.now();
 
 async function openAddPlayerSheet(page: Page) {
   await page.getByRole("button", { name: /add player/i }).first().click();
-  await expect(page.getByText("New player")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("add-player-sheet")).toBeVisible({ timeout: 5000 });
 }
 
 test.describe("PAD-105: coach add-player form has no username field", () => {
@@ -40,11 +40,11 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     ).toHaveCount(0);
 
     // The other fields the coach IS responsible for are still there.
-    await expect(page.getByPlaceholder("e.g. John Doe")).toBeVisible();
-    await expect(page.getByPlaceholder("e.g. john@email.com")).toBeVisible();
+    await expect(page.locator("#player-name")).toBeVisible();
+    await expect(page.locator("#player-email")).toBeVisible();
 
     const name = `PAD105 Nameless ${UNIQUE}`;
-    await page.getByPlaceholder("e.g. John Doe").fill(name);
+    await page.locator("#player-name").fill(name);
 
     // A name is all it takes — no waiting on a username availability check.
     const createBtn = page.getByRole("button", { name: /create player/i });
@@ -62,7 +62,7 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     const name = `PAD105 Detail ${UNIQUE}`;
 
     await openAddPlayerSheet(page);
-    await page.getByPlaceholder("e.g. John Doe").fill(name);
+    await page.locator("#player-name").fill(name);
     await page.getByRole("button", { name: /create player/i }).click();
 
     await page.getByPlaceholder(/search/i).first().fill(name);
@@ -101,7 +101,7 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     const name = `PAD105 Register ${UNIQUE}`;
 
     await openAddPlayerSheet(page);
-    await page.getByPlaceholder("e.g. John Doe").fill(name);
+    await page.locator("#player-name").fill(name);
     await page.getByRole("button", { name: /create player/i }).click();
 
     await page.getByPlaceholder(/search/i).first().fill(name);
@@ -158,7 +158,7 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     // The other half of the ticket: removing the coach's field must not remove
     // the student's. Create an invited player and open their link as a guest.
     await openAddPlayerSheet(page);
-    await page.getByPlaceholder("e.g. John Doe").fill(`PAD105 Invitee ${UNIQUE}`);
+    await page.locator("#player-name").fill(`PAD105 Invitee ${UNIQUE}`);
     await page
       .getByRole("button", { name: /create.*invite|invite.*player/i })
       .click();

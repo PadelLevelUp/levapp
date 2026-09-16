@@ -138,7 +138,10 @@ export function AddPlayerSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && handleClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent
+        className="w-full sm:max-w-lg overflow-y-auto"
+        data-testid="add-player-sheet"
+      >
         <SheetHeader>
           <SheetTitle>{t("players.newPlayer")}</SheetTitle>
         </SheetHeader>

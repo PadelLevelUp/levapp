@@ -59,6 +59,8 @@ export function MobileEventCard({
       data-testid="calendar-event-card"
       data-event-state={variant}
       data-needs-players={seatsShort ? "true" : "false"}
+      data-recurring={event.isRecurring ? "true" : "false"}
+      data-block-type={isBlock ? event.blockType ?? "personal" : undefined}
       aria-label={`${title}, ${timeRange}`}
       onClick={() => onClick?.(event)}
       style={surface}
@@ -87,7 +89,7 @@ export function MobileEventCard({
       <div className="mt-1 flex items-center gap-1.5 text-sm tabular-nums opacity-85">
         <span>{timeRange}</span>
         {event.isRecurring && (
-          <span role="img" aria-label={t("calendar.eventCard.recurring")}>
+          <span role="img" aria-label={t("calendar.eventCard.recurring")} data-testid="event-card-recurring-icon">
             ↻
           </span>
         )}
