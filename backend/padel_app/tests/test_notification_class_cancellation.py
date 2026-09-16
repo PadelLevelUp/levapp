@@ -72,7 +72,6 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 
     club = Club(name="Test Club", description="", location="City")
     db.session.add(club)
@@ -98,8 +97,6 @@ def _create_instance(coach, level, enrolled_players=(), start_offset_hours=48, m
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id,
                                                     lesson_instance_id=instance.id))
     for player in enrolled_players:
-        db.session.add(Association_PlayerLessonInstance(player_id=player.id,
-                                                         lesson_instance_id=instance.id))
         db.session.add(Presence(player_id=player.id, lesson_instance_id=instance.id,
                                 invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()

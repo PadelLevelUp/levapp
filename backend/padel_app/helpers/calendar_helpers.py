@@ -44,8 +44,8 @@ def load_lesson_instances_for_coach(coach_id, range_start, range_end):
         LessonInstance.query
         .join(Lesson)
         # PAD-71: the serialized event's participantCount reads
-        # LessonInstance.effective_filled_spots, which walks both
-        # players_relations and presences — eager-load them so a week of
+        # LessonInstance.effective_filled_spots, which walks the
+        # presences — eager-load them so a week of
         # classes stays at a constant number of queries. PAD-262 adds the
         # lesson, its coaches and the instance's own coaches, which the
         # serializer and the coach index below otherwise lazy-load per row.
@@ -156,13 +156,8 @@ def build_lesson_events(lessons, instances_by_key, range_start, range_end):
 
     rendered_instance_ids = set()
     for lesson in lessons:
-        occurrences = expand_occurrences(
-            lesson.start_datetime,
-            lesson.recurrence_rule,
-            lesson.recurrence_end,
-            range_start,
-            range_end,
-        )
+        # PAD-275 rule 7: the lesson expands itself (exclusions honoured).
+        occurrences = lesson.occurrences_between(range_start, range_end)
 
         for occ_start in occurrences:
             occ_date = occ_start.date()
@@ -314,7 +309,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
                 filled = obj.effective_filled_spots
             else:
                 filled = len(obj.players_relations)
-            if obj.max_players is None or filled >= obj.max_players:
+            if obj.effective_max_players is None or filled >= obj.effective_max_players:
                 return
             if not passes_eligibility(cp, obj, coach_id, effective_eligibility(obj, coach_id, config)):
                 return
@@ -326,9 +321,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
         for lesson in lessons:
             if lesson.id in own_lessons:
                 continue
-            for occ_start in expand_occurrences(
-                lesson.start_datetime, lesson.recurrence_rule, lesson.recurrence_end, horizon_start, range_end
-            ):
+            for occ_start in lesson.occurrences_between(horizon_start, range_end):
                 occ_date = occ_start.date()
                 instance = instances_by_key.get((lesson.id, occ_date))
                 if instance is not None:

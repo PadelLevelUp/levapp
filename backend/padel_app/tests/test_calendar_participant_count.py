@@ -31,9 +31,6 @@ def _make_instance(app, *, enrolled: int, declined: int, max_players: int):
     from padel_app.models.Association_CoachLessonInstance import (
         Association_CoachLessonInstance,
     )
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
 
     suffix = f"{enrolled}_{declined}_{max_players}"
 
@@ -87,11 +84,6 @@ def _make_instance(app, *, enrolled: int, declined: int, max_players: int):
         db.session.add(player)
         db.session.flush()
 
-        db.session.add(
-            Association_PlayerLessonInstance(
-                player_id=player.id, lesson_instance_id=instance.id
-            )
-        )
         db.session.add(
             Presence(
                 player_id=player.id,

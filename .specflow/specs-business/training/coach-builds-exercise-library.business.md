@@ -47,6 +47,10 @@ Coaches building and maintaining their own exercise library.
   paths (numbered on the court when there is more than one — a serve, its return, the volley…) and
   any number of player movements. Diagrams drawn before the tactical board keep working and are
   upgraded silently the next time they are edited.
+- Within a step, the actions play in the order the coach drew them. The ball goes where it goes,
+  and only then does the player run to it. Players who move at the same moment move together.
+  A player can make several runs in one step. The coach can watch an exercise slow, normal or
+  fast. Exercises saved before this ordering play as they always did (PAD-309, PAD-310, PAD-311).
 - An exercise can belong to more than one group at once.
 - Exercise and group management is coach-only — a student gets rejected outright, never a server
   error.

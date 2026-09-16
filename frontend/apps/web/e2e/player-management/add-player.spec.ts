@@ -12,7 +12,9 @@ test("US-35: coach adds a new player manually", async ({ page }) => {
   // Open the add-player dialog/sheet
   await page.getByRole("button", { name: /add player/i }).first().click();
 
-  await page.getByPlaceholder("e.g. John Doe").fill("New E2E Player");
+  // The sheet's name field, located by its stable id rather than its
+  // (translated) placeholder — the page renders pt in E2E.
+  await page.locator("#player-name").fill("New E2E Player");
   // PAD-105: the coach supplies no username — the backend assigns a placeholder
   // that the player replaces when they activate their own account.
 
@@ -49,6 +51,6 @@ test("US-39: coach can open player profile", async ({ page }) => {
   // Should navigate to the player detail page which shows the Evaluation and
   // Strengths & Weaknesses sections
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
-  await expect(page.getByText("Evaluation").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("player-evaluations-section").first()).toBeVisible({ timeout: 5000 });
   await expect(page.getByText(/strengths.*weaknesses/i).first()).toBeVisible();
 });

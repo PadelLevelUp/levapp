@@ -31,8 +31,17 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   // Beginner; switch to Intermediate so the change is observable.
   await page.getByRole("option", { name: /Intermediate/i }).click();
 
-  // Save (button label "Save" / "Saving" in-flight).
+  // Save (button label "Save" / "Saving" in-flight). Capture the persisted
+  // levelId from the request itself — the same value that drives the
+  // Select's rendered state — never the rendered label.
+  const saved = page.waitForResponse(
+    (r) => /\/edit_player/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+  );
   await page.getByRole("button", { name: /^save$/i }).click();
+  const savedRequest = (await saved).request();
+  const savedBody = JSON.parse(savedRequest.postData() ?? "{}");
+  const savedLevelId = savedBody.updates?.levelId;
+  expect(savedLevelId, "the save request must carry the chosen levelId").toBeTruthy();
 
   // Badge should now reflect the chosen level (not in edit mode anymore).
   await expect(page.getByText(/I1\s*\|\s*Intermediate/).first()).toBeVisible({ timeout: 5000 });
@@ -43,7 +52,13 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   await expect(page.getByText(/I1\s*\|\s*Intermediate/).first()).toBeVisible({ timeout: 10000 });
 
   // Strongest regression check: re-open edit and verify the level Select itself
-  // reflects the saved value (the bug was the Select couldn't show it).
+  // reflects the saved value (the bug was the Select couldn't show it) —
+  // asserted via data-selected-level-id (the same value that picks the
+  // rendered label), never the rendered label itself (the page renders pt
+  // in E2E).
   await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
-  await expect(page.locator('[role="combobox"]').nth(1)).toContainText(/Intermediate/i);
+  await expect(page.getByTestId("player-header-level-select")).toHaveAttribute(
+    "data-selected-level-id",
+    savedLevelId,
+  );
 });

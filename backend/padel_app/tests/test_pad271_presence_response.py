@@ -1,9 +1,9 @@
 """PAD-271 (audit M5): one presence response field — attendance.presence rule 7.
 
-HELD: the `response` / `responded_at` / `recorded_by` columns and their migration
-wait for the owner's answers to decisions 6-8 (2026-09-11). The tests are the
-contract, written now so the shape is on record; they are skipped, not red,
-until the column exists.
+Decided 2026-09-11 (coordinator, owner informed): the `response` /
+`responded_at` / `recorded_by` columns land in phase 1 (migration 7558c350c002);
+`late_cancellation` is derived; the legacy booleans stay as shadow columns until
+phase 2 moves the readers and both shells to `response`.
 """
 from datetime import datetime
 from unittest.mock import patch
@@ -22,9 +22,6 @@ from padel_app.tests.test_notification_integration import (
     _seed_notification_config,
 )
 
-HELD = "PAD-271 M5 held: column and migration wait for the owner's decisions 6-8 (2026-09-11)"
-
-
 def _world(app):
     with app.app_context():
         coach = _create_coach(_create_user("Coach", "coach-271m5"))
@@ -42,14 +39,13 @@ def _presence(ids):
     return Presence.query.filter_by(lesson_instance_id=ids["instance_id"], player_id=ids["alice"]).one()
 
 
-@pytest.mark.skip(reason=HELD)
 def test_a_reminder_yes_writes_response_confirmed_by_the_student(app):
     from padel_app.services.notification_service import respond_to_reminder
 
     ids = _world(app)
     with app.app_context():
         with patch(PATCHES[0]), patch(PATCHES[1]):
-            respond_to_reminder(ids["instance_id"], ids["alice_user"], "yes")
+            respond_to_reminder(ids["instance_id"], "yes", ids["alice_user"])
         p = _presence(ids)
         assert p.response == "confirmed"
         assert p.recorded_by == "student"
@@ -57,20 +53,18 @@ def test_a_reminder_yes_writes_response_confirmed_by_the_student(app):
         assert p.status is None, "the coach's record is untouched"
 
 
-@pytest.mark.skip(reason=HELD)
 def test_a_reminder_no_writes_response_declined(app):
     from padel_app.services.notification_service import respond_to_reminder
 
     ids = _world(app)
     with app.app_context():
         with patch(PATCHES[0]), patch(PATCHES[1]):
-            respond_to_reminder(ids["instance_id"], ids["alice_user"], "no")
+            respond_to_reminder(ids["instance_id"], "no", ids["alice_user"])
         p = _presence(ids)
         assert p.response == "declined"
         assert p.recorded_by == "student"
 
 
-@pytest.mark.skip(reason=HELD)
 def test_a_cancel_writes_response_cancelled_and_a_proactive_decline_its_own_value(app):
     from padel_app.services.notification_service import cancel_attendance
 
@@ -83,7 +77,6 @@ def test_a_cancel_writes_response_cancelled_and_a_proactive_decline_its_own_valu
         assert p.recorded_by == "student"
 
 
-@pytest.mark.skip(reason=HELD)
 def test_the_coach_attendance_mark_never_moves_response(app):
     from padel_app.services.lesson_service import add_presences
 
@@ -101,21 +94,26 @@ def test_the_coach_attendance_mark_never_moves_response(app):
         assert p.recorded_by == "coach"
 
 
-@pytest.mark.skip(reason=HELD)
-def test_legacy_booleans_are_derived_from_response_on_read(app):
+def test_the_payload_carries_the_answer_and_phase_1_keeps_the_shadow_booleans(app):
+    """Phase 1 (decided 2026-09-11): `response` / `respondedAt` / `recordedBy` are
+    served; `invited` / `confirmed` are still the stored shadow columns. Phase 2
+    derives them from `response` and drops them."""
     from padel_app.serializers.presence import serialize_presence
+    from padel_app.services.presence_response import record_response
 
     ids = _world(app)
     with app.app_context():
         p = _presence(ids)
-        p.response = "declined"
+        record_response(p, "declined", when=datetime(2026, 9, 11, 9, 0))
         db.session.commit()
         out = serialize_presence(_presence(ids))
-        assert out["invited"] is True
-        assert out["confirmed"] is True, "confirmed = response != none"
+        assert out["response"] == "declined"
+        assert out["respondedAt"] == "2026-09-11T09:00:00"
+        assert out["recordedBy"] == "student"
+        assert out["lateCancellation"] is False, "a plain decline is never late"
+        assert out["invited"] is True and out["confirmed"] is False, "phase 1: stored shadow flags"
 
 
-@pytest.mark.skip(reason=HELD)
 @pytest.mark.parametrize(
     "flags, expected",
     [

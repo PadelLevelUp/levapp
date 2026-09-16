@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { ui } from "../helpers/i18n";
 
 /**
  * The public landing page at `/`, and the animated loader that covers the
@@ -25,14 +26,14 @@ test.describe("landing page", () => {
     ).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
     // The public page must never leak the app shell.
-    await expect(page.getByRole("link", { name: /^calendário$/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: ui("nav.calendar") })).toHaveCount(0);
   });
 
   test("the landing page's Entrar button goes to the login form", async ({
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /^entrar$/i }).first().click();
+    await page.getByRole("link", { name: ui("landing.nav.login") }).first().click();
 
     await page.waitForURL("**/auth");
     await expect(page.locator("#username")).toBeVisible();
@@ -50,17 +51,17 @@ test.describe("landing page", () => {
     await expect(
       page
         .getByRole("navigation")
-        .getByRole("link", { name: /^(calendar|calendário)$/i }),
+        .getByRole("link", { name: ui("nav.calendar") }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
   test("the footer links reach the legal pages", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /^privacidade$/i }).click();
+    await page.getByRole("link", { name: ui("landing.footer.privacy") }).click();
     await page.waitForURL("**/privacy");
 
     await page.goto("/");
-    await page.getByRole("link", { name: /^termos$/i }).click();
+    await page.getByRole("link", { name: ui("landing.footer.terms") }).click();
     await page.waitForURL("**/terms");
   });
 
@@ -69,26 +70,26 @@ test.describe("landing page", () => {
   }) => {
     await page.goto("/");
     const tabs = page.getByRole("tablist");
-    await expect(tabs.getByRole("tab", { name: /para treinadores/i })).toHaveAttribute(
+    await expect(tabs.getByRole("tab", { name: ui("landing.audience.coaches") })).toHaveAttribute(
       "aria-selected",
       "true",
     );
 
-    await tabs.getByRole("tab", { name: /para alunos/i }).click();
+    await tabs.getByRole("tab", { name: ui("landing.audience.players") }).click();
     await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /enche as aulas/i })).toHaveCount(0);
-    await expect(tabs.getByRole("tab", { name: /para alunos/i })).toHaveAttribute(
+    await expect(tabs.getByRole("tab", { name: ui("landing.audience.players") })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     await expect(page).toHaveURL(/\/$/);
 
-    await tabs.getByRole("tab", { name: /^outros$/i }).click();
+    await tabs.getByRole("tab", { name: ui("landing.audience.others") }).click();
     await expect(
       page.getByRole("heading", { name: /novidades a caminho/i }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /ideias que nos entusiasmam/i }),
+      page.getByRole("heading", { name: ui("landing.others.ideasTitle") }),
     ).toBeVisible();
     // "Others" has no benefits / how / results sections.
     await expect(page.locator("#como-funciona")).toHaveCount(0);
@@ -99,7 +100,7 @@ test.describe("landing page", () => {
     await page.goto("/?audience=alunos");
     await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
     await expect(
-      page.getByRole("tablist").getByRole("tab", { name: /para alunos/i }),
+      page.getByRole("tablist").getByRole("tab", { name: ui("landing.audience.players") }),
     ).toHaveAttribute("aria-selected", "true");
 
     await page.goto("/?audience=players");
@@ -112,16 +113,16 @@ test.describe("landing page", () => {
 
   test("the final CTA rotates through the audiences", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /^sou aluno$/i }).click();
+    await page.getByRole("button", { name: ui("landing.cta.coaches.switch") }).click();
     await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
 
-    await page.getByRole("button", { name: /^sou treinador$/i }).click();
+    await page.getByRole("button", { name: ui("landing.cta.players.switch") }).click();
     await expect(page.getByRole("heading", { name: /enche as aulas/i })).toBeVisible();
   });
 
   test("the player audience sends a lost invite to support", async ({ page }) => {
     await page.goto("/?audience=alunos");
-    await page.getByRole("link", { name: /recebi um convite/i }).click();
+    await page.getByRole("link", { name: ui("landing.hero.players.secondary") }).click();
     await page.waitForURL("**/support");
   });
 });
@@ -163,7 +164,7 @@ test.describe("login loader", () => {
     await expect(
       page
         .getByRole("navigation")
-        .getByRole("link", { name: /^(calendar|calendário)$/i }),
+        .getByRole("link", { name: ui("nav.calendar") }),
     ).toBeVisible({ timeout: 15_000 });
   });
 

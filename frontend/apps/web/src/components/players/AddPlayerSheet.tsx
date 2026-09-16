@@ -138,7 +138,10 @@ export function AddPlayerSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && handleClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent
+        className="w-full sm:max-w-lg overflow-y-auto"
+        data-testid="add-player-sheet"
+      >
         <SheetHeader>
           <SheetTitle>{t("players.newPlayer")}</SheetTitle>
         </SheetHeader>
@@ -197,7 +200,7 @@ export function AddPlayerSheet({
           <div className="space-y-2">
             <Label>{t("players.levelOptional")}</Label>
             <Select value={levelId} onValueChange={setLevelId}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="player-level-select">
                 <SelectValue placeholder={t("players.selectLevel")} />
               </SelectTrigger>
               <SelectContent>

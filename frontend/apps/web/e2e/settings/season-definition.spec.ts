@@ -117,7 +117,10 @@ test.describe("PAD-82 one recurring season", () => {
     await openCalendar(page);
     await page.getByRole("button", { name: /new class|add class/i }).first().click();
     await expect(
-      page.getByRole("heading", { name: /new class/i }).or(page.getByText(/new class/i).first())
+      page
+        .getByRole("heading", { name: /new class/i })
+        .or(page.getByTestId("add-class-sheet"))
+        .first()
     ).toBeVisible({ timeout: 5000 });
     await page.getByPlaceholder(/e\.g\./i).first().fill("PAD-82 Season Class");
     const today = now.toISOString().slice(0, 10);

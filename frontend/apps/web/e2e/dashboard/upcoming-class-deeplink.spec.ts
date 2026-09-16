@@ -7,12 +7,19 @@ import { openDashboard } from "../helpers/navigation";
  *
  * Spec: dashboard.navigation rules 8–10, calendar.event-detail rules 10–12.
  *
- * The seeded "E2E Academy Class" always falls on NEXT Monday (see e2e/scripts/seed.py),
- * i.e. never in the week the calendar shows by default. So a click that only lands on
- * /calendar leaves the coach on the wrong week with nothing selected — which is exactly
- * the bug. Clicking must select the class's week AND open its detail sheet.
+ * The coach test reads "E2E Upcoming Class", the seed's "Next 7 days" fixture
+ * (PAD-343): the earlier of next Monday and today + 6, so it is in the coach's list at
+ * any hour of any weekday. On every weekday but Monday it is also in a later week than
+ * the calendar's default one, so a click that only lands on /calendar leaves the coach
+ * on the wrong week with nothing selected — which is exactly the bug. (Nothing inside a
+ * 7-day window can be in a later week on a Monday morning; test_seed_dates.py pins both.)
+ *
+ * The student test reads "E2E Academy Class" (next Monday 10:00): the student's
+ * schedule is a 30-day window, and the student is enrolled in that class only.
+ * Clicking must select the class's week AND open its detail sheet.
  */
 
+const COACH_UPCOMING_CLASS = "E2E Upcoming Class";
 const SEEDED_CLASS = "E2E Academy Class";
 
 type ClassListItem = { id: string; href: string };
@@ -80,7 +87,7 @@ test("PAD-79: clicking an upcoming class opens its detail sheet on the right wee
   await payloadPromise;
 
   const upcomingRow = page
-    .getByRole("button", { name: new RegExp(SEEDED_CLASS, "i") })
+    .getByRole("button", { name: new RegExp(COACH_UPCOMING_CLASS, "i") })
     .first();
   await expect(upcomingRow).toBeVisible({ timeout: 10_000 });
   await upcomingRow.click();
@@ -90,7 +97,7 @@ test("PAD-79: clicking an upcoming class opens its detail sheet on the right wee
   // The class detail sheet for that exact occurrence is already open.
   const sheet = page.locator('[role="dialog"]').first();
   await expect(sheet).toBeVisible({ timeout: 10_000 });
-  await expect(sheet.getByText(SEEDED_CLASS).first()).toBeVisible();
+  await expect(sheet.getByText(COACH_UPCOMING_CLASS).first()).toBeVisible();
 
   // The deep-link params are consumed once, so closing the sheet does not re-open it.
   await expect
@@ -102,7 +109,7 @@ test("PAD-79: clicking an upcoming class opens its detail sheet on the right wee
 
   // And we are left on the week that actually contains the class — the event is
   // rendered in the calendar grid behind the (now closed) sheet.
-  await expect(page.getByText(SEEDED_CLASS).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(COACH_UPCOMING_CLASS).first()).toBeVisible({ timeout: 10_000 });
 });
 
 // PAD-79: the same deep link works from the student dashboard.

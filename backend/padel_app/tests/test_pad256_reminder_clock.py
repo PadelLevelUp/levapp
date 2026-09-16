@@ -97,7 +97,6 @@ def _seed(app, wall_start):
     """Coach, student, club, level, a one-off class at `wall_start`, the coach
     and the student on the instance. Returns (coach_id, student_id, instance_id)."""
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.coaches import Coach
@@ -131,7 +130,6 @@ def _seed(app, wall_start):
     db.session.add(instance)
     db.session.flush()
     db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
-    db.session.add(Association_PlayerLessonInstance(player_id=student.id, lesson_instance_id=instance.id))
     db.session.add(Presence(player_id=student.id, lesson_instance_id=instance.id, invited=True, enrolment_source="roster"))  # PAD-259
     db.session.commit()
     return coach.id, student.id, instance.id

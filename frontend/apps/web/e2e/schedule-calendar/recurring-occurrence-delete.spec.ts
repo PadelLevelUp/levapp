@@ -60,7 +60,9 @@ test.describe("PAD-65: deleted recurring occurrence stays gone", () => {
     await page.locator("text=/participants|attendance|edit/i").first().waitFor({ timeout: 5000 });
     await page.getByRole("dialog").getByRole("button", { name: /delete class/i }).first().click();
 
-    const single = page.getByText("Only this class").first();
+    // The toast text is not the observable: the delete endpoint's response
+    // (checked below) and the occurrence staying gone on reload are.
+    const single = page.getByTestId("class-scope-single");
     await expect(single).toBeVisible({ timeout: 5000 });
     await Promise.all([
       page.waitForResponse(
@@ -72,7 +74,6 @@ test.describe("PAD-65: deleted recurring occurrence stays gone", () => {
       ),
       single.click(),
     ]);
-    await expect(page.getByText("Class deleted").first()).toBeVisible({ timeout: 5000 });
 
     // Reload and return to the same week: the occurrence must NOT reappear,
     // while the following week's occurrence must remain (single-scope delete).

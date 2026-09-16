@@ -40,7 +40,7 @@ test("PAD-10: deleting a non-recurring class shows success toast and updates UI"
   );
   await page.getByRole("button", { name: /create class/i }).click();
   await created;
-  await expect(page.getByRole("dialog").filter({ hasText: /create class/i })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("add-class-sheet")).toHaveCount(0, { timeout: 15_000 });
 
   const found = await findClass(page, title);
   expect(found).toBe(true);
@@ -56,11 +56,16 @@ test("PAD-10: deleting a non-recurring class shows success toast and updates UI"
   await deleteBtn.click();
   const confirmDialog = page.getByRole("alertdialog");
   await expect(confirmDialog).toBeVisible({ timeout: 5000 });
-  await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
 
-  // Should show success toast, NOT error toast
-  await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Delete failed")).not.toBeVisible();
+  // The toast text is not the observable: the delete endpoint's response and
+  // the class disappearing from the grid are — a toast can be mistranslated
+  // or restyled without the deletion itself having failed.
+  const deleted = page.waitForResponse(
+    (r) => /\/app\/remove_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 15_000 }
+  );
+  await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
+  await deleted;
 
   // Class should be removed from the calendar grid (not checking toast area)
   await expect(page.getByRole("main").getByText(title)).not.toBeVisible({ timeout: 3000 });
@@ -83,11 +88,19 @@ test("PAD-10: deleting a single occurrence of recurring class shows success toas
   await deleteBtn.click();
 
   // Scope dialog should appear — choose "Only this class"
-  const singleBtn = page.getByText("Only this class").first();
+  const singleBtn = page.getByTestId("class-scope-single");
   await expect(singleBtn).toBeVisible({ timeout: 5000 });
-  await singleBtn.click();
 
-  // Should show success toast, NOT error toast
-  await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Delete failed")).not.toBeVisible();
+  // The toast text is not the observable: the delete endpoint's response and
+  // the occurrence disappearing from the grid are.
+  const deleted = page.waitForResponse(
+    (r) => /\/app\/remove_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 15_000 }
+  );
+  await singleBtn.click();
+  await deleted;
+
+  // The occurrence should be removed from the calendar grid — the persisted
+  // effect of a successful delete.
+  await expect(page.getByRole("main").getByText(title)).not.toBeVisible({ timeout: 5000 });
 });

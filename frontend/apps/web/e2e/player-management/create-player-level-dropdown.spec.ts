@@ -14,7 +14,7 @@ test("PAD-29: level field shows the coach's levels as options when levels exist"
   await page.getByRole("button", { name: /add player/i }).first().click();
 
   // Open the Level select.
-  await page.getByText("Select level").click();
+  await page.getByTestId("player-level-select").click();
 
   // Seeded coach has levels "Beginner" (B1) and "Intermediate" (I1).
   await expect(page.getByRole("option", { name: /Beginner/i })).toBeVisible();
@@ -29,7 +29,7 @@ test("PAD-29: level field guides coach to Settings when no levels are defined", 
 
   // Open the Level select. Because this coach has no levels, there must be a
   // clear empty-state message rather than an empty dropdown.
-  await page.getByText("Select level").click();
+  await page.getByTestId("player-level-select").click();
 
   // No selectable level options should exist for a coach with no levels.
   await expect(page.getByRole("option")).toHaveCount(0);

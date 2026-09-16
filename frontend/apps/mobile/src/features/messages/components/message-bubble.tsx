@@ -189,6 +189,26 @@ export function MessageBubble({
   const isWaitingListOffer = message.messageType === "waiting_list_offer";
   const waitingList = waitingListOfferState(message.metadata, null);
 
+  // messaging.conversation-detail rule 15 (PAD-325): the class this message
+  // acts on was deleted. Its answers can only fail, so the reminder and
+  // waiting-list buttons give way to a note saying what happened.
+  const classDeleted = message.classDeleted === true;
+  const classDeletedBadge = (
+    <View
+      testID="message-class-deleted"
+      className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70"
+    >
+      <Ionicons
+        name="remove-circle-outline"
+        size={14}
+        color={lightTheme.mutedForeground}
+      />
+      <Text className="text-xs font-medium text-muted-foreground">
+        {t("messages.classDeleted")}
+      </Text>
+    </View>
+  );
+
   // PAD-168: `replacement_approval` messages rendered as plain text on iOS, so
   // a coach could not complete a semi-automatic approval from the phone at
   // all. Web reads the bundle straight off metadata and guards on bundleId +
@@ -428,7 +448,9 @@ export function MessageBubble({
             coach's own reminder is not theirs to answer. */}
         {isReminder && !own ? (
           <View className="mt-1.5 flex-row flex-wrap gap-2 self-start">
-            {reminder.confirmed ? (
+            {classDeleted ? (
+              classDeletedBadge
+            ) : reminder.confirmed ? (
               <>
                 <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
                   <Ionicons
@@ -603,7 +625,9 @@ export function MessageBubble({
               own ? "self-end" : "self-start"
             )}
           >
-            {waitingList.joined ? (
+            {classDeleted ? (
+              classDeletedBadge
+            ) : waitingList.joined ? (
               <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
                 <Ionicons
                   name="checkmark"

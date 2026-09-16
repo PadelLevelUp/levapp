@@ -69,16 +69,18 @@ class Player(db.Model, model.Model):
         passive_deletes=True,
     )
 
-    lesson_instances_relations = relationship(
-        "Association_PlayerLessonInstance",
-        back_populates="player",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
     @property
     def lesson_instances(self):
-        return [rel.lesson_instance for rel in self.lesson_instances_relations]
+        """The occurrences this player is enrolled on. PAD-301: the presence
+        row is the enrolment (classes.instance-enrollment rule 1); the shadow
+        junction and its relationship are gone."""
+        from padel_app.models.presences import Presence
+
+        return [
+            p.lesson_instance
+            for p in Presence.query.filter_by(player_id=self.id).all()
+            if p.lesson_instance is not None
+        ]
 
     clubs_relations = relationship(
         "Association_PlayerClub", back_populates="player", cascade="all, delete-orphan",
@@ -148,12 +150,6 @@ class Player(db.Model, model.Model):
                     type="OneToMany",
                     label="Lessons",
                     related_model="Association_PlayerLesson",
-                ),
-                get_field(
-                    "lesson_instances_relations",
-                    type="OneToMany",
-                    label="Lesson Instances",
-                    related_model="Association_PlayerLessonInstance",
                 ),
                 get_field(
                     "level_history",

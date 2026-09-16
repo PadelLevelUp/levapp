@@ -22,6 +22,7 @@ interface RestrictionRowProps {
   onToggle: () => void;
   onIncrement?: () => void;
   onDecrement?: () => void;
+  testId?: string;
 }
 
 function RestrictionRow({
@@ -37,9 +38,10 @@ function RestrictionRow({
   onToggle,
   onIncrement,
   onDecrement,
+  testId,
 }: RestrictionRowProps) {
   return (
-    <div className={`space-y-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+    <div className={`space-y-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={testId}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">{label}</p>
@@ -153,6 +155,7 @@ interface ExcludedPlayersRowProps {
   onAddPlayer: (id: string, name: string) => void;
   onRemovePlayer: (id: string) => void;
   disabled?: boolean;
+  testId?: string;
 }
 
 function ExcludedPlayersRow({
@@ -162,6 +165,7 @@ function ExcludedPlayersRow({
   onAddPlayer,
   onRemovePlayer,
   disabled,
+  testId,
 }: ExcludedPlayersRowProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -197,7 +201,7 @@ function ExcludedPlayersRow({
   };
 
   return (
-    <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+    <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid={testId}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">{t("settings.restrictions.excludedPlayers")}</p>
@@ -323,6 +327,7 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         onToggle={() => update("maxInactiveTime", { enabled: !restrictions.maxInactiveTime.enabled })}
         onIncrement={() => update("maxInactiveTime", { value: Math.min(1440, restrictions.maxInactiveTime.value + 15) })}
         onDecrement={() => update("maxInactiveTime", { value: Math.max(15, restrictions.maxInactiveTime.value - 15) })}
+        testId="restriction-row-max-inactive-time"
       />
 
       <RestrictionRow
@@ -371,6 +376,7 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         onAddPlayer={(id) => update("excludedPlayers", { playerIds: [...restrictions.excludedPlayers.playerIds, id] })}
         onRemovePlayer={(id) => update("excludedPlayers", { playerIds: restrictions.excludedPlayers.playerIds.filter((p) => p !== id) })}
         disabled={disabled}
+        testId="restriction-row-excluded-players"
       />
 
       <RestrictionRow
@@ -380,6 +386,7 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         showValue={false}
         disabled={disabled}
         onToggle={() => update("excludeUnpaidSubscription", { enabled: !restrictions.excludeUnpaidSubscription.enabled })}
+        testId="restriction-row-exclude-unpaid"
       />
 
       <ScalarStepperRow

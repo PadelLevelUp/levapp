@@ -15,7 +15,7 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
   // ambiguous for a coach. Target the stable testid instead.
   await page.getByTestId("settings-nav-notifications").click();
   // Wait for the notification engine card to render
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -95,8 +95,8 @@ async function openSection(page: import("@playwright/test").Page, label: RegExp 
 test("US-53: notification engine card is visible in the notifications tab", async ({ page }) => {
   await openNotificationsTab(page);
 
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible();
-  await expect(page.getByText(/automatic notifications/i)).toBeVisible();
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible();
+  await expect(page.getByTestId("notification-engine-auto-notify-label")).toBeVisible();
 });
 
 test("US-53: master auto-notify toggle is present and interactive", async ({ page }) => {
@@ -118,8 +118,8 @@ test("US-71: reminders section can be opened", async ({ page }) => {
 
   await openSection(page, /^reminders$/i);
 
-  await expect(page.getByText(/first reminder timing/i)).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/reminders per student/i)).toBeVisible();
+  await expect(page.getByTestId("reminder-first-reminder-timing")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("reminder-per-student")).toBeVisible();
 });
 
 test("US-71: reminders timing mode selector has both options", async ({ page }) => {
@@ -157,7 +157,7 @@ test("US-71: hours-between-reminders field appears only when reminder count > 1"
   await openSection(page, /^reminders$/i);
 
   // By default count is 1, so field should not be visible
-  const betweenLabel = page.getByText(/hours between reminders/i);
+  const betweenLabel = page.getByTestId("reminder-hours-between");
   const defaultVisible = await betweenLabel.isVisible().catch(() => false);
 
   if (!defaultVisible) {
@@ -166,7 +166,7 @@ test("US-71: hours-between-reminders field appears only when reminder count > 1"
     // Walk up to the wrapper div (space-y-1.5), then find the stepper row and click the + button.
     const row = page.getByText(/^reminders per student$/i).locator("xpath=ancestor::div[contains(@class, 'space-y-1.5')][1]");
     await row.getByRole("button").last().click();
-    await expect(page.getByText(/hours between reminders/i)).toBeVisible({ timeout: 3000 });
+    await expect(page.getByTestId("reminder-hours-between")).toBeVisible({ timeout: 3000 });
   }
 });
 
@@ -174,7 +174,7 @@ test("US-71: start invitations timing selector is present", async ({ page }) => 
   await openNotificationsTab(page);
   await openSection(page, /^reminders$/i);
 
-  await expect(page.getByText(/start invitations/i)).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("reminder-start-invitations")).toBeVisible({ timeout: 3000 });
   // Two mode selects should be present (first reminder + invitation start)
   const selects = page.locator('[role="combobox"]');
   expect(await selects.count()).toBeGreaterThanOrEqual(2);
@@ -279,9 +279,9 @@ test("US-73: tiebreakers section can be opened and shows default items", async (
   await openNotificationsTab(page);
   await openSection(page, /tiebreakers/i);
 
-  await expect(page.getByText(/fewest unjustified absences/i)).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/highest attendance rate/i)).toBeVisible();
-  await expect(page.getByText(/most justified absences/i)).toBeVisible();
+  await expect(page.getByTestId("tiebreaker-label-unjustified_absences")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("tiebreaker-label-attendance_rate")).toBeVisible();
+  await expect(page.getByTestId("tiebreaker-label-justified_absences")).toBeVisible();
 });
 
 test("US-73: tiebreaker toggle switches enabled state", async ({ page }) => {
@@ -318,17 +318,17 @@ test("US-74: restrictions section shows new maxInactiveTime row", async ({ page 
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);
 
-  await expect(page.getByText(/max inactive time/i)).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("restriction-row-max-inactive-time")).toBeVisible({ timeout: 3000 });
 });
 
 test("US-74: excluded players row appears and can be enabled", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);
 
-  await expect(page.getByText(/excluded players/i)).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("restriction-row-excluded-players")).toBeVisible({ timeout: 3000 });
 
   // Enable excluded players to show the search field
-  const row = page.getByText(/excluded players/i).locator("../..").locator("..");
+  const row = page.getByTestId("restriction-row-excluded-players");
   const toggle = row.locator('[role="switch"]').first();
   const wasUnchecked = (await toggle.getAttribute("data-state")) === "unchecked";
 
@@ -343,7 +343,7 @@ test("US-74: exclude inactive accounts toggle is present (PAD-132 relabel)", asy
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);
 
-  await expect(page.getByText(/exclude inactive accounts/i)).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("restriction-row-exclude-unpaid")).toBeVisible({ timeout: 3000 });
 });
 
 test("US-75: max inactive time stepper is functional when enabled", async ({ page }) => {
@@ -351,7 +351,7 @@ test("US-75: max inactive time stepper is functional when enabled", async ({ pag
   await openSection(page, /^restrictions$/i);
 
   // Find and enable the max inactive time toggle
-  const inactiveRow = page.getByText(/max inactive time/i).locator("../..").locator("..");
+  const inactiveRow = page.getByTestId("restriction-row-max-inactive-time");
   const toggle = inactiveRow.locator('[role="switch"]').first();
 
   if ((await toggle.getAttribute("data-state")) === "unchecked") {
@@ -381,18 +381,18 @@ test("US-56: new reminder templates are present", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  await expect(page.getByText(/attendance reminder/i)).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/reminder follow-up/i)).toBeVisible();
-  await expect(page.getByText(/attendance confirmed/i)).toBeVisible();
-  await expect(page.getByText(/attendance declined/i)).toBeVisible();
+  await expect(page.getByTestId("template-row-reminder")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("template-row-reminder_followup")).toBeVisible();
+  await expect(page.getByTestId("template-row-reminder_confirmed")).toBeVisible();
+  await expect(page.getByTestId("template-row-reminder_declined")).toBeVisible();
 });
 
 test("US-56: waiting list templates are present", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  await expect(page.getByText(/waiting list offer/i)).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/spot from waiting list/i)).toBeVisible();
+  await expect(page.getByTestId("template-row-waiting_list_offer")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("template-row-waiting_list_placed")).toBeVisible();
 });
 
 test("US-56: variable chips are shown and insert text at cursor", async ({ page }) => {

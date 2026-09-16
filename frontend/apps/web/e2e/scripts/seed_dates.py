@@ -23,6 +23,13 @@ weekday, and ``test_seed_dates.py`` proves it by walking all seven. Rules:
 * The pending-confirm class stays **tomorrow** (PAD-144's "tomorrow" is the
   behaviour under test) but at **12:00–13:00**, clear of every window the
   availability specs use (15:00–16:00, 18:00–20:00, 19:15–19:45).
+* **"E2E Upcoming Class"** (PAD-343) is the coach dashboard's "Next 7 days"
+  fixture: on the earlier of next Monday and today + 6, 09:00–10:00. The
+  academy class cannot be it — on a Monday it sits exactly 7 days out, so a
+  run before 10:00 does not list it — and it cannot move without breaking the
+  specs that need it in a later calendar week. This one is inside the window
+  at any hour of any weekday, in a later week on every weekday but Monday, and
+  never lower than row 3 of the list's 5.
 * Everything else keeps its offset; it is listed here so the invariants can
   be asserted in one place.
 
@@ -62,6 +69,8 @@ class SeedDates:
     today: datetime
     academy_start: datetime
     academy_end: datetime
+    upcoming_start: datetime
+    upcoming_end: datetime
     declined_start: datetime
     declined_end: datetime
     recurring_start: datetime
@@ -87,6 +96,10 @@ def seed_dates(today: datetime) -> SeedDates:
     # Future class (next Monday 10:00), Lisbon wall-clock like every class time (R-023).
     next_monday = _next_weekday(today, 0)
     academy_start = next_monday.replace(hour=10)
+
+    # PAD-343: the coach dashboard's "Next 7 days" fixture. min() only bites on
+    # a Monday, where next Monday is 7 days out and today + 6 is Sunday.
+    upcoming_start = min(next_monday, today + timedelta(days=6)).replace(hour=9)
 
     # Declined-count class: next Thursday 16:00 (PAD-71).
     next_thursday = _next_weekday(today, 3)
@@ -128,6 +141,8 @@ def seed_dates(today: datetime) -> SeedDates:
         today=today,
         academy_start=academy_start,
         academy_end=academy_start + hour,
+        upcoming_start=upcoming_start,
+        upcoming_end=upcoming_start + hour,
         declined_start=declined_start,
         declined_end=declined_start + hour,
         recurring_start=recurring_start,

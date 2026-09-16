@@ -178,7 +178,6 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=72):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_PlayerLessonInstance import Association_PlayerLessonInstance
 
     with app.app_context():
         club = Club(name="Bool Club", description="", location="Test City")
@@ -203,8 +202,7 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=72):
         db.session.add(Association_CoachLessonInstance(
             coach_id=coach_id, lesson_instance_id=instance.id))
         db.session.commit()
-        # PAD-259: the presence row is the enrolment; the single writer also
-        # keeps the shadow junction row.
+        # PAD-259: the presence row is the enrolment (single writer).
         from padel_app.services.lesson_service import enrol
 
         enrol(student_id, instance, "coach")
@@ -296,7 +294,7 @@ class TestAddPresencesPreservesReminderState:
             assert presence.status == "present"
 
     def test_confirm_attendance_preserves_late_cancellation(self, app):
-        """Attendance marking must not silently clear the late-cancellation flag."""
+        """Attendance marking must not silently clear the student's late-cancel answer."""
         from padel_app.models.presences import Presence
         from padel_app.services.lesson_service import confirm_presences_service
 
@@ -309,7 +307,16 @@ class TestAddPresencesPreservesReminderState:
             row = Presence.query.filter_by(
                 player_id=ids["student_id"], lesson_instance_id=seeded["instance_id"]
             ).one()
-            row.invited, row.confirmed, row.late_cancellation = True, True, True
+            # PAD-271 M5: a late cancellation is response='cancelled' answered inside
+            # the deadline; the coach's attendance mark must leave the answer alone.
+            from datetime import timedelta
+            from padel_app.models.lesson_instances import LessonInstance
+            from padel_app.services.presence_response import record_response
+            from padel_app.utils.dates import wall_to_utc_naive
+            inst = db.session.get(LessonInstance, seeded["instance_id"])
+            answered = wall_to_utc_naive(inst.start_datetime) - timedelta(hours=1)
+            row.invited, row.confirmed = True, True
+            record_response(row, "cancelled", when=answered)
             row.status, row.justification = "absent", "justified"
             row.save()
 
@@ -324,7 +331,9 @@ class TestAddPresencesPreservesReminderState:
                 lesson_instance_id=seeded["instance_id"],
                 player_id=ids["student_id"],
             ).first()
-            assert presence.late_cancellation is True
+            assert presence.response == "cancelled" and presence.responded_at == answered
+            from padel_app.serializers.presence import serialize_presence
+            assert serialize_presence(presence)["lateCancellation"] is True
 
 
 # ---------------------------------------------------------------------------

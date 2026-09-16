@@ -122,7 +122,7 @@ export function ImportHistorySection() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <History className="w-5 h-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">{t("settings.importHistory.title")}</h3>
+        <h3 className="text-lg font-semibold" data-testid="import-history-title">{t("settings.importHistory.title")}</h3>
       </div>
 
       {revertedMessage && (
@@ -150,6 +150,8 @@ export function ImportHistorySection() {
                   </span>
                 )}
                 <Badge
+                  data-testid="import-history-status"
+                  data-status={entry.status}
                   variant={entry.status === "active" ? "default" : "secondary"}
                 >
                   {STATUS_LABEL_KEYS[entry.status]
@@ -157,7 +159,7 @@ export function ImportHistorySection() {
                     : entry.status}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" data-testid="import-history-summary">
                 {formatSummary(entry.summary, t)}
               </p>
             </div>
@@ -190,7 +192,7 @@ export function ImportHistorySection() {
             <AlertDialogTitle>{t("settings.importHistory.areYouSure")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("settings.importHistory.confirmIntro")}
-              <span className="block mt-2 font-medium text-foreground">
+              <span className="block mt-2 font-medium text-foreground" data-testid="import-revert-summary">
                 {confirmEntry && formatSummary(confirmEntry.summary, t)}
               </span>
               <span className="block mt-2">

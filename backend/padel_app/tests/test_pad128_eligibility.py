@@ -462,8 +462,7 @@ def test_waiting_list_placement_honours_excluded_players(app):
 def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
     """PAD-123 / eligibility.enforcement rule 4 — the `absent` half.
 
-    The student still holds their enrolment association AND an `absent`
-    presence, which is exactly the state their own cancellation leaves behind.
+    The student still holds an `absent` presence (the enrolment row), which is exactly the state their own cancellation leaves behind.
     Bar is unset, so only the unconditional exclusion can produce this result.
     """
     from padel_app.models.lesson_instances import LessonInstance
@@ -471,9 +470,6 @@ def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
     from padel_app.models.presences import Presence
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
     from padel_app.services.notification_service import _check_waiting_list
 
     ids = _seed(app, eligibility_rules=None)
@@ -481,8 +477,6 @@ def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
         instance = LessonInstance.query.get(ids["instance_id"])
         canceller = _add_student(ids["coach_id"], "canceller", ids["level_ids"]["5"])
 
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=canceller, lesson_instance_id=instance.id))
         db.session.add(Presence(
             lesson_instance_id=instance.id, player_id=canceller, status="absent"))
         db.session.add(WaitingListEntry(
@@ -519,9 +513,6 @@ def test_enrolled_student_is_never_placed_into_their_own_class(app):
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.models.Association_PlayerLessonInstance import (
-        Association_PlayerLessonInstance,
-    )
     from padel_app.services.notification_service import _check_waiting_list
 
     ids = _seed(app, eligibility_rules=None)
@@ -530,8 +521,6 @@ def test_enrolled_student_is_never_placed_into_their_own_class(app):
         enrolled = _add_student(ids["coach_id"], "enrolled", ids["level_ids"]["5"])
         outsider = _add_student(ids["coach_id"], "outsider", ids["level_ids"]["5"])
 
-        db.session.add(Association_PlayerLessonInstance(
-            player_id=enrolled, lesson_instance_id=instance.id))
         db.session.add(Presence(
             player_id=enrolled, lesson_instance_id=instance.id, invited=True, enrolment_source="coach"))  # PAD-259
         for pid in (enrolled, outsider):
