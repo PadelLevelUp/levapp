@@ -74,11 +74,15 @@ sudo docker inspect postgres --format '{{range .Mounts}}{{.Source}}:{{.Destinati
 sudo docker inspect postgres --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 #  expect: bridge   (if it already says levelup_net, step 2 is a no-op)
 sudo docker inspect postgres --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -v PASSWORD
-#  expect POSTGRES_USER=padel_app_user POSTGRES_DB=padel_app and no PGDATA
+#  expect POSTGRES_USER=padel_app_user POSTGRES_DB=padel_app; PGDATA=/var/lib/postgresql/data is the image default
 sudo ss -ltnp | grep 5432                                  # expect 0.0.0.0:5432 (docker-proxy)
-grep -H POSTGRES_HOST ~/.env.staging ~/.env.prod           # expect 10.132.0.2 in both
+sudo docker exec padelapp env | grep POSTGRES_HOST         # expect 10.132.0.2 — what the container actually runs with
+sudo docker exec padelapp_staging env | grep POSTGRES_HOST # expect 10.132.0.2
+sudo find /home -maxdepth 2 \( -name .env.prod -o -name .env.staging \) -exec grep -H POSTGRES_HOST {} +
+#  the deploys scp the templates to /home/<deploy user>/ (the GCE_USER secret); the SSH user
+#  running this runbook is a different account, so no `~` anywhere in these steps
 ```
-If the image, cmd or mount differ, stop: step 5's `docker run` must reproduce them and I will rewrite it from your output.
+If the image, cmd or mount differ, stop: step 5's `docker run` must reproduce them and I will rewrite it from your output. `PGDATA=/var/lib/postgresql/data` in the env is the image's own default (`postgres:15` sets it in its Dockerfile); step 5 does not pass it and gets the same value, so it is not a discrepancy.
 
 **2. Step B — before the merge. No downtime, nothing restarts.**
 ```bash
@@ -134,3 +138,9 @@ Back-out for D: the same `docker run` with `-p 5432:5432` in place of `-p 127.0.
 ### Resolution
 
 (pending — PAD-292; the repo half only. The VM half is an owner action recorded here when done.)
+
+- **Step 1 (read-only inspection) run by the coordinator 2026-09-16 15:03:56 UTC:** `image=postgres:15`,
+  `cmd=["postgres"]`, `restart=unless-stopped`, ports `0.0.0.0:5432` (docker-proxy), the one mount
+  `/data/postgres:/var/lib/postgresql/data`, networks `bridge` only, env `POSTGRES_USER=padel_app_user
+  POSTGRES_DB=padel_app PGDATA=/var/lib/postgresql/data PG_VERSION=15.15`; `levelup_net` exists; the
+  container has been up two months. Matches the expectations; step 5's `docker run` reproduces it.
