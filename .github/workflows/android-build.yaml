@@ -241,6 +241,10 @@ jobs:
           # later flow times out at login (full run 34642499349, PAD-298).
           E2E_DEBUG_ENDPOINTS: "true"
           TEST_MODE: "true"
+          # The register throttle (5/600 per IP, PAD-269) 429s the 6th signup, so a flow
+          # that walks signup repeatedly (51 x10, then 44) could never pass here.
+          # Playwright's backend turns it off the same way (playwright.config.ts).
+          AUTH_RATE_LIMIT_ENABLED: "0"
         run: |
           set -euo pipefail
           cd backend

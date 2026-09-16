@@ -33,7 +33,7 @@ cd "$ROOT/frontend/apps/mobile/.maestro"
 echo "flows: $FLOWS"
 # PAD-306: flows tagged `ios-only` (47-push-tap-routing drives `xcrun simctl push`)
 # stay out of the Android run until wave C brings FCM push.
-# PAD-314: flows tagged `open-defect-probe` (51, 52) probe a known-open defect and
+# PAD-314: flows tagged `open-defect-probe` probe a known-open defect (51 became a guard when face C was fixed) and
 # run on demand only; config.yaml excludes the same tag for iOS whole-suite runs.
 # PAD-345 (Maestro 2.6.1, verified): such a flow runs only when it is the ONLY
 # entry in MAESTRO_FLOWS. Listed next to another flow it is silently dropped.

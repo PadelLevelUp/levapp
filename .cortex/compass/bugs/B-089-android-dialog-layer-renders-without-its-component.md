@@ -88,6 +88,22 @@ work around the defect today and must be simplified when it is fixed:
   34782075764); at that sample size the two numbers are indistinguishable, so no claim is made
   about whether the fix changed its rate. Instrumenting Fabric's mount is authorised and is the
   next step, preceded by more iterations.
-- **Face C (blank surface after the post-verification transition) — open, unmeasured.** Flow 51
-  was void on both builds because of a probe defect (Maestro's `hideKeyboard` on Android is a back
-  key), fixed in #251 and not yet re-run.
+- **Face C (blank surface after the post-verification transition) — fixed in PAD-314 (Session D,
+  2026-09-16).** Measured, and deterministic on the Android lane: flow 51 failed at walk 1 in six
+  of six runs before the fix. Each run hit one `addViewAt: cannot insert view … View already has a
+  parent` in the commit that swaps verify-email for connect, and React Native then destroyed the
+  surface. What was ruled out:
+  - one navigation path instead of two (V2);
+  - no success toast (V3);
+  - dismissing the keyboard first (V5).
+
+  A native-tag trace (V4, run 35127379373) named the three views: code cell 0's digit Text (2594),
+  its cell View (2596), and the row's Pressable (2622). Fabric moved the Text into the Pressable
+  while the Text was still inside the cell.
+
+  In that same commit, `submit()`'s `finally` reset `submitting`, restyling every cell. **Fix:**
+  `submitting` is reset only on failure; success navigates explicitly (`leave(me)`). Both this fix
+  and a structural alternative (`collapsable={false}` on the cells, row and Pressable) passed every
+  walk the lane allowed (5/5 each) with zero exceptions. The limit was the register throttle
+  (5/600), which the lane now turns off. The link "the style change is what made the cell
+  flatten" is inferred; the views and the cure are measured.
