@@ -1,3 +1,5 @@
+import { PRODUCTION_API_URL } from "./api-target";
+
 /**
  * API base URL.
  *
@@ -25,8 +27,14 @@
  * purely as a local-dev override (e.g. pointing a dev-client build at the
  * dev backend on :5000, or a LAN IP for a physical device) — it must never
  * be the sole source of truth for what a production build talks to.
+ *
+ * PAD-351: that is exactly what happened anyway. Builds 12 and 14-22 went to
+ * TestFlight pointing at staging, because the archiving shell had exported
+ * EXPO_PUBLIC_API_URL. Release builds are now made by scripts/ios-release.sh
+ * <target>, which sets the variable from release-targets.json and refuses to
+ * export an archive whose bundle names any other server
+ * (`mobile.release-build-target`). PRODUCTION_API_URL lives in api-target.ts.
  */
-const PRODUCTION_API_URL = "https://levapp.app/api";
 const DEV_API_URL = "http://localhost:5001/api";
 
 export const API_URL =

@@ -657,6 +657,11 @@
       "addByQr": "Add students by link or QR code",
       "addByQrHint": "Opens the join code on the Players page.",
       "open": "Open"
+    },
+    "buildInfo": {
+      "line": "LevApp {{version}} · {{host}}",
+      "testServer": "Test server: {{host}}",
+      "loginNotice": "Test build. This app uses the test server {{host}}; what you do here is erased when the server is updated."
     }
   }
 }
