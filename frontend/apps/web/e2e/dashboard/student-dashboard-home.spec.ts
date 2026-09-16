@@ -9,7 +9,8 @@ import { openDashboard } from "../helpers/navigation";
  * "Student invite opens that exact class" criterion.
  *
  * The seeded e2e-student is enrolled in "E2E Academy Class" (next Monday
- * 10:00, always inside the 7-day window) with a Presence that is invited but
+ * 10:00, always inside the student's 30-day schedule window — the coach's list
+ * is 7 days and uses its own fixture, PAD-343) with a Presence that is invited but
  * not yet confirmed — so the payload carries a hero, one invite in the queue,
  * and one schedule row, and the page can be asserted on real data rather than
  * empty states.
