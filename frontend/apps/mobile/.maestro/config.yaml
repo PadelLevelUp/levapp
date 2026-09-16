@@ -76,6 +76,8 @@ executionOrder:
     - 40-admin-coach-approval-switch
     # 41 creates its own exercise (PAD-289), so its position is not load bearing.
     - 41-tactical-board-ball-paths
+    # 59 (PAD-309) never saves its exercise, so its position is not load bearing.
+    - 59-tactical-board-movement-legs
     # 60 (PAD-310) never saves its exercise, so its position is not load bearing.
     - 60-tactical-board-speed
     # PAD-300: the five flows below arrived with prefixes already taken (19, 22,
