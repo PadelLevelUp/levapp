@@ -24,15 +24,16 @@ Guarded so a re-run is a no-op; staging is a prod copy per deploy (PAD-200).
    and rows_with_responded_at. The upgrade FAILS if any row has response NULL.
 4. `late_cancellation` is dropped AFTER the backfill read it: lateness is
    derived on read from response + responded_at against the deadline.
-5. The never-written enum values are dropped, each guarded: 'queued' from
-   notification_event_status, 'ended' from lesson_status, 'rescheduled' from
-   lesson_instance_status. Postgres cannot DROP VALUE, so the type is recreated
+5. The never-written enum values are dropped, each guarded: 'ended' from
+   lesson_status and 'rescheduled' from lesson_instance_status. ('queued' on
+   notification_event_status was on this list until PAD-317 made it a live
+   invitation state; it stays.) Postgres cannot DROP VALUE, so the type is recreated
    without the value (new type, ALTER COLUMN ... USING, drop old, rename). A
    value still held by a row is SKIPPED with a WARNING and its count; SQLite is
    a no-op (tests rebuild the schema from the models).
 
 Downgrade re-adds late_cancellation (true where response='cancelled'), drops
-the three columns and their checks, and re-adds the three enum values.
+the three columns and their checks, and re-adds the two enum values.
 """
 import logging
 
@@ -56,7 +57,10 @@ CK_RECORDED_BY_SQL = "recorded_by IS NULL OR recorded_by IN ('student', 'coach',
 
 #: (enum type name, table, column, value to drop)
 DEAD_VALUES = (
-    ("notification_event_status", "notification_events", "status", "queued"),
+    # 'queued' is NOT dead any more: PAD-317 (batch 6) made it a live
+    # invitation state (LIVE_INVITATION_STATES) and its tests write it, so the
+    # value stays on notification_event_status. Only the two never-written
+    # values below go.
     ("lesson_status", "lessons", "status", "ended"),
     ("lesson_instance_status", "lesson_instances", "status", "rescheduled"),
 )

@@ -1,13 +1,25 @@
 /**
- * dashboard.blocks rule 10 (PAD-283 / PAD-284 / PAD-285): where a needs-you
- * item's `href` lands on iOS. The server speaks web paths; this maps each one
- * to an Expo Router destination. Pure, so the mapping is unit-tested without a
- * simulator — `blocks.tsx`'s `go()` just pushes what this returns.
+ * The app's single answer to "the server gave me a web path"
+ * (`dashboard.blocks` rule 10; extended by PAD-327).
+ *
+ * The server speaks web paths — a needs-you item's `href`, and since PAD-327 a
+ * push's `data.path` — and this maps each one to an Expo Router destination.
+ * Pure, so it is unit-tested without a simulator.
+ *
+ * Renamed from `dashboardRoute` when push tap-routing became its second caller:
+ * a name saying "dashboard" while serving pushes is the kind of small lie that
+ * costs somebody an afternoon later.
+ *
+ * Returns null for a path it does not know, and BOTH callers treat null as "go
+ * nowhere" — never a crash, never a guess (the same rule as B-074's unknown
+ * branch).
  */
 import { parseDashboardItemId } from "@/features/calendar/params";
 
 export type DashboardRoute =
   | { pathname: "/class/[id]"; params: Record<string, string> }
+  | { pathname: "/settings"; params?: { section: string } }
+  | { pathname: "/(tabs)/dashboard" }
   | { pathname: "/(tabs)/calendar" }
   | { pathname: "/(tabs)/messages" }
   | { pathname: "/conversation/[id]"; params: { id: string } }
@@ -20,7 +32,7 @@ function query(href: string): URLSearchParams {
   return new URLSearchParams(href.split("?")[1] ?? "");
 }
 
-export function dashboardRoute(
+export function nativeRouteForWebPath(
   href: string,
   hint?: { title?: string; timeLabel?: string }
 ): DashboardRoute | null {
@@ -61,5 +73,15 @@ export function dashboardRoute(
   // PAD-162 / PAD-163: the student's Attended / Missed KPIs.
   if (href.startsWith("/attendance")) return { pathname: "/attendance" };
   if (href.startsWith("/absences")) return { pathname: "/absences" };
+  // PAD-327: the request alerts' destinations. `/settings?section=…` keeps its
+  // section — that is the whole point of the alert ("opens Settings → Club and
+  // approves"), and the native settings screen already reads a `section` param.
+  if (href.startsWith("/settings")) {
+    const section = query(href).get("section");
+    return section
+      ? { pathname: "/settings", params: { section } }
+      : { pathname: "/settings" };
+  }
+  if (href.startsWith("/dashboard")) return { pathname: "/(tabs)/dashboard" };
   return null;
 }

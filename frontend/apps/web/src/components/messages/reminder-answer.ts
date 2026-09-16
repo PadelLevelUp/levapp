@@ -1,3 +1,4 @@
+import { reminderAnswerOutcome as sharedOutcome } from "@levelup/config";
 /**
  * The reminder answer path, pulled out of `MessageBubble` so a unit test can
  * reach it (mirrors iOS's `reminder-state.ts`).
@@ -20,12 +21,15 @@ export type ReminderAnswerOutcome = {
 };
 
 export function reminderAnswerOutcome(action: string | null | undefined): ReminderAnswerOutcome {
-  if (action === "confirmed") return { local: "accepted", toastKey: null };
-  if (action === "declined") return { local: "declined", toastKey: null };
-  if (action === "expired") return { local: null, toastKey: "messages.reminderExpired" };
-  if (action === "not_enrolled") return { local: "not_enrolled", toastKey: null };
-  // Unknown action: the server did not say what it recorded, so paint nothing.
-  return { local: null, toastKey: "messages.somethingWentWrong" };
+  // PAD-315 / B-074: the vocabulary lives in `@levelup/config` now, because
+  // four call sites each enumerated their own subset of it and turned the
+  // server's `spot_filled` into a confident "declined". This function keeps its
+  // own shape (the bubble's local response names) and delegates the decision.
+  const outcome = sharedOutcome({ action });
+  if (outcome.record === "confirmed") return { local: "accepted", toastKey: null };
+  if (outcome.record === "declined") return { local: "declined", toastKey: null };
+  if (outcome.record === "not_enrolled") return { local: "not_enrolled", toastKey: null };
+  return { local: null, toastKey: outcome.messageKey };
 }
 
 export type ReminderMetadataLike = {

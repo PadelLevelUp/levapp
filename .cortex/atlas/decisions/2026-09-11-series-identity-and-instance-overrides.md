@@ -17,7 +17,7 @@ sources:
 
 # Draft skeleton: series identity, per-instance overrides, coaches derived from the lesson
 
-**Status:** SKELETON, not decided. Session H, 2026-09-11, against `staging` 72ac170a8. Independent
+**Status:** SPEC WRITTEN on the recommended defaults (coordinator, 2026-09-11): classes.recurrence rules 6–7, classes.edit rule 4, classes.coach-assignment rules 3–4, classes.delete rule 3, entity lines, one business rule. All four columns (series_id, excluded_dates, max_players_override, coach_override_id) and their migration are HELD until the owner answers decisions 9–11; the code-only parts (fork copies every column; overwrite_title only when different; derived overriddenFields) are implemented first. Tests: test_pad275_series_and_overrides.py (held cases skipped with the reason). Session H, 2026-09-11, against `staging` 72ac170a8. Independent
 of PAD-259 at the table level (it touches `lessons` and `lesson_instances`, not enrolment), but it
 is coded after PAD-259 and PAD-271 so the three migrations chain in one order. The audit already
 rejected virtual occurrences plus an exceptions table (follow-up decision of 2026-09-10); this
@@ -91,8 +91,8 @@ add a column and keep the old one for a release before dropping. No client chang
 (`name`, `levelId`, `maxPlayers`, `coachId`) keep their meaning. Web and iOS ship nothing, and the
 PR body says so.
 
-## Open questions for the owner
+## Decisions
 
-1. Single-occurrence delete as an exclusion (`excluded_dates`) rather than a fork: yes/no.
-2. Reconnect historical forks by heuristic, or leave them as separate series.
-3. Keep `coach_in_lesson_instance` for multi-coach occurrences, or the single `coach_override_id`.
+1. Single-occurrence delete is an exclusion (`excluded_dates`), never a fork: YES, decided 2026-09-11 (coordinator, owner informed).
+2. Reconnect historical forks by heuristic: NO — they stay separate series; `series_id = id` for every existing lesson, decided 2026-09-11 (coordinator, owner informed).
+3. Multi-coach occurrences: KEEP `coach_in_lesson_instance`; no `coach_override_id`, no data move; the code reads a primary coach through one helper (`coaches_for(instance)` = the instance's junction rows if any, else the lesson's; `primary_coach(instance)` = the first), decided 2026-09-11 (coordinator, owner informed).

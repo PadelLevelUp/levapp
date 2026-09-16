@@ -365,9 +365,10 @@ def coach_owns_instance(coach, instance):
     """A coach owns an instance directly, or through its parent lesson."""
     if instance is None:
         return False
-    if any(rel.coach_id == coach.id for rel in instance.coaches_relations):
-        return True
-    return coach_owns_lesson(coach, instance.lesson)
+    # PAD-275 rule 4: the instance's own coaches when it has any, else the lesson's.
+    from padel_app.services.lesson_service import coaches_for
+
+    return any(c.id == coach.id for c in coaches_for(instance))
 
 
 def require_owned_class(coach, model_name, class_id):
@@ -439,7 +440,11 @@ def require_readable_class(model_name, obj):
     # classes.join-requests rule 16 (PAD-131 × PAD-257): the one exception — a
     # rostered student may read an instance they may ask for, or hold a request
     # on. They still get the student view (rule 3); everyone else is refused.
-    if player is not None and not is_lesson:
+    # PAD-352: only for a client that declares open spots. An undeclared client
+    # (App Store 1.0/1.1.0) is treated like any student who isn't enrolled.
+    from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+
+    if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
         from padel_app.services.class_join_request_service import student_may_view_open_spot
 
         if student_may_view_open_spot(player, obj):
@@ -654,7 +659,16 @@ def calendar():
         lessons = load_lessons_for_player(player.id, range_start, range_end)
         instances_by_key = load_lesson_instances_for_player(player.id, range_start, range_end)
         # PAD-130: classes the student could ask to join, flagged `openSpot`.
-        open_spots = load_open_spot_events_for_player(player.id, range_start, range_end)
+        # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
+        # that declares it understands them. App Store 1.0/1.1.0 would draw an
+        # open spot as the student's own booking.
+        from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+
+        open_spots = (
+            load_open_spot_events_for_player(player.id, range_start, range_end)
+            if client_declares(OPEN_SPOTS)
+            else []
+        )
     else:
         abort(403, "User has no coach or player profile")
 

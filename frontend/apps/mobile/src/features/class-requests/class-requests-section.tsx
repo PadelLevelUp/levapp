@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { CLASS_REQUEST_DURATIONS, clubTodayISO, lightTheme, slotOptions } from "@levelup/config";
+import { CLASS_REQUEST_DURATIONS, FIRST_FREE_DAY_HORIZON_DAYS, clubTodayISO, firstFreeDay, lightTheme, slotOptions } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { ClassRequest } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
@@ -29,6 +29,13 @@ const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
   return clubTodayISO(); // B-060: the club's date, not the device's
+}
+
+/** Rule 11 (PAD-302): the last day the booking form looks at for its default date. */
+function horizonIso(): string {
+  const [y, m, d] = todayIso().split("-").map(Number);
+  const end = new Date(Date.UTC(y, m - 1, d + FIRST_FREE_DAY_HORIZON_DAYS));
+  return end.toISOString().slice(0, 10);
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {
@@ -54,6 +61,8 @@ export function ClassRequestsSection({
   const [booking, setBooking] = React.useState(false);
   const [coach, setCoach] = React.useState<Option>(undefined);
   const [date, setDate] = React.useState(todayIso());
+  // Rule 11 (PAD-302): a date the student typed is never overridden by the coach default.
+  const dateTouched = React.useRef(false);
   const [duration, setDuration] = React.useState<Option>({ value: "60", label: t("classRequests.minutes", { count: 60 }) });
   const [slot, setSlot] = React.useState<{ startTime: string; endTime: string } | null>(null);
   const [note, setNote] = React.useState("");
@@ -82,6 +91,15 @@ export function ClassRequestsSection({
   }, [coaches.data, coach]);
 
   const coachId = coach?.value ?? "";
+  // Rule 11 (PAD-302): open on the first day that still has a free block.
+  const horizon = useQuery({
+    queryKey: [...queryKeys.classRequestFreeBlocks(coachId, "horizon"), FIRST_FREE_DAY_HORIZON_DAYS],
+    queryFn: () => classRequestsApi.getFreeBlocks(coachId, `${todayIso()}T00:00:00`, `${horizonIso()}T23:59:00`),
+    enabled: role === "student" && booking && !!coachId,
+  });
+  React.useEffect(() => {
+    if (horizon.data && !dateTouched.current) setDate(firstFreeDay(horizon.data, todayIso()));
+  }, [horizon.data]);
   const blocks = useQuery({
     queryKey: queryKeys.classRequestFreeBlocks(coachId, date),
     queryFn: () => classRequestsApi.getFreeBlocks(coachId, `${date}T00:00:00`, `${date}T23:59:00`),
@@ -260,7 +278,15 @@ export function ClassRequestsSection({
                 <Text className="text-xs text-muted-foreground">{t("classRequests.noCoaches")}</Text>
               ) : null}
             </View>
-            <DatePickerInput label={t("classRequests.date")} value={date} onChange={setDate} testID="class-request-date" />
+            <DatePickerInput
+              label={t("classRequests.date")}
+              value={date}
+              onChange={(v) => {
+                dateTouched.current = true;
+                setDate(v);
+              }}
+              testID="class-request-date"
+            />
             <View className="gap-2">
               <Label>{t("classRequests.duration")}</Label>
               <Select value={duration} onValueChange={setDuration}>

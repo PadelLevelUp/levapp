@@ -30,3 +30,22 @@ export function slotOptions(block: SlotWindow, durationMin: number, stepMin = 30
   }
   return out;
 }
+
+/** The number of days ahead the booking form looks for its default date (rule 11). */
+export const FIRST_FREE_DAY_HORIZON_DAYS = 14;
+
+/**
+ * classes.class-requests rule 11 (PAD-302): the date the booking form opens on —
+ * today when today still has a free block, else the earliest later day with
+ * one; today again when nothing in `blocks` is free (the picker then shows its
+ * "no free time" state on today rather than jumping to an arbitrary day).
+ * Dates are the calendar's own `YYYY-MM-DD` strings, so they compare as text.
+ */
+export function firstFreeDay(blocks: ReadonlyArray<{ date: string }>, today: string): string {
+  let best: string | null = null;
+  for (const b of blocks) {
+    if (b.date < today) continue;
+    if (best === null || b.date < best) best = b.date;
+  }
+  return best ?? today;
+}

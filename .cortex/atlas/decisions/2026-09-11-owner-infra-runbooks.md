@@ -142,8 +142,10 @@ curl -s -o /dev/null -w 'staging %{http_code}\n' https://staging.levapp.app/api/
 
 # 1. BACKUP FIRST (the nightly one is a no-op, B-080). Compressed custom-format dumps, inside the container:
 gcloud compute ssh levelup-instance --zone europe-west1-b --project padel-levelup-2026 --command \
-  'set -e; D=$(date +%F-%H%M); sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app > ~/padel_app-$D.dump; sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app_staging > ~/padel_app_staging-$D.dump; ls -la ~/*.dump; sudo docker exec postgres pg_restore --list /dev/stdin < ~/padel_app-$D.dump | tail -2'
-#    a prod dump must be several MB and pg_restore --list must print table entries. Copy it off the VM:
+  'set -eo pipefail; D=$(date +%F-%H%M); sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app > ~/padel_app-$D.dump; sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app_staging > ~/padel_app_staging-$D.dump; ls -la ~/*.dump; sudo docker exec -i postgres pg_restore --list < ~/padel_app-$D.dump | grep -c "TABLE DATA"'
+#    the dump must be non-empty and the TABLE DATA count non-zero (2026-09-15: 0.65 MB, 54 — prod is small,
+#    so "several MB" is not the bar). `-i` is what gets the archive into the container, and pipefail is
+#    what makes a failed list fail the step instead of hiding behind the pipe. Copy it off the VM:
 gcloud compute scp --zone europe-west1-b --project padel-levelup-2026 'levelup-instance:~/padel_app-*.dump' ~/Desktop/
 
 # 2. generate the new password LOCALLY (alphanumeric, 40 chars) and store it in the password manager:

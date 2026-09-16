@@ -261,8 +261,17 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [coach_user.id])
     title = "Pedido de aula" if locale == "pt" else "Class request"
     send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}")
+    # PAD-324 (messaging.push-notifications rule 7): the same defect as the
+    # join-request push. There is a message behind this — the web push already
+    # opens its thread — and `class_request` is not one of the two shapes the
+    # contract defines, so `routeForPushData` returns null and the tap opens
+    # the app and does nothing. The request id stays as context.
     send_expo_push_to_user(coach_user.id, title=title, body=text[:100],
-                           data={"type": "class_request", "classRequestId": row.id})
+                           data={
+                               "type": "message",
+                               "conversationId": conv.id,
+                               "classRequestId": row.id,
+                           })
 
 
 def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
@@ -460,6 +469,10 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         },
         coach,
         club,
+        # PAD-330: the student ASKED for this class and already gets the
+        # acceptance message. Telling them a coach added them would be a second
+        # message for one event, about something they initiated.
+        notify_students=False,
     )
     row.lesson_id = lesson.id
     row.status = "accepted"

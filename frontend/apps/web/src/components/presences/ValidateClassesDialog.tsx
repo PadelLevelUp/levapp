@@ -34,6 +34,8 @@ import type { PendingValidationClass, PendingValidationPlayer } from "@/types";
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import { weekLabelDates } from "@/components/attendance/dateRanges";
 import {
+  attendanceStateLabelKey,
+  attendanceStateOf,
   effectiveMark,
   fromMark,
   undecidedCount,
@@ -775,7 +777,11 @@ function ClassDetail({
                 {player.name}
               </span>
               <span className="block text-xs text-muted-foreground">
-                {t(`presences.response.${player.response}`)}
+                {/* PAD-313 rule 20: the same state word the class sheet shows.
+                    `response` stays as the rule-6 prefill; rendering it here is
+                    how a cancelled student read as "Confirmou presença" on this
+                    tab and "not attending" on the class sheet. */}
+                {t(attendanceStateLabelKey(attendanceStateOf(player), "coach"))}
                 {player.guest ? ` · ${t("presences.guest")}` : ""}
               </span>
             </span>

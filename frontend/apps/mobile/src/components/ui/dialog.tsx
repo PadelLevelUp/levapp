@@ -4,9 +4,10 @@ import * as DialogPrimitive from "@rn-primitives/dialog";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
+import { dialogEntering, dialogExiting } from "@/lib/dialog-motion";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -50,8 +51,8 @@ function DialogOverlay({
        */}
       <Animated.View
         style={{ alignSelf: "stretch" }}
-        entering={FadeIn.duration(150)}
-        exiting={FadeOut.duration(150)}
+        entering={dialogEntering()}
+        exiting={dialogExiting()}
       >
         <>{children}</>
       </Animated.View>
@@ -86,6 +87,7 @@ function DialogContent({
         >
           {children}
           <DialogPrimitive.Close
+            testID="dialog-close"
             className="absolute right-4 top-4 rounded-sm p-0.5 opacity-70 active:opacity-100"
             hitSlop={12}
             aria-label={t("ui.dialog.close")}

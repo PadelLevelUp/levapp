@@ -181,11 +181,10 @@ def notify_coach_approved(coach):
         from padel_app.services.request_alert_service import render_copy, _lang, PATHS
         if wants_request_alerts(user):
             title, body = render_copy("coach_approval.decided", _lang(user))
-            send_push_notification(user.id, title, body, url=PATHS["coach_approval.decided"])
-            send_expo_push_to_user(
-                user.id, title, body,
-                data={"type": "request", "kind": "coach_approval.decided"},
-            )
+            # PAD-327: one destination, named once, sent to both channels.
+            path = PATHS["coach_approval.decided"]
+            send_push_notification(user.id, title, body, url=path)
+            send_expo_push_to_user(user.id, title, body, data={"type": "path", "path": path})
     except Exception as exc:  # noqa: BLE001
         current_app.logger.warning("coach-approval push to %s failed: %s", user.id, exc)
     if not user.email:

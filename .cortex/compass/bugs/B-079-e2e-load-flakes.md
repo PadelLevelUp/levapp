@@ -48,3 +48,67 @@ Every pin below follows that shape.
 Find the fetch the UI depends on, `waitForResponse` it, prove the list settled, assert the
 same thing as before. `waitForTimeout` is never a settle. A crash under load stays on this
 list as "load, no pin" until the machine is quiet enough to tell.
+
+## Batch 6, 2026-09-12 09:30-10:23 (Session E): 36 failures, 21 files, all green alone
+
+The four shards ran at load 360 with ~14 MB free memory and no peer suite running — the
+pressure was the concurrent sessions themselves. Shard 4 finished clean in 9.8 min; shards
+1-3 took 36-50 min for the same work and failed 36 tests across 21 files. Every one passed
+in an isolated rerun on the same commit at load 21-26.
+
+Signature worth recognising again: `locator.click` / `locator.fill` timeouts scattered across
+unrelated features, plus `Target page, context or browser has been closed` and ENOENT while
+Playwright wrote its own artifact zips. The last two only appear under memory exhaustion. A
+real regression clusters on one code path instead (batch 4: three caplog asserts in
+test_pad294_push_sender_review; batch 5: the presences/validation pair).
+
+Files that failed under load and passed alone (tests in the isolated rerun):
+
+| File | Tests green alone |
+|---|---|
+| e2e/attendance/presences-validation.spec.ts | 7 |
+| e2e/class-requests/class-request-booking.spec.ts | 1 |
+| e2e/dashboard/validation-count.spec.ts | 1 |
+| e2e/editor/editor-i18n.spec.ts | 2 |
+| e2e/evaluation-tools/eval-categories.spec.ts | 2 |
+| e2e/evaluation-tools/evaluation-persist.spec.ts | 1 |
+| e2e/evaluation-tools/player-notes.spec.ts | 2 |
+| e2e/exercise-management/browse-exercises.spec.ts | 2 |
+| e2e/exercise-management/exercise-crud.spec.ts | 4 |
+| e2e/import-history/import-history.spec.ts | 6 |
+| e2e/notification-engine/eligibility-class-override.spec.ts | 1 |
+| e2e/notification-engine/eligibility-manual-add.spec.ts | 2 |
+| e2e/notification-engine/manual-notify-selection.spec.ts | 3 |
+| e2e/notification-engine/notification-config.spec.ts | 4 |
+| e2e/notification-engine/reminder-flow.spec.ts | 8 (full file: it hid a real regression in batch 4) |
+| e2e/player-management/player-side-both.spec.ts | 1 |
+| e2e/player-management/ticket-pad-105-coach-no-username.spec.ts | 4 |
+| e2e/schedule-calendar/attendance-reminder-signal.spec.ts | 1 |
+| e2e/schedule-calendar/attendance-save.spec.ts | 2 |
+| e2e/schedule-calendar/attendance.spec.ts | 1 |
+| e2e/schedule-calendar/class-management.spec.ts | 4 |
+
+Totals: 59 tests rerun, 59 passed, in 4.5 minutes of isolated running against 128 minutes of
+starved shard time. Recorded by Session E at the coordinator's request so the pattern lives
+in the ledger rather than in one session's head.
+
+## A second family, named 2026-09-12: the assertion that only passes by accident
+
+Not a load flake — worth recording here because it was found in the same sweep and looks
+identical from the outside (a red spec on a green product).
+
+The cancellation fix release replaced the per-status attendance badges with one state word.
+`e2e/schedule-calendar/attendance-save.spec.ts` then failed on `getByText("Present")`. The
+product was right and the spec was stale — but the interesting part is *why the spec ever
+passed*: Playwright renders this app in **Portuguese** (see the e2e-web-renders-portuguese
+note), so an assertion on the English string "Present" could only ever have matched because
+that particular badge had no translation. The test was green for a reason unrelated to the
+behaviour it claimed to check, and it went red the moment the string was localised properly.
+
+Same family as a test that passes only while the feature is broken. Two sightings in one day.
+
+**Rule:** assert on `data-testid` and on the state value, never on user-facing text. Where a
+test does assert text, treat a sudden failure as a question about the assertion first and
+the product second. The replacement ids in this area are `attendance-state` (with the state
+value), `attendance-cancelled-by-student` and `attendance-reminder-hint`; the removed ones
+were `class-not-attending`, `class-not-attending-at` and `class-proactive-decline`.

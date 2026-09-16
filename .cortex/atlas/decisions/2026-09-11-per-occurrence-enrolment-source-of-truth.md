@@ -78,9 +78,7 @@ foundation and the PAD-282 fix). And a student who was removed from a date and s
 old reminder is told they are no longer in that class; the answer is kept so they are not asked
 again, and it never puts them back in or opens a spot.
 
-**Still to decide:** option A, B or C; and what to do with the small number of attendance rows on
-production that belong to nobody's enrolment (enrol them or delete the never-answered ones). The
-counts come from a read-only query on the staging copy first.
+**All decided.** Option A (owner, in person); two-phase rollout with the old table kept one release as a shadow: YES, decided 2026-09-11 (coordinator, owner informed); the orphan-row question was moot (zero such rows on the production copy).
 
 ## The question in one paragraph
 

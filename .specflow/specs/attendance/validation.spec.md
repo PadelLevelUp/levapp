@@ -39,7 +39,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
    when no status is stored and none is implied by rule 6.
 6. **Response-based prefill.** Before the coach touches anything, a row is shown
    as: `confirmed` → present, `declined` → absent/justified, no answer →
-   undecided. This is a display default only; nothing is persisted until the coach
+   undecided. (PAD-313: that is the *prefilled mark*. What the row DISPLAYS as the
+   student's state is rule 20's single `attendanceState`, never these columns —
+   reading `confirmed` as "coming" is the defect PAD-313 fixes.) This is a display default only; nothing is persisted until the coach
    validates. Defaulting a self-declared absence to *justified* is a deliberate
    policy choice — `unjustified_absences` feeds the eligibility bar
    (`eligibility.rules` rule 3), so the generous reading is the safe one, and the
@@ -167,6 +169,16 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     already open, on the week `?week` selects, so the dashboard's validation card
     (`dashboard.blocks` rule 10) lands the coach inside the list of classes to validate.
     Closing it leaves the coach on the tab as if they had opened it by hand.
+
+20. **One state word per row, the same one the class sheet shows (PAD-313; number
+    self-assigned, unconfirmed).** The Presences / validation rows render the single
+    `attendanceState` of `attendance.presence` rule 9 through the shared helper in
+    `@levelup/config` (`attendance-state`), exactly as the class-detail participant row
+    does — the two surfaces computed their own answer before, which is half of why a
+    cancelled student could read as "confirmed" in one place and "not attending" in
+    another. The coach's *mark* controls (rule 6's prefill, the present/absent toggle)
+    are unchanged: they are an action, not a second status word. No row shows two state
+    words at once.
 
 ### Acceptance Criteria
 

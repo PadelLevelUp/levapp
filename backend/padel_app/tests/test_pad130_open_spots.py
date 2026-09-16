@@ -162,7 +162,13 @@ def test_calendar_route_appends_open_spots_for_students_only(app, client):
         now = utcnow_naive()
     window = {"from": (now - timedelta(days=1)).isoformat(), "to": (now + timedelta(days=30)).isoformat()}
 
-    as_student = client.get("/api/app/calendar", query_string=window, headers={"Authorization": f"Bearer {student_token}"}).get_json()
+    # PAD-352 (rule 12): open spots go only to a client that declares them; the
+    # web and mobile shells do. The undeclared case is test_pad352_open_spot_capability.
+    as_student = client.get(
+        "/api/app/calendar",
+        query_string=window,
+        headers={"Authorization": f"Bearer {student_token}", "X-LevApp-Capabilities": "open-spots"},
+    ).get_json()
     assert [e.get("openSpot") for e in as_student] == [True]
     as_coach = client.get("/api/app/calendar", query_string=window, headers={"Authorization": f"Bearer {coach_token}"}).get_json()
     assert all(not e.get("openSpot") for e in as_coach)

@@ -3,10 +3,12 @@
 # requests for a member to approve or decline.
 #
 # Mirrors: apps/web/e2e/clubs/join-request.spec.ts (the "create a club" half).
-# Prerequisite: a coach account that is APPROVED and has NO club. The E2E seed
-# has none, and the admin approval half lives on web (Settings → Admin), so
-# this flow expects MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD to be provided
-# for an account prepared that way (or approved on web beforehand).
+# Prerequisite: a coach account that is APPROVED and has NO club. Since PAD-306
+# the E2E seed creates one (e2e-coach-noclub / E2eCoach123!) and both runners
+# (scripts/e2e.sh, scripts/ci-android-maestro.sh) pass it as
+# MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD; override them for an account
+# prepared by hand. The flow creates a club for it, so it needs the DB reset
+# every runner does first.
 appId: com.padellevelup.app
 env:
   MAESTRO_COACH_NOCLUB_USERNAME: ${MAESTRO_COACH_NOCLUB_USERNAME}

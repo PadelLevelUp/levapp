@@ -179,9 +179,9 @@
       "remindersSent_other": "Reminders sent to {{count}} students",
       "failedSendReminders": "Failed to send reminders",
       "cancelAttendance": "Cancel attendance",
-      "cancelAttendanceConfirmTitle": "Cancel your attendance?",
-      "cancelAttendanceConfirmBody": "You'll be removed from this class and your spot will be freed.",
-      "cancelAttendanceLateBody": "The cancellation deadline has passed. You can still cancel, but this counts as a late cancellation.",
+      "cancelAttendanceConfirmTitle": "Not going to make it?",
+      "cancelAttendanceConfirmBody": "We'll free your spot and let your coach know.",
+      "cancelAttendanceLateBody": "The deadline has passed. You can still say you're not going, but it counts as a late notice and your coach is told.",
       "cancelAttendanceLateBadge": "Past deadline",
       "keepAttendance": "Keep my spot",
       "attendanceCancelled": "Attendance cancelled.",
@@ -194,11 +194,16 @@
       "proactiveDeclineFailed": "Couldn't record your absence. Please try again.",
       "notAttending": "Not attending",
       "notAttendingJustified": "Justified absence",
+      "cancelledByStudentAt": "Cancelled by the student on {{when}}",
       "colorOption": "Color {{color}}",
       "invitedCount": "Invited ({{count}})",
       "club": "Club",
       "court": "Court",
-      "noCourt": "No court"
+      "noCourt": "No court",
+      "comeBack": "Actually, I can come",
+      "comeBackHint": "If your spot is still free, you'll be signed up again.",
+      "spotFilled": "Your spot has already been taken.",
+      "comeBackDone": "You're back in this class."
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -435,6 +440,29 @@
       "classClosedToast": "The class is no longer open — the request was closed",
       "confirmTitle": "Accept a student who no longer meets the bar?",
       "confirmBody": "Accepting a request is a manual add — the bar says what changed; you decide."
+    },
+    "attendanceState": {
+      "planned": {
+        "student": "Signed up",
+        "coach": "Signed up"
+      },
+      "coming": {
+        "student": "You're going",
+        "coach": "Going"
+      },
+      "not_coming": {
+        "student": "You're not going",
+        "coach": "Not going"
+      },
+      "attended": {
+        "student": "Attended",
+        "coach": "Attended"
+      },
+      "missed": {
+        "student": "Missed",
+        "coach": "Missed"
+      },
+      "reminderSent": "Reminder sent"
     }
   }
 }

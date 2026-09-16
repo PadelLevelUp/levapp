@@ -43,6 +43,38 @@ appId: com.padellevelup.app
             visible:
               id: "tab-dashboard"
           file: logout.yaml
+      # PAD-305: a flow that died mid-registration leaves the app on the
+      # verify-email screen, whose only way out is "Sign out". Take it, so one
+      # stranded signup cannot time out every later flow in the order (six did
+      # on Android on 2026-09-11).
+      - extendedWaitUntil:
+          visible:
+            id: "verify-email-signout"
+          timeout: 3000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "verify-email-signout"
+          commands:
+            - tapOn:
+                id: "verify-email-signout"
+      # Any other stranded screen (a pushed screen, a sheet, a dead JS session):
+      # relaunch clean. The header's warning against clearState is about
+      # relaunching right AFTER a login, when the stale-token remount wipes
+      # typed text; here nothing has been typed yet, so it is safe.
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 15000
+          optional: true
+      - runFlow:
+          when:
+            notVisible:
+              id: "login-username"
+          commands:
+            - launchApp:
+                clearState: true
       - extendedWaitUntil:
           visible:
             id: "login-username"
