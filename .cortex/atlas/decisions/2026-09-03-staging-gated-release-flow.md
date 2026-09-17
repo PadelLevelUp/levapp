@@ -3,7 +3,7 @@ id: decision.2026-09-03-staging-gated-release-flow
 title: Releases go feature → staging → main through pull requests only
 date: 2026-09-03T00:30:00Z
 provenance:
-  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/source.md
+  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/extracted/summary.md
   - derives_from: claude-sessions/pedro/session_0198iAmzyjfYiqu3DJSzaLLC
 ---
 

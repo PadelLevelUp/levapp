@@ -3,7 +3,7 @@ id: B-102
 title: "Field-availability warnings render the backend's English message verbatim on a Portuguese app"
 type: incomplete-rule
 severity: low
-status: open
+status: resolved
 affects:
   - backend/padel_app/modules/frontend_api.py
   - frontend/packages/api/src/resources/fields.ts
@@ -12,6 +12,7 @@ affects:
   - frontend/apps/mobile/src/features/players/PlayerForm.tsx
 proposed_fix: "The client maps the known 409 reasons (username taken, email taken, duplicate player name) to locale keys in both shells; the backend's message stays a fallback, or the endpoint returns a reason code instead of prose."
 opened: 2026-09-16T17:32:00Z
+resolved: 2026-09-17T01:10:49Z
 ---
 
 # B-102 — "This email is already taken" is English on every screen
@@ -38,3 +39,9 @@ and this copy lives in no locale file, so the guard files it as test data.
 R-024), keyed by `(model, field)` and the status, falling back to the server message only
 for an unknown reason — or have the endpoint return a reason code the client translates.
 Then the spec asserts a test id on the warning, not its text.
+
+**Fix: #327 (Session E, merged 2026-09-17 01:10 UTC).** The 409 now carries a reason
+(`username_taken`, `email_taken`, `duplicate_name`) that both shells map to
+`common.fieldConflict.<reason>`; the backend's prose stays only a fallback. Web warnings carry
+`data-testid` `player-email-conflict` / `player-name-conflict` with `data-reason`; iOS uses
+`testID` `field-conflict-<reason>`. The spec asserts the reason, not the copy.

@@ -11,12 +11,15 @@ export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as adminApi from "./resources/admin";
+export * as academyClassesApi from "./resources/academyClasses";
 export * as authApi from "./resources/auth";
 export * as attendanceApi from "./resources/attendance";
 export * as availabilityApi from "./resources/availability";
 export * as calendarApi from "./resources/calendar";
 export * as classesApi from "./resources/classes";
 export * as classRequestsApi from "./resources/classRequests";
+export * as requestAvailabilityApi from "./resources/requestAvailability";
+export * as workingHoursApi from "./resources/workingHours";
 export * as classJoinRequestsApi from "./resources/classJoinRequests";
 export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";

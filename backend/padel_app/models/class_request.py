@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, Text
+from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -38,6 +38,11 @@ class ClassRequest(db.Model, model.Model):
     start_datetime = Column(DateTime, nullable=False)
     end_datetime = Column(DateTime, nullable=False)
     note = Column(Text, nullable=True)
+    # PAD-357 (classes.class-requests rules 12 and 14): the people the requester
+    # brings (player ids, 0-3) and the weekly recurrence
+    # {weekdays: [1..7, Monday = 1], startDate, endDate}; NULL = a single class.
+    invitee_player_ids = Column(JSON, nullable=True)
+    recurrence = Column(JSON, nullable=True)
 
     status = Column(
         Enum("pending", "countered", "accepted", "declined", "withdrawn", name="class_request_status"),

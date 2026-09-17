@@ -1,0 +1,123 @@
+# PAD-357: classes.class-requests rules 12–14, the student's "Marcar aula"
+# wizard on iOS, private-class path.
+#
+# Mirrors: apps/web/e2e/class-requests/class-request-wizard.spec.ts
+# - the student opens the wizard from the Pedidos de aula card and picks a
+#   private class (the seeded student has one coach, so the coach step is skipped);
+# - an invitee who is not on the coach's roster is refused (USERNAME_NOT_FOUND)
+#   and the slots wait;
+# - an invitee from the roster (e2e-student-2) is accepted, a 90-minute slot is
+#   picked, and the request is sent;
+# - the tab lists it as pending, and the student withdraws it.
+#
+# The date is left at the step's first-free-day default (rules 11 + 13), because
+# setting a specific date on the iOS picker is not stable in Maestro. Recurrence
+# is covered by the Playwright spec.
+#
+# Test ids only, never copy. iOS carries state in the id (wizard-slots-<state>,
+# wizard-invitee-<i>-error-<code>, class-request-row-<status>) where web uses data
+# attributes.
+#
+# Cleanup withdraws through the API as the student, before and after the flow. An
+# editor delete would leave the request's hold on the coach's calendar.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
+# Flow number 62 is from Session E's range for PAD-357.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.before = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-kind"
+    timeout: 15000
+- tapOn:
+    id: "wizard-kind-private"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private"
+    timeout: 15000
+
+# ── An invitee who is not on the roster is refused and the slots wait ──
+- tapOn:
+    id: "wizard-people-2"
+- tapOn:
+    id: "wizard-invitee-0"
+- inputText: "no-such-player-62"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "wizard-invitee-0-error-USERNAME_NOT_FOUND"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "wizard-slots-waiting"
+    direction: DOWN
+    timeout: 20000
+
+# ── A player from the roster is accepted ──
+- scrollUntilVisible:
+    element:
+      id: "wizard-invitee-0"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "wizard-invitee-0"
+- eraseText: 30
+- inputText: "e2e-student-2"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "wizard-invitee-0-ok"
+    timeout: 15000
+
+# ── 90 minutes, the first free start time, send ──
+- scrollUntilVisible:
+    element:
+      id: "wizard-duration-90"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-duration-90"
+- scrollUntilVisible:
+    element:
+      id: "wizard-slots-ready"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "wizard-slot-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "wizard-send"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-send"
+
+# ── Back on the tab: pending, then withdrawn ──
+- scrollUntilVisible:
+    element:
+      id: "class-request-row-pending"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-request-withdraw"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-request-row-pending"
+    timeout: 15000
+
+- evalScript: "${output.after = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+- assertTrue: "${output.after == 0}"

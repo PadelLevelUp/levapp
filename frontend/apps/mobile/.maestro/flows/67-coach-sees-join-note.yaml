@@ -1,0 +1,103 @@
+# PAD-358 — classes.academy-class-booking rule 5: when a student asks to join an
+# academy class with a note, the coach reads that note on the class screen.
+#
+# Mirrors: apps/web/e2e (PAD-358) second test — the request is made through the
+# API with a note, then the coach opens the class. This flow does not depend on the
+# "Marcar Aula" wizard; flows 65/66 cover the student's side.
+#
+# Setup and teardown through the API, like flow 50 (R-040: the flow creates what it
+# needs and removes it):
+# - as e2e-coach: remember openSpotsVisible, turn it on, add "E2E Wizard Note Class"
+#   (academy, two days out, 18:00–19:00, 4 spots, no players);
+# - as e2e-student: read the class from /academy-classes, then ask to join with a note;
+# - at the end: remove the class and restore openSpotsVisible.
+#
+# Assertions are by id; the note text is data this flow created, not app copy.
+# Flow number 67 is from Session C's range for PAD-358.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E Wizard Note Class'}"
+- evalScript: "${output.note = 'Maestro note ' + String(Date.now()).slice(-6)}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.wasVisible = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).openSpotsVisible === true}"
+- evalScript: "${output.toggled = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.toggled == true}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 4, playerIds: [], isRecurring: false, notificationsEnabled: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
+- assertTrue: "${output.cls != null}"
+- evalScript: "${output.requested = http.post(output.api + '/api/app/class-join-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.cls.model, originalId: output.cls.originalId, date: output.cls.date, note: output.note }) }).ok}"
+- assertTrue: "${output.requested == true}"
+
+# ── The coach opens the class ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+# Flow 50's walk: reset the week in Semana, switch to Dia, then step forward only
+# while the class's own day cell is not on the strip.
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "${output.title}"
+    timeout: 15000
+- tapOn: "${output.title}"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-join-request-note"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-join-request-note"
+    text: "${output.note}"
+
+# ── Leave, then clean up ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
+- evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }).ok}"
+- assertTrue: "${output.restored == true}"

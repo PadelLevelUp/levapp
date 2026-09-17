@@ -3,7 +3,7 @@ id: B-053
 title: "Login signs in a disabled account: POST /api/auth/login issues a token and the legacy /auth/login opens a session"
 type: incomplete-rule
 severity: high
-status: fixed
+status: resolved
 affects:
   - auth.login
   - backend/padel_app/modules/api_auth.py

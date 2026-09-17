@@ -29,7 +29,8 @@
       "not_pending": "The student is answering your proposal",
       "not_countered": "There is no proposal to answer",
       "NO_CLUB": "Join or create a club before accepting",
-      "slot_changed": "That proposal is no longer the one on the table"
+      "slot_changed": "That proposal is no longer the one on the table",
+      "off_series": "A weekly request can only move to one of its weekdays"
     },
     "status": {
       "pending": "Waiting for the coach",
@@ -77,6 +78,34 @@
         "declined": "Declined",
         "withdrawn": "Request withdrawn"
       }
-    }
+    },
+    "academy": {
+      "title": "Join an academy class",
+      "intro": "This coach's classes in the next 14 days that you can join.",
+      "loading": "Loading classes…",
+      "loadError": "Could not load the classes.",
+      "empty": "There are no classes of this coach you can join in the next 14 days.",
+      "spotsLeft_one": "{{count}} spot left",
+      "spotsLeft_other": "{{count}} spots left",
+      "full": "Full",
+      "request": "Ask to join",
+      "noteLabel": "Note to the coach (optional)",
+      "notePlaceholder": "E.g. can I arrive 10 minutes late?",
+      "send": "Send request",
+      "cancel": "Cancel",
+      "joinWaitlist": "Join the waiting list",
+      "leaveWaitlist": "Leave the waiting list",
+      "requested": "Waiting for the coach",
+      "onWaitlist": "You are on the waiting list",
+      "requestSent": "Request sent to the coach.",
+      "joinedWaitlist": "You joined the waiting list.",
+      "leftWaitlist": "You left the waiting list.",
+      "nowFull": "This class just filled up — you can join its waiting list.",
+      "nowOpen": "This class has room — you can ask to join.",
+      "failed": "Could not complete that. Please try again.",
+      "close": "Close",
+      "emptyNotAdvertised": "This coach isn't taking requests for academy classes."
+    },
+    "cardIntro": "Ask your coach for a class. Your open requests are listed here until the coach answers, and you can withdraw one at any time."
   }
 }
