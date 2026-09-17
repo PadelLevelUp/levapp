@@ -251,6 +251,39 @@ export interface ClassRequest {
   decidedAt: string | null;
   lessonId: string | null;
   createdAt: string | null;
+  /** PAD-357 rule 12: the people the requester brings (invitees only). */
+  participants: { playerId: string; name: string; username: string }[];
+  /** PAD-357 rule 14: `null` for a single class. */
+  recurrence: ClassRequestRecurrence | null;
+}
+
+/** PAD-357: one weekly request; weekdays 1..7, Monday = 1. */
+export interface ClassRequestRecurrence {
+  weekdays: number[];
+  startDate: string;
+  endDate: string;
+}
+
+/** classes.class-requests rule 12: one answer per username, never an oracle. */
+export type ParticipantCheck =
+  | { username: string; ok: true; playerId: string; name: string }
+  | { username: string; ok: false; code: "USERNAME_NOT_FOUND" | "SELF_INVITE" | "DUPLICATE_INVITEE" };
+
+/** A `{"mon": [["08:00","22:00"]], …}` object; a missing day is the default window,
+ *  an empty list a day off, `null` not set (settings.coach-working-hours). */
+export type CoachWorkingHours = Partial<
+  Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", [string, string][]>
+> | null;
+
+/** classes.availability rule 2: everyone's free time, and nothing about anyone's busy time. */
+export interface AvailabilityResponse {
+  coachId: string;
+  from: string;
+  to: string;
+  workingHours: CoachWorkingHours;
+  workingHoursSource: "coach" | "default";
+  participants: ParticipantCheck[];
+  freeWindows: Record<string, { startTime: string; endTime: string }[]>;
 }
 
 /** A window the coach's calendar leaves open (classes.class-requests rule 1). */

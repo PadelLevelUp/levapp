@@ -61,7 +61,68 @@ def serialize_class_request(row: ClassRequest) -> dict:
         "decidedAt": row.decided_at.isoformat() if row.decided_at else None,
         "lessonId": str(row.lesson_id) if row.lesson_id else None,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
+        # PAD-357 (rules 12 and 14): the people the requester brings, and the recurrence.
+        "participants": _serialize_participants(row),
+        "recurrence": row.recurrence,
     }
+
+
+def _serialize_participants(row: ClassRequest) -> list:
+    ids = [int(pid) for pid in (row.invitee_player_ids or [])]
+    if not ids:
+        return []
+    players = {p.id: p for p in Player.query.filter(Player.id.in_(ids)).all()}
+    out = []
+    for pid in ids:
+        p = players.get(pid)
+        if p is None or p.user is None:
+            continue
+        out.append({"playerId": str(p.id), "name": _name(p.user), "username": p.user.username})
+    return out
+
+
+def _invitees(row: ClassRequest) -> list:
+    ids = [int(pid) for pid in (row.invitee_player_ids or [])]
+    return [p for p in Player.query.filter(Player.id.in_(ids)).all()] if ids else []
+
+
+# ── PAD-357 rule 14: a weekly request ────────────────────────────────────────
+
+def _parse_recurrence(data: dict):
+    """`{weekdays: [1..7, Monday = 1], startDate, endDate}` or None for a single class."""
+    rec = data.get("recurrence")
+    if not rec:
+        return None
+    try:
+        weekdays = sorted({int(d) for d in rec.get("weekdays") or []})
+        start = datetime.strptime(rec["startDate"], "%Y-%m-%d").date()
+        end = datetime.strptime(rec["endDate"], "%Y-%m-%d").date()
+    except (TypeError, ValueError, KeyError, AttributeError):
+        abort(400, "recurrence is {weekdays: [1..7], startDate, endDate}")
+    if not weekdays or any(d < 1 or d > 7 for d in weekdays):
+        abort(400, "recurrence.weekdays must be 1..7 (Monday = 1)")
+    if end < start:
+        abort(400, "recurrence.endDate must not be before startDate")
+    if (end - start).days > 366:
+        abort(400, "a weekly request covers at most a year")
+    return {"weekdays": weekdays, "startDate": start.isoformat(), "endDate": end.isoformat()}
+
+
+def _occurrence_dates(rec: dict) -> list:
+    start = datetime.strptime(rec["startDate"], "%Y-%m-%d").date()
+    end = datetime.strptime(rec["endDate"], "%Y-%m-%d").date()
+    wanted = set(rec["weekdays"])
+    out, day = [], start
+    while day <= end:
+        if day.isoweekday() in wanted:
+            out.append(day)
+        day += timedelta(days=1)
+    return out
+
+
+def _app_days_of_week(rec: dict) -> list:
+    """The calendar's `daysOfWeek` convention (0 = Sunday .. 6 = Saturday) from ISO 1..7."""
+    return [d % 7 for d in rec["weekdays"]]
 
 
 def _refuse(code: str, message: str, **extra):
@@ -181,7 +242,7 @@ def _place_hold(row: ClassRequest, coach: Coach, locale: str) -> None:
     from padel_app.services.calendar_service import add_event_service
 
     _release_hold(row)
-    block = add_event_service(coach.user_id, {
+    payload = {
         "type": "personal",
         "title": _hold_title(row, locale),
         "description": "",
@@ -189,7 +250,15 @@ def _place_hold(row: ClassRequest, coach: Coach, locale: str) -> None:
         "startTime": row.start_datetime.strftime("%H:%M"),
         "endTime": row.end_datetime.strftime("%H:%M"),
         "isRecurring": False,
-    })
+    }
+    if row.recurrence:
+        # PAD-357 rule 14: one recurring hold covering every occurrence.
+        payload.update({
+            "isRecurring": True,
+            "recurrenceRule": {"frequency": "weekly", "daysOfWeek": _app_days_of_week(row.recurrence)},
+            "endDate": row.recurrence["endDate"],
+        })
+    block = add_event_service(coach.user_id, payload)
     row.hold_block_id = block.id
 
 
@@ -305,17 +374,31 @@ def list_requests_for(user) -> list:
     return q.order_by(ClassRequest.id.desc()).all()
 
 
-def _validated_slot(coach: Coach, data: dict, *, now, exclude_request_id=None):
+def _validated_slot(coach: Coach, data: dict, *, now, exclude_request_id=None, people=(), recurrence=None):
     """Rules 2 and 7: a well-formed slot of 30–180 minutes, not started, inside
-    a free block (the request's own hold excluded when re-slotting one)."""
+    a free block (the request's own hold excluded when re-slotting one).
+    PAD-357 (rules 13 and 15): free for every person in `people` as well, and
+    for a weekly request on every occurrence date — the first refusal names it."""
     start, end = _parse_slot(data.get("date"), data.get("startTime"), data.get("endTime"))
     length = (end - start).total_seconds() / 60
     if length < MIN_LEN or length > MAX_LEN:
         abort(400, f"a class is between {MIN_LEN} and {MAX_LEN} minutes")
     if start < now:
         _refuse("in_the_past", "That time has already passed")
-    if not _slot_is_free(coach, start, end, now=now, exclude_request_id=exclude_request_id):
-        _refuse("slot_taken", "That time is not free any more")
+    if not people and not recurrence:
+        if not _slot_is_free(coach, start, end, now=now, exclude_request_id=exclude_request_id):
+            _refuse("slot_taken", "That time is not free any more")
+        return start, end
+    from padel_app.services.availability_service import free_windows_for, slot_fits
+
+    days = _occurrence_dates(recurrence) if recurrence else [start.date()]
+    if not days:
+        abort(400, "the recurrence has no occurrence between its dates")
+    free = free_windows_for(coach, list(people), days[0], days[-1], now=now, exclude_request_id=exclude_request_id)
+    s_min, e_min = start.hour * 60 + start.minute, end.hour * 60 + end.minute
+    for day in days:
+        if not slot_fits(free, day, s_min, e_min):
+            _refuse("slot_taken", "That time is not free for everyone", date=day.isoformat())
     return start, end
 
 
@@ -327,11 +410,22 @@ def create_class_request_service(player: Player, data: dict, *, now=None) -> Cla
         abort(400, "coachId is required")
     coach = Coach.query.get_or_404(coach_id)
     _require_roster(player.id, coach.id)
-    start, end = _validated_slot(coach, data, now=now)
+    # PAD-357 rules 12 and 14: who comes, and whether it repeats.
+    from padel_app.services.availability_service import participants_or_refuse
+    invitee_ids = participants_or_refuse(player, coach, data.get("participants") or [])
+    recurrence = _parse_recurrence(data)
+    if recurrence:
+        first = next(iter(_occurrence_dates(recurrence)), None)
+        if first is None:
+            abort(400, "the recurrence has no occurrence between its dates")
+        data = {**data, "date": first.isoformat()}
+    people = [player, *[db.session.get(Player, pid) for pid in invitee_ids]]
+    start, end = _validated_slot(coach, data, now=now, people=people, recurrence=recurrence)
 
     row = ClassRequest(
         player_id=player.id, coach_id=coach.id, start_datetime=start, end_datetime=end,
         note=(data.get("note") or "").strip() or None, status="pending",
+        invitee_player_ids=invitee_ids or None, recurrence=recurrence,
     )
     db.session.add(row)
     db.session.flush()
@@ -452,21 +546,39 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
     club = coach.current_club if coach else None
     if club is None:
         _refuse("NO_CLUB", "Join or create a club before accepting a class request")
-    if not _slot_is_free(coach, row.start_datetime, row.end_datetime, now=now, exclude_request_id=row.id):
+    invitees = _invitees(row)
+    _validated_slot(
+        coach,
+        {"date": row.start_datetime.date().isoformat(), "startTime": row.start_datetime.strftime("%H:%M"),
+         "endTime": row.end_datetime.strftime("%H:%M")},
+        now=now, exclude_request_id=row.id, people=[row.player, *invitees], recurrence=row.recurrence,
+    ) if (invitees or row.recurrence) else None
+    if not (invitees or row.recurrence) and not _slot_is_free(
+        coach, row.start_datetime, row.end_datetime, now=now, exclude_request_id=row.id
+    ):
         _refuse("slot_taken", "That time is no longer free on your calendar")
     _release_hold(row)
+    people_ids = [row.player_id, *[p.id for p in invitees]]
+    payload = {
+        "name": _name(row.player.user if row.player else None) or "Class",
+        "classType": "private",
+        "maxPlayers": len(people_ids),
+        "color": HOLD_COLOR,
+        "date": row.start_datetime.date().isoformat(),
+        "startTime": row.start_datetime.strftime("%H:%M"),
+        "endTime": row.end_datetime.strftime("%H:%M"),
+        "isRecurring": False,
+        "playerIds": people_ids,
+    }
+    if row.recurrence:
+        # PAD-357 rule 14: ONE weekly series to the given end date (classes.recurrence rule 6).
+        payload.update({
+            "isRecurring": True,
+            "recurrenceRule": {"frequency": "weekly", "daysOfWeek": _app_days_of_week(row.recurrence)},
+            "endDate": row.recurrence["endDate"],
+        })
     lesson = add_class_service(
-        {
-            "name": _name(row.player.user if row.player else None) or "Class",
-            "classType": "private",
-            "maxPlayers": 1,
-            "color": HOLD_COLOR,
-            "date": row.start_datetime.date().isoformat(),
-            "startTime": row.start_datetime.strftime("%H:%M"),
-            "endTime": row.end_datetime.strftime("%H:%M"),
-            "isRecurring": False,
-            "playerIds": [row.player_id],
-        },
+        payload,
         coach,
         club,
         # PAD-330: the student ASKED for this class and already gets the
@@ -474,6 +586,13 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         # message for one event, about something they initiated.
         notify_students=False,
     )
+    # PAD-357 rule 14: the people they brought did not ask — they are told.
+    from padel_app.services.notification_service import notify_student_added_to_class
+    for p in invitees:
+        try:
+            notify_student_added_to_class(coach, p.id, lesson=lesson)
+        except Exception:  # never fail an accept because a notice failed (PAD-10 posture)
+            pass
     row.lesson_id = lesson.id
     row.status = "accepted"
     row.decided_by = by
