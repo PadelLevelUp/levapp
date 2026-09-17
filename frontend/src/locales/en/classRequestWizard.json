@@ -1,0 +1,64 @@
+{
+  "classRequestWizard": {
+    "title": "Book a class",
+    "intro": "Choose who you want to train with.",
+    "withCoach": "With {{name}}",
+    "back": "Back",
+    "coachStep": "Coach",
+    "kindStep": "Type of class",
+    "kind": {
+      "private": {
+        "title": "Private class",
+        "description": "A class just for you, or for up to 4 people you choose."
+      },
+      "academy": {
+        "title": "Join an academy class",
+        "description": "A class your coach already runs, if it suits your level."
+      }
+    },
+    "people": "Number of people",
+    "whoIsComing": "Who's coming with you",
+    "connectionsNote": "You can only add players who already train with this coach.",
+    "usernamePlaceholder": "Username",
+    "inviteeError": {
+      "USERNAME_NOT_FOUND": "We couldn't add this username.",
+      "SELF_INVITE": "You're already in the class.",
+      "DUPLICATE_INVITEE": "This player is already listed."
+    },
+    "recurrence": "Recurrence",
+    "recurrenceMode": {
+      "single": "One class",
+      "weekly": "Weekly"
+    },
+    "weekdays": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "weekdayInitials": {
+      "1": "M",
+      "2": "T",
+      "3": "W",
+      "4": "T",
+      "5": "F",
+      "6": "S",
+      "7": "S"
+    },
+    "startDate": "Start date",
+    "endDate": "End date",
+    "recurrenceInvalid": "Choose at least one weekday, and an end date on or after the start date.",
+    "defaultHoursNote": "Working hours not set: {{start}}–{{end}}.",
+    "noWeeklySlots": "No time is free on every one of those days.",
+    "refusal": {
+      "USERNAME_NOT_FOUND": "One of the usernames can't be added.",
+      "SELF_INVITE": "You can't invite yourself.",
+      "TOO_MANY_PEOPLE": "A class can have at most 4 people.",
+      "DUPLICATE_INVITEE": "The same player is listed twice.",
+      "INVALID_PARTICIPANTS": "Check the usernames."
+    }
+  }
+}

@@ -3,7 +3,7 @@ id: decision.2026-09-03-google-workspace-single-seat
 title: One Google Workspace seat, admin@levapp.app, as the company identity
 date: 2026-09-03T16:00:00Z
 provenance:
-  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/source.md
+  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/extracted/summary.md
   - derives_from: claude-sessions/pedro/session_0198iAmzyjfYiqu3DJSzaLLC
 ---
 

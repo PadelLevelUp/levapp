@@ -89,6 +89,22 @@ export async function deleteClassRequests(
 }
 
 
+/**
+ * Withdraw class requests as the student who sent them, so their calendar hold
+ * is released (only withdraw / decline / accept release it; an editor delete
+ * leaves the hold on the coach's calendar). A request already closed answers
+ * 4xx, which is fine here. Call it before `deleteClassRequests`.
+ */
+export async function withdrawClassRequests(
+  request: APIRequestContext,
+  studentAuth: Auth,
+  ids: Array<string | number>
+): Promise<void> {
+  for (const id of ids.filter((i) => String(i) !== "")) {
+    await request.post(`${API_ROOT}/app/class-requests/${id}/withdraw`, { headers: studentAuth, data: {} });
+  }
+}
+
 /** Every id of an editor model — a snapshot taken before a spec creates rows it cannot address by id. */
 export async function editorIds(request: APIRequestContext, coachAuth: Auth, model: string): Promise<Set<number>> {
   const ids = new Set<number>();
@@ -112,5 +128,21 @@ export async function deleteNewEditorRows(
     if (before.has(id)) continue;
     const res = await request.delete(`${API_ROOT}/editor/${model}/${id}`, { headers: coachAuth });
     expect.soft(res.ok(), `delete ${model} ${id}: ${res.status()}`).toBeTruthy();
+  }
+}
+
+/**
+ * PAD-358: delete join requests (`classes.join-requests`) — a different table from
+ * `deleteClassRequests`' class requests, with its own editor model. Same rules: the
+ * seeded (superadmin) coach, ids the spec itself created.
+ */
+export async function deleteClassJoinRequests(
+  request: APIRequestContext,
+  coachAuth: Auth,
+  ids: Array<string | number>
+): Promise<void> {
+  for (const id of ids.filter((i) => String(i) !== "")) {
+    const res = await request.delete(`${API_ROOT}/editor/classjoinrequest/${id}`, { headers: coachAuth });
+    expect.soft([200, 404], `delete class join request ${id}: ${res.status()}`).toContain(res.status());
   }
 }

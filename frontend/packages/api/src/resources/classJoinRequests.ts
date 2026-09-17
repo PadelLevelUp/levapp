@@ -10,11 +10,13 @@ export async function createClassJoinRequest(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}): Promise<ClassJoinRequest> {
+}, note?: string): Promise<ClassJoinRequest> {
   const res = await getApi().post("/app/class-join-requests", {
     model: event.model,
     originalId: event.originalId,
     date: event.date ?? null,
+    // PAD-358: optional note to the coach; omitted when blank.
+    ...(note && note.trim() ? { note: note.trim() } : {}),
   });
   return res.data;
 }

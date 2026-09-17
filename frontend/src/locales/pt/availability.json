@@ -23,22 +23,12 @@
     "dateAndTime": "{{date}} · {{time}}",
     "title": "Disponibilidade",
     "intro": "Defina bloqueios para os horários em que está indisponível. Durante um bloqueio não receberá qualquer notificação de aulas — nem convites automáticos, nem convites ou lembretes enviados pelo treinador. O seu treinador pode continuar a adicioná-lo a uma aula manualmente, mas não lhe poderá enviar notificações nesse período.",
-    "addBlocker": "Adicionar bloqueio",
-    "editBlocker": "Editar bloqueio",
-    "newBlocker": "Novo bloqueio",
     "formDescription": "Escolha uma data única ou um padrão semanal recorrente.",
-    "titleLabel": "Título (opcional)",
-    "titlePlaceholder": "ex. Fora por trabalho",
-    "recurringWeekly": "Recorrente semanalmente",
     "daysOfWeek": "Dias da semana",
     "date": "Data",
     "startTime": "Hora de início",
     "endTime": "Hora de fim",
-    "repeatUntil": "Repetir até (opcional)",
     "saving": "A guardar...",
-    "yourBlockers": "Os seus bloqueios",
-    "blockersActiveDescription": "Durante estes períodos não receberá convites automáticos.",
-    "noBlockersDescription": "Não tem bloqueios definidos.",
     "noBlockersEmpty": "Ainda não há bloqueios. Adicione um para parar os convites automáticos quando estiver indisponível.",
     "unavailable": "Indisponível",
     "recurring": "Recorrente",
@@ -49,8 +39,6 @@
     "deleteBlockerDescription": "Esta ação não pode ser anulada.",
     "couldNotLoadTitle": "Não foi possível carregar os bloqueios",
     "couldNotLoadDescription": "Por favor, tente novamente.",
-    "dateRequiredTitle": "Data obrigatória",
-    "dateRequiredDescription": "Por favor, escolha uma data para o bloqueio.",
     "updatedToast": "Bloqueio atualizado",
     "addedToast": "Bloqueio adicionado",
     "couldNotSaveTitle": "Não foi possível guardar o bloqueio",
@@ -68,16 +56,31 @@
     "cancelDeleteAria": "Cancelar eliminação do bloqueio",
     "confirmDeleteAria": "Confirmar eliminação do bloqueio",
     "deleting": "A eliminar...",
-    "blockerTitleAria": "Título do bloqueio",
     "saveBlockerAria": "Guardar bloqueio",
     "cancelFormAria": "Cancelar formulário de bloqueio",
     "toggleDayAria": "Alternar {{day}}",
     "validation": {
-      "dateFormat": "A data tem de estar no formato AAAA-MM-DD",
-      "startTimeFormat": "A hora de início tem de estar no formato HH:MM",
-      "endTimeFormat": "A hora de fim tem de estar no formato HH:MM",
-      "repeatUntilFormat": "A data de fim tem de estar no formato AAAA-MM-DD",
-      "invalidForm": "Formulário inválido"
-    }
+      "date_required": "Escolhe uma data.",
+      "time_required": "Escolhe a hora de início e a hora de fim.",
+      "end_before_start": "A hora de fim tem de ser depois da hora de início.",
+      "end_date_before_start_date": "A data de fim tem de ser igual ou posterior à data de início."
+    },
+    "blockersCard": {
+      "title": "Indisponibilidade",
+      "intro": "Bloqueia as horas em que não podes jogar. Enquanto um bloqueio está ativo não recebes convites nem lembretes de aulas, e essas horas ficam de fora quando marcas uma aula.",
+      "cta": "Criar bloqueio"
+    },
+    "sheet": {
+      "newTitle": "Novo bloqueio",
+      "editTitle": "Editar bloqueio"
+    },
+    "mode": {
+      "single": "Único",
+      "recurring": "Recorrente"
+    },
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "ex. Em viagem de trabalho",
+    "startDate": "Data de início",
+    "endDate": "Data de fim"
   }
 }

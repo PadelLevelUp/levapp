@@ -1908,6 +1908,80 @@ def class_request_free_blocks():
     return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
 
+# ── PAD-357: classes.availability + settings.coach-working-hours ─────────────
+
+def _availability_coach_for(player):
+    try:
+        coach_id = int(request.args.get("coachId", ""))
+    except ValueError:
+        abort(400, "coachId is required")
+    coach = Coach.query.get_or_404(coach_id)
+    if Association_CoachPlayer.query.filter_by(player_id=player.id, coach_id=coach.id).first() is None:
+        abort(403, "Not one of your coaches")
+    return coach
+
+
+def _csv_arg(name):
+    raw = request.args.get(name, "") or ""
+    return [u.strip() for u in raw.split(",") if u.strip()]
+
+
+@bp.get("/availability/participants")
+@jwt_required()
+def availability_participants():
+    """classes.class-requests rule 12: one answer per username, never an oracle."""
+    from padel_app.services.availability_service import resolve_participants
+
+    player = _require_student_player()
+    coach = _availability_coach_for(player)
+    return jsonify(resolve_participants(player, coach, _csv_arg("usernames")))
+
+
+@bp.get("/availability")
+@jwt_required()
+def availability():
+    """classes.availability rule 2: the free windows for the coach and everyone named."""
+    from datetime import date as _date
+
+    from padel_app.services.availability_service import availability_for
+
+    player = _require_student_player()
+    coach = _availability_coach_for(player)
+    try:
+        from_day = _date.fromisoformat(request.args.get("from", ""))
+        to_day = _date.fromisoformat(request.args.get("to", ""))
+    except ValueError:
+        abort(400, "from and to must be ISO dates")
+    return jsonify(availability_for(player, coach, from_day, to_day, _csv_arg("participants")))
+
+
+@bp.get("/coach/working-hours")
+@jwt_required()
+def get_coach_working_hours():
+    from padel_app.services.availability_service import DEFAULT_WINDOW
+
+    coach = require_coach()
+    return jsonify({
+        "workingHours": coach.working_hours,
+        "defaultWindow": {"startTime": DEFAULT_WINDOW[0], "endTime": DEFAULT_WINDOW[1]},
+    })
+
+
+@bp.put("/coach/working-hours")
+@jwt_required()
+def put_coach_working_hours():
+    """settings.coach-working-hours rules 1-2."""
+    from padel_app.services.availability_service import DEFAULT_WINDOW, set_working_hours
+
+    coach = require_coach()
+    body = request.get_json(silent=True) or {}
+    stored = set_working_hours(coach, body.get("workingHours"))
+    return jsonify({
+        "workingHours": stored,
+        "defaultWindow": {"startTime": DEFAULT_WINDOW[0], "endTime": DEFAULT_WINDOW[1]},
+    })
+
+
 @bp.post("/class-requests")
 @jwt_required()
 def create_class_request():
@@ -1964,9 +2038,50 @@ def create_class_join_request():
         abort(403, "Only a student can ask to join a class")
     data = request.get_json() or {}
     row, created = create_join_request_service(
-        player, data.get("model"), data.get("originalId"), data.get("date")
+        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note")
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
+
+
+# PAD-358 (classes.academy-class-booking): the "Marcar Aula" wizard's academy step.
+@bp.get("/academy-classes")
+@jwt_required()
+def list_academy_classes_route():
+    from padel_app.services.academy_class_service import list_academy_classes
+
+    player = current_player()
+    if player is None or current_coach() is not None:
+        abort(403, "Only a student can list a coach's academy classes")
+    if not request.args.get("coachId"):
+        abort(400, "coachId is required")
+    return jsonify(list_academy_classes(player, request.args.get("coachId")))
+
+
+@bp.post("/class-waiting-list")
+@jwt_required()
+def join_class_waiting_list_route():
+    from padel_app.services.academy_class_service import join_class_waiting_list_service
+
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can join a waiting list")
+    data = request.get_json() or {}
+    entry, created = join_class_waiting_list_service(
+        player, data.get("model"), data.get("originalId"), data.get("date")
+    )
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True}), (201 if created else 200)
+
+
+@bp.post("/class-waiting-list/<int:instance_id>/leave")
+@jwt_required()
+def leave_class_waiting_list_route(instance_id):
+    from padel_app.services.academy_class_service import leave_class_waiting_list_service
+
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can leave a waiting list")
+    entry = leave_class_waiting_list_service(player, instance_id)
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": False})
 
 
 @bp.post("/class-join-requests/<int:request_id>/withdraw")

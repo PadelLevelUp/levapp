@@ -5,6 +5,10 @@
 # - No title is typed: iOS autocorrect mangles free text ("blocker" →
 #   "block…") and an extra focused field invites keyboard-tap collisions.
 #   The card then shows the default "Unavailable" title and the time range.
+# - PAD-356: blocks are created from the Indisponibilidade card's "Criar bloqueio"
+#   CTA (`availability-create-blocker`) in a sheet (`blocker-sheet`); the floating
+#   "+" button is gone. The sheet's defaults are the shared blocker draft's
+#   (@levelup/config emptyBlockerDraft: single mode, 18:00–20:00).
 # - Phase 7 (mobile-web-parity plan): date/start-time/end-time now use the
 #   native DatePickerInput/TimePickerInput pickers instead of free-text
 #   fields. Driving an iOS UIDatePicker spinner to a SPECIFIC value via
@@ -26,15 +30,15 @@ appId: com.padellevelup.app
     id: "tab-availability"
 - extendedWaitUntil:
     visible:
-      id: "availability-add"
+      id: "availability-create-blocker"
     timeout: 15000
 
 # ── Create a one-time blocker on today's date, default 18:00–20:00 ──
 - tapOn:
-    id: "availability-add"
+    id: "availability-create-blocker"
 - extendedWaitUntil:
     visible:
-      id: "blocker-title"
+      id: "blocker-sheet"
     timeout: 15000
 - runScript: ../scripts/seeded-monday.js
 
@@ -75,8 +79,8 @@ appId: com.padellevelup.app
     id: "blocker-date"
     text: "Date: ${output.today}"
 
-# Start time — confirm the picker's own default (18:00, BlockerForm's
-# initial state for a new blocker).
+# Start time — confirm the picker's own default (18:00, the shared blocker
+# draft's initial state for a new blocker).
 - scrollUntilVisible:
     element:
       id: "blocker-start-time"

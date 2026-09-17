@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, ForeignKey
+from sqlalchemy import JSON, Column, DateTime, Enum, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
@@ -32,6 +32,11 @@ class Coach(db.Model, model.Model):
     # `registration_service` sets "pending" explicitly. The DB server default
     # stays "pending" so a raw INSERT can never mint an approved coach by
     # accident.
+    # PAD-357 (settings.coach-working-hours): {"mon": [["08:00","22:00"]], ...};
+    # a missing day = the default window, an empty list = a day off, NULL = not
+    # set (classes.availability falls back to 08:00-22:00 everywhere).
+    working_hours = Column(JSON, nullable=True)
+
     approval_status = Column(
         Enum("pending", "approved", "rejected", name="coach_approval_status"),
         nullable=False,

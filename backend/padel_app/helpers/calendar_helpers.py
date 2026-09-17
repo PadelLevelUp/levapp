@@ -252,7 +252,7 @@ def build_player_calendar_events(player_id, user_id, range_start, range_end, *, 
 # ── PAD-130: open spots a student could ask for (eligibility.open-spot-visibility) ──
 
 
-def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=None):
+def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=None, coach_id=None, include_full=False):
     """Discoverable classes for a student, as calendar events flagged ``openSpot``.
 
     Rules 1, 4–7 and 10 of ``eligibility.open-spot-visibility``: every future,
@@ -262,6 +262,12 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
     *eligible* for (``eligibility.cascade``), minus the classes they are
     already in. Computed at read time from the same loaders and serializer the
     calendar uses — nothing is materialised or written (rule 5).
+
+    PAD-358 (``classes.academy-class-booking`` rules 2–3): ``coach_id`` narrows
+    discovery to one coach, and ``include_full`` also returns the classes that
+    pass every other condition but have no room. With ``include_full`` each
+    event carries ``state`` (``"open"`` | ``"full"``) and ``spotsLeft``; the
+    calendar's own call passes neither, so its payload is unchanged.
     """
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.notification_config import NotificationConfig
@@ -290,7 +296,10 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
     }
 
     events = []
-    for cp in Association_CoachPlayer.query.filter_by(player_id=player_id).all():
+    roster = Association_CoachPlayer.query.filter_by(player_id=player_id)
+    if coach_id is not None:
+        roster = roster.filter_by(coach_id=coach_id)
+    for cp in roster.all():
         coach_id = cp.coach_id
         config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
         lessons = load_lessons_for_coach(coach_id, horizon_start, range_end)
@@ -309,13 +318,19 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
                 filled = obj.effective_filled_spots
             else:
                 filled = len(obj.players_relations)
-            if obj.effective_max_players is None or filled >= obj.effective_max_players:
+            if obj.effective_max_players is None:
+                return
+            full = filled >= obj.effective_max_players
+            if full and not include_full:
                 return
             if not passes_eligibility(cp, obj, coach_id, effective_eligibility(obj, coach_id, config)):
                 return
             event = serialize_calendar_event(obj, override_id=override_id, override_date=override_date, now=now_utc.replace(tzinfo=None))
             event["openSpot"] = True
             event["coachName"] = cp.coach.user.name if cp.coach and cp.coach.user else None
+            if include_full:
+                event["state"] = "full" if full else "open"
+                event["spotsLeft"] = max(obj.effective_max_players - filled, 0)
             events.append(event)
 
         for lesson in lessons:

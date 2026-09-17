@@ -1,0 +1,64 @@
+{
+  "classRequestWizard": {
+    "title": "Marcar aula",
+    "intro": "Escolhe com quem queres treinar.",
+    "withCoach": "Com {{name}}",
+    "back": "Voltar",
+    "coachStep": "Treinador",
+    "kindStep": "Tipo de aula",
+    "kind": {
+      "private": {
+        "title": "Aula privada",
+        "description": "Uma aula só para ti, ou para até 4 pessoas que escolhes."
+      },
+      "academy": {
+        "title": "Juntar-me a uma aula da academia",
+        "description": "Uma aula que o teu treinador já dá, se for do teu nível."
+      }
+    },
+    "people": "Nº de pessoas",
+    "whoIsComing": "Quem vai contigo",
+    "connectionsNote": "Só podes adicionar jogadores que já treinam com este treinador.",
+    "usernamePlaceholder": "Nome de utilizador",
+    "inviteeError": {
+      "USERNAME_NOT_FOUND": "Não foi possível adicionar este nome de utilizador.",
+      "SELF_INVITE": "Tu já estás na aula.",
+      "DUPLICATE_INVITEE": "Este jogador já está na lista."
+    },
+    "recurrence": "Recorrência",
+    "recurrenceMode": {
+      "single": "Aula única",
+      "weekly": "Semanal"
+    },
+    "weekdays": {
+      "1": "Segunda-feira",
+      "2": "Terça-feira",
+      "3": "Quarta-feira",
+      "4": "Quinta-feira",
+      "5": "Sexta-feira",
+      "6": "Sábado",
+      "7": "Domingo"
+    },
+    "weekdayInitials": {
+      "1": "S",
+      "2": "T",
+      "3": "Q",
+      "4": "Q",
+      "5": "S",
+      "6": "S",
+      "7": "D"
+    },
+    "startDate": "Data de início",
+    "endDate": "Data de fim",
+    "recurrenceInvalid": "Escolhe pelo menos um dia da semana e uma data de fim igual ou posterior à de início.",
+    "defaultHoursNote": "Horário de trabalho não definido: {{start}}–{{end}}.",
+    "noWeeklySlots": "Nenhum horário está livre em todos esses dias.",
+    "refusal": {
+      "USERNAME_NOT_FOUND": "Um dos nomes de utilizador não pode ser adicionado.",
+      "SELF_INVITE": "Não te podes convidar a ti próprio.",
+      "TOO_MANY_PEOPLE": "Uma aula pode ter no máximo 4 pessoas.",
+      "DUPLICATE_INVITEE": "O mesmo jogador aparece duas vezes.",
+      "INVALID_PARTICIPANTS": "Verifica os nomes de utilizador."
+    }
+  }
+}
