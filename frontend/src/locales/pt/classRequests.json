@@ -104,6 +104,7 @@
       "failed": "Não foi possível concluir. Tenta novamente.",
       "close": "Fechar",
       "emptyNotAdvertised": "O treinador não está a aceitar pedidos para as aulas da academia."
-    }
+    },
+    "cardIntro": "Pede uma aula ao teu treinador. Os teus pedidos em aberto ficam aqui até o treinador responder, e podes retirá-los a qualquer momento."
   }
 }

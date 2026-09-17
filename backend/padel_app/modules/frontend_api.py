@@ -1908,6 +1908,80 @@ def class_request_free_blocks():
     return jsonify(free_blocks(coach, range_start, range_end, exclude_request_id=exclude_request_id))
 
 
+# ── PAD-357: classes.availability + settings.coach-working-hours ─────────────
+
+def _availability_coach_for(player):
+    try:
+        coach_id = int(request.args.get("coachId", ""))
+    except ValueError:
+        abort(400, "coachId is required")
+    coach = Coach.query.get_or_404(coach_id)
+    if Association_CoachPlayer.query.filter_by(player_id=player.id, coach_id=coach.id).first() is None:
+        abort(403, "Not one of your coaches")
+    return coach
+
+
+def _csv_arg(name):
+    raw = request.args.get(name, "") or ""
+    return [u.strip() for u in raw.split(",") if u.strip()]
+
+
+@bp.get("/availability/participants")
+@jwt_required()
+def availability_participants():
+    """classes.class-requests rule 12: one answer per username, never an oracle."""
+    from padel_app.services.availability_service import resolve_participants
+
+    player = _require_student_player()
+    coach = _availability_coach_for(player)
+    return jsonify(resolve_participants(player, coach, _csv_arg("usernames")))
+
+
+@bp.get("/availability")
+@jwt_required()
+def availability():
+    """classes.availability rule 2: the free windows for the coach and everyone named."""
+    from datetime import date as _date
+
+    from padel_app.services.availability_service import availability_for
+
+    player = _require_student_player()
+    coach = _availability_coach_for(player)
+    try:
+        from_day = _date.fromisoformat(request.args.get("from", ""))
+        to_day = _date.fromisoformat(request.args.get("to", ""))
+    except ValueError:
+        abort(400, "from and to must be ISO dates")
+    return jsonify(availability_for(player, coach, from_day, to_day, _csv_arg("participants")))
+
+
+@bp.get("/coach/working-hours")
+@jwt_required()
+def get_coach_working_hours():
+    from padel_app.services.availability_service import DEFAULT_WINDOW
+
+    coach = require_coach()
+    return jsonify({
+        "workingHours": coach.working_hours,
+        "defaultWindow": {"startTime": DEFAULT_WINDOW[0], "endTime": DEFAULT_WINDOW[1]},
+    })
+
+
+@bp.put("/coach/working-hours")
+@jwt_required()
+def put_coach_working_hours():
+    """settings.coach-working-hours rules 1-2."""
+    from padel_app.services.availability_service import DEFAULT_WINDOW, set_working_hours
+
+    coach = require_coach()
+    body = request.get_json(silent=True) or {}
+    stored = set_working_hours(coach, body.get("workingHours"))
+    return jsonify({
+        "workingHours": stored,
+        "defaultWindow": {"startTime": DEFAULT_WINDOW[0], "endTime": DEFAULT_WINDOW[1]},
+    })
+
+
 @bp.post("/class-requests")
 @jwt_required()
 def create_class_request():

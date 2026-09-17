@@ -18,7 +18,12 @@ held on the coach's calendar while the request is open.
   currently on the table), note, status (`pending` — awaiting the coach | `countered` — the coach
   proposed another time, awaiting the student | `accepted` | `declined` | `withdrawn`),
   hold_block_id (the CalendarBlock holding the slot on the coach's calendar while open),
-  lesson_id (the class created on accept), decided_at, decided_by (`coach` | `student`).
+  lesson_id (the class created on accept), decided_at, decided_by (`coach` | `student`);
+  PAD-357 (migration `8da963ad8591`, both nullable): `invitee_player_ids` (JSON list of player
+  ids the requester brings, 0–3) and `recurrence` (JSON `{weekdays: [1..7, Monday = 1],
+  startDate, endDate}` for a weekly request; null for a single class).
+- **READS:** `classes.availability` (the free windows), Coach.working_hours
+  (`settings.coach-working-hours`), Association_CoachPlayer (the roster).
 
 ### Rules
 1. **Free is inferred.** A coach's free blocks for a day are the day window (08:00–22:00) minus
@@ -91,6 +96,42 @@ held on the coach's calendar while the request is open.
     never overridden by a later coach change. `firstFreeDay()` in `packages/config` is the one
     derivation, shared by both shells.
 
+12. **People (PAD-357, "Quem vai contigo").** A request names 1–4 people: the requester plus
+    0–3 invitees given by exact username. **"Connection" for this feature means: the invitee is
+    on the chosen coach's roster** (`Association_CoachPlayer`), has an active account with a
+    real username (not a placeholder, has a password — the checks
+    `messaging_service._resolve_direct_username` applies), and is not the requester. There is no
+    player-to-player connection in the product (decision
+    `2026-09-06-open-registration-and-connections`: no player↔player links, no student search),
+    so this roster test is the whole meaning of "já existe ligação"; the wizard says "só podes
+    adicionar jogadores que já treinam com este treinador". Usernames resolve one at a time
+    through `GET /app/availability/participants?coachId&usernames=a,b` → `[{username, ok:
+    true, playerId, name} | {username, ok: false, code}]`, and the request itself re-validates
+    them. Refusals, one code each and never an oracle: `404 USERNAME_NOT_FOUND` for unknown,
+    placeholder, inactive or not-on-this-roster usernames alike; `400 SELF_INVITE`;
+    `400 TOO_MANY_PEOPLE` (more than 4 including the requester); `409 DUPLICATE_INVITEE`.
+13. **Free is everyone's free (PAD-357).** For a request the free windows come from
+    `classes.availability` (the coach's working time minus the coach's classes, blocks and
+    other requests' holds, minus the requester's and every invitee's classes and unavailability
+    blocks), and rule 2's "inside a free block" is checked against those windows server-side —
+    for a weekly request, on every occurrence date. Durations offered are
+    `CLASS_REQUEST_DURATIONS` (60, 90, 120 min), default 60. The coach's own free-blocks
+    endpoint (rule 1) is unchanged.
+14. **A weekly request is one request (PAD-357).** `recurrence = {weekdays, startDate, endDate}`
+    with `startDate ≤ endDate`, at least one weekday, `date` = the first occurrence; the hold
+    (rule 3) is one recurring CalendarBlock covering every occurrence; a counter-proposal moves
+    the whole series' time-of-day (the hold follows, the recurrence stays). The coach's
+    `accept` creates **one** weekly `private` Lesson series (`isRecurring`, `recurrenceRule
+    {frequency: "weekly", daysOfWeek}`, `endDate`, one identity under `classes.recurrence` rule 6)
+    with `maxPlayers` = the number of people and every person enrolled through `enrol()`; a
+    single request creates the one-off exactly as before with the same roster. The requester
+    is told by the accept message as today; **each invitee is told they were added** through
+    PAD-330's enrolment notice (`notifications.reminders` rule 18 keeps them asked). Invitees
+    never accept or decline anything.
+15. **Requests for the past are refused per occurrence** (rule 7): a weekly request whose
+    first occurrence has started is refused; a later occurrence that is no longer free answers
+    `409 slot_taken` naming the date.
+
 ### Acceptance Criteria
 
 #### Free blocks are what the coach's calendar leaves open
@@ -158,3 +199,27 @@ held on the coach's calendar while the request is open.
 - **Given** a slot in the past, outside the coach's free time, or already held
 - **When** a student requests it
 - **Then** the server refuses with `409` and the matching `code`
+
+#### A group request names only people who train with the coach (PAD-357)
+- **Given** coach Ana's roster holds Bruno and Carla, and Diogo is a player of another coach
+- **When** Bruno asks Ana for a private class with `participants: ["carla"]`
+- **Then** the request is created with Carla as invitee and the wizard's participant check answers `ok: true` for "carla"
+- **When** Bruno names "diogo" or "bruno"
+- **Then** the check answers `USERNAME_NOT_FOUND` for "diogo" and `SELF_INVITE` for "bruno", and a request naming them is refused with the same codes
+
+#### Free windows subtract the invitee's calendar (PAD-357)
+- **Given** Ana is free 08:00–22:00 on a day, Bruno has nothing, and Carla has a class 10:00–11:00 and an unavailability block 18:00–20:00
+- **When** Bruno asks for availability with `participants: ["carla"]`
+- **Then** the free windows for that day are 08:00–10:00, 11:00–18:00 and 20:00–22:00
+
+#### A weekly request becomes one series on accept (PAD-357)
+- **Given** Bruno's weekly request Tue+Thu 18:00–19:00 from 2026-10-06 to 2026-10-29 with Carla
+- **When** Ana accepts
+- **Then** exactly one `private` Lesson exists, recurring weekly on Tue and Thu with `recurrence_end` 2026-10-29 and `max_players` 2, Bruno and Carla enrolled on its occurrences
+- **And** Carla receives the "added to a class" notice; the request is `accepted` with that lesson's id; the recurring hold block is gone
+
+#### A weekly request is held on every occurrence (PAD-357)
+- **Given** the same pending weekly request
+- **When** another student asks for Ana's free blocks on 2026-10-13 (a Tuesday)
+- **Then** 18:00–19:00 is not offered
+

@@ -117,6 +117,8 @@ executionOrder:
     - 53-delete-after-attendance
     # 54 opens Settings and reads the build line (PAD-351); read-only.
     - 54-settings-build-info
+    # 61 walks the PAD-356 two-card tab; it creates and removes its own block.
+    - 61-availability-two-cards
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

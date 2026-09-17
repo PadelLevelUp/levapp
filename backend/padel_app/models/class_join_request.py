@@ -50,11 +50,6 @@ class ClassJoinRequest(db.Model, model.Model):
     )
     coach = relationship("Coach", foreign_keys=[coach_id])
 
-    # PAD-358 (classes.academy-class-booking rule 5): the student's optional
-    # message to the coach. The column is added by PAD-357's migration
-    # 8da963ad8591, which carries it for this ticket.
-    note = Column(String(500), nullable=True)
-
     status = Column(
         Enum(
             "pending",
@@ -68,6 +63,9 @@ class ClassJoinRequest(db.Model, model.Model):
         server_default="pending",
         default="pending",
     )
+    # PAD-358: the student's optional note to the coach (column shipped by
+    # PAD-357's migration 8da963ad8591; the behaviour is PAD-358's).
+    note = Column(String(500), nullable=True)
     created_at = Column(DateTime, nullable=False, default=utcnow_naive)
     decided_at = Column(DateTime, nullable=True)
 

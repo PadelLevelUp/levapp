@@ -31,6 +31,12 @@ coach is warned when scheduling around a student's blocker.
 
 ## Business Rules
 
+- (PAD-356) The student's Disponibilidade tab has two cards, each explaining itself with its own
+  button. **Indisponibilidade** creates blocks in a sheet (a single block, or a recurring one on
+  chosen weekdays between two dates, with an optional reason) and lists them. **Pedidos de aula**
+  books a class and lists open requests with their state and a withdraw button. There is no
+  floating "+", and a block that ends before it starts is refused.
+
 - A blocker suppresses automatic invitations to the student for any class overlapping its
   window.
 - (Specced, not yet fully shipped) a blocker is meant to suppress every kind of class-slot
