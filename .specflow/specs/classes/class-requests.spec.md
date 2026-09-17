@@ -26,9 +26,13 @@ held on the coach's calendar while the request is open.
   (`settings.coach-working-hours`), Association_CoachPlayer (the roster).
 
 ### Rules
-1. **Free is inferred.** A coach's free blocks for a day are the day window (08:00–22:00) minus
-   every class occurrence and every calendar block on the coach's calendar, minus the holds of
-   other open requests. Only windows of at least 60 minutes that have not started are offered.
+1. **Free is inferred.** A coach's free blocks for a day are the coach's working windows for
+   that day (`settings.coach-working-hours`; 08:00–22:00 until the coach sets any) minus every
+   class occurrence and every calendar block on the coach's calendar, minus the holds of other
+   open requests. Only windows of at least 60 minutes that have not started are offered. This
+   is the one computation (`classes.availability`, with nobody else's calendar subtracted) that
+   free-blocks, a request, a proposal, a counter-proposal and an accept all read — a coach who
+   sets hours gets one answer everywhere (PAD-357, #338 review F2).
    `GET /app/class-requests/free-blocks?coachId&from&to` returns `[{date, startTime, endTime}]`
    in the calendar's own local wall-clock shape.
 2. **Only a coach the student is rostered with** can be asked (`GET /app/class-requests/coaches`
@@ -114,13 +118,16 @@ held on the coach's calendar while the request is open.
     `classes.availability` (the coach's working time minus the coach's classes, blocks and
     other requests' holds, minus the requester's and every invitee's classes and unavailability
     blocks), and rule 2's "inside a free block" is checked against those windows server-side —
-    for a weekly request, on every occurrence date. Durations offered are
-    `CLASS_REQUEST_DURATIONS` (60, 90, 120 min), default 60. The coach's own free-blocks
-    endpoint (rule 1) is unchanged.
+    for a weekly request, on every occurrence date. A person's classes are their calendar's
+    projection: every occurrence of a series they are on, materialised or not, plus the
+    materialised occurrences they hold a presence on — never Presence rows alone, because a
+    future occurrence gets its Presence only when it materialises (#338 review F1). Durations
+    offered are `CLASS_REQUEST_DURATIONS` (60, 90, 120 min), default 60. The coach's own
+    free-blocks endpoint (rule 1) reads the same windows.
 14. **A weekly request is one request (PAD-357).** `recurrence = {weekdays, startDate, endDate}`
     with `startDate ≤ endDate`, at least one weekday, `date` = the first occurrence; the hold
-    (rule 3) is one recurring CalendarBlock covering every occurrence; a counter-proposal moves
-    the whole series' time-of-day (the hold follows, the recurrence stays). The coach's
+    (rule 3) is one recurring CalendarBlock covering every occurrence; a proposal or
+    counter-proposal moves the series per rule 16 (the hold follows). The coach's
     `accept` creates **one** weekly `private` Lesson series (`isRecurring`, `recurrenceRule
     {frequency: "weekly", daysOfWeek}`, `endDate`, one identity under `classes.recurrence` rule 6)
     with `maxPlayers` = the number of people and every person enrolled through `enrol()`; a
@@ -129,8 +136,23 @@ held on the coach's calendar while the request is open.
     PAD-330's enrolment notice (`notifications.reminders` rule 18 keeps them asked). Invitees
     never accept or decline anything.
 15. **Requests for the past are refused per occurrence** (rule 7): a weekly request whose
-    first occurrence has started is refused; a later occurrence that is no longer free answers
-    `409 slot_taken` naming the date.
+    first occurrence has started is refused at submission; a later occurrence that is no longer
+    free answers `409 slot_taken` naming the date. At accept time rule 17 applies.
+16. **A proposal or counter-proposal on a weekly or group request re-validates everyone and
+    stays on the series' weekdays (PAD-357, #338 review F3).** The coach's `propose` and the
+    student's `counter-proposal` (rules 4 and 10) are validated exactly like the request
+    (rule 13: every person, and on a weekly request every occurrence). On a weekly request the
+    proposed date must fall on one of its `weekdays` and not after `endDate` — otherwise
+    `409 off_series` (`weekdays` in the body) — and the series **re-anchors**: `startDate`
+    becomes the proposed date, `date` and the hold follow, the weekday set and `endDate` are
+    unchanged. A countered date never changes the weekday pattern; a different pattern is a new
+    request.
+17. **Accepting a weekly request after its first occurrence has started (PAD-357, #338 review
+    F4).** Occurrences that have already started at accept time are skipped: the series starts
+    at the first future occurrence (`startDate`, `date` and the created Lesson's start move
+    there, `endDate` unchanged) and only the future occurrences are re-validated. Only when no
+    occurrence is left does accept answer `409 in_the_past`, and the request stays open for the
+    coach to decline.
 
 ### Acceptance Criteria
 
@@ -222,4 +244,32 @@ held on the coach's calendar while the request is open.
 - **Given** the same pending weekly request
 - **When** another student asks for Ana's free blocks on 2026-10-13 (a Tuesday)
 - **Then** 18:00–19:00 is not offered
+
+#### An invitee's unmaterialised series occurrence is busy (PAD-357, rule 13)
+- **Given** Carla is on the roster of Ana's weekly academy class Tuesdays 18:00–19:00 and next Tuesday's occurrence is not materialised
+- **When** Bruno asks for availability with `participants: ["carla"]` for that Tuesday, or requests it 18:00–19:00 with Carla
+- **Then** 18:00–19:00 is not in the free windows and the request is refused `409 slot_taken`
+- **And** nothing was materialised by either check; the same slot with Carla at 19:00–20:00 is accepted
+
+#### Free blocks, requests and proposals follow the coach's working hours (rule 1)
+- **Given** Ana has set Tuesday to 09:00–13:00
+- **When** free blocks are asked for a Tuesday, Bruno requests 18:00–19:00, and Ana proposes 21:00–22:00 on a 10:00 request
+- **Then** the only block is 09:00–13:00, the request and the proposal are refused `409 slot_taken`, and a proposal at 11:00–12:00 is accepted
+
+#### A proposal on a weekly request stays on its weekdays and rechecks everyone (rule 16)
+- **Given** Bruno's pending weekly Tue+Thu 18:00–19:00 request with Carla, and Carla has a class on the third Thursday 20:00–21:00
+- **When** Ana proposes a Wednesday
+- **Then** the answer is `409 off_series`
+- **When** Ana proposes Thursday 20:00–21:00
+- **Then** the answer is `409 slot_taken` naming the third Thursday
+- **When** Ana proposes Thursday 19:00–20:00
+- **Then** the request is `countered`, `recurrence.startDate` is that Thursday with the same weekdays and end date, and the recurring hold starts there
+- **And** Bruno's counter-proposal obeys the same rule from his side
+
+#### Accepting a weekly request after its first occurrence starts at the next one (rule 17)
+- **Given** Bruno's pending weekly Tuesday 18:00–19:00 request over four Tuesdays, and the first Tuesday's 18:00 has passed
+- **When** Ana accepts
+- **Then** one series is created starting the second Tuesday with the same end date, and the request's `date` and `recurrence.startDate` moved to it
+- **When** every occurrence has passed
+- **Then** accept answers `409 in_the_past` and the request stays `pending`
 

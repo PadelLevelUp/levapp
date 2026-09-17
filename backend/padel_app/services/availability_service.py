@@ -13,6 +13,7 @@ from datetime import date as _date, datetime, time, timedelta
 
 from flask import abort, jsonify, make_response
 
+from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models import Association_CoachPlayer, CalendarBlock, Coach, Player, User
 from padel_app.sql_db import db
 
@@ -147,10 +148,17 @@ def _strip(dt: datetime) -> datetime:
 
 
 def _person_busy_by_day(player: Player, range_start: datetime, range_end: datetime) -> dict:
-    """{date -> [(start_min, end_min)]} of a person's classes (their presences)
-    and their `unavailable` blocks, recurring ones expanded. Private: only the
-    subtraction leaves this module."""
-    from padel_app.helpers.calendar_helpers import load_lesson_instances_for_player
+    """{date -> [(start_min, end_min)]} of a person's classes and their
+    `unavailable` blocks, recurring ones expanded. Private: only the
+    subtraction leaves this module.
+
+    Classes are the person's calendar projection (classes.class-requests rule
+    13): every occurrence of a series they are on, materialised or not, plus
+    the materialised occurrences they hold a presence on. Never Presence rows
+    alone — a future occurrence gets its Presence only when it materialises
+    (#338 review F1).
+    """
+    from padel_app.helpers.calendar_helpers import load_lesson_instances_for_player, load_lessons_for_player
     from padel_app.tools.calendar_tools import expand_occurrences
 
     busy = {}
@@ -163,10 +171,38 @@ def _person_busy_by_day(player: Player, range_start: datetime, range_end: dateti
         if e > s:
             busy.setdefault(day, []).append((s, e))
 
-    for inst in load_lesson_instances_for_player(player.id, range_start, range_end).values():
+    def _d(value):
+        return value.date() if isinstance(value, datetime) else value
+
+    mine = load_lesson_instances_for_player(player.id, range_start, range_end)
+    seen = set()
+    for (lesson_id, occ_date), inst in mine.items():
+        seen.add((lesson_id, _d(occ_date)))
         if inst.status in ("canceled", "completed"):
             continue
         add(inst.start_datetime, inst.end_datetime)
+
+    lessons = load_lessons_for_player(player.id, range_start, range_end)
+    if lessons:
+        # An occurrence that exists as an instance without this person's presence
+        # is one they were taken off (or declined): the instance is the truth there.
+        materialised = {
+            (i.lesson_id, _d(i.original_lesson_occurence_date))
+            for i in LessonInstance.query.filter(
+                LessonInstance.lesson_id.in_([l.id for l in lessons]),
+                LessonInstance.start_datetime >= range_start - timedelta(days=1),
+                LessonInstance.start_datetime <= range_end + timedelta(days=1),
+            ).all()
+        }
+        for lesson in lessons:
+            if lesson.end_datetime is None or lesson.start_datetime is None:
+                continue
+            duration = lesson.end_datetime - lesson.start_datetime
+            for occ in lesson.occurrences_between(range_start, range_end):
+                key = (lesson.id, _strip(occ).date())
+                if key in seen or key in materialised:
+                    continue
+                add(_strip(occ), _strip(occ) + duration)
 
     if player.user_id is None:
         return busy

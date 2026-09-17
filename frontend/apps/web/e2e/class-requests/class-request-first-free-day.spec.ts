@@ -43,6 +43,7 @@ test("PAD-302: the booking form opens on the first day with a free block when to
       const url = new URL(r.url());
       return url.pathname.endsWith("/app/availability") && url.searchParams.get("from") === today && url.searchParams.get("to") !== today;
     });
+    await expect(form).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
     if ((await form.getAttribute("data-step")) === "coach") {
       await form.locator('[data-testid^="wizard-coach-"]').first().click();
     }

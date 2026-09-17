@@ -274,3 +274,143 @@ def test_a_weekly_request_refuses_an_occurrence_that_is_not_free_naming_the_date
             _create(app, ids, recurrence=recurrence)
     body = _refusal(exc)
     assert body["code"] == "slot_taken" and body["date"] == third_tue.isoformat()
+
+
+# ── #338 review (Session A): F1–F4 ───────────────────────────────────────────
+
+def _series_class(app, ids, day, start, end, *, player_ids, weeks=3):
+    """A weekly academy series on the coach's calendar with these players on its
+    roster, exactly as the coach's "Add class" creates it — nothing materialised."""
+    from padel_app.models import Club
+    from padel_app.services.lesson_service import add_class_service
+
+    with app.app_context():
+        lesson = add_class_service(
+            {
+                "name": "Series", "classType": "academy", "maxPlayers": 4, "color": "#000",
+                "date": day.isoformat(), "startTime": start, "endTime": end,
+                "isRecurring": True,
+                "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [day.isoweekday() % 7]},
+                "endDate": (day + timedelta(weeks=weeks)).isoformat(),
+                "playerIds": list(player_ids),
+            },
+            _coach(ids), Club.query.first(), notify_students=False,
+        )
+        db.session.commit()
+        return lesson.id
+
+
+def test_an_unmaterialised_series_occurrence_is_busy_for_its_member(app):
+    """F1 / rule 13: series membership counts on every occurrence, materialised or not."""
+    from padel_app.models.lesson_instances import LessonInstance
+
+    ids = _world(app)
+    _series_class(app, ids, TUE, "18:00", "19:00", player_ids=[ids["carla"]])
+    second_tue = TUE + timedelta(weeks=1)
+
+    def _materialised_second_tuesday():
+        return LessonInstance.query.filter(LessonInstance.start_datetime >= datetime.combine(second_tue, time.min)).count()
+
+    with app.app_context():
+        assert _materialised_second_tuesday() == 0, "the fixture must not materialise the second Tuesday"
+    assert ("18:00", "19:00") not in _windows(_availability(app, ids, second_tue, second_tue, ["carla"]), second_tue)
+    assert all(not (s < "19:00" and e > "18:00") for s, e in _windows(_availability(app, ids, second_tue, second_tue, ["carla"]), second_tue))
+    with app.app_context():
+        with pytest.raises(HTTPException) as exc:
+            _create(app, ids, date=second_tue.isoformat(), participants=["carla"])
+        assert _refusal(exc)["code"] == "slot_taken"
+        assert _materialised_second_tuesday() == 0, "checking availability materialises nothing"
+        # the same slot without Carla is fine — it is her series, not the coach's clash
+        assert _create(app, ids, date=second_tue.isoformat(), startTime="19:00", endTime="20:00", participants=["carla"]).status == "pending"
+
+
+def test_free_blocks_and_proposals_follow_the_coach_working_hours(app):
+    """F2 / rule 1: one working-time answer for free-blocks, a plain request, a proposal."""
+    from padel_app.services.class_request_service import decide_class_request_service, free_blocks
+
+    ids = _world(app)
+    _put_hours(app, ids, {"tue": [["09:00", "13:00"]]})
+    with app.app_context():
+        blocks = free_blocks(_coach(ids), datetime.combine(TUE, time.min), datetime.combine(TUE, time.max))
+        assert blocks == [{"date": TUE.isoformat(), "startTime": "09:00", "endTime": "13:00"}]
+        with pytest.raises(HTTPException) as exc:
+            _create(app, ids)  # 18:00–19:00, outside the coach's Tuesday
+        assert _refusal(exc)["code"] == "slot_taken"
+        row = _create(app, ids, startTime="10:00", endTime="11:00")
+        with pytest.raises(HTTPException) as exc:
+            decide_class_request_service(row.id, _coach(ids), action="propose",
+                                         data={"date": TUE.isoformat(), "startTime": "21:00", "endTime": "22:00"})
+        assert _refusal(exc)["code"] == "slot_taken"
+        assert decide_class_request_service(row.id, _coach(ids), action="propose",
+                                            data={"date": TUE.isoformat(), "startTime": "11:00", "endTime": "12:00"}).status == "countered"
+
+
+def test_a_proposal_on_a_weekly_request_stays_on_its_weekdays_and_rechecks_everyone(app):
+    """F3 / rule 16: off the weekday set → off_series; on it → the series re-anchors and every
+    occurrence is re-validated for every person."""
+    from padel_app.models import CalendarBlock, ClassRequest
+    from padel_app.services.class_request_service import counter_proposal_service, decide_class_request_service
+
+    ids = _world(app)
+    end = TUE + timedelta(weeks=3, days=2)
+    recurrence = {"weekdays": [2, 4], "startDate": TUE.isoformat(), "endDate": end.isoformat()}
+    wed = TUE + timedelta(days=1)
+    third_thu = THU + timedelta(weeks=2)
+    _busy_class(app, ids, third_thu, time(20, 0), time(21, 0), player_ids=[ids["carla"]], coach_id=None)
+    with app.app_context():
+        row = _create(app, ids, participants=["carla"], recurrence=recurrence)
+        rid = row.id
+        with pytest.raises(HTTPException) as exc:
+            decide_class_request_service(rid, _coach(ids), action="propose",
+                                         data={"date": wed.isoformat(), "startTime": "18:00", "endTime": "19:00"})
+        assert _refusal(exc)["code"] == "off_series"
+        # Carla's class on the third Thursday 20:00 makes 20:00–21:00 impossible for the series
+        with pytest.raises(HTTPException) as exc:
+            decide_class_request_service(rid, _coach(ids), action="propose",
+                                         data={"date": THU.isoformat(), "startTime": "20:00", "endTime": "21:00"})
+        assert _refusal(exc)["code"] == "slot_taken" and _refusal(exc)["date"] == third_thu.isoformat()
+        # A Thursday 19:00 works: the series re-anchors there, weekdays and end unchanged
+        row = decide_class_request_service(rid, _coach(ids), action="propose",
+                                           data={"date": THU.isoformat(), "startTime": "19:00", "endTime": "20:00"})
+        assert row.status == "countered"
+        assert row.recurrence == {"weekdays": [2, 4], "startDate": THU.isoformat(), "endDate": end.isoformat()}
+        assert row.start_datetime.date() == THU
+        hold = db.session.get(CalendarBlock, row.hold_block_id)
+        assert hold.recurrence_rule and hold.start_datetime.date() == THU
+        # the student counters back to a Tuesday a week later: same rule from their side
+        with pytest.raises(HTTPException) as exc:
+            counter_proposal_service(rid, _player(ids["bruno"]),
+                                     {"date": wed.isoformat(), "startTime": "18:00", "endTime": "19:00"})
+        assert _refusal(exc)["code"] == "off_series"
+        next_tue = TUE + timedelta(weeks=1)
+        row = counter_proposal_service(rid, _player(ids["bruno"]),
+                                       {"date": next_tue.isoformat(), "startTime": "18:00", "endTime": "19:00"})
+        assert row.status == "pending" and row.recurrence["startDate"] == next_tue.isoformat()
+        assert db.session.get(ClassRequest, rid).recurrence["weekdays"] == [2, 4]
+
+
+def test_accepting_a_weekly_request_after_its_first_occurrence_starts_at_the_next_one(app):
+    """F4 / rule 17: past occurrences are skipped; in_the_past only when none remain."""
+    from padel_app.models import ClassRequest
+    from padel_app.models.lessons import Lesson
+    from padel_app.services.class_request_service import decide_class_request_service
+
+    ids = _world(app)
+    end = TUE + timedelta(weeks=3)
+    recurrence = {"weekdays": [2], "startDate": TUE.isoformat(), "endDate": end.isoformat()}
+    with app.app_context():
+        rid = _create(app, ids, recurrence=recurrence).id
+        late = datetime.combine(TUE, time(18, 30))  # the first Tuesday has started
+        row = decide_class_request_service(rid, _coach(ids), action="accept", now=late)
+        assert row.status == "accepted"
+        lesson = db.session.get(Lesson, row.lesson_id)
+        assert lesson.start_datetime.date() == TUE + timedelta(weeks=1)
+        assert lesson.recurrence_end == end and lesson.is_recurring
+        assert row.recurrence["startDate"] == (TUE + timedelta(weeks=1)).isoformat()
+        assert row.start_datetime.date() == TUE + timedelta(weeks=1)
+        # a second weekly request whose every occurrence has passed cannot be accepted
+        rid2 = _create(app, ids, startTime="20:00", endTime="21:00", recurrence=recurrence).id
+        with pytest.raises(HTTPException) as exc:
+            decide_class_request_service(rid2, _coach(ids), action="accept", now=datetime.combine(end, time(21, 0)))
+        assert _refusal(exc)["code"] == "in_the_past"
+        assert db.session.get(ClassRequest, rid2).status == "pending"

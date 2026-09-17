@@ -32,8 +32,9 @@ def _now_wall_clock() -> datetime:
     return club_now_naive()
 
 
-DAY_START = 8 * 60      # 08:00
-DAY_END = 22 * 60       # 22:00
+# The day window is the coach's working time (settings.coach-working-hours,
+# 08:00-22:00 until set) — `availability_service.working_windows_for`; #338
+# review F2: one computation for free-blocks, requests, proposals and accepts.
 MIN_FREE = 60           # a free block shorter than this is not offered
 MIN_LEN, MAX_LEN = 30, 180
 HOLD_COLOR = "#94A3B8"
@@ -125,6 +126,38 @@ def _app_days_of_week(rec: dict) -> list:
     return [d % 7 for d in rec["weekdays"]]
 
 
+def _reanchored(rec, date_str):
+    """Rule 16: a proposal or counter-proposal on a weekly request must land on
+    one of its weekdays (`409 off_series` otherwise); the series then starts on
+    that date, its weekday set and end date unchanged."""
+    if not rec:
+        return None
+    try:
+        day = datetime.strptime(str(date_str), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        abort(400, "date is required (YYYY-MM-DD)")
+    if day.isoweekday() not in rec["weekdays"]:
+        _refuse("off_series", "A weekly request can only move to one of its weekdays", weekdays=rec["weekdays"])
+    if day.isoformat() > rec["endDate"]:
+        _refuse("off_series", "That date is after the series ends", weekdays=rec["weekdays"])
+    return {**rec, "startDate": day.isoformat()}
+
+
+def _reslot(row: "ClassRequest", coach: Coach, data: dict, *, now) -> None:
+    """Rules 10 and 16: move the request to the proposed slot — validated for
+    every person and, on a weekly request, on every occurrence — and re-anchor
+    the recurrence; the hold follows (rule 3)."""
+    data = data or {}
+    recurrence = _reanchored(row.recurrence, data.get("date"))
+    start, end = _validated_slot(
+        coach, data, now=now, exclude_request_id=row.id,
+        people=[row.player, *_invitees(row)], recurrence=recurrence,
+    )
+    row.start_datetime, row.end_datetime = start, end
+    row.recurrence = recurrence
+    _place_hold(row, coach, _locale_of(coach.user))
+
+
 def _refuse(code: str, message: str, **extra):
     abort(make_response(jsonify({"code": code, "message": message, **extra}), 409))
 
@@ -196,39 +229,27 @@ def _busy_by_day(coach: Coach, range_start: datetime, range_end: datetime, *, ex
 
 
 def free_blocks(coach: Coach, range_start: datetime, range_end: datetime, *, now=None, exclude_request_id=None) -> list:
+    """Rule 1: the coach's working windows minus their calendar, as blocks of at
+    least MIN_FREE minutes — the same computation `classes.availability` uses
+    with nobody else's calendar subtracted."""
+    from padel_app.services.availability_service import free_windows_for
+
     now = now or _now_wall_clock()
-    busy = _busy_by_day(coach, range_start, range_end, exclude_request_id=exclude_request_id)
-    out = []
-    day = range_start.date()
-    last = range_end.date()
-    while day <= last:
-        if day < now.date():
-            day += timedelta(days=1)
-            continue
-        windows = sorted(busy.get(day.isoformat(), []))
-        cursor = DAY_START
-        free = []
-        for s, e in windows:
-            if s > cursor:
-                free.append((cursor, min(s, DAY_END)))
-            cursor = max(cursor, e)
-        if cursor < DAY_END:
-            free.append((cursor, DAY_END))
-        for s, e in free:
-            # Never offer time that has already started (today: from the next quarter hour).
-            if day == now.date():
-                s = max(s, ((now.hour * 60 + now.minute + 14) // 15) * 15)
-            if e - s >= MIN_FREE:
-                out.append({"date": day.isoformat(), "startTime": _hhmm(s), "endTime": _hhmm(e)})
-        day += timedelta(days=1)
-    return out
+    free = free_windows_for(coach, [], range_start.date(), range_end.date(), now=now,
+                            exclude_request_id=exclude_request_id)
+    return [
+        {"date": day.isoformat(), "startTime": _hhmm(s), "endTime": _hhmm(e)}
+        for day in sorted(free)
+        for s, e in free[day]
+        if e - s >= MIN_FREE
+    ]
 
 
 def _slot_is_free(coach: Coach, start: datetime, end: datetime, *, now, exclude_request_id=None) -> bool:
-    blocks = free_blocks(coach, start.replace(hour=0, minute=0), start.replace(hour=23, minute=59),
-                         now=now, exclude_request_id=exclude_request_id)
-    s, e = start.hour * 60 + start.minute, end.hour * 60 + end.minute
-    return any(b["date"] == start.date().isoformat() and _minutes(b["startTime"]) <= s and e <= _minutes(b["endTime"]) for b in blocks)
+    from padel_app.services.availability_service import free_windows_for, slot_fits
+
+    free = free_windows_for(coach, [], start.date(), start.date(), now=now, exclude_request_id=exclude_request_id)
+    return slot_fits(free, start.date(), start.hour * 60 + start.minute, end.hour * 60 + end.minute)
 
 
 # ── rule 3: the hold ─────────────────────────────────────────────────────────
@@ -519,10 +540,8 @@ def counter_proposal_service(request_id, player, data: dict, *, now=None) -> Cla
     if row.status != "countered":
         _refuse("not_countered", "There is no proposal to answer")
     coach = row.coach
-    start, end = _validated_slot(coach, data or {}, now=now, exclude_request_id=row.id)
-    row.start_datetime, row.end_datetime = start, end
+    _reslot(row, coach, data, now=now)
     row.status = "pending"
-    _place_hold(row, coach, _locale_of(coach.user))
     db.session.commit()
     who = _name(row.player.user)
     _tell_coach(row, f"{who} propôs outro horário: {_when(row, 'pt')}. Aceitas?",
@@ -547,16 +566,23 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
     if club is None:
         _refuse("NO_CLUB", "Join or create a club before accepting a class request")
     invitees = _invitees(row)
+    if row.recurrence:
+        # Rule 17 (#338 review F4): occurrences that have started are skipped; the
+        # series starts at the first future one; in_the_past only when none is left.
+        t0, t1 = row.start_datetime.time(), row.end_datetime.time()
+        future = [d for d in _occurrence_dates(row.recurrence) if datetime.combine(d, t0) >= now]
+        if not future:
+            _refuse("in_the_past", "Every occurrence of this request has passed")
+        if future[0] != row.start_datetime.date():
+            row.recurrence = {**row.recurrence, "startDate": future[0].isoformat()}
+            row.start_datetime = datetime.combine(future[0], t0)
+            row.end_datetime = datetime.combine(future[0], t1)
     _validated_slot(
         coach,
         {"date": row.start_datetime.date().isoformat(), "startTime": row.start_datetime.strftime("%H:%M"),
          "endTime": row.end_datetime.strftime("%H:%M")},
         now=now, exclude_request_id=row.id, people=[row.player, *invitees], recurrence=row.recurrence,
-    ) if (invitees or row.recurrence) else None
-    if not (invitees or row.recurrence) and not _slot_is_free(
-        coach, row.start_datetime, row.end_datetime, now=now, exclude_request_id=row.id
-    ):
-        _refuse("slot_taken", "That time is no longer free on your calendar")
+    )
     _release_hold(row)
     people_ids = [row.player_id, *[p.id for p in invitees]]
     payload = {
@@ -625,11 +651,9 @@ def decide_class_request_service(request_id, coach, *, action: str, data=None, n
         return row
 
     if action == "propose":
-        # The same validation as a new request (rules 2 and 7), the request's own hold excluded.
-        start, end = _validated_slot(coach, data, now=now, exclude_request_id=row.id)
-        row.start_datetime, row.end_datetime = start, end
+        # The same validation as a new request (rules 2, 7, 13 and 16), the request's own hold excluded.
+        _reslot(row, coach, data, now=now)
         row.status = "countered"
-        _place_hold(row, coach, _locale_of(coach.user))
         db.session.commit()
         _tell_student(row, f"O treinador propôs outro horário: {_when(row, 'pt')}. Aceitas?",
                       f"The coach proposed another time: {_when(row, 'en')}. Do you accept?", kind="proposed")

@@ -29,7 +29,8 @@
       "not_pending": "The student is answering your proposal",
       "not_countered": "There is no proposal to answer",
       "NO_CLUB": "Join or create a club before accepting",
-      "slot_changed": "That proposal is no longer the one on the table"
+      "slot_changed": "That proposal is no longer the one on the table",
+      "off_series": "A weekly request can only move to one of its weekdays"
     },
     "status": {
       "pending": "Waiting for the coach",
