@@ -199,6 +199,7 @@ def test_a_request_carries_the_note_to_the_coach(app):
     from padel_app.services.class_join_request_service import (
         create_join_request_service,
         pending_requests_for_instance,
+        serialize_join_request,
     )
 
     ids = _setup(app)
@@ -210,7 +211,8 @@ def test_a_request_carries_the_note_to_the_coach(app):
             note=f"  {note}  ",
         )
         assert created and row.note == note
-        assert pending_requests_for_instance(open_class["instance_id"])[0]["note"] == note
+        # The coach's pending requests on the class payload carry it (rule 9).
+        assert serialize_join_request(pending_requests_for_instance(open_class["instance_id"])[0])["note"] == note
         rid = row.id
 
     listed = _by_title(_list(app, ids))["Open Tomorrow"]
@@ -291,7 +293,7 @@ def test_an_open_class_has_no_waiting_list(app):
     open_class = _add_class(app, ids, days=1, title="Open Tomorrow", max_players=6, filled=1)
     with pytest.raises(HTTPException) as exc:
         _join(app, ids, model="LessonInstance", original_id=open_class["instance_id"])
-    assert exc.value.code == 409
+    assert exc.value.response.status_code == 409
     assert exc.value.response.get_json()["code"] == "has_spots"
     assert _count(app, "WaitingListEntry", lesson_instance_id=open_class["instance_id"]) == 0
 
@@ -332,6 +334,7 @@ def test_routes_follow_the_wire_contract(app, client):
     from padel_app.models.players import Player
 
     ids = _setup(app)
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     open_class = _add_class(app, ids, days=1, title="Open Tomorrow", max_players=6, filled=1)
     full = _add_class(app, ids, days=3, title="Full In Three", max_players=1, filled=1)
     with app.app_context():

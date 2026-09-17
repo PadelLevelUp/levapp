@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, text
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -49,6 +49,11 @@ class ClassJoinRequest(db.Model, model.Model):
         Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False
     )
     coach = relationship("Coach", foreign_keys=[coach_id])
+
+    # PAD-358 (classes.academy-class-booking rule 5): the student's optional
+    # message to the coach. The column is added by PAD-357's migration
+    # 8da963ad8591, which carries it for this ticket.
+    note = Column(String(500), nullable=True)
 
     status = Column(
         Enum(
