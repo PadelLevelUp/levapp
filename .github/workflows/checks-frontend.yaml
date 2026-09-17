@@ -18,6 +18,13 @@ name: Frontend checks
 # `paths:` filter that skips a required check blocks the PR forever, because
 # "skipped" is not "success". Here the job always runs and reports success; the
 # expensive steps are the ones that get skipped.
+#
+# B-092: the `unit` job. Until 2026-09-16 no PR check ran vitest at all — the
+# checks were typecheck, pytest ×2, alembic head, APK and Maestro — so the three
+# E2E guards that live as vitest tests (rendered-text, role-name, bilingual
+# alternation) were green on every PR and only failed on the assembled batch
+# branch, where four violating files met them for the first time. `npm test`
+# at the workspace root runs web, packages and mobile unit suites (~2 min).
 
 on:
   pull_request:
@@ -85,3 +92,37 @@ jobs:
         if: steps.filter.outputs.frontend == 'true'
         working-directory: frontend
         run: npx tsc --noEmit -p apps/mobile/tsconfig.json
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/checks-frontend.yaml'
+
+      # Same Node as the typecheck job above, for the same reason.
+      - uses: actions/setup-node@v4
+        if: steps.filter.outputs.frontend == 'true'
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install workspace dependencies
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      # web (`@levelup/web`), then packages/*, then mobile — the root `test`
+      # script, so what CI runs is what `npm test` runs locally. The E2E guards
+      # (B-092) are part of the web suite.
+      - name: Unit tests (web, packages, mobile)
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm test

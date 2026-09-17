@@ -39,8 +39,7 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 30000
 - assertVisible:
-    id: "player-remove"
-    text: "Disconnect"
+    id: "player-remove-mode-disconnect"
 - tapOn:
     id: "player-remove"
 - extendedWaitUntil:
@@ -153,8 +152,7 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 30000
 - assertVisible:
-    id: "player-remove"
-    text: "Delete Player"
+    id: "player-remove-mode-delete"
 - tapOn:
     id: "player-remove"
 - extendedWaitUntil:

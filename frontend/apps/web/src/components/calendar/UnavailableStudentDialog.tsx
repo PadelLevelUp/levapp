@@ -37,7 +37,7 @@ export function UnavailableStudentDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => !o && onCancel()}>
-      <AlertDialogContent>
+      <AlertDialogContent data-testid="unavailable-student-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>{t("calendar.unavailable.title")}</AlertDialogTitle>
           <AlertDialogDescription>

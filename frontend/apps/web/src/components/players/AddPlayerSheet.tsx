@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFieldAvailability } from "@/hooks/useFieldAvailability";
+import { fieldConflictText } from "@levelup/api/src/resources/fields";
 import { LevelLabel } from "@/components/LevelLabel";
 
 export interface AddPlayerInput {
@@ -162,8 +163,8 @@ export function AddPlayerSheet({
               )}
             </div>
             {nameCheck.error && (
-              <p className="text-sm text-warning">
-                {nameCheck.error}. {t("players.nameWarningSuffix")}
+              <p className="text-sm text-warning" data-testid="player-name-conflict" data-reason={nameCheck.conflict?.reason ?? ""}>
+                {fieldConflictText(nameCheck.conflict, t)} {t("players.nameWarningSuffix")}
               </p>
             )}
           </div>
@@ -183,7 +184,9 @@ export function AddPlayerSheet({
               )}
             </div>
             {emailCheck.error && (
-              <p className="text-sm text-destructive">{emailCheck.error}</p>
+              <p className="text-sm text-destructive" data-testid="player-email-conflict" data-reason={emailCheck.conflict?.reason ?? ""}>
+                {fieldConflictText(emailCheck.conflict, t)}
+              </p>
             )}
           </div>
 

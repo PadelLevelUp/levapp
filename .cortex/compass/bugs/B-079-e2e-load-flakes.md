@@ -112,3 +112,50 @@ test does assert text, treat a sudden failure as a question about the assertion 
 the product second. The replacement ids in this area are `attendance-state` (with the state
 value), `attendance-cancelled-by-student` and `attendance-reminder-hint`; the removed ones
 were `class-not-attending`, `class-not-attending-at` and `class-proactive-decline`.
+
+## Addendum, 2026-09-16 — the rendered-text family closed out; the new ratchet baseline
+
+The second family named above (the assertion that only passes by accident) has its own
+entry now: **B-103**, with both failure modes and the conversion pattern. PAD-320 converted
+the rendered-text backlog its guard counted when it landed (#264: 125 assertions, 42 files)
+and then widened the guard, because the conversions proved the exact-match scanner was a
+floor. This is the baseline the ratchets start from.
+
+**Converted (the original 125).**
+- Session C: #308, #310, #315, #320 (batch 2) and the final PR: notification-engine-settings,
+  import-history, ticket-pad-105-coach-no-username, class-deletion, mobile-day-view,
+  reminder-flow, player-notes, duplicate-username-warning, validation-watermark,
+  profile-persistence, semi-auto-approval, class-delete-confirm, attendance-save,
+  recurring-occurrence-delete, temp-id-delete-after-save, season-end-no-season, courts,
+  season-definition, unavailable-student-notifications, class-overlap-warning,
+  standing-waitlist-expired, class-cancellation-notification.
+- Session E: #314, #319 (eight files each), #325 (the four Maestro flows 04, 13, 34, 43).
+
+**Widened** (final PR, `e2e-rendered-text-scan.ts`): edge punctuation, `{{placeholder}}`
+templates (substantial fixed text, or numeric placeholders only), word-bounded substantial
+substrings for substring matchers, and the copy inside anchored / escaped regex literals.
+Validated against the old scanner on the same tree before regenerating — nothing previously
+counted was lost, every added literal was read, and three false-positive shapes found that
+way are pinned by fixture tests ("{{name}}"-only templates, "{{name}} class" claiming test
+titles, an input's "e.g." example text).
+
+**Baseline after regeneration and the final conversions** (one guard run wrote all three
+lists; counts are the sum of each list's `max` and its entry count):
+
+| List | Before widening (batch 2 head) | Baseline now |
+|---|---|---|
+| rendered text (`e2e-rendered-text-backlog.ts`) | 14 in 8 files | **52 in 23 files** |
+| typed role names (`e2e-role-name-backlog.ts`, PAD-342) | 185 in 53 files | **199 in 55 files** |
+| bilingual alternations (`e2e-bilingual-backlog.ts`, PAD-322) | 50 in 32 files | **50 in 32 files** |
+
+The re-grown text entries include files already cleared by the slices — the widened scanner
+found copy the old one filed as test data (e.g. `notification-engine-settings` 14,
+`import-history` 3: "are you sure", "successfully reverted"). The four `mz:` entries (34 at 6)
+are reconciled with #325 by whichever of the two lands second. The regeneration commit's
+message overstates each list's file count by one (a counting script matched the
+`max: number;` declaration); the table above is the corrected count.
+
+**Still out, on record in B-103:** copy that is in no locale file (B-102's backend prose,
+backend constants), text values under three characters (a separate decision), and the regex
+forms of `getByPlaceholder` / `getByLabel`. These backlogs are the open remainder — tracked
+here, not in an open ticket.

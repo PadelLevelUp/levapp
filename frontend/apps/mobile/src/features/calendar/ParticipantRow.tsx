@@ -116,7 +116,9 @@ export function ParticipantRow({
             founder's report. The coach's toggle below still writes the mark. */}
         {presence ? (
           <Badge variant={BADGE_VARIANT[attendanceStateTone(state)]} testID="attendance-state">
-            <Text>{t(attendanceStateLabelKey(state, audience))}</Text>
+            {/* The state in the id (web: data-state on attendance-state), so a
+                flow asserts the state, not its rendered word (PAD-320). */}
+            <Text testID={`attendance-state-${state}`}>{t(attendanceStateLabelKey(state, audience))}</Text>
           </Badge>
         ) : null}
       </View>

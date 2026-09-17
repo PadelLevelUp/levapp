@@ -171,6 +171,15 @@ def test_quiet_hours_defer_to_the_morning_and_never_to_a_past_time(app):
         night_local = (datetime.utcnow() + timedelta(days=1)).replace(
             hour=2, minute=0, second=0, microsecond=0)
         night = night_local  # naive UTC is close enough for the hour arithmetic here
+        # B-100: the class is pinned RELATIVE TO the pinned "now", never to the
+        # real clock. _world() seeds it at real-now + 24h, which between 00:00
+        # and ~08:00 club-local is at or before the deferred morning slot, so
+        # next_ask_time() rightly returned None and this test failed by the
+        # hour of the day. Midday the day after the night keeps the ask
+        # (~08:00 the next morning) safely before the class at any wall-clock.
+        instance.start_datetime = night + timedelta(hours=34)
+        instance.end_datetime = instance.start_datetime + timedelta(hours=1)
+        db.session.commit()
 
         when = next_ask_time(instance, ids["student_id"], config=config, now=night)
         assert when is not None, "quiet hours defer the ask, they do not cancel it"

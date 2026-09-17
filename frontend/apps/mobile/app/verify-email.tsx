@@ -136,8 +136,18 @@ export default function VerifyEmailScreen() {
         const me = await authApi.confirmEmailVerificationCode(value);
         await refreshUser();
         toast.success(t("auth.verifyEmail.verified"));
+        // B-089 face C (PAD-314): `submitting` stays true on success. The screen
+        // is leaving, and resetting it restyled every code cell (opacity-50,
+        // active border) in the same commit that tears the screen down. On
+        // Android, Fabric then flattened cell 0 and moved its digit Text into
+        // the row's Pressable while it still had a parent ("addViewAt: View
+        // already has a parent"), which killed the whole surface. Native tags
+        // named those three views (lane run 35127379373). leave(me) navigates
+        // here explicitly, so success never depends on the [user] effect and
+        // the screen cannot be left stuck with submitting=true.
         leave(me);
       } catch (err) {
+        setSubmitting(false);
         const status = (err as ApiErr).response?.status;
         const data = (err as ApiErr).response?.data;
         setCode("");
@@ -155,8 +165,6 @@ export default function VerifyEmailScreen() {
         } else {
           setError(t("auth.login.networkError"));
         }
-      } finally {
-        setSubmitting(false);
       }
     },
     [leave, refreshUser, submitting, t]
