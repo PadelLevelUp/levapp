@@ -21,6 +21,7 @@ import { ImportSection } from "@/features/settings/import-section";
 import { PreferencesSection } from "@/features/settings/preferences-section";
 import { ProfileSection } from "@/features/settings/profile-section";
 import { SeasonsSection } from "@/features/settings/seasons-section";
+import { WorkingHoursSection } from "@/features/settings/working-hours-section";
 import { StudentNotificationBlocksSection } from "@/features/settings/student-notification-blocks-section";
 import { TutorialsSection } from "@/features/settings/tutorials-section";
 import {
@@ -135,7 +136,14 @@ export default function SettingsScreen() {
       case "preferences":
         return <PreferencesSection isCoach={isCoach} />;
       case "calendar":
-        return <SeasonsSection />;
+        // PAD-357 (settings.coach-working-hours rule 3): working hours sit under
+        // Seasons, as on web's calendar tab.
+        return (
+          <View className="gap-4">
+            <SeasonsSection />
+            <WorkingHoursSection />
+          </View>
+        );
       case "notifications":
         return <AutoInviteSection />;
       case "classRequests":
