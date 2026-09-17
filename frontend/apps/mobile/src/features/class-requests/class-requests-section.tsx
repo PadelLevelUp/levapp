@@ -1,6 +1,6 @@
 /**
  * classes.class-requests (PAD-104) — mirrors web's ClassRequestsSection:
- * student books a class in the coach's free time and manages their own
+ * student opens the "Marcar aula" wizard (PAD-357, app/class-request-wizard.tsx) and manages their own
  * requests (withdraw, or answer a proposal: accept / decline / propose another
  * time — rule 10, PAD-281); coach accepts / declines / proposes another time.
  */
@@ -8,8 +8,9 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { CLASS_REQUEST_DURATIONS, FIRST_FREE_DAY_HORIZON_DAYS, clubTodayISO, firstFreeDay, lightTheme, slotOptions } from "@levelup/config";
+import { CLASS_REQUEST_DURATIONS, clubTodayISO, lightTheme, slotOptions } from "@levelup/config";
 import { queryKeys } from "@levelup/hooks";
 import type { ClassRequest } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
@@ -20,7 +21,6 @@ import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, type Option } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
-import { Textarea } from "@/components/ui/textarea";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -29,13 +29,6 @@ const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
   return clubTodayISO(); // B-060: the club's date, not the device's
-}
-
-/** Rule 11 (PAD-302): the last day the booking form looks at for its default date. */
-function horizonIso(): string {
-  const [y, m, d] = todayIso().split("-").map(Number);
-  const end = new Date(Date.UTC(y, m - 1, d + FIRST_FREE_DAY_HORIZON_DAYS));
-  return end.toISOString().slice(0, 10);
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {
@@ -58,14 +51,6 @@ export function ClassRequestsSection({
   const requests = useQuery({ queryKey: queryKeys.classRequests, queryFn: classRequestsApi.listClassRequests });
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
 
-  const [booking, setBooking] = React.useState(false);
-  const [coach, setCoach] = React.useState<Option>(undefined);
-  const [date, setDate] = React.useState(todayIso());
-  // Rule 11 (PAD-302): a date the student typed is never overridden by the coach default.
-  const dateTouched = React.useRef(false);
-  const [duration, setDuration] = React.useState<Option>({ value: "60", label: t("classRequests.minutes", { count: 60 }) });
-  const [slot, setSlot] = React.useState<{ startTime: string; endTime: string } | null>(null);
-  const [note, setNote] = React.useState("");
   const [proposingId, setProposingId] = React.useState<number | null>(null);
   const [proposal, setProposal] = React.useState({ date: "", startTime: "10:00", endTime: "11:00" });
   const [counteringId, setCounteringId] = React.useState<number | null>(null);
@@ -81,64 +66,10 @@ export function ClassRequestsSection({
     }
   }, [proposeFor, role, requests.data]);
 
-  const coaches = useQuery({
-    queryKey: queryKeys.classRequestCoaches,
-    queryFn: classRequestsApi.listClassRequestCoaches,
-    enabled: role === "student" && booking,
-  });
-  React.useEffect(() => {
-    if (coaches.data?.length === 1 && !coach) setCoach({ value: coaches.data[0].id, label: coaches.data[0].name });
-  }, [coaches.data, coach]);
-
-  const coachId = coach?.value ?? "";
-  // Rule 11 (PAD-302): open on the first day that still has a free block.
-  const horizon = useQuery({
-    queryKey: [...queryKeys.classRequestFreeBlocks(coachId, "horizon"), FIRST_FREE_DAY_HORIZON_DAYS],
-    queryFn: () => classRequestsApi.getFreeBlocks(coachId, `${todayIso()}T00:00:00`, `${horizonIso()}T23:59:00`),
-    enabled: role === "student" && booking && !!coachId,
-  });
-  React.useEffect(() => {
-    if (horizon.data && !dateTouched.current) setDate(firstFreeDay(horizon.data, todayIso()));
-  }, [horizon.data]);
-  const blocks = useQuery({
-    queryKey: queryKeys.classRequestFreeBlocks(coachId, date),
-    queryFn: () => classRequestsApi.getFreeBlocks(coachId, `${date}T00:00:00`, `${date}T23:59:00`),
-    enabled: role === "student" && booking && !!coachId && !!date,
-  });
-  React.useEffect(() => setSlot(null), [coachId, date, duration?.value]);
-
-  const durationMin = Number(duration?.value ?? 60);
-  const starts = React.useMemo(
-    () => (blocks.data ?? []).flatMap((b) => slotOptions(b, durationMin)),
-    [blocks.data, durationMin]
-  );
-
   const refusalText = (err: unknown, fallback: string) => {
     const refusal = classRequestsApi.classRequestRefusal(err);
     return refusal ? t(`classRequests.refusal.${refusal.code}`) : fallback;
   };
-
-  const send = useMutation({
-    mutationFn: () =>
-      classRequestsApi.createClassRequest({
-        coachId,
-        date,
-        startTime: slot!.startTime,
-        endTime: slot!.endTime,
-        note: note.trim() || null,
-      }),
-    onSuccess: () => {
-      toast.success(t("classRequests.sent"));
-      setBooking(false);
-      setSlot(null);
-      setNote("");
-      invalidate();
-    },
-    onError: (err) => {
-      toast.error(refusalText(err, t("classRequests.failed")));
-      void blocks.refetch();
-    },
-  });
 
   const act = useMutation({
     mutationFn: ({ fn }: { fn: () => Promise<unknown>; okKey: string }) => fn(),
@@ -253,108 +184,12 @@ export function ClassRequestsSection({
             <Text className="text-base font-semibold">{t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}</Text>
             <Text className="text-xs text-muted-foreground">{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</Text>
           </View>
-          {role === "student" && !booking ? (
-            <Button size="sm" onPress={() => setBooking(true)} testID="class-request-book">
+          {role === "student" ? (
+            <Button size="sm" onPress={() => router.push("/class-request-wizard")} testID="class-request-book">
               <Text>{t("classRequests.book")}</Text>
             </Button>
           ) : null}
         </View>
-
-        {role === "student" && booking ? (
-          <View className="gap-3 rounded-lg border border-border p-3" testID="class-request-form">
-            <View className="gap-2">
-              <Label>{t("classRequests.coach")}</Label>
-              <Select value={coach} onValueChange={setCoach}>
-                <SelectTrigger testID="class-request-coach" accessibilityLabel={t("classRequests.coach")}>
-                  <SelectValue placeholder={t("classRequests.selectCoach")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(coaches.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id} label={c.name} />
-                  ))}
-                </SelectContent>
-              </Select>
-              {coaches.data && coaches.data.length === 0 ? (
-                <Text className="text-xs text-muted-foreground">{t("classRequests.noCoaches")}</Text>
-              ) : null}
-            </View>
-            <DatePickerInput
-              label={t("classRequests.date")}
-              value={date}
-              onChange={(v) => {
-                dateTouched.current = true;
-                setDate(v);
-              }}
-              testID="class-request-date"
-            />
-            <View className="gap-2">
-              <Label>{t("classRequests.duration")}</Label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger accessibilityLabel={t("classRequests.duration")}>
-                  <SelectValue placeholder={t("classRequests.duration")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLASS_REQUEST_DURATIONS.map((d) => (
-                    <SelectItem key={d} value={String(d)} label={t("classRequests.minutes", { count: d })} />
-                  ))}
-                </SelectContent>
-              </Select>
-            </View>
-
-            {coachId && blocks.data ? (
-              <View className="gap-2">
-                <Label>{t("classRequests.freeBlocks")}</Label>
-                {blocks.data.length === 0 ? (
-                  <Text className="text-sm text-muted-foreground">{t("classRequests.noFreeBlocks")}</Text>
-                ) : (
-                  <View className="flex-row flex-wrap gap-1.5">
-                    {blocks.data.map((b) => (
-                      <Badge key={`${b.startTime}-${b.endTime}`} variant="outline">
-                        <Text>{b.startTime}–{b.endTime}</Text>
-                      </Badge>
-                    ))}
-                  </View>
-                )}
-                {starts.length > 0 ? (
-                  <View className="gap-1">
-                    <Label>{t("classRequests.pickStart")}</Label>
-                    <View className="flex-row flex-wrap gap-1.5" testID="class-request-slots">
-                      {starts.map((s) => {
-                        const selected = slot?.startTime === s.startTime;
-                        return (
-                          <Pressable
-                            key={s.startTime}
-                            onPress={() => setSlot(s)}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected }}
-                            className={cn("rounded-full border px-3 py-1.5", selected ? "border-primary bg-primary" : "border-border bg-background")}
-                            testID="class-request-slot"
-                          >
-                            <Text className={cn("text-sm", selected && "text-primary-foreground")}>{s.startTime}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            <View className="gap-2">
-              <Label>{t("classRequests.note")}</Label>
-              <Textarea value={note} onChangeText={setNote} placeholder={t("classRequests.notePlaceholder")} numberOfLines={2} />
-            </View>
-
-            <View className="flex-row justify-end gap-2">
-              <Button variant="outline" onPress={() => setBooking(false)} disabled={send.isPending}>
-                <Text>{t("classRequests.cancel")}</Text>
-              </Button>
-              <Button onPress={() => send.mutate()} disabled={send.isPending || !coachId || !slot} testID="class-request-send">
-                <Text>{t("classRequests.send")}</Text>
-              </Button>
-            </View>
-          </View>
-        ) : null}
 
         {requests.isPending ? (
           <Text className="text-sm text-muted-foreground">…</Text>

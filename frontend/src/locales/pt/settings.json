@@ -662,6 +662,33 @@
       "line": "LevApp {{version}} · {{host}}",
       "testServer": "Servidor de testes: {{host}}",
       "loginNotice": "Versão de teste. Esta app usa o servidor de testes {{host}}; o que fizer aqui é apagado quando o servidor é atualizado."
+    },
+    "workingHours": {
+      "title": "Horário de trabalho",
+      "description": "Quando trabalhas, dia a dia. Os alunos só podem pedir aulas privadas dentro deste horário e fora do que já tens no calendário.",
+      "defaultNote": "Horário de trabalho não definido: aplica-se {{start}}–{{end}} todos os dias até guardares o teu.",
+      "off": "Não trabalho",
+      "worksAria": "Trabalha à {{day}}",
+      "startAria": "Início",
+      "endAria": "Fim",
+      "addWindow": "Adicionar horário",
+      "removeWindow": "Remover este horário",
+      "clear": "Limpar horário",
+      "saving": "A guardar…",
+      "saved": "Horário de trabalho guardado",
+      "cleared": "Horário de trabalho limpo",
+      "saveFailed": "Não foi possível guardar o teu horário de trabalho",
+      "loadFailed": "Não foi possível carregar o teu horário de trabalho",
+      "invalidDay": "Verifica {{day}}: cada horário tem de terminar depois de começar, em quartos de hora, sem sobreposições.",
+      "days": {
+        "mon": "Segunda-feira",
+        "tue": "Terça-feira",
+        "wed": "Quarta-feira",
+        "thu": "Quinta-feira",
+        "fri": "Sexta-feira",
+        "sat": "Sábado",
+        "sun": "Domingo"
+      }
     }
   }
 }

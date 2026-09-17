@@ -34,8 +34,17 @@ export async function getFreeBlocks(coachId: string, from: string, to: string, e
   return res.data;
 }
 
+/** PAD-357 (rules 12 and 14): `participants` are exact usernames (≤ 3) and
+ *  `recurrence` makes it one weekly request; `date` is then the first occurrence.
+ *  Refusals: 404 USERNAME_NOT_FOUND, 400 SELF_INVITE, 400 TOO_MANY_PEOPLE,
+ *  409 DUPLICATE_INVITEE, 409 slot_taken (with `date` for a weekly request). */
 export async function createClassRequest(
-  data: ClassRequestSlot & { coachId: string; note?: string | null }
+  data: ClassRequestSlot & {
+    coachId: string;
+    note?: string | null;
+    participants?: string[];
+    recurrence?: { weekdays: number[]; startDate: string; endDate: string };
+  }
 ): Promise<ClassRequest> {
   const res = await getApi().post("/app/class-requests", data);
   return res.data;

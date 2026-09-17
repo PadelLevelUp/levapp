@@ -1,5 +1,5 @@
 /**
- * PAD-302 (classes.class-requests rule 11): the student's booking form opens
+ * PAD-302 (classes.class-requests rule 11): the student's booking (since PAD-357 the wizard's private step) opens
  * on the first day that still has a free block for the chosen coach, not on
  * an empty picker. Today is blocked on the coach's calendar through the API so
  * the default has to move; the block is removed in `finally`.
@@ -36,17 +36,26 @@ test("PAD-302: the booking form opens on the first day with a free block when to
     await loginAsStudent(page);
     await page.goto("/availability");
     await page.getByTestId("class-request-book").click();
-    const form = page.getByTestId("class-request-form");
-    const defaulted = page.waitForResponse((r) => r.url().includes("/class-requests/free-blocks") && r.url().includes(`from=${today}T00`) && !r.url().includes(`to=${today}T`));
-    await form.getByTestId("class-request-coach").click();
-    await page.getByRole("option", { name: "E2E Coach" }).click();
+    // PAD-357: booking is the wizard; the private step's date is the booking date.
+    const form = page.getByTestId("class-request-wizard");
+    await expect(form).toBeVisible();
+    const defaulted = page.waitForResponse((r) => {
+      const url = new URL(r.url());
+      return url.pathname.endsWith("/app/availability") && url.searchParams.get("from") === today && url.searchParams.get("to") !== today;
+    });
+    await expect(form).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
+    if ((await form.getAttribute("data-step")) === "coach") {
+      await form.locator('[data-testid^="wizard-coach-"]').first().click();
+    }
+    await expect(form).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
+    await form.getByTestId("wizard-kind-private").click();
     await defaulted;
 
-    const dateInput = form.getByTestId("class-request-date");
+    const dateInput = form.getByTestId("wizard-date");
     await expect.poll(async () => dateInput.inputValue()).not.toBe(today);
     const chosen = await dateInput.inputValue();
     expect(chosen > today).toBe(true);
-    await expect(form.getByTestId("class-request-slot").first()).toBeVisible({ timeout: 15_000 });
+    await expect(form.getByTestId("wizard-slot").first()).toBeVisible({ timeout: 15_000 });
 
     // A typed date stays the typed date.
     const typed = isoDaysAhead(20);

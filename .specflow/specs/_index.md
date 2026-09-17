@@ -12,7 +12,7 @@ governing leaf spec and its dependencies before touching code.
 - `auth/` — Authentication & User Management (14 leaves; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
-- `classes/` — Lessons & Instances (11 leaves; `classes.class-requests` added 2026-09-10, PAD-104)
+- `classes/` — Lessons & Instances (12 leaves; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `eligibility/` — Who May Join a Class (4 leaves)
@@ -23,7 +23,7 @@ governing leaf spec and its dependencies before touching code.
 - `mobile/` — Mobile Platform Runtime (2 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (5 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267;)
+- `settings/` — User Preferences & Internationalization (6 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest

@@ -235,7 +235,9 @@ test.describe("PAD-247: phone calendar Semana view", () => {
     await expect(page.getByTestId(`calendar-day-${WED}`)).toHaveAttribute("aria-pressed", "true");
     await expect(wedColumn).toHaveAttribute("data-selected", "true");
     const sheet = page.getByTestId("calendar-day-sheet");
-    await expect(sheet.getByRole("heading", { level: 3 })).toContainText("Wednesday");
+    // The sheet names the selected day: the same `day` its header spells out.
+    await expect(sheet).toHaveAttribute("data-day", WED);
+    await expect(sheet.getByRole("heading", { level: 3 })).toBeVisible();
     await expect(sheet.getByTestId("calendar-event-card")).toHaveCount(1);
     await expect(sheet.getByTestId("calendar-event-card")).toContainText("Almoço");
 
