@@ -196,7 +196,7 @@ as though the procedure exists.
   actionlint clean, every embedded script passes `bash -n`, the retention pipeline against four
   sample inputs (five distinct images, one image on two rows, one image, no images).
 
-## Pending: the rehearsal (coordinator's decision, 2026-09-16)
+## Rehearsed — 2026-09-16 21:51 UTC (coordinator)
 
 The rollback path is proven the first time it runs, and that must not be the night it is
 needed. **After this change has reached production** through a promotion, on a quiet evening,
@@ -212,4 +212,9 @@ Expected: the `Build and push image` steps show as skipped, both deploys pull th
 `padellevelup.com` answer 200, and `docker ps` on the VM shows the containers running the
 `:<sha>` tags. Outage: the usual stop-to-ready window, about fifteen seconds, with no
 migration pending. When it has run, record the run id and the date here and this section
-becomes "Rehearsed". Until then the one command above is **written, linted and unrun**.
+becomes "Rehearsed".
+
+**Done.** The coordinator dispatched `deploy-prod.yaml -f target=both -f rollback_to=a85cbefff`
+at 21:51:04 UTC (run 35154621033); it completed success at 21:53:40 with the build steps
+skipped, the container recreated on the sha-tagged image and both hosts answering 200.
+Recorded on PAD-338. The one command above has now run once, end to end, on production.
