@@ -251,7 +251,7 @@ export function ClassRequestsSection({
         <View className="flex-row items-start justify-between gap-3">
           <View className="min-w-0 flex-1">
             <Text className="text-base font-semibold">{t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}</Text>
-            <Text className="text-xs text-muted-foreground">{t(role === "student" ? "classRequests.intro" : "classRequests.coachIntro")}</Text>
+            <Text className="text-xs text-muted-foreground">{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</Text>
           </View>
           {role === "student" && !booking ? (
             <Button size="sm" onPress={() => setBooking(true)} testID="class-request-book">

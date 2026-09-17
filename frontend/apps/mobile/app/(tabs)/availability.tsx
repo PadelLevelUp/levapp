@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, type BlockerDraftInput } from "@levelup/config";
 import type { AvailabilityBlocker } from "@levelup/api/src/resources/availability";
 import { useAvailabilityBlockers } from "@levelup/hooks";
 import { EmptyState } from "@/components/empty-state";
@@ -21,14 +21,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
-import {
-  BlockerForm,
-  blockerTypeLabel,
-  type BlockerPayload,
-} from "@/features/availability/BlockerForm";
+import { BlockerSheet } from "@/features/availability/BlockerSheet";
 import {
   useCreateBlocker,
   useDeleteBlocker,
@@ -55,6 +53,12 @@ function describeBlocker(
   return t("availability.dateAndTime", { date: b.date ?? "", time });
 }
 
+/**
+ * The student's Disponibilidade tab (calendar.student-blockers rule 14,
+ * PAD-356): two cards, each with an explanation and its own call to action,
+ * and no floating "+". Blocks are created and edited in a sheet (rule 15);
+ * the class-requests card (`classes.class-requests`) is the second card.
+ */
 export default function AvailabilityScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ proposeFor?: string }>();
@@ -65,60 +69,65 @@ export default function AvailabilityScreen() {
   const updateBlocker = useUpdateBlocker();
   const deleteBlocker = useDeleteBlocker();
 
-  const [showForm, setShowForm] = React.useState(false);
+  const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<AvailabilityBlocker | null>(
     null
   );
   const [pendingDelete, setPendingDelete] =
     React.useState<AvailabilityBlocker | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [removeError, setRemoveError] = React.useState<string | null>(null);
 
   const saving = createBlocker.isPending || updateBlocker.isPending;
 
   const openCreate = () => {
     setEditing(null);
-    setShowForm(true);
-    setError(null);
+    setSaveError(null);
+    setSheetOpen(true);
   };
 
   const openEdit = (blocker: AvailabilityBlocker) => {
     setEditing(blocker);
-    setShowForm(true);
-    setError(null);
+    setSaveError(null);
+    setSheetOpen(true);
   };
 
-  const handleSubmit = async (payload: BlockerPayload) => {
-    setError(null);
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setEditing(null);
+  };
+
+  const handleSubmit = async (payload: BlockerDraftInput) => {
+    setSaveError(null);
     try {
       if (editing) {
         await updateBlocker.mutateAsync({ id: editing.id, data: payload });
       } else {
         await createBlocker.mutateAsync(payload);
       }
-      setShowForm(false);
-      setEditing(null);
+      closeSheet();
     } catch {
-      setError(t("availability.couldNotSaveMessage"));
+      setSaveError(t("availability.couldNotSaveMessage"));
     }
   };
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
-    setError(null);
+    setRemoveError(null);
     try {
       await deleteBlocker.mutateAsync(pendingDelete.id);
       setPendingDelete(null);
     } catch {
       setPendingDelete(null);
-      setError(t("availability.couldNotRemoveMessage"));
+      setRemoveError(t("availability.couldNotRemoveMessage"));
     }
   };
 
-  const body = () => {
+  const blockerList = () => {
     if (isPending) {
       return (
         <View className="gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 2 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-lg" />
           ))}
         </View>
@@ -133,7 +142,7 @@ export default function AvailabilityScreen() {
       );
     }
     const items = blockers ?? [];
-    if (items.length === 0 && !showForm) {
+    if (items.length === 0) {
       return (
         <EmptyState
           testID="availability-blockers-empty"
@@ -149,7 +158,7 @@ export default function AvailabilityScreen() {
           <View
             key={b.id}
             testID={`blocker-card-${b.id}`}
-            className="flex-row items-center gap-3 rounded-lg border border-border bg-card p-3"
+            className="flex-row items-center gap-3 rounded-lg border border-border bg-background p-3"
           >
             <View className="min-w-0 flex-1 gap-1">
               <View className="flex-row flex-wrap items-center gap-2">
@@ -161,19 +170,14 @@ export default function AvailabilityScreen() {
                     <Text>{t("availability.recurring")}</Text>
                   </Badge>
                 ) : null}
-                <Badge variant="outline">
-                  <Text>{blockerTypeLabel(b.type, t)}</Text>
-                </Badge>
               </View>
               <Text className="text-sm text-muted-foreground">
                 {describeBlocker(b, t)}
               </Text>
-              <Text className="text-xs text-muted-foreground">
-                {t("availability.wontReceive")}
-              </Text>
             </View>
             <View className="flex-row items-center gap-1">
               <Pressable
+                testID={`blocker-edit-${b.id}`}
                 accessibilityLabel={t("availability.editBlockerAria")}
                 role="button"
                 hitSlop={8}
@@ -214,46 +218,46 @@ export default function AvailabilityScreen() {
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }}
       >
-        <Text className="text-sm text-muted-foreground">
-          {t("availability.intro")}
-        </Text>
+        {/* Rule 14: Indisponibilidade — explanation, Criar bloqueio, the blocks. */}
+        <Card testID="availability-blockers-card">
+          <CardContent className="gap-4 p-4">
+            <View className="gap-1">
+              <Text className="text-base font-semibold">
+                {t("availability.blockersCard.title")}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("availability.blockersCard.intro")}
+              </Text>
+            </View>
+            <Button
+              testID="availability-create-blocker"
+              accessibilityLabel={t("availability.blockersCard.cta")}
+              onPress={openCreate}
+            >
+              <Ionicons name="add" size={18} color={lightTheme.primaryForeground} />
+              <Text>{t("availability.blockersCard.cta")}</Text>
+            </Button>
+            {removeError ? (
+              <Text className="text-sm text-destructive">{removeError}</Text>
+            ) : null}
+            {blockerList()}
+          </CardContent>
+        </Card>
 
-        {/* PAD-104: the student books a class in the coach's free time.
+        {/* Rule 14: Pedidos de aula — classes.class-requests as the second card.
             PAD-281: `?proposeFor=<id>` (from the chat bubble) opens the
             "propose another time" picker on that request. */}
-        {!showForm ? <ClassRequestsSection role="student" proposeFor={proposeFor} /> : null}
-
-        {showForm ? (
-          <BlockerForm
-            key={editing?.id ?? "new"}
-            initial={editing}
-            saving={saving}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setShowForm(false);
-              setEditing(null);
-            }}
-          />
-        ) : null}
-
-        {error ? (
-          <Text className="text-sm text-destructive">{error}</Text>
-        ) : null}
-
-        {body()}
+        <ClassRequestsSection role="student" proposeFor={proposeFor} />
       </ScrollView>
 
-      {!showForm ? (
-        <Pressable
-          testID="availability-add"
-          accessibilityLabel={t("availability.addBlocker")}
-          role="button"
-          onPress={openCreate}
-          className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-90"
-        >
-          <Ionicons name="add" size={28} color={lightTheme.primaryForeground} />
-        </Pressable>
-      ) : null}
+      <BlockerSheet
+        open={sheetOpen}
+        initial={editing}
+        saving={saving}
+        error={saveError}
+        onSubmit={handleSubmit}
+        onClose={closeSheet}
+      />
 
       <AlertDialog
         open={pendingDelete != null}
