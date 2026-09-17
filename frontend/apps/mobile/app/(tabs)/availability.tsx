@@ -170,9 +170,15 @@ export default function AvailabilityScreen() {
                     <Text>{t("availability.recurring")}</Text>
                   </Badge>
                 ) : null}
+                <Badge variant="outline">
+                  <Text>{t("availability.unavailable")}</Text>
+                </Badge>
               </View>
               <Text className="text-sm text-muted-foreground">
                 {describeBlocker(b, t)}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("availability.wontReceive")}
               </Text>
             </View>
             <View className="flex-row items-center gap-1">

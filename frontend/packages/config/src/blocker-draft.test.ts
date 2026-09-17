@@ -25,6 +25,13 @@ describe("blockerDraftError", () => {
     expect(blockerDraftError(single({ date: "" }))).toBe("date_required");
   });
 
+  it("requires both times: a cleared time input is not a time", () => {
+    expect(blockerDraftError(single({ startTime: "" }))).toBe("time_required");
+    expect(blockerDraftError(single({ endTime: "" }))).toBe("time_required");
+    expect(blockerDraftError(recurring({ startTime: "", endTime: "" }))).toBe("time_required");
+    expect(blockerDraftError(single({ startTime: "9" }))).toBe("time_required");
+  });
+
   it("refuses an end time at or before the start time", () => {
     expect(blockerDraftError(single({ startTime: "18:00", endTime: "18:00" }))).toBe("end_before_start");
     expect(blockerDraftError(single({ startTime: "18:00", endTime: "17:30" }))).toBe("end_before_start");

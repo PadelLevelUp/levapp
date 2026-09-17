@@ -89,6 +89,22 @@ export async function deleteClassRequests(
 }
 
 
+/**
+ * Withdraw class requests as the student who sent them, so their calendar hold
+ * is released (only withdraw / decline / accept release it; an editor delete
+ * leaves the hold on the coach's calendar). A request already closed answers
+ * 4xx, which is fine here. Call it before `deleteClassRequests`.
+ */
+export async function withdrawClassRequests(
+  request: APIRequestContext,
+  studentAuth: Auth,
+  ids: Array<string | number>
+): Promise<void> {
+  for (const id of ids.filter((i) => String(i) !== "")) {
+    await request.post(`${API_ROOT}/app/class-requests/${id}/withdraw`, { headers: studentAuth, data: {} });
+  }
+}
+
 /** Every id of an editor model — a snapshot taken before a spec creates rows it cannot address by id. */
 export async function editorIds(request: APIRequestContext, coachAuth: Auth, model: string): Promise<Set<number>> {
   const ids = new Set<number>();

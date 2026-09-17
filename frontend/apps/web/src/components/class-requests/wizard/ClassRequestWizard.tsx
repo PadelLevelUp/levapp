@@ -2,7 +2,7 @@
  * The "Marcar aula" wizard (PAD-357, with PAD-358's academy step): coach →
  * kind → the private-class step or the academy-class step. Opens in place on
  * /availability as a sheet (`class-request-wizard`, data-step = the current
- * step). The steps own their data; the shell owns the coach, the kind and
+ * step, or "loading" until the coaches are known). The steps own their data; the shell owns the coach, the kind and
  * back / close.
  */
 import { useEffect, useState } from "react";
@@ -37,6 +37,7 @@ export function ClassRequestWizard({ open, onClose, onDone }: Props) {
     setStep("coach");
     setCoachId(null);
     setKind(null);
+    setCoaches(null);
     let active = true;
     listClassRequestCoaches()
       .then((rows) => {
@@ -67,7 +68,7 @@ export function ClassRequestWizard({ open, onClose, onDone }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="class-request-wizard" data-step={step}>
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="class-request-wizard" data-step={coaches === null ? "loading" : step}>
         <div className="mx-auto w-full max-w-lg space-y-5">
           <SheetHeader>
             <div className="flex items-center gap-2">

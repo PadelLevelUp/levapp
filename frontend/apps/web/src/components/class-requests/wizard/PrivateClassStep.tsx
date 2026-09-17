@@ -105,7 +105,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     let active = true;
     requestAvailabilityApi.getCoachAvailability({ coachId, from: today, to: addDaysIso(today, FIRST_FREE_DAY_HORIZON_DAYS), participants: invitees })
       .then((res) => {
-        if (!active) return;
+        // A date the student chose while this was loading wins over the default.
+        if (!active || dateTouched.current) return;
         const days = Object.entries(res.freeWindows)
           .filter(([, windows]) => slotStarts(windows, duration).length > 0)
           .map(([d]) => ({ date: d }));
@@ -121,13 +122,19 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   // Rule 13: everyone's free windows for the chosen day or recurrence range.
   useEffect(() => {
     setSlot(null);
+    // A load cancelled by this change never reaches its `finally`, so every
+    // early return clears the loading flag itself.
     if (!allInviteesOk || !recurrenceValid) {
       setAvailability(null);
+      setLoadingSlots(false);
       return;
     }
     const from = recurrence ? startDate : date;
     const to = recurrence ? endDate : date;
-    if (!from || !to) return;
+    if (!from || !to) {
+      setLoadingSlots(false);
+      return;
+    }
     let active = true;
     setLoadingSlots(true);
     requestAvailabilityApi.getCoachAvailability({ coachId, from, to, participants: invitees })
@@ -339,7 +346,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </p>
         )}
 
-        <div data-testid="wizard-slots" data-state={loadingSlots ? "loading" : !allInviteesOk || !recurrenceValid ? "waiting" : starts.length ? "ready" : "empty"}>
+        <div data-testid="wizard-slots" data-state={!allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty"}>
           {loadingSlots ? (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           ) : !allInviteesOk || !recurrenceValid ? null : starts.length === 0 ? (

@@ -3,16 +3,16 @@
  * "Marcar aula" wizard's private-class path on web — coach → kind → people,
  * recurrence, duration, a free start time, note → one pending request — and
  * an invitee that is not on the coach's roster blocks the request.
- * Test ids and request payloads only, never copy. Every request is deleted in
- * `finally`.
+ * Test ids and request payloads only, never copy. Every request is withdrawn (releasing its
+ * hold) and deleted in `finally`.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { COACH_PASSWORD, COACH_USERNAME, STUDENT2_USERNAME, loginAsStudent } from "../helpers/auth";
+import { COACH_PASSWORD, COACH_USERNAME, STUDENT2_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
-import { deleteClassRequests } from "../helpers/cleanup";
+import { deleteClassRequests, withdrawClassRequests } from "../helpers/cleanup";
 
-async function coachAuth(request: APIRequestContext) {
-  const res = await request.post(`${API_ROOT}/auth/login`, { data: { username: COACH_USERNAME, password: COACH_PASSWORD } });
+async function bearer(request: APIRequestContext, username: string, password: string) {
+  const res = await request.post(`${API_ROOT}/auth/login`, { data: { username, password } });
   expect(res.ok()).toBeTruthy();
   const json = await res.json();
   return { Authorization: `Bearer ${(json.accessToken ?? json.access_token) as string}` };
@@ -31,6 +31,15 @@ function isoWeekday(iso: string): number {
   return dow === 0 ? 7 : dow;
 }
 
+const coachAuth = (request: APIRequestContext) => bearer(request, COACH_USERNAME, COACH_PASSWORD);
+const studentAuth = (request: APIRequestContext) => bearer(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+
+/** Withdraw first (releases the hold on the coach's calendar), then delete the row. */
+async function cleanUp(request: APIRequestContext, ids: string[]) {
+  await withdrawClassRequests(request, await studentAuth(request), ids);
+  await deleteClassRequests(request, await coachAuth(request), ids);
+}
+
 async function openPrivateStep(page: Page) {
   await loginAsStudent(page);
   await page.goto("/availability");
@@ -39,6 +48,7 @@ async function openPrivateStep(page: Page) {
   await expect(wizard).toBeVisible();
   // The seeded student has one coach, so the coach step is skipped; pick it if shown.
   const coachButton = wizard.locator('[data-testid^="wizard-coach-"]').first();
+  await expect(wizard).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
   if (await wizard.getAttribute("data-step") === "coach") await coachButton.click();
   await expect(wizard).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
   await wizard.getByTestId("wizard-kind-private").click();
@@ -60,7 +70,6 @@ async function sendFirstSlot(page: Page) {
 
 test("PAD-357: a single private class for one person becomes a pending request", async ({ page, request }) => {
   test.setTimeout(120_000);
-  const auth = await coachAuth(request);
   const ids: string[] = [];
   try {
     const wizard = await openPrivateStep(page);
@@ -82,13 +91,12 @@ test("PAD-357: a single private class for one person becomes a pending request",
     const row = page.locator(`[data-testid="class-request-row"][data-request-id="${body.id}"]`);
     await expect(row).toHaveAttribute("data-status", "pending", { timeout: 10_000 });
   } finally {
-    await deleteClassRequests(request, auth, ids);
+    await cleanUp(request, ids);
   }
 });
 
 test("PAD-357: a weekly class with an invitee from the coach's roster is one request", async ({ page, request }) => {
   test.setTimeout(120_000);
-  const auth = await coachAuth(request);
   const ids: string[] = [];
   const startDate = isoDaysAhead(15);
   const endDate = isoDaysAhead(29);
@@ -114,7 +122,7 @@ test("PAD-357: a weekly class with an invitee from the coach's roster is one req
     expect(body.recurrence).toMatchObject({ startDate, endDate });
     expect((body.participants ?? []).map((p: { username: string }) => p.username)).toEqual([STUDENT2_USERNAME]);
   } finally {
-    await deleteClassRequests(request, auth, ids);
+    await cleanUp(request, ids);
   }
 });
 

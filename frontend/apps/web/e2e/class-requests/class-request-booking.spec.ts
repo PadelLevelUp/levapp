@@ -48,6 +48,7 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     // PAD-357: booking is the wizard (coach → kind → private step).
     const form = page.getByTestId("class-request-wizard");
     await expect(form).toBeVisible();
+    await expect(form).not.toHaveAttribute("data-step", "loading", { timeout: 10_000 });
     if ((await form.getAttribute("data-step")) === "coach") {
       await form.locator('[data-testid^="wizard-coach-"]').first().click();
     }
