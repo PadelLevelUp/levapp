@@ -95,12 +95,13 @@ test("PAD-107: student marks themselves unavailable", async ({ page }) => {
   await page.goto("/availability");
   await page.waitForURL("**/availability");
 
-  await page.getByRole("button", { name: /add blocker/i }).click();
-  await page.getByLabel(/title/i).fill(BLOCKER_TITLE);
-  await page.getByLabel(/^date$/i).fill(firstMondayAfterTodayISO());
-  await page.getByLabel(/start time/i).fill("18:00");
-  await page.getByLabel(/end time/i).fill("20:00");
-  await page.getByRole("button", { name: /^save/i }).click();
+  // PAD-356: blocks are created in the Criar bloqueio sheet.
+  await page.getByTestId("availability-create-blocker").click();
+  await page.getByTestId("blocker-reason").fill(BLOCKER_TITLE);
+  await page.getByTestId("blocker-date").fill(firstMondayAfterTodayISO());
+  await page.getByTestId("blocker-start-time").fill("18:00");
+  await page.getByTestId("blocker-end-time").fill("20:00");
+  await page.getByTestId("blocker-save").click();
 
   await expect(page.getByText(BLOCKER_TITLE, { exact: false })).toBeVisible({
     timeout: 10_000,
