@@ -85,15 +85,18 @@ test("US-PAD-99: creating a class overlapping an existing event warns the coach"
   // A confirmation dialog must appear (not a hard block).
   const confirm = page.getByRole("button", { name: /proceed anyway/i });
   await expect(confirm).toBeVisible({ timeout: 5000 });
-  await expect(
-    page.getByText(/already .*event .*this time/i).first()
-  ).toBeVisible();
+  await expect(page.getByTestId("overlap-warning-description")).toBeVisible();
 
   // Confirming proceeds with the booking.
+  const created = page.waitForResponse(
+    (r) => /\/app\/add_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 30_000 }
+  );
   await confirm.click();
-  await expect(page.getByText(/class created/i).first()).toBeVisible({
-    timeout: 5000,
-  });
+  await created;
+  const createdToast = page.getByTestId("toast");
+  await expect(createdToast).toBeVisible({ timeout: 5000 });
+  await expect(createdToast).toHaveAttribute("data-variant", "default");
 });
 
 // US-PAD-99: a non-overlapping slot must NOT warn
@@ -106,15 +109,20 @@ test("US-PAD-99: creating a class at a free time does not warn", async ({
   // 07:00–08:00 is clear of the seeded 10:00–11:00 class.
   await fillClassForm(page, "PAD-99 Free Class", monday, "07:00", "08:00");
 
+  const created = page.waitForResponse(
+    (r) => /\/app\/add_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 30_000 }
+  );
   await page
     .getByRole("button", { name: /create class/i })
     .first()
     .click();
 
   // No overlap dialog — the class is created directly.
-  await expect(page.getByText(/class created/i).first()).toBeVisible({
-    timeout: 5000,
-  });
+  await created;
+  const createdToast = page.getByTestId("toast");
+  await expect(createdToast).toBeVisible({ timeout: 5000 });
+  await expect(createdToast).toHaveAttribute("data-variant", "default");
   await expect(
     page.getByRole("button", { name: /proceed anyway/i })
   ).toHaveCount(0);

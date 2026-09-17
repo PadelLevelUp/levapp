@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { lightTheme } from "@levelup/config";
 import { useFieldAvailability } from "@levelup/hooks";
+import { fieldConflictText } from "@levelup/api/src/resources/fields";
 import type { CoachLevel, PlayerSide } from "@levelup/types";
 import { playerFormSchema } from "@levelup/validation";
 import { Button } from "@/components/ui/button";
@@ -147,7 +148,7 @@ export function PlayerForm({
       return null;
     }
     if (hasFieldError) {
-      setFormError(emailCheck.error);
+      setFormError(fieldConflictText(emailCheck.conflict, t));
       return null;
     }
     setFormError(null);
@@ -192,9 +193,11 @@ export function PlayerForm({
           ) : null}
         </View>
         {nameCheck.error ? (
-          <Text className="text-sm text-warning">
-            {nameCheck.error}. You can still save this player if that's
-            intentional.
+          <Text
+            className="text-sm text-warning"
+            testID={`field-conflict-${nameCheck.conflict?.reason ?? "unknown"}`}
+          >
+            {fieldConflictText(nameCheck.conflict, t)} {t("players.nameWarningSuffix")}
           </Text>
         ) : null}
       </View>
@@ -220,7 +223,12 @@ export function PlayerForm({
           ) : null}
         </View>
         {emailCheck.error ? (
-          <Text className="text-sm text-destructive">{emailCheck.error}</Text>
+          <Text
+            className="text-sm text-destructive"
+            testID={`field-conflict-${emailCheck.conflict?.reason ?? "unknown"}`}
+          >
+            {fieldConflictText(emailCheck.conflict, t)}
+          </Text>
         ) : null}
       </View>
 

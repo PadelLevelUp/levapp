@@ -633,7 +633,9 @@ export default function PlayerDetailScreen() {
                   }
                   onPress={openRemove}
                 >
-                  <Text>
+                  {/* PAD-320: the mode in the id, so a flow proves "delete" vs
+                      "disconnect" without reading the rendered word. */}
+                  <Text testID={`player-remove-mode-${canDelete ? "delete" : "disconnect"}`}>
                     {canDelete ? t("common.delete") : t("players.disconnect")}
                   </Text>
                 </Button>

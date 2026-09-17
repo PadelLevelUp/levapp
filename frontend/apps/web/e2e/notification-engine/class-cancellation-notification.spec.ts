@@ -62,9 +62,16 @@ test("PAD-75: enrolled student is notified when the coach cancels a class", asyn
   // Non-recurring class → confirm dialog.
   const confirmDialog = page.getByRole("alertdialog");
   await expect(confirmDialog).toBeVisible({ timeout: 5000 });
+  const removed = page.waitForResponse(
+    (r) => /\/app\/remove_class$/.test(r.url()) && r.status() < 300,
+    { timeout: 30_000 }
+  );
   await confirmDialog.getByRole("button", { name: ui("calendar.detail.delete") }).click();
+  await removed;
 
-  await expect(page.getByText("Class deleted", { exact: true })).toBeVisible({ timeout: 5000 });
+  const deletedToast = page.getByTestId("toast");
+  await expect(deletedToast).toBeVisible({ timeout: 5000 });
+  await expect(deletedToast).toHaveAttribute("data-variant", "default");
 
   // --- Student: verify the cancellation notification arrived ---
   await page.context().clearCookies();

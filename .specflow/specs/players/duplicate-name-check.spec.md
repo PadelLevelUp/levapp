@@ -31,6 +31,19 @@ students genuinely share a name).
 6. Excel import preview flags each Players row whose name matches an existing player, showing a
    clear "Possible duplicate" indicator. Flagged rows can still be imported.
 
+7. **(B-102; number self-assigned) Field warnings render in the app's language.** The backend's
+   409 `message` for `check_field_available` is English prose ("This email is already taken", "You
+   already have a player with this name"). The shared API layer (`@levelup/api` `fields.ts`) maps
+   the known `(model, field)` pairs to a reason:
+   - `("user", "username")` → `username_taken`
+   - `("user", "email")` → `email_taken`
+   - `("user", "name")` → `duplicate_name`
+
+   Both shells render the locale key `common.fieldConflict.<reason>` (en and pt), falling back to
+   the server's text only for a pair with no reason. The warning element carries its reason:
+   `data-reason` on web, `testID field-conflict-<reason>` on iOS. The iOS name warning's follow-up
+   sentence uses `players.nameWarningSuffix`, as web does. The backend response is unchanged.
+
 ### Acceptance Criteria
 
 #### Manual creation warns on duplicate name (case-insensitive)
@@ -55,3 +68,8 @@ students genuinely share a name).
 - **When** the coach views the import preview
 - **Then** that row is marked as a possible duplicate
 - **And** the coach can still select and import it
+
+#### Field warnings are localised, not the backend's English (B-102)
+- **Given** a coach using the app in Portuguese, adding a player with an email that is already taken
+- **When** the availability check answers 409 with `message: "This email is already taken"`
+- **Then** the email field shows `common.fieldConflict.email_taken` in Portuguese, and the warning carries reason `email_taken`

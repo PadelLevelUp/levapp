@@ -1,5 +1,10 @@
 {
   "common": {
+    "fieldConflict": {
+      "username_taken": "This username is already taken.",
+      "email_taken": "This email is already taken.",
+      "duplicate_name": "You already have a player with this name."
+    },
     "save": "Save",
     "saveChanges": "Save changes",
     "saved": "Saved",

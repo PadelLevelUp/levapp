@@ -83,6 +83,16 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    the user (run 35114681841). The same build without the entering animation passed 60 of 60
    (run 35114685284).
 
+10. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
+   flatten a view whose style changes and reparent its children in one mount pass. If that commit
+   also tears the screen down, the insert fails ("addViewAt: View already has a parent"), React
+   Native destroys the surface, and the app goes blank. The verification screen did exactly this:
+   a successful code confirmation reset `submitting`, which restyled all six code cells in the
+   commit that navigated away. Native tags named the moved views: cell 0's digit Text, its cell,
+   and the row's Pressable (B-089 face C, PAD-314). A screen that navigates away on success
+   therefore leaves its busy state as it is, and resets it only on failure, where it stays on
+   screen.
+
 #### Verification
 8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
    cover it pass on the PAD-297 lane (`android-build.yaml`, `MAESTRO_FLOWS`); the unit tests
@@ -138,6 +148,14 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** its Cancel and Confirm (`overlap-cancel`, `overlap-confirm`) are visible, every time.
   Maestro flow `52-dialog-overlay-rate` raises it 20 times. It failed on the code before this
   change (content at opacity 0, B-089 face B) and passes after it
+
+#### Confirming the email code lands on the next screen on Android
+- **Given** a student has just signed up on the emulator and is on the code screen
+- **When** they enter the code from their email
+- **Then** "Connect with a coach" (`connect-with-coach`) appears, and the device log has no
+  `addViewAt` mounting exception. Maestro flow `51-verify-transition-rate` walks this 10 times
+  and `44-signup` once. Both failed at the first walk on the code before this change (B-089 face
+  C) and pass after it
 
 #### Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a

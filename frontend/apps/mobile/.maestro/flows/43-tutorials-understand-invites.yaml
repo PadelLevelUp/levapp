@@ -9,8 +9,8 @@
 # is invisible to the iOS accessibility tree — see 08-set-player-level.skipped),
 # so every step below taps an id or a visible label, never a coordinate.
 #
-# Seeded locale is English (see 12-settings-language.yaml), so the badge text
-# asserted at the end is the English `tutorials.sendStatus.first_batch`.
+# The badge at the end is asserted by its status id
+# (tutorial-send-status-first_batch), not its rendered English text (PAD-320).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -59,14 +59,15 @@ appId: com.padellevelup.app
     text: "E2E Student"
 
 # ── Step 3: results — rounds with a first-batch badge ──
-- extendedWaitUntil:
-    visible:
-      id: "tutorial-results"
-    timeout: 20000
+# No wait on `tutorial-results` itself: the section (every round and its
+# candidates) is taller than the screen, so it is never 100% visible and both
+# an in-place wait and a scroll to it fail — the in-place wait failed on
+# origin/staging 80a377091 (2026-09-16 21:36Z). Round 1 below proves the
+# results rendered.
 - scrollUntilVisible:
     element:
       id: "tutorial-round-1"
     direction: DOWN
     timeout: 30000
 - assertVisible:
-    text: "first batch"
+    id: "tutorial-send-status-first_batch"
