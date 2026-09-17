@@ -67,18 +67,16 @@ onFlowComplete:
       text: "${output.title}"
     direction: DOWN
     timeout: 30000
+# iOS exposes the row's children beside it, not inside it, so a row is matched
+# by the element nearest below the class title.
 - assertVisible:
     id: "academy-class-row-open"
-    containsDescendants:
-      - text: "${output.title}"
 
 # ── Request with a note ──
 - tapOn:
     id: "academy-class-request"
-    childOf:
-      id: "academy-class-row-open"
-      containsDescendants:
-        - text: "${output.title}"
+    below:
+      text: "${output.title}"
 - extendedWaitUntil:
     visible:
       id: "academy-class-note"
@@ -86,6 +84,11 @@ onFlowComplete:
 - tapOn:
     id: "academy-class-note"
 - inputText: "Maestro 65"
+# Close the keyboard first: it covers Send, and a tap there types into the note.
+# Tapping the class title (plain text) blurs the field.
+- tapOn:
+    text: "${output.title}"
+- waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       id: "academy-class-send"

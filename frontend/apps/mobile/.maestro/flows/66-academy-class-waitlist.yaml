@@ -64,18 +64,16 @@ onFlowComplete:
       text: "${output.title}"
     direction: DOWN
     timeout: 30000
+# iOS exposes the row's children beside it, not inside it, so a row is matched
+# by the element nearest below the class title.
 - assertVisible:
     id: "academy-class-row-full"
-    containsDescendants:
-      - text: "${output.title}"
 
 # ── Join the waiting list ──
 - tapOn:
     id: "academy-class-join-waitlist"
-    childOf:
-      id: "academy-class-row-full"
-      containsDescendants:
-        - text: "${output.title}"
+    below:
+      text: "${output.title}"
 - scrollUntilVisible:
     element:
       id: "academy-class-status-waitlist"
