@@ -119,6 +119,11 @@ executionOrder:
     - 54-settings-build-info
     # 61 walks the PAD-356 two-card tab; it creates and removes its own block.
     - 61-availability-two-cards
+    # 65 and 66 create their own academy class through the API and remove it in
+    # onFlowComplete (PAD-358): 65 requests an open class, 66 joins and leaves a full
+    # class's waiting list.
+    - 65-academy-class-request
+    - 66-academy-class-waitlist
     # 67 creates its own academy class and join request through the API (PAD-358).
     - 67-coach-sees-join-note
     # 28-password-recovery stays LAST (PAD-300 pins it in
