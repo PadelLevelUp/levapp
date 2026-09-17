@@ -85,9 +85,9 @@ test.beforeEach(async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/availability");
   await page.waitForURL("**/availability");
-  await expect(
-    page.getByRole("main").getByRole("heading", { name: "Disponibilidade" })
-  ).toBeVisible({ timeout: 10_000 });
+  // PAD-356: wait on the blockers card by test id; the page heading's text is
+  // also a substring of the card title ("Indisponibilidade").
+  await expect(page.getByTestId("availability-blockers-card")).toBeVisible({ timeout: 10_000 });
 });
 
 test("US-PAD119: availability page fits the mobile viewport", async ({
@@ -104,7 +104,8 @@ test("US-PAD119: availability page fits the mobile viewport", async ({
 
   await expectNoHorizontalOverflow(page, "availability page");
 
-  const addBlocker = page.getByRole("button", { name: "Adicionar bloqueio" });
+  // PAD-356: the action is the Indisponibilidade card's Criar bloqueio CTA.
+  const addBlocker = page.getByTestId("availability-create-blocker");
   const box = await addBlocker.boundingBox();
   expect(box, "Add blocker button has no layout box").not.toBeNull();
   expect(
@@ -152,14 +153,23 @@ test("US-PAD119: blocker list row fits the mobile viewport", async ({
 });
 
 test("US-PAD119: blocker form fits the mobile viewport", async ({ page }) => {
-  await page.getByRole("button", { name: "Adicionar bloqueio" }).click();
+  // PAD-356: the form is a bottom sheet, opened from the Criar bloqueio CTA.
+  await page.getByTestId("availability-create-blocker").click();
 
-  // Recurring mode renders the widest rows on the page: the seven day-initial
-  // buttons plus the "repeat until" field.
-  await page.getByLabel(/recorrente semanalmente/i).click();
-  await expect(page.getByLabel(/repetir até/i)).toBeVisible({
+  // Recurring mode renders the widest rows: the seven day-initial buttons plus
+  // the start and end date fields.
+  await page.getByTestId("blocker-mode-recurring").click();
+  await expect(page.getByTestId("blocker-end-date")).toBeVisible({
     timeout: 5_000,
   });
 
   await expectNoHorizontalOverflow(page, "availability page with form open");
+  // The sheet is portalled outside <main>, so measure it too.
+  const sheet = await page.getByTestId("blocker-sheet").evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+    right: el.getBoundingClientRect().right,
+  }));
+  expect(sheet.scrollWidth, "the blocker sheet scrolls horizontally").toBeLessThanOrEqual(sheet.clientWidth + 1);
+  expect(sheet.right, "the blocker sheet overflows the viewport").toBeLessThanOrEqual(VIEWPORT.width + 1);
 });

@@ -227,7 +227,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
               <CalendarPlus className="w-5 h-5" />
               {t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}
             </CardTitle>
-            <CardDescription>{t(role === "student" ? "classRequests.intro" : "classRequests.coachIntro")}</CardDescription>
+            <CardDescription>{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</CardDescription>
           </div>
           {role === "student" && (
             <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">

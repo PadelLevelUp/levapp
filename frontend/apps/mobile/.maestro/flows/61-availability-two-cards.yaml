@@ -1,0 +1,162 @@
+# PAD-356 — calendar.student-blockers rules 14–16: the student's Disponibilidade tab
+# is two cards with no floating "+"; blocks are created in a sheet, single or
+# recurring, with the shared validation running before any request.
+#
+# Mirrors: apps/web/e2e/availability (PAD-356 spec). Flow 13 keeps the single
+# block create/delete walk; this flow covers what PAD-356 adds:
+# - both cards render with their CTAs, and the old floating "+" is absent;
+# - saving an empty draft shows the shared `date_required` error and sends nothing;
+# - a RECURRING block (one weekday, the pickers' default date/times) is created and
+#   listed with the Recurring badge, then removed;
+# - Cancel closes the sheet without creating anything;
+# - the Pedidos de aula CTA still opens today's booking form (PAD-357 replaces it).
+#
+# `end_before_start` and `end_date_before_start_date` are not driven here:
+# setting a specific time on the iOS spinner is not stable in Maestro (flow 13's
+# note). Both are pinned by @levelup/config's blocker-draft unit tests, which the
+# sheet calls directly.
+#
+# Flow number 61 is from Session E's range for PAD-356. The seeded student has
+# no blockers, so the flow can run anywhere in the order and leaves none behind.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- extendedWaitUntil:
+    visible:
+      id: "availability-blockers-card"
+    timeout: 15000
+- assertVisible:
+    id: "availability-create-blocker"
+- assertNotVisible:
+    id: "availability-add"
+- assertVisible:
+    id: "availability-blockers-empty"
+
+# ── The empty draft is refused by the shared validation ──
+- tapOn:
+    id: "availability-create-blocker"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-sheet"
+    timeout: 15000
+- assertVisible:
+    id: "blocker-mode-single"
+- scrollUntilVisible:
+    element:
+      id: "blocker-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "blocker-save"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-error-date_required"
+    timeout: 10000
+
+# ── Switch to recurring, pick one weekday, confirm the pickers' defaults ──
+- scrollUntilVisible:
+    element:
+      id: "blocker-mode-recurring"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "blocker-mode-recurring"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-day-3"
+    timeout: 10000
+- tapOn:
+    id: "blocker-day-3"
+- tapOn:
+    id: "blocker-date"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      # The platform date dialog's positive button, by its Android resource id
+      # rather than its label.
+      - extendedWaitUntil:
+          visible:
+            id: "android:id/button1"
+          timeout: 10000
+      - tapOn:
+          id: "android:id/button1"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "blocker-date-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "blocker-date-confirm"
+- scrollUntilVisible:
+    element:
+      id: "blocker-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "blocker-save"
+
+# The sheet closes and the card lists the recurring block (18:00–20:00 defaults).
+- extendedWaitUntil:
+    notVisible:
+      id: "blocker-sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*18:00.*20:00.*"
+    timeout: 20000
+- assertVisible:
+    id: "blocker-recurring-.*"
+
+# ── Remove it ──
+- tapOn:
+    id: "blocker-delete-.*"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "blocker-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "availability-blockers-empty"
+    timeout: 15000
+
+# ── Cancel closes the sheet and creates nothing ──
+- tapOn:
+    id: "availability-create-blocker"
+- extendedWaitUntil:
+    visible:
+      id: "blocker-sheet"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "blocker-cancel"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "blocker-cancel"
+- extendedWaitUntil:
+    visible:
+      id: "availability-blockers-empty"
+    timeout: 15000
+
+# ── The Pedidos de aula card: its CTA opens the booking form ──
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "class-requests"
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-form"
+    timeout: 15000
