@@ -15,7 +15,7 @@ import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, log
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 import { API_ROOT } from "../helpers/api";
-import { deleteClassRequests, removeClassesOnDay } from "../helpers/cleanup";
+import { deleteClassJoinRequests, removeClassesOnDay } from "../helpers/cleanup";
 
 /** PAD-356's "Marcar Aula" CTA on the Pedidos de aula card (Session E). */
 const WIZARD_CTA = "class-request-book";
@@ -156,7 +156,7 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
   } finally {
     await removeClassesOnDay(request, coachAuth, openDay, (e) => e.title === OPEN_CLASS);
     await removeClassesOnDay(request, coachAuth, fullDay, (e) => e.title === FULL_CLASS);
-    await deleteClassRequests(request, coachAuth, requestIds);
+    await deleteClassJoinRequests(request, coachAuth, requestIds);
     await request.post(`${API_ROOT}/app/notify/config`, {
       headers: coachAuth,
       data: { openSpotsVisible: savedVisible },
@@ -214,7 +214,7 @@ test("US-PAD-358: the coach's class sheet shows the note on a pending join reque
     await expect(row.getByTestId("class-join-request-note")).toHaveText(NOTE);
   } finally {
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === title);
-    await deleteClassRequests(request, coachAuth, requestIds);
+    await deleteClassJoinRequests(request, coachAuth, requestIds);
     await request.post(`${API_ROOT}/app/notify/config`, { headers: coachAuth, data: { openSpotsVisible: savedVisible } });
   }
 });

@@ -130,3 +130,19 @@ export async function deleteNewEditorRows(
     expect.soft(res.ok(), `delete ${model} ${id}: ${res.status()}`).toBeTruthy();
   }
 }
+
+/**
+ * PAD-358: delete join requests (`classes.join-requests`) — a different table from
+ * `deleteClassRequests`' class requests, with its own editor model. Same rules: the
+ * seeded (superadmin) coach, ids the spec itself created.
+ */
+export async function deleteClassJoinRequests(
+  request: APIRequestContext,
+  coachAuth: Auth,
+  ids: Array<string | number>
+): Promise<void> {
+  for (const id of ids.filter((i) => String(i) !== "")) {
+    const res = await request.delete(`${API_ROOT}/editor/classjoinrequest/${id}`, { headers: coachAuth });
+    expect.soft([200, 404], `delete class join request ${id}: ${res.status()}`).toContain(res.status());
+  }
+}
