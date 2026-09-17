@@ -44,6 +44,35 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
 12. The window compared is always the CLASS INSTANCE window (`start_datetime`/`end_datetime`), never the moment the notification is sent.
 13. Mobile-responsive (PAD-119): the `/availability` page fits within the viewport at small screen widths (≥320px) — the document never scrolls horizontally, and every control, notably the "Add blocker" action, is fully visible without horizontal scrolling. The page header stacks vertically below the `sm` breakpoint rather than forcing the title and the action button onto one row.
 
+14. **(PAD-356) The student's availability tab is two cards, each with an explanation and its own
+    call to action, on web and iOS. There is no floating "+".**
+    - **Indisponibilidade** (`availability-blockers-card`): an explanation of what a block does,
+      a **Criar bloqueio** CTA (`availability-create-blocker`), and the student's blocks listed
+      inside the card (`blocker-card-<id>`, with edit `blocker-edit-<id>` and delete
+      `blocker-delete-<id>` → `blocker-delete-confirm`). The empty state is
+      `availability-blockers-empty`.
+    - **Pedidos de aula** (`class-requests`): `classes.class-requests` (rules 1–11) re-homed as
+      the second card, with its explanation, a **Marcar aula** CTA (`class-request-book`; until
+      PAD-357 it opens today's booking form), and the student's open requests with their state
+      ("À espera do treinador" for `pending`) and **Retirar** (`class-request-withdraw`).
+15. **(PAD-356) Blocks are created and edited in a bottom sheet** (`blocker-sheet`) with a
+    **single / recurring** choice (`blocker-mode-single` | `blocker-mode-recurring`).
+    - Single: a date, start and end time, and a reason.
+    - Recurring: weekdays (`blocker-day-<n>`, JS `getDay`), a start date and an end date, start
+      and end time, and a reason.
+
+    The reason is the existing optional `title` field, labelled "Motivo (opcional)"; no new
+    column. Save is `blocker-save` and cancel is `blocker-cancel`.
+16. **(PAD-356) Block validation is shared and runs before any request.**
+    `blockerDraftError(draft)` in `@levelup/config` returns `date_required` (no date),
+    `end_before_start` (end time not after start time), `end_date_before_start_date` (recurring
+    end date before the start date), or `null`. Both shells render
+    `availability.validation.<code>` on the error element (web `blocker-error` with
+    `data-reason`; iOS `blocker-error-<code>`) and do not submit.
+    `blockerDraftToInput(draft)` builds the payload: a recurring block with no weekday uses the
+    start date's weekday, and a missing end date means start date + 3 months (the previous
+    behaviour of both shells).
+
 ### Acceptance Criteria
 
 #### Blocker suppresses auto-invitation
@@ -85,3 +114,18 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
 - **When** they open `/availability`, with and without the blocker form expanded
 - **Then** the document does not scroll horizontally (`documentElement.scrollWidth <= clientWidth`)
 - **And** the "Add blocker" button is fully inside the viewport (its right edge is within the viewport width)
+
+#### The availability tab is two cards with no floating action (PAD-356)
+- **Given** an authenticated student
+- **When** they open the availability tab on web or iOS
+- **Then** the Indisponibilidade card (explanation, Criar bloqueio, the student's blocks) and the Pedidos de aula card (explanation, Marcar aula, open requests with state and Retirar) are shown, and there is no floating "+"
+
+#### A block is created from the sheet, single or recurring (PAD-356)
+- **Given** the Criar bloqueio sheet
+- **When** the student saves a single block with a reason, or a recurring block on chosen weekdays with a start and end date
+- **Then** the block is created and listed in the Indisponibilidade card with its reason
+
+#### An end before the start is refused before any request (PAD-356)
+- **Given** the sheet with an end time at or before the start time (or, recurring, an end date before the start date)
+- **When** the student saves
+- **Then** the sheet shows `availability.validation.end_before_start` (or `end_date_before_start_date`) and no request is sent
