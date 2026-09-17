@@ -138,3 +138,8 @@ point that composes them (PAD-358).
   carried by PAD-357's migration (D1). The ticket said full classes join "the existing waiting list" —
   the list existed, the student's own way onto it did not (`notifications.waiting-list` rule 1 as it
   stood, and rule 12's offer-only gate), so rule 6 and its endpoint are new.
+- **[PAD-358, known edge, recorded not solved]** `onWaitingList` is true for any active entry,
+  including one the coach's standing waiting list fanned out (`notifications.waiting-list` rule
+  10). Leaving removes only an entry the student created (rule 9), so for a standing fan-out row
+  the leave action answers 404 — the student's place there is the coach's to remove. If this
+  surfaces, the fix is a second flag (`waitingListSource`) so the shells hide "leave" for it.
