@@ -51,20 +51,25 @@ point that composes them (PAD-358).
 6. **Full → join the waiting list, by the student.** A student may place **themselves** on a full
    class's waiting list from this step. The server re-checks rule 2 and that the class is full, then
    upserts their active `WaitingListEntry` (reactivating an inactive one, never a second row). The
-   coach is told in the coach ↔ student conversation, the channel join requests already use.
+   coach is told exactly as a join request tells them: a message in the coach ↔ student
+   conversation, a web push and an iOS push that open that thread, and a realtime
+   `waiting_list_joined` event to the coach.
    Placement from the list stays `notifications.waiting-list` rules 4–4d and 13 — this rule adds an
    entry, it never places anyone.
 7. **Each class shows what the student already did**: their latest join request for it (and its
    status) and whether they are on its waiting list. A class they have a pending request for, or are
-   on the waiting list of, shows that status instead of the action. A student may leave a waiting
-   list they joined here.
+   on the waiting list of, shows that status instead of the action. **Every place the list reports,
+   the student can leave** — whatever put them there, their own join or the coach's standing list
+   (`notifications.waiting-list` rule 10); leaving removes that class's entry only and leaves the
+   standing entry itself untouched.
 8. **Additive API only.** Old App Store builds never call these endpoints; nothing existing changes
    shape. The endpoints are new, so they are not gated by `X-LevApp-Capabilities` (PAD-352 gates
    an existing response, the calendar's).
 9. **Wire contract (PAD-358).**
    - `GET /api/app/academy-classes?coachId=<coach id>` — student only; `403` when the student is not
      on that coach's roster, `400` without `coachId`. → `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD",
-     classes: [...]}` sorted by start. Each class is the calendar event
+     openSpotsVisible: boolean, classes: [...]}` sorted by start. `openSpotsVisible` is the coach's
+     standard toggle, so an empty list can say why (rule 2). Each class is the calendar event
      (`serialize_calendar_event`: `id`, `model`, `originalId`, `date`, `startTime`, `endTime`,
      `title`, `color`, `maxPlayers`, `participantCount`, `confirmedCount`, `club`, `court`,
      `classType`, `levelId`, `isRecurring`) plus `coachName`, `state` (`"open"` | `"full"`),
@@ -77,8 +82,8 @@ point that composes them (PAD-358).
      are `409` with a `code`: `already_enrolled`, `class_closed`, `not_visible`, `ineligible`,
      `has_spots` (the class has room: request it instead).
    - `POST /api/app/class-waiting-list/<lessonInstanceId>/leave` → `200 {lessonInstanceId,
-     onWaitingList: false}`; deactivates only the caller's own entry that they created
-     (`standing_entry_id IS NULL`); `404` when they have none.
+     onWaitingList: false}`; deactivates the caller's active entry for that class, whatever its origin
+     (rule 7); `404` when they have none.
 10. **Both shells, same step.** Web and iOS render the same list: grouped by day, an open class with
     its spots left and the request action, a full class marked with the destructive token ("in red")
     and the waiting-list action. Identifiers are stable test ids (`academy-class-*`); on iOS the state
@@ -138,8 +143,8 @@ point that composes them (PAD-358).
   carried by PAD-357's migration (D1). The ticket said full classes join "the existing waiting list" —
   the list existed, the student's own way onto it did not (`notifications.waiting-list` rule 1 as it
   stood, and rule 12's offer-only gate), so rule 6 and its endpoint are new.
-- **[PAD-358, known edge, recorded not solved]** `onWaitingList` is true for any active entry,
-  including one the coach's standing waiting list fanned out (`notifications.waiting-list` rule
-  10). Leaving removes only an entry the student created (rule 9), so for a standing fan-out row
-  the leave action answers 404 — the student's place there is the coach's to remove. If this
-  surfaces, the fix is a second flag (`waitingListSource`) so the shells hide "leave" for it.
+- **[PAD-358 cross-review, Session B, 2026-09-17]** Three findings fixed before the PR, each with
+  a test seen failing first: F1 the coach's class sheet shows the note (web and iOS) — rule 5
+  promised it; F2 a waiting-list join tells the coach with the same pushes and a realtime event as a
+  join request (rule 6); F3 the list and leave agree — every listed place can be left (rule 7),
+  replacing an earlier edge where a standing-list place was listed but refused.

@@ -247,7 +247,15 @@ def _join(app, ids, **target):
         return entry.lesson_instance_id, entry.is_active, entry.standing_entry_id, created
 
 
-def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(app):
+def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(app, monkeypatch):
+    pushes = []
+    events = []
+    monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification",
+                        lambda **kw: pushes.append(("web", kw["user_id"])))
+    monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user",
+                        lambda user_id, **kw: pushes.append(("ios", user_id, (kw.get("data") or {}).get("type"))))
+    monkeypatch.setattr("padel_app.services.notification_service.publish",
+                        lambda event, recipients: events.append((event["type"], list(recipients))))
     ids = _setup(app)
     full = _add_class(app, ids, days=3, title="Full In Three", max_players=2, filled=2)
 
@@ -267,6 +275,11 @@ def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(ap
         )
         metas = [m.msg_metadata or {} for m in Message.query.filter_by(conversation_id=conv.id).all()]
     assert any(meta.get("waitingListJoin", {}).get("lessonInstanceId") == full["instance_id"] for meta in metas)
+    # Told like a join request (cross-review F2): one web and one iOS push to the coach,
+    # the tap opening the thread, and a realtime event for the coach.
+    coach_pushes = [p for p in pushes if p[1] == ids["coach_user_id"]]
+    assert coach_pushes == [("web", ids["coach_user_id"]), ("ios", ids["coach_user_id"], "message")]
+    assert ("waiting_list_joined", [ids["coach_user_id"]]) in events
 
 
 def test_joining_a_virtual_full_occurrence_materialises_it(app):
@@ -346,7 +359,7 @@ def test_routes_follow_the_wire_contract(app, client):
     res = client.get(f"/api/app/academy-classes?coachId={ids['coach_id']}", headers=student)
     assert res.status_code == 200
     body = res.get_json()
-    assert set(body) == {"from", "to", "classes"}
+    assert set(body) == {"from", "to", "openSpotsVisible", "classes"}
     row = _by_title(body)["Open Tomorrow"]
     for key in ("id", "model", "originalId", "date", "startTime", "endTime", "title", "maxPlayers",
                 "participantCount", "coachName", "state", "spotsLeft", "myJoinRequest", "onWaitingList"):
@@ -373,3 +386,41 @@ def test_routes_follow_the_wire_contract(app, client):
     left = client.post(f"/api/app/class-waiting-list/{full['instance_id']}/leave", headers=student)
     assert left.status_code == 200 and left.get_json() == {"lessonInstanceId": full["instance_id"], "onWaitingList": False}
     assert client.post(f"/api/app/class-waiting-list/{full['instance_id']}/leave", headers=student).status_code == 404
+
+
+def test_a_standing_list_place_is_listed_and_can_be_left_for_that_class(app):
+    """Cross-review F3: the list and leave agree — every active place is listed, and
+    every listed place can be left; the standing entry itself is untouched."""
+    from padel_app.models import StandingWaitingListEntry, WaitingListEntry
+    from padel_app.models.players import Player
+    from padel_app.services.academy_class_service import leave_class_waiting_list_service
+
+    ids = _setup(app)
+    full = _add_class(app, ids, days=3, title="Full In Three", max_players=1, filled=1)
+    with app.app_context():
+        standing = StandingWaitingListEntry(coach_id=ids["coach_id"], player_id=ids["student_id"],
+                                            credits_total=3, credits_used=0, is_active=True,
+                                            expires_at=utcnow_naive() + timedelta(days=30))
+        db.session.add(standing)
+        db.session.flush()
+        db.session.add(WaitingListEntry(lesson_instance_id=full["instance_id"], player_id=ids["student_id"],
+                                        coach_id=ids["coach_id"], standing_entry_id=standing.id))
+        db.session.commit()
+        standing_id = standing.id
+    assert _by_title(_list(app, ids))["Full In Three"]["onWaitingList"] is True
+    with app.app_context():
+        entry = leave_class_waiting_list_service(db.session.get(Player, ids["student_id"]), full["instance_id"])
+        assert entry.is_active is False
+        assert db.session.get(StandingWaitingListEntry, standing_id).is_active is True
+    assert _by_title(_list(app, ids))["Full In Three"]["onWaitingList"] is False
+
+
+def test_the_payload_says_whether_the_coach_advertises_open_spots(app):
+    from padel_app.models.notification_config import NotificationConfig
+
+    ids = _setup(app)
+    assert _list(app, ids)["openSpotsVisible"] is True
+    with app.app_context():
+        NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first().open_spots_visible = False
+        db.session.commit()
+    assert _list(app, ids)["openSpotsVisible"] is False

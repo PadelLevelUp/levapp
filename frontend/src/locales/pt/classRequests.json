@@ -83,7 +83,7 @@
       "intro": "Aulas deste treinador nos próximos 14 dias para as quais és elegível.",
       "loading": "A carregar aulas…",
       "loadError": "Não foi possível carregar as aulas.",
-      "empty": "Não há aulas deste treinador em que possas entrar nos próximos 14 dias. O treinador pode não aceitar pedidos para as aulas da academia.",
+      "empty": "Não há aulas deste treinador em que possas entrar nos próximos 14 dias.",
       "spotsLeft_one": "{{count}} vaga",
       "spotsLeft_other": "{{count}} vagas",
       "full": "Cheia",
@@ -102,7 +102,8 @@
       "nowFull": "Esta aula ficou cheia entretanto — podes entrar na lista de espera.",
       "nowOpen": "Esta aula tem vagas — podes pedir para entrar.",
       "failed": "Não foi possível concluir. Tenta novamente.",
-      "close": "Fechar"
+      "close": "Fechar",
+      "emptyNotAdvertised": "O treinador não está a aceitar pedidos para as aulas da academia."
     }
   }
 }

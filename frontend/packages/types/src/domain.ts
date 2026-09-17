@@ -477,6 +477,8 @@ export interface AcademyClass extends CalendarEvent {
 export interface AcademyClassesResponse {
   from: string;
   to: string;
+  /** The coach's open-spots toggle: false explains an empty list (rule 2). */
+  openSpotsVisible: boolean;
   classes: AcademyClass[];
 }
 

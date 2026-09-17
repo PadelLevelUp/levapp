@@ -84,7 +84,14 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
         event["onWaitingList"] = instance_id in waiting
         classes.append(event)
     classes.sort(key=lambda e: (e.get("date") or "", e.get("startTime") or ""))
-    return {"from": today.isoformat(), "to": (today + timedelta(days=WINDOW_DAYS)).isoformat(), "classes": classes}
+    # Rule 2: an empty step says why — the coach does not advertise open spots.
+    config = NotificationConfig.query.filter_by(coach_id=cp.coach_id).first()
+    return {
+        "from": today.isoformat(),
+        "to": (today + timedelta(days=WINDOW_DAYS)).isoformat(),
+        "openSpotsVisible": bool(config and config.open_spots_visible),
+        "classes": classes,
+    }
 
 
 def join_class_waiting_list_service(player, model, original_id, date_str, *, now=None):
@@ -139,12 +146,15 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
 
 
 def leave_class_waiting_list_service(player, lesson_instance_id):
-    """Rule 7 / waiting-list rule 14: deactivate the student's own entry only."""
+    """Rule 7 / waiting-list rule 14: the student's active place on this class's
+    list, whatever put it there, is removed. A place the coach's standing list
+    fanned out is theirs to leave for this class too (cross-review F3: the list
+    reports every active place, so leave must accept every one); the standing
+    entry itself and its other classes are untouched."""
     entry = WaitingListEntry.query.filter_by(
         lesson_instance_id=lesson_instance_id,
         player_id=player.id,
         is_active=True,
-        standing_entry_id=None,
     ).first()
     if entry is None:
         abort(404, "You are not on this class's waiting list")
@@ -182,3 +192,19 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
     )
     msg.create()
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
+    publish(
+        {"type": "waiting_list_joined", "payload": {"lessonInstanceId": instance.id, "playerId": player.id}},
+        [coach_user.id],
+    )
+    # F2 (cross-review): told the way a join request tells the coach — web push and
+    # iOS push, opening the thread (PAD-324: a message exists, so the tap opens it).
+    from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.utils.push_notifications import send_push_notification
+
+    locale = _localized(coach_user, "pt", "en")
+    title = "Lista de espera" if locale == "pt" else "Waiting list"
+    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}")
+    send_expo_push_to_user(
+        coach_user.id, title=title, body=text[:100],
+        data={"type": "message", "conversationId": conv.id, "classInstanceId": instance.id},
+    )

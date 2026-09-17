@@ -1343,7 +1343,18 @@ export function ClassDetailSheet({
                     className="flex items-center justify-between gap-2 py-1"
                     data-testid="class-join-request-row"
                   >
-                    <span className="text-sm truncate">{req.playerName}</span>
+                    <div className="min-w-0">
+                      <span className="text-sm truncate block">{req.playerName}</span>
+                      {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
+                      {req.note && (
+                        <p
+                          className="text-xs text-muted-foreground break-words"
+                          data-testid="class-join-request-note"
+                        >
+                          {req.note}
+                        </p>
+                      )}
+                    </div>
                     <div className="flex shrink-0 gap-1.5">
                       <Button
                         size="sm"

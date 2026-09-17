@@ -92,8 +92,14 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
     <div className="space-y-4" data-testid="academy-class-list">
       <p className="text-sm text-muted-foreground">{t("classRequests.academy.intro")}</p>
       {days.length === 0 && (
-        <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground" data-testid="academy-class-empty">
-          {t("classRequests.academy.empty")}
+        <p
+          className="rounded-md border border-dashed p-4 text-sm text-muted-foreground"
+          data-testid="academy-class-empty"
+          data-reason={query.data.openSpotsVisible ? "none_in_window" : "not_advertised"}
+        >
+          {query.data.openSpotsVisible
+            ? t("classRequests.academy.empty")
+            : t("classRequests.academy.emptyNotAdvertised")}
         </p>
       )}
       {days.map((day) => (

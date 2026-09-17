@@ -83,7 +83,7 @@
       "intro": "This coach's classes in the next 14 days that you can join.",
       "loading": "Loading classes…",
       "loadError": "Could not load the classes.",
-      "empty": "There are no classes of this coach you can join in the next 14 days. The coach may not take requests for academy classes.",
+      "empty": "There are no classes of this coach you can join in the next 14 days.",
       "spotsLeft_one": "{{count}} spot left",
       "spotsLeft_other": "{{count}} spots left",
       "full": "Full",
@@ -102,7 +102,8 @@
       "nowFull": "This class just filled up — you can join its waiting list.",
       "nowOpen": "This class has room — you can ask to join.",
       "failed": "Could not complete that. Please try again.",
-      "close": "Close"
+      "close": "Close",
+      "emptyNotAdvertised": "This coach isn't taking requests for academy classes."
     }
   }
 }

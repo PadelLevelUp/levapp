@@ -11,7 +11,9 @@
  * Assertions address test ids and state attributes, never copy (B-103).
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
+import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
+import { openCalendar } from "../helpers/navigation";
+import { goToNextWeek } from "../helpers/calendar-navigation";
 import { API_ROOT } from "../helpers/api";
 import { deleteClassRequests, removeClassesOnDay } from "../helpers/cleanup";
 
@@ -151,5 +153,60 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
       headers: coachAuth,
       data: { openSpotsVisible: savedVisible },
     });
+  }
+});
+
+/**
+ * Rule 5 (cross-review F1): the coach sees the student's note on the class's pending
+ * requests, not only in chat. Independent of the wizard: the request is made through
+ * the API, the coach reads it on the class sheet.
+ */
+test("US-PAD-358: the coach's class sheet shows the note on a pending join request", async ({ page, request }) => {
+  test.setTimeout(180_000);
+  const coachAuth = await bearer(request, COACH_USERNAME, COACH_PASSWORD);
+  const studentAuth = await bearer(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+  const day = isoDaysAhead(2);
+  const title = "E2E Wizard Note Class";
+  const requestIds: Array<string | number> = [];
+
+  const configRes = await request.get(`${API_ROOT}/app/notify/config`, { headers: coachAuth });
+  const savedVisible = Boolean((await configRes.json()).openSpotsVisible);
+
+  try {
+    expect((await request.post(`${API_ROOT}/app/notify/config`, { headers: coachAuth, data: { openSpotsVisible: true } })).ok()).toBeTruthy();
+    await addClass(request, coachAuth, { name: title, date: day, maxPlayers: 4, playerIds: [] });
+
+    const coachesRes = await request.get(`${API_ROOT}/app/class-requests/coaches`, { headers: studentAuth });
+    const coach = ((await coachesRes.json()) as Array<{ id: string; name: string }>).find((c) => c.name === "E2E Coach");
+    const listed = await request.get(`${API_ROOT}/app/academy-classes?coachId=${coach!.id}`, { headers: studentAuth });
+    const target = ((await listed.json()).classes as Array<{ title: string; model: string; originalId: number; date: string }>).find(
+      (c) => c.title === title,
+    );
+    expect(target, "the class is listed for the student").toBeTruthy();
+    const created = await request.post(`${API_ROOT}/app/class-join-requests`, {
+      headers: studentAuth,
+      data: { model: target!.model, originalId: target!.originalId, date: target!.date, note: NOTE },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    requestIds.push((await created.json()).id);
+
+    await loginAsCoach(page);
+    await openCalendar(page);
+    const card = page.getByTestId("calendar-event-card").filter({ hasText: title }).first();
+    let found = false;
+    for (let week = 0; week < 3 && !found; week++) {
+      found = await card.waitFor({ state: "visible", timeout: 6000 }).then(() => true, () => false);
+      if (!found) await goToNextWeek(page);
+    }
+    expect(found, "the class card is within three weeks").toBe(true);
+    await card.click();
+
+    const row = page.getByTestId("class-join-request-row").first();
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row.getByTestId("class-join-request-note")).toHaveText(NOTE);
+  } finally {
+    await removeClassesOnDay(request, coachAuth, day, (e) => e.title === title);
+    await deleteClassRequests(request, coachAuth, requestIds);
+    await request.post(`${API_ROOT}/app/notify/config`, { headers: coachAuth, data: { openSpotsVisible: savedVisible } });
   }
 });

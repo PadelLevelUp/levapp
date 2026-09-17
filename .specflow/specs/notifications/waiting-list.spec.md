@@ -122,8 +122,9 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 14. **A student's own join from the wizard (PAD-358)** writes the same `WaitingListEntry` the
     offer path writes — `standing_entry_id IS NULL`, upserted on `(lesson_instance_id, player_id)`
     and reactivated rather than duplicated — and is gated by `classes.academy-class-booking`
-    rules 2 and 6. Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates only an
-    entry the student created, never a standing-entry fan-out row (rule 10).
+    rules 2 and 6. Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
+    student's active entry for that class whatever its origin; a standing entry (rule 10) itself
+    stays active for its other classes.
 13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
     and then the class instance, and places the student only while the vacancy is still open and the
     class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it
