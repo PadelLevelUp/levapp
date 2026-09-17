@@ -46,6 +46,12 @@ export interface TimePickerInputProps {
   error?: string;
   disabled?: boolean;
   testID: string;
+  /**
+   * iOS only: the PortalHost the picker dialog renders into. A picker inside a
+   * React Native `Modal` (e.g. the availability block sheet, PAD-356) needs a
+   * host inside that modal; the root host draws behind it.
+   */
+  portalHost?: string;
 }
 
 /**
@@ -65,6 +71,7 @@ export function TimePickerInput({
   error,
   disabled,
   testID,
+  portalHost,
 }: TimePickerInputProps) {
   const { t, i18n } = useTranslation();
   // Resolved in the body, not the parameter list, so it follows the active
@@ -138,7 +145,7 @@ export function TimePickerInput({
       {/* Android renders via the imperative dialog above; no modal needed here. */}
       {Platform.OS === "ios" ? (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent testID={`${testID}-dialog`}>
+          <DialogContent testID={`${testID}-dialog`} portalHost={portalHost}>
             <DialogHeader>
               <DialogTitle>{label ?? t("ui.timePicker.dialogTitle")}</DialogTitle>
             </DialogHeader>

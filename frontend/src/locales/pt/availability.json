@@ -77,7 +77,27 @@
       "startTimeFormat": "A hora de início tem de estar no formato HH:MM",
       "endTimeFormat": "A hora de fim tem de estar no formato HH:MM",
       "repeatUntilFormat": "A data de fim tem de estar no formato AAAA-MM-DD",
-      "invalidForm": "Formulário inválido"
-    }
+      "invalidForm": "Formulário inválido",
+      "date_required": "Escolhe uma data.",
+      "end_before_start": "A hora de fim tem de ser depois da hora de início.",
+      "end_date_before_start_date": "A data de fim tem de ser igual ou posterior à data de início."
+    },
+    "blockersCard": {
+      "title": "Indisponibilidade",
+      "intro": "Bloqueia as horas em que não podes jogar. Enquanto um bloqueio está ativo não recebes convites nem lembretes de aulas, e essas horas ficam de fora quando marcas uma aula.",
+      "cta": "Criar bloqueio"
+    },
+    "sheet": {
+      "newTitle": "Novo bloqueio",
+      "editTitle": "Editar bloqueio"
+    },
+    "mode": {
+      "single": "Único",
+      "recurring": "Recorrente"
+    },
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "ex. Em viagem de trabalho",
+    "startDate": "Data de início",
+    "endDate": "Data de fim"
   }
 }
