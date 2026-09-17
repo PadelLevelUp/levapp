@@ -99,13 +99,19 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
     const wizard = page.getByTestId("class-request-wizard");
     await expect(wizard).toBeVisible({ timeout: 10_000 });
     // The coach step is skipped for a student with one coach (PAD-357): pick it only when shown.
+    // The wizard opens on "coach" while it loads the coaches and skips to "kind" when the
+    // student has one (PAD-357), so wait for whichever of the two actually renders.
     const coachOption = wizard.getByTestId(`wizard-coach-${coach!.id}`);
-    if (await coachOption.isVisible().catch(() => false)) await coachOption.click();
+    const academyKind = wizard.getByTestId("wizard-kind-academy");
+    await expect(coachOption.or(academyKind)).toBeVisible({ timeout: 10_000 });
+    if (await coachOption.isVisible()) await coachOption.click();
+    await expect(wizard).toHaveAttribute("data-step", "kind");
     const listed = page.waitForResponse(
       (r) => r.url().includes("/api/app/academy-classes") && r.request().method() === "GET",
     );
-    await wizard.getByTestId("wizard-kind-academy").click();
+    await academyKind.click();
     expect((await listed).status()).toBe(200);
+    await expect(wizard).toHaveAttribute("data-step", "academy");
 
     const list = page.getByTestId("academy-class-list");
     const openRow = list.getByTestId("academy-class-row").filter({ hasText: OPEN_CLASS });
