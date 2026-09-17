@@ -98,7 +98,9 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
     await page.getByTestId(WIZARD_CTA).click();
     const wizard = page.getByTestId("class-request-wizard");
     await expect(wizard).toBeVisible({ timeout: 10_000 });
-    await wizard.getByTestId(`wizard-coach-${coach!.id}`).click();
+    // The coach step is skipped for a student with one coach (PAD-357): pick it only when shown.
+    const coachOption = wizard.getByTestId(`wizard-coach-${coach!.id}`);
+    if (await coachOption.isVisible().catch(() => false)) await coachOption.click();
     const listed = page.waitForResponse(
       (r) => r.url().includes("/api/app/academy-classes") && r.request().method() === "GET",
     );

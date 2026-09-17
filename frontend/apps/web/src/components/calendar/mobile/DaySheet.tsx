@@ -1,4 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { clampSheetTop, SHEET_HANDLE_HEIGHT, type SheetBounds } from "@levelup/config";
 import type { CalendarEvent } from "@/types";
@@ -55,6 +56,7 @@ export function DaySheet({
   return (
     <div
       data-testid="calendar-day-sheet"
+      data-day={format(day, "yyyy-MM-dd")}
       data-sheet-top={top}
       data-sheet-min={bounds.min}
       data-sheet-max={bounds.max}

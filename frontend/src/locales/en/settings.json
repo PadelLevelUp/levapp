@@ -662,6 +662,33 @@
       "line": "LevApp {{version}} · {{host}}",
       "testServer": "Test server: {{host}}",
       "loginNotice": "Test build. This app uses the test server {{host}}; what you do here is erased when the server is updated."
+    },
+    "workingHours": {
+      "title": "Working hours",
+      "description": "When you work, day by day. Students can only ask for a private class inside these hours, and outside what is already on your calendar.",
+      "defaultNote": "Working hours not set: {{start}}–{{end}} applies every day until you save your own.",
+      "off": "Not working",
+      "worksAria": "Works on {{day}}",
+      "startAria": "Start",
+      "endAria": "End",
+      "addWindow": "Add hours",
+      "removeWindow": "Remove these hours",
+      "clear": "Clear working hours",
+      "saving": "Saving…",
+      "saved": "Working hours saved",
+      "cleared": "Working hours cleared",
+      "saveFailed": "Could not save your working hours",
+      "loadFailed": "Could not load your working hours",
+      "invalidDay": "Check {{day}}: each window must end after it starts, on the quarter hour, without overlapping.",
+      "days": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
     }
   }
 }
