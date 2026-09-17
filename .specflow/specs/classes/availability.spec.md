@@ -16,7 +16,7 @@ module.
 
 ### Entities
 - **READS:** Coach (`working_hours`, `settings.coach-working-hours`), LessonInstance and Lesson
-  occurrences (the coach's and each person's classes, via `Presence` for a person), CalendarBlock
+  occurrences (the coach's and each person's classes — for a person, every occurrence of a series they are on, materialised or not, plus materialised occurrences they hold a `Presence` on; `classes.class-requests` rule 13), CalendarBlock
   (the coach's blocks incl. request holds; each person's `unavailable` blocks,
   `calendar.student-blockers`), Association_CoachPlayer (the roster).
 - **WRITES:** nothing.
