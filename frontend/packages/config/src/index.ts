@@ -13,6 +13,7 @@ export * from "./eligibility-report";
 export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./availability";
+export * from "./academy-classes";
 export * from "./class-request-message";
 export * from "./invite-simulation";
 export * from "./calendar-overlap";

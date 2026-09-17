@@ -40,6 +40,7 @@ def serialize_join_request(row: ClassJoinRequest) -> dict:
         "status": row.status,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "decidedAt": row.decided_at.isoformat() if row.decided_at else None,
+        "note": row.note,
     }
 
 
@@ -130,15 +131,32 @@ def _class_label(instance: LessonInstance, locale: str) -> str:
 # Student side
 # ---------------------------------------------------------------------------
 
-def create_join_request_service(player, model, original_id, date_str, *, now=None):
+NOTE_MAX_LENGTH = 500
+
+
+def _clean_note(note):
+    """PAD-358 (classes.academy-class-booking rule 5): optional, trimmed, ≤ 500."""
+    if note is None:
+        return None
+    if not isinstance(note, str):
+        abort(400, "note must be text")
+    note = note.strip()
+    if len(note) > NOTE_MAX_LENGTH:
+        abort(400, f"note is longer than {NOTE_MAX_LENGTH} characters")
+    return note or None
+
+
+def create_join_request_service(player, model, original_id, date_str, *, note=None, now=None):
     """Rules 1–3, 14 and 15: validate server-side, then create (or return the
-    pending one). Returns ``(row, created)``."""
+    pending one). Returns ``(row, created)``. PAD-358: an optional ``note`` to
+    the coach rides on a new request (a repeated request keeps the first)."""
     from padel_app.services.notification_service import (
         effective_eligibility,
         effective_open_spots_visible,
         passes_eligibility,
     )
 
+    note = _clean_note(note)
     now = now or utcnow_naive()
     instance = resolve_instance(model, original_id, date_str, now=now)
     coach_id = _coach_id_for(instance)
@@ -173,6 +191,7 @@ def create_join_request_service(player, model, original_id, date_str, *, now=Non
         coach_id=coach_id,
         status="pending",
         created_at=now,
+        note=note,
     )
     db.session.add(row)
     db.session.commit()
@@ -468,6 +487,9 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
         f"{player_name} pediu para entrar em {_class_label(instance, 'pt')}.",
         f"{player_name} asked to join {_class_label(instance, 'en')}.",
     )
+    if row.note:
+        # PAD-358: the student's note travels with the request, quoted on its own line.
+        text = f"{text}\n\u201c{row.note}\u201d"
     conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
     msg = Message(
         text=text,

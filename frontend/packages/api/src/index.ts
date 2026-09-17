@@ -11,6 +11,7 @@ export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as adminApi from "./resources/admin";
+export * as academyClassesApi from "./resources/academyClasses";
 export * as authApi from "./resources/auth";
 export * as attendanceApi from "./resources/attendance";
 export * as availabilityApi from "./resources/availability";

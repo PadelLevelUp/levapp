@@ -2038,9 +2038,50 @@ def create_class_join_request():
         abort(403, "Only a student can ask to join a class")
     data = request.get_json() or {}
     row, created = create_join_request_service(
-        player, data.get("model"), data.get("originalId"), data.get("date")
+        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note")
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
+
+
+# PAD-358 (classes.academy-class-booking): the "Marcar Aula" wizard's academy step.
+@bp.get("/academy-classes")
+@jwt_required()
+def list_academy_classes_route():
+    from padel_app.services.academy_class_service import list_academy_classes
+
+    player = current_player()
+    if player is None or current_coach() is not None:
+        abort(403, "Only a student can list a coach's academy classes")
+    if not request.args.get("coachId"):
+        abort(400, "coachId is required")
+    return jsonify(list_academy_classes(player, request.args.get("coachId")))
+
+
+@bp.post("/class-waiting-list")
+@jwt_required()
+def join_class_waiting_list_route():
+    from padel_app.services.academy_class_service import join_class_waiting_list_service
+
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can join a waiting list")
+    data = request.get_json() or {}
+    entry, created = join_class_waiting_list_service(
+        player, data.get("model"), data.get("originalId"), data.get("date")
+    )
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True}), (201 if created else 200)
+
+
+@bp.post("/class-waiting-list/<int:instance_id>/leave")
+@jwt_required()
+def leave_class_waiting_list_route(instance_id):
+    from padel_app.services.academy_class_service import leave_class_waiting_list_service
+
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can leave a waiting list")
+    entry = leave_class_waiting_list_service(player, instance_id)
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": False})
 
 
 @bp.post("/class-join-requests/<int:request_id>/withdraw")

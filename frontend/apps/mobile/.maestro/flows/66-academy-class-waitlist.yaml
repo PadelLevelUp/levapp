@@ -1,0 +1,94 @@
+# PAD-358 — classes.academy-class-booking rules 6, 7, 10: from the "Marcar aula"
+# wizard's academy step, a student joins a FULL academy class's waiting list, the
+# row shows the waiting-list status, and the student leaves it again.
+#
+# Mirrors: apps/web/e2e/class-requests/pad358-academy-class-booking.spec.ts (first
+# test, full half), plus rule 7's leave. Flow 65 covers the open class.
+#
+# Setup and teardown through the API (R-040), per Session C's fixture contract:
+# - as e2e-coach: remember openSpotsVisible, turn it on, add "E2E Wizard Full Class"
+#   (academy, three days out, 18:00-19:00, 1 spot taken by a Filler Player);
+# - onFlowComplete (runs on failure too; the class is removed in two passes): leave the waiting list if still on it,
+#   remove the class, restore openSpotsVisible.
+#
+# The row is found by the class title (fixture data, not app copy); state is read
+# from the id (academy-class-row-full, academy-class-status-waitlist).
+# Flow number 66 is from Session C's range for PAD-358.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.coachId = output.coachId || String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+  - evalScript: "${output.left = (function () { var rows = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes || []; for (var i = 0; i < rows.length; i++) { var c = rows[i]; if (c.title === output.title && c.onWaitingList && c.model === 'LessonInstance') { http.post(output.api + '/api/app/class-waiting-list/' + c.originalId + '/leave', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }); } } return true; })()}"
+  - evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+  - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+  # Second pass: removing a materialised instance leaves its Lesson re-projecting.
+  - evalScript: "${output.events2 = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+  - evalScript: "${output.removed2 = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events2)}"
+  - evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.wasVisible = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).openSpotsVisible === true}"
+- evalScript: "${output.toggled = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.toggled == true}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 3 * 86400000))}"
+- evalScript: "${output.title = 'E2E Wizard Full Class'}"
+- evalScript: "${output.filler = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return String(p.name).indexOf('Filler Player') === 0; })[0].playerId}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 1, playerIds: [output.filler], isRecurring: false, notificationsEnabled: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+
+# ── The wizard's academy step ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-kind"
+    timeout: 15000
+- tapOn:
+    id: "wizard-kind-academy"
+- extendedWaitUntil:
+    visible:
+      id: "academy-class-list"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "${output.title}"
+    direction: DOWN
+    timeout: 30000
+# iOS exposes the row's children beside it, not inside it, so a row is matched
+# by the element nearest below the class title.
+- assertVisible:
+    id: "academy-class-row-full"
+
+# ── Join the waiting list ──
+- tapOn:
+    id: "academy-class-join-waitlist"
+    below:
+      text: "${output.title}"
+- scrollUntilVisible:
+    element:
+      id: "academy-class-status-waitlist"
+    direction: DOWN
+    timeout: 30000
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.onList = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0].onWaitingList === true}"
+- assertTrue: "${output.onList == true}"
+
+# ── Leave it again ──
+- tapOn:
+    id: "academy-class-leave-waitlist"
+- extendedWaitUntil:
+    notVisible:
+      id: "academy-class-status-waitlist"
+    timeout: 15000
+- evalScript: "${output.offList = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0].onWaitingList === false}"
+- assertTrue: "${output.offList == true}"

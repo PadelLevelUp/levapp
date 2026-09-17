@@ -1295,9 +1295,17 @@ export default function ClassDetailScreen() {
                     className="flex-row items-center justify-between gap-2 py-1"
                     testID="class-join-request-row"
                   >
-                    <Text className="flex-1 text-sm" numberOfLines={1}>
-                      {req.playerName}
-                    </Text>
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-sm" numberOfLines={1}>
+                        {req.playerName}
+                      </Text>
+                      {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
+                      {req.note ? (
+                        <Text className="text-xs text-muted-foreground" testID="class-join-request-note">
+                          {req.note}
+                        </Text>
+                      ) : null}
+                    </View>
                     <View className="flex-row gap-1.5">
                       <Button
                         variant="outline"

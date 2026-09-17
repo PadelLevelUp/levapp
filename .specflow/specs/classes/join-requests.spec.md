@@ -17,7 +17,7 @@ by a student's request — and whichever lands first wins.
 ### Entities
 - **ClassJoinRequest** (`class_join_requests`): lesson_instance_id, player_id, coach_id,
   status (`pending` | `accepted` | `rejected` | `withdrawn` | `superseded`), created_at, decided_at,
-  decided_by_coach_id. Unique on `(lesson_instance_id, player_id)` among `pending` rows.
+  decided_by_coach_id, note (PAD-358: optional, ≤ 500 characters). Unique on `(lesson_instance_id, player_id)` among `pending` rows.
 
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
@@ -71,8 +71,10 @@ by a student's request — and whichever lands first wins.
 
 15. **Wire contract (PAD-131).** Requests are addressed like a class edit — by the calendar event
     (`model`, `originalId`, `date`) — so a virtual occurrence can be requested (rule 2):
-    - `POST /app/class-join-requests` `{model, originalId, date}` → `201` with the request, or `200`
-      with the already-pending one (rule 3). Refusals are `409` with a `code`: `already_enrolled`,
+    - `POST /app/class-join-requests` `{model, originalId, date, note?}` → `201` with the request, or `200`
+      with the already-pending one (rule 3). `note` (PAD-358) is optional, trimmed, ≤ 500 characters
+      (`400` beyond); it is stored on the request, shown in the mirrored chat message and returned
+      in the coach's `joinRequests[].note`. Refusals are `409` with a `code`: `already_enrolled`,
       `class_closed` (started, cancelled, completed), `not_visible` (the coach does not advertise
       it or the student is not on their roster), `spot_filled` (no empty spot), `ineligible`.
     - `POST /app/class-join-requests/<id>/withdraw` — the requesting student only (rule 4).
