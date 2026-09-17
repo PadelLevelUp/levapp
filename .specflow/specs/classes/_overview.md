@@ -17,6 +17,7 @@ The classes domain.
 - `classes.detail-visibility` — implemented
 - `classes.join-requests` — draft
 - `classes.class-requests` — implemented (PAD-104: a student books a class in the coach's free time)
+- `classes.academy-class-booking` — draft (PAD-358: from the "Marcar Aula" wizard, a student requests a coach's academy class or joins its waiting list)
 
 ## Why it's grouped this way
 

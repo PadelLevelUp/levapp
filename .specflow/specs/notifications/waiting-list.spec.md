@@ -33,6 +33,11 @@ Players can join a waiting list for full classes. Standing waiting list entries 
    in both `MessageBubble.tsx` (web) and `message-bubble.tsx` (mobile). This path stays separate
    from `classes.join-requests` (PAD-130/131), the student-initiated "I want in" flow for a *full*
    class — the two are not merged
+   **[PAD-358, 2026-09-17] Amended: this is no longer the only self-service join path.** A
+   student may also place themselves on a *full* class's list from the "Marcar Aula" wizard
+   (`classes.academy-class-booking` rule 6, `POST /api/app/class-waiting-list`). The offer path
+   above is unchanged, and so is rule 12: `respond_waiting_list` still answers only an offered
+   player. The new path has its own gate (eligible, visible, full) instead of an offer
 1a. **The offer bubble settles like the reminder bubble.** Yes/No render only for the recipient
    (the coach sees `waitingForResponse` on the copy they sent), and the answer is written back
    onto the offer message as `metadata.responded = true` plus `metadata.response`, so the settled
@@ -114,6 +119,11 @@ Players can join a waiting list for full classes. Standing waiting list entries 
     Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
     created. The check runs before the late-instance no-op of PAD-68, so a player never learns
     whether an arbitrary instance id exists.
+14. **A student's own join from the wizard (PAD-358)** writes the same `WaitingListEntry` the
+    offer path writes — `standing_entry_id IS NULL`, upserted on `(lesson_instance_id, player_id)`
+    and reactivated rather than duplicated — and is gated by `classes.academy-class-booking`
+    rules 2 and 6. Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates only an
+    entry the student created, never a standing-entry fan-out row (rule 10).
 13. **Placement is decided under the lock (PAD-261).** A waiting-list placement locks the vacancy
     and then the class instance, and places the student only while the vacancy is still open and the
     class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it

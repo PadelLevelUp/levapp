@@ -4,6 +4,7 @@ status: draft
 implemented_by:
   - ../../specs/classes/detail-visibility.spec.md
   - ../../specs/classes/join-requests.spec.md
+  - ../../specs/classes/academy-class-booking.spec.md
 ---
 
 # Student Joins And Views Classes
@@ -33,6 +34,10 @@ Students/players looking at a class from the outside, and the coach who decides 
    request — the student's request is automatically closed, and depending on the coach's
    notification setting, they may be told automatically.
 6. If rejected, the student is told and the spot stays open.
+7. From the "Marcar Aula" wizard, a student can also pick a coach and see that coach's academy
+   classes for the next two weeks — only the ones they may join. A class with room is requested
+   with an optional note to the coach; a full class, shown in red, can be joined on its waiting
+   list (PAD-358).
 
 ## Business Rules
 
@@ -41,6 +46,10 @@ Students/players looking at a class from the outside, and the coach who decides 
 - Only a student who is eligible and can see the open spot may request it; the system re-checks
   eligibility both when they ask and again when the coach decides.
 - A student cannot request a class they are already enrolled in.
+- The wizard's academy list never shows a class the student could not request or queue for: not
+  another coach's, not one above their level, not one the coach keeps private.
+- A student may put themselves on a full class's waiting list; that queues them, it never enrols
+  them — placement stays the coach's engine's job.
 - A student can withdraw their own pending request without alerting the coach.
 - The coach alone decides — accepting or rejecting a request is never automatic.
 - First fill wins: whichever path — an accepted request, an accepted invitation, or a
