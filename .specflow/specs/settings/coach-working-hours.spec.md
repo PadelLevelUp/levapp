@@ -16,9 +16,12 @@ otherwise.
 
 ### Entities
 - **Coach** (`coaches`): `working_hours` (JSON, nullable; migration `8da963ad8591`) —
-  `{"mon": [["08:00","22:00"]], "tue": [...], ..., "sun": []}`; a missing day or an empty list
-  means "not working that day"; **null means not set** and the default window applies
-  everywhere (`classes.availability` rule 1, `DEFAULT_WORKING_WINDOW` 08:00–22:00).
+  `{"mon": [["08:00","22:00"]], "tue": [...], ..., "sun": []}`; an **empty list** means "not
+  working that day"; a **missing day** means the default window for that day (the editors on
+  both shells always write all seven keys, so a missing key only ever comes from a hand-made
+  value); **null means not set** and the default window applies everywhere
+  (`classes.availability` rule 1, `DEFAULT_WORKING_WINDOW` 08:00–22:00). `workingHoursSource`
+  is `coach` whenever the value is non-null, even if every day is the default.
 
 ### Rules
 1. `GET /app/coach/working-hours` (coach only) → `{workingHours: <json or null>, defaultWindow:
