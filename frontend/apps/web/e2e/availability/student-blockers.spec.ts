@@ -105,7 +105,7 @@ test("PAD-356: a recurring block on chosen weekdays between two dates is created
   await deleteBlocker(page, id);
 });
 
-test("PAD-356: an end before the start is refused in the sheet and nothing is sent", async ({ page }) => {
+test("PAD-356: an end before the start, or a cleared time, is refused in the sheet and nothing is sent", async ({ page }) => {
   let posted = 0;
   page.on("request", (r) => {
     if (/\/api\/app\/availability_blockers(\?|$)/.test(r.url()) && r.method() === "POST") posted += 1;
@@ -116,6 +116,12 @@ test("PAD-356: an end before the start is refused in the sheet and nothing is se
   await page.getByTestId("blocker-end-time").fill("19:00");
   await page.getByTestId("blocker-save").click();
   await expect(page.getByTestId("blocker-error")).toHaveAttribute("data-reason", "end_before_start");
+
+  // A cleared time input is not a time (it used to pass as NaN and POST "").
+  await page.getByTestId("blocker-start-time").fill("");
+  await page.getByTestId("blocker-save").click();
+  await expect(page.getByTestId("blocker-error")).toHaveAttribute("data-reason", "time_required");
+  await page.getByTestId("blocker-start-time").fill("20:00");
 
   await page.getByTestId("blocker-mode-recurring").click();
   await page.getByTestId("blocker-end-time").fill("21:00");

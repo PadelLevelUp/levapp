@@ -65,6 +65,7 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
     column. Save is `blocker-save` and cancel is `blocker-cancel`.
 16. **(PAD-356) Block validation is shared and runs before any request.**
     `blockerDraftError(draft)` in `@levelup/config` returns `date_required` (no date),
+    `time_required` (a start or end time that is empty or not HH:MM, e.g. a cleared time input),
     `end_before_start` (end time not after start time), `end_date_before_start_date` (recurring
     end date before the start date), or `null`. Both shells render
     `availability.validation.<code>` on the error element (web `blocker-error` with
@@ -126,6 +127,6 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
 - **Then** the block is created and listed in the Indisponibilidade card with its reason
 
 #### An end before the start is refused before any request (PAD-356)
-- **Given** the sheet with an end time at or before the start time (or, recurring, an end date before the start date)
+- **Given** the sheet with an end time at or before the start time (or a cleared start or end time, or, recurring, an end date before the start date)
 - **When** the student saves
-- **Then** the sheet shows `availability.validation.end_before_start` (or `end_date_before_start_date`) and no request is sent
+- **Then** the sheet shows `availability.validation.end_before_start` (or `time_required`, or `end_date_before_start_date`) and no request is sent

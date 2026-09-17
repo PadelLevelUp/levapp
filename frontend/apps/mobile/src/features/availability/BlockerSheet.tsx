@@ -99,12 +99,14 @@ export function BlockerSheet({ open, initial, saving = false, error, onSubmit, o
         accessibilityLabel={t(`availability.mode.${mode}`)}
         accessibilityState={{ selected }}
         onPress={() => set("mode", mode)}
-        // Selection is a style, never a className swap. Swapping these classes
-        // (bg-background shadow-sm / active:opacity-70) inside the native Modal
-        // crashed the sheet with "Couldn't find a navigation context" on the
-        // simulator; the best-fitting reading is NativeWind re-wrapping the
-        // component with something that reads navigation, which a Modal's own
-        // root lacks. Styles avoid the re-wrap either way.
+        // Selection is a style, not a className swap. The first simulator run
+        // crashed the sheet with "Couldn't find a navigation context" when these
+        // buttons swapped `bg-background shadow-sm` for `active:opacity-70`;
+        // with styles the flow passes. The mechanism is UNIDENTIFIED: a plain
+        // class swap is not enough, since Save's `opacity-50` (disabled while
+        // saving) changes inside the same Modal without crashing. What differed
+        // here was an interaction variant (`active:`) and a shadow coming and
+        // going — a candidate, not a finding (Session A's #340 review).
         className="flex-1 items-center justify-center rounded-md py-2"
         style={{ backgroundColor: selected ? lightTheme.card : "transparent" }}
       >
@@ -140,21 +142,11 @@ export function BlockerSheet({ open, initial, saving = false, error, onSubmit, o
           <Text className="text-lg font-semibold">
             {initial ? t("availability.sheet.editTitle") : t("availability.sheet.newTitle")}
           </Text>
+          <Text className="-mt-3 text-sm text-muted-foreground">{t("availability.formDescription")}</Text>
 
           <View className="flex-row gap-1 rounded-lg bg-muted p-1">
             {modeButton("single")}
             {modeButton("recurring")}
-          </View>
-
-          <View className="gap-2">
-            <Label>{t("availability.reasonLabel")}</Label>
-            <Input
-              testID="blocker-reason"
-              accessibilityLabel={t("availability.reasonLabel")}
-              placeholder={t("availability.reasonPlaceholder")}
-              value={draft.title}
-              onChangeText={(v) => set("title", v)}
-            />
           </View>
 
           {recurring ? (
@@ -195,6 +187,16 @@ export function BlockerSheet({ open, initial, saving = false, error, onSubmit, o
             portalHost={SHEET_PORTAL_HOST}
           />
 
+          {recurring ? (
+            <DatePickerInput
+              testID="blocker-end-date"
+              label={t("availability.endDate")}
+              value={draft.endDate}
+              onChange={(v) => set("endDate", v)}
+              portalHost={SHEET_PORTAL_HOST}
+            />
+          ) : null}
+
           <View className="flex-row gap-3">
             <View className="flex-1">
               <TimePickerInput
@@ -216,15 +218,16 @@ export function BlockerSheet({ open, initial, saving = false, error, onSubmit, o
             </View>
           </View>
 
-          {recurring ? (
-            <DatePickerInput
-              testID="blocker-end-date"
-              label={t("availability.endDate")}
-              value={draft.endDate}
-              onChange={(v) => set("endDate", v)}
-              portalHost={SHEET_PORTAL_HOST}
+          <View className="gap-2">
+            <Label>{t("availability.reasonLabel")}</Label>
+            <Input
+              testID="blocker-reason"
+              accessibilityLabel={t("availability.reasonLabel")}
+              placeholder={t("availability.reasonPlaceholder")}
+              value={draft.title}
+              onChangeText={(v) => set("title", v)}
             />
-          ) : null}
+          </View>
 
           {draftError ? (
             <Text
