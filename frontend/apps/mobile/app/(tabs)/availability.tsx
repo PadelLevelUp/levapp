@@ -166,7 +166,7 @@ export default function AvailabilityScreen() {
                   {b.title || t("availability.unavailable")}
                 </Text>
                 {b.isRecurring ? (
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" testID={`blocker-recurring-${b.id}`}>
                     <Text>{t("availability.recurring")}</Text>
                   </Badge>
                 ) : null}

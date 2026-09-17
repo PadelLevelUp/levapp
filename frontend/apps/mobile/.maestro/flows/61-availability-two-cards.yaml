@@ -75,11 +75,14 @@ appId: com.padellevelup.app
     when:
       platform: Android
     commands:
+      # The platform date dialog's positive button, by its Android resource id
+      # rather than its label.
       - extendedWaitUntil:
           visible:
-            text: "OK"
+            id: "android:id/button1"
           timeout: 10000
-      - tapOn: "OK"
+      - tapOn:
+          id: "android:id/button1"
 - runFlow:
     when:
       platform: iOS
@@ -107,10 +110,12 @@ appId: com.padellevelup.app
     visible:
       text: ".*18:00.*20:00.*"
     timeout: 20000
-- assertVisible: "Recurring"
+- assertVisible:
+    id: "blocker-recurring-.*"
 
 # ── Remove it ──
-- tapOn: "Delete blocker"
+- tapOn:
+    id: "blocker-delete-.*"
 - extendedWaitUntil:
     visible:
       id: "blocker-delete-confirm"
