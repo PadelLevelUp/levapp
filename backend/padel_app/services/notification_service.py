@@ -2905,9 +2905,13 @@ def respond_to_reminder(
     )
     if retaking:
         locked = _lock_instance(instance)
+        # Capacity is the override, else the lesson's (PAD-275, classes.edit
+        # rule 4) — never the copied column, which every sibling check already
+        # stopped reading; the copy goes stale the moment the coach edits the
+        # lesson's capacity after materialisation (batch-2 audit).
         if (
-            locked.max_players is not None
-            and _effective_filled_spots(locked) >= locked.max_players
+            locked.effective_max_players is not None
+            and _effective_filled_spots(locked) >= locked.effective_max_players
         ):
             db.session.commit()  # release the lock, change nothing
             if coach_user_id:

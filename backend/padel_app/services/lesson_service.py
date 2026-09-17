@@ -1604,6 +1604,7 @@ def _instances_on_date(lesson, date):
                 ),
             )
         )
+        .order_by(LessonInstance.id)  # like the materialiser: the oldest wins
         .all()
     )
 

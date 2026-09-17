@@ -70,15 +70,134 @@ export function localeValues(
  * the feature is broken. It is classified rather than ignored so the decision stays
  * visible in the counts.
  */
-export function classify(file: string, literal: string, locales: Locales, alternation = false): Bucket {
+export function classify(
+  file: string,
+  literal: string,
+  locales: Locales,
+  alternation = false,
+  contains = false,
+): Bucket {
   if (alternation) return "bilingual";
   const core = norm(literal.replace(/^\.\*/, "").replace(/\.\*$/, ""));
-  const inEn = locales.en.has(core);
-  const inPt = locales.pt.has(core);
+  const inEn = namesLocaleValue(locales.en, core, contains);
+  const inPt = namesLocaleValue(locales.pt, core, contains);
   if (!inEn && !inPt) return "data";
   if (SUBJECT_RE.test(file) || file in SUBJECT_ALLOWLIST) return "subject";
   if (inEn && inPt) return "both";
   return inEn ? "en" : "pt";
+}
+
+/*
+ * PAD-320, widened (final slice). The first scanner matched a literal only when it was
+ * EXACTLY a locale value, which undercounted: the conversions found rendered copy the
+ * guard filed as test data. Each rule below is named for the miss that proved it.
+ *
+ *   punctuation  — "are you sure" against "Are you sure?": edge punctuation is dropped on
+ *                  both sides before comparing.
+ *   interpolated — "2 players" against "{{count}} players": a value with placeholders
+ *                  becomes a full-match pattern.
+ *   contains     — "successfully reverted" against "Successfully reverted import": a
+ *                  matcher that matches by substring (a regex, getByText, toContainText)
+ *                  counts when the literal is a word-bounded part of one value AND is
+ *                  substantial (two words, or ten letters), so "student" inside
+ *                  "students" never counts. A mid-string `.*` splits the literal into
+ *                  parts that must all occur, in order, in one value.
+ *
+ * Everything is derived from the same locale sets, once per set, so the guard still has
+ * one loader and one instrument.
+ */
+const EDGE_PUNCT = /^[\s"'\u201c\u201d\u2018\u2019\u00a1\u00bf.,:;!?\u2026()-]+|[\s"'\u201c\u201d\u2018\u2019.,:;!?\u2026()-]+$/g;
+const loose = (s: string): string => s.replace(EDGE_PUNCT, "");
+const LETTER = /[a-z\u00e0-\u00ff0-9]/;
+const PLACEHOLDER = /\{\{[^}]+\}\}/;
+const NUMERIC_PLACEHOLDER = /^(count|n|num|number|total|max|min|hours?|days?|minutes?|seconds?|value|amount|size|page|pages|index|position|percent|year|month|day)$/i;
+const EXAMPLE = /^(e\.g\.|ex\.|ex:|p\. ?ex\.|por exemplo)\s/;
+
+interface LocaleIndex {
+  loose: Set<string>;
+  values: string[];
+  templates: RegExp[];
+}
+
+const INDEX = new WeakMap<Set<string>, LocaleIndex>();
+
+function localeIndex(values: Set<string>): LocaleIndex {
+  const cached = INDEX.get(values);
+  if (cached) return cached;
+  const idx: LocaleIndex = { loose: new Set(), values: [], templates: [] };
+  for (const v of values) {
+    const l = loose(v);
+    if (PLACEHOLDER.test(l)) {
+      // A template counts in two shapes only, or "{{name}} class" would claim every
+      // test-created class title:
+      //   - its fixed text is substantial ("remove category {{name}}"), any placeholder;
+      //   - its fixed text is a short phrase but every placeholder is a NUMBER
+      //     ("{{count}} players"), and those match only digits, `\d+` or `.*`.
+      const names = [...l.matchAll(/\{\{\s*([^}\s]+)\s*\}\}/g)].map((m) => m[1]);
+      const fixed = l.split(/\{\{[^}]+\}\}/g);
+      const numeric = names.every((n) => NUMERIC_PLACEHOLDER.test(n));
+      const text = fixed.join(" ").replace(/\s+/g, " ").trim();
+      if (!substantial(text) && !(numeric && text.replace(/[^a-z\u00e0-\u00ff]/g, "").length >= 4)) continue;
+      const escaped = fixed.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const slot = (n: string) => (NUMERIC_PLACEHOLDER.test(n) ? "(?:\\d+|\\\\d\\+|\\.\\*)" : ".+?");
+      const source = escaped.reduce((acc, p, i) => acc + p + (i < names.length ? slot(names[i]) : ""), "");
+      idx.templates.push(new RegExp(`^${source}$`));
+    } else {
+      idx.loose.add(l);
+      // An input's example text ("e.g. Away for work") is what a test TYPES, so a
+      // substring of it is test data, not copy. Only an exact match still counts.
+      if (!EXAMPLE.test(l)) idx.values.push(l);
+    }
+  }
+  INDEX.set(values, idx);
+  return idx;
+}
+
+const substantial = (s: string): boolean =>
+  s.split(" ").filter(Boolean).length >= 2 || s.replace(/[^a-z\u00e0-\u00ff]/g, "").length >= 10;
+
+function wordBoundedAt(hay: string, at: number, length: number): boolean {
+  const before = at === 0 || !LETTER.test(hay[at - 1]);
+  const end = at + length;
+  const after = end === hay.length || !LETTER.test(hay[end]);
+  return before && after;
+}
+
+/** Whether `core` (already `norm`'d, edge `.*` stripped) names one of `values`. */
+export function namesLocaleValue(values: Set<string>, core: string, contains = false): boolean {
+  if (values.has(core)) return true;
+  const idx = localeIndex(values);
+  const l = loose(core);
+  if (l.length < 3) return false;
+  if (idx.loose.has(l)) return true;
+  if (idx.templates.some((t) => t.test(l))) return true;
+  if (!contains) return false;
+  const parts = l.split(/\s*\.\*\s*/).map(loose).filter(Boolean);
+  if (parts.length === 0 || !substantial(parts.join(" "))) return false;
+  return idx.values.some((v) => {
+    let from = 0;
+    for (const p of parts) {
+      let at = v.indexOf(p, from);
+      while (at >= 0 && !wordBoundedAt(v, at, p.length)) at = v.indexOf(p, at + 1);
+      if (at < 0) return false;
+      from = at + p.length;
+    }
+    return true;
+  });
+}
+
+/**
+ * The copy inside a regex literal body: anchors and a wrapping group dropped, and the
+ * common escapes a test writes by hand (`\\s+`, `\\?`, `\\.`) turned back into text.
+ * Before this, `/^automatic notifications$/i` resolved to nothing and was never counted.
+ */
+export function regexCopy(body: string): string {
+  return body
+    .replace(/^\^/, "")
+    .replace(/\$$/, "")
+    .replace(/^\((.*)\)$/, "$1")
+    .replace(/\\s[+*]?/g, " ")
+    .replace(/\\([^dDwWsSbB])/g, "$1");
 }
 
 /**
@@ -103,12 +222,13 @@ export function scanPlaywright(file: string, source: string, locales: Locales): 
   for (const m of source.matchAll(PW_LITERAL)) {
     const literal = m[3];
     if (literal.length < 3 || !/[A-Za-z]/.test(literal) || literal.includes("|")) continue;
-    const bucket = classify(file, literal, locales);
+    // Playwright matches a string by substring everywhere except `toHaveText`.
+    const bucket = classify(file, literal, locales, false, m[1] !== "toHaveText");
     if ((CONVERTIBLE as readonly string[]).includes(bucket)) found.push({ file, literal, bucket });
   }
   for (const m of source.matchAll(PW_REGEX)) {
     if (m[2].includes("|")) continue; // bilingual alternation: out by decision
-    const bucket = classify(file, m[2], locales);
+    const bucket = classify(file, regexCopy(m[2]), locales, false, true);
     if ((CONVERTIBLE as readonly string[]).includes(bucket)) found.push({ file, literal: m[2], bucket });
   }
   return found;

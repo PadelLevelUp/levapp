@@ -106,3 +106,38 @@ that failure was more likely this pollution than load.
 **How to recognise the next one:** passes alone on a fresh database, fails in the shard at
 the same line every time. Ask what ran against the database first, then bisect by running
 the victim after halves of the specs that sort before it.
+
+## Addendum, 2026-09-16 — hazards the cleanup does not cover
+
+Recorded after #291 landed (batch 1, `7ce6b7b0c`). None of these is a leak a `finally` can fix;
+they are listed so the next failure of this shape is recognised rather than re-diagnosed.
+
+**1. An ambiguous locator that a shard-mate can satisfy.**
+`notification-engine/class-cancellation-notification.spec.ts:30` picked the student in the
+add-class sheet with `getByText('E2E Student', { exact: true }).first()`. With `class-requests/`
+ahead of it, it failed intermittently (1 of 2 runs on `b4415507c`; neither half of the folder
+triggered it alone) with the click intercepted by the sheet's overlay — `.first()` had
+resolved to an element with the student's name *behind* the sheet, not the picker's option.
+After the failing run the database held no leftover class, block or request, so this is not a
+leak: it is a locator that anything titled with the student's name can capture. Session B
+scoped the click to the sheet's dialog on #300. Full attribution table: #295's comment.
+**Shape:** a locator that is unique only in a clean database. **Fix:** scope it to the
+container it means.
+
+**2. Parallel workers sharing one fixture** (coordinator, batch 1 shards run with
+`--workers=2`; every one passes serially after a fresh reset):
+- shard 1: `attendance/pad315-come-back` timed out at 240 s because
+  `attendance/pad288-early-cancellation` ran concurrently — both book the first free block 8–14
+  days out for E2E Student with E2E Coach and click the first "E2E Student" card; pad315's
+  instance already showed `cancelledByStudent` before its own cancel click.
+- shard 2: `messaging/conversation-paging` read "pad224 85…" as the thread's last rows (the
+  pad224 spec writes the same conversation); `notification-engine/auto-reminder` received the
+  PAD67 template that `blank-template-fallback` sets on the same coach, and
+  `blank-template-fallback` received auto-reminder's "coming" confirmation;
+  `eligibility-manual-add` and `manual-notify-selection` did not find their dialog rows.
+
+**Shape:** two specs mutating the same coach, student or conversation *at the same time*.
+**Fix:** distinct fixtures per spec (a different day, student or coach), not cleanup —
+cleanup runs after the collision. **Limit of R-040's reasoning:** "a spec can only pollute
+specs that sort after it" holds for `workers: 1` (the config's default); with more than one
+worker, any two specs in a shard can overlap in time.

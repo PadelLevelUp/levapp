@@ -33,7 +33,7 @@ export function OverlapConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t("calendar.overlap.title")}</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription data-testid="overlap-warning-description">
             {t("calendar.overlap.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>

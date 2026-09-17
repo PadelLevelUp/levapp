@@ -37,7 +37,7 @@ async function openStandingWaitingList(page: Page) {
   // /notifications/i ("My notifications"), so the old role+name locator is
   // ambiguous for a coach. Target the stable testid instead.
   await page.getByTestId("settings-nav-notifications").click();
-  await expect(page.getByText(/auto-invite engine/i)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("notification-engine-title")).toBeVisible({ timeout: 5000 });
   await page.getByRole("button", { name: /standing waiting list/i }).first().click();
   await expect(page.locator("[data-testid='standing-wl-entry']").first()).toBeVisible({
     timeout: 10000,
