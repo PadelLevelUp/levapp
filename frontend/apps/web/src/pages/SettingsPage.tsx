@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
+import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
 import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
@@ -629,7 +630,13 @@ export default function SettingsPage() {
             )}
 
             {/* CALENDAR */}
-            {activeTab === "calendar" && <SeasonsSection />}
+            {activeTab === "calendar" && (
+              <div className="space-y-6">
+                <SeasonsSection />
+                {/* PAD-357: settings.coach-working-hours rule 3. */}
+                <WorkingHoursSection />
+              </div>
+            )}
 
             {/* NOTIFICATIONS — the coach's notification-engine configuration. */}
             {activeTab === "notifications" && <NotificationsEngineSection />}

@@ -1,7 +1,6 @@
 /**
  * classes.class-requests (PAD-104). One section, two roles:
- * - student: "Book a class" (coach → date → duration → a free block → a start
- *   time → note → send) and their own requests, with withdraw / answer a
+ * - student: "Marcar aula" opens the PAD-357 wizard, and their own requests, with withdraw / answer a
  *   proposal — accept, decline, or propose another time (rule 10, PAD-281);
  * - coach: every request addressed to them, with accept / decline / propose
  *   another time.
@@ -14,43 +13,33 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
-import type { ClassRequest, FreeBlock } from "@levelup/types";
-import { CLASS_REQUEST_DURATIONS, FIRST_FREE_DAY_HORIZON_DAYS, clubTodayISO, firstFreeDay, slotOptions } from "@levelup/config";
+import type { ClassRequest } from "@levelup/types";
+import { CLASS_REQUEST_DURATIONS, clubTodayISO, slotOptions } from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ClassRequestWizard } from "./wizard/ClassRequestWizard";
 import { cn } from "@/lib/utils";
 import {
   acceptClassRequest,
   answerClassRequestProposal,
   classRequestRefusal,
   counterProposeClassRequest,
-  createClassRequest,
   declineClassRequest,
   getFreeBlocks,
-  listClassRequestCoaches,
   listClassRequests,
   proposeClassRequest,
   withdrawClassRequest,
-  type ClassRequestCoach,
 } from "@/api/classRequests";
 
 const OPEN = new Set(["pending", "countered"]);
 
 function todayIso(): string {
   return clubTodayISO(); // B-060: the club's date, not the device's
-}
-
-/** Rule 11 (PAD-302): the last day the booking form looks at for its default date. */
-function horizonIso(): string {
-  const [y, m, d] = todayIso().split("-").map(Number);
-  const end = new Date(Date.UTC(y, m - 1, d + FIRST_FREE_DAY_HORIZON_DAYS));
-  return end.toISOString().slice(0, 10);
 }
 
 function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {
@@ -78,18 +67,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const counterRowRef = useRef<HTMLDivElement | null>(null);
 
-  // Student booking flow
+  // Student booking flow: the PAD-357 wizard (its steps own their state).
   const [booking, setBooking] = useState(false);
-  const [coaches, setCoaches] = useState<ClassRequestCoach[]>([]);
-  const [coachId, setCoachId] = useState("");
-  const [date, setDate] = useState(todayIso());
-  // Rule 11 (PAD-302): a date the student typed is never overridden by the coach default.
-  const dateTouched = useRef(false);
-  const [duration, setDuration] = useState<number>(60);
-  const [blocks, setBlocks] = useState<FreeBlock[] | null>(null);
-  const [slot, setSlot] = useState<{ startTime: string; endTime: string } | null>(null);
-  const [note, setNote] = useState("");
-  const [sending, setSending] = useState(false);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
@@ -118,78 +97,9 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     if (counteringId !== null || proposingId !== null) counterRowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [counteringId, proposingId]);
 
-  useEffect(() => {
-    if (role !== "student" || !booking) return;
-    listClassRequestCoaches()
-      .then((rows) => {
-        setCoaches(rows);
-        if (rows.length === 1) setCoachId(rows[0].id);
-      })
-      .catch(() => setCoaches([]));
-  }, [role, booking]);
-
-  // Rule 11 (PAD-302): once a coach is picked, open on the first day that still
-  // has a free block (today if any remains) instead of an empty picker.
-  useEffect(() => {
-    if (role !== "student" || !booking || !coachId || dateTouched.current) return;
-    let cancelled = false;
-    const today = todayIso();
-    getFreeBlocks(coachId, `${today}T00:00:00`, `${horizonIso()}T23:59:00`)
-      .then((rows) => {
-        if (!cancelled && !dateTouched.current) setDate(firstFreeDay(rows, today));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [role, booking, coachId]);
-
-  useEffect(() => {
-    if (!booking || !coachId || !date) {
-      setBlocks(null);
-      return;
-    }
-    let cancelled = false;
-    setSlot(null);
-    getFreeBlocks(coachId, `${date}T00:00:00`, `${date}T23:59:00`)
-      .then((rows) => {
-        if (!cancelled) setBlocks(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setBlocks([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [booking, coachId, date]);
-
-  const starts = useMemo(
-    () => (blocks ?? []).flatMap((b) => slotOptions(b, duration).map((s) => ({ ...s, block: b }))),
-    [blocks, duration]
-  );
-
   const refusalText = (err: unknown, fallback: string) => {
     const refusal = classRequestRefusal(err);
     return refusal ? t(`classRequests.refusal.${refusal.code}`) : fallback;
-  };
-
-  const send = async () => {
-    if (!coachId || !slot) return;
-    setSending(true);
-    try {
-      await createClassRequest({ coachId, date, startTime: slot.startTime, endTime: slot.endTime, note: note.trim() || null });
-      toast({ title: t("classRequests.sent"), description: t("classRequests.sentBody") });
-      setBooking(false);
-      setSlot(null);
-      setNote("");
-      await refresh();
-    } catch (err) {
-      toast({ variant: "destructive", title: t("classRequests.failed"), description: refusalText(err, "") || undefined });
-      // The block list may be stale — reload it.
-      if (coachId && date) getFreeBlocks(coachId, `${date}T00:00:00`, `${date}T23:59:00`).then(setBlocks).catch(() => {});
-    } finally {
-      setSending(false);
-    }
   };
 
   const act = async (id: number, fn: () => Promise<unknown>, okKey: string) => {
@@ -319,7 +229,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
             </CardTitle>
             <CardDescription>{t(role === "student" ? "classRequests.intro" : "classRequests.coachIntro")}</CardDescription>
           </div>
-          {role === "student" && !booking && (
+          {role === "student" && (
             <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">
               <CalendarPlus className="w-4 h-4" />
               {t("classRequests.book")}
@@ -328,98 +238,9 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {role === "student" && booking && (
-          <div className="rounded-lg border p-3 space-y-4" data-testid="class-request-form">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>{t("classRequests.coach")}</Label>
-                <Select value={coachId} onValueChange={setCoachId}>
-                  <SelectTrigger data-testid="class-request-coach" aria-label={t("classRequests.coach")}>
-                    <SelectValue placeholder={t("classRequests.selectCoach")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coaches.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {coaches.length === 0 && <p className="text-xs text-muted-foreground">{t("classRequests.noCoaches")}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="class-request-date">{t("classRequests.date")}</Label>
-                <Input
-                  id="class-request-date"
-                  type="date"
-                  min={todayIso()}
-                  value={date}
-                  onChange={(e) => {
-                    dateTouched.current = true;
-                    setDate(e.target.value);
-                  }}
-                  data-testid="class-request-date"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("classRequests.duration")}</Label>
-                <Select value={String(duration)} onValueChange={(v) => setDuration(Number(v))}>
-                  <SelectTrigger aria-label={t("classRequests.duration")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLASS_REQUEST_DURATIONS.map((d) => (
-                      <SelectItem key={d} value={String(d)}>{t("classRequests.minutes", { count: d })}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {coachId && blocks && (
-              <div className="space-y-2">
-                <Label>{t("classRequests.freeBlocks")}</Label>
-                {blocks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("classRequests.noFreeBlocks")}</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5" data-testid="class-request-free-blocks">
-                    {blocks.map((b) => (
-                      <Badge key={`${b.startTime}-${b.endTime}`} variant="outline">{b.startTime}–{b.endTime}</Badge>
-                    ))}
-                  </div>
-                )}
-                {starts.length > 0 && (
-                  <>
-                    <Label className="text-xs">{t("classRequests.pickStart")}</Label>
-                    <div className="flex flex-wrap gap-1.5" data-testid="class-request-slots">
-                      {starts.map((s) => (
-                        <button
-                          key={s.startTime}
-                          type="button"
-                          onClick={() => setSlot({ startTime: s.startTime, endTime: s.endTime })}
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-sm transition-colors",
-                            slot?.startTime === s.startTime ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
-                          )}
-                          data-testid="class-request-slot"
-                        >
-                          {s.startTime}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="class-request-note">{t("classRequests.note")}</Label>
-              <Textarea id="class-request-note" rows={2} placeholder={t("classRequests.notePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setBooking(false)} disabled={sending}>{t("classRequests.cancel")}</Button>
-              <Button onClick={send} disabled={sending || !coachId || !slot} data-testid="class-request-send">{t("classRequests.send")}</Button>
-            </div>
-          </div>
+        {/* PAD-357: "Marcar aula" opens the wizard (coach → kind → private / academy). */}
+        {role === "student" && (
+          <ClassRequestWizard open={booking} onClose={() => setBooking(false)} onDone={refresh} />
         )}
 
         {loading ? (

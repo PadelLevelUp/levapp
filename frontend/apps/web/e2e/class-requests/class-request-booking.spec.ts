@@ -45,25 +45,29 @@ test("PAD-104: a student books a free slot, the slot is held, and the coach's ac
     await loginAsStudent(page);
     await page.goto("/availability");
     await page.getByTestId("class-request-book").click();
-    const form = page.getByTestId("class-request-form");
-    await form.getByTestId("class-request-coach").click();
-    await page.getByRole("option", { name: "E2E Coach" }).click();
-    // The form opens on today, whose free slots are already on screen; wait for the
-    // chosen day's blocks before reading a slot, or the label comes from today's list
-    // and the click lands on the re-rendered one (a daytime-only race).
+    // PAD-357: booking is the wizard (coach → kind → private step).
+    const form = page.getByTestId("class-request-wizard");
+    await expect(form).toBeVisible();
+    if ((await form.getAttribute("data-step")) === "coach") {
+      await form.locator('[data-testid^="wizard-coach-"]').first().click();
+    }
+    await expect(form).toHaveAttribute("data-step", "kind", { timeout: 10_000 });
+    await form.getByTestId("wizard-kind-private").click();
+    // Wait for the chosen day's windows before reading a slot, or the start comes
+    // from the default day's list and the click lands on the re-rendered one.
     const blocksForDay = page.waitForResponse(
-      (r) => r.url().includes("/class-requests/free-blocks") && r.url().includes(day),
+      (r) => new URL(r.url()).pathname.endsWith("/app/availability") && r.url().includes(`from=${day}`),
     );
-    await form.getByTestId("class-request-date").fill(day);
+    await form.getByTestId("wizard-date").fill(day);
     await blocksForDay;
-    await expect(form.getByTestId("class-request-free-blocks")).toBeVisible({ timeout: 15_000 });
-    const firstSlot = form.getByTestId("class-request-slot").first();
-    const start = (await firstSlot.textContent())?.trim() ?? "";
+    await expect(form.getByTestId("wizard-slots")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
+    const firstSlot = form.getByTestId("wizard-slot").first();
+    const start = (await firstSlot.getAttribute("data-start")) ?? "";
     await firstSlot.click();
     const createdResponse = page.waitForResponse(
       (r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/app/class-requests"),
     );
-    await form.getByTestId("class-request-send").click();
+    await form.getByTestId("wizard-send").click();
     const created = await createdResponse;
     expect(created.status(), await created.text()).toBe(201);
     const requestId = String((await created.json()).id);
