@@ -4,7 +4,7 @@ title: "Owner runbook: Android push (Firebase/FCM through the Expo push service)
 date: 2026-09-11T23:30:00Z
 compass_rules: []
 related_specs:
-  - ../../../.specflow/specs/messaging/push-notifications.spec.md
+  - messaging.push-notifications
 supersedes: []
 sources:
   - ../../../backend/padel_app/utils/expo_push.py

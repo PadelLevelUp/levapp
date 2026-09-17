@@ -26,7 +26,8 @@ __pycache__/
 .claude/settings.local.json
 .claude/learnings/
 .cortex/atlas/sources/
-.cortex/pulse/
+.cortex/pulse/*
+!.cortex/pulse/_index.md
 .cortex/constellation.json
 .cortex/archive/documents/*/source.*
 
