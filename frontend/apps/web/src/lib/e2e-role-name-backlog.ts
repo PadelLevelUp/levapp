@@ -26,7 +26,7 @@ export interface RoleBacklogEntry {
 
 export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:settings/notification-engine-settings.spec.ts", max: 14, reason: "14 en role names, e.g. 'add group', 'add rule'" },
-  { file: "pw:availability/unavailable-student-notifications.spec.ts", max: 11, reason: "11 en role names, e.g. 'add blocker', 'all'" },
+  { file: "pw:availability/unavailable-student-notifications.spec.ts", max: 9, reason: "9 en role names, e.g. 'add blocker', 'all'" },
   { file: "pw:landing/landing-page.spec.ts", max: 10, reason: "10 pt role names, e.g. 'enche as aulas', 'joga mais'" },
   { file: "pw:import-history/import-history.spec.ts", max: 8, reason: "8 en role names, e.g. 'cancel', 'confirm'" },
   { file: "pw:notification-engine/reminder-flow.spec.ts", max: 8, reason: "8 en role names, e.g. 'cancel', 'no'" },
@@ -47,7 +47,6 @@ export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:players/set-player-level.spec.ts", max: 4, reason: "4 en role names, e.g. 'Edit', 'Intermediate'" },
   { file: "pw:schedule-calendar/class-overlap-warning.spec.ts", max: 4, reason: "4 en role names, e.g. 'create class', 'proceed anyway'" },
   { file: "pw:settings/coach-settings.spec.ts", max: 4, reason: "4 en role names, e.g. 'calendar', 'preferences'" },
-  { file: "pw:availability/mobile-layout.spec.ts", max: 3, reason: "3 pt role names, e.g. 'Adicionar bloqueio', 'Disponibilidade'" },
   { file: "pw:clubs/coach-invitation.spec.ts", max: 3, reason: "3 en role names, e.g. 'club', 'invite a coach'" },
   { file: "pw:clubs/courts.spec.ts", max: 3, reason: "3 en role names, e.g. 'club', 'create class'" },
   { file: "pw:evaluation-tools/evaluation-persist.spec.ts", max: 3, reason: "3 en role names, e.g. 'add evaluation', 'save evaluation'" },
