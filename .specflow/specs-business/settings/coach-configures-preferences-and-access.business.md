@@ -6,6 +6,7 @@ implemented_by:
   - ../../specs/settings/profile.spec.md
   - ../../specs/settings/role-scope.spec.md
   - ../../specs/settings/admin-editor.spec.md
+  - ../../specs/settings/coach-working-hours.spec.md
 ---
 
 # Coach configures preferences and access
