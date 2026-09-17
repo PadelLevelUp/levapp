@@ -274,6 +274,8 @@ export interface ClassJoinRequest {
   status: "pending" | "accepted" | "rejected" | "withdrawn" | "superseded";
   createdAt: string | null;
   decidedAt: string | null;
+  /** PAD-358: the student's optional note to the coach. */
+  note?: string | null;
 }
 
 export interface ClassInvitation {
@@ -458,6 +460,24 @@ export interface CalendarEvent {
    */
   openSpot?: boolean;
   coachName?: string | null;
+}
+
+/**
+ * PAD-358 (classes.academy-class-booking rule 9): a class in the "Marcar Aula"
+ * wizard's academy step — the calendar event plus its state and what the student
+ * already did about it.
+ */
+export interface AcademyClass extends CalendarEvent {
+  state: "open" | "full";
+  spotsLeft: number;
+  myJoinRequest: { id: number; status: ClassJoinRequest["status"] } | null;
+  onWaitingList: boolean;
+}
+
+export interface AcademyClassesResponse {
+  from: string;
+  to: string;
+  classes: AcademyClass[];
 }
 
 export interface TimeSlot {

@@ -77,6 +77,32 @@
         "declined": "Recusado",
         "withdrawn": "Pedido retirado"
       }
+    },
+    "academy": {
+      "title": "Juntar-me a uma aula da academia",
+      "intro": "Aulas deste treinador nos próximos 14 dias para as quais és elegível.",
+      "loading": "A carregar aulas…",
+      "loadError": "Não foi possível carregar as aulas.",
+      "empty": "Não há aulas deste treinador em que possas entrar nos próximos 14 dias. O treinador pode não aceitar pedidos para as aulas da academia.",
+      "spotsLeft_one": "{{count}} vaga",
+      "spotsLeft_other": "{{count}} vagas",
+      "full": "Cheia",
+      "request": "Pedir para entrar",
+      "noteLabel": "Nota para o treinador (opcional)",
+      "notePlaceholder": "Ex.: posso chegar 10 minutos depois?",
+      "send": "Enviar pedido",
+      "cancel": "Cancelar",
+      "joinWaitlist": "Entrar na lista de espera",
+      "leaveWaitlist": "Sair da lista de espera",
+      "requested": "À espera do treinador",
+      "onWaitlist": "Estás na lista de espera",
+      "requestSent": "Pedido enviado ao treinador.",
+      "joinedWaitlist": "Entraste na lista de espera.",
+      "leftWaitlist": "Saíste da lista de espera.",
+      "nowFull": "Esta aula ficou cheia entretanto — podes entrar na lista de espera.",
+      "nowOpen": "Esta aula tem vagas — podes pedir para entrar.",
+      "failed": "Não foi possível concluir. Tenta novamente.",
+      "close": "Fechar"
     }
   }
 }
