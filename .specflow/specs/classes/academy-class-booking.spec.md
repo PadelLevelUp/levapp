@@ -39,6 +39,9 @@ point that composes them (PAD-358).
 3. **Each listed class carries one state**, computed with the class's existing capacity measure
    (`eligibility.open-spot-visibility` rule 4, PAD-275 `effective_max_players`):
    - **open** — `effective_filled_spots < effective_max_players`; `spotsLeft` is the difference.
+     "Filled" is the class's one capacity measure — enrolled minus declined, players who have not
+     answered included (PAD-71) — not the confirmed count; it is the same number the invitation
+     engine and `participantCount` use.
      For a never-materialised occurrence the filled count is the series enrolment.
    - **full** — otherwise; `spotsLeft` is 0.
 4. **The read writes nothing.** Listing materialises no occurrence and creates no row
@@ -50,7 +53,9 @@ point that composes them (PAD-358).
    filled up meanwhile is refused `spot_filled`, and the student is offered the waiting list.
 6. **Full → join the waiting list, by the student.** A student may place **themselves** on a full
    class's waiting list from this step. The server re-checks rule 2 and that the class is full, then
-   upserts their active `WaitingListEntry` (reactivating an inactive one, never a second row). The
+   upserts their active `WaitingListEntry` (reactivating an inactive one, never a second row). Two
+   joins by the same student at once (a double tap) end in one row: the one that loses the unique
+   `(instance, player)` index answers as "already on the list", never an error. The
    coach is told exactly as a join request tells them: a message in the coach ↔ student
    conversation, a web push and an iOS push that open that thread, and a realtime
    `waiting_list_joined` event to the coach.
@@ -139,7 +144,7 @@ point that composes them (PAD-358).
 ### Notes
 - **[PAD-358, 2026-09-17]** Coordinator decisions: "eligible" is the PAD-352 open-spot eligibility
   unchanged; the window is club-local days from today; full is `effective_filled_spots ≥
-  effective_max_players`; the coach's open-spots toggle gates the step (D2); the note column is
+  effective_max_players` (filled, not confirmed); the coach's open-spots toggle gates the step (D2); the note column is
   carried by PAD-357's migration (D1). The ticket said full classes join "the existing waiting list" —
   the list existed, the student's own way onto it did not (`notifications.waiting-list` rule 1 as it
   stood, and rule 12's offer-only gate), so rule 6 and its endpoint are new.
@@ -148,3 +153,6 @@ point that composes them (PAD-358).
   promised it; F2 a waiting-list join tells the coach with the same pushes and a realtime event as a
   join request (rule 6); F3 the list and leave agree — every listed place can be left (rule 7),
   replacing an earlier edge where a standing-list place was listed but refused.
+- **[PAD-358 cross-review, Session A, 2026-09-17]** F5: a same-student double tap raced the
+  read-then-insert into the unique index and answered 500; the loser now rolls back and returns
+  the winner's row (rule 6). The coordinator's wording fix: "full" is filled, not confirmed (rule 3).

@@ -424,3 +424,36 @@ def test_the_payload_says_whether_the_coach_advertises_open_spots(app):
         NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first().open_spots_visible = False
         db.session.commit()
     assert _list(app, ids)["openSpotsVisible"] is False
+
+
+def test_a_double_tap_that_races_the_first_insert_is_the_idempotent_200(app, monkeypatch):
+    """Cross-review F5 (Session A): two parallel first joins by the same student. The
+    second request finds no row, the first commits one, and the second's insert hits
+    the unique (instance, player) index — which must answer "already on the list",
+    never a 500."""
+    from padel_app.models import WaitingListEntry
+    from padel_app.services import academy_class_service
+
+    ids = _setup(app)
+    full = _add_class(app, ids, days=3, title="Full In Three", max_players=1, filled=1)
+    real_lookup = academy_class_service._existing_entry
+    raced = []
+
+    def racing_lookup(instance_id, player_id):
+        found = real_lookup(instance_id, player_id)
+        if raced:  # the other tap happens once; a re-read after it is a plain read
+            return found
+        raced.append(True)
+        # The other tap commits its row on its own connection, after our read.
+        with db.engine.begin() as other:
+            other.execute(WaitingListEntry.__table__.insert().values(
+                lesson_instance_id=instance_id, player_id=player_id, coach_id=ids["coach_id"],
+                is_active=True, joined_at=utcnow_naive(),
+                created_at=utcnow_naive(), updated_at=utcnow_naive(),
+            ))
+        return found
+
+    monkeypatch.setattr(academy_class_service, "_existing_entry", racing_lookup)
+    instance_id, active, standing, created = _join(app, ids, model="LessonInstance", original_id=full["instance_id"])
+    assert (instance_id, active, created) == (full["instance_id"], True, False)
+    assert _count(app, "WaitingListEntry", lesson_instance_id=full["instance_id"], player_id=ids["student_id"]) == 1

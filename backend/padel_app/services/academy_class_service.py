@@ -11,6 +11,7 @@ join request checks. This module sequences them.
 from datetime import datetime, timedelta
 
 from flask import abort
+from sqlalchemy.exc import IntegrityError
 
 from padel_app.models import (
     Association_CoachPlayer,
@@ -130,7 +131,7 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     if not passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)):
         _refuse("ineligible", "You do not meet this class's eligibility bar")
 
-    entry = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player.id).first()
+    entry = _existing_entry(instance.id, player.id)
     if entry is not None and entry.is_active:
         return entry, False
     if entry is None:
@@ -140,9 +141,24 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
         # Reactivated by the student: it is theirs now, never a standing fan-out row.
         entry.is_active = True
         entry.standing_entry_id = None
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Cross-review F5: a parallel join by the same student (a double tap) committed
+        # the unique (instance, player) row first. Theirs is the place: answer it as
+        # "already on the list", never a 500.
+        db.session.rollback()
+        entry = _existing_entry(instance.id, player.id)
+        if entry is None or not entry.is_active:
+            raise
+        return entry, False
     _tell_coach_of_waiting_list_join(player, instance, coach_id)
     return entry, True
+
+
+def _existing_entry(instance_id, player_id):
+    """The (instance, player) row, active or not — a seam the race test replaces."""
+    return WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).first()
 
 
 def leave_class_waiting_list_service(player, lesson_instance_id):
