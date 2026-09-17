@@ -92,7 +92,7 @@
       "editTitle": "Edit block"
     },
     "mode": {
-      "single": "Single",
+      "single": "One-off",
       "recurring": "Recurring"
     },
     "reasonLabel": "Reason (optional)",

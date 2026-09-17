@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { format, addMonths } from "date-fns";
-import { addMonthsToIsoDate, weekdayOfIsoDate } from "@/lib/dateOnly";
-import { CalendarOff, Repeat, Trash2, Plus, Pencil } from "lucide-react";
+import { CalendarOff, Repeat, Trash2, Pencil, CalendarX } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClassRequestsSection } from "@/components/class-requests/ClassRequestsSection";
+import { BlockerSheet } from "@/components/availability/BlockerSheet";
 import {
   Card,
   CardContent,
@@ -12,11 +11,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +24,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { cn } from "@/lib/utils";
 import {
   listBlockers,
   createBlocker,
@@ -38,28 +32,6 @@ import {
   type AvailabilityBlocker,
   type BlockerInput,
 } from "@/api/availability";
-
-const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
-
-interface BlockerFormState {
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  isRecurring: boolean;
-  selectedDays: number[];
-  endDate: string;
-}
-
-const emptyForm = (): BlockerFormState => ({
-  title: "",
-  date: "",
-  startTime: "18:00",
-  endTime: "20:00",
-  isRecurring: false,
-  selectedDays: [],
-  endDate: "",
-});
 
 export default function AvailabilityPage() {
   const { toast } = useToast();
@@ -82,9 +54,9 @@ export default function AvailabilityPage() {
 
   const [blockers, setBlockers] = useState<AvailabilityBlocker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<BlockerFormState>(emptyForm());
+  // PAD-356 (rule 15): blocks are created and edited in a sheet.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<AvailabilityBlocker | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -110,75 +82,28 @@ export default function AvailabilityPage() {
   }, []);
 
   const openCreate = () => {
-    setEditingId(null);
-    setForm(emptyForm());
-    setShowForm(true);
+    setEditing(null);
+    setSheetOpen(true);
   };
 
   const openEdit = (b: AvailabilityBlocker) => {
-    setEditingId(b.id);
-    setForm({
-      title: b.title ?? "",
-      date: b.date ?? "",
-      startTime: b.startTime ?? "18:00",
-      endTime: b.endTime ?? "20:00",
-      isRecurring: b.isRecurring,
-      selectedDays: b.recurrenceRule?.daysOfWeek ?? [],
-      endDate: b.recurrenceEnd ?? "",
-    });
-    setShowForm(true);
+    setEditing(b);
+    setSheetOpen(true);
   };
 
-  const toggleDay = (day: number) => {
-    setForm((f) => ({
-      ...f,
-      selectedDays: f.selectedDays.includes(day)
-        ? f.selectedDays.filter((d) => d !== day)
-        : [...f.selectedDays, day],
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!form.date) {
-      toast({
-        variant: "destructive",
-        title: t("availability.dateRequiredTitle"),
-        description: t("availability.dateRequiredDescription"),
-      });
-      return;
-    }
-    let days = form.selectedDays;
-    if (form.isRecurring && days.length === 0) {
-      // Default recurring blocker to the weekday of the chosen date.
-      days = [weekdayOfIsoDate(form.date)];
-    }
-
-    const payload: BlockerInput = {
-      title: form.title || null,
-      date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime,
-      isRecurring: form.isRecurring,
-      recurrenceRule: form.isRecurring
-        ? { frequency: "weekly", daysOfWeek: days }
-        : null,
-      endDate: form.isRecurring
-        ? form.endDate || addMonthsToIsoDate(form.date, 3)
-        : null,
-    };
-
+  // The sheet validates and builds the payload (rule 16); this only persists it.
+  const handleSave = async (payload: BlockerInput) => {
     try {
       setSaving(true);
-      if (editingId != null) {
-        await updateBlocker(editingId, payload);
+      if (editing) {
+        await updateBlocker(editing.id, payload);
         toast({ title: t("availability.updatedToast") });
       } else {
         await createBlocker(payload);
         toast({ title: t("availability.addedToast") });
       }
-      setShowForm(false);
-      setEditingId(null);
-      setForm(emptyForm());
+      setSheetOpen(false);
+      setEditing(null);
       await refresh();
     } catch {
       toast({
@@ -207,174 +132,33 @@ export default function AvailabilityPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 space-y-6 max-w-3xl">
-        {/* PAD-119: below `sm` the title and the action button don't fit on one
-            row (the pt strings are the widest), so they stack instead of
-            pushing the button off-screen. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CalendarOff className="w-6 h-6 shrink-0" />
-              {t("availability.title")}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("availability.intro")}
-            </p>
-          </div>
-          {!showForm && (
-            <Button
-              onClick={openCreate}
-              className="gap-2 w-full sm:w-auto sm:shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              {t("availability.addBlocker")}
-            </Button>
-          )}
+      <div className="p-4 md:p-6 space-y-6 max-w-3xl" data-testid="availability-page">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <CalendarOff className="w-6 h-6 shrink-0" />
+            {t("availability.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("availability.intro")}</p>
         </div>
 
-        {/* PAD-104: the student books a class in the coach's free time. */}
-        {!showForm && <ClassRequestsSection role="student" />}
-
-        {showForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {editingId != null
-                  ? t("availability.editBlocker")
-                  : t("availability.newBlocker")}
-              </CardTitle>
-              <CardDescription>
-                {t("availability.formDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="blocker-title">{t("availability.titleLabel")}</Label>
-                <Input
-                  id="blocker-title"
-                  placeholder={t("availability.titlePlaceholder")}
-                  value={form.title}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, title: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Repeat className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="blocker-recurring">{t("availability.recurringWeekly")}</Label>
-                </div>
-                <Switch
-                  id="blocker-recurring"
-                  checked={form.isRecurring}
-                  onCheckedChange={(v) =>
-                    setForm((f) => ({ ...f, isRecurring: v }))
-                  }
-                />
-              </div>
-
-              {form.isRecurring && (
-                <div className="space-y-2">
-                  <Label>{t("availability.daysOfWeek")}</Label>
-                  <div className="flex flex-wrap gap-1">
-                    {DAY_VALUES.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => toggleDay(value)}
-                        className={cn(
-                          "w-9 h-9 rounded-full text-sm font-medium transition-colors",
-                          form.selectedDays.includes(value)
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted hover:bg-muted-foreground/10"
-                        )}
-                      >
-                        {t(`availability.dayInitials.${value}`)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="blocker-date">{t("availability.date")}</Label>
-                  <Input
-                    id="blocker-date"
-                    type="date"
-                    value={form.date}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, date: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="blocker-start">{t("availability.startTime")}</Label>
-                  <Input
-                    id="blocker-start"
-                    type="time"
-                    value={form.startTime}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, startTime: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="blocker-end">{t("availability.endTime")}</Label>
-                  <Input
-                    id="blocker-end"
-                    type="time"
-                    value={form.endTime}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, endTime: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              {form.isRecurring && (
-                <div className="space-y-2 max-w-xs">
-                  <Label htmlFor="blocker-enddate">
-                    {t("availability.repeatUntil")}
-                  </Label>
-                  <Input
-                    id="blocker-enddate"
-                    type="date"
-                    value={form.endDate}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, endDate: e.target.value }))
-                    }
-                  />
-                </div>
-              )}
-            </CardContent>
-            <Separator />
-            <CardContent className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingId(null);
-                }}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? t("availability.saving") : t("common.save")}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
+        {/* PAD-356 (rule 14): two cards, each with its explanation and its own
+            action; no floating or header "+". PAD-119: the header stacks below
+            `sm` so the action never leaves the viewport. */}
+        <Card data-testid="availability-blockers-card">
           <CardHeader>
-            <CardTitle className="text-base">{t("availability.yourBlockers")}</CardTitle>
-            <CardDescription>
-              {blockers.length > 0
-                ? t("availability.blockersActiveDescription")
-                : t("availability.noBlockersDescription")}
-            </CardDescription>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarX className="w-5 h-5 shrink-0" />
+                  {t("availability.blockersCard.title")}
+                </CardTitle>
+                <CardDescription>{t("availability.blockersCard.intro")}</CardDescription>
+              </div>
+              <Button onClick={openCreate} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="availability-create-blocker">
+                <CalendarX className="w-4 h-4" />
+                {t("availability.blockersCard.cta")}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading && (
@@ -382,7 +166,7 @@ export default function AvailabilityPage() {
             )}
 
             {!loading && blockers.length === 0 && (
-              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground" data-testid="availability-blockers-empty">
                 {t("availability.noBlockersEmpty")}
               </div>
             )}
@@ -392,6 +176,7 @@ export default function AvailabilityPage() {
                 <div
                   key={b.id}
                   className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                  data-testid={`blocker-card-${b.id}`}
                 >
                   <div className="min-w-0">
                     {/* PAD-119: the badges can't shrink, so without wrapping
@@ -420,6 +205,7 @@ export default function AvailabilityPage() {
                       variant="ghost"
                       size="icon"
                       aria-label={t("availability.editBlockerAria")}
+                      data-testid={`blocker-edit-${b.id}`}
                       onClick={() => openEdit(b)}
                     >
                       <Pencil className="w-4 h-4" />
@@ -428,6 +214,7 @@ export default function AvailabilityPage() {
                       variant="ghost"
                       size="icon"
                       aria-label={t("availability.deleteBlockerAria")}
+                      data-testid={`blocker-delete-${b.id}`}
                       onClick={() => setDeletingId(b.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -437,7 +224,21 @@ export default function AvailabilityPage() {
               ))}
           </CardContent>
         </Card>
+
+        {/* PAD-104 / PAD-356: the student books a class in the coach's free time. */}
+        <ClassRequestsSection role="student" />
       </div>
+
+      <BlockerSheet
+        open={sheetOpen}
+        editing={editing}
+        saving={saving}
+        onSave={handleSave}
+        onClose={() => {
+          setSheetOpen(false);
+          setEditing(null);
+        }}
+      />
 
       <AlertDialog
         open={deletingId != null}
@@ -453,6 +254,7 @@ export default function AvailabilityPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              data-testid="blocker-delete-confirm"
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deletingId != null && handleDelete(deletingId)}
             >

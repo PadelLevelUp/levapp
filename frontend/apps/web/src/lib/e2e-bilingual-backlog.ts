@@ -32,7 +32,6 @@ export const ALT_BACKLOG: readonly AltBacklogEntry[] = [
   { file: "pw:player-management/duplicate-name-warning.spec.ts", max: 2, reason: "2 bilingual alternations, e.g. /already have a player.*this name|possible duplicate|duplicate name/" },
   { file: "pw:player-management/ticket-pad-105-coach-no-username.spec.ts", max: 2, reason: "2 bilingual alternations, e.g. /^(username|nome de utilizador)$/, /username|nome de utilizador/" },
   { file: "pw:attendance/attendance-history.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /participants|attendance/" },
-  { file: "pw:availability/student-blockers.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /won?t receive|auto[- ]?invitation|unavailable/" },
   { file: "pw:calendar/season-end-no-season.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /new class|add class/" },
   { file: "pw:class-requests/class-request-counter-proposal.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /Aula marcada|Class booked/" },
   { file: "pw:clubs/courts.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /new class|add class/" },
