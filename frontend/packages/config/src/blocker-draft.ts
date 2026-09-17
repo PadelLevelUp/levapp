@@ -20,7 +20,7 @@ export interface BlockerDraft {
   endDate: string;
 }
 
-export type BlockerDraftError = "date_required" | "end_before_start" | "end_date_before_start_date";
+export type BlockerDraftError = "date_required" | "time_required" | "end_before_start" | "end_date_before_start_date";
 
 /** The payload `POST/PUT /api/app/availability_blockers` takes (the api package's `BlockerInput`). */
 export interface BlockerDraftInput {
@@ -58,6 +58,8 @@ export function blockerToDraft(b: {
   };
 }
 
+const HHMM = /^\d{2}:\d{2}$/;
+
 function minutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
@@ -66,6 +68,8 @@ function minutes(hhmm: string): number {
 /** Rule 16: the first problem with the draft, or null when it can be saved. */
 export function blockerDraftError(d: BlockerDraft): BlockerDraftError | null {
   if (!d.date) return "date_required";
+  // A cleared <input type="time"> gives "", which would compare as NaN and pass.
+  if (!HHMM.test(d.startTime) || !HHMM.test(d.endTime)) return "time_required";
   if (minutes(d.endTime) <= minutes(d.startTime)) return "end_before_start";
   if (d.mode === "recurring" && d.endDate && d.endDate < d.date) return "end_date_before_start_date";
   return null;
