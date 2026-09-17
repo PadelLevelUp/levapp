@@ -77,6 +77,7 @@
         "declined": "Declined",
         "withdrawn": "Request withdrawn"
       }
-    }
+    },
+    "cardIntro": "Ask your coach for a class. Your open requests are listed here until the coach answers, and you can withdraw one at any time."
   }
 }

@@ -77,7 +77,27 @@
       "startTimeFormat": "Start time must be in HH:MM format",
       "endTimeFormat": "End time must be in HH:MM format",
       "repeatUntilFormat": "Repeat until must be in YYYY-MM-DD format",
-      "invalidForm": "Invalid form"
-    }
+      "invalidForm": "Invalid form",
+      "date_required": "Choose a date.",
+      "end_before_start": "The end time must be after the start time.",
+      "end_date_before_start_date": "The end date must be on or after the start date."
+    },
+    "blockersCard": {
+      "title": "Unavailability",
+      "intro": "Block the times you can't play. While a block is on you get no class invitations or reminders, and they are left out when you book a class.",
+      "cta": "Create block"
+    },
+    "sheet": {
+      "newTitle": "New block",
+      "editTitle": "Edit block"
+    },
+    "mode": {
+      "single": "Single",
+      "recurring": "Recurring"
+    },
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "e.g. Away for work",
+    "startDate": "Start date",
+    "endDate": "End date"
   }
 }
