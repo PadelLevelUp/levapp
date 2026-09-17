@@ -156,7 +156,8 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
         participants: invitees,
       })
       .then((res) => {
-        if (!active) return;
+        // A date the student chose while this was loading wins (web fcd894769).
+        if (!active || dateTouched.current) return;
         const days = Object.entries(res.freeWindows)
           .filter(([, windows]) => slotStarts(windows, duration).length > 0)
           .map(([d]) => ({ date: d }));
@@ -172,13 +173,19 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   // Rule 13: everyone's free windows for the chosen day or recurrence range.
   React.useEffect(() => {
     setSlot(null);
+    // Every early return clears the spinner: a load cancelled by this effect's
+    // cleanup never reaches its .finally (web fcd894769).
     if (!allInviteesOk || !recurrenceValid) {
       setAvailability(null);
+      setLoadingSlots(false);
       return;
     }
     const from = recurrence ? startDate : date;
     const to = recurrence ? endDate : date;
-    if (!from || !to) return;
+    if (!from || !to) {
+      setLoadingSlots(false);
+      return;
+    }
     let active = true;
     setLoadingSlots(true);
     requestAvailabilityApi
@@ -229,13 +236,10 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     }
   };
 
-  const slotsState = loadingSlots
-    ? "loading"
-    : !allInviteesOk || !recurrenceValid
-      ? "waiting"
-      : starts.length
-        ? "ready"
-        : "empty";
+  // "waiting" before "loading": an invitee that turns invalid mid-load must not
+  // leave the slots stuck on a spinner (web fcd894769).
+  const slotsState =
+    !allInviteesOk || !recurrenceValid ? "waiting" : loadingSlots ? "loading" : starts.length ? "ready" : "empty";
 
   return (
     <View className="gap-5" testID="wizard-private">
@@ -385,11 +389,15 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           </Text>
         ) : null}
 
-        {/* Maestro reads no data attributes: the state is in the id. */}
-        <View testID={`wizard-slots-${slotsState}`}>
+        {/* Maestro reads no data attributes: the state is in the id. The view is
+            never collapsed and always has a child, or iOS flattens the empty
+            "waiting" container out of the accessibility tree (E's flow 62). */}
+        <View testID={`wizard-slots-${slotsState}`} collapsable={false}>
           {slotsState === "loading" ? (
             <Spinner size="small" />
-          ) : slotsState === "waiting" ? null : slotsState === "empty" ? (
+          ) : slotsState === "waiting" ? (
+            <View style={{ height: 1 }} accessible={false} />
+          ) : slotsState === "empty" ? (
             <Text className="text-sm text-muted-foreground">
               {t(recurring === "weekly" ? "classRequestWizard.noWeeklySlots" : "classRequests.noFreeBlocks")}
             </Text>
