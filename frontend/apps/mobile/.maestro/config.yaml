@@ -119,6 +119,9 @@ executionOrder:
     - 54-settings-build-info
     # 61 walks the PAD-356 two-card tab; it creates and removes its own block.
     - 61-availability-two-cards
+    # 62 walks the student's class-request wizard, private path (PAD-357); it
+    # withdraws the student's open requests before and after.
+    - 62-class-request-wizard
     # 69 sets and clears the coach's working hours (PAD-357); it resets them first.
     - 69-coach-working-hours
     # 28-password-recovery stays LAST (PAD-300 pins it in
