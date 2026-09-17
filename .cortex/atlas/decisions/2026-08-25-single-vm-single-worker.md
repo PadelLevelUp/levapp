@@ -3,7 +3,7 @@ id: decision.2026-08-25-single-vm-single-worker
 title: Run the whole system on one VM at a single gunicorn worker
 date: 2026-08-25T00:00:00Z
 provenance:
-  - derives_from: archive/documents/infra-handoff-2026-08-25/source.md
+  - derives_from: archive/documents/infra-handoff-2026-08-25/extracted/summary.md
 ---
 
 # Run the whole system on one VM at a single gunicorn worker

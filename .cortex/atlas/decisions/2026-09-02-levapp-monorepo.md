@@ -3,7 +3,7 @@ id: decision.2026-09-02-levapp-monorepo
 title: Merge backend and frontend into the levapp monorepo; keep the issue bot separate
 date: 2026-09-02T20:00:00Z
 provenance:
-  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/source.md
+  - derives_from: archive/documents/2026-09-03-monorepo-cortex-workspace-handoff/extracted/summary.md
   - derives_from: claude-sessions/pedro/session_0198iAmzyjfYiqu3DJSzaLLC
 ---
 
