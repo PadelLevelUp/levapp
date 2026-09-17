@@ -126,6 +126,8 @@ executionOrder:
     - 66-academy-class-waitlist
     # 67 creates its own academy class and join request through the API (PAD-358).
     - 67-coach-sees-join-note
+    # 69 sets and clears the coach's working hours (PAD-357); it resets them first.
+    - 69-coach-working-hours
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
