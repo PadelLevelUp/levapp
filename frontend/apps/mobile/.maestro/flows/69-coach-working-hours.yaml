@@ -1,0 +1,96 @@
+# PAD-357 — settings.coach-working-hours rule 3: the coach declares their working
+# hours per weekday in Settings (the calendar section, under Seasons, as on web).
+#
+# Mirrors: apps/web/e2e (PAD-357 working-hours spec). Walks what the editor owns
+# without driving the iOS time spinner (not stable in Maestro, see flow 13):
+# - unset hours show the default note and the "default" state;
+# - Sunday switched to "não trabalho", saved: the state becomes "set" and Sunday
+#   reads off after the server's confirmation;
+# - Clear returns the coach to the default.
+#
+# The seeded coach starts with no working hours; the flow clears what it saves, and
+# a first API step clears any hours left behind by an earlier failed run.
+# iOS carries web's data-state in the ids: working-hours-set|default,
+# working-hours-day-<key>-off|working. Flow number 69 is from Session D's range.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.reset = http.put(output.api + '/api/app/coach/working-hours', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ workingHours: null }) }).ok}"
+- assertTrue: "${output.reset == true}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-calendar"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "settings-nav-calendar"
+
+# ── Unset: the default is the assumption in effect ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-default"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "working-hours-default-note"
+
+# ── Sunday off, saved ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-works-sun"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "working-hours-works-sun"
+- extendedWaitUntil:
+    visible:
+      id: "working-hours-day-sun-off"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "working-hours-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "working-hours-save"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-set"
+    direction: UP
+    timeout: 30000
+- assertNotVisible:
+    id: "working-hours-default-note"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-day-sun-off"
+    direction: DOWN
+    timeout: 30000
+
+# The server agrees: Sunday is an empty list, the other six days a window each.
+- evalScript: "${output.saved = json(http.get(output.api + '/api/app/coach/working-hours', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).workingHours}"
+- assertTrue: "${output.saved !== null && output.saved.sun.length === 0 && output.saved.mon.length === 1}"
+
+# ── Clear returns to the default ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-clear"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "working-hours-clear"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-default"
+    direction: UP
+    timeout: 30000
+- evalScript: "${output.cleared = json(http.get(output.api + '/api/app/coach/working-hours', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).workingHours}"
+- assertTrue: "${output.cleared === null}"
