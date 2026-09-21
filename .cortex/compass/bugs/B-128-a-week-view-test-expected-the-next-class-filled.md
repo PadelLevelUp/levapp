@@ -8,6 +8,7 @@ affects:
   - frontend/apps/web/e2e/schedule-calendar/mobile-week-view.spec.ts
 proposed_fix: "Pin the browser clock inside US-247-2 so past, next and scheduled all appear at once, and assert each as calendar.mobile-views rule 5 states it."
 opened: 2026-09-21T20:47:57Z
+resolved: 2026-09-21T21:33:40Z
 ---
 
 # B-128 — a week-view test expected the "next" class filled
@@ -54,6 +55,12 @@ day of the run is left.
 | new test, real component | the whole `mobile-week-view.spec.ts`, started 21:31:37Z | **7 passed** |
 | old test, real component | `origin/staging`'s US-247-2 on the same stack, started 21:32:43Z | **1 failed** — expected `rgb(13, 148, 136)`, received `rgb(255, 255, 255)`: the integrator's value, reproduced |
 | new test, MUTANT component (`next` drawn filled — what the old test demanded) | US-247-2, started 21:33:40Z | **1 failed**, at the `next` assertion on `class-2002` (`data-event-state="next"`): expected not `rgb(99, 102, 241)`, received it |
+
+**Strengthened after Session-C's review of #362** (the assertions above said only what `past`
+and `next` are NOT): the four treatments — past, next, scheduled, block — must be four different
+computed backgrounds, and `past` not transparent; no literal faded value, which would only restate
+`fadeColor`. Whole file, started 21:43:35Z → **7 passed**; against a MUTANT that draws `past` with
+the muted block treatment, started 21:44:32Z → **1 failed** (`Expected: 4, Received: 3`).
 
 So the new test passes on the day the old one fails, fails when the component is made wrong, and
 the pinned instant produces the states read from the code. Not run: the old test on a day when

@@ -219,6 +219,23 @@ test.describe("PAD-247: phone calendar Semana view", () => {
     await expect(scheduled).toHaveAttribute("data-event-state", "scheduled");
     await expect(scheduled).toHaveCSS("background-color", "rgb(19, 85, 220)");
 
+    // The positive half of `past` and `next` (Session-C's review of #362): the
+    // assertions above only say what they are NOT. A Tuesday block drawn white,
+    // transparent or with the muted BLOCK treatment would have passed. No literal
+    // faded value is asserted — that would just restate fadeColor — only that the
+    // four treatments are four different surfaces.
+    const bg = (locator: typeof tue) =>
+      locator.evaluate((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+    const lunchBlock = grid.locator("[data-testid='calendar-grid-block'][data-event-id='block-91']");
+    const [pastBg, nextBg, scheduledBg, blockBg] = await Promise.all([
+      bg(tue),
+      bg(next),
+      bg(scheduled),
+      bg(lunchBlock),
+    ]);
+    expect(new Set([pastBg, nextBg, scheduledBg, blockBg]).size).toBe(4);
+    expect(pastBg).not.toBe("rgba(0, 0, 0, 0)");
+
     // Two overlapping Thursday classes share the column width.
     const thuA = grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-2002']");
     const thuB = grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-2003']");
