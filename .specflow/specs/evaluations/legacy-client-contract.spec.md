@@ -61,7 +61,11 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
    unknown id failed the save after earlier scores of the body had been kept, and another coach's
    id wrote a cross-coach row. Both builds only turn a non-2xx into a "save failed" toast, and a
    build holding a category deleted on another device sends an unknown id on every save, so
-   ignoring is strictly kinder to them. Every accepted score is written through
+   ignoring is strictly kinder to them. **So is a score for a legacy category the coach has
+   switched off** (`is_active` false): a build holding a list fetched before the switch-off still
+   posts its midpoint (or a real grade) for it, and a switched-off category must not collect
+   scores nobody chose to give there — ignored with the same 200, no entry, its `evaluatedAt`
+   unmoved (Coordinator ruling, 2026-09-21). Every accepted score is written through
    `evaluation_record_service` into the day's class-less record with `evaluated_at = utcnow`
    (`evaluations.records` rules 2 and 12). Strengths and weaknesses keep travelling in this call.
 4. **Returning scores.** `evaluations[]` in `GET /player_profile/<id>` holds the latest entry per
@@ -76,8 +80,12 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
 5. **Upserting.** `POST /add_evaluation_categories` stays a name-keyed upsert over the coach's
    legacy categories. It never creates, updates or collides into a non-legacy row: an item whose
    `name` equals a non-legacy competency's name is **skipped** (no insert, no update, no unique
-   violation) and the response still echoes the body. Rows it creates are legacy
-   (`competency_group` NULL, active).
+   violation) and the response still echoes the body. **An item whose `name` equals a
+   switched-off legacy category's name is skipped in exactly the same way** — no insert (it would
+   hit the `(coach_id, name)` uniqueness), no update of its scale (that would silently edit a row
+   the coach hid), **no reactivation**, body echoed (Coordinator ruling, 2026-09-21). Name
+   matching is as the shipped upsert does it. Rows it creates are legacy (`competency_group`
+   NULL, active).
 6. **Deleting.** `POST /delete/evaluation_category` refuses a non-legacy id with **403**, so an old
    build cannot delete what it cannot see. For a legacy id it behaves as `evaluations.categories`
    rule 7 (cascade, one `deletion_audit` row). New clients delete through
@@ -162,6 +170,23 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **Given** the catalogue competency Bandeja (id 12) with 3 scores
 - **When** a client posts `POST /delete/evaluation_category` with `{"id": 12}`
 - **Then** the response is 403, Bandeja and its 3 scores remain, and no `deletion_audit` row is written
+
+#### A switched-off legacy category collects no score from a stale list (rule 3)
+- **Given** Ana switched her legacy category Volley (id 2, never scored) off in the new editor,
+  and an App Store build still holds the list it fetched before that
+- **When** it posts `POST /add_evaluation_entry` with `{"playerId": "5", "scores": [{"categoryId":
+  1, "value": 9}, {"categoryId": 2, "value": 6}], "strengths": [], "weaknesses": []}`
+- **Then** the response is 200 `{"status": "ok", "playerId": "5"}`; exactly one entry is written
+  (Forehand 9); no entry exists for Volley
+- **And** `GET /evaluation_categories` afterwards lists Forehand only
+
+#### The legacy upsert does not touch or revive a switched-off legacy category (rule 5)
+- **Given** Ana's legacy category Volley (id 2, 1–10) is switched off
+- **When** a client posts `POST /add_evaluation_categories` with `[{"name": "Volley", "scaleMin":
+  1, "scaleMax": 5}]`
+- **Then** the response is 200 echoing the body; Ana still holds exactly one row named "Volley";
+  its `scale_max` is still 10 and `is_active` is still false; `GET /evaluation_categories` does
+  not list it
 
 #### An imported row keeps its midnight timestamp (rule 4)
 - **Given** Rui's only Forehand entry was imported with `date` 2026-03-02
