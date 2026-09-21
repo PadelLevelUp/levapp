@@ -11,6 +11,7 @@ affects:
   - frontend/apps/web/e2e/scripts/test_seed_dates.py
 proposed_fix: "Collect both files, and guard it: a test on each side that enumerates test files on disk and fails if any is collected by zero runners, reading 'collected' from the runners themselves."
 opened: 2026-09-21T19:42:00Z
+resolved: 2026-09-21T20:01:01Z
 ---
 
 # B-127 — two test files were collected by no runner
