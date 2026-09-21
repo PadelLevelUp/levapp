@@ -3,7 +3,7 @@ id: evaluations.evolution
 status: draft
 depends_on: [evaluations.records, evaluations.history]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
-governed_by: []
+governed_by: [R-048]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
 ---
@@ -23,8 +23,8 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
 
 ### Rules
 1. **One instrument: the server computes every figure** — monthly means, rolling means, delta —
-   and web and iOS only render them, so the two shells cannot disagree. (The build plan reserves
-   compass rule R-048 for this; it is not yet filed.)
+   and web and iOS only render them, so the two shells cannot disagree. (Compass rule
+   R-048.)
 2. **The read.** `GET /api/app/player/<playerId>/evaluations/evolution?categoryId=<id>` (JWT,
    coach) → `{scaleMin, scaleMax, series: [{month: "2026-01", mean}], means: {m1, m6, m12},
    delta: {value, sinceMonth} | null}`. Every figure is a JSON number (or null), never a formatted
