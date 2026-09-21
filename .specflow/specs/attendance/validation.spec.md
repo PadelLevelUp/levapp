@@ -185,11 +185,13 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     all. The rule lives in the service (`lesson_service.add_presences`), not in the form layer: on this
     route "no justification" is expressed by ABSENCE, and the form layer leaves an absent key alone
     (PAD-367) — which is what used to keep "absent, justified" on a row the coach had corrected to
-    present. It is not cosmetic: `_has_makeups` and `_unjustified_absence_count`
-    (`notification_service`) count rows by `justification` **without** checking `status`, so a corrected
-    row went on counting as a justified absence (a make-up owed) or an unjustified one. An ABSENT row
-    is unchanged: a justification sent is written, an omitted one is left as it was. Rows already stale
-    are not repaired by this rule. Un-marking attendance (`status: null`) is a separate, open product
+    present. It was not cosmetic: `_has_makeups` and `_unjustified_absence_count`
+    (`notification_service`) counted rows by `justification` **without** checking `status`, so a corrected
+    row went on counting as a justified absence (a make-up owed) or an unjustified one. Both now also
+    require `status == "absent"` — **an absence is a row whose status says so** — which makes the
+    engine right for the rows already stale without a data repair. An ABSENT row is unchanged: a
+    justification sent is written, an omitted one is left as it was. The stale rows themselves are
+    not rewritten by this rule. Un-marking attendance (`status: null`) is a separate, open product
     question and is not decided here.
 
 ### Acceptance Criteria
@@ -354,3 +356,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the row is `present` with no justification
 - **When** instead the coach records Rui as absent, unjustified
 - **Then** the row is `absent`, `unjustified`
+- **Given** Rui has two unjustified absences and a third row the coach corrected to present, still carrying `unjustified` from before this rule, under a bar of "at most 2 unjustified absences"
+- **Then** the bar admits Rui; with three real unjustified absences it does not
+- **Given** Sara's only row is `present` still carrying `justified`
+- **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
