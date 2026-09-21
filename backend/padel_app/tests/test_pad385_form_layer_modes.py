@@ -123,3 +123,103 @@ def test_legacy_mode_the_cells_b136_is_about_stated_absolutely():
     assert check_password_hash(_values(JsonRequestAdapter, fields, "password", "s3cret")["password"], "s3cret")
     # every field of the form is in the answer, sent or not — that is what `present` mode changes
     assert set(_values(JsonRequestAdapter, fields, "title", "x")) == {name for name, _ in fields}
+
+
+# --------------------------------------------------------------- PART 2: present mode
+#
+# `values` holds a key if and only if the JSON body held it (design note, "The
+# distinction"). A key that is there is WRITTEN: "" and null clear, 0 and false are
+# values. A key that is not there is left alone — Booleans included.
+
+
+def _present(fields, data):
+    form = _form(fields)
+    return form.set_values(JsonRequestAdapter(data, form, mode="present"))
+
+
+def test_the_mode_is_a_closed_set_and_present_needs_a_form():
+    with pytest.raises(ValueError):
+        JsonRequestAdapter({}, _form(SCALAR_FIELDS), mode="strict")
+    with pytest.raises(ValueError):
+        JsonRequestAdapter({"title": "x"}, None, mode="present")
+    assert JsonRequestAdapter({}, _form(SCALAR_FIELDS)).mode == "legacy"
+
+
+def test_present_mode_exposes_exactly_the_keys_the_body_held():
+    form = _form(SCALAR_FIELDS)
+    adapter = JsonRequestAdapter({"title": None, "capacity": 0, "not_a_field": 1}, form, mode="present")
+    assert adapter.present == frozenset({"title", "capacity"})  # a key the form does not know is ignored
+    assert "status" not in adapter.form  # no '' filling
+    assert adapter.form["title"] is None  # null survives into the request
+
+
+def test_present_absent_keys_are_not_in_values_booleans_included():
+    assert _present(SCALAR_FIELDS, {}) == {}
+    values = _present(SCALAR_FIELDS, {"title": "Aula"})
+    assert values == {"title": "Aula"}
+    assert "is_recurring" not in values  # never False by omission — the mirror trap of B-136
+
+
+def test_present_zero_and_false_are_values():
+    values = _present(SCALAR_FIELDS, {"capacity": 0, "ratio": 0.0, "is_recurring": False})
+    assert values == {"capacity": 0, "ratio": 0.0, "is_recurring": False}
+    assert values["capacity"] is not None and values["is_recurring"] is False
+
+
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_present_empty_string_and_null_both_clear(cleared):
+    values = _present(
+        SCALAR_FIELDS,
+        {"title": cleared, "capacity": cleared, "status": cleared, "color": cleared,
+         "starts_on": cleared, "starts_at": cleared, "is_recurring": cleared},
+    )
+    assert values == {"title": None, "capacity": None, "status": None, "color": None,
+                      "starts_on": None, "starts_at": None, "is_recurring": None}
+
+
+def test_present_values_that_are_there_are_parsed_as_they_always_were():
+    values = _present(
+        SCALAR_FIELDS,
+        {"title": "Aula", "capacity": 5, "status": "open", "is_recurring": "true",
+         "starts_on": "2026-09-21", "starts_at": "2026-09-21 10:00:00"},
+    )
+    assert values == {"title": "Aula", "capacity": 5, "status": "open", "is_recurring": True,
+                      "starts_on": datetime(2026, 9, 21), "starts_at": datetime(2026, 9, 21, 10, 0)}
+
+
+@pytest.mark.parametrize("empty", ["", None, "   "], ids=["empty-string", "null", "blank"])
+def test_present_an_empty_password_never_clears_and_never_hashes(empty):
+    assert _present(SCALAR_FIELDS, {"password": empty}) == {}  # dropped: not None, not a hash
+
+
+def test_present_a_password_that_is_there_is_hashed():
+    values = _present(SCALAR_FIELDS, {"password": "s3cret"})
+    assert check_password_hash(values["password"], "s3cret")
+
+
+@pytest.mark.parametrize("cleared", ["", None, []], ids=["empty-string", "null", "empty-list"])
+def test_present_a_many_to_one_can_be_cleared(cleared):
+    assert _present(RELATION_FIELDS, {"level": cleared}) == {"level": None}
+
+
+def test_present_a_many_to_one_that_is_there_and_collections_are_as_today():
+    assert _present(RELATION_FIELDS, {"level": 7}) == {"level": [7]}
+    assert _present(RELATION_FIELDS, {"players": [1, 2]}) == {"players": [1, 2]}
+    assert _present(RELATION_FIELDS, {}) == {}
+
+
+def test_present_mode_leaves_no_trace_on_the_fields():
+    """The Jinja editor reuses Field objects; a mode flag left behind would change an HTML post."""
+    form = _form(SCALAR_FIELDS)
+    form.set_values(JsonRequestAdapter({"capacity": 0}, form, mode="present"))
+    assert form.set_values(_FrozenLegacyAdapter({"capacity": 0}, form))["capacity"] is None
+
+
+def test_an_html_post_has_no_mode_and_is_read_exactly_as_before():
+    class HtmlRequest:  # what Flask hands the editor: a MultiDict, no `mode`, no `present`
+        form = MultiDict({"title": "", "capacity": "0", "is_recurring": "false"})
+        files = MultiDict()
+
+    values = _form(SCALAR_FIELDS).set_values(HtmlRequest())
+    assert values["title"] is None and values["capacity"] == "0" and values["is_recurring"] is False
+    assert set(values) == {name for name, _ in SCALAR_FIELDS}
