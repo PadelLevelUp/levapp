@@ -116,6 +116,7 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
               playerId={playerId}
               competencies={competencies}
               competenciesWithData={history.data?.competenciesWithData ?? []}
+              held={target !== null}
             />
           </View>
 

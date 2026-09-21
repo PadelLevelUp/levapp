@@ -11,7 +11,7 @@ import {
   evolutionMonthLabels,
   formatMean,
 } from "@levelup/config";
-import { usePlayerEvolution } from "@levelup/hooks";
+import { useHeldWhile, usePlayerEvolution } from "@levelup/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,12 @@ interface EvaluationEvolutionProps {
   competencies: EvaluationCompetency[];
   /** From the history read: every competency this player has a rating for, switched-off ones included. */
   competenciesWithData: number[];
+  /**
+   * True while the evaluation form below is open. The section then keeps the shape it
+   * had — same pills, same figures — so a rating saved on tap never moves the form
+   * under the coach's finger; it follows the server again the moment the form closes.
+   */
+  held?: boolean;
 }
 
 /**
@@ -32,7 +38,8 @@ interface EvaluationEvolutionProps {
  * reachable without hover — a table of the series is always there for touch and
  * for screen readers; the tooltip is a convenience on top.
  */
-export function EvaluationEvolution({ playerId, competencies, competenciesWithData }: EvaluationEvolutionProps) {
+export function EvaluationEvolution({ playerId, competencies, competenciesWithData: latestWithData, held = false }: EvaluationEvolutionProps) {
+  const competenciesWithData = useHeldWhile(latestWithData, held, playerId);
   const { t, i18n } = useTranslation();
   const [selected, setSelected] = useState<number | null>(() => defaultEvolutionCompetency(competenciesWithData));
   // The first competency WITH DATA, and never another player's selection.
@@ -41,6 +48,8 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
   }, [playerId, competenciesWithData]);
 
   const evolution = usePlayerEvolution(playerId, selected);
+  // Before the early return below: a hook may never come after one.
+  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`);
 
   if (competenciesWithData.length === 0) {
     return (
@@ -54,7 +63,6 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
     const competency = competencies.find((c) => c.id === id);
     return competency ? competencyLabel(t, competency) : `#${id}`;
   };
-  const data = evolution.data;
   const months = data ? evolutionMonthLabels(data.series, i18n.language) : [];
   const points = data ? data.series.map((point, index) => ({ month: months[index], mean: point.mean })) : [];
   const delta = data ? deltaPresentation(data.delta) : null;
@@ -88,7 +96,7 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
       </div>
 
       {evolution.isLoading && <Skeleton className="h-44 w-full" />}
-      {evolution.isError && (
+      {evolution.isError && !(held && data) && (
         <p className="text-sm text-destructive" role="alert">{t("players.evaluationHistory.evolutionLoadFailed")}</p>
       )}
 

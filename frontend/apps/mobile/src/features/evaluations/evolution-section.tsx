@@ -8,7 +8,7 @@ import {
   formatMean,
   lightTheme,
 } from "@levelup/config";
-import { usePlayerEvolution } from "@levelup/hooks";
+import { useHeldWhile, usePlayerEvolution } from "@levelup/hooks";
 import type { EvaluationCompetency } from "@levelup/types";
 import { Ionicons } from "@expo/vector-icons";
 import * as React from "react";
@@ -24,6 +24,12 @@ interface EvolutionSectionProps {
   playerId: string;
   competencies: EvaluationCompetency[];
   competenciesWithData: number[];
+  /**
+   * True while the evaluation form below is open. The section then keeps the shape it
+   * had — same pills, same figures — so a rating saved on tap never moves the form
+   * under the coach's finger; it follows the server again the moment the form closes.
+   */
+  held?: boolean;
 }
 
 const HEIGHT = 170;
@@ -37,7 +43,8 @@ const BOX = { paddingX: 28, paddingTop: 14, paddingBottom: 28 };
  * the y axis. There is no hover on a phone, so a point is a 44pt tap target and its
  * value shows in a caption under the chart; the last point opens selected.
  */
-export function EvolutionSection({ playerId, competencies, competenciesWithData }: EvolutionSectionProps) {
+export function EvolutionSection({ playerId, competencies, competenciesWithData: latestWithData, held = false }: EvolutionSectionProps) {
+  const competenciesWithData = useHeldWhile(latestWithData, held, playerId);
   const { t, i18n } = useTranslation();
   const [selected, setSelected] = React.useState<number | null>(() => defaultEvolutionCompetency(competenciesWithData));
   React.useEffect(() => {
@@ -45,6 +52,8 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData 
   }, [playerId, competenciesWithData]);
 
   const evolution = usePlayerEvolution(playerId, selected);
+  // Before the early return below: a hook may never come after one.
+  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`);
   const [width, setWidth] = React.useState(0);
   const [active, setActive] = React.useState<number | null>(null);
   React.useEffect(() => setActive(null), [selected]);
@@ -61,7 +70,6 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData 
     const competency = competencies.find((c) => c.id === id);
     return competency ? competencyLabel(t, competency) : `#${id}`;
   };
-  const data = evolution.data;
   const months = data ? evolutionMonthLabels(data.series, i18n.language) : [];
   const delta = data ? deltaPresentation(data.delta) : null;
   const sinceLabel =
@@ -94,7 +102,7 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData 
       </View>
 
       {evolution.isLoading ? <Skeleton className="h-44 w-full" /> : null}
-      {evolution.isError ? (
+      {evolution.isError && !(held && data) ? (
         <Text className="text-sm text-destructive" accessibilityRole="alert">
           {t("players.evaluationHistory.evolutionLoadFailed")}
         </Text>

@@ -10,7 +10,10 @@ import type { EvaluationCompetency, EvaluationEvolution as Evolution } from "@le
 const asked: (number | null)[] = [];
 const state = { byCategory: {} as Record<number, Evolution> };
 
-vi.mock("@levelup/hooks", () => ({
+vi.mock("@levelup/hooks", async () => ({
+  ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useHeldWhile")>(
+    "../../../../../packages/hooks/src/useHeldWhile"
+  )),
   usePlayerEvolution: (_playerId: string, categoryId: number | null) => {
     asked.push(categoryId);
     return { data: categoryId === null ? undefined : state.byCategory[categoryId], isLoading: false, isError: false };
@@ -135,5 +138,31 @@ describe("another player", () => {
     first.unmount();
     show([30, 3], "10");
     expect(screen.getByTestId("evolution-pill-30").getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("while the evaluation form is open (held)", () => {
+  const view = (withData: number[], held: boolean) => (
+    <EvaluationEvolution playerId="9" competencies={[TECNICA, BANDEJA, FOREHAND]} competenciesWithData={withData} held={held} />
+  );
+
+  it("keeps its pills and its figures, and follows the server again when released", () => {
+    const shown = render(view([12], false));
+    shown.rerender(view([12], true));
+    // the coach's tap was saved: a new competency has data and Bandeja's month moved
+    state.byCategory[12] = { ...JOAO_BANDEJA, means: { m1: 4.5, m6: 3.8, m12: 3.2 } };
+    shown.rerender(view([12, 3], true));
+    expect(screen.queryByTestId("evolution-pill-3")).toBeNull();
+    expect(screen.getByTestId("evolution-mean-m1").getAttribute("data-value")).toBe("4.0");
+    shown.rerender(view([12, 3], false));
+    expect(screen.getByTestId("evolution-pill-3")).toBeTruthy();
+    expect(screen.getByTestId("evolution-mean-m1").getAttribute("data-value")).toBe("4.5");
+  });
+
+  it("another pill can still be chosen, and shows that competency's own figures", () => {
+    const shown = render(view([12, 3], true));
+    fireEvent.click(screen.getByTestId("evolution-pill-3"));
+    expect(screen.getByTestId("evolution-mean-m12").getAttribute("data-value")).toBe("4.0");
+    shown.unmount();
   });
 });
