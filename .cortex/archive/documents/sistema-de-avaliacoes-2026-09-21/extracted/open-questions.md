@@ -64,7 +64,12 @@ and no note is removed. This keeps PAD-337's guarantee that a coach can decline 
 **Q9 — Editing the past (AV-002, AV-037).** A record is editable on the day it was made (the
 canvas's own rule); afterwards it can be deleted, not edited.
 
-**Q10 — Day boundary (AV-002).** The coach's local day, not the server's UTC day.
+**Q10 — Day boundary (AV-002).** The club's calendar day, not the server's UTC day and not a
+device's: the date on `CLUB_TZ`, the constant in `backend/padel_app/utils/dates.py`
+(`Europe/Lisbon`, the wall clock class times use — rule R-023). No per-coach or per-club zone is
+stored today; if one ever is, a record's day, "editable on its day" and the evolution windows move
+to it together (`evaluations.records` rule 3, rule R-048). Corrected 2026-09-21: this first said
+"the coach's local day", which named a zone nothing stores.
 
 **Q11 — A shared card is a snapshot (AV-043).** What the player sees is frozen at share time. If
 the coach edits the record later the same day, the card offers "Atualizar partilha".
