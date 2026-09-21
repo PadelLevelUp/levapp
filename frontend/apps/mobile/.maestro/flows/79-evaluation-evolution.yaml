@@ -23,11 +23,16 @@ appId: com.padellevelup.app
 - tapOn:
     id: "players-search"
 - inputText: "E2E Student Two"
-# A row is matched by the player's NAME — data, not copy (rows shift position).
+# The card is matched by ID, as 07 and 57 do (player-card-2 is "E2E Student Two" on the
+# seed). NOT by name: once typed, the search field itself holds the text "E2E Student Two"
+# and is the first match, so the tap lands on the input and nothing opens (first simulator
+# run, Session-D, 2026-09-21). The card's label "Open player …" is rendered copy — not that either.
 - extendedWaitUntil:
-    visible: "E2E Student Two"
+    visible:
+      id: "player-card-2"
     timeout: 20000
-- tapOn: "E2E Student Two"
+- tapOn:
+    id: "player-card-2"
 - extendedWaitUntil:
     visible:
       id: "player-detail"
