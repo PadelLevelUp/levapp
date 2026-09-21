@@ -211,3 +211,103 @@ def test_own_profile_an_empty_phone_clears_it(app, client):
 
     assert _me(app, ids)["phone"] in (None, "")
     assert _me(app, ids)["name"] == "Test Student"
+
+
+# ── POST /api/app/add_class and /api/app/edit_class (lesson_service) ─────────
+
+def _class_world(app, client):
+    from padel_app.models.lessons import Lesson
+    from padel_app.tests.test_pad104_class_requests import DAY, _setup
+
+    ids = _setup(app)  # a coach with a club, which a class needs
+    headers = _headers(app, ids["coach_user_id"])
+    body = {"name": "Thursday group", "classType": "academy", "maxPlayers": 4, "color": "#112233",
+            "levelId": ids["level_ids"]["5"], "date": DAY.isoformat(), "startTime": "18:00", "endTime": "19:00",
+            "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [DAY.isoweekday() % 7]},
+            "endDate": "2027-03-01", "playerIds": []}
+    res = client.post("/api/app/add_class", json=body, headers=headers)
+    assert res.status_code == 200, res.get_data(as_text=True)
+    with app.app_context():
+        lesson_id = Lesson.query.order_by(Lesson.id.desc()).first().id
+    return {"ids": ids, "headers": headers, "body": body, "lesson_id": lesson_id, "day": DAY}
+
+
+def _class_row(app, lesson_id):
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context():
+        row = db.session.get(Lesson, lesson_id)
+        return {"title": row.title, "max_players": row.max_players, "level": row.default_level_id, "color": row.color,
+                "recurrence_end": str(row.recurrence_end), "is_recurring": row.is_recurring,
+                "has_rule": bool(row.recurrence_rule)}
+
+
+def _edit_class(client, world, updates):
+    return client.post("/api/app/edit_class", headers=world["headers"], json={
+        "event": {"model": "Lesson", "originalId": world["lesson_id"], "date": world["day"].isoformat()},
+        "scope": "future", "updates": updates})
+
+
+def test_add_class_with_a_capacity_of_zero_fails_on_the_not_null_column(app, client):
+    """DEFECT PINNED, NOT FIXED (B-136). `maxPlayers: 0` is read as "not sent" and
+    `lessons.max_players` is NOT NULL: an unhandled IntegrityError, not a 400 and
+    not a stored 0. Whether 0 is a legal capacity is a product question; a 500 is not."""
+    from sqlalchemy.exc import IntegrityError
+
+    world = _class_world(app, client)
+
+    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
+        client.post("/api/app/add_class", headers=world["headers"],
+                    json={**world["body"], "name": "Zero", "maxPlayers": 0, "startTime": "20:00", "endTime": "21:00"})
+    with app.app_context():
+        db.session.rollback()
+
+
+def test_edit_class_absent_keys_are_kept(app, client):
+    world = _class_world(app, client)
+    before = _class_row(app, world["lesson_id"])
+
+    assert _edit_class(client, world, {"name": "Thursday group B"}).status_code == 201
+
+    after = _class_row(app, world["lesson_id"])
+    assert after["title"] == "Thursday group B", "the control: a truthy value is written"
+    assert {k: after[k] for k in ("max_players", "level", "color", "recurrence_end")} == \
+           {k: before[k] for k in ("max_players", "level", "color", "recurrence_end")}
+
+
+@pytest.mark.parametrize("updates", [
+    {"name": ""}, {"maxPlayers": 0}, {"levelId": None}, {"recurrenceEnd": None}, {"color": ""},
+], ids=["empty-name", "zero-capacity", "null-level", "null-end-date", "empty-color"])
+def test_edit_class_a_falsy_value_is_answered_201_and_changes_nothing(app, client, updates):
+    """DEFECT PINNED, NOT FIXED (B-136). The consequences that matter: a coach cannot
+    take the level off a class ("all levels") or remove a series' end date, and is
+    told it worked. An empty name being ignored is arguably right — for the wrong reason."""
+    world = _class_world(app, client)
+    before = _class_row(app, world["lesson_id"])
+
+    assert _edit_class(client, world, updates).status_code == 201
+
+    after = _class_row(app, world["lesson_id"])
+    assert {k: after[k] for k in ("title", "max_players", "level", "color", "recurrence_end")} == \
+           {k: before[k] for k in ("title", "max_players", "level", "color", "recurrence_end")}
+
+
+def test_edit_class_any_edit_clears_is_recurring_while_the_rule_stays(app, client):
+    """DEFECT PINNED, NOT FIXED — B-136's sibling: the form writes every Boolean on
+    every submit, and an ABSENT boolean is False (PAD-93 fixed this for the calendar
+    block's `blocks_auto_invitations`, and backfilled `lessons.is_recurring` once).
+    The calendar feed still says recurring — it reads the rule, not the column."""
+    from datetime import timedelta
+
+    world = _class_world(app, client)
+    assert _class_row(app, world["lesson_id"])["is_recurring"] is True
+
+    assert _edit_class(client, world, {"name": "Thursday group B"}).status_code == 201
+
+    row = _class_row(app, world["lesson_id"])
+    assert (row["is_recurring"], row["has_rule"]) == (False, True)
+    day = world["day"]
+    feed = client.get(f"/api/app/calendar?from={day.isoformat()}&to={(day + timedelta(days=8)).isoformat()}",
+                      headers=world["headers"]).get_json()
+    served = [e["isRecurring"] for e in feed if e.get("title") == "Thursday group B" or e.get("name") == "Thursday group B"]
+    assert served and all(served), "what clients see is unaffected — today"
