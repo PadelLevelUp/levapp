@@ -520,7 +520,12 @@ def test_message_an_empty_text_fails_on_the_not_null_column_and_blank_or_zero_ar
 # ── POST /api/app/class_instance/presences/confirm (lesson_service.add_presences) ──
 
 def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undone(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). Absent-and-justified, then present: the
+    """FIRST HALF FLIPPED by PAD-381 (B-152), by the fix's author: recording `present` now CLEARS the
+    justification (a domain rule in `lesson_service.add_presences`, not the form layer), so the two
+    `present` assertions expect `('present', None)`. The SECOND half is unchanged in meaning — a mark
+    still cannot be un-marked (status stays `present`; an open product question) — but the
+    justification those two assertions inherit is now None, because the step before them cleared
+    it. The control is untouched. Was: DEFECT PINNED, NOT FIXED (B-136). Absent-and-justified, then present: the
     empty justification is dropped, so the row reads `present` + `justified`.
     Un-marking (status null or "") answers 200 and leaves the mark. Whether a
     client offers un-marking, and whether any statistic reads `justification`
@@ -545,10 +550,10 @@ def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undon
             return row.status, row.justification
 
         assert confirm(status="absent", justification="justified") == ("absent", "justified")
-        assert confirm(status="present", justification="") == ("present", "justified")
-        assert confirm(status="present", justification=None) == ("present", "justified")
-        assert confirm(status=None, justification=None) == ("present", "justified"), "cannot be un-marked"
-        assert confirm(status="", justification="") == ("present", "justified")
+        assert confirm(status="present", justification="") == ("present", None), "PAD-381: present clears it"
+        assert confirm(status="present", justification=None) == ("present", None)
+        assert confirm(status=None, justification=None) == ("present", None), "cannot be un-marked (unchanged); the justification it inherits is now None"
+        assert confirm(status="", justification="") == ("present", None)
         assert confirm(status="absent", justification="unjustified") == ("absent", "unjustified"), "the control"
 
 

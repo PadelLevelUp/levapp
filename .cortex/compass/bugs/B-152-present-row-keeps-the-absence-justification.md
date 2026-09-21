@@ -86,7 +86,10 @@ Add `attendance.validation` rule 21 + criterion; route-level tests first (they f
   them now, but both shells seed a row's local state from the STORED justification whatever the
   status and default an absent toggle to it, so flipping a stale `(present, justified)` student to
   absent sends `absent + justified` instead of the default `unjustified`. Rows heal when a class is
-  re-saved. **PAD-381 is not finished until the cleanup
+  re-saved. **Production count: ZERO such rows** (Session-A, read-only, 2026-09-21 20:58 UTC, on A's
+  word: present 104 / absent 87, all 87 with a justification / NULL status 4288) — so the cleanup
+  has nothing to touch today and the coordinator ruled none is owed: PAD-381 may close once #357
+  is live on production and a re-count there is still 0. Originally: **PAD-381 is not finished until the cleanup
   (`UPDATE presences SET justification = NULL WHERE status = 'present' AND justification IS NOT NULL`)
   is done or a written decision says it is not needed** — it waits for Session-A's count and the
   owner's word for a production write (coordinator's ruling, 2026-09-21).
