@@ -40,8 +40,9 @@ held on the coach's calendar while the request is open.
    30 and at most 180 minutes long.
 3. **The slot is held.** Creating a request creates a `personal` CalendarBlock on the coach's
    calendar titled with the student's name; the hold follows the slot on a counter-proposal and
-   is deleted when the request leaves `pending`/`countered`. The hold is a plain block the coach
-   may see and even delete — deleting it does not decide the request.
+   is deleted when the request leaves `pending`/`countered` — or goes away any other way (rule
+   18). The hold is a plain block the coach may see and even delete — deleting it does not decide
+   the request.
 4. **The coach decides**: `accept` creates a one-off `private` class (max 1 player) at the slot
    with the student enrolled, through the same path as "Add class"; `decline` closes the
    request; `propose {date, startTime, endTime}` moves the slot and turns the request
@@ -153,6 +154,52 @@ held on the coach's calendar while the request is open.
     there, `endDate` unchanged) and only the future occurrences are re-validated. Only when no
     occurrence is left does accept answer `409 in_the_past`, and the request stays open for the
     coach to decline.
+18. **The hold a request points at never outlives it (PAD-360, B-135).** Rule 3 names the status
+    transitions; the same is true however the request goes away — for the block in
+    `hold_block_id`. A block cloned from a hold is a known gap (last bullet). Before PAD-360 only withdraw, decline and
+    accept released the hold, and every path below left a ghost block on the coach's calendar.
+    - **The row is deleted.** Deleting a ClassRequest through the ORM — both generic editor
+      routes, `DELETE /api/editor/classrequest/<id>` and `POST /api/delete/classrequest/<id>` —
+      deletes its hold block in the same flush.
+    - **The row is cascaded away.** Deleting a Player or a Coach row takes their requests with
+      it inside the database (`ON DELETE CASCADE`), where no hook on the request runs; the holds
+      of those requests are deleted first.
+    - **The person deletes their account** (`auth.account-deletion` rules 6 and 10). A deleting
+      student's open requests close as `withdrawn` / `decided_by: student`; a deleting coach's
+      close as `declined` / `decided_by: coach`; the hold is released. Both are **silent — no
+      notification in either direction** (rule 6 does not apply: one side no longer exists). A
+      deleting student is also taken off `invitee_player_ids` of other people's open requests,
+      so an accept never enrols a deleted account.
+    - **The row is closed by an edit.** The admin editor can PATCH `status` straight to a closed
+      value; any ORM update that leaves a request closed while it still points at a hold deletes
+      the hold. An edit that leaves the request open keeps it (#345 review F7).
+    - **The import is reverted.** `revert_import` bulk-deletes the players it created with
+      `Query.delete()`, which runs no ORM hook, and an imported student can have activated in
+      place and asked for a class. The revert releases those players' holds first (#345 review
+      F1). No other bulk delete of players or coaches exists today; a new one must do the same.
+    - **A coach may make a hold their own, so a leftover pointer is handled with care.** A coach
+      can edit a hold like any block (`PUT /api/app/calendar_block/<id>`: new title, new time) and
+      the request goes on pointing at it. While the request is OPEN the block is the live hold
+      and goes when the request closes or is removed, whatever the coach did to it (unchanged
+      since PAD-104; whether a retitled hold should survive is a product question). A request
+      that was ALREADY closed and still points at a block — a row from before PAD-360 — takes
+      the block with it only while the block is still recognisably a hold (`personal`, and
+      still carrying the hold title); otherwise the pointer is cleared and the block stays. So
+      the hooks also clean up old ghost holds lazily, on the next ORM write to such a request,
+      and never delete an event a coach has made theirs (#345 review, second round).
+    - **Known gap — a moved occurrence of a weekly hold (#345 review F2, not fixed here).**
+      Moving one occurrence of a recurring hold (`calendar_service.reschedule_block_service`)
+      clones the block: the clone copies the hold's title and no request points at it, so no
+      path above releases it, and it outlives the request under the student's name. It follows
+      that a hold-titled block no request references may be the clone of a LIVE hold — a cleanup
+      must never delete one on its title alone. Pinned as a known gap in
+      `test_pad360_request_hold_release.py`; its own ticket.
+    - **Left out on purpose:** a coach **disconnecting** a student leaves the open request and
+      its hold in place (the hold is legitimate while the request is open); whether a disconnect
+      should decline it is an owner decision, recorded on PAD-360. A pending request whose slot
+      has passed keeps its hold — there is no expiry; also with the owner.
+    - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
+      new reaches a screen, so PAD-360 ships backend-only.
 
 ### Acceptance Criteria
 
@@ -216,6 +263,27 @@ held on the coach's calendar while the request is open.
 - **Given** a pending request
 - **When** the coach declines (or the student withdraws)
 - **Then** the request closes and the hold block is deleted
+
+#### Deleting a request deletes its hold (PAD-360, rule 18)
+- **Given** a pending request with its hold on the coach's calendar
+- **When** a superadmin deletes the request through `DELETE /api/editor/classrequest/<id>` (or the
+  legacy `POST /api/delete/classrequest/<id>`)
+- **Then** the request is gone and so is the hold block
+- **And** a calendar block of the coach's own on the same day is untouched
+
+#### Deleting the player or the coach deletes their requests' holds (PAD-360, rule 18)
+- **Given** a pending request with its hold
+- **When** the Player row (or the Coach row) is deleted and the database cascades the request away
+- **Then** the hold block is gone too
+
+#### Account deletion closes open requests silently (PAD-360, rule 18)
+- **Given** Bruno has a pending request to coach Ana, and is an invitee on Carla's pending request
+- **When** Bruno deletes his account
+- **Then** his request is `withdrawn` by `student`, its hold is gone, and Ana receives no message
+- **And** Carla's request stays `pending` with its hold, without Bruno among its invitees
+- **Given** instead coach Ana deletes her account
+- **Then** Bruno's request is `declined` by `coach`, and Bruno receives no message
+- **And** a request that was already `accepted` or `declined` is not touched by either deletion
 
 #### Refusals
 - **Given** a slot in the past, outside the coach's free time, or already held
