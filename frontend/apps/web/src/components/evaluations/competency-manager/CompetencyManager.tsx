@@ -49,7 +49,7 @@ export function CompetencyManager({ open, onClose }: CompetencyManagerProps) {
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" data-testid="competency-manager" className="flex max-h-[90dvh] flex-col">
+        <SheetContent side="bottom" data-testid="competency-manager" data-presentation="sheet" className="flex max-h-[90dvh] flex-col">
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
             <SheetDescription>{caption}</SheetDescription>
@@ -62,7 +62,7 @@ export function CompetencyManager({ open, onClose }: CompetencyManagerProps) {
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="competency-manager" className="flex max-h-[85dvh] flex-col sm:max-w-lg">
+      <DialogContent data-testid="competency-manager" data-presentation="modal" className="flex max-h-[85dvh] flex-col sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{caption}</DialogDescription>

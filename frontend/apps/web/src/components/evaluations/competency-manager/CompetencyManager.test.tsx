@@ -1,5 +1,5 @@
 /**
- * evaluations.competencies rules 5-9, 12, 13 (PAD-373) — "Gerir competências" on web.
+ * evaluations.competencies rules 5-9, 12-14 (PAD-373) — "Gerir competências" on web.
  * Asserted by test id and by the translation KEY (t is mocked to return it), never by copy.
  */
 import * as React from "react";
@@ -24,6 +24,9 @@ const api = vi.hoisted(() => ({
   getEvaluationCompetencyImpact: vi.fn(),
 }));
 vi.mock("@levelup/api/src/resources/evaluationRecords", () => api);
+
+const viewport = vi.hoisted(() => ({ phone: false }));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => viewport.phone }));
 
 import { CompetencyManager } from "./CompetencyManager";
 
@@ -283,6 +286,27 @@ describe("closing (rule 12)", () => {
     expect(screen.getByTestId("competency-manager-caption")).toHaveTextContent("evaluations.manager.caption");
     fireEvent.click(screen.getByTestId("competency-manager-done"));
 
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("presentation (rule 14)", () => {
+  afterEach(() => { viewport.phone = false; });
+
+  it("is a modal on desktop and a sheet at phone width — the same body, the same Concluído", async () => {
+    open();
+    await row("id-7");
+    expect(screen.getByTestId("competency-manager")).toHaveAttribute("data-presentation", "modal");
+  });
+
+  it("at phone width it is a sheet, with every row and the close still there", async () => {
+    viewport.phone = true;
+    const { onClose } = open();
+    await row("id-7");
+
+    expect(screen.getByTestId("competency-manager")).toHaveAttribute("data-presentation", "sheet");
+    expect(screen.getByTestId("competency-add-name")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("competency-manager-done"));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
