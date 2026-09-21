@@ -22,6 +22,9 @@ export const queryKeys = {
   // PAD-375: one evolution per (player, competency); the two-part prefix invalidates a player's.
   playerEvolution: (playerId: string, categoryId?: number) =>
     (categoryId === undefined ? ["player-evolution", playerId] : ["player-evolution", playerId, categoryId]) as readonly unknown[],
+  // PAD-376: the class panel's read, per dated occurrence; without a ref, the prefix every evaluation write invalidates.
+  classEvaluations: (ref?: { model: string; id: number; date?: string | null }) =>
+    (ref === undefined ? ["class-evaluations"] : ["class-evaluations", ref.model, ref.id, ref.date ?? null]) as readonly unknown[],
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>

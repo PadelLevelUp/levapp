@@ -56,6 +56,10 @@ describe("queryKeys", () => {
     expect(queryKeys.evaluationCompetencies).toEqual(["evaluation-competencies"]);
     expect(queryKeys.playerEvolution("p1", 12)).toEqual(["player-evolution", "p1", 12]);
     expect(queryKeys.playerEvolution("p1")).toEqual(["player-evolution", "p1"]); // the prefix a write invalidates
+    // PAD-376: one class panel per dated occurrence; the bare prefix is what a write invalidates
+    expect(queryKeys.classEvaluations({ model: "Lesson", id: 7, date: "2026-09-21" })).toEqual(["class-evaluations", "Lesson", 7, "2026-09-21"]);
+    expect(queryKeys.classEvaluations({ model: "LessonInstance", id: 88 })).toEqual(["class-evaluations", "LessonInstance", 88, null]);
+    expect(queryKeys.classEvaluations()).toEqual(["class-evaluations"]);
     expect(queryKeys.conversation("c1")).toEqual(["conversation", "c1"]);
     expect(queryKeys.exercise("e1")).toEqual(["exercises", "e1"]);
   });

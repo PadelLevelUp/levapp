@@ -333,6 +333,18 @@
       "tableMonth": "Mês",
       "tableMean": "Média",
       "evolutionLoadFailed": "Não foi possível carregar a evolução."
+    },
+    "classEvaluations": {
+      "open": "Avaliações",
+      "title": "Avaliações — {{name}}",
+      "back": "Voltar à aula",
+      "manage": "Gerir competências",
+      "summaryNone": "Sem avaliação",
+      "summaryRated": "{{rated}}/{{total}} avaliadas",
+      "absent": "Faltou",
+      "unavailable": "Esta aula já passou e nunca foi aberta. Avalie a partir da página do jogador.",
+      "loadError": "Não foi possível carregar os participantes.",
+      "noParticipants": "Esta aula não tem participantes para avaliar."
     }
   }
 }
