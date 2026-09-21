@@ -40,12 +40,6 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
 
   return (
     <View className="flex-row items-center gap-2">
-      {score !== null && onClear ? (
-        <Button variant="ghost" size="icon" onPress={onClear} testID={`evaluation-stepper-${id}-clear`}
-          accessibilityLabel={t("players.evaluationHistory.clearScore", { name })}>
-          <Ionicons name="refresh-outline" size={18} color={lightTheme.mutedForeground} />
-        </Button>
-      ) : null}
       <Button variant="outline" size="icon" onPress={() => onStep(-1)} disabled={score !== null && score <= scaleMin}
         testID={`evaluation-stepper-${id}-minus`} accessibilityLabel={t("players.evaluationHistory.stepDown", { name })}>
         <Ionicons name="remove" size={18} color={lightTheme.foreground} />
@@ -55,6 +49,19 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
         testID={`evaluation-stepper-${id}-plus`} accessibilityLabel={t("players.evaluationHistory.stepUp", { name })}>
         <Ionicons name="add" size={18} color={lightTheme.foreground} />
       </Button>
+      {/* The clear control comes LAST and its place is always kept (the icon button's 40 pt). The
+          controls sit at the row's left edge here, so a control appearing BEFORE "−" and "+" pushed
+          them ~43 pt sideways after the first "+" and a quick second tap landed on the value text. */}
+      {onClear ? (
+        <View className="h-10 w-10">
+          {score !== null ? (
+            <Button variant="ghost" size="icon" onPress={onClear} testID={`evaluation-stepper-${id}-clear`}
+              accessibilityLabel={t("players.evaluationHistory.clearScore", { name })}>
+              <Ionicons name="refresh-outline" size={18} color={lightTheme.mutedForeground} />
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
