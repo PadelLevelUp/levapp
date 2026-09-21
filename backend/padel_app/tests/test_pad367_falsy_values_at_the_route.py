@@ -463,3 +463,26 @@ def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitat
     assert blocked_on(5) is True, "the day they asked for"
     assert blocked_on(19) is True, "and, wrongly, every Monday after it"
     assert blocked_on(20) is False, "the control: a Tuesday was never blocked"
+
+
+def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly_block(app, client):
+    """DEFECT PINNED, NOT FIXED — and the reason no bulk repair may use the flag.
+    `_build_payload` reads `data.get("isRecurring", False)`: a client that edits only
+    the title and leaves the key out produces EXACTLY the row a deliberate one-off
+    produces (`is_recurring` False, rule and end date still there). On production
+    the two are indistinguishable, so "flag false and rule present" cannot tell a
+    block the user made one-off from a weekly block that is still meant to be weekly."""
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    ids = _seed(app)
+    block = _event(app, client, ids, isRecurring=True,
+                   recurrenceRule={"frequency": "weekly", "daysOfWeek": [1]}, endDate="2026-12-01")
+    body = {k: v for k, v in EVENT.items() if k != "isRecurring"}   # a rename, nothing about repetition
+
+    after = _edit_event(app, client, ids, block["id"], {**body, "title": "Dentist (new clinic)"})
+
+    assert after["title"] == "Dentist (new clinic)"
+    assert after["isRecurring"] is False, "the user never asked for that"
+    with app.app_context():
+        row = db.session.get(CalendarBlock, block["id"])
+        assert row.recurrence_rule is not None and row.recurrence_end.isoformat() == "2026-12-01"
