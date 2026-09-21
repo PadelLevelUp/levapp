@@ -486,3 +486,32 @@ def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly
     with app.app_context():
         row = db.session.get(CalendarBlock, block["id"])
         assert row.recurrence_rule is not None and row.recurrence_end.isoformat() == "2026-12-01"
+
+
+# ── POST /api/app/message (messaging_service.create_message_service) ─────────
+
+def test_message_an_empty_text_fails_on_the_not_null_column_and_blank_or_zero_are_stored(app, client):
+    """DEFECT PINNED, NOT FIXED (B-136). Nothing validates the text: `""` is read as
+    "not sent" and `messages.text` is NOT NULL — an unhandled IntegrityError where
+    a 400 belongs. A whitespace-only text and the text "0" are truthy strings and
+    are stored as sent."""
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.models import Message
+
+    ids = _seed(app)
+    headers = _headers(app, ids["coach_user_id"])
+    conversation = client.post("/api/app/conversation", json={"otherParticipants": [ids["student_user_id"]]}, headers=headers)
+    assert conversation.status_code == 201, conversation.get_data(as_text=True)
+    conversation_id = conversation.get_json()["id"]
+
+    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
+        client.post("/api/app/message", json={"conversationId": conversation_id, "text": ""}, headers=headers)
+    with app.app_context():
+        db.session.rollback()
+    for text in ("   ", "0", "hello"):
+        assert client.post("/api/app/message", json={"conversationId": conversation_id, "text": text},
+                           headers=headers).status_code == 201
+
+    with app.app_context():
+        assert [m.text for m in Message.query.order_by(Message.id)] == ["   ", "0", "hello"]
