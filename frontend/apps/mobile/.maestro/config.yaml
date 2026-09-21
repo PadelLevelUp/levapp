@@ -32,6 +32,10 @@ executionOrder:
     # 78 (PAD-374) resets E2E Student's evaluations through the API before it starts and deletes
     # what it writes, so its position is not load bearing; it must not run between 57's steps.
     - 78-player-evaluations
+    # 77 (PAD-373) puts "Gerir competências" in a known state through the API before it starts
+    # (its own "Maestro …" competencies deleted, catalogue "vibora" off) and again when it ends,
+    # so its position is not load bearing. It leaves the seeded legacy "Forehand" alone.
+    - 77-competency-manager
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages

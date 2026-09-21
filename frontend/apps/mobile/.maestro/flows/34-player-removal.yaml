@@ -5,8 +5,8 @@
 #   leaves the student alone.
 # - A placeholder this flow creates says Delete, lists its attendance too, and
 #   is deleted.
-# - A category this flow saves asks for its typed name before it is deleted;
-#   the confirm stays disabled until the name matches.
+# - A competency this flow adds in "Gerir competências" (PAD-373) asks for its typed
+#   name before it is deleted; the confirm stays disabled until the name matches.
 # Self-contained: it deletes only what it creates, so its position in the
 # suite is not load bearing.
 appId: com.padellevelup.app
@@ -170,7 +170,11 @@ appId: com.padellevelup.app
       text: ".*Maestro Removal Placeholder.*"
     timeout: 20000
 
-# ── 3. A category saved here asks for its typed name ──
+# ── 3. A competency added in "Gerir competências" asks for its typed name (PAD-373) ──
+# The manager replaced the Settings category editor: there is no Save — adding applies at
+# once — and it is a pushed screen. The row's id carries the server's id, which the flow
+# cannot know, so the row is found by its accessibility label ("Delete: <name>").
+- runScript: ../scripts/competency-manager-setup.js
 - tapOn:
     id: "header-account"
 - extendedWaitUntil:
@@ -181,61 +185,59 @@ appId: com.padellevelup.app
     id: "settings-nav-preferences"
 - scrollUntilVisible:
     element:
-      id: "settings-evaluation-categories-add"
+      id: "settings-competencies-open"
     direction: DOWN
     timeout: 30000
 - tapOn:
-    id: "settings-evaluation-categories-add"
-- tapOn:
-    id: "evaluation-category-name-new"
-- inputText: "Maestro Cat"
-# Dismiss the keyboard: with it up, the save button "is visible" to Maestro but the
-# tap lands on the keyboard (keyboard-occlusion trap, PAD-198).
-- pressKey: Enter
-- swipe:
-    start: "50%, 45%"
-    end: "50%, 25%"
-- scrollUntilVisible:
-    element:
-      id: "settings-evaluation-categories-save"
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    id: "settings-evaluation-categories-save"
+    id: "settings-competencies-open"
 - extendedWaitUntil:
     visible:
-      text: ".*categories updated.*"
+      id: "competency-manager"
     timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "Remove category Maestro Cat"
-    direction: UP
+      id: "competency-add-name"
+    direction: DOWN
     timeout: 30000
 - tapOn:
-    text: "Remove category Maestro Cat"
+    id: "competency-add-name"
+- inputText: "Maestro Cat"
+# Enter submits the field (onSubmitEditing) and dismisses the keyboard in one step; the
+# Add button is not tapped, because with the keyboard up the tap would land on it (PAD-198).
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      text: "Delete: Maestro Cat"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "Delete: Maestro Cat"
 - extendedWaitUntil:
     visible:
-      text: "This deletes 0 scores across 0 players.*"
+      id: "competency-delete-impact"
     timeout: 15000
 - assertVisible:
-    id: "evaluation-category-delete-confirm"
+    id: "competency-delete-confirm"
     enabled: false
 - tapOn:
-    id: "evaluation-category-delete-name"
+    id: "competency-delete-name"
 - inputText: "Maestro"
 - assertVisible:
-    id: "evaluation-category-delete-confirm"
+    id: "competency-delete-confirm"
     enabled: false
 - inputText: " Cat"
 # hideKeyboard fails on iOS here ("Couldn't hide the keyboard"); Enter blurs the
 # single-line input and dismisses it instead.
 - pressKey: Enter
 - assertVisible:
-    id: "evaluation-category-delete-confirm"
+    id: "competency-delete-confirm"
     enabled: true
 - tapOn:
-    id: "evaluation-category-delete-confirm"
+    id: "competency-delete-confirm"
 - extendedWaitUntil:
-    visible:
-      text: ".*Maestro Cat.*deleted.*"
+    notVisible:
+      text: "Delete: Maestro Cat"
     timeout: 15000
+# The server agrees: nothing of this flow's is left.
+- evalScript: "${output.left = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.name === 'Maestro Cat' }).length}"
+- assertTrue: "${output.left == 0}"
