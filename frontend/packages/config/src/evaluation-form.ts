@@ -82,7 +82,7 @@ export function createDebouncedWriter<V>(write: (key: string, value: V) => void,
  * point — the evaluation form's empty state here, the class panel in slice 6 —
  * calls that function and nothing else.
  */
-export const COMPETENCY_MANAGER_ROUTE = { web: "/settings?tab=preferences", mobile: "/settings" } as const;
+export const COMPETENCY_MANAGER_ROUTE = { web: "?competencies=open", mobile: "/competencies" } as const;
 
 /** A competency's label: catalogue ones are translated by `key` (en + pt in
  *  `locales/<lng>/evaluations.json`), custom and legacy ones are shown as typed. */
