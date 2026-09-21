@@ -335,6 +335,27 @@ def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
     assert [score for score, _ in _rows(app, ids, "volley_id")] == [0.0]
 
 
+def test_3_a_save_is_not_atomic_the_scores_before_a_failing_one_stay_written(app, client):
+    """Each score is its own commit. When one fails (here B-136's numeric 0), the
+    request fails and the scores before it are already saved — which is why a
+    range check must never be added to this endpoint while old builds post every
+    category in one body (B-126)."""
+    from sqlalchemy.exc import IntegrityError
+
+    ids = _seed(app)
+
+    with pytest.raises(IntegrityError):
+        _save(app, client, ids, [
+            {"categoryId": ids["forehand_id"], "value": 5},
+            {"categoryId": ids["volley_id"], "value": 0},
+        ])
+    with app.app_context():
+        db.session.rollback()
+
+    assert [score for score, _ in _rows(app, ids, "forehand_id")] == [5.0]
+    assert _rows(app, ids, "volley_id") == []
+
+
 def test_3_add_evaluation_entry_is_coach_only_and_roster_scoped(app, client):
     ids = _seed(app)
     other = _other_coach(app)
