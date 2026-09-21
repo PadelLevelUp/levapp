@@ -177,6 +177,16 @@ held on the coach's calendar while the request is open.
       `Query.delete()`, which runs no ORM hook, and an imported student can have activated in
       place and asked for a class. The revert releases those players' holds first (#345 review
       F1). No other bulk delete of players or coaches exists today; a new one must do the same.
+    - **A coach may make a hold their own, so a leftover pointer is handled with care.** A coach
+      can edit a hold like any block (`PUT /api/app/calendar_block/<id>`: new title, new time) and
+      the request goes on pointing at it. While the request is OPEN the block is the live hold
+      and goes when the request closes or is removed, whatever the coach did to it (unchanged
+      since PAD-104; whether a retitled hold should survive is a product question). A request
+      that was ALREADY closed and still points at a block — a row from before PAD-360 — takes
+      the block with it only while the block is still recognisably a hold (`personal`, and
+      still carrying the hold title); otherwise the pointer is cleared and the block stays. So
+      the hooks also clean up old ghost holds lazily, on the next ORM write to such a request,
+      and never delete an event a coach has made theirs (#345 review, second round).
     - **Known gap — a moved occurrence of a weekly hold (#345 review F2, not fixed here).**
       Moving one occurrence of a recurring hold (`calendar_service.reschedule_block_service`)
       clones the block: the clone copies the hold's title and no request points at it, so no

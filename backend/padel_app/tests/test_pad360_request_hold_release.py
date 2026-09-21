@@ -528,3 +528,98 @@ def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_rel
 
     assert not _block_exists(app, hold)
     assert _blocks_of_coach(app, ids) == 1, "the clone outlives the request"
+
+
+# ── #345 review, 2nd round: a coach can make a hold their own (rule 3) ────────
+#
+# Run at the route: PUT /api/app/calendar_block/<hold> answers 200 to the coach —
+# new title, new time — and the request still points at the block. So a CLOSED
+# request's leftover pointer (a pre-PAD-360 row) must not take a repurposed block
+# with it when the hooks meet it later. Safe by construction, not by a count.
+
+def _a_closed_request_that_still_points_at_its_block(app, client, ids, *, repurposed):
+    """A pre-PAD-360 row. Raw SQL closes it, so no hook runs and the pointer stays."""
+    from sqlalchemy import text
+
+    rid = _request(app, ids)
+    hold = _hold_of(app, rid)
+    if repurposed:
+        with app.app_context():
+            headers = {"Authorization": f"Bearer {create_access_token(identity=str(ids['coach_user_id']))}"}
+        res = client.put(f"/api/app/calendar_block/{hold}", headers=headers, json={
+            "type": "personal", "title": "Physio", "description": "mine now", "date": DAY.isoformat(),
+            "startTime": "11:30", "endTime": "12:30", "isRecurring": False})
+        assert res.status_code == 200, res.get_data(as_text=True)
+    with app.app_context():
+        db.session.execute(text("UPDATE class_requests SET status = 'declined' WHERE id = :id"), {"id": rid})
+        db.session.commit()
+    assert (_state(app, rid)["status"], _state(app, rid)["hold"]) == ("declined", hold)
+    return rid, hold
+
+
+@pytest.mark.parametrize("repurposed, block_survives", [(True, True), (False, False)],
+                         ids=["a-block-the-coach-made-their-own-stays", "an-untouched-hold-is-cleaned-up"])
+def test_a_later_edit_of_an_already_closed_request(app, client, repurposed, block_survives):
+    ids = _setup(app)
+    rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=repurposed)
+
+    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"note": "edited later"}}, headers=_root(app))
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _block_exists(app, hold) is block_survives
+    assert _state(app, rid)["hold"] is None, "either way the stale pointer goes"
+
+
+@pytest.mark.parametrize("repurposed, block_survives", [(True, True), (False, False)],
+                         ids=["a-block-the-coach-made-their-own-stays", "an-untouched-hold-is-cleaned-up"])
+def test_deleting_an_already_closed_request(app, client, repurposed, block_survives):
+    ids = _setup(app)
+    rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=repurposed)
+
+    assert client.delete(f"/api/editor/classrequest/{rid}", headers=_root(app)).status_code == 200
+
+    assert _state(app, rid) is None
+    assert _block_exists(app, hold) is block_survives
+
+
+def test_deleting_the_player_of_an_already_closed_request_keeps_a_block_the_coach_made_their_own(app, client):
+    ids = _setup(app)
+    rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=True)
+
+    assert client.delete(f"/api/editor/player/{ids['player_id']}", headers=_root(app)).status_code == 200
+
+    assert _state(app, rid) is None
+    assert _block_exists(app, hold)
+
+
+def test_reverting_an_import_keeps_a_block_the_coach_made_their_own_on_a_closed_request(app, client):
+    ids = _setup(app)
+    rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=True)
+    import_id = _import_record(app, ids, players=[ids["player_id"]], users=[_user_id_of_player(app, ids["player_id"])])
+
+    assert _revert(app, ids, import_id)["status"] == "reverted"
+
+    assert _block_exists(app, hold)
+
+
+def test_REFERENCE_an_open_requests_block_goes_when_it_closes_even_if_the_coach_retitled_it(app, client):
+    """BEHAVIOUR PINNED, NOT CHANGED — it predates PAD-360 (PAD-104). While a request
+    is OPEN its block is the live hold, whatever the coach has done to it, and
+    withdraw / decline / accept delete it. The hooks treat an open request the same
+    way. Whether a retitled hold should survive the close is a product question
+    (rule 3 says a coach may delete a hold, and says nothing about editing one)."""
+    from padel_app.services.class_request_service import withdraw_class_request_service
+
+    ids = _setup(app)
+    rid = _request(app, ids)
+    hold = _hold_of(app, rid)
+    with app.app_context():
+        headers = {"Authorization": f"Bearer {create_access_token(identity=str(ids['coach_user_id']))}"}
+    assert client.put(f"/api/app/calendar_block/{hold}", headers=headers, json={
+        "type": "personal", "title": "Physio", "date": DAY.isoformat(), "startTime": "11:30", "endTime": "12:30",
+        "isRecurring": False}).status_code == 200
+
+    with app.app_context():
+        withdraw_class_request_service(rid, _player(ids["player_id"]))
+
+    assert not _block_exists(app, hold)

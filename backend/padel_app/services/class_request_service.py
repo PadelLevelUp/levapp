@@ -255,8 +255,11 @@ def _slot_is_free(coach: Coach, start: datetime, end: datetime, *, now, exclude_
 # ── rule 3: the hold ─────────────────────────────────────────────────────────
 
 def _hold_title(row: ClassRequest, locale: str) -> str:
+    from padel_app.models.class_request import HOLD_TITLE_PREFIXES
+
     who = _name(row.player.user if row.player else None)
-    return f"Pedido de aula · {who}" if locale == "pt" else f"Class request · {who}"
+    pt, en = HOLD_TITLE_PREFIXES  # the hooks recognise a hold by these (rule 18)
+    return f"{pt}{who}" if locale == "pt" else f"{en}{who}"
 
 
 def _place_hold(row: ClassRequest, coach: Coach, locale: str) -> None:
@@ -544,12 +547,23 @@ def release_holds_of_players(player_ids) -> int:
     ids = [int(pid) for pid in (player_ids or [])]
     if not ids:
         return 0
+    from padel_app.models.class_request import HOLD_TITLE_PREFIXES
+
     rows = ClassRequest.query.filter(
         ClassRequest.player_id.in_(ids), ClassRequest.hold_block_id.isnot(None)
     ).all()
+    released = 0
     for row in rows:
+        if not row.is_open:
+            # A closed request's leftover pointer: only a block that is still a hold goes.
+            block = db.session.get(CalendarBlock, row.hold_block_id)
+            if block is None or block.type != "personal" or not (block.title or "").startswith(HOLD_TITLE_PREFIXES):
+                row.hold_block_id = None
+                continue
         _release_hold(row)
-    return len(rows)
+        released += 1
+    db.session.flush()
+    return released
 
 
 def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequest:

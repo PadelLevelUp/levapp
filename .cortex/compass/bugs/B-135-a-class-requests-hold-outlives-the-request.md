@@ -96,6 +96,23 @@ same as the dev spec: no layer drift.
 - 2×2 for the three fixes (18:40 UTC): old product code → exactly the three trigger-present tests
   fail, 24 pass; new code → 27 pass on sqlite and Postgres.
 
+### Review, second round (2026-09-21 19:09 UTC) — what the hooks do to EXISTING data
+
+Session-B noticed the new `before_update` hook is also a lazy cleanup of pre-PAD-360 rows: a
+request already closed that still points at a block loses that block on its next ORM write. Run
+before acting: it is true for an ORM write (admin editor PATCH) and NOT for a bulk
+`Query.update()` — claim-merge re-points requests in bulk, no hook fires. The Coordinator's
+question decided the design, answered by running at the route: a coach CAN edit a hold
+(`PUT /api/app/calendar_block/<hold>` → 200, "Physio", new time) and the request still points at
+it. So the hooks are safe by construction rather than by a production count: a closed request's
+leftover pointer deletes the block only while it is still recognisably a hold (personal + hold
+title, one constant shared with `_hold_title`); otherwise the pointer is cleared and the block
+stays. An OPEN request's block is the live hold and goes as the services always made it go —
+including a retitled one, which predates this ticket and is pinned as a reference, not changed.
+2×2 (19:10 UTC): on a9234ef98's product code exactly the four "a block the coach made their own
+stays" tests fail and the two "an untouched hold is cleaned up" tests pass; on the new code 34
+pass on sqlite and on Postgres.
+
 ### Resolution
 
 _Open — filled in when PAD-360 lands._
