@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
-import { EvaluationCategoriesSection } from "@/features/settings/evaluation-categories-section";
+import { CompetenciesSettingsEntry } from "@/features/evaluations/competency-manager/competencies-settings-entry";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -188,7 +188,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
       </Card>
 
       {isCoach ? <CoachLevelsSection /> : null}
-      {isCoach ? <EvaluationCategoriesSection /> : null}
+      {isCoach ? <CompetenciesSettingsEntry /> : null}
     </View>
   );
 }

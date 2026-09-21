@@ -40,6 +40,10 @@ describe("the competency manager and the legacy evaluation endpoints", () => {
     expect(found).toContain("apps/web/src/components/evaluations/competency-manager/CompetencyRow.tsx");
     expect(found).toContain("apps/web/src/components/evaluations/competency-manager/DeleteCompetencyDialog.tsx");
     expect(found).toContain("packages/hooks/src/evaluations.ts");
+    expect(found).toContain("apps/mobile/src/features/evaluations/competency-manager/competency-manager-screen.tsx");
+    expect(found).toContain("apps/mobile/src/features/evaluations/competency-manager/competency-row.tsx");
+    expect(found).toContain("apps/mobile/src/features/evaluations/competency-manager/delete-competency-dialog.tsx");
+    expect(found).toContain("apps/mobile/app/competencies.tsx");
   });
 
   it("calls none of them, and imports no legacy client function", () => {
