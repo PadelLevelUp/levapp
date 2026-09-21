@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,16 +72,28 @@ export function SeasonsSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // PAD-392 (B-155): loaded ONCE. `t` was in this effect's deps; it gets a new identity
+  // when the account's language settles after a page load, the effect re-ran, and the
+  // second load's setDraft silently replaced whatever had been typed into the form.
+  // `t` is read through a ref so the effect does not depend on it.
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
+    let active = true;
     getSeason()
       .then((data) => {
+        if (!active) return;
         setDefinition(data);
         setDraft(draftFrom(data));
         setEditing(Boolean(data));
       })
-      .catch(() => setError(t("settings.seasons.saveFailed")))
-      .finally(() => setLoading(false));
-  }, [t]);
+      .catch(() => active && setError(tRef.current("settings.seasons.saveFailed")))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const monthName = useMemo(() => {
     const fmt = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });
