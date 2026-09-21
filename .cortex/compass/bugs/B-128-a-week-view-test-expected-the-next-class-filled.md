@@ -3,7 +3,7 @@ id: B-128
 title: "A week-view E2E test expected the next class filled, and failed only from Monday 09:30 to Tuesday 11:30"
 type: test-defect
 severity: medium
-status: triaged
+status: resolved
 affects:
   - frontend/apps/web/e2e/schedule-calendar/mobile-week-view.spec.ts
 proposed_fix: "Pin the browser clock inside US-247-2 so past, next and scheduled all appear at once, and assert each as calendar.mobile-views rule 5 states it."
@@ -46,7 +46,16 @@ week holds all three treatments at once and each is asserted as the spec states 
 `#1355DC`). The pin is scoped to that test: US-247-6 compares with the real today. No branch on the
 day of the run is left.
 
-**Status `triaged`, not `resolved`:** the fix was written under a machine-quiet and the spec has
-not been run. It becomes `resolved` with the run's SHA and UTC time, on the 2×2: old test fails on
-a Monday evening (the integrator's runs are that cell) and passes pinned; new test passes whatever
-the day.
+**Run (Session-B, 2026-09-21, a Monday evening — inside the window; isolated stack, workers=1,
+`feature/pad-391` at `c371384b1`, each log opens with its SHA and a `date -u` stamp):**
+
+| | what ran | result |
+|---|---|---|
+| new test, real component | the whole `mobile-week-view.spec.ts`, started 21:31:37Z | **7 passed** |
+| old test, real component | `origin/staging`'s US-247-2 on the same stack, started 21:32:43Z | **1 failed** — expected `rgb(13, 148, 136)`, received `rgb(255, 255, 255)`: the integrator's value, reproduced |
+| new test, MUTANT component (`next` drawn filled — what the old test demanded) | US-247-2, started 21:33:40Z | **1 failed**, at the `next` assertion on `class-2002` (`data-event-state="next"`): expected not `rgb(99, 102, 241)`, received it |
+
+So the new test passes on the day the old one fails, fails when the component is made wrong, and
+the pinned instant produces the states read from the code. Not run: the old test on a day when
+Tuesday is not `next` (it passes then — that is how it survived); the new test on another real
+day (independent by construction: the pin and the mocked week derive from the same Monday).
