@@ -29,6 +29,8 @@ __pycache__/
 .cortex/pulse/*
 !.cortex/pulse/_index.md
 .cortex/constellation.json
+# Hook-generated in every worktree (Coordinator, 2026-09-21): never tracked, or every batch conflicts on it.
+.cortex/recall-index.json
 .cortex/archive/documents/*/source.*
 
 # internal prose — plans, QA, handoffs, onboarding notes, vendored reference apps.
