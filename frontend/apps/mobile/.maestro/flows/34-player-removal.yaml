@@ -172,8 +172,8 @@ appId: com.padellevelup.app
 
 # ── 3. A competency added in "Gerir competências" asks for its typed name (PAD-373) ──
 # The manager replaced the Settings category editor: there is no Save — adding applies at
-# once — and it is a pushed screen. The row's id carries the server's id, which the flow
-# cannot know, so the row is found by its accessibility label ("Delete: <name>").
+# once — and it is a pushed screen. The row's test id carries the server's id, so the flow
+# asks the server for it rather than matching the row by rendered copy.
 - runScript: ../scripts/competency-manager-setup.js
 - tapOn:
     id: "header-account"
@@ -205,13 +205,18 @@ appId: com.padellevelup.app
 # Enter submits the field (onSubmitEditing) and dismisses the keyboard in one step; the
 # Add button is not tapped, because with the keyboard up the tap would land on it (PAD-198).
 - pressKey: Enter
+- runScript:
+    file: ../scripts/competency-id-by-name.js
+    env:
+      NAME: "Maestro Cat"
 - scrollUntilVisible:
     element:
-      text: "Delete: Maestro Cat"
+      id: "competency-delete-id-${output.competencyId}"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
-    text: "Delete: Maestro Cat"
+    id: "competency-delete-id-${output.competencyId}"
 - extendedWaitUntil:
     visible:
       id: "competency-delete-impact"
@@ -236,7 +241,7 @@ appId: com.padellevelup.app
     id: "competency-delete-confirm"
 - extendedWaitUntil:
     notVisible:
-      text: "Delete: Maestro Cat"
+      id: "competency-row-id-${output.competencyId}"
     timeout: 15000
 # The server agrees: nothing of this flow's is left.
 - evalScript: "${output.left = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.name === 'Maestro Cat' }).length}"

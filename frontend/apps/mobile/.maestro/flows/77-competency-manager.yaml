@@ -3,8 +3,8 @@
 # apps/web/src/components/evaluations/competency-manager/. (Flow number 77 reserved for this
 # slice by the Coordinator, 2026-09-21.) The typed-name delete is flow 34's third section.
 #
-# What it proves, by test id and by the server's own answers — rendered copy only where a
-# row's id carries a server id the flow cannot know (the row's accessibility label):
+# What it proves, by test id and by the server's own answers — never rendered copy (a row's
+# test id carries the server's id, so the flow asks the server for it):
 # - Settings → Preferences opens the manager, and it is a PUSHED screen (not a native Modal)
 # - the coach's own categories are a section of their own, first, with their scale written out
 # - a catalogue switch applies when tapped — the server holds it before anything is "saved"
@@ -70,9 +70,13 @@ appId: com.padellevelup.app
 - inputText: "Maestro Own"
 # Enter submits the field (onSubmitEditing) and dismisses the keyboard in one step.
 - pressKey: Enter
+- runScript:
+    file: ../scripts/competency-id-by-name.js
+    env:
+      NAME: "Maestro Own"
 - scrollUntilVisible:
     element:
-      text: "Rename: Maestro Own"
+      id: "competency-row-id-${output.competencyId}"
     direction: DOWN
     timeout: 30000
 - evalScript: "${output.own = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.name === 'Maestro Own' })}"
@@ -96,26 +100,24 @@ appId: com.padellevelup.app
 # ── 4. Rename by id ──
 - scrollUntilVisible:
     element:
-      text: "Rename: Maestro Own"
+      id: "competency-rename-id-${output.competencyId}"
     direction: UP
     timeout: 30000
     centerElement: true
 - tapOn:
-    text: "Rename: Maestro Own"
-# Only one row is ever in rename mode, so the pattern matches exactly one element.
+    id: "competency-rename-id-${output.competencyId}"
 - tapOn:
-    id: "competency-rename-input-id-.*"
+    id: "competency-rename-input-id-${output.competencyId}"
 - eraseText: 20
 - inputText: "Maestro Renamed"
+# Enter saves the rename (onSubmitEditing) and dismisses the keyboard; the row leaves
+# rename mode once the server has answered, which is what the wait below observes.
 - pressKey: Enter
-- tapOn:
-    id: "competency-rename-save-id-.*"
-    optional: true
 - extendedWaitUntil:
     visible:
-      text: "Rename: Maestro Renamed"
+      id: "competency-rename-id-${output.competencyId}"
     timeout: 15000
-- evalScript: "${output.renamed = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.id === output.own[0].id })}"
+- evalScript: "${output.renamed = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return String(c.id) === output.competencyId })}"
 - assertTrue: "${output.renamed.length == 1 && output.renamed[0].name == 'Maestro Renamed'}"
 
 # ── 5. "Concluído" goes back to Settings; nothing was pending ──
