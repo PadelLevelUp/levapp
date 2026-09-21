@@ -515,3 +515,38 @@ def test_message_an_empty_text_fails_on_the_not_null_column_and_blank_or_zero_ar
 
     with app.app_context():
         assert [m.text for m in Message.query.order_by(Message.id)] == ["   ", "0", "hello"]
+
+
+# ── POST /api/app/class_instance/presences/confirm (lesson_service.add_presences) ──
+
+def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undone(app, client):
+    """DEFECT PINNED, NOT FIXED (B-136). Absent-and-justified, then present: the
+    empty justification is dropped, so the row reads `present` + `justified`.
+    Un-marking (status null or "") answers 200 and leaves the mark. Whether a
+    client offers un-marking, and whether any statistic reads `justification`
+    without `status`, was not checked."""
+    from padel_app.models import Presence
+    from padel_app.tests.test_semi_auto_approval import _patched_io, _seed_world
+
+    with app.app_context():
+        world = _seed_world("pad367", n_candidates=1, enrolled=2)
+        instance, (_, player) = world["instance"], world["enrolled"][0]
+        instance_id, lesson_id, player_id = instance.id, instance.lesson_id, player.id
+        headers = _headers(app, world["coach_user"].id)
+
+        def confirm(**item):
+            with _patched_io():
+                res = client.post("/api/app/class_instance/presences/confirm", headers=headers, json={
+                    "classInstance": {"parentClassId": lesson_id, "originalId": instance_id},
+                    "presences": [{"playerId": player_id, **item}]})
+            assert res.status_code == 200, res.get_data(as_text=True)
+            db.session.expire_all()
+            row = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).one()
+            return row.status, row.justification
+
+        assert confirm(status="absent", justification="justified") == ("absent", "justified")
+        assert confirm(status="present", justification="") == ("present", "justified")
+        assert confirm(status="present", justification=None) == ("present", "justified")
+        assert confirm(status=None, justification=None) == ("present", "justified"), "cannot be un-marked"
+        assert confirm(status="", justification="") == ("present", "justified")
+        assert confirm(status="absent", justification="unjustified") == ("absent", "unjustified"), "the control"
