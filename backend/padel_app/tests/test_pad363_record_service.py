@@ -9,7 +9,7 @@ import datetime as dt
 import pytest
 
 from padel_app.sql_db import db
-from padel_app.tests.test_notification_reminder_flow import _seed_coach_and_student
+from padel_app.tests.test_notification_reminder_flow import _seed_coach_and_student, _seed_instance
 
 
 def _seed(app):
@@ -24,25 +24,6 @@ def _seed(app):
         db.session.commit()
         ids.update(rel_id=rel.id, forehand_id=forehand.id, volley_id=volley.id)
     return ids
-
-
-def _instance(ids):
-    """A dated class occurrence to link a record to."""
-    from padel_app.models import Lesson, LessonInstance
-
-    lesson = Lesson(
-        title="Tuesday group", start_datetime=dt.datetime(2026, 7, 1, 18, 0),
-        end_datetime=dt.datetime(2026, 7, 1, 19, 0), max_players=4,
-    )
-    db.session.add(lesson)
-    db.session.flush()
-    instance = LessonInstance(
-        lesson_id=lesson.id, original_lesson_occurence_date=dt.date(2026, 7, 1),
-        start_datetime=lesson.start_datetime, end_datetime=lesson.end_datetime, max_players=4,
-    )
-    db.session.add(instance)
-    db.session.commit()
-    return instance.id
 
 
 JULY_1 = dt.date(2026, 7, 1)
@@ -66,8 +47,8 @@ def test_one_record_per_coach_player_and_day_and_one_more_per_class(app):
     from padel_app.services import evaluation_record_service as svc
 
     ids = _seed(app)
+    instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"])  # a dated class occurrence
     with app.app_context():
-        instance_id = _instance(ids)
         first = svc.get_or_create_record(ids["rel_id"], day=JULY_1)
         again = svc.get_or_create_record(ids["rel_id"], day=JULY_1)
         next_day = svc.get_or_create_record(ids["rel_id"], day=dt.date(2026, 7, 2))

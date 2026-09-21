@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint, Enum, String
 from sqlalchemy.orm import relationship
 
@@ -31,6 +32,7 @@ class Association_CoachPlayer(db.Model, model.Model):
     
     notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
     evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
+    evaluation_records = relationship("EvaluationRecord", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
 
     def __repr__(self):
         return f"<CoachPlayer {self.coach.name} - {self.player.name}>"
@@ -53,7 +55,12 @@ class Association_CoachPlayer(db.Model, model.Model):
     @property
     def current_evaluations(self):
         seen = {}
-        for entry in sorted(self.evaluations, key=lambda e: e.evaluated_at, reverse=True):
+        # PAD-363: `evaluated_at` is NOT NULL since PAD-273, but that migration is
+        # guarded and production drifts; a NULL must not turn the profile into a 500.
+        def when(e):
+            return (e.evaluated_at or e.created_at or datetime.min, e.id or 0)
+
+        for entry in sorted(self.evaluations, key=when, reverse=True):
             if entry.category_id not in seen:
                 seen[entry.category_id] = entry
         return list(seen.values())

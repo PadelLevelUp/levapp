@@ -156,6 +156,12 @@ def upsert_evaluation_categories(coach, data):
             .filter(EvaluationCategory.name == payload["name"])
             .first()
         )
+        # evaluations.legacy-client-contract (R-047, PAD-363): this endpoint is one
+        # of the five App Store 1.0/1.1.0 call. It never updates a non-legacy
+        # competency, and a name one already holds is skipped — (coach, name) is
+        # unique, so it could only collide.
+        if evaluation_category is not None and not evaluation_category.is_legacy:
+            continue
         if evaluation_category:
             _apply_form(evaluation_category.get_edit_form(), payload, evaluation_category)
             evaluation_category.save()
@@ -212,10 +218,23 @@ def add_evaluation_entry_service(coach, data):
     # latest score adds no history row, so it cannot move `evaluatedAt`. Old
     # App Store builds still post every category, which this keeps harmless for
     # categories that already hold a score.
+    from padel_app.services.evaluation_record_service import append_entry
+
     latest = {e.category_id: e.score for e in coach_player.current_evaluations}
+    # evaluations.legacy-client-contract (R-047, PAD-363): this endpoint accepts
+    # scores for the coach's own LEGACY categories only. An App Store build posts
+    # a midpoint for every category it knows of; a competency it should never
+    # have seen — or another coach's category, or an id that does not exist — is
+    # ignored, and the response is the same.
+    legacy_ids = {c.id for c in coach.evaluation_categories if c.is_legacy}
     for score in scores:
         value = score.get("value")
         if value is None:
+            continue
+        try:
+            if int(score.get("categoryId")) not in legacy_ids:
+                continue
+        except (TypeError, ValueError):
             continue
         try:
             unchanged = float(latest[int(score.get("categoryId"))]) == float(value)
@@ -228,9 +247,12 @@ def add_evaluation_entry_service(coach, data):
             "category": score.get("categoryId"),
             "score": score.get("value"),
         }
+        # The form layer stays in front (its coercions are pinned by PAD-362,
+        # B-136 included); the row is then written by the one writer, into the
+        # day's class-less record (evaluations.records).
         entry = EvaluationEntry()
         _apply_form(entry.get_create_form(), ev_payload, entry)
-        entry.create()
+        append_entry(entry)
 
     existing_strengths = {n.text for n in coach_player.strengths}
     for item in strengths:
@@ -337,11 +359,20 @@ def delete_evaluation_category_service(category, actor_user_id=None):
     in the same transaction (evaluations.categories rule 7, PAD-274)."""
     from padel_app.services.deletion_audit_service import record_deletion
 
+    from padel_app.models import EvaluationEntry as _Entry
+    from padel_app.services.evaluation_record_service import prune_empty_records
+
     impact = evaluation_category_impact(category)
+    # PAD-363: the scores go with the category; a record they leave empty goes too.
+    touched = [
+        row[0] for row in
+        _Entry.query.with_entities(_Entry.coach_player_id).filter_by(category_id=category.id).distinct()
+    ]
     record_deletion(
         actor_user_id=actor_user_id, entity="evaluation_category", entity_id=category.id,
         action="deleted", label=category.name,
         details={"coach_id": category.coach_id, "scores": impact["scores"], "players": impact["players"]},
     )
     category.delete()
+    prune_empty_records(touched)
     return impact
