@@ -68,3 +68,47 @@ Coaches record evaluation scores for players over time, tracking progress across
 - **Given** Forehand's latest score for the player is 8
 - **When** a client posts `{"categoryId": Forehand, "value": 8}` and `{"categoryId": Volley, "value": null}`
 - **Then** no entry is written for either, and Forehand's `evaluatedAt` is unchanged
+
+### Acceptance Criteria — the contract as shipped, pinned by PAD-362
+
+Appended by PAD-362 (2026-09-21). These state what the code does at `origin/staging` `00e53375f`,
+because App Store iOS 1.0 and 1.1.0 call these endpoints in production and cannot change. Where a
+criterion contradicts a rule above, the rule is the intent and the criterion is today's behaviour;
+the ledger entry says which endpoint will honour the rule. Tests:
+`backend/padel_app/tests/test_pad362_evaluation_contract.py`.
+
+#### The player profile's evaluation items have exactly six keys
+- **Given** a coach with a player on their roster who has scores in two categories
+- **When** the coach reads `GET /api/app/player_profile/<player_id>`
+- **Then** the body has exactly `playerId` (a string), `evaluations`, `strengths`, `weaknesses`
+- **And** each evaluation has exactly `categoryId`, `categoryName`, `score`, `scaleMin`, `scaleMax`, `evaluatedAt`, one per category, the latest only; a category never scored is absent
+- **And** each strength and weakness is exactly `{id, text}`
+- **And** a student gets 403, and a coach without that player on their roster gets 404
+
+#### `evaluatedAt` is a naive ISO timestamp for every kind of row
+- **Given** a score saved through the API, one written by the import with `date: 2026-03-01`, and one whose `evaluated_at` was backfilled from `created_at` (PAD-273)
+- **Then** every `evaluatedAt` matches `YYYY-MM-DDTHH:MM:SS[.ffffff]` with no `Z` and no offset, and the imported one is exactly `2026-03-01T00:00:00`
+
+#### Saving answers `{status: "ok", playerId}` and writes only what changed
+- **Given** Forehand's latest score is 5, recorded 30 days ago
+- **When** a client posts `value: 5` for it
+- **Then** no entry is written and its `evaluatedAt` does not move
+- **And** posting 5, then 3, then 5 writes three entries; `value: null` writes none
+- **And** strengths and weaknesses are add-only and deduplicated by text; an empty list removes nothing
+
+#### An old build's every-category body (rule 7)
+- **Given** Forehand's latest score is 7 and Volley (0–10) was never scored
+- **When** a client posts Forehand 7 and Volley 5 (the midpoint), with `strengths: []` and `weaknesses: []`
+- **Then** nothing is written for Forehand and a 5 is written for Volley — the known gap, asserted, not fixed
+- **And** the same body posted again writes nothing
+
+#### The server enforces no score range (B-126 — today's behaviour, not rule 4)
+- **Given** a 0–10 category
+- **When** a client posts 99, then -3, then 2.5
+- **Then** each answers 200 and is written, and the profile serves 2.5
+
+#### A numeric score of 0 cannot be saved, and a save is not atomic (B-136)
+- **Given** a category whose minimum is 0
+- **When** a client posts `value: 0` as a number
+- **Then** the request fails on the NOT NULL `score` column and nothing is written for it; the string `"0"` is written as 0
+- **And** a score posted before it in the same body stays written
