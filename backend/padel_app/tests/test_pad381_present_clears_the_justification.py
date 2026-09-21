@@ -16,7 +16,7 @@ Every case goes through `POST /api/app/class_instance/presences/confirm`. Fixed 
 date, no wall clock. Un-marking attendance is a separate, open product question and is
 not covered here.
 
-Covered spec: classes.attendance (the justification rule).
+Covered spec: attendance.validation rule 21; attendance.stats rules 2–3.
 """
 from datetime import datetime
 from unittest.mock import patch
@@ -132,6 +132,13 @@ ABSENT_JUSTIFIED = {"status": "absent", "justification": "justified"}
 def test_marking_present_clears_a_justification(client, app, world, present_mark):
     assert _mark(client, app, world, ABSENT_JUSTIFIED) == ("absent", "justified")
     assert _mark(client, app, world, present_mark) == ("present", None)
+
+
+def test_a_justification_sent_with_no_status_onto_a_present_row_is_cleared_too(client, app, world):
+    """The rule reads the row's status AFTER the write, not the body's: a body that carries
+    only a justification cannot put one on a row that is already present (#357 review, nit 7)."""
+    assert _mark(client, app, world, {"status": "present"}) == ("present", None)
+    assert _mark(client, app, world, {"justification": "justified"}) == ("present", None)
 
 
 def test_a_first_mark_of_present_has_no_justification(client, app, world):

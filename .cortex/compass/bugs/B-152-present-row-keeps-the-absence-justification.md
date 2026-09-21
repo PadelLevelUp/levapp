@@ -3,14 +3,13 @@ id: B-152
 title: "Marking a student present after 'absent, justified' left the justification on the present row"
 type: incomplete-rule
 severity: medium
-status: resolved
+status: triaged
 affects:
   - attendance.validation
   - backend/padel_app/services/lesson_service.py
   - backend/padel_app/services/notification_service.py
 proposed_fix: "lesson_service.add_presences clears justification whenever the recorded status is present, whatever the body carries."
 opened: 2026-09-21T19:00:00Z
-resolved: 2026-09-21T19:50:00Z
 ---
 
 # B-152 — a present row that still said "justified"
@@ -80,9 +79,17 @@ Add `attendance.validation` rule 21 + criterion; route-level tests first (they f
   import). Safe writers, read one by one: the decline path writes absent + justified together;
   the PAD-313 re-take path, `notification_engine_api` and `lesson_service.enrol`'s reset only clear
   it; seed data sets it only when absent; the admin editor can write any column (admin-only).
-- Found and NOT fixed here — B-143: `_students_with_justified_absences` and
+- Found and NOT fixed here — PAD-382 (its ledger entry, B-143, arrives with that ticket's PR; no such file exists yet): `_students_with_justified_absences` and
   `_students_with_recent_absences` are not scoped to the coach, so one coach's manual-invitation
   dialog is shaped by another coach's attendance record.
+- **The stale rows are NOT inert (Session-B's review, verified on the source):** the engine ignores
+  them now, but both shells seed a row's local state from the STORED justification whatever the
+  status and default an absent toggle to it, so flipping a stale `(present, justified)` student to
+  absent sends `absent + justified` instead of the default `unjustified`. Rows heal when a class is
+  re-saved. **PAD-381 is not finished until the cleanup
+  (`UPDATE presences SET justification = NULL WHERE status = 'present' AND justification IS NOT NULL`)
+  is done or a written decision says it is not needed** — it waits for Session-A's count and the
+  owner's word for a production write (coordinator's ruling, 2026-09-21).
 - NOT done here: the stale rows are not rewritten and not counted — for Session-A's queue:
   `SELECT justification, count(*) FROM presences WHERE status = 'present' AND justification IS NOT NULL GROUP BY justification`;
   un-marking attendance is an open product question.
