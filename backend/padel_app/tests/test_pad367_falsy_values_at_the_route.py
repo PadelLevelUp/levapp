@@ -432,3 +432,34 @@ def test_json_admin_editor_can_clear_a_text_and_write_a_zero(app, client):
         assert rel.notes == "", "cleared — to an empty string, not NULL"
         assert rel.side == "right", "null is skipped by update_with_dict: still not a way to clear"
         assert db.session.get(EvaluationCategory, category_id).scale_min == 0
+
+
+# ── POST / PUT /api/app/availability_blockers (a student's unavailability) ───
+
+def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week(app, client):
+    """DEFECT PINNED, NOT FIXED (B-150, the consequence that costs someone a class).
+    Same service as the calendar edit above. The notification engine's own
+    predicate, `user_is_blocked_for_window`, expands the leftover rule: two weeks
+    after the ONE day the student said they were away, they are still "blocked"."""
+    from datetime import datetime
+
+    from padel_app.services.student_availability_service import user_is_blocked_for_window
+
+    ids = _seed(app)
+    headers = _headers(app, ids["student_user_id"])
+    away = {"title": "Away", "date": "2026-10-05", "startTime": "18:00", "endTime": "20:00"}
+    created = client.post("/api/app/availability_blockers", headers=headers, json={
+        **away, "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [1]}, "endDate": "2026-12-01"})
+    assert created.status_code == 201, created.get_data(as_text=True)
+
+    edited = client.put(f"/api/app/availability_blockers/{created.get_json()['id']}", headers=headers,
+                        json={**away, "isRecurring": False})
+    assert edited.status_code == 200 and edited.get_json()["isRecurring"] is False
+
+    def blocked_on(day):
+        with app.app_context():
+            return user_is_blocked_for_window(ids["student_user_id"], datetime(2026, 10, day, 18, 30), datetime(2026, 10, day, 19, 30))
+
+    assert blocked_on(5) is True, "the day they asked for"
+    assert blocked_on(19) is True, "and, wrongly, every Monday after it"
+    assert blocked_on(20) is False, "the control: a Tuesday was never blocked"
