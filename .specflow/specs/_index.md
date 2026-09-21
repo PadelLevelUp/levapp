@@ -16,7 +16,7 @@ governing leaf spec and its dependencies before touching code.
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `eligibility/` — Who May Join a Class (4 leaves)
-- `evaluations/` — Player Evaluation System (4 leaves)
+- `evaluations/` — Player Evaluation System (13 leaves: 4 implemented, 9 draft; `evaluations.legacy-client-contract`, `.competencies`, `.records`, `.class-panel`, `.history`, `.evolution`, `.sharing`, `.student-view`, `.reminders` drafted 2026-09-21 from the "Sistema de Avaliações" canvas ingest, and the four shipped leaves corrected for drift the same day; sharing, student-view and reminders are owner-pending)
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
@@ -62,6 +62,8 @@ Registration & connections (decision 2026-09-06): `auth.coach-approval` → `aut
 `messaging.conversations`, `attendance.presence`; `messaging.direct-by-username` →
 `messaging.block-and-report`. `players.add-existing` is deprecated and out of the build order.
 
+The draft `evaluations` leaves (2026-09-21) reach beyond the domain box above at leaf level: `evaluations.records` → `classes.instances`; `evaluations.class-panel` → `classes.detail-visibility`, `attendance.presence`; `evaluations.history` → `players.notes`; `evaluations.sharing` → `messaging.messages`; `evaluations.student-view` → `dashboard.blocks`; `evaluations.reminders` → `notifications.config`, `attendance.presence`. Nothing outside `evaluations` and `import` depends on an evaluations leaf.
+
 `mobile.android-runtime` depends on `calendar.mobile-views`, `messaging.push-notifications` and
 `training.tactical-board` (the screens whose Android behaviour it pins); nothing depends on it.
 
@@ -91,7 +93,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | eligibility | 1 | 4 | draft |
 | attendance | 2 | 5 | partial |
 | levels | 2 | 4 | implemented |
-| evaluations | 2 | 5 | implemented |
+| evaluations | 2 | 13 | implemented (4 shipped leaves); 9 draft leaves from the 2026-09-21 canvas ingest |
 | messaging | 4 | 9 | implemented |
 | notifications | 4 | 13 | implemented |
 | training | 2 | 6 | implemented |

@@ -81,6 +81,21 @@ def _remove_student_from_future(player, now):
     )
 
 
+def _close_open_class_requests(user, now):
+    """classes.class-requests rule 18: a deleting student withdraws, a deleting
+    coach declines, and a deleting student leaves other people's invitee lists."""
+    from padel_app.services.class_request_service import (
+        close_open_requests_silently,
+        drop_invitee_from_open_requests,
+    )
+
+    if user.player is not None:
+        close_open_requests_silently(status="withdrawn", by="student", player_id=user.player.id, now_utc=now)
+        drop_invitee_from_open_requests(user.player.id)
+    if user.coach is not None:
+        close_open_requests_silently(status="declined", by="coach", coach_id=user.coach.id, now_utc=now)
+
+
 def delete_account_service(user_id, *, now=None):
     from padel_app.models.blocked_user import BlockedUser
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -110,6 +125,11 @@ def delete_account_service(user_id, *, now=None):
     BlockedUser.query.filter(
         (BlockedUser.blocker_id == user.id) | (BlockedUser.blocked_id == user.id)
     ).delete(synchronize_session=False)
+
+    # Rules 6 and 10 (PAD-360, B-135): open class requests do not outlive the
+    # account — silently. Before the block purge below, so a coach's holds are
+    # released through the session and not found stale by it.
+    _close_open_class_requests(user, now)
     CalendarBlock.query.filter_by(user_id=user.id).delete(synchronize_session=False)
 
     # Rule 6: a student leaves the future (a coach's classes are untouched, rule 10).

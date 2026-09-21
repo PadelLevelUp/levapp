@@ -1,0 +1,74 @@
+# PAD-357 — settings.coach-working-hours rule 2, "Invalid hours are refused by the
+# server": a day the server refuses shows the error naming that day, not a
+# success, and nothing is stored. Closes the iOS gap #338 left ("Not run").
+#
+# Mirrors: apps/web/e2e/settings/coach-working-hours.spec.ts (the refused save).
+# The invalid day is made without the iOS time spinner (not stable in Maestro, see
+# flows 13 and 69): "add window" on an untouched Monday appends 22:00–22:00 (the
+# last window's end to the default end), which breaks start < end.
+#
+# The seeded coach starts with no working hours. A first API step clears any left
+# by an earlier failed run; the flow stores nothing, and the last step proves it.
+# iOS carries the refused day in the id: working-hours-error-<key>.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
+# Flow number 85 is from Session D's range (2026-09-21 wave).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.reset = http.put(output.api + '/api/app/coach/working-hours', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ workingHours: null }) }).ok}"
+- assertTrue: "${output.reset == true}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-calendar"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "settings-nav-calendar"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-default"
+    direction: DOWN
+    timeout: 30000
+
+# ── Monday gets a second window that starts when it ends ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-add-mon"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "working-hours-add-mon"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-mon-1-start"
+    direction: DOWN
+    timeout: 20000
+
+# ── Save: refused, the error names Monday ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "working-hours-save"
+- extendedWaitUntil:
+    visible:
+      id: "working-hours-error-mon"
+    timeout: 15000
+
+# Not a success: the card never reached "set" (Clear only renders when set), and
+# the server still holds nothing.
+- assertNotVisible:
+    id: "working-hours-clear"
+- evalScript: "${output.stored = json(http.get(output.api + '/api/app/coach/working-hours', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).workingHours}"
+- assertTrue: "${output.stored === null}"
