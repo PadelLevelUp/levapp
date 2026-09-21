@@ -166,3 +166,16 @@ describe("while the evaluation form is open (held)", () => {
     shown.unmount();
   });
 });
+
+describe("the three averages are labelled by their WINDOW (Q32)", () => {
+  it("sit under an 'Averages' heading as last month / last 6 months / last year — never 'monthly average' beside a monthly point", () => {
+    show([12]);
+    const block = screen.getByTestId("evolution-means");
+    expect(within(block).getByTestId("evolution-means-heading").textContent).toBe("players.evaluationHistory.meansHeading");
+    expect(block.textContent).toContain("players.evaluationHistory.meanLastMonth");
+    expect(block.textContent).toContain("players.evaluationHistory.meanLast6Months");
+    expect(block.textContent).toContain("players.evaluationHistory.meanLastYear");
+    // the API keys and the figures are untouched
+    expect(screen.getByTestId("evolution-mean-m6").getAttribute("data-value")).toBe("3.7");
+  });
+});

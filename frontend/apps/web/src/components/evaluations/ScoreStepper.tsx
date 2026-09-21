@@ -34,11 +34,17 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
 
   return (
     <div className="flex items-center gap-2">
-      {score !== null && onClear && (
-        <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={onClear}
-          aria-label={t("players.evaluationHistory.clearScore", { name })} data-testid={`evaluation-stepper-${id}-clear`}>
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+      {/* The clear control's place is kept while there is nothing to clear, so its appearing after
+          the first "+" moves neither "−" nor "+" under the finger (same principle as useHeldWhile). */}
+      {onClear && (
+        <span className="inline-flex h-9 w-9 shrink-0" data-testid={`evaluation-stepper-${id}-clear-slot`}>
+          {score !== null && (
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={onClear}
+              aria-label={t("players.evaluationHistory.clearScore", { name })} data-testid={`evaluation-stepper-${id}-clear`}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
+        </span>
       )}
       <Button type="button" variant="outline" size="icon" className="h-11 w-11" onClick={() => onStep(-1)}
         disabled={score !== null && score <= scaleMin}

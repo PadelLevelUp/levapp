@@ -160,8 +160,12 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData:
             </Text>
           ) : null}
 
-          <View className="flex-row gap-2">
-            {([["m1", "meanMonthly"], ["m6", "meanSemester"], ["m12", "meanYear"]] as const).map(([key, label]) => (
+          {/* Q32: labelled by their WINDOW — rolling means over the ratings, beside calendar-month points. */}
+          <Text className="text-xs font-medium text-muted-foreground" testID="evolution-means-heading">
+            {t("players.evaluationHistory.meansHeading")}
+          </Text>
+          <View className="flex-row gap-2" testID="evolution-means">
+            {([["m1", "meanLastMonth"], ["m6", "meanLast6Months"], ["m12", "meanLastYear"]] as const).map(([key, label]) => (
               <View key={key} className="flex-1 rounded-lg border border-border bg-card p-3">
                 <Text className="text-xs text-muted-foreground">{t(`players.evaluationHistory.${label}`)}</Text>
                 {/* the value rides on the testID (…-m6-3.7) so Maestro can assert what the server sent */}
