@@ -37,6 +37,8 @@ def _body():
     """The JSON body as sent: `{}` when there is none, 400 when it is not an object."""
     body = request.get_json(silent=True)
     if body is None:
+        if request.get_data(cache=True).strip():
+            raise ApiError(400, "body_invalid")  # a body was sent and does not parse: never a silent no-op
         return {}
     if not isinstance(body, dict):
         raise ApiError(400, "body_invalid")

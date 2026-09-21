@@ -135,14 +135,19 @@ def ensure_starting_set(coach) -> None:
         db.session.rollback()
 
 
-def list_competencies(coach) -> dict:
-    ensure_starting_set(coach)
-    categories = _ordered(EvaluationCategory.query.filter_by(coach_id=coach.id).all())
-    counts = dict(
+def _score_counts(categories) -> dict:
+    """category_id → number of entries on it, in one query."""
+    return dict(
         db.session.query(EvaluationEntry.category_id, func.count(EvaluationEntry.id))
         .filter(EvaluationEntry.category_id.in_([c.id for c in categories] or [0]))
         .group_by(EvaluationEntry.category_id)
     )
+
+
+def list_competencies(coach) -> dict:
+    ensure_starting_set(coach)
+    categories = _ordered(EvaluationCategory.query.filter_by(coach_id=coach.id).all())
+    counts = _score_counts(categories)
     switched_on = {c.catalogue_key for c in categories if c.catalogue_key}
     held = {fold(c.name) for c in categories}
     return {
@@ -190,6 +195,11 @@ def create_competency(coach, body):
             db.session.commit()
             return existing, False
         if any(_name_taken(coach, label) for label in (entry["pt"], entry["en"])):
+            # The name may be held by this very competency, switched on by a racing
+            # request since we looked (a double tap): then answer that row.
+            winner = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first()
+            if winner is not None:
+                return winner, False
             raise ApiError(409, "duplicate_name")
         name, group = entry["pt"], entry["group"]
     else:
@@ -201,8 +211,19 @@ def create_competency(coach, body):
         coach_id=coach.id, name=name, scale_min=NEW_SCALE[0], scale_max=NEW_SCALE[1],
         catalogue_key=key, competency_group=group, is_active=True, sort_order=None,
     )
-    db.session.add(category)
-    db.session.commit()
+    try:
+        db.session.add(category)
+        db.session.commit()
+    except IntegrityError:
+        # A double tap: another request inserted it between our check and our insert
+        # (the unique (coach_id, catalogue_key) / (coach_id, name) indexes are the guard).
+        # Answer what the first request answered.
+        db.session.rollback()
+        if key is not None:
+            winner = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first()
+            if winner is not None:
+                return winner, False
+        raise ApiError(409, "duplicate_name")
     return category, True
 
 
@@ -294,7 +315,7 @@ def latest_entries(coach_player_id) -> dict:
 
 def player_evaluations(coach, player_id) -> dict:
     """The player's records, newest first. Record-less entries are served NOWHERE
-    in v2 (Q28): an earlier score of a day that the record's slot moved on from —
+    in v2 (Q29): an earlier score of a day that the record's slot moved on from —
     or the loser of a slot race — stays in the table, untouched, and is not read.
     What a card shows is what an average counts."""
     link = coach_player_for(coach, player_id)
@@ -314,11 +335,13 @@ def player_evaluations(coach, player_id) -> dict:
     }
 
 
-def _resolve_class(coach, ref, *, materialise):
-    """`{model, id, date}` → the LessonInstance, or None for an occurrence that has
-    no row yet (only when `materialise` is False)."""
+def _resolve_class(coach, ref):
+    """`{model, id, date}` → `(instance, pending)`. NEVER materialises: `instance` is
+    the occurrence's row when it has one; otherwise `pending` is `(lesson, date)`
+    for `_materialise` to use immediately before a write. Validates the ref, the
+    coach's ownership of the class and — for an occurrence with no row — that it is
+    not in the past and that the series really produces that date."""
     from padel_app.modules.frontend_api import coach_owns_instance, coach_owns_lesson
-    from padel_app.services.lesson_service import get_or_materialize_instance
 
     if not isinstance(ref, dict) or str(ref.get("model", "")).lower() not in ("lesson", "lessoninstance"):
         raise ApiError(400, "class_ref_invalid")
@@ -333,7 +356,7 @@ def _resolve_class(coach, ref, *, materialise):
             raise ApiError(404, "class_not_found")
         if not coach_owns_instance(coach, instance):
             raise ApiError(403, "not_your_class")
-        return instance
+        return instance, None
 
     lesson = db.session.get(Lesson, class_id)
     if lesson is None:
@@ -345,16 +368,23 @@ def _resolve_class(coach, ref, *, materialise):
     except ValueError:
         raise ApiError(400, "class_ref_invalid")
     instance = LessonInstance.query.filter_by(lesson_id=lesson.id, original_lesson_occurence_date=occurrence).first()
-    if instance is not None or not materialise:
-        return instance
-    # Materialising enrols the whole roster as presences and fans the standing
-    # waiting list out (PAD-363's reading of get_or_materialize_instance). Rating
-    # a player may do that for today's class or a later one — never for a past
-    # one as a side effect. Slice 6 owns the product decision on past classes.
-    if occurrence < today():
-        raise ApiError(409, "class_not_materialised")
+    if instance is not None:
+        return instance, None
     if not lesson.produces(occurrence):
         raise ApiError(400, "class_ref_invalid")
+    return None, (lesson, occurrence)
+
+
+def _materialise(pending) -> LessonInstance:
+    """Create the occurrence's row — called only when a write is certain.
+
+    Materialising enrols the whole roster as unmarked presences and fans the
+    standing waiting list out (PAD-363's reading of get_or_materialize_instance; it
+    sends nothing). Rating a player may do that for today's class or a later one,
+    never for a past one, and never on a request that ends up writing nothing."""
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    lesson, occurrence = pending
     return get_or_materialize_instance(lesson, occurrence)
 
 
@@ -389,9 +419,13 @@ def put_record(coach, body):
         if not isinstance(note, str) or len(note) > NOTE_MAX:
             raise ApiError(400, "note_invalid")
 
-    instance = None
+    instance, pending = None, None
     if body.get("classRef") is not None:
-        instance = _resolve_class(coach, body["classRef"], materialise=True)
+        instance, pending = _resolve_class(coach, body["classRef"])
+        # Slice 6 owns the product decision on past classes; the API must not make
+        # it by accident — and it says so before anything else can be refused.
+        if pending is not None and pending[1] < today():
+            raise ApiError(409, "class_not_materialised")
     instance_id = instance.id if instance is not None else None
 
     on = today()
@@ -402,19 +436,27 @@ def put_record(coach, body):
             raise ApiError(404, "record_not_found")
         if open_record.coach_player.coach_id != coach.id:
             raise ApiError(403, "not_your_record")
+        if open_record.coach_player_id != link.id or open_record.lesson_instance_id != instance_id:
+            raise ApiError(400, "record_mismatch")  # the record of another player, or of another class
         if open_record.evaluated_on != on:
             raise ApiError(409, "record_not_editable")
-    existing = EvaluationRecord.query.filter_by(coach_player_id=link.id, evaluated_on=on)
-    existing = (existing.filter(EvaluationRecord.lesson_instance_id.is_(None)) if instance_id is None
-                else existing.filter_by(lesson_instance_id=instance_id)).first()
+    existing = None
+    if pending is None:  # an occurrence with no row yet cannot have a record
+        existing = EvaluationRecord.query.filter_by(coach_player_id=link.id, evaluated_on=on)
+        existing = (existing.filter(EvaluationRecord.lesson_instance_id.is_(None)) if instance_id is None
+                    else existing.filter_by(lesson_instance_id=instance_id)).first()
     held = {e.category_id for e in existing.entries} if existing is not None else set()
     for category, value in ratings.items():
         if value is not None and not category.is_active and category.id not in held:
-            raise ApiError(409, "competency_inactive")  # Q26: an existing rating may still change
+            raise ApiError(409, "competency_inactive")  # an existing rating may still change (Q26)
 
     writes_something = any(v is not None for v in ratings.values()) or (note is not MISSING and (note or "").strip())
     if existing is None and not writes_something:
         return None  # nothing to clear, nothing to write: no record is made
+
+    # Every refusal and the no-op are behind us: only now may the class get its row.
+    if pending is not None:
+        instance_id = _materialise(pending).id
 
     with unit_of_work():
         record = existing or records.get_or_create_record(link.id, day=on, lesson_instance_id=instance_id)
@@ -462,7 +504,7 @@ def evolution(coach, player_id, category_id) -> dict:
         raise ApiError(400, "category_id_required")
     category = own_competency(coach, category_id)
 
-    # Only the ratings that sit in a record count (Q28), each on its record's day:
+    # Only the ratings that sit in a record count (Q29), each on its record's day:
     # what is averaged is exactly what the history cards show.
     rows = [
         (day, score) for day, score in
@@ -487,8 +529,10 @@ def evolution(coach, player_id, category_id) -> dict:
         "scaleMin": low, "scaleMax": high,
         "series": [{"month": m, "mean": _one_decimal(raw[m])} for m in months],
         "means": {"m1": rolling(1), "m6": rolling(6), "m12": rolling(12)},
-        "delta": ({"value": _one_decimal(raw[months[-1]] - raw[months[0]]), "sinceMonth": months[0]}
-                  if len(months) > 1 else None),
+        # Rule 9: the difference of the two POINTS the coach is looking at — each monthly
+        # mean rounded first — so the number under the chart equals what the chart shows.
+        "delta": ({"value": _one_decimal(Decimal(str(_one_decimal(raw[months[-1]]))) - Decimal(str(_one_decimal(raw[months[0]])))),
+                   "sinceMonth": months[0]} if len(months) > 1 else None),
     }
 
 
@@ -498,12 +542,11 @@ def evolution(coach, player_id, category_id) -> dict:
 def class_evaluations(coach, ref) -> dict:
     """A READ: who is in the class, and each one's most recent record in it. Never materialises."""
     ensure_starting_set(coach)
-    instance = _resolve_class(coach, ref, materialise=False)
+    instance, pending = _resolve_class(coach, ref)
     if instance is not None:
         roster = [(p.player, p.status == "absent") for p in instance.presences]
     else:
-        lesson = db.session.get(Lesson, int(ref["id"]))
-        roster = [(rel.player, False) for rel in lesson.players_relations]
+        roster = [(rel.player, False) for rel in pending[0].players_relations]
 
     links = {
         link.player_id: link
@@ -511,30 +554,38 @@ def class_evaluations(coach, ref) -> dict:
         .filter(Association_CoachPlayer.player_id.in_([p.id for p, _ in roster] or [0]))
     }
     on = today()
+    latest_record = {}
+    if instance is not None and links:
+        found = (
+            EvaluationRecord.query.filter_by(lesson_instance_id=instance.id)
+            .filter(EvaluationRecord.coach_player_id.in_([link.id for link in links.values()]))
+            .order_by(EvaluationRecord.evaluated_on.desc(), EvaluationRecord.id.desc())
+        )
+        for record in found:  # one query; the first seen per link is its most recent
+            latest_record.setdefault(record.coach_player_id, record)
+
     participants = []
     for player, absent in roster:
         link = links.get(player.id)
-        record = None
-        if link is not None and instance is not None:
-            # Q29: the participant's MOST RECENT record for this occurrence, not only
-            # today's — its `editable` says which. A PUT still files under today.
-            record = (
-                EvaluationRecord.query.filter_by(coach_player_id=link.id, lesson_instance_id=instance.id)
-                .order_by(EvaluationRecord.evaluated_on.desc(), EvaluationRecord.id.desc()).first()
-            )
+        if link is None:
+            continue  # not on this coach's roster: a PUT for them is 404, and a row that cannot be rated is a dead control
+        # Which record a class row shows (Q28): the participant's MOST RECENT one for
+        # this occurrence, not only today's — `editable` says which. A PUT still files under today.
+        record = latest_record.get(link.id)
         participants.append({
             "playerId": player.id,
-            "coachPlayerId": link.id if link is not None else None,
+            "coachPlayerId": link.id,
             "name": player.user.name if player.user is not None else "",
             "absent": absent,
             "due": False,  # evaluations.reminders (slice 8)
             "record": serialize_record(record, on=on) if record is not None else None,
         })
-    participants.sort(key=lambda p: (p["absent"], fold(p["name"])))  # Q14: absent last, still rateable
+    participants.sort(key=lambda p: p["absent"])  # Q14: absent last; the rest keep the class detail's order (stable)
 
     active = _ordered(EvaluationCategory.query.filter_by(coach_id=coach.id, is_active=True).all())
+    counts = _score_counts(active)
     return {
         "classInstanceId": instance.id if instance is not None else None,
-        "competencies": [serialize_competency(c) for c in active],
+        "competencies": [serialize_competency(c, counts.get(c.id, 0)) for c in active],
         "participants": participants,
     }

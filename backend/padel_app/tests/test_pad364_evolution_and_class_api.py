@@ -54,7 +54,7 @@ def _bandeja(app, ids):
         db.session.commit()
         for score, day in rows:
             _rated(ids, bandeja.id, score, dt.datetime.fromisoformat(day + "T18:00:00"))
-        # a record-less row of the same competency: in the table, read by nothing in v2 (Q28)
+        # a record-less row of the same competency: in the table, read by nothing in v2 (Q29)
         db.session.add(EvaluationEntry(coach_player_id=ids["rel_id"], category_id=bandeja.id, score=1,
                                        evaluated_at=dt.datetime(2026, 9, 10, 9, 0)))
         db.session.commit()
@@ -152,7 +152,7 @@ def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_
     }
     assert participant["record"]["id"] == put.get_json()["id"]
 
-    # Q29: the next day the coach opens the same class — the record made in it is still there, read-only
+    # Q28: the next day the coach opens the same class — the record made in it is still there, read-only
     pin_clock(monkeypatch, NOW + dt.timedelta(days=1))
     later = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()["participants"][0]["record"]
     assert (later["id"], later["evaluatedOn"], later["editable"]) == (put.get_json()["id"], "2026-09-21", False)
@@ -367,3 +367,108 @@ def test_the_boundary_day_is_inside_the_window_and_the_hour_does_not_matter(app,
 
     assert answers[0] == answers[1]
     assert answers[0]["m6"] == 4.0  # (5+3+4+4)/4: the rating dated exactly on the cutoff counts
+
+
+# ── review round 1 on #353 (Session-B) ──────────────────────────────────────
+
+
+def _class_rows(app):
+    """Everything materialising an occurrence creates: the instance, the roster's
+    presences, the standing list's fan-out — and anything it could notify."""
+    from padel_app.models import LessonInstance, Message
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.presences import Presence
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    with app.app_context():
+        return (LessonInstance.query.count(), Presence.query.count(), WaitingListEntry.query.count(),
+                NotificationEvent.query.count(), Message.query.count())
+
+
+def test_a_put_that_writes_nothing_never_materialises_the_class(app, client):
+    """F1: rating must never enrol a roster as a side effect — and neither may a
+    request that ends in a refusal or a no-op. The occurrence is materialised only
+    immediately before a write."""
+    ids = _seed(app)
+    lesson_id = _recurring_lesson(app, ids, dt.datetime(2026, 9, 7, 18, 0))
+    headers = _coach_headers(app, ids)
+    ref = {"model": "Lesson", "id": lesson_id, "date": "2026-09-21"}  # today's occurrence, no row yet
+    client.patch(f"{BASE}/evaluation_competency/{ids['volley_id']}", json={"isActive": False}, headers=headers)
+    before = _class_rows(app)
+
+    attempts = [
+        ({"ratings": {str(ids["forehand_id"]): None}}, 200),              # clears nothing: a no-op
+        ({"ratings": {str(ids["volley_id"]): 4}}, 409),                   # competency_inactive
+        ({"ratings": {str(ids["forehand_id"]): 4}, "recordId": 987654}, 404),
+        ({"ratings": {str(ids["forehand_id"]): 99}}, 400),                # out of range
+    ]
+    for body, status in attempts:
+        res = client.put(f"{BASE}/evaluation_record", headers=headers,
+                         json={"playerId": ids["student_id"], "classRef": ref, **body})
+        assert res.status_code == status, (body, res.get_data(as_text=True))
+        assert _class_rows(app) == before, body
+
+    ok = client.put(f"{BASE}/evaluation_record", headers=headers,
+                    json={"playerId": ids["student_id"], "classRef": ref, "ratings": {str(ids["forehand_id"]): 4}})
+    assert ok.status_code == 200 and _class_rows(app)[0] == before[0] + 1  # the write, and only the write, materialises
+
+
+def test_the_delta_is_the_difference_of_the_two_points_the_coach_sees(app, client):
+    """F2 (evolution rule 9): delta = round1(round1(last) - round1(first)). With
+    thirds the raw difference rounds differently: 2.333 -> 2.3, 3.667 -> 3.7, the
+    chart shows 2.3 and 3.7, so the delta is +1.4 — not round1(1.333) = +1.3."""
+    ids = _seed(app)
+    with app.app_context():
+        for score, day in ((2, "2026-05-05"), (2, "2026-05-12"), (3, "2026-05-19"),
+                           (3, "2026-08-04"), (4, "2026-08-11"), (4, "2026-08-18")):
+            _rated(ids, ids["forehand_id"], score, dt.datetime.fromisoformat(day + "T09:00:00"))
+
+    body = _evolution(app, client, ids, ids["forehand_id"]).get_json()
+
+    assert body["series"] == [{"month": "2026-05", "mean": 2.3}, {"month": "2026-08", "mean": 3.7}]
+    assert body["delta"] == {"value": 1.4, "sinceMonth": "2026-05"}
+
+
+def test_a_record_id_of_another_player_or_class_is_a_mismatch(app, client):
+    ids = _seed(app)
+    instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"])
+    headers = _coach_headers(app, ids)
+    in_class = client.put(f"{BASE}/evaluation_record", headers=headers, json={
+        "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id},
+        "ratings": {str(ids["forehand_id"]): 8}}).get_json()
+
+    res = client.put(f"{BASE}/evaluation_record", headers=headers, json={
+        "playerId": ids["student_id"], "recordId": in_class["id"], "ratings": {str(ids["forehand_id"]): 3}})
+
+    assert res.status_code == 400 and res.get_json() == {"error": "record_mismatch"}
+
+
+def test_a_participant_the_coach_cannot_rate_is_left_out_of_the_class_roster(app, client):
+    """Nit (a), class-panel rule 4: a row that cannot be rated is a dead control."""
+    from padel_app.models import Player, User
+    from padel_app.models.presences import Presence
+
+    ids = _seed(app)
+    instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"])
+    with app.app_context():
+        guest_user = User(name="Guest", username="guest-player", email="guest@test.com", password="x", status="active")
+        db.session.add(guest_user)
+        db.session.flush()
+        guest = Player(user_id=guest_user.id)
+        db.session.add(guest)
+        db.session.flush()
+        db.session.add(Presence(lesson_instance_id=instance_id, player_id=guest.id))  # enrolled, but not on this coach's roster
+        db.session.commit()
+
+    body = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()
+
+    assert [p["playerId"] for p in body["participants"]] == [ids["student_id"]]
+
+
+def test_a_body_that_does_not_parse_is_400_not_a_silent_no_op(app, client):
+    ids = _seed(app)
+    headers = {**_coach_headers(app, ids), "Content-Type": "application/json"}
+
+    res = client.patch(f"{BASE}/evaluation_competency/{ids['forehand_id']}", data="{not json", headers=headers)
+
+    assert res.status_code == 400 and res.get_json() == {"error": "body_invalid"}

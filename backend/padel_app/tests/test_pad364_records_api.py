@@ -151,7 +151,7 @@ def test_a_put_on_a_later_day_never_edits_yesterdays_record(app, client, monkeyp
 
 
 def test_the_history_lists_records_only_newest_first(app, client, monkeypatch):
-    """Q28: record-less entries are served NOWHERE in v2. A same-day superseded
+    """Q29: record-less entries are served NOWHERE in v2. A same-day superseded
     legacy score stays in the table (data survives) and is simply not read: the
     day's record has one value per competency, and what is averaged is what the
     cards show."""
