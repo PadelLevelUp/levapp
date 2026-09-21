@@ -24,6 +24,21 @@ export const DEFAULT_WORKING_WINDOW: Window = { startTime: "08:00", endTime: "22
 /** Minimum length of a window worth offering (a 30-minute class is the shortest request). */
 export const MIN_FREE_WINDOW_MINUTES = 30;
 
+/** The grid working hours sit on (settings.coach-working-hours rule 2; the server refuses anything else). */
+export const WORKING_HOURS_GRID_MINUTES = 15;
+
+/**
+ * settings.coach-working-hours rule 6 (PAD-369, B-141): an `HH:MM` brought to the nearest
+ * point of the grid, never past 23:45 (a time field cannot show 24:00). Anything that is not
+ * a time — a field the coach has emptied — comes back unchanged.
+ */
+export function snapToGrid(hhmm: string, grid: number = WORKING_HOURS_GRID_MINUTES): string {
+  if (!/^\d{1,2}:\d{2}$/.test(hhmm)) return hhmm;
+  const snapped = Math.round(minutesOf(hhmm) / grid) * grid;
+  const last = Math.floor((24 * 60 - 1) / grid) * grid;
+  return hhmmOf(Math.min(snapped, last));
+}
+
 /** The break "add window" opens in a day that has no room left (settings.coach-working-hours rule 5). */
 export const WORKING_BREAK: Window = { startTime: "13:00", endTime: "14:00" };
 /** The shortest window "add window" creates, and the length of the break it leaves before it. */

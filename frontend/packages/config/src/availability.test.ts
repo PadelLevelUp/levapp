@@ -11,6 +11,7 @@ import {
   freeWindowsForDay,
   occurrenceDates,
   slotStarts,
+  snapToGrid,
   subtractIntervals,
   weeklyIntersection,
   workingWindowsFor,
@@ -174,5 +175,32 @@ describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () =
         }
       }
     }
+  });
+});
+
+describe("snapToGrid (settings.coach-working-hours rule 6, PAD-369)", () => {
+  it("brings a time to the nearest quarter hour (B-141: 22:07 and 22:01 were refused)", () => {
+    expect(snapToGrid("22:07")).toBe("22:00");
+    expect(snapToGrid("22:08")).toBe("22:15");
+    expect(snapToGrid("22:01")).toBe("22:00");
+    expect(snapToGrid("08:53")).toBe("09:00");
+  });
+
+  it("leaves a time already on the grid alone", () => {
+    for (const t of ["00:00", "08:15", "13:30", "23:45"]) expect(snapToGrid(t)).toBe(t);
+  });
+
+  it("never rounds past the last point a time field can show", () => {
+    expect(snapToGrid("23:53")).toBe("23:45");
+    expect(snapToGrid("23:59")).toBe("23:45");
+  });
+
+  it("returns what is not a time unchanged (an emptied field)", () => {
+    expect(snapToGrid("")).toBe("");
+    expect(snapToGrid("--:--")).toBe("--:--");
+  });
+
+  it("takes another grid", () => {
+    expect(snapToGrid("10:20", 30)).toBe("10:30");
   });
 });

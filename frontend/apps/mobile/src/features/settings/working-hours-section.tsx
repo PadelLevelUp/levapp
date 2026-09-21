@@ -17,6 +17,7 @@ import { Pressable, View } from "react-native";
 import {
   DEFAULT_WORKING_WINDOW,
   WORKING_DAY_KEYS,
+  WORKING_HOURS_GRID_MINUTES,
   addWorkingWindow,
   lightTheme,
   type WorkingDayKey,
@@ -158,6 +159,7 @@ export function WorkingHoursSection() {
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-start`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.startAria")}
                               value={w[0]}
                               onChange={(v) =>
@@ -168,6 +170,7 @@ export function WorkingHoursSection() {
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-end`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.endAria")}
                               value={w[1]}
                               onChange={(v) =>

@@ -138,6 +138,9 @@ executionOrder:
     - 85-working-hours-invalid-day
     - 86-class-request-wizard-weekly
     - 87-working-hours-add-window
+    # 92 turns the iOS minute wheel and saves (PAD-369): the stored time is on the
+    # 15-minute grid. ios-only; it clears the coach's hours before and after.
+    - 92-working-hours-minute-grid
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

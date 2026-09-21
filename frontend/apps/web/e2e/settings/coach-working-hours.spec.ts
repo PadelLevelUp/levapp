@@ -102,3 +102,29 @@ test("PAD-361 (B-140): 'add window' on an untouched day gives a day the server a
     await clearWorkingHours(request);
   }
 });
+
+test("PAD-369 (B-141): a time typed off the 15-minute grid is brought onto it before it is saved", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await clearWorkingHours(request);
+  try {
+    await loginAsCoach(page);
+    await page.goto("/settings?tab=calendar");
+    const card = page.getByTestId("working-hours");
+    await expect(card).toHaveAttribute("data-state", "default", { timeout: 15_000 });
+
+    // step={900} only drives the arrows: a typed 22:07 reaches the editor's state.
+    const end = card.getByTestId("working-hours-tue-0-end");
+    await end.fill("22:07");
+    const saved = page.waitForResponse(isPut);
+    await card.getByTestId("working-hours-save").click();
+    const res = await saved;
+    const { workingHours } = res.request().postDataJSON();
+    expect(res.status(), `sent tue=${JSON.stringify(workingHours.tue)} → ${await res.text()}`).toBeLessThan(300);
+    // Rule 6: the coach sees the value that was saved, the nearest quarter hour.
+    expect(workingHours.tue).toEqual([["08:00", "22:00"]]);
+    await expect(end).toHaveValue("22:00");
+    await expect(card).toHaveAttribute("data-state", "set");
+  } finally {
+    await clearWorkingHours(request);
+  }
+});

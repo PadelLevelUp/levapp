@@ -51,6 +51,15 @@ otherwise.
    day is the zero-length 22:00–22:00 and was refused on save. Decided by Session D on the
    coordinator's instruction, 2026-09-21; the owner was not asked.
 
+6. **The time controls stay on rule 2's grid (PAD-369, B-141).** On iOS and Android the editor's
+   pickers offer minutes in steps of 15 (`TimePickerInput`'s `minuteInterval`, a prop that is
+   unset everywhere else, so no other screen's picker changes). On web a typed time moves to the
+   nearest quarter hour when the field loses focus (`snapToGrid`, `@levelup/config`; never past
+   23:45), so the coach sees the value that will be saved — it is not corrected silently at save.
+   `step` on a web time input is not protection: it drives the arrows only, and a typed value is
+   neither stopped nor flagged. `start >= end` and overlapping windows are still possible between
+   two fields and stay the server's refusal (rule 2).
+
 ### Acceptance Criteria
 
 #### A coach sets a week and a student sees it
@@ -76,3 +85,10 @@ otherwise.
 - **Then** Monday holds `[["08:00","13:00"],["14:00","22:00"]]`, the save is accepted and the editor shows the success, on web and iOS alike
 - **Given** a day whose only window is 20:00–22:00
 - **Then** "add window" is disabled on that day
+
+#### The time controls stay on the grid (PAD-369)
+- **Given** coach Ana types 22:07 as Tuesday's end on web
+- **When** the field loses focus and she saves
+- **Then** the field reads 22:00, the save is accepted and Tuesday holds `[["08:00","22:00"]]`
+- **Given** Ana turns the minute wheel of Monday's end on iOS
+- **Then** every value it offers is a quarter hour, and the save is accepted
