@@ -95,6 +95,7 @@ def test_an_unknown_or_malformed_category_id_is_ignored_and_the_other_scores_are
     res = _save(app, client, ids, [
         {"categoryId": 987654, "value": 3},
         {"categoryId": "not-a-number", "value": 3},
+        {"categoryId": 1e999, "value": 3},  # int(inf) raises OverflowError, not ValueError
         {"value": 3},
         {"categoryId": ids["forehand_id"], "value": 6},
     ])

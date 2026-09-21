@@ -3,8 +3,7 @@ id: B-145
 title: "A coach can write an evaluation score into another coach's category; an unknown category id is a 500 after the earlier scores were kept"
 type: incomplete-rule
 severity: high
-status: resolved
-resolved: 2026-09-21T18:43:00Z
+status: triaged
 affects:
   - evaluations.entries
   - R-002
@@ -40,8 +39,22 @@ R-002: evaluation categories are coach-scoped). Anything else is ignored; the re
 (`get_player_profile` reads `entry.category` with no coach filter). For the other coach nothing shows on
 their players, but `GET /app/evaluation_category/<id>/impact` counts the foreign rows, and deleting the
 category cascades to the writer's rows. No player, score or note of the other coach is shown to anyone.
-Whether such rows exist on production: not known — a read-only count is statement 2c of
-`docs/reference/evaluations-prod-counts.sql`, waiting with Session-A. No client sends a foreign id on its
+Whether such rows exist on production: **not known**. The read-only count below is waiting with the
+session that holds the production login (it is also statement 2c of the local, untracked
+`docs/reference/evaluations-prod-counts.sql`):
+
+```sql
+-- entries written into ANOTHER coach's category: the link's coach is not the category's coach
+SELECT count(*) AS cross_coach_entries,
+       count(DISTINCT cp.coach_id) AS writing_coaches,
+       count(DISTINCT c.coach_id) AS coaches_whose_category_was_used,
+       min(en.evaluated_at) AS first_at, max(en.evaluated_at) AS last_at
+FROM evaluation_entries en
+JOIN evaluation_categories c ON c.id = en.category_id
+JOIN coach_in_player cp ON cp.id = en.coach_player_id
+WHERE cp.coach_id <> c.coach_id;
+```
+ No client sends a foreign id on its
 own; an App Store 1.0/1.1.0 build *does* send an unknown id when a category was deleted on another device,
 and then fails every save until it refetches.
 
@@ -78,6 +91,9 @@ Not in this change: finding or repairing rows already written (count first — s
   `IntegrityError`; on the fix all five pass, sqlite and Postgres. PAD-362's 30 pins pass on the fix.
 - Code changes: `add_evaluation_entry_service` builds the set of the coach's own category ids and skips a
   score outside it (`backend/padel_app/services/coach_service.py`).
-- Not done: counting or repairing rows already written on production (statement 2c of
-  `docs/reference/evaluations-prod-counts.sql` is waiting with Session-A).
-- Resolved: 2026-09-21 (PAD-370).
+- **What PAD-370 closes: new writes.** From its deploy on, no request can write a score into a
+  category that is not the caller's own.
+- **What stays open, and why `status` is not `resolved`:** rows already written, if any. Until the count
+  above has run on production this is unknown. If it returns rows, `get_player_profile` still serialises
+  the other coach's category name and scale for them, and that coach's category delete still cascades
+  into the writer's rows. Repairing them is a separate, owner-visible decision — not taken here.
