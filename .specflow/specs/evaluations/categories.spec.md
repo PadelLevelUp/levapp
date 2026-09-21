@@ -65,3 +65,36 @@ Coaches define custom evaluation categories (e.g., Forehand, Volley, Serve) with
 - **Then** a confirmation shows the scores and players it would remove, and its delete stays disabled
   until she types "Serve"
 
+
+### Acceptance Criteria — the contract as shipped, pinned by PAD-362
+
+Appended by PAD-362 (2026-09-21); same terms as the section of the same name in
+`evaluations.entries`. Tests: `backend/padel_app/tests/test_pad362_evaluation_contract.py`.
+
+#### The category list has exactly four keys per category
+- **Given** a coach with two categories
+- **When** they read `GET /api/app/evaluation_categories`
+- **Then** they get a list of exactly `{id, name, scaleMin, scaleMax}` — `id` a JSON number — holding only their own categories
+- **And** a student gets 403
+
+#### The settings upsert is keyed on the name and echoes the request
+- **Given** a coach with Forehand (1–10) and Volley
+- **When** they post `[{Forehand, 2, 5}, {Smash, 1, 7}]` to `POST /api/app/add_evaluation_categories`
+- **Then** the response is the request body, without ids
+- **And** Forehand is the same row with scale 2–5, Smash is new, and Volley — left out of the body — still exists
+
+#### A rename is an insert (B-125 — today's behaviour)
+- **Given** Forehand holds a score
+- **When** the coach posts the list with Forehand renamed to "Forehand drive"
+- **Then** the coach holds both Forehand and Forehand drive; the score, and the player profile, stay under Forehand
+
+#### A scale minimum of 0 is dropped (B-136 — today's behaviour)
+- **When** a coach posts a new category with `scaleMin: 0, scaleMax: 10`
+- **Then** the response says 0 and the category is stored and listed as 1–10
+- **And** an existing category posted with `scaleMin: 0` keeps its minimum while its maximum changes
+
+#### A delete with only an id (what iOS 1.1.0 sends)
+- **Given** Forehand holds two scores and Volley one
+- **When** the coach posts `{id: Forehand}` to `POST /api/app/delete/evaluation_category` without reading the impact first
+- **Then** Forehand and its two scores are gone, Volley's score remains, and exactly one `deletion_audit` row names Forehand
+- **And** another coach's category id answers 403 and deletes nothing
