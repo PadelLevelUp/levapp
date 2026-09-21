@@ -17,9 +17,16 @@ Coaches define custom evaluation categories (e.g., Forehand, Volley, Serve) with
 
 ### Rules
 1. Categories are coach-specific
-2. Each has a name and a min/max scale (default 1-10)
-3. CRUD via POST/PATCH `/api/app/coach/evaluation_category/{id}`
-4. Bulk upsert via `upsert_evaluation_categories()` from settings
+2. Each has a name and a min/max scale (default 1-10). Both settings editors open a new row at
+   0–10, but the shared form layer reads a falsy value as "not sent", so a posted `scaleMin: 0` is
+   stored as the model default 1 (B-136, PAD-367).
+3. The routes, all under `/api/app`, JWT, coach: `GET /evaluation_categories` → `[{id, name,
+   scaleMin, scaleMax}]`; `POST /add_evaluation_categories` with `[{name, scaleMin, scaleMax}]` →
+   echoes the body; `GET /evaluation_category/{id}/impact` and `POST /delete/evaluation_category`
+   (rule 7). There is no per-id create or edit route.
+4. Bulk upsert via `upsert_evaluation_categories()` from settings, **keyed on `name`**: ids are
+   never sent. A category absent from the body is not deleted. Renaming a saved category
+   therefore inserts a new category and leaves the old one with its scores (B-125).
 5. Categories define what dimensions players are scored on
 6. **A coach never holds two categories with the same `name`** (PAD-273, audit M14). The database
    enforces it with the unique index `uq_evaluation_categories_coach_name` on `(coach_id, name)`.
@@ -33,12 +40,18 @@ Coaches define custom evaluation categories (e.g., Forehand, Volley, Serve) with
    `evaluation_category`, the acting coach's user, the name, the counts) in the same transaction
    (PAD-274). A category that was never saved is removed from the form without asking.
 
+### Superseded by / Planned
+Not built. A built-in catalogue, on/off, custom competencies, rename by id (resolves B-125) and an
+id-addressed delete: `evaluations.competencies` (draft). The routes in rule 3 that App Store
+1.0/1.1.0 call are frozen and will handle legacy categories only:
+`evaluations.legacy-client-contract` (draft).
+
 ### Acceptance Criteria
 
 #### Create evaluation category
 - **Given** an authenticated coach
-- **When** they POST to `/api/app/coach/evaluation_category` with `{"name": "Forehand", "scale_min": 1, "scale_max": 10}`
-- **Then** an EvaluationCategory record is created
+- **When** they POST to `/api/app/add_evaluation_categories` with `[{"name": "Forehand", "scaleMin": 1, "scaleMax": 10}]`
+- **Then** an EvaluationCategory record is created and the response echoes the body
 
 #### Bulk upsert categories
 - **Given** a coach with categories [Forehand, Backhand]

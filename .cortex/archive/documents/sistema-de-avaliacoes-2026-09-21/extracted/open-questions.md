@@ -124,3 +124,14 @@ client. The `X-LevApp-Capabilities` token `evaluations` has one job: gating serv
 an old build could mis-render — the student dashboard block of a shared evaluation (Q2).
 
 **Q25 — iOS dark mode (AV-060).** Not part of this project; web already has a theme selector.
+
+**Q26 — Ratings under a switched-off competency, today (AV-013, AV-070).** In the class panel and
+the "Nova avaliação" form, a competency that already holds a rating in **today's** record is listed
+even if it is switched off, so the summary "`N`/`M` avaliadas" never reads "Sem avaliação" while a
+rating exists. `M` = active competencies plus any switched-off ones rated today. With nothing to
+list at all (no active competency, none rated today — AV-071) the panels show an empty state with
+a way into "Gerir competências", never a note-only form. Both modals get an explicit cancel/close
+control (AV-072).
+
+**Q27 — Two records on one day (AV-073).** A class record and a class-less record of the same day
+are two history cards, as in the canvas.
