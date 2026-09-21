@@ -1,0 +1,29 @@
+{
+  "evaluations": {
+    "catalogue": {
+      "technique": "Técnica",
+      "tactics": "Tática",
+      "consistency": "Consistência",
+      "forehand": "Direita",
+      "backhand": "Esquerda",
+      "volley": "Volley",
+      "bandeja": "Bandeja",
+      "vibora": "Víbora",
+      "smash": "Smash",
+      "glass_exit": "Saída de vidro",
+      "double_glass": "Duplo vidro",
+      "serve": "Serviço",
+      "defensive_position": "Posição defensiva",
+      "attacking_position": "Posição atacante",
+      "transition": "Transição",
+      "decision_making": "Tomada de decisão",
+      "doubles_play": "Jogo em dupla"
+    },
+    "groups": {
+      "general": "Geral",
+      "technique": "Técnica",
+      "tactics": "Tática",
+      "custom": "Personalizada"
+    }
+  }
+}

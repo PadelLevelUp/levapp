@@ -72,3 +72,23 @@ export function createDebouncedWriter<V>(write: (key: string, value: V) => void,
     pending: () => waiting.size > 0,
   };
 }
+
+/**
+ * Where "Gerir competências" opens today (PAD-374): the Settings page that holds
+ * the category editor. PAD-373 builds the real competency manager and changes
+ * ONLY this constant (or the two `openCompetencyManager` functions that read it:
+ * `apps/web/src/components/evaluations/openCompetencyManager.ts` and
+ * `apps/mobile/src/features/evaluations/open-competency-manager.ts`). Every entry
+ * point — the evaluation form's empty state here, the class panel in slice 6 —
+ * calls that function and nothing else.
+ */
+export const COMPETENCY_MANAGER_ROUTE = { web: "/settings?tab=preferences", mobile: "/settings" } as const;
+
+/** A competency's label: catalogue ones are translated by `key` (en + pt in
+ *  `locales/<lng>/evaluations.json`), custom and legacy ones are shown as typed. */
+export function competencyLabel(
+  t: (key: string, options?: { defaultValue?: string }) => string,
+  competency: { key: string | null; name: string }
+): string {
+  return competency.key ? t(`evaluations.catalogue.${competency.key}`, { defaultValue: competency.name }) : competency.name;
+}
