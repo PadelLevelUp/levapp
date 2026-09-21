@@ -10,7 +10,6 @@ import {
 } from "@levelup/config";
 import { useHeldWhile, usePlayerEvolution } from "@levelup/hooks";
 import type { EvaluationCompetency } from "@levelup/types";
-import { Ionicons } from "@expo/vector-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View, type LayoutChangeEvent } from "react-native";
@@ -175,12 +174,8 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData:
 
           {delta ? (
             <View className="flex-row items-center gap-1.5" testID={`evolution-delta-${delta.trend}`}>
-              {/* Green is for up only, and never alone: the icon and the words carry it too. */}
-              <Ionicons
-                name={delta.trend === "up" ? "trending-up" : delta.trend === "down" ? "trending-down" : "remove"}
-                size={16}
-                color={delta.trend === "up" ? lightTheme.success : lightTheme.mutedForeground}
-              />
+              {/* Green is for up only, and never alone: the copy itself starts with "↑" / "↓" / "=" (the
+                  canvas's strings). No icon beside it — the first simulator look showed two arrows in a row. */}
               <Text className={cn("text-sm font-medium", delta.trend === "up" ? "text-success" : "text-muted-foreground")}>
                 {t(
                   delta.trend === "up"
