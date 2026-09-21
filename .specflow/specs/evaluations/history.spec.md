@@ -31,8 +31,10 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    of this coach–player link, newest first (`evaluatedOn` descending, then `id` descending),
    each a `Record` (`evaluations.records` rule 8) whose `ratings` include switched-off
    competencies. `lastEvaluatedOn` is the newest `evaluatedOn` (`YYYY-MM-DD`) or null.
-   `competenciesWithData` is the id of every competency with at least one entry for this link,
-   record-less entries included, in `evaluations.competencies` rule 5's order. A player not on
+   `competenciesWithData` is the id of every competency with at least one entry **in a record**
+   of this link, in `evaluations.competencies` rule 5's order. **(build default Q29)** A
+   record-less entry (a same-day score a later one superseded, `evaluations.records` rule 13) is
+   listed on no card and counted nowhere in the new API. A player not on
    the coach's roster → 404; a caller with no coach profile → 403. Each coach sees only their own
    (build default Q20).
 2. **(AV-030) The profile card "Avaliação"** reads "Última avaliação em {d Mmm aaaa}." from

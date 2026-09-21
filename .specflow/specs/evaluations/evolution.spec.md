@@ -16,8 +16,9 @@ rolling means and a delta since the first month. It is the "Evolução" section 
 evaluations drawer (`evaluations.history` rule 3). No chart, average or delta exists today.
 
 ### Entities
-- **READS:** EvaluationEntry (every row of the coach–player link and competency, **record-less
-  rows included**), EvaluationCategory (scale), Association_CoachPlayer.
+- **READS:** EvaluationEntry (the rows of the coach–player link and competency **that sit in a
+  record** — build default Q29: what is averaged is exactly what the history cards show; a
+  record-less row is read by nothing here), EvaluationCategory (scale), Association_CoachPlayer.
 - **WRITES:** nothing.
 
 ### Rules
@@ -38,8 +39,9 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    sem avaliações registadas para consultar evolução." — and no pills. (The canvas defaults to
    `bandeja`, never resets it between players and puts the pills inside the has-data card, so a
    player with data but no Bandeja gets the empty state with no way out — mock defect.)
-5. **(AV-033) The series is monthly means.** One point per calendar month that holds at least one
-   rating of the competency; `mean` is the arithmetic mean of that month's ratings. A rating's
+5. **(AV-033) The series is monthly means.** Every figure in this leaf is computed over the
+   competency's ratings **that sit in a record** (Q29). One point per calendar month that holds
+   at least one such rating; `mean` is the arithmetic mean of that month's ratings. A rating's
    month is the month of its local day (`evaluations.records` rule 3). A month with no rating is
    **absent** — never zero — and the line connects across the gap.
 6. **(AV-034) Three rolling means** — "Média mensal" (`m1`), "Média semestral" (`m6`), "Média

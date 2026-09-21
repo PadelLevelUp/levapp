@@ -33,7 +33,7 @@ stays private.
   | `evolution` | varchar(8) NOT NULL | `last` \| `6m` \| `1y` \| `none` |
   | `include_note` | boolean NOT NULL | |
   | `card` | JSON NOT NULL | the snapshot the player is served (rule 7) |
-  | `created_at`, `updated_at` | datetime NOT NULL | |
+  | `created_at`, `updated_at` | datetime | the model base's columns |
 - **READS:** EvaluationRecord, EvaluationEntry, EvaluationCategory. **WRITES:** Message (rule 8).
 
 ### Rules
@@ -57,8 +57,8 @@ stays private.
 4. **(AV-075) Order is the coach's competency order** (`evaluations.competencies` rule 5), never
    the order of ticking. Re-ticking a competency does not move it.
 5. **(build default Q12) One evolution line per chosen competency, over the chosen period.**
-   `last`: this record's rating minus the previous rating of that competency for this
-   coach–player. `6m` / `1y`: the latest monthly mean minus the first monthly mean inside the
+   `last`: this record's rating minus the previous rating of that competency **in an earlier
+   record** of this coach–player (record-held ratings only, Q29). `6m` / `1y`: the latest monthly mean minus the first monthly mean inside the
    window (`evaluations.evolution` rules 5, 7). `none`: no lines. A line is left out when there
    is nothing to compare. Rounding, sign and colour follow `evaluations.evolution` rules 8–9.
    (The canvas draws one line, for the first ticked competency, ignoring the period — mock defect.)
@@ -90,7 +90,7 @@ stays private.
     `evolution: "none"` is a value, not an absence; an absent `includeNote` or `evolution` → 400
     (both are required); `includeNote: true` on a record with no note shares no note.
 12. **Authorisation.** All three endpoints: coach-owned record, else 403; unknown record → 404.
-13. **(AV-072, build default Q26) Both steps have an explicit cancel/close control** besides the
+13. **(AV-072) Both steps have an explicit cancel/close control** besides the
     scrim, and abandoning either writes nothing.
 14. **(build default Q23) Layout.** A two-step modal on desktop web, a sheet at phone width, two
     pushed screens on iOS. Web and iOS ship in the same ticket.
