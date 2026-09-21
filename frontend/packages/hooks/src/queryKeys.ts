@@ -19,6 +19,8 @@ export const queryKeys = {
   // PAD-374: the v2 evaluation API. One key per coach-player history; the competency set is the coach's.
   playerEvaluations: (playerId: string) => ["player-evaluations", playerId] as const,
   evaluationCompetencies: ["evaluation-competencies"] as const,
+  // PAD-373: what deleting one competency would remove (scores, players) — read before the typed-name step.
+  evaluationCompetencyImpact: (competencyId: number) => ["evaluation-competency-impact", competencyId] as const,
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>

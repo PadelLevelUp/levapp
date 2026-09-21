@@ -54,6 +54,7 @@ describe("queryKeys", () => {
     expect(queryKeys.playerProfile("p1")).toEqual(["player-profile", "p1"]);
     expect(queryKeys.playerEvaluations("p1")).toEqual(["player-evaluations", "p1"]);
     expect(queryKeys.evaluationCompetencies).toEqual(["evaluation-competencies"]);
+    expect(queryKeys.evaluationCompetencyImpact(13)).toEqual(["evaluation-competency-impact", 13]);
     expect(queryKeys.conversation("c1")).toEqual(["conversation", "c1"]);
     expect(queryKeys.exercise("e1")).toEqual(["exercises", "e1"]);
   });
