@@ -501,6 +501,8 @@ def close_open_requests_silently(*, status: str, by: str, player_id=None, coach_
     """
     from padel_app.utils.dates import utcnow_naive
 
+    if player_id is None and coach_id is None:
+        raise ValueError("close_open_requests_silently needs a player_id or a coach_id")
     query = ClassRequest.query.filter(ClassRequest.status.in_(("pending", "countered")))
     if player_id is not None:
         query = query.filter(ClassRequest.player_id == player_id)

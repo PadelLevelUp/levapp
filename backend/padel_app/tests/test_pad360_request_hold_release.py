@@ -260,6 +260,32 @@ def test_account_deletion_without_requests_is_unchanged(app):
         assert db.session.get(User, user_id).status == "disabled"
 
 
+def test_the_silent_close_refuses_to_run_unscoped(app):
+    """Nobody named would mean every open request of every coach."""
+    from padel_app.services.class_request_service import close_open_requests_silently
+
+    ids = _setup(app)
+    rid = _request(app, ids)
+    with app.app_context():
+        with pytest.raises(ValueError):
+            close_open_requests_silently(status="declined", by="coach")
+    assert _state(app, rid)["status"] == "pending"
+
+
+def test_the_silent_close_touches_only_the_named_student(app):
+    ids = _setup(app)
+    with app.app_context():
+        carla = _add_student(ids["coach_id"], "carla", level_id=ids["level_ids"]["5"])
+        db.session.commit()
+    mine = _request(app, ids, start="11:00", end="12:00")
+    hers = _request(app, ids, start="13:00", end="14:00", pid=carla)
+
+    _delete_account(app, _user_id_of_player(app, ids["player_id"]))
+
+    assert _state(app, mine)["status"] == "withdrawn"
+    assert _state(app, hers)["status"] == "pending" and _block_exists(app, _hold_of(app, hers))
+
+
 # ── left out on purpose (PAD-360 comment, owner decision pending) ────────────
 
 def test_disconnecting_the_student_keeps_the_open_request_and_its_hold(app):
