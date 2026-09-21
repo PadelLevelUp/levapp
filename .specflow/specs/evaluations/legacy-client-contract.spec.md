@@ -88,7 +88,11 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
    NULL, active).
 6. **Deleting.** `POST /delete/evaluation_category` refuses a non-legacy id with **403**, so an old
    build cannot delete what it cannot see. For a legacy id it behaves as `evaluations.categories`
-   rule 7 (cascade, one `deletion_audit` row). New clients delete through
+   rule 7 (cascade, one `deletion_audit` row) — **including a legacy category the coach has
+   switched off**, deleted by id from a stale list: that stays allowed on purpose. Unlike a
+   midpoint score it is an explicit coach act on their own category, and it is what 1.1.0 can
+   already do to any legacy category; refusing it would buy symmetry with rules 3 and 5, not
+   safety (Coordinator ruling, 2026-09-21). New clients delete through
    `DELETE /evaluation_competency/<id>` (`evaluations.competencies` rule 9), never through this.
 7. **Pinned as-is by PAD-362 — the freeze must not "tidy" any of it:**
    - `playerId` is a **string** in `/player_profile` and is echoed **as sent** by
