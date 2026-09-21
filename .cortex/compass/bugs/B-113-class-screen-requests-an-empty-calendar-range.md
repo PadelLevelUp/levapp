@@ -28,3 +28,11 @@ client must not ask for an empty one.
 **Fix (PAD-348):** `calendar.view` rule 17. The hook is disabled while either end is empty, so
 every caller is covered, not only the class screen. Guarded by
 `packages/hooks/src/useCalendarEvents.test.tsx`.
+
+**Evidence for `resolved`, and when it was first obtained (B-127, PAD-383).** From 2026-09-16
+until 2026-09-21 that test was collected by **no** runner (the packages vitest config listed
+`*.test.ts` only), so this entry was marked resolved on the strength of a test that had never
+been executed. First run on 2026-09-21 19:56 UTC at `origin/staging` `00e53375f`: 2 passed; with
+the `enabled` guard removed from `queries.ts` the first test fails ("expected spy to not be
+called at all, but actually been called 1 times"); restored, 2 passed. The status stands — on
+evidence five days younger than the claim.
