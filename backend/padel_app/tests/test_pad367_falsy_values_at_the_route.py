@@ -115,6 +115,28 @@ def test_calendar_edit_recurring_to_one_off_leaves_the_rule_and_the_end_date_on_
         assert row.recurrence_end is not None and row.recurrence_end.isoformat() == "2026-12-01"
 
 
+def test_calendar_edit_a_block_made_one_off_still_repeats_in_the_calendar_feed(app, client):
+    """DEFECT PINNED, NOT FIXED (B-150) — the user-visible end of the test above. The
+    feed expands `recurrence_rule` (serializers/calendar_event.py), and the rule was
+    never cleared, so a block the user made one-off is still served every week."""
+    ids = _seed(app)
+    headers = _headers(app, ids["coach_user_id"])
+    block = _event(app, client, ids, isRecurring=True,
+                   recurrenceRule={"frequency": "weekly", "daysOfWeek": [1]}, endDate="2026-12-01")
+
+    def dentist_days():
+        feed = client.get("/api/app/calendar?from=2026-10-05&to=2026-11-02", headers=headers).get_json()
+        return [(e["date"], e["isRecurring"]) for e in feed if e.get("title") == "Dentist"]
+
+    weekly = [("2026-10-05", True), ("2026-10-12", True), ("2026-10-19", True), ("2026-10-26", True)]
+    assert dentist_days() == weekly
+
+    after = _edit_event(app, client, ids, block["id"], {**EVENT, "isRecurring": False})
+
+    assert after["isRecurring"] is False, "the edit's own response says one-off"
+    assert dentist_days() == weekly, "and the calendar goes on repeating it"
+
+
 # ── POST /api/app/edit_player (player_service.edit_player_helper) ────────────
 
 def _edit_player(app, client, ids, updates, **player_over):
