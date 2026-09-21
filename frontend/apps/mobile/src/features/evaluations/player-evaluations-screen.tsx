@@ -31,6 +31,7 @@ import { toast } from "@/components/ui/toast";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 import { EvaluationForm } from "./evaluation-form";
+import { EvolutionSection } from "./evolution-section";
 import { formatEvaluationDate } from "./format-date";
 import { HistoryCard } from "./history-card";
 import { openCompetencyManager } from "./open-competency-manager";
@@ -45,7 +46,7 @@ interface PlayerEvaluationsScreenProps {
 
 /**
  * "Avaliações — {nome}" on iOS (evaluations.history rule 3): a PUSHED screen, not
- * a native Modal sheet. Two sections — "Evolução" (PAD-375 fills the slot) and
+ * a native Modal sheet. Two sections — "Evolução" (`EvolutionSection`, PAD-375) and
  * "Histórico" — with the form inline above the cards, exactly as web's drawer. The
  * screen is a route, so its state dies with it (rule 10): another player gets a
  * fresh screen.
@@ -111,10 +112,11 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
             <Text className="text-xs font-semibold uppercase text-muted-foreground">
               {t("players.evaluationHistory.evolution")}
             </Text>
-            {/* PAD-375 (evaluations.evolution) renders the pills, the chart and the means here. */}
-            <Text className="text-sm text-muted-foreground" testID="evaluation-evolution-empty">
-              {t("players.evaluationHistory.evolutionEmpty")}
-            </Text>
+            <EvolutionSection
+              playerId={playerId}
+              competencies={competencies}
+              competenciesWithData={history.data?.competenciesWithData ?? []}
+            />
           </View>
 
           <View className="gap-3" testID="evaluation-history">

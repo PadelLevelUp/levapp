@@ -32,6 +32,8 @@ executionOrder:
     # 78 (PAD-374) resets E2E Student's evaluations through the API before it starts and deletes
     # what it writes, so its position is not load bearing; it must not run between 57's steps.
     - 78-player-evaluations
+    # 79 (PAD-375) only reads E2E Student Two's seeded evaluation history; position not load bearing.
+    - 79-evaluation-evolution
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages

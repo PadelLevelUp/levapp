@@ -1,0 +1,81 @@
+# PAD-375 / evaluations.evolution — "Evolução" on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/evaluation-evolution.spec.ts. (Flow number 79
+# reserved for this slice by the Coordinator, 2026-09-21.)
+#
+# The seed gives "E2E Student Two" five past-dated Forehand evaluations (a legacy 1-10
+# category), filed in records. The setup script asks the server what it computes for
+# them and turns that into test ids; the flow asserts the screen shows exactly those —
+# the first competency with data selected, the chart on the competency's own scale with
+# one point per month, the means and the delta as sent — and that a point's value is
+# reachable by a tap, since there is no hover on a phone. Reads only: it writes nothing.
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/evolution-setup.js
+- assertTrue: "${output.evoRecords > 1}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student Two"
+# A row is matched by the player's NAME — data, not copy (rows shift position).
+- extendedWaitUntil:
+    visible: "E2E Student Two"
+    timeout: 20000
+- tapOn: "E2E Student Two"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+
+# ── The first competency with data is selected; the figures are the server's ──
+- extendedWaitUntil:
+    visible:
+      id: "${output.evoPill}"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "${output.evoChart}"
+    timeout: 15000
+- assertVisible:
+    id: "${output.evoM1}"
+- assertVisible:
+    id: "${output.evoM12}"
+- assertVisible:
+    id: "${output.evoDelta}"
+
+# ── No hover on a phone: a point's value is one tap away ──
+- tapOn:
+    id: "evolution-point-0"
+- extendedWaitUntil:
+    visible:
+      id: "evolution-point-caption-0"
+    timeout: 5000
+
+# ── The seeded history is there too, and none of it is editable ──
+- scrollUntilVisible:
+    element:
+      id: "evaluation-history-card-.*"
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible:
+    id: "evaluation-history-edit-.*"
+
+- tapOn:
+    id: "player-evaluations-back"

@@ -12,11 +12,13 @@ from datetime import datetime, timedelta
 from padel_app.sql_db import db
 
 
-def seed_evaluation_history(coach_player_id: int, category_id: int, points, *, anchor: datetime) -> list:
+def seed_evaluation_history(coach_player_id: int, category_id: int, points, *, anchor: datetime, in_records: bool = False) -> list:
     """Write one EvaluationEntry per ``(days_before_anchor, score)`` in ``points``.
 
     Returns the new entry ids, oldest first. Flushes, does not commit: the
-    caller owns the transaction.
+    caller owns the transaction. `in_records=True` (PAD-375) also files each row in
+    its day's evaluation record, which is what the v2 reads serve; the default
+    leaves them record-less, as every row was before PAD-363.
     """
     from padel_app.models import EvaluationEntry
 
@@ -33,4 +35,15 @@ def seed_evaluation_history(coach_player_id: int, category_id: int, points, *, a
         db.session.add(entry)
         entries.append(entry)
     db.session.flush()
+    if in_records:
+        # PAD-375: the record API reads ONLY ratings that sit in a record (Q29), so history meant
+        # for the new surfaces — the "Histórico" cards, "Evolução" — is filed the way the one writer
+        # files it: each row in the class-less record of its club-local day. Inside a unit of work
+        # (the E2E seed) this only flushes; outside one, get_or_create_record commits.
+        from padel_app.services import evaluation_record_service as records
+
+        for entry in entries:
+            record = records.get_or_create_record(coach_player_id, day=records.record_day(entry.evaluated_at))
+            entry.record_id = record.id
+        db.session.flush()
     return [entry.id for entry in entries]
