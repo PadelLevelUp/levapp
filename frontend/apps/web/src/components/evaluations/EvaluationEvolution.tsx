@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { EvaluationCompetency } from "@levelup/types";
 import {
   EVOLUTION_LINE_COLOR,
@@ -159,7 +158,7 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
               data-testid="evolution-delta"
               data-trend={delta.trend}
             >
-              {delta.trend === "up" ? <TrendingUp className="h-4 w-4" aria-hidden /> : delta.trend === "down" ? <TrendingDown className="h-4 w-4" aria-hidden /> : <Minus className="h-4 w-4" aria-hidden />}
+              {/* No icon: the copy itself starts with "↑" / "↓" / "=", so green never stands alone and there are not two arrows. */}
               {t(
                 delta.trend === "up" ? "players.evaluationHistory.deltaUp" : delta.trend === "down" ? "players.evaluationHistory.deltaDown" : "players.evaluationHistory.deltaFlat",
                 { value: delta.text, month: sinceLabel }
