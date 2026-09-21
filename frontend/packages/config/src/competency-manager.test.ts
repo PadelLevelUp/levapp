@@ -4,7 +4,9 @@ import type { EvaluationCatalogueEntry, EvaluationCompetencies, EvaluationCompet
 import { activeCount, competencyKind, legacyScaleLabel, managerSections } from "./competency-manager";
 
 // evaluations.competencies rules 2 and 5 (PAD-373): what "Gerir competências" lists,
-// in which order, and which of the three kinds each row is.
+// in which order, and which of the three kinds each row is. Q31 (Session-B, 2026-09-21):
+// the coach's existing categories are a section of their own, FIRST; the rest is the
+// canvas's order. Static — nothing moves under the finger when a switch is flipped.
 
 const CATALOGUE: EvaluationCatalogueEntry[] = [
   { key: "technique", group: "general" }, { key: "tactics", group: "general" }, { key: "consistency", group: "general" },
@@ -30,19 +32,28 @@ describe("competencyKind", () => {
 });
 
 describe("managerSections", () => {
-  it("a coach who already has categories sees them under Personalizada and the whole catalogue switched off", () => {
+  it("an existing coach opens onto their own categories, first and switched on, with the untouched catalogue below (Q31)", () => {
     const ana: EvaluationCompetencies = { competencies: [FOREHAND_LEGACY], catalogue: CATALOGUE };
 
     const sections = managerSections(ana);
 
-    expect(sections.map((s) => [s.group, s.rows.length])).toEqual([["general", 3], ["technique", 9], ["tactics", 5], ["custom", 1]]);
-    const custom = sections.find((s) => s.group === "custom");
-    expect(custom, "the legacy row must be found before anything is asserted about it").toBeDefined();
-    expect(custom!.rows[0]).toEqual({ kind: "existing", competency: FOREHAND_LEGACY, rowKind: "legacy" });
-    expect(sections[0].rows.every((row) => row.kind === "available")).toBe(true);
+    expect(sections.map((s) => [s.group, s.rows.length])).toEqual([["legacy", 1], ["general", 3], ["technique", 9], ["tactics", 5]]);
+    const own = sections[0];
+    expect(own.rows[0]).toEqual({ kind: "existing", competency: FOREHAND_LEGACY, rowKind: "legacy" });
+    expect(own.rows.every((row) => row.kind === "existing" && row.competency.isActive)).toBe(true);
+    expect(sections.slice(1).flatMap((s) => s.rows).every((row) => row.kind === "available")).toBe(true);
   });
 
-  it("a coach who started from nothing has no Personalizada section — an empty group is hidden", () => {
+  it("the order does not move when the coach toggles: a switched-off legacy category stays first", () => {
+    const off = { ...FOREHAND_LEGACY, isActive: false };
+    const on = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique" });
+
+    const sections = managerSections({ competencies: [on, off], catalogue: [] });
+
+    expect(sections.map((s) => s.group)).toEqual(["legacy", "technique"]);
+  });
+
+  it("a new coach sees exactly the canvas's order — no section of their own, and no empty Personalizada", () => {
     const general = ["technique", "tactics", "consistency"].map((key, i) =>
       competency({ id: i + 1, key, name: key, group: "general" }));
     const bruno: EvaluationCompetencies = { competencies: general, catalogue: CATALOGUE.slice(3) };
@@ -78,15 +89,15 @@ describe("managerSections", () => {
     expect(keys).not.toContain("bandeja");
   });
 
-  it("puts custom and legacy rows together, in the API's order", () => {
+  it("keeps legacy categories apart from new-style custom competencies — they are a different kind of thing", () => {
     const saque = competency({ id: 13, name: "Saque cruzado", group: "custom" });
-    const data: EvaluationCompetencies = { competencies: [FOREHAND_LEGACY, saque], catalogue: [] };
+    const data: EvaluationCompetencies = { competencies: [saque, FOREHAND_LEGACY], catalogue: [] };
 
     const sections = managerSections(data);
 
-    expect(sections.map((s) => s.group)).toEqual(["custom"]);
-    expect(sections[0].rows.map((row) => (row.kind === "existing" ? [row.competency.id, row.rowKind] : null))).toEqual(
-      [[7, "legacy"], [13, "custom"]]);
+    expect(sections.map((s) => s.group)).toEqual(["legacy", "custom"]);
+    expect(sections.map((s) => s.rows.map((row) => (row.kind === "existing" ? [row.competency.id, row.rowKind] : null)))).toEqual(
+      [[[7, "legacy"]], [[13, "custom"]]]);
   });
 });
 

@@ -30,6 +30,8 @@
       "open": "Manage competencies",
       "settingsTitle": "Evaluation competencies",
       "settingsDescription": "Choose what you rate your players on: switch on the built-in ones, add your own, and keep the ones you already had.",
+      "legacyTitle": "Your categories",
+      "legacyCaption": "They keep the scale you set.",
       "customTitle": "Custom competency",
       "namePlaceholder": "Competency name",
       "add": "Add",

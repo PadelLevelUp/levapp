@@ -30,6 +30,8 @@
       "open": "Gerir competências",
       "settingsTitle": "Competências de avaliação",
       "settingsDescription": "Escolha em que competências avalia os seus jogadores: ative as do catálogo, crie as suas e mantenha as que já tinha.",
+      "legacyTitle": "As tuas categorias",
+      "legacyCaption": "Mantêm a escala que definiste.",
       "customTitle": "Competência personalizada",
       "namePlaceholder": "Nome da competência",
       "add": "Adicionar",

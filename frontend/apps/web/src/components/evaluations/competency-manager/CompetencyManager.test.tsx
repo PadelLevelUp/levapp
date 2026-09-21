@@ -102,12 +102,23 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
     expect(within(available).getByTestId("competency-toggle-key-volley")).not.toBeChecked();
   });
 
+  it("an existing coach opens onto their own categories, first, with a line saying they keep their scale (Q31)", async () => {
+    open();
+
+    await row("id-7");
+    expect(screen.getAllByTestId(/^competency-group-(legacy|general|technique|tactics|custom)$/).map((el) => el.getAttribute("data-testid"))).toEqual(
+      ["competency-group-legacy", "competency-group-technique", "competency-group-tactics", "competency-group-custom"]);
+    expect(screen.getByTestId("competency-group-legacy")).toHaveTextContent("evaluations.manager.legacyTitle");
+    expect(screen.getByTestId("competency-group-legacy-caption")).toHaveTextContent("evaluations.manager.legacyCaption");
+  });
+
   it("names the groups in order and hides an empty one", async () => {
     open({ competencies: [BANDEJA], catalogue: [{ key: "transition", group: "tactics" }] });
 
     await row("key-bandeja");
-    expect(screen.getAllByTestId(/^competency-group-/).map((el) => el.getAttribute("data-testid"))).toEqual(
+    expect(screen.getAllByTestId(/^competency-group-(legacy|general|technique|tactics|custom)$/).map((el) => el.getAttribute("data-testid"))).toEqual(
       ["competency-group-technique", "competency-group-tactics"]);
+    expect(screen.queryByTestId("competency-group-legacy-caption")).toBeNull();
   });
 
   it("says what it means when nothing is active (rule 13)", async () => {

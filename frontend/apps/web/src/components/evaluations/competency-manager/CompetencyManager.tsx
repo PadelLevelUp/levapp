@@ -106,8 +106,13 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
             data-testid={`competency-group-${section.group}`}
             className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            {t(`evaluations.groups.${section.group}`)}
+            {section.group === "legacy" ? t("evaluations.manager.legacyTitle") : t(`evaluations.groups.${section.group}`)}
           </h3>
+          {section.group === "legacy" ? (
+            <p data-testid="competency-group-legacy-caption" className="text-xs text-muted-foreground">
+              {t("evaluations.manager.legacyCaption")}
+            </p>
+          ) : null}
           <ul className="divide-y">
             {section.rows.map((row) => (
               <CompetencyRow key={managerRowId(row)} row={row} onDelete={setDeleting} />

@@ -23,20 +23,30 @@ export type ManagerRow =
   | { kind: "existing"; competency: EvaluationCompetency; rowKind: CompetencyRowKind }
   | { kind: "available"; entry: EvaluationCatalogueEntry };
 
+/** A section of the manager. `legacy` is not an API group: it is the client-side home of
+ *  the categories a coach already had (`group: null`), see `managerSections`. */
+export type ManagerSectionId = CompetencyGroup | "legacy";
+
 export interface ManagerSection {
-  group: CompetencyGroup;
+  group: ManagerSectionId;
   rows: ManagerRow[];
 }
 
-const GROUP_ORDER: CompetencyGroup[] = ["general", "technique", "tactics", "custom"];
+const SECTION_ORDER: ManagerSectionId[] = ["legacy", "general", "technique", "tactics", "custom"];
 
-/** Geral → Técnica → Tática → Personalizada; legacy rows sit under Personalizada; an
- *  empty group is hidden. Inside a group: the coach's rows, then what is still available,
- *  each in the order the API gave. */
+/**
+ * [the coach's existing categories] → Geral → Técnica → Tática → Personalizada, an empty
+ * section hidden (Q31, Session-B 2026-09-21). An existing coach opens onto their own
+ * things, switched on, and scrolls down to discover the catalogue; a new coach has no
+ * legacy row, so they see exactly the canvas's order. Legacy rows get a section of their
+ * own because they ARE a different kind of thing — their own scale, never stars. The
+ * order is static: nothing moves under the finger when a switch is flipped. Inside a
+ * section: the coach's rows, then what is still available, each in the order the API gave.
+ */
 export function managerSections(data: EvaluationCompetencies): ManagerSection[] {
-  return GROUP_ORDER.map((group) => {
-    const existing = data.competencies.filter((c) => (c.group ?? "custom") === group);
-    const available = group === "custom" ? [] : data.catalogue.filter((entry) => entry.group === group);
+  return SECTION_ORDER.map((group) => {
+    const existing = data.competencies.filter((c) => (c.group ?? "legacy") === group);
+    const available = group === "legacy" || group === "custom" ? [] : data.catalogue.filter((entry) => entry.group === group);
     const rows: ManagerRow[] = [
       ...existing.map((competency) => ({ kind: "existing" as const, competency, rowKind: competencyKind(competency) })),
       ...available.map((entry) => ({ kind: "available" as const, entry })),
