@@ -2,13 +2,13 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
 
-// PAD-337 / evaluations.entries rule 6. The evaluation sheet used to seed every
-// category at its scale midpoint and post all of them on save, so a coach who
-// touched nothing still wrote a "grade" for every category. A category the
-// coach does not score now submits nothing. Each test creates its own
-// categories, so earlier evaluations of the seeded student do not matter.
-
-type Evaluation = { categoryId: string | number; score: number; evaluatedAt: string };
+// PAD-337's guarantee, carried into the record form (PAD-374; evaluations.records rules 5 and 10,
+// evaluations.history rule 4): a save writes only what the coach gave, and a coach can decline to
+// score. The old sheet had a save button and posted the whole set; "Nova avaliação" saves each input
+// as it is made, so the guarantee now reads: opening the form and finishing it without touching
+// anything sends NO request and writes nothing; and a competency the coach rated and then cleared
+// holds nothing. Each test creates its own legacy categories (steppers), so earlier evaluations of
+// the seeded student do not matter. Test ids and stored data only — never rendered copy (B-103).
 
 async function coachToken(request: APIRequestContext): Promise<string> {
   const login = await request.post(`${API_AUTH}/login`, {
@@ -49,64 +49,74 @@ async function newCategories(request: APIRequestContext, token: string, count: n
   });
 }
 
-async function evaluations(request: APIRequestContext, token: string, playerId: string): Promise<Evaluation[]> {
-  const res = await request.get(`${API_APP}/player_profile/${playerId}`, { headers: bearer(token) });
+type Rating = { categoryId: number; score: number };
+type EvalRecord = { id: number; editable: boolean; classInstanceId: number | null; ratings: Rating[] };
+
+/** Today's class-less record as the v2 API serves it (the form's own read), or undefined. */
+async function todaysRecord(request: APIRequestContext, token: string, playerId: string): Promise<EvalRecord | undefined> {
+  const res = await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(token) });
   expect(res.ok()).toBeTruthy();
-  return (await res.json()).evaluations ?? [];
+  const records: EvalRecord[] = (await res.json()).records ?? [];
+  return records.find((r) => r.editable && r.classInstanceId === null);
 }
 
-async function openSheet(page: Page, playerId: string) {
+async function openForm(page: Page, playerId: string) {
   await loginAsCoach(page);
   await page.goto(`/players/${playerId}`);
-  await page.getByTestId("player-add-evaluation").click();
-  await expect(page.getByTestId("evaluation-save")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("player-evaluations-open").click();
+  await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("evaluation-new").click();
+  await expect(page.getByTestId("evaluation-form")).toBeVisible({ timeout: 10_000 });
 }
 
-async function save(page: Page) {
-  const posted = page.waitForResponse((r) => r.url().includes("/add_evaluation_entry"));
-  await page.getByTestId("evaluation-save").click();
-  expect((await posted).status()).toBe(200);
-  await expect(page.getByTestId("evaluation-save")).toHaveCount(0);
-}
-
-test("PAD-337: saving without touching a slider writes no evaluation entry", async ({ page, request }) => {
+test("PAD-337: finishing the form without touching anything sends no request and writes nothing", async ({ page, request }) => {
   const token = await coachToken(request);
   const playerId = await studentId(request, token);
   const [catId] = await newCategories(request, token, 1);
+  const before = await todaysRecord(request, token, playerId);
 
-  await openSheet(page, playerId);
-  // The new category opens unrated, not at a midpoint score. Soft, so the
-  // persisted-data assertion below is still checked if the display regresses.
-  await expect.soft(page.getByTestId(`evaluation-score-value-${catId}`)).toHaveAttribute("data-rated", "false");
-  await save(page);
+  const writes: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/evaluation_record")) writes.push(r.url());
+  });
+  await openForm(page, playerId);
+  // The new category opens unrated, not at a midpoint score.
+  await expect(page.getByTestId(`evaluation-stepper-${catId}-value`)).toHaveAttribute("data-score", "");
+  await page.getByTestId("evaluation-finish").click();
+  await expect(page.getByTestId("evaluation-form")).toHaveCount(0);
 
-  const after = await evaluations(request, token, playerId);
-  expect(after.find((e) => String(e.categoryId) === catId)).toBeUndefined();
+  expect(writes).toEqual([]);
+  const after = await todaysRecord(request, token, playerId);
+  expect(after?.ratings.map((r) => r.categoryId) ?? []).toEqual(before?.ratings.map((r) => r.categoryId) ?? []);
+  expect((after?.ratings ?? []).find((r) => String(r.categoryId) === catId)).toBeUndefined();
 });
 
-test("PAD-337: only the category the coach scored is written, and reset returns one to unrated", async ({
+test("PAD-337: only the category the coach scored is written, and clearing returns one to unrated", async ({
   page,
   request,
 }) => {
   const token = await coachToken(request);
   const playerId = await studentId(request, token);
-  const [scored, reset, untouched] = await newCategories(request, token, 3);
+  const [scored, cleared, untouched] = await newCategories(request, token, 3);
 
-  await openSheet(page, playerId);
-  for (const catId of [scored, reset]) {
-    const thumb = page.getByTestId(`evaluation-score-${catId}`).getByRole("slider");
-    await thumb.focus();
-    await thumb.press("ArrowRight");
-    await expect(page.getByTestId(`evaluation-score-value-${catId}`)).toHaveAttribute("data-rated", "true");
+  await openForm(page, playerId);
+  for (const catId of [scored, cleared]) {
+    // A stepper's consecutive steps are one input, written after a quiet period: wait for that PUT.
+    const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
+    await page.getByTestId(`evaluation-stepper-${catId}-plus`).click();
+    expect((await put).status()).toBe(200);
+    await expect(page.getByTestId(`evaluation-stepper-${catId}-value`)).not.toHaveAttribute("data-score", "");
   }
-  await page.getByTestId(`evaluation-score-reset-${reset}`).click();
-  await expect(page.getByTestId(`evaluation-score-value-${reset}`)).toHaveAttribute("data-rated", "false");
-  await expect(page.getByTestId(`evaluation-score-value-${untouched}`)).toHaveAttribute("data-rated", "false");
-  await save(page);
+  const clearedPut = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
+  await page.getByTestId(`evaluation-stepper-${cleared}-clear`).click();
+  expect((await clearedPut).status()).toBe(200);
+  await expect(page.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveAttribute("data-score", "");
+  await expect(page.getByTestId(`evaluation-stepper-${untouched}-value`)).toHaveAttribute("data-score", "");
+  await page.getByTestId("evaluation-finish").click();
 
-  const after = await evaluations(request, token, playerId);
-  const ids = after.map((e) => String(e.categoryId));
+  const record = await todaysRecord(request, token, playerId);
+  const ids = (record?.ratings ?? []).map((r) => String(r.categoryId));
   expect(ids).toContain(scored);
-  expect(ids).not.toContain(reset);
+  expect(ids).not.toContain(cleared);
   expect(ids).not.toContain(untouched);
 });
