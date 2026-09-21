@@ -13,14 +13,19 @@ governed_by: []
 Coaches record evaluation scores for players over time, tracking progress across categories.
 
 ### Entities
-- **EvaluationEntry** (`evaluation_entries`): coach_player_id (FK → coach_in_player), category_id, score (float), comment (500 chars), evaluated_at
+- **EvaluationEntry** (`evaluation_entries`): coach_player_id (FK → coach_in_player), category_id, score (float), comment (500 chars — the column exists, nothing in the app API or the import writes it; only the legacy admin editor can), evaluated_at (naive UTC, stamped `utcnow` on save; the import is the only path that writes a past date)
 
 ### Rules
 1. Entries are scoped to a coach-player relationship + category
 2. Multiple entries per category over time (historical tracking)
 3. `current_evaluations` property: latest entry per category (deduplicated)
-4. Score must be within category's scale_min/scale_max range
-5. `POST /api/app/coach/evaluation/{entry_id}` to add or edit
+4. The score range is enforced by client controls only (web slider, iOS stepper, both step 1); the
+   server checks nothing (B-126): 99, −3 and 2.5 are stored as sent and a non-numeric value is an
+   unhandled error. The import writes any float it reads.
+5. `POST /api/app/add_evaluation_entry` (JWT, coach) adds scores: `{playerId, scores: [{categoryId,
+   value}], strengths, weaknesses}` → `{status: "ok", playerId}`. Every write appends a row; nothing
+   edits an entry in place. The only read is `GET /api/app/player_profile/<player_id>`, which
+   returns the latest entry per category (rule 3); no endpoint serves the history.
 6. **A save writes only the scores the coach gave (PAD-337, B-111).** The evaluation form (web
    sheet and iOS form) opens a category with no score as *unrated*: its control rests at the scale
    midpoint as a starting position, but its value reads "not rated", never a number. Scoring it
@@ -41,13 +46,25 @@ Coaches record evaluation scores for players over time, tracking progress across
    those builds keep writing it until they update. **Known gap:** a never-scored category saved from a 1.0/1.1.0 App Store client still gets a midpoint entry; the next App Store build (PAD-351) removes it. Rows already written from midpoint seeds stay as
    they are: nothing in the database tells a fabricated midpoint from an intended one (Coordinator
    decision, 2026-09-16).
+8. **A score is recorded only in one of the calling coach's own categories (PAD-370, B-145, compass
+   R-002).** `POST /api/app/add_evaluation_entry` ignores a score whose `categoryId` is another coach's
+   category, an id that does not exist, or not a number: nothing is written for it and the response is
+   the same `200 {status, playerId}`. Ignored rather than refused because App Store 1.0/1.1.0 post
+   every category in one body, the save is not atomic, and they treat any non-2xx as a failed save — a
+   build still holding a category that was deleted on another device must keep being able to save.
+
+### Superseded by / Planned
+Not built. Entries will be grouped into one record per player, class-or-none and day, written by
+one service, with a server range check on the new write path only: `evaluations.records` (draft).
+This endpoint's shape and rule 7 are frozen for App Store 1.0/1.1.0:
+`evaluations.legacy-client-contract` (draft).
 
 ### Acceptance Criteria
 
 #### Record evaluation
 - **Given** a player "Alice" with category "Forehand" (scale 1-10)
-- **When** coach POSTs to `/api/app/coach/evaluation/0` with `{"coach_player_id": 5, "category_id": 1, "score": 7.5, "comment": "Good progress"}`
-- **Then** an EvaluationEntry is created with score 7.5
+- **When** coach POSTs to `/api/app/add_evaluation_entry` with `{"playerId": <Alice>, "scores": [{"categoryId": <Forehand>, "value": 7}], "strengths": [], "weaknesses": []}`
+- **Then** the response is `{"status": "ok", "playerId": <Alice>}` and an EvaluationEntry is created with score 7
 
 #### Latest per category
 - **Given** Alice has Forehand scores: 5 (Jan), 7 (Feb), 8 (Mar)
@@ -64,7 +81,57 @@ Coaches record evaluation scores for players over time, tracking progress across
 - **When** they press its reset control and save
 - **Then** that category reads "not rated" again and no entry is written for it
 
+#### A score for a category that is not the coach's own is ignored (rule 8)
+- **Given** coach Ana with category Forehand and her student Rui, and coach Bea with category Serve
+- **When** Ana posts `{"playerId": Rui, "scores": [{"categoryId": <Bea's Serve>, "value": 3}, {"categoryId": 987654, "value": 3}, {"categoryId": <Forehand>, "value": 6}]}`
+- **Then** the response is `200 {"status": "ok", "playerId": Rui}`, exactly one entry is written — Forehand 6 — and
+  Rui's profile for Ana carries no Serve evaluation
+
 #### Null and unchanged scores are not written (rule 7)
 - **Given** Forehand's latest score for the player is 8
 - **When** a client posts `{"categoryId": Forehand, "value": 8}` and `{"categoryId": Volley, "value": null}`
 - **Then** no entry is written for either, and Forehand's `evaluatedAt` is unchanged
+
+### Acceptance Criteria — the contract as shipped, pinned by PAD-362
+
+Appended by PAD-362 (2026-09-21). These state what the code does at `origin/staging` `00e53375f`,
+because App Store iOS 1.0 and 1.1.0 call these endpoints in production and cannot change. Where a
+criterion contradicts a rule above, the rule is the intent and the criterion is today's behaviour;
+the ledger entry says which endpoint will honour the rule. Tests:
+`backend/padel_app/tests/test_pad362_evaluation_contract.py`.
+
+#### The player profile's evaluation items have exactly six keys
+- **Given** a coach with a player on their roster who has scores in two categories
+- **When** the coach reads `GET /api/app/player_profile/<player_id>`
+- **Then** the body has exactly `playerId` (a string), `evaluations`, `strengths`, `weaknesses`
+- **And** each evaluation has exactly `categoryId`, `categoryName`, `score`, `scaleMin`, `scaleMax`, `evaluatedAt`, one per category, the latest only; a category never scored is absent
+- **And** each strength and weakness is exactly `{id, text}`
+- **And** a student gets 403, and a coach without that player on their roster gets 404
+
+#### `evaluatedAt` is a naive ISO timestamp for every kind of row
+- **Given** a score saved through the API, one written by the import with `date: 2026-03-01`, and one whose `evaluated_at` was backfilled from `created_at` (PAD-273)
+- **Then** every `evaluatedAt` matches `YYYY-MM-DDTHH:MM:SS[.ffffff]` with no `Z` and no offset, and the imported one is exactly `2026-03-01T00:00:00`
+
+#### Saving answers `{status: "ok", playerId}` and writes only what changed
+- **Given** Forehand's latest score is 5, recorded 30 days ago
+- **When** a client posts `value: 5` for it
+- **Then** no entry is written and its `evaluatedAt` does not move
+- **And** posting 5, then 3, then 5 writes three entries; `value: null` writes none
+- **And** strengths and weaknesses are add-only and deduplicated by text; an empty list removes nothing
+
+#### An old build's every-category body (rule 7)
+- **Given** Forehand's latest score is 7 and Volley (0–10) was never scored
+- **When** a client posts Forehand 7 and Volley 5 (the midpoint), with `strengths: []` and `weaknesses: []`
+- **Then** nothing is written for Forehand and a 5 is written for Volley — the known gap, asserted, not fixed
+- **And** the same body posted again writes nothing
+
+#### The server enforces no score range (B-126 — today's behaviour, not rule 4)
+- **Given** a 0–10 category
+- **When** a client posts 99, then -3, then 2.5
+- **Then** each answers 200 and is written, and the profile serves 2.5
+
+#### A numeric score of 0 cannot be saved, and a save is not atomic (B-136)
+- **Given** a category whose minimum is 0
+- **When** a client posts `value: 0` as a number
+- **Then** the request fails on the NOT NULL `score` column and nothing is written for it; the string `"0"` is written as 0
+- **And** a score posted before it in the same body stays written
