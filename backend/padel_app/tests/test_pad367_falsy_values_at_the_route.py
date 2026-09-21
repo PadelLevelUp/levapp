@@ -550,3 +550,50 @@ def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undon
         assert confirm(status=None, justification=None) == ("present", "justified"), "cannot be un-marked"
         assert confirm(status="", justification="") == ("present", "justified")
         assert confirm(status="absent", justification="unjustified") == ("absent", "unjustified"), "the control"
+
+
+# ── POST /api/app/activate/user/<id> (user_service.activate_user_service) ────
+
+def test_activation_an_empty_field_keeps_what_the_coach_entered(app, client):
+    """The falsy rule doing something arguably useful: a student who activates with
+    an empty phone or e-mail box does NOT wipe what the coach typed when adding
+    them. A fix that honours "" would start wiping it — the activation form has to
+    be read (what does it send for an untouched box?) before this route changes."""
+    from padel_app.models import User
+    from padel_app.tools.activation_token import activation_token_for
+
+    with app.app_context():
+        user = User(name="Invited", username="pending-abc", password="x", status="inactive",
+                    email="coach-typed@test.com", phone="+351933333333")
+        db.session.add(user)
+        db.session.commit()
+        user_id, token = user.id, activation_token_for(user)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={
+        "token": token, "name": "Invited Player", "username": "invited", "password": "S3cret-pass!",
+        "email": "", "phone": ""})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    with app.app_context():
+        row = db.session.get(User, user_id)
+        assert (row.status, row.username, row.name) == ("active", "invited", "Invited Player")
+        assert (row.email, row.phone) == ("coach-typed@test.com", "+351933333333")
+
+
+# ── POST /api/app/add_coach_level (coach_service.upsert_coach_levels) ────────
+
+def test_coach_levels_a_display_order_of_zero_means_unordered_by_design(app, client):
+    """NOT affected: `level_ladder.is_unordered` defines 0 (and None) as "nobody
+    told us where this goes" and the ladder is renumbered 1..N. Run, not read."""
+    from padel_app.models.coach_levels import CoachLevel
+
+    ids = _seed(app)
+    res = client.post("/api/app/add_coach_level", headers=_headers(app, ids["coach_user_id"]), json=[
+        {"code": "A", "label": "Advanced", "displayOrder": 0},
+        {"code": "B", "label": "Beginner", "displayOrder": 0},
+    ])
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    with app.app_context():
+        orders = sorted(l.display_order for l in CoachLevel.query.filter_by(coach_id=ids["coach_id"]).all())
+        assert orders == list(range(1, len(orders) + 1)) and 0 not in orders
