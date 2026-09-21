@@ -64,7 +64,12 @@ and no note is removed. This keeps PAD-337's guarantee that a coach can decline 
 **Q9 — Editing the past (AV-002, AV-037).** A record is editable on the day it was made (the
 canvas's own rule); afterwards it can be deleted, not edited.
 
-**Q10 — Day boundary (AV-002).** The coach's local day, not the server's UTC day.
+**Q10 — Day boundary (AV-002).** The club's calendar day, not the server's UTC day and not a
+device's: the date on `CLUB_TZ`, the constant in `backend/padel_app/utils/dates.py`
+(`Europe/Lisbon`, the wall clock class times use — rule R-023). No per-coach or per-club zone is
+stored today; if one ever is, a record's day, "editable on its day" and the evolution windows move
+to it together (`evaluations.records` rule 3, rule R-048). Corrected 2026-09-21: this first said
+"the coach's local day", which named a zone nothing stores.
 
 **Q11 — A shared card is a snapshot (AV-043).** What the player sees is frozen at share time. If
 the coach edits the record later the same day, the card offers "Atualizar partilha".
@@ -135,3 +140,21 @@ control (AV-072).
 
 **Q27 — Two records on one day (AV-073).** A class record and a class-less record of the same day
 are two history cards, as in the canvas.
+
+**Q28 — Which record a class row shows (AV-013).** The participant's most recent record for that
+occurrence, not only today's; it is editable only if it is today's, otherwise shown read-only with
+its date, and the first tap today starts today's record for the same occurrence. The canvas only
+models "today"; without this a coach opening yesterday's class reads "Sem avaliação" for players
+they rated in it yesterday.
+
+**Q29 — Same-day superseded scores (AV-001, AV-033).** Existing data can hold two scores of one
+category on one day (the table was append-only). The latest sits in the day's record; the earlier
+one is kept in the database and read by nothing in the new screens — no history card, no average,
+no share. A day's evaluation has one value per competency, as in the canvas, and an average never
+includes a number no card shows. The old App Store screens are untouched.
+
+**Q30 — Past classes that were never opened (AV-010).** Opening a class that is over for the
+first time enrols its whole roster as unmarked attendance and fills its waiting list. So the
+class panel is offered for classes dated today or later and for any class already opened
+(attendance taken, edited); for a past class never opened the action is disabled with an
+explanation and the coach evaluates from the player.

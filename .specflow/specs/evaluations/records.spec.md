@@ -27,7 +27,7 @@ what every writer — new, legacy and import — goes through.
   | `lesson_instance_id` | FK → `lesson_instances` SET NULL, NULL | the dated occurrence (build default Q15); NULL = made outside a class |
   | `evaluated_on` | date NOT NULL | "the day" — rule 3 |
   | `note` | text NULL | one private note (AV-007) |
-  | `created_at`, `updated_at` | datetime NOT NULL | a new table without `updated_at` passes on SQLite and fails on Postgres |
+  | `created_at`, `updated_at` | datetime | the model base's columns, as on every table (a new table without `updated_at` passes on SQLite and fails on Postgres) |
 
   Two **partial unique indexes**: `(coach_player_id, evaluated_on) WHERE lesson_instance_id IS
   NULL` and `(coach_player_id, lesson_instance_id, evaluated_on) WHERE lesson_instance_id IS NOT
@@ -58,7 +58,14 @@ what every writer — new, legacy and import — goes through.
    `classRef` is `{model, id, date}` as the calendar identifies an occurrence (`model:
    "LessonInstance"` with its id, or `model: "Lesson"` with the series id and the date). An
    occurrence with no row is materialised through `get_or_materialize_instance(lesson, date)` on
-   the **first write**; reading the class panel materialises nothing. The coach must own the
+   the **first write — but only an occurrence dated today or later on the club-zone calendar**.
+   For a **past** occurrence that was never materialised the write answers **409**
+   `class_not_materialised` and creates nothing: materialising creates the instance, enrols the
+   whole series roster as unmarked presences and adds every standing-waiting-list player to that
+   class's waiting list (it sends nothing; past-dated jobs are skipped — read from
+   `_sync_standing_entries_for_new_instance` and `scheduler.py` during PAD-363), and rating one
+   player must never do that to a class that is over. An already materialised occurrence, past
+   or not, is used as it is. Reading the class panel materialises nothing. The coach must own the
    class (`classes.detail-visibility`'s owner check), else 403; an unknown class → 404.
    `evaluated_on` is today (rule 3), not the occurrence's date.
 5. **(AV-005) A record holds only what the coach rated.** An untouched competency writes nothing
@@ -106,16 +113,25 @@ what every writer — new, legacy and import — goes through.
       service. An accepted score is appended as a new row (`evaluated_at = utcnow`, as today)
       into the day's class-less record; if that record already holds a row for the category, the
       new row takes its place and the earlier row is kept with `record_id` set to NULL — the same
-      outcome the backfill gives a day with two rows (rule 13).
+      outcome the backfill gives a day with two rows (rule 13). **A legacy save never fails over
+      record bookkeeping:** if two saves race for one slot, the loser's row is kept record-less
+      rather than the request answering 500 — before records existed the same two requests
+      simply appended two rows.
     - *Import (build default Q22):* rows are grouped by player and the row's date into
       class-less records; scores keep their scale.
 13. **(PAD-363, owner question Q5) Backfill.** Existing entries are grouped by
     `(coach_player_id, local date of evaluated_at)` into class-less records. Per category, the
     row with the greatest `(evaluated_at, id)` joins the record; earlier rows of that category on
-    that day keep `record_id` NULL and keep counting in evolution. Only `record_id` is written on
+    that day keep `record_id` NULL. **(build default Q29) A record-less entry is kept and is read
+    by nothing in the new API** — not by history, not by evolution, not by a share: a day's
+    record has one value per competency, and an average never includes a number no card shows.
+    The legacy reads (`current_evaluations`, `/player_profile`) are untouched. Only `record_id` is written on
     entry rows. The record's `created_at` / `updated_at` are the group's min / max
-    `evaluated_at`; `note` is NULL. Re-running changes nothing and never displaces a row already
-    in a record. Backfilled records are shareable like any other **(pending owner decision Q5)**.
+    `evaluated_at`; `note` is NULL. Re-running changes nothing. An **earlier** record-less row
+    never displaces the row that holds a slot; a record-less row **later** than the holder (one
+    written around the service during a deploy window) takes the slot and the former holder
+    becomes record-less — the same outcome as rule 12's runtime append, and what the migration
+    does by design, with a test (PAD-363). Backfilled records are shareable like any other **(pending owner decision Q5)**.
 14. **The endpoint parses JSON directly and distinguishes absent / null / falsy.** It must not
     read or write through the shared form layer (`tools/input_tools.py` `Field.set_value`,
     `JsonRequestAdapter`, `model.update_with_dict`), which reads falsy as "not sent" (B-136).
@@ -127,8 +143,9 @@ what every writer — new, legacy and import — goes through.
 
 ### Touches
 - `classes.instances` — its list of materialisation triggers gains "a coach's first evaluation
-  write on the occurrence" (slice 6). What `get_or_materialize_instance` does for a **past** date
-  (scheduler jobs, presence seeding) is unverified and owned by that slice.
+  write on an occurrence dated today or later" (slice 6). What materialising a past date does is
+  in rule 4; what a coach may do with a past class that was never opened is
+  `evaluations.class-panel` rule 10.
 - `import.confirm` / `import.revert` — the import writes through the record service; revert must
   remove the records an import created and keep any record that also holds a hand-entered rating.
 - `players.remove` — removing a player from a coach cascades to the link's records.
@@ -164,6 +181,16 @@ what every writer — new, legacy and import — goes through.
   "2026-09-21"}` and `ratings {"21": 4}`
 - **Then** exactly one instance exists for `(7, 2026-09-21)` and the record's `classInstanceId`
   is its id; a second PUT with the same `classRef` creates no further instance and no second record
+
+#### Rating a player never opens a class that is over (rule 4)
+- **Given** the same weekly class, whose 2026-09-14 occurrence has no `lesson_instances` row, and
+  today is 2026-09-21
+- **When** Ana sends `PUT /evaluation_record` with `classRef {"model": "Lesson", "id": 7, "date":
+  "2026-09-14"}` and `ratings {"21": 4}`
+- **Then** the response is 409 `class_not_materialised`; no instance, presence, waiting-list
+  entry, record or entry was created
+- **And** the same PUT for the 2026-09-07 occurrence, which was materialised when attendance was
+  taken (instance 80), is accepted and its record carries `classInstanceId` 80
 
 #### Out-of-range and non-integer ratings are refused whole (rule 9, resolves B-126)
 - **Given** Bandeja (id 12, 1–5) and Técnica (21)
