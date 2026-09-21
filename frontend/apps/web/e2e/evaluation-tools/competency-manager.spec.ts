@@ -113,7 +113,8 @@ test("US-373d: a catalogue switch applies when made, over the page the coach was
   await page.getByTestId("player-evaluations-open").click();
   await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 8000 });
   await page.getByTestId("evaluation-new").click();
-  await expect(page.getByTestId(`evaluation-row-${smashId}`)).toBeVisible({ timeout: 8000 });
+  // Scoped to the form: the history cards draw the same competencies with the same ids (Session-E).
+  await expect(page.getByTestId("evaluation-form").getByTestId(`evaluation-row-${smashId}`)).toBeVisible({ timeout: 8000 });
   await page.getByTestId("evaluation-form-close").click();
 });
 
