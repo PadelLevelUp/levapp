@@ -848,6 +848,12 @@ def revert_import(import_id, coach):
     _delete_by_ids(Presence, record_ids.get("presences", []), deleted, "presences")
     _delete_by_ids(Association_PlayerLesson, record_ids.get("player_lessons", []), deleted, "player_lessons")
     _delete_by_ids(PlayerLevelHistory, record_ids.get("player_level_history", []), deleted, "player_level_history")
+    # classes.class-requests rule 18 (PAD-360, #345 review F1): an imported student
+    # can activate in place and ask for a class. The bulk deletes below run no ORM
+    # hook and the database cascades the request away, so the holds go first.
+    from padel_app.services.class_request_service import release_holds_of_players
+
+    release_holds_of_players(record_ids.get("players", []))
     _delete_by_ids(Association_CoachPlayer, record_ids.get("coach_players", []), deleted, "coach_players")
     _delete_by_ids(Player, record_ids.get("players", []), deleted, "players")
     _delete_by_ids(User, record_ids.get("users", []), deleted, "users")

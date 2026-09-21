@@ -1,0 +1,7 @@
+id: archive.sistema-de-avaliacoes-explained-2026-09-21
+kind: technical-reference
+ingested_at: 2026-09-21T18:04:05Z
+version: "2026-09-21"
+status: active
+source_filename: sistema-de-avaliacoes-explained.md
+origin: English explainer of the owner's "Sistema de Avaliações" canvas (archive.sistema-de-avaliacoes-2026-09-21), written by Claude Code session "Session-B" on 2026-09-21 and audited against the canvas by an independent reader. Its comparison with shipped behaviour rests on Session-E's static code read at origin/staging 00e53375f. Full text also at docs/reference/ (local-only — docs/ is gitignored).
